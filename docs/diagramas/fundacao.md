@@ -1,0 +1,52 @@
+# Arquitetura implementada na fundação
+
+O desenho registra apenas a primeira entrega. Os diagramas PNG do roteiro permanecem referências do MVP futuro.
+
+```mermaid
+flowchart LR
+    Web[React e Vite] -->|JSON e cookie HttpOnly| API[FastAPI]
+    Mobile[React Native e Expo] -->|JSON e Bearer no SecureStore| API
+    API --> Services[Identidade e autorização]
+    Services --> DB[(PostgreSQL)]
+    Alembic[Migrações Alembic] --> DB
+```
+
+```mermaid
+erDiagram
+    users ||--o{ auth_sessions : possui
+    users ||--o{ sports_profiles : possui
+    cities ||--o{ sports_profiles : localiza
+    users {
+        int id PK
+        string name
+        string email UK
+        date birth_date
+        string password_hash
+        boolean active
+        datetime created_at
+        datetime updated_at
+    }
+    auth_sessions {
+        int id PK
+        int user_id FK
+        string token_hash UK
+        datetime expires_at
+        datetime created_at
+    }
+    cities {
+        int id PK "Código IBGE"
+        string name
+        string state
+    }
+    sports_profiles {
+        int id PK
+        int user_id FK
+        int city_id FK
+        string sport "Único por usuário e modalidade"
+        string position "Opcional e apenas futebol"
+        boolean looking_for
+        boolean is_public "Privado na fundação"
+        datetime created_at
+        datetime updated_at
+    }
+```

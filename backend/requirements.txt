@@ -4,8 +4,9 @@ sqlalchemy
 alembic
 psycopg2-binary
 pydantic-settings
-passlib[bcrypt]
-python-jose
+pwdlib[argon2]
+email-validator
+tzdata
 pytest
 pytest-cov
 httpx

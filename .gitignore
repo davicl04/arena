@@ -9,6 +9,8 @@ coverage.xml
 htmlcov/
 .ruff_cache/
 .mypy_cache/
+.local/
+artifacts/
 
 # ===== Node (web e mobile) =====
 node_modules/
