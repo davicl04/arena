@@ -86,3 +86,7 @@ AGENTS.md ampliado com contexto e fontes de consulta, mapa do repositório, deci
 ## Versionamento da fundação — 9 de outubro de 2026
 
 Commit local na branch main autorizado pelo usuário, reunindo a fundação de backend/web/mobile, documentação, workflow CI e ajustes visuais realizados nesta sessão. Revisão de arquivos versionáveis e verificação de whitespace executadas antes do commit. Ambientes .env, dependências instaladas, banco auxiliar e screenshots permanecem ignorados. Não foram repetidos testes de código nesta etapa de versionamento; as evidências anteriores permanecem registradas acima. Nenhum push foi solicitado.
+
+## Envio ao repositório remoto — 9 de outubro de 2026
+
+O usuário autorizou enviar a main para origin (repositório davicl04/arena no GitHub). O commit a0b7603 reúne a fundação e os ajustes visuais; este registro acompanha o envio. Nenhuma alteração funcional nem novos testes de código nesta etapa. A confirmação do push é verificada pelo comando Git e pela comparação entre HEAD e a referência remota.
