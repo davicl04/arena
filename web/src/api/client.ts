@@ -78,10 +78,11 @@ export class ApiError extends Error {
     this.status = status
   }
 }
-const base = (import.meta.env.VITE_API_URL || 'http://localhost:8000').replace(
-  /\/$/,
-  '',
-)
+export function apiBaseUrl(configuredUrl: string | undefined, development: boolean, location: Pick<Location, 'protocol' | 'hostname'>) {
+  const defaultBase = development ? `${location.protocol}//${location.hostname}:8000` : 'http://localhost:8000'
+  return (configuredUrl || defaultBase).replace(/\/$/, '')
+}
+const base = apiBaseUrl(import.meta.env.VITE_API_URL, import.meta.env.DEV, window.location)
 export const apiUrl = (path: string) => `${base}${path}`
 export async function request<T>(
   path: string,

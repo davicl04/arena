@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { ActivityIndicator, Pressable, Text, View } from 'react-native'
 import * as ImagePicker from 'expo-image-picker'
@@ -46,6 +46,7 @@ export default function ProfileScreen({ user, onUser, onLogout, onExpired }: { u
   const [message, setMessage] = useState('')
   const [name, setName] = useState(user.name)
   const [busy, setBusy] = useState(false)
+  const followAction = useRef(false)
   const [attempt, setAttempt] = useState(0)
   const [token, setToken] = useState<string | null>(null)
   const [sheet, setSheet] = useState<SheetName | null>(null)
@@ -68,6 +69,39 @@ export default function ProfileScreen({ user, onUser, onLogout, onExpired }: { u
   }, [attempt])
   useEffect(() => { let alive = true; void getToken().then(value => { if (alive) setToken(value) }); return () => { alive = false } }, [])
   function fail(err: unknown) { if (err instanceof ApiError && err.status === 401) onExpired(); setError(err instanceof Error ? err.message : 'Tente novamente.') }
+  function startFollowAction() {
+    if (busy || followAction.current) return false
+    followAction.current = true
+    setBusy(true); setError(''); setMessage('')
+    return true
+  }
+  function resolveLocalRequest(id: number, approve: boolean) {
+    setRequests(old => old.filter(person => person.id !== id))
+    if (approve) setCounts(old => ({ ...old, followers: old.followers + 1 }))
+  }
+  async function finishFollowAction() {
+    // Recarrega a primeira página e seu cursor: aprovações mudam a ordem e o tamanho das listas.
+    const [pending, connections, summary] = await Promise.allSettled([
+      request<Page<{ user: SocialUser }>>('/me/follow-requests'),
+      request<Page<{ user: SocialUser }>>(`/users/${user.id}/followers`),
+      request<SocialUser>(`/users/${user.id}`),
+    ])
+    if (pending.status === 'fulfilled') {
+      setRequests(pending.value.items.map(item => item.user))
+      setCursors(old => ({ ...old, requests: pending.value.next_cursor }))
+    }
+    if (connections.status === 'fulfilled') {
+      setFollowers(connections.value.items.map(item => item.user))
+      setCursors(old => ({ ...old, followers: connections.value.next_cursor }))
+    }
+    if (summary.status === 'fulfilled') setCounts({ followers: summary.value.follower_count, following: summary.value.following_count })
+    const results = [pending, connections, summary]
+    const failure = results.find(result => result.status === 'rejected' && result.reason instanceof ApiError && result.reason.status === 401)
+      ?? results.find(result => result.status === 'rejected')
+    if (failure?.status === 'rejected') fail(failure.reason)
+    followAction.current = false
+    setBusy(false)
+  }
   function open(next: SheetName | null) { setError(''); setMessage(''); if (next === null || next === 'menu') setFromMenu(false); setSheet(next) }
   // "Editar perfil" aberto pelo menu volta ao menu; aberto pelo selo do avatar apenas fecha.
   function editFromMenu() { open('edit'); setFromMenu(true) }
@@ -106,34 +140,35 @@ export default function ProfileScreen({ user, onUser, onLogout, onExpired }: { u
     catch (err) { fail(err) } finally { setBusy(false) }
   }
   async function savePrivacy() {
-    setBusy(true); setError(''); setMessage('')
+    if (!startFollowAction()) return
     try {
       const value = await request<{ social_public: boolean }>('/me/privacy', 'PUT', { social_public: draftPublic })
       onUser({ ...user, social_public: value.social_public }); setDraftPublic(value.social_public)
       if (value.social_public) { setRequests([]); setCursors(old => ({ ...old, requests: null })) }
       setMessage(value.social_public ? 'Conta pública. As solicitações pendentes foram aprovadas.' : 'Conta privada. Quem já segue continua seguindo.')
-    } catch (err) { fail(err) } finally { setBusy(false) }
+    } catch (err) { fail(err) } finally { await finishFollowAction() }
   }
   async function resolveRequest(id: number, approve: boolean) {
+    if (!startFollowAction()) return
     try {
-      await request(`/me/follow-requests/${id}?approve=${approve}`, 'PUT'); setRequests(old => old.filter(person => person.id !== id))
-      if (approve) setCounts(old => ({ ...old, followers: old.followers + 1 }))
-    } catch (err) { fail(err) }
+      await request(`/me/follow-requests/${id}?approve=${approve}`, 'PUT')
+      resolveLocalRequest(id, approve)
+    } catch (err) { fail(err) } finally { await finishFollowAction() }
   }
   async function approveAll() {
-    setBusy(true); setError(''); setMessage('')
-    let approved = 0
+    if (!startFollowAction()) return
     try {
       // Cada aprovação tira o item da fila; por isso a primeira página é consultada de novo até esvaziar.
-      for (let round = 0; round < 20; round += 1) {
+      while (true) {
         const page: Page<{ user: SocialUser }> = await request<Page<{ user: SocialUser }>>('/me/follow-requests')
         if (!page.items.length) break
-        for (const item of page.items) { await request(`/me/follow-requests/${item.user.id}?approve=true`, 'PUT'); approved += 1 }
-        if (!page.next_cursor) break
+        for (const item of page.items) {
+          await request(`/me/follow-requests/${item.user.id}?approve=true`, 'PUT')
+          resolveLocalRequest(item.user.id, true)
+        }
       }
-      setRequests([]); setCursors(old => ({ ...old, requests: null })); setCounts(old => ({ ...old, followers: old.followers + approved }))
       setMessage('Solicitações aprovadas.')
-    } catch (err) { fail(err) } finally { setBusy(false) }
+    } catch (err) { fail(err) } finally { await finishFollowAction() }
   }
   async function unblock(id: number) {
     try { await request<void>(`/users/${id}/block`, 'DELETE'); setBlocks(old => old.filter(person => person.id !== id)) }
@@ -191,7 +226,7 @@ export default function ProfileScreen({ user, onUser, onLogout, onExpired }: { u
       <Text style={styles.heading}>Notificações</Text>
       {requests.length ? <>
         <Text style={styles.body}>Solicitações para seguir ({requests.length}{cursors.requests ? '+' : ''})</Text>
-        {requests.map(person => <PersonRow key={person.id} person={person} token={token}><SmallAction label={`Aprovar ${person.name}`} text="✓" onPress={() => void resolveRequest(person.id, true)} /><SmallAction label={`Recusar ${person.name}`} text="✕" onPress={() => void resolveRequest(person.id, false)} /></PersonRow>)}
+        {requests.map(person => <PersonRow key={person.id} person={person} token={token}><SmallAction label={`Aprovar ${person.name}`} text="✓" disabled={busy} onPress={() => void resolveRequest(person.id, true)} /><SmallAction label={`Recusar ${person.name}`} text="✕" disabled={busy} onPress={() => void resolveRequest(person.id, false)} /></PersonRow>)}
         {more('requests', 'solicitações')}
         <Button title={busy ? 'Aguarde…' : 'Aprovar todas'} disabled={busy} onPress={() => void approveAll()} />
       </> : <Text style={styles.body}>Nenhuma notificação por enquanto.</Text>}
@@ -252,9 +287,9 @@ export default function ProfileScreen({ user, onUser, onLogout, onExpired }: { u
         {(['followers', 'following'] as const).map(value => <Pressable key={value} accessibilityRole="tab" accessibilityState={{ selected: tab === value }} onPress={() => setTab(value)} style={[styles.chip, tab === value && styles.selected]}><Text style={[styles.chipText, tab === value && { color: '#fff' }]}>{value === 'followers' ? `Seguidores (${counts.followers})` : `Seguindo (${counts.following})`}</Text></Pressable>)}
       </View>
       {tab === 'followers' ? <>
-        {followers.length ? followers.map(person => <PersonRow key={person.id} person={person} token={token}><Button secondary title="Remover" onPress={() => void removeFollower(person.id)} /></PersonRow>) : <Text style={styles.body}>Nenhum seguidor.</Text>}{more('followers', 'seguidores')}
+        {followers.length ? followers.map(person => <PersonRow key={person.id} person={person} token={token}><Button secondary title="Remover" disabled={busy} onPress={() => void removeFollower(person.id)} /></PersonRow>) : <Text style={styles.body}>Nenhum seguidor.</Text>}{more('followers', 'seguidores')}
       </> : <>
-        {following.length ? following.map(person => <PersonRow key={person.id} person={person} token={token}><Button secondary title="Deixar de seguir" onPress={() => void unfollow(person.id)} /></PersonRow>) : <Text style={styles.body}>Você ainda não segue ninguém.</Text>}{more('following', 'contas seguidas')}
+        {following.length ? following.map(person => <PersonRow key={person.id} person={person} token={token}><Button secondary title="Deixar de seguir" disabled={busy} onPress={() => void unfollow(person.id)} /></PersonRow>) : <Text style={styles.body}>Você ainda não segue ninguém.</Text>}{more('following', 'contas seguidas')}
       </>}
     </Sheet> : null}
     {sheet === 'menu' ? <Sheet title="Menu" onClose={() => open(null)}>

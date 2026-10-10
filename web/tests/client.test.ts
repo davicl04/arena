@@ -1,9 +1,21 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { ApiError, request } from '../src/api/client'
+import { apiBaseUrl, ApiError, request } from '../src/api/client'
 
 afterEach(() => vi.unstubAllGlobals())
 
 describe('transporte da API web', () => {
+  it.each(['localhost', '127.0.0.1', '192.168.0.95'])('usa o endereço da página %s em desenvolvimento', hostname => {
+    expect(apiBaseUrl('', true, { protocol: 'http:', hostname })).toBe(`http://${hostname}:8000`)
+  })
+
+  it('preserva a API configurada explicitamente', () => {
+    expect(apiBaseUrl('https://api.arena.example/', true, { protocol: 'http:', hostname: '192.168.0.95' })).toBe('https://api.arena.example')
+  })
+
+  it('mantém o fallback anterior fora do desenvolvimento', () => {
+    expect(apiBaseUrl(undefined, false, { protocol: 'https:', hostname: 'arena.example' })).toBe('http://localhost:8000')
+  })
+
   it('envia cookie e JSON sem expor um token ao JavaScript', async () => {
     const fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ id: 1 })))
     vi.stubGlobal('fetch', fetch)

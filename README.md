@@ -63,7 +63,13 @@ if (!(Test-Path .env)) { Copy-Item .env.example .env }
 npm run dev
 ```
 
-Abra [localhost:5173](http://localhost:5173). Use o mesmo hostname para web e API: se abrir a web em `127.0.0.1`, configure `VITE_API_URL=http://127.0.0.1:8000`. A configuração padrão autoriza ambas as origens da web; outros endereços exigem atualizar `ALLOWED_ORIGINS` no backend e reiniciá-lo.
+Abra [localhost:5173](http://localhost:5173). Em desenvolvimento, `VITE_API_URL` vazio usa o protocolo e o hostname da página, com a API na porta 8000. Assim, abrir por `localhost`, `127.0.0.1` ou pelo IP do computador mantém web e API no mesmo site. Uma URL explícita em `VITE_API_URL` tem precedência; se o `.env` existente ainda aponta para `localhost`, deixe o valor vazio para usar esse comportamento. Em produção, configure a URL apropriada da API. A configuração padrão autoriza ambas as origens locais da web; outros endereços exigem atualizar `ALLOWED_ORIGINS` no backend e reiniciá-lo.
+
+### Acesso pelo celular na mesma rede
+
+Identifique o IPv4 da interface de rede do computador (PowerShell: `Get-NetIPConfiguration`). Em `backend/.env`, acrescente `http://IP_DO_COMPUTADOR:5173` à lista JSON de `ALLOWED_ORIGINS`, mantendo as origens existentes; use endereços explícitos. Reinicie a API e mantenha o comando com `--host 0.0.0.0`. Com `VITE_API_URL=` em `web/.env` e o Vite reiniciado, abra `http://IP_DO_COMPUTADOR:5173` no navegador do celular. As portas 5173 e 8000 precisam estar acessíveis entre os dispositivos.
+
+Para Expo Go, configure `EXPO_PUBLIC_API_URL=http://IP_DO_COMPUTADOR:8000` em `mobile/.env` e inicie ou reinicie com `npm start -- --lan`, em `mobile/`. Ao trocar a URL, use `npm start -- --lan --clear` para descartar transformações que ainda contenham o endereço anterior. Abra o endereço `exp://IP_DO_COMPUTADOR:8081` pelo Expo Go, ou o QR exibido pelo Expo. O cliente nativo usa Bearer e não envia `Origin`; CORS se aplica ao navegador. A porta do Metro pode variar se 8081 já estiver ocupada. Se o IP do computador mudar, atualize a origem autorizada e a URL do Expo. Essas configurações são para desenvolvimento local; produção mantém HTTPS, cookie seguro e as políticas de sessão documentadas.
 
 ## Comunidade, posts e moderação
 
