@@ -11,6 +11,12 @@ class Settings(BaseSettings):
     allowed_origins: list[str] = ['http://localhost:5173', 'http://127.0.0.1:5173']
     session_hours: int = 24
     cookie_secure: bool = False
+    media_s3_endpoint: str = 'http://localhost:9000'
+    media_s3_region: str = 'us-east-1'
+    media_s3_bucket: str = 'arena-media'
+    media_s3_access_key: str = 'arena-local'
+    media_s3_secret_key: str = 'arena-local-password-change-me'
+    media_max_upload_bytes: int = 5 * 1024 * 1024
 
     @model_validator(mode='after')
     def production_settings(self):

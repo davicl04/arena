@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { ApiError, request } from './api/client'
 import type { User } from './api/client'
 import AuthPage from './pages/AuthPage'
@@ -26,10 +26,10 @@ export default function App() {
       alive = false
     }
   }, [attempt])
-  function expired() {
+  const expired = useCallback(() => {
     setUser(null)
     setError('Sua sessão expirou. Entre novamente para continuar.')
-  }
+  }, [])
   return (
     <>
       <a className="skip-link" href="#main">

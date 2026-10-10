@@ -82,4 +82,5 @@ Para mudanças em fluxo integrado, confira os efeitos reais: ação no cliente, 
 - Atualize README, decisões ou diagramas quando seus respectivos comandos, contratos ou modelagem mudarem. Mantenha o estado atual coerente com o histórico.
 - Artefatos temporários, screenshots e ambiente auxiliar ficam em `artifacts/` e `.local/`, que não são versionados. Assets necessários ao produto devem ficar no diretório público ou de assets do cliente, sem depender de arquivos em Downloads ou Temp.
 - Revise o diff para evitar alterações incidentais e preserve trabalho pré-existente. Não crie commits, faça push ou publique sem solicitação.
+- Mensagens de commit não incluem `Co-Authored-By` nem outras linhas de atribuição automática; use apenas a mensagem descritiva, em português, no padrão `tipo: descrição` dos commits existentes.
 - Ao concluir, explique de forma breve o resultado, a validação e qualquer limitação material. Não declare o MVP completo quando apenas uma entrega ou ajuste foi realizado.

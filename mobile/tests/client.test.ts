@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as SecureStore from 'expo-secure-store'
-import { ApiError, clearToken, request, saveToken } from '../src/api/client'
+import { ApiError, apiUrl, clearToken, getToken, request, saveToken } from '../src/api/client'
 
 vi.mock('expo-secure-store', () => ({
   getItemAsync: vi.fn(), setItemAsync: vi.fn(), deleteItemAsync: vi.fn(),
@@ -20,6 +20,12 @@ describe('sessão e transporte mobile', () => {
     expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('arena.session.v1')
   })
 
+  it('lê o token da sessão e resolve a URL autenticada do avatar', async () => {
+    vi.mocked(SecureStore.getItemAsync).mockResolvedValue('test-only-token')
+    await expect(getToken()).resolves.toBe('test-only-token')
+    expect(apiUrl('/api/v1/me/avatar?v=uuid')).toBe('http://10.0.2.2:8000/api/v1/me/avatar?v=uuid')
+  })
+
   it('envia Bearer do SecureStore e corpo JSON', async () => {
     vi.mocked(SecureStore.getItemAsync).mockResolvedValue('test-only-token')
     const fetch = vi.fn().mockResolvedValue(new Response('{"id":1}'))
@@ -29,6 +35,31 @@ describe('sessão e transporte mobile', () => {
       method: 'PATCH', body: '{"name":"Atleta"}',
       headers: { 'Content-Type': 'application/json', Authorization: 'Bearer test-only-token' },
     }))
+  })
+
+  it('envia multipart com Bearer sem definir Content-Type', async () => {
+    vi.mocked(SecureStore.getItemAsync).mockResolvedValue('test-only-token')
+    const fetch = vi.fn().mockResolvedValue(new Response('{"id":1}'))
+    vi.stubGlobal('fetch', fetch)
+    const form = new FormData()
+    form.append('file', new Blob(['avatar']), 'avatar.webp')
+    await request('/me/avatar', 'PUT', form)
+    expect(fetch).toHaveBeenCalledWith('http://10.0.2.2:8000/api/v1/me/avatar', expect.objectContaining({
+      method: 'PUT', body: form, headers: { Authorization: 'Bearer test-only-token' },
+    }))
+  })
+
+  it('envia a capa em multipart e consulta a disponibilidade do @ com Bearer', async () => {
+    vi.mocked(SecureStore.getItemAsync).mockResolvedValue('test-only-token')
+    const fetch = vi.fn().mockImplementation(async () => new Response('{"available":true,"reason":null,"suggestions":[]}'))
+    vi.stubGlobal('fetch', fetch)
+    const form = new FormData()
+    form.append('file', new Blob(['capa']), 'capa.jpg')
+    await request('/me/cover', 'PUT', form)
+    await expect(request('/me/username-availability?u=ana.um')).resolves.toMatchObject({ available: true })
+    expect(fetch).toHaveBeenNthCalledWith(1, 'http://10.0.2.2:8000/api/v1/me/cover', expect.objectContaining({ method: 'PUT', headers: { Authorization: 'Bearer test-only-token' } }))
+    expect(fetch).toHaveBeenNthCalledWith(2, 'http://10.0.2.2:8000/api/v1/me/username-availability?u=ana.um', expect.objectContaining({ method: 'GET' }))
+    expect(apiUrl('/api/v1/users/2/cover?v=uuid')).toBe('http://10.0.2.2:8000/api/v1/users/2/cover?v=uuid')
   })
 
   it('faz chamada sem autenticação quando não há token', async () => {

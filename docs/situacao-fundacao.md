@@ -1,17 +1,217 @@
 # Situação da fundação do Arena
 
+## Versionamento das correções e do acesso local — 10 de outubro de 2026
+
+A pedido do usuário, reunidas em um commit local as correções das aprovações no Expo, a escolha da URL da API na web em desenvolvimento, seus testes e a documentação de acesso pelo celular. Os arquivos `.env` locais e os artefatos de ensaio permanecem ignorados. Diff revisado e verificado; os checks aprovados nas entregas abaixo não foram repetidos, pois o código não mudou desde a validação. Sem push ou publicação. A validação em aparelho e as pendências de integração permanecem conforme os registros abaixo.
+
+## Acesso por celular na rede local — 10 de outubro de 2026
+
+A pedido do usuário, preparados o navegador do celular e o Expo Go para a rede local. O IPv4 identificado na interface Ethernet é `192.168.0.95`. Em `backend/.env` (ignorado), a origem explícita `http://192.168.0.95:5173` foi acrescentada a `ALLOWED_ORIGINS`, preservando as origens anteriores. A API, que já escutava em `0.0.0.0:8000`, foi recarregada pelo watcher para aplicar o ambiente. A validação de Origin, cookies HttpOnly e o transporte Bearer foram preservados.
+
+Na web, `VITE_API_URL` vazio passa a usar o protocolo e o hostname da página na porta 8000 somente em desenvolvimento; uma URL explícita mantém precedência e o fallback fora do desenvolvimento permanece anterior. Isso evita que o navegador do celular tente acessar o próprio `localhost` e mantém o uso local pelo computador. `web/.env` local foi ajustado, o Vite recarregou a configuração e `.env.example`/README foram atualizados. Adicionados cinco testes de escolha da URL (localhost, loopback, IP da rede, URL explícita e fallback fora do desenvolvimento).
+
+Criado `mobile/.env` local ignorado com a URL pública da API `http://192.168.0.95:8000`, e iniciado o Expo em LAN na porta 8081. A primeira exportação reaproveitou uma transformação com o endereço do emulador; a exportação foi repetida com `--clear` e o Metro reiniciado com `npm start -- --lan --clear`. O bundle Android exportado foi inspecionado e contém a URL da API na rede. Nenhuma senha, token, conta ou volume foi alterado; nenhuma regra de firewall foi modificada.
+
+Verificações: preflight real da origem LAN aprovado (200, origem explícita e credenciais habilitadas); origem desconhecida recusada (400, sem autorização de origem); saúde do banco/API, Vite e Metro pelo IP da rede com 200; `/me` sem sessão com 401 esperado tanto com Origin quanto sem Origin. O manifesto Android do Expo aponta para `192.168.0.95:8081`. A web foi aberta nesse endereço pelo navegador conectado, mostrou a tela de login e não registrou erros de conexão. Web lint, build e cobertura com **81 testes aprovados**, com pisos atendidos; Ruff e backend em schema PostgreSQL isolado com **183 aprovados e um round-trip S3 opcional pulado**; exportação Android com cache limpo aprovada. As correções mobile e seus 64 testes registrados na entrega anterior foram preservados; lint/typecheck/cobertura mobile não foram repetidos por não haver nova alteração de código mobile. Diff conferido. Login pelo aparelho e execução Android/iOS não foram comprovados: os dispositivos precisam alcançar a mesma rede, e uma mudança de IP exige atualizar a origem/URL local. Sem commit, push ou publicação; as pendências de integração esportiva e produção permanecem.
+
+## Correção das aprovações no Expo — 10 de outubro de 2026
+
+Corrigidos os três problemas identificados na revisão abaixo em `mobile/src/screens/ProfileScreen.tsx`. "Aprovar todas" consulta a primeira página até a fila realmente esvaziar, sem o teto de 400 pedidos. Cada aprovação bem-sucedida remove o pedido da interface e atualiza a contagem local; em falha parcial, esses efeitos são preservados. Ao concluir ou falhar uma resposta individual, aprovação em lote ou mudança de privacidade, o cliente consulta novamente a fila, a primeira página de seguidores com seu cursor e as contagens da conta. Leituras bem-sucedidas são aplicadas mesmo quando outra consulta falha, e respostas 401 mantêm o tratamento de sessão expirada. Um bloqueio imediato impede aprovações simultâneas; as ações relacionadas ficam desabilitadas durante o envio e a sincronização.
+
+Adicionados dez casos de regressão em `mobile/tests/community.test.ts`: 401 solicitações; falha parcial e retomada sem duplicar aprovações; falha ao ler o próximo lote; falha também na releitura da fila; aprovação e recusa individuais; reinício do cursor de seguidores após páginas já carregadas; 45 aprovações automáticas pela privacidade; chamadas simultâneas; expiração de sessão em uma consulta paralela. Os doubles continuam restritos aos testes.
+
+Verificações executadas nesta correção, em `mobile/`: `npm run lint`, `npm run typecheck`, `npm run test:coverage` (**64 testes aprovados**, zero falhas/pulados; cobertura de instruções 55,03%, linhas 62,17% e ramos 50,78%, com os pisos atendidos) e `npm run export:android`, todos aprovados. Diff conferido com `git diff --check`. Permanecem os avisos de depreciação de `react-test-renderer` nos testes e de configuração de cores no bundler. Não houve mudança de dependências, contrato da API ou esquema; os checks web/backend da revisão anterior não foram repetidos. O comportamento foi verificado por renderização React com respostas controladas, sem novo ensaio do Expo em aparelho ou com API real; a exportação não comprova execução Android/iOS. Documentação da revisão preservada como histórico. Sem commit, push ou publicação. As pendências de integração esportiva e produção permanecem.
+
+## Revisão dos perfis e menu — 10 de outubro de 2026
+
+Revisados os três commits de `648e850` a `8451aca` na branch `feat/profile-improvement` (comparação com `d104520`), pois não havia alterações locais pendentes. A revisão identificou três problemas no Expo, pendentes naquela etapa e corrigidos na entrega registrada acima:
+
+- `ProfileScreen.approveAll` limita a aprovação a 20 lotes de 20 pedidos e limpa a fila local mesmo quando sobram solicitações. Com 401 pedidos, aprova 400 e mostra que não há notificações, ocultando o pedido restante até remontar a tela.
+- Se uma aprovação em lote falha depois de aprovar outros pedidos, a fila e a contagem locais preservam o estado anterior. Pedidos já aprovados continuam com ações de aprovação/recusa; reaprovar um desses pedidos aumenta indevidamente a contagem local.
+- Aprovar um pedido atualiza a contagem, mas não recarrega nem atualiza a lista de seguidores e seu cursor. Abrir Conexões após a primeira aprovação mostra um seguidor no título e a lista vazia. A aprovação em lote e a aprovação automática ao tornar a conta pública também precisam sincronizar as conexões.
+
+Verificações desta revisão: Ruff; lint web/mobile; build web; typecheck mobile; exportação Android; cobertura web (76 testes aprovados) e mobile (54 aprovados). Backend: a primeira execução teve 150 aprovados e 34 pulados por ausência de `TEST_DATABASE_URL`; com a URL local configurada somente no processo e schema aleatório isolado, foram 183 aprovados e um teste opcional de round-trip S3 pulado. As três falhas de estado no mobile foram reproduzidas com respostas controladas em ensaio temporário, preservado em `artifacts/review-profile-2026-10-10/reproducoes-mobile.test.ts`; esses dados existem apenas no ensaio.
+
+No navegador com a sessão local já existente, conferidos o perfil e os caminhos Menu → Editar perfil → Voltar e Menu → Minhas modalidades. O perfil foi inspecionado em 320, 390 e 1440 px, sem overflow horizontal da página ou do conteúdo principal. Não foram feitas alterações de conta, logout ou escritas na API por esse ensaio. Não houve novo ensaio de perfil visitante, administração, nomes no limite de comprimento ou aparelho Android/iOS. Nenhuma correção de produto, commit, push ou publicação foi realizada; apenas este registro foi atualizado. As pendências de integração esportiva e produção permanecem.
+
+## Cabeçalho do perfil e menu — 10 de outubro de 2026
+
+Implementado na web e depois no Expo o [plano do cabeçalho e do menu](plano-perfil-menu.md), definido com o usuário em quatro rodadas de protótipos interativos. A pedido do usuário, a verificação com API real e a adaptação ao Expo rodaram em paralelo com subagentes e foram revisadas antes deste registro.
+
+- `ProfileHeader` agora tem como título `@usuario`, com o @ em verde, e mostra o nome real menor e em cinza abaixo. A mudança vale para o perfil próprio e para o de visitante.
+- O selo de edição no avatar trocou o lápis por pessoa com engrenagem (`UserCog`), porque Editar perfil também reúne Privacidade. A engrenagem da capa virou o hambúrguer `Menu`.
+- A tela `app-settings` virou `menu` (`MenuPage.tsx`, título "Menu"), com lista agrupada:
+  - *Conta*: atalhos para Editar perfil e Minhas modalidades.
+  - *App*: Notificações "Em breve" e Sobre o ARENA com a versão.
+  - *Moderação*: Denúncias, só para administradores.
+  - "Sair da conta" em linha vermelha separada.
+- O painel `AdminReports` saiu dessa tela e foi para uma tela própria, `moderation` ("Moderação"), sem mudança de API. O sobretítulo "MODERAÇÃO" saiu do painel, e o título "Denúncias" ficou do tamanho de título de seção.
+- O `Row` de Editar perfil foi extraído para `components/ListRow.tsx`, reutilizado no menu, com a variante `danger`.
+- O README foi atualizado quanto ao acesso às denúncias.
+
+**Verificações executadas.**
+- Web: `npm run lint` sem avisos, `npm run build` e `npm run test:coverage` com **76 testes aprovados** e cobertura de instruções em **71,89%**, com os pisos atendidos. Na navegação, três testes são novos (@ como título, atalhos do menu com retorno e moderação só para administradores) e o teste de saída foi reescrito para o hambúrguer. Os testes de @ passaram a verificar o nome acessível do título.
+- Navegador: ensaio isolado no Chrome headless, com o app real na porta 5181 e respostas controladas exclusivas do ensaio, sem usar contas reais. Foram conferidos o perfil a 390 px, o menu comum e o de administrador, a tela Moderação, e o nome e @ longos com o menu a 320 px. Não houve overflow horizontal em nenhuma das telas. As capturas estão em `artifacts/perfil-menu/`, que não é versionado.
+
+- Navegador com API real: banco separado `arena_e2e` no PostgreSQL local, com migrações até `0004`. A API auxiliar rodou na porta 8010, com a origem permitida `http://localhost:5180` definida só no ambiente do processo, e a web auxiliar na porta 5180, no Chrome headless via CDP. Duas contas de teste `@example.com` foram criadas pela API: uma com nome e @ longos, outra promovida a administradora apenas em `arena_e2e`. Uma denúncia real foi criada pela API. Todos os pontos abaixo foram confirmados:
+  - O @ é o título e o nome fica abaixo, no perfil próprio e no de visitante, em 320, 390 e 1440 px, sem overflow horizontal.
+  - Os atalhos do Menu abrem Editar perfil e, por Minhas modalidades, a tela Suas modalidades. Nos dois casos, o Voltar retorna ao Menu.
+  - Moderação fica oculta para a conta comum e, para a administradora, mostra a denúncia real.
+  - A ordem do Tab passa pelo Menu e pelo selo, com foco visível, e o Enter ativa os itens.
+  - "Sair da conta" apaga a sessão em `auth_sessions`, `/me` responde 401 e a conta continua deslogada após recarregar.
+  - O console não teve erros além do 401 inicial e do `favicon.ico`.
+
+  As capturas estão em `artifacts/perfil-menu-e2e/` e os roteiros em `.local/e2e/`, ambos não versionados. O banco `arena_e2e`, com as contas e a denúncia pendente, foi mantido para novos ensaios. O banco de desenvolvimento não foi tocado.
+
+**Expo.** O perfil próprio e o visitado (Comunidade) usam o novo `components/ProfileTitle.tsx`, com `@usuario` como título (o @ em verde) e o nome real abaixo. O botão da capa virou "Menu" (☰) e abre a folha "Menu", que substitui "Configurações do app":
+- *Conta*: Editar perfil, que volta ao menu, e Minhas modalidades, que fecha a folha e deixa à vista a lista, logo abaixo no perfil.
+- *App*: Notificações "Em breve" e Sobre o ARENA, com a versão lida de `app.json` por `utils/appInfo.ts`.
+- "Sair da conta" em linha vermelha, com "Aguarde…" durante a saída.
+
+O `Row` local foi extraído para `components/ListRow.tsx`, com a variante `danger`. Há diferenças em relação à web:
+- O mobile não tem biblioteca de ícones, então o selo usa o glifo ⚙ no lugar de `UserCog`, mantendo o rótulo "Editar perfil", e as linhas do menu não têm ícones.
+- O grupo Moderação foi omitido, porque o Expo não tem painel de denúncias.
+
+Em `mobile/`, lint e typecheck passaram sem avisos, os **54 testes com cobertura** passaram (7 novos em `tests/profile-menu.test.ts`), com cobertura de instruções de **49,14%** e pisos atendidos, e `export:android` foi aprovado. Os comandos foram executados pelo subagente e repetidos na revisão.
+
+**Limitações.**
+- O Expo não foi validado em aparelho Android ou iOS. O layout em 320 e 390 px e a aparência dos glifos ☰ e ⚙ não foram conferidos, e não há paridade visual declarada com a web.
+- Ficaram fora do ensaio real a decisão sobre denúncias (a fila foi apenas exibida) e o envio de foto ou capa.
+- Duas observações que não são defeitos:
+  - O anel de foco global (#b26c08) tem contraste fraco sobre a capa padrão laranja, no botão Menu.
+  - O seletor de decisão de denúncia de conta começa em "Suspender conta responsável", comportamento anterior a esta entrega.
+- Não houve mudança de contrato, dependências, migrações ou deploy. A pedido do usuário, a entrega foi versionada e enviada à branch remota `feat/profile-improvement`, sem repetir as verificações para o envio.
+
+## Correções da revisão da branch — 10 de outubro de 2026
+
+Corrigidos os quatro problemas encontrados na revisão de `feat/profile-improvement` contra `origin/main`, com três subagentes em paralelo e revisão conjunta no checkout atual:
+
+- MinIO: o `COPY` do entrypoint define permissão `0755`, independentemente da permissão do arquivo no checkout Linux. A normalização de CRLF foi preservada.
+- Paginação web: respostas, erros e finalizações de páginas antigas são descartados após troca de lista, recarga da mesma URL ou desmontagem. O cursor, o estado de carregamento e o erro de paginação pertencem à geração atual da lista.
+- Notificações web: "Aprovar todas" consulta e aprova lotes sequenciais até esvaziar a fila, inclusive pedidos ainda não carregados. Em erro parcial, recarrega os pedidos pendentes para permitir retomada; não mostra "Tudo em dia" enquanto a operação continua.
+- Expo: avatar e capa associam a falha à URL e à sessão que falharam. Uma imagem substituta ou uma nova sessão podem carregar sem precisar remontar a tela; as imagens continuam usando Bearer.
+
+**Validação desta correção.**
+- Web: lint sem avisos, build e **73 testes com cobertura** aprovados, incluindo 8 casos do hook de paginação e 4 de aprovação em múltiplas páginas/retomada. Cobertura de instruções: **71,10%**; pisos configurados atendidos.
+- Mobile: lint, typecheck, **47 testes com cobertura** e exportação Android aprovados. Os 3 casos novos verificam troca de URL após falha de avatar/capa e troca de sessão. Cobertura de instruções: **46,67%**; pisos configurados atendidos.
+- Infraestrutura: `docker compose config --quiet` aprovado; o Dockerfile preserva a configuração existente e acrescenta somente a permissão do entrypoint.
+- Navegador: ensaio isolado na porta 5181 com componentes reais e respostas controladas exclusivas de teste. Confirmados troca de Seguidores para Seguindo durante paginação lenta, descarte da página atrasada, erro parcial na aprovação e retomada até esvaziar 21 solicitações. Evidências locais em `artifacts/branch-review/`.
+
+**Limitações.** O daemon Docker e o PostgreSQL/API locais estavam indisponíveis. Não foram executados build/start do MinIO nem ensaio integrado com persistência nesta correção; a permissão do entrypoint foi verificada pelo diff, sem confirmação em container Linux. Os testes dos clientes e o ensaio de navegador usam doubles, não comprovam API, banco ou storage reais. Nenhum aparelho Android/iOS foi validado; CI remoto continua pendente. Sem novas dependências, migrações ou deploy. Após a validação, o usuário autorizou o commit das correções e o envio à branch remota `feat/profile-improvement`; esse envio não inclui deploy nem nova execução das verificações.
+
+## Implementação do perfil, da edição de perfil e do perfil de visitante — 10 de outubro de 2026
+
+Implementado o [plano do perfil](plano-perfil.md) no backend, na web e no Expo. A pedido do usuário, a entrega foi versionada e enviada ao remoto `origin` na branch `feat/profile-improvement`, sem linhas `Co-Authored-By`; essa regra de commits foi registrada em `AGENTS.md`. As verificações abaixo não foram repetidas para o envio, que não inclui deploy.
+
+**Backend.** Migração `0004`: `users.username` único (`uq_users_username`), com backfill a partir do nome, e `users.cover_media_id` com `ON DELETE SET NULL`. Regras do @ (3–30 caracteres `[a-z0-9._]`, sem ponto no início, no fim ou repetido, reservados recusados), geração no cadastro com nova tentativa em conflito concorrente, `PATCH /me` com `name` e/ou `username` (409 para @ em uso) e `GET /me/username-availability` autenticado, com até três sugestões. Capa em `PUT/GET/DELETE /me/cover` e `GET /users/{id}/cover`, recortada no servidor em 5:2 (até 1500×600, WebP), com o mesmo limite de corpo e a mesma proteção de origem do avatar; o reconcile considera o prefixo `covers/`. `SocialUser` ganhou `username` e `cover_url`; as contagens de seguidores e seguindo passaram a ser sempre visíveis, com `post_count` e as listas ainda fechados para quem não pode ver. Novo `GET /users/{id}/mutual-followers` (`items`, `total`, `next_cursor`). A busca aceita @ e trata `%`/`_` como literais.
+
+**Web.** Perfil próprio com capa, lápis no avatar (edição), engrenagem (Configurações), @ e "N seguidores · N seguindo", sem e-mail. Editar perfil em lista agrupada, com folhas inferiores para foto (recorte circular), capa (recorte 5:2, troca e capa padrão), nome, @ (regras ao vivo, verificação com debounce, sugestões, 409) e visibilidade (duas opções, fatos e avisos, substituindo o `window.confirm`). Telas de contas bloqueadas, conexões (seguidores/seguindo e "em comum"), perfil de visitante (Seguir/Solicitar/Cancelar, Bloquear/Denunciar, seguidores em comum, conteúdo fechado em conta privada) e Configurações (Notificações "Em breve", versão, Sair, denúncias para administradores). As solicitações para seguir ficaram, provisoriamente, em Notificações, com ✓/✕ e "Aprovar todas". A navegação passou a usar pilha, e o botão voltar retorna à tela anterior. `AvatarEditor.tsx` e `SocialSettings.tsx` foram removidos, e o painel inline de perfil da Comunidade deu lugar à tela de visitante. O recorte foi centralizado em `utils/cropImage.ts`.
+
+**Expo.** Mesmo fluxo com `Modal`: perfil próprio com capa (bloco de cor quando não há capa), lápis, @ e contagens; edição em lista; @ com disponibilidade; capa via `expo-image-picker` com `aspect: [5, 2]`; visibilidade em duas opções; bloqueadas; conexões; solicitações numa seção de notificações; configurações com Sair. Na Comunidade, o perfil visitado mostra capa, @, contagens sempre visíveis e seguidores em comum. O rótulo fixo "Perfil privado" foi corrigido.
+
+**Verificações executadas.**
+- Backend: ruff sem achados; `alembic upgrade head` no banco de desenvolvimento (5432), sem apagar dados, com @ gerados para as duas contas existentes; `alembic check` sem diferenças. **183 testes aprovados, 1 pulado** (S3 isolado opcional), com PostgreSQL em schemas aleatórios, cobertura combinada **90%** (piso 85%) e unitária **66%** (piso 60%). Inclui backfill da migração em schema próprio, cadastros concorrentes com o mesmo nome, capa com `FakeStorage` e seguidores em comum.
+- Web: lint e build aprovados; **61 testes aprovados**, cobertura de 69,91% em instruções e `client.ts` dentro do piso.
+- Mobile: lint, typecheck e `export:android` aprovados; **44 testes aprovados**, com `client.ts` em 100% de linhas.
+- Navegador (Chrome via Playwright, roteiro local fora do repositório): API e web auxiliares nas portas 8010/5180, com banco separado `arena_e2e` e o MinIO local, para não alterar as contas de desenvolvimento. Conferidos @ em uso (com sugestões), inválido e disponível, com persistência; Esc e foco nas folhas; recorte e envio de capa e de foto, servidas como WebP e mantidas após recarregar; ✓ e "Aprovar todas" em Notificações; avisos de visibilidade, com troca persistida; desbloqueio; remoção de seguidor; volta à tela anterior; busca por @; perfil de visitante privado com contagens, seguidores em comum, aviso nas contagens e solicitar/cancelar; Sair pela engrenagem. Sem overflow horizontal em 320, 390 e 1440 px. Console sem erros além do `favicon.ico` ausente e do 401 esperado da verificação de sessão antes do login. Capturas em `artifacts/perfil-e2e/` (não versionado).
+
+**Limitações e pendências.** O Expo não foi executado em aparelho ou emulador; o build não comprova o funcionamento, e não há paridade visual com a web. No iOS, o recorte nativo é quadrado e o servidor centraliza em 5:2. Bloquear e Denunciar na web mantêm o `window.confirm`/`window.prompt` que já existiam na Comunidade. "Aprovar todas" faz uma chamada por solicitação, pois não há rota em lote. A revisão definitiva de Notificações continua pendente. O banco auxiliar `arena_e2e` e os objetos de teste no bucket local (prefixos `avatars/` e `covers/`) permanecem; os objetos sem vínculo no banco de desenvolvimento podem ser removidos pelo reconcile após 24 horas. CI remoto não executado.
+
+## Plano do perfil e da edição de perfil — 10 de outubro de 2026
+
+Registrado em [plano do perfil](plano-perfil.md) o plano para redesenhar o perfil, a edição de perfil e o perfil de visitante. Ele foi definido com o usuário a partir de oito rodadas de protótipos interativos. O protótipo de referência, `prototypes/editar-perfil.html`, não é versionado.
+
+O plano prevê:
+- edição em lista agrupada, com folhas inferiores;
+- nome de usuário (@) novo, gerado automaticamente para contas existentes e novas;
+- foto de capa personalizável;
+- contagens de seguidores sempre visíveis;
+- seguidores em comum no perfil de visitante;
+- engrenagem dedicada às configurações do app;
+- solicitações para seguir na tela Notificações, de forma provisória.
+
+O escopo cobre backend, web e mobile.
+
+Nada foi implementado: código, esquema e contratos permanecem como antes. Esta entrega é só de documentação. Foram conferidos os caminhos citados e o diff; não houve testes de código. As decisões de identidade, imagens e privacidade ainda precisam ser incorporadas a [decisões técnicas](decisoes/0001-fundacao.md) quando forem implementadas. O usuário solicitou o commit e o envio ao remoto `origin` na branch `feat/minio-images`; o protótipo não foi incluído. Em seguida, o diretório `prototypes/` foi adicionado ao `.gitignore`, a pedido do usuário, para manter os protótipos locais fora do versionamento.
+
+## Correção local da conexão de mídia — 10 de outubro de 2026
+
+Investigado o erro `EndpointConnectionError` durante a publicação de posts. O container local do MinIO reiniciava porque `entrypoint.sh`, copiado do checkout Windows com finais CRLF, tinha um shebang inválido para Linux. O Dockerfile agora normaliza os finais de linha do entrypoint durante o build. A imagem foi reconstruída e somente o serviço MinIO foi recriado; `arena-minio` ficou healthy, `/minio/health/live` respondeu HTTP 200 e o PostgreSQL permaneceu healthy. O volume persistente `miniodata` foi preservado. Não foi possível executar `ensure-bucket` pela CLI, pois `backend/.venv` não existe neste checkout; nenhum post foi criado para teste.
+
+Após reiniciar a API, o log revelou `NoSuchBucket`. Criado e validado o bucket privado `arena-media` no MinIO local usando as credenciais configuradas, que foram comparadas sem exposição com as credenciais do container. O bucket está acessível; nenhum post ou dado existente foi alterado. A publicação não foi repetida para evitar inserir conteúdo de teste na conta.
+
+## Versionamento de posts e correções — 10 de outubro de 2026
+
+O usuário autorizou o commit e o envio ao remoto `origin` na branch existente `feat/minio-images`. A entrega reúne a implementação de posts, perfis sociais e moderação, a migração `0003`, os clientes web/Expo, a documentação e as correções da revisão descritas abaixo. Artefatos de validação, ambientes locais e segredos permanecem fora do versionamento.
+
+O diff foi conferido para esta entrega. As verificações de código e dos fluxos são as registradas na seção de correções; não foram repetidas para este registro de versionamento. A execução remota do CI, o ensaio em aparelhos e o aceite cruzado com reinício permanecem pendentes. Este envio não inclui deploy.
+
+## Correções da revisão de imagens e posts — 10 de outubro de 2026
+
+Corrigidos os nove achados da revisão abaixo. O feed filtra bloqueios nos dois sentidos; a leitura do avatar de comentário reavalia bloqueio e suspensão do comentarista; falhas de leitura posteriores ao commit não apagam a imagem de um post persistido. Denúncias de contas privadas visíveis não exigem autorização para seus posts, mantendo a proteção de posts/comentários privados. Aprovações repetidas retornam sucesso e rejeitar uma solicitação já rejeitada é idempotente, sem excluir uma relação aprovada.
+
+O card de publicação web foi extraído para `SocialPostCard`, preservando o foco enquanto se digita. Busca, galerias, comentários, solicitações, seguidores, seguindo e bloqueios agora oferecem continuação por cursor na web e no Expo. `GET /api/v1/me/blocks` passou a responder `{ items, next_cursor }`, com 20 itens por padrão e limite máximo de 50; ambos os clientes e testes foram atualizados. A fila administrativa inclui `target_user_id` e `target_user_active`, referências administrativas que permitem reativar uma conta suspensa após resolver a denúncia sem revelar o conteúdo privado na fila resolvida. A reativação usa a rota administrativa existente, exige justificativa, registra decisão e não restaura sessões revogadas. A privacidade carregada/alterada em Configurações também é sincronizada com o estado da conta na web.
+
+Adicionados testes unitários para regras de autorização, cursores, redação dos dados privados na moderação, reenvios e compensação de upload, além de regressões PostgreSQL e testes de digitação/paginação/reativação nos clientes. Os pisos do CI foram preservados, sem exclusão de arquivos da cobertura. Resultados: **108 unidades backend aprovadas**, cobertura combinada **65,48%** (piso 60%); **130 testes backend aprovados, nenhum pulado**, com PostgreSQL em schemas aleatórios e bucket MinIO isolado, cobertura combinada **87,52%** (piso 85%); **33 testes web** e **20 mobile** aprovados com cobertura. Ruff, Alembic check, lint/build web, lint/typecheck/exportação Android mobile aprovados. `expo install --check` já havia passado nesta sessão de revisão, e nenhuma dependência foi alterada nas correções. Detalhes de cobertura em [qualidade do código](qualidade-codigo.md).
+
+Os seis cenários adicionais locais de API também passaram, incluindo upload/leitura/troca/remoção de avatar e publicação/leitura/exclusão de post no MinIO real. No navegador da web, com a sessão local existente, conferidos feed/imagens, digitação completa com foco preservado, aba Fotos, Configurações, relações e sincronização do indicador de privacidade. Conferidas larguras de 320, 390 e 1440 px, sem overflow horizontal da página; o viewport original foi restaurado. Não foram alterados posts, comentários ou privacidade da conta existente durante a conferência, e o rascunho de teste foi limpo. Paginação com múltiplas páginas e moderação foram verificadas por testes automatizados, sem acrescentar dados fictícios à interface.
+
+Persistem pendentes ensaio em aparelhos Android/iOS, aceite cruzado web/mobile com reinício e execução remota do CI. Contas, mídias vinculadas, configurações locais e volumes foram preservados. Nenhum commit, push ou deploy foi realizado. A seção de revisão abaixo é o registro histórico dos defeitos anteriores a estas correções.
+
+## Revisão dos planos de imagens e posts — 10 de outubro de 2026
+
+Revisados o commit `fb75efc` de avatar/MinIO e as alterações locais de posts, comparando implementação, contratos e testes com [plano-minio-imagens.md](plano-minio-imagens.md) e [plano-posts.md](plano-posts.md). A entrega social ainda não satisfaz todos os critérios de aceite. Esta revisão preservou o código existente; as falhas abaixo não foram corrigidas.
+
+Achados prioritários, reproduzidos em testes adicionais locais:
+
+- **P1 — bloqueio recebido não filtra o feed:** em `backend/app/routers/social.py:209–210`, a condição inversa compara `blocked_id` com o autor, em vez do leitor. Se uma conta pública bloqueia o visitante, o detalhe e a imagem retornam 404, mas o feed ainda entrega nome, legenda e metadados de seus posts.
+- **P1 — avatar de comentário ignora bloqueio/suspensão do comentarista:** em `backend/app/routers/social.py:349–350`, a autorização confere apenas o dono do post. Num post público de terceiro, a URL previamente obtida continua retornando a imagem após bloqueio entre leitor e comentarista, embora o comentário seja ocultado. A mesma verificação não exige que o comentarista esteja ativo.
+- **P1 — falha após commit exclui a imagem de post persistido:** em `backend/app/routers/social.py:240–244`, `refresh` está no mesmo tratamento de falhas da gravação. Uma falha de leitura depois do commit executa a exclusão S3; rollback já não desfaz o post. A injeção dessa falha confirmou registro persistido sem sua imagem.
+- **P1 — comentário web perde foco a cada caractere:** em `web/src/components/SocialCommunity.tsx:187`, `PostCard` é definido dentro do componente pai. Cada atualização do rascunho remonta o card e o input. Digitar `Boa!` com eventos reais de teclado do Testing Library resultou somente em `B`.
+- **P2 — denúncia de conta privada exige acesso aos posts:** em `backend/app/routers/social.py:482–486`, `_can_view` também é exigido para alvo de tipo `user`. O perfil básico pode ser aberto e os clientes oferecem denúncia, mas um não seguidor recebe 404 mesmo denunciando a conta visível. A autorização da denúncia de conta precisa distinguir perfil básico de conteúdo privado.
+- **P2 — aprovação não suporta reenvio:** em `backend/app/routers/social.py:406–409`, somente relações pendentes são buscadas. Repetir uma aprovação bem-sucedida retorna 404, contrariando a idempotência prevista no plano.
+- **P2 — cursores descartados pelos clientes:** `SocialSettings`, `ProfilePage` e os perfis/comentários/busca de `SocialCommunity` e `CommunityScreen`, além das relações no perfil Expo, consomem somente a primeira página e descartam `next_cursor`. Galerias, comentários, busca e gestão de relações ficam limitados aos primeiros 20 itens carregados. Confirmada na web a ausência de continuação quando a API devolve cursor de solicitações. A API de bloqueios também limita silenciosamente a lista a 50 contas, sem continuação.
+- **P2 — painel não reativa conta já suspensa:** em `web/src/components/AdminReports.tsx:58`, ações aparecem somente em denúncias pendentes. Suspender resolve a denúncia; a fila resolvida não oferece reativação, e o cliente não usa `/admin/users/{id}/status`. Confirmada a ausência de controle de reativação na fila resolvida. Uma nova denúncia pendente não é um caminho confiável, pois contas suspensas são ocultadas.
+
+**P1 — piso de cobertura do CI não atendido:** executado o comando de unidades com `--cov=app --cov-branch --cov-fail-under=60`, equivalente ao passo `.github/workflows/ci.yml:42`. Os 65 testes passaram, mas o comando terminou com código 1 por cobertura combinada de **52,84%**, inferior a 60%. O CI configurado ficará bloqueado nesse passo; ampliar cobertura de unidades sem excluir arquivos ou reduzir o piso para esconder a regressão.
+
+Verificações aprovadas: Ruff; Alembic check no banco de desenvolvimento; aplicação de todas as migrações em schemas PostgreSQL aleatórios dos testes; suíte completa backend com **80 testes aprovados, nenhum pulado**, incluindo round-trip S3 e rejeição de leitura anônima em bucket MinIO isolado; web lint/build e **24 testes com cobertura**; mobile lint/typecheck, **15 testes com cobertura**, `expo install --check` e exportação Android. Teste adicional com MinIO real aprovou upload/leitura/troca/remoção idempotente de avatar, isolamento da rota privada entre contas, e criação/leitura/exclusão de post. O bucket temporário da revisão foi removido após a execução, preservando buckets, contas e volumes existentes.
+
+Os cenários adicionais confirmaram **cinco falhas de comportamento backend e três web**, separadamente das suítes existentes que passaram. Reproduções e relatórios ficam em `artifacts/review-plans/`, ignorado pelo Git. Não houve revisão visual em navegador, teste em aparelho Android/iOS, fluxo cruzado web/mobile com reinício nem execução remota do CI nesta revisão. Essas validações de aceite permanecem pendentes, assim como correção dos achados. Nenhum commit, push ou deploy foi realizado.
+
+## Plano de posts, perfis sociais e moderação — 10 de outubro de 2026
+
+Salvo o [plano de posts](plano-posts.md), definido com o usuário para web e mobile autenticados: uma foto quadrada com recorte ajustável e legenda opcional, feed geral cronológico, curtidas, comentários, privacidade social por conta, seguidores com aprovação, bloqueios, denúncias e painel administrativo web. O plano também registra contratos previstos, reutilização do armazenamento privado, sequência de implementação e critérios de aceite. A foto original no dispositivo será preservada; somente a versão recortada e otimizada será publicada.
+
+## Implementação de posts, perfis sociais e moderação — 10 de outubro de 2026
+
+Implementado o escopo do [plano de posts](plano-posts.md) nos contratos da API, PostgreSQL, web e Expo. A migração `0003` acrescenta visibilidade social privada por padrão, posts, curtidas, comentários, seguidores aprovados/pendentes, bloqueios, denúncias, papel administrativo e histórico de decisões. A autorização é conferida em consultas e em cada leitura de imagem; dados pessoais e perfis esportivos não se tornam públicos. Posts usam MinIO/S3 privado, foto quadrada WebP até 1.080 px e reconciliação de órfãos que preserva avatares e posts vinculados.
+
+A web agora tem criação com recorte e zoom, feed cronológico, busca, perfis/galeria, interações e painel administrativo em Configurações. O Expo tem Comunidade com lista virtualizada e seletor/recorte nativo, perfil e ferramentas sociais. Contas públicas aprovam pedidos pendentes quando a visibilidade muda; tornar privada preserva seguidores existentes. Bloqueio remove vínculos e não os restaura ao desbloquear. O papel de administrador é concedido somente pelo comando explícito `python -m app.admin_cli promote-admin EMAIL`.
+
+Verificações desta entrega: Ruff aprovado; backend com PostgreSQL em schema aleatório, 79 testes aprovados e 1 teste de round-trip S3 real pulado; cobertura combinada de 86,13% (88,67% de linhas e 71,96% de ramos). Web ESLint, TypeScript, build e 24 testes com cobertura aprovados (39,83% de linhas, 31,84% de ramos); mobile ESLint, TypeScript, exportação Android e 15 testes com cobertura aprovados (24,72% de linhas, 13,61% de ramos). Os testes de integração social usaram armazenamento S3 falso; a integração MinIO/S3 real não foi repetida nesta entrega. No navegador local, a tela inicial carregou, mas a API estava indisponível; por isso não foi possível revisar os fluxos sociais ou a responsividade. Nenhum aparelho foi validado e o CI remoto não foi executado. Migração e Alembic check foram aplicados/verificados no banco local de desenvolvimento sem apagar dados. Permanecem pendentes ensaio em Android/iOS, revisão responsiva ao vivo, S3 real para posts e execução remota do CI. Nenhum mock foi acrescentado à interface. Sem commit, push ou deploy.
+
+## Plano definido — posts, perfis sociais e moderação — 10 de outubro de 2026
+
+O plano foi registrado com o usuário antes desta implementação. Seus critérios e contratos continuam em [plano de posts](plano-posts.md); o estado verificado desta entrega está na seção acima.
+
+## Plano da próxima evolução: imagens e avatar — 9 de outubro de 2026
+
+Implementado o armazenamento privado S3 compatível e o fluxo de foto de perfil na web e no mobile, conforme [plano-minio-imagens.md](plano-minio-imagens.md). PostgreSQL guarda metadados e referência nullable; a API autenticada serve as imagens. MinIO local usa volume próprio. Posts, brasões, perfis públicos e infraestrutura de produção continuam fora desta entrega.
+
 Data: 9 de outubro de 2026. Implementação inicial de conta e perfis, referente à entrega 1. Este registro complementa o roteiro e não declara o MVP completo.
 
 ## Implementado
 
 - API FastAPI com saúde, configuração, erros sem valores sensíveis e OpenAPI.
 - Cadastro adulto, e-mail normalizado e único, hash de senha Argon2, login, expiração e logout revogável.
-- Consulta e edição do nome e dos perfis privados de futebol, tênis e corrida, com autorização pelo titular.
+- Consulta e edição do nome, do nome de usuário (@) e dos perfis privados de futebol, tênis e corrida, com autorização pelo titular.
 - Migração Alembic com integridade relacional, catálogo inicial de seis municípios e seed idempotente de desenvolvimento.
 - Cliente React/Vite responsivo e cliente React Native/Expo consumindo a mesma API.
 - Frontend web aproximado do protótipo Figma Make: símbolo atualizado do Coliseu enviado pelo usuário, marca `arena.` com ponto verde, fontes Inter/Sora, cores, cards compactos, carrossel, capa e avatar do perfil e navegação inferior com Início, Ranking, Jogar, Comunidade e Perfil. Detalhes em [fidelidade ao Figma](fidelidade-figma.md).
 - Estados de carregamento, erro recuperável, sucesso e sessão expirada; labels e foco na web, controles acessíveis e adaptação ao teclado no mobile.
 - Arquivos de lock, exemplos de ambiente, comandos de execução e workflow CI.
+- Avatar privado: MinIO local construído da versão fixada no Compose, bucket `arena-media` criado por comando explícito, entidade de mídia e referência nullable por migração, upload autenticado com normalização WebP e leitura/removal sob sessão. A web permite recorte quadrado com arraste/zoom; o Expo usa seletor e editor nativo quadrado. Os dois clientes enviam multipart e não recebem URL presigned.
 
 ## Diretriz para esta fase inicial
 
@@ -26,12 +226,27 @@ Atualizar este Markdown a cada entrega ou alteração no projeto, registrando im
 | Cadastro, login, sessão e logout | Integrados à API. |
 | Nome, cidade, posição e disponibilidade esportiva | Integrados à API, com persistência. |
 | Saudação, iniciais do avatar e chips de modalidades | Derivados dos dados reais da conta. |
-| Partidas, ranking, estatísticas, comunidade, fotos e notificações | Estrutura visual e estados vazios ou indicação de disponibilidade futura; sem dados demonstrativos preenchidos e sem integração de domínio. Manter essa apresentação até as integrações ou uma nova solicitação do usuário. |
+| Foto de perfil (avatar) e capa | Integradas à API e ao armazenamento privado, com recorte, troca e remoção (capa padrão) na web e no mobile. |
+| Edição de perfil e @ | Integradas à API: lista agrupada com folhas, @ único com verificação de disponibilidade, visibilidade, contas bloqueadas e conexões. |
+| Posts, comunidade e perfis sociais | Integrados à API: feed cronológico, foto/legenda, curtidas, comentários, busca, privacidade social, seguidores, bloqueios e denúncias. Painel administrativo web e histórico de decisões implementados. |
+| Partidas, ranking, estatísticas e notificações | Estrutura visual e estados vazios ou indicação de disponibilidade futura; sem dados demonstrativos ou integração de domínio. Notificações exibe, provisoriamente, as solicitações para seguir. |
 | Moedas e carteira | Removidas da interface web e fora da direção atual do produto; não implementar sem nova solicitação. |
 | Botão Jogar | Abre a preparação dos perfis esportivos; busca e agendamento ainda pendentes. |
-| Cliente Expo | Mantém a interface anterior; a revisão visual do Figma foi aplicada somente à web. |
+| Cliente Expo | Comunidade e recursos sociais implementados; título @, hambúrguer e folha Menu aplicados; a revisão visual do Figma foi aplicada somente à web. |
 
 ## Evidências e limites
+
+### Posts e perfis sociais — 10 de outubro de 2026
+
+| Verificação | Resultado |
+| --- | --- |
+| Migração e esquema | `0003` aplicado no PostgreSQL local preservando os dados existentes; Alembic check sem diferenças. |
+| Backend | Ruff aprovado; 79 testes aprovados em PostgreSQL isolado, com um teste opcional S3 real pulado; cobertura combinada: 86,13% (88,67% de linhas, 71,96% de ramos). |
+| Fluxos sociais PostgreSQL | Privacidade, solicitação/aprovação, feed, imagem autorizada, curtida idempotente, comentário, bloqueio/desbloqueio, denúncia e suspensão testados. Storage de integração social substituído por double; MinIO real para posts pendente. |
+| Web | ESLint, TypeScript, build e 24 testes/cobertura aprovados; cobertura de ramos: 31,84%. |
+| Mobile | ESLint, typecheck, 15 testes/cobertura e exportação Android aprovados. |
+| Navegador e aparelhos | A tela inicial abriu, mas API indisponível impediu validar a Comunidade e a revisão responsiva; nenhum aparelho Android/iOS foi validado. |
+| CI remoto | Pendente. |
 
 | Verificação | Resultado |
 | --- | --- |
@@ -47,6 +262,8 @@ Atualizar este Markdown a cada entrega ou alteração no projeto, registrando im
 | Mobile | TypeScript, ESLint e exportação Android aprovados; transporte Bearer coberto nos testes da API. |
 | Aparelhos Android e iOS | Pendente; bundle gerado não comprova usabilidade ou SecureStore em dispositivo. |
 | CI remoto | Workflow criado, ainda não executado no GitHub. |
+| Imagens e avatar | Migração `0002` aplicada e `alembic check` limpo. Suíte backend: 73 aprovados com PostgreSQL e MinIO local; round-trip S3 real aprovado. Web: lint, TypeScript, cobertura (22 testes) e build aprovados. Mobile: lint, typecheck, cobertura (14 testes), Expo install check e export Android aprovados. |
+| Aplicativo mobile em aparelhos | Pendente; o seletor e recorte foram configurados no Expo, mas nenhum aparelho foi validado. |
 | Meta de desempenho RNF03 | Não medida; carga e matriz de ensaio pendentes. |
 
 O Docker Desktop falhou ao iniciar seu serviço de inferência. Os testes usaram PostgreSQL isolado na porta 55432; o Compose permanece configurado para porta 5432. Testes de integração precisam de `TEST_DATABASE_URL`; sem essa variável ficam explicitamente pulados e não comprovam persistência.
@@ -57,11 +274,11 @@ O audit inicial do mobile apontou 22 alertas transitivos em ferramentas Expo/Met
 
 ## Relação com as especificações
 
-HU01, RN01 e a seleção de modalidades em RN02 possuem implementação; RN22 é respeitada pelo padrão privado, mas publicação opt-in/fotos ainda não está construída. TI01 e a parte de perfis de TI05 foram exercitados; busca e inscrições de TI05 permanecem futuras.
+HU01, RN01 e a seleção de modalidades em RN02 possuem implementação. RN22 é atendida por perfis sociais privados por padrão, publicação opt-in, posts com fotos e controles de acesso; busca de contas também foi implementada. Inscrições de TI05 permanecem futuras.
 
-O roteiro original contém propostas e diagramas para o MVP completo. A modelagem implementada nesta entrega corresponde somente a cidades, usuários, sessões e perfis; o [diagrama da fundação](diagramas/fundacao.md) registra essas tabelas. Os diagramas anteriores continuam como desenho futuro e não devem ser apresentados como banco já implementado.
+O roteiro original contém propostas e diagramas para o MVP completo. Na entrega inicial, a modelagem se limitava a cidades, usuários, sessões e perfis. A entrega de 10 de outubro também implementou as tabelas sociais descritas nesta página e no [diagrama da fundação](diagramas/fundacao.md); as demais propostas do MVP continuam como desenho futuro.
 
-A primeira entrega ainda exige demonstração em aparelho mobile para satisfazer todos os critérios de aceite do plano. Times, vagas, partidas, chat, resultados, rankings, corrida, eventos e revisão administrativa não estão implementados nesta etapa.
+A implementação social ainda exige validação visual em navegador e demonstração em aparelho mobile. Times, vagas, partidas, chat, resultados, rankings, corrida e eventos permanecem fora das entregas realizadas até aqui.
 
 A revisão do arquivo Word ficou pendente: o renderizador da skill de documentos não encontrou o LibreOffice necessário à inspeção visual. O arquivo original foi preservado; este registro e o README descrevem o estado atual e devem orientar a atualização do roteiro quando houver renderização disponível.
 
@@ -90,6 +307,14 @@ Commit local na branch main autorizado pelo usuário, reunindo a fundação de b
 ## Envio ao repositório remoto — 9 de outubro de 2026
 
 O usuário autorizou enviar a main para origin (repositório davicl04/arena no GitHub). O commit a0b7603 reúne a fundação e os ajustes visuais; este registro acompanha o envio. Nenhuma alteração funcional nem novos testes de código nesta etapa. A confirmação do push é verificada pelo comando Git e pela comparação entre HEAD e a referência remota.
+
+## Armazenamento privado e avatar — 9 de outubro de 2026
+
+Adicionado MinIO local, compilado do código da versão `RELEASE.2025-10-15T17-29-55Z`, com portas 9000/9001 e volume próprio `miniodata`; o volume `pgdata` foi preservado. Bucket `arena-media` inicializado pelo comando administrativo explícito. A migração `0002` registra mídia com UUID, titular, chave opaca, MIME, tamanho, dimensões e data, e acrescenta ao usuário a referência nullable do avatar. Upload limita tamanho e megapixels, valida JPEG/PNG/WebP estáticos pelo conteúdo, corrige EXIF, remove metadados e converte para WebP quadrado de até 512 px. A API serve e remove a imagem somente com a sessão do titular; falha na limpeza da imagem anterior não desfaz uma troca já persistida e o comando `reconcile` limpa órfãos com mais de 24 horas.
+
+A web tem editor quadrado com arraste, zoom, prévia e controles por teclado; o mobile usa `expo-image-picker` com recorte nativo. Cancelamento e erro preservam a foto atual; sem foto ou em falha de leitura aparecem as iniciais. As abas de fotos continuam vazias. Atualizados README, decisões técnicas, diagrama, workflow de CI e locks.
+
+Verificações executadas: Alembic upgrade/check; Ruff; 76 testes backend aprovados com PostgreSQL e round-trip S3 contra MinIO local; cobertura unitária 72,69% e total 87,71%, acima dos pisos de 60% e 85%. Web lint, typecheck, cobertura (22 testes) e build passaram. Mobile lint, typecheck, cobertura (14 testes), `expo install --check` e exportação Android passaram. A primeira tentativa do MinIO revelou permissão no volume Docker; o entrypoint foi ajustado para preparar o diretório e executar o processo como usuário sem privilégios. O serviço ficou healthy e o round-trip S3 passou. A revisão visual web do avatar não foi concluída porque o navegador estava sem acesso à API local. Nenhum aparelho Android/iOS foi testado; suporte, hospedagem, HTTPS e backup de produção seguem pendentes.
 
 ## Correção da conexão com Compose — 9 de outubro de 2026
 

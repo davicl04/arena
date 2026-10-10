@@ -24,10 +24,16 @@ def registration(**overrides):
                         'birth_date': '1990-01-01', 'password': 'TestPassword123'} | overrides))
 
 
-def test_registration_hashes_password_and_normalizes_email():
+def database():
     db = Mock()
+    db.scalars.return_value.all.return_value = []
+    return db
+
+
+def test_registration_hashes_password_and_normalizes_email():
+    db = database()
     user = identity.register_user(db, registration())
-    assert (user.name, user.email) == ('Atleta', 'atleta@example.com')
+    assert (user.name, user.username, user.email) == ('Atleta', 'atleta', 'atleta@example.com')
     assert user.password_hash != 'TestPassword123'
     assert identity.passwords.verify('TestPassword123', user.password_hash)
     db.add.assert_called_once_with(user)
@@ -44,12 +50,32 @@ def test_underage_registration_does_not_write(monkeypatch):
 
 
 def test_duplicate_registration_rolls_back():
-    db = Mock()
+    db = database()
     db.commit.side_effect = IntegrityError('insert', {}, Exception('duplicate'))
     with pytest.raises(HTTPException) as exc:
         identity.register_user(db, registration())
     assert exc.value.status_code == 409
+    assert exc.value.detail == 'Este e-mail já está cadastrado.'
     db.rollback.assert_called_once()
+
+
+def username_conflict():
+    return IntegrityError('insert', {}, SimpleNamespace(diag=SimpleNamespace(constraint_name='uq_users_username')))
+
+
+def test_registration_retries_concurrent_username_conflict():
+    db = database()
+    db.commit.side_effect = [username_conflict(), None]
+    user = identity.register_user(db, registration())
+    assert user.username == 'atleta' and db.add.call_count == 2 and db.rollback.call_count == 1
+
+
+def test_registration_gives_up_after_repeated_username_conflicts():
+    db = database()
+    db.commit.side_effect = [username_conflict() for _ in range(3)]
+    with pytest.raises(HTTPException) as exc:
+        identity.register_user(db, registration())
+    assert exc.value.status_code == 409 and db.rollback.call_count == 3
 
 
 def test_authentication_accepts_valid_active_account(account):

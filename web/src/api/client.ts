@@ -1,10 +1,59 @@
 export type Sport = 'futebol' | 'tenis' | 'corrida'
 export type Position = 'goleiro' | 'defesa' | 'meio_campo' | 'atacante'
+export interface Page<T> { items: T[]; next_cursor: string | null }
 export interface User {
   id: number
   name: string
+  username: string
   email: string
   birth_date: string
+  social_public: boolean
+  is_admin: boolean
+  avatar: { id: string; url: string } | null
+  cover: { id: string; url: string } | null
+}
+export interface SocialUser {
+  id: number
+  name: string
+  username: string
+  avatar_url: string | null
+  cover_url: string | null
+  social_public: boolean
+  post_count: number
+  follower_count: number
+  following_count: number
+  follows_you: boolean
+  follow_state: 'none' | 'pending' | 'approved' | 'self'
+}
+export interface MutualFollowersPage {
+  items: SocialUser[]
+  total: number
+  next_cursor: string | null
+}
+export interface UsernameAvailability {
+  available: boolean
+  reason: 'invalid' | 'reserved' | 'taken' | 'current' | null
+  suggestions: string[]
+}
+export interface Post {
+  id: number
+  author: SocialUser
+  caption: string
+  image_url: string
+  created_at: string
+  like_count: number
+  comment_count: number
+  liked_by_me: boolean
+  can_edit: boolean
+}
+export interface SocialComment {
+  id: number
+  author_id: number
+  author_name: string
+  author_avatar_url: string | null
+  body: string
+  created_at: string
+  can_delete: boolean
 }
 export interface City {
   id: number
@@ -29,10 +78,12 @@ export class ApiError extends Error {
     this.status = status
   }
 }
-const base = (import.meta.env.VITE_API_URL || 'http://localhost:8000').replace(
-  /\/$/,
-  '',
-)
+export function apiBaseUrl(configuredUrl: string | undefined, development: boolean, location: Pick<Location, 'protocol' | 'hostname'>) {
+  const defaultBase = development ? `${location.protocol}//${location.hostname}:8000` : 'http://localhost:8000'
+  return (configuredUrl || defaultBase).replace(/\/$/, '')
+}
+const base = apiBaseUrl(import.meta.env.VITE_API_URL, import.meta.env.DEV, window.location)
+export const apiUrl = (path: string) => `${base}${path}`
 export async function request<T>(
   path: string,
   method = 'GET',
@@ -43,8 +94,8 @@ export async function request<T>(
     response = await fetch(`${base}/api/v1${path}`, {
       method,
       credentials: 'include',
-      headers: body ? { 'Content-Type': 'application/json' } : {},
-      body: body ? JSON.stringify(body) : undefined,
+      headers: body ? (body instanceof FormData ? {} : { 'Content-Type': 'application/json' }) : {},
+      body: body ? (body instanceof FormData ? body : JSON.stringify(body)) : undefined,
       signal: AbortSignal.timeout(15000),
     })
   } catch {

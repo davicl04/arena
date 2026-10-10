@@ -1,79 +1,63 @@
-import { useState } from "react";
-import {
-  CalendarDays,
-  ChevronRight,
-  Medal,
-  Settings,
-  Shield,
-  Trophy,
-} from "lucide-react";
-import { sports } from "../api/client";
-import type { Profile, User } from "../api/client";
+import { useEffect, useState } from "react";
+import { CalendarDays, ChevronRight, Medal, Menu, Trophy } from "lucide-react";
+import { request } from "../api/client";
+import type { Profile, SocialUser, User } from "../api/client";
 import EmptyState from "../components/EmptyState";
+import PhotoGrid from "../components/PhotoGrid";
+import ProfileHeader from "../components/ProfileHeader";
 import ProfileTabs from "../components/ProfileTabs";
-import { cover, sportIcons } from "../data/arena";
-import type { Screen } from "../data/arena";
+import Avatar from "../components/Avatar";
+import type { ConnectionsTab, Screen } from "../data/arena";
 
 export default function ProfilePage({
   user,
   profiles,
   go,
+  openConnections,
+  onExpired,
 }: {
   user: User;
   profiles: Profile[];
   go: (screen: Screen) => void;
+  openConnections: (userId: number, tab: ConnectionsTab) => void;
+  onExpired: () => void;
 }) {
   const [profileTab, setProfileTab] = useState("Atividades");
-  const initials = user.name
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase();
+  const [counts, setCounts] = useState<{ followers: number; following: number } | null>(null);
+  useEffect(() => {
+    let alive = true;
+    request<SocialUser>(`/users/${user.id}`)
+      .then((person) => {
+        if (alive) setCounts({ followers: person.follower_count, following: person.following_count });
+      })
+      .catch(() => {
+        /* As contagens são complementares: sem elas a linha de conexões não aparece. */
+      });
+    return () => {
+      alive = false;
+    };
+  }, [user.id]);
   return (
     <>
-      <div
-        className="profile-cover"
-        style={{ backgroundImage: `url("${cover}")` }}
-      >
-        <button
-          className="icon-btn"
-          aria-label="Configurações"
-          onClick={() => go("settings")}
-        >
-          <Settings size={21} />
-        </button>
-      </div>
-      <section className="profile-intro">
-        <div className="avatar">{initials}</div>
-        <button
-          className="secondary edit-profile"
-          onClick={() => go("settings")}
-        >
-          Editar perfil
-        </button>
-        <h1>{user.name}</h1>
-        <p>{user.email}</p>
-        <div className="profile-sports">
-          {profiles.map((p) => {
-            const Icon = sportIcons[p.sport];
-            return (
-              <span className="sport-chip" key={p.sport}>
-                <Icon size={13} />
-                {sports.find((s) => s.value === p.sport)?.label}
-              </span>
-            );
-          })}
-          {!profiles.length && (
-            <span className="muted">Adicione sua primeira modalidade</span>
-          )}
-        </div>
-        <p className="profile-counts">
-          <Shield size={13} />
-          Perfil privado
-        </p>
-      </section>
+      <ProfileHeader
+        mode="own"
+        name={user.name}
+        username={user.username}
+        avatar={<Avatar key={user.avatar?.id ?? "initials"} user={user} className="avatar-content" />}
+        coverUrl={user.cover?.url ?? null}
+        isPublic={user.social_public}
+        followerCount={counts?.followers ?? null}
+        followingCount={counts?.following ?? null}
+        sportList={profiles.map((p) => p.sport)}
+        trailing={
+          <button className="icon-btn" aria-label="Menu" onClick={() => go("menu")}>
+            <Menu size={21} />
+          </button>
+        }
+        onEdit={() => go("edit-profile")}
+        onFollowers={() => openConnections(user.id, "followers")}
+        onFollowing={() => openConnections(user.id, "following")}
+      />
       <div className="profile-actions">
         <button onClick={() => go("sports")}>
           <Trophy size={21} />
@@ -102,22 +86,21 @@ export default function ProfilePage({
         </div>
       </div>
       <ProfileTabs value={profileTab} onChange={setProfileTab} />
-      <div
-        id="profile-content"
-        role="tabpanel"
-        aria-labelledby={`tab-${profileTab}`}
-      >
-        <EmptyState
-          Icon={profileTab === "Partidas" ? CalendarDays : Medal}
-          title={
-            profileTab === "Fotos"
-              ? "Nenhuma foto por aqui"
-              : profileTab === "Partidas"
-                ? "Sua história em campo"
-                : "Sua trajetória começa aqui"
-          }
-          text="Seus registros aparecerão aqui quando esta área estiver disponível."
-        />
+      <div id="profile-content" role="tabpanel" aria-labelledby={`tab-${profileTab}`}>
+        {profileTab === "Fotos" ? (
+          <PhotoGrid
+            userId={user.id}
+            ownerName={user.name}
+            onExpired={onExpired}
+            empty={<EmptyState Icon={Medal} title="Nenhuma foto por aqui" text="Seus registros aparecerão aqui quando esta área estiver disponível." />}
+          />
+        ) : (
+          <EmptyState
+            Icon={profileTab === "Partidas" ? CalendarDays : Medal}
+            title={profileTab === "Partidas" ? "Sua história em campo" : "Sua trajetória começa aqui"}
+            text="Seus registros aparecerão aqui quando esta área estiver disponível."
+          />
+        )}
       </div>
     </>
   );

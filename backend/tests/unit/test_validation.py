@@ -34,3 +34,16 @@ def test_profile_rejects_invalid_values_or_server_owned_fields(payload):
 def test_settings_reject_unsafe_values(overrides):
     with pytest.raises(ValidationError):
         Settings(_env_file=None, **overrides)
+
+
+def test_account_update_accepts_username_alone_and_normalizes_it():
+    data = UpdateUser(username='  @Joao.Silva ')
+    assert (data.name, data.username) == (None, 'joao.silva')
+
+
+@pytest.mark.parametrize('payload', [{}, {'username': 'ab'}, {'username': 'ana..silva'}, {'username': '.ana'},
+                                     {'username': 'ana-silva'}, {'username': 'admin'}, {'username': 'a' * 61},
+                                     {'username': 123}])
+def test_account_update_rejects_empty_invalid_or_reserved_username(payload):
+    with pytest.raises(ValidationError):
+        UpdateUser(**payload)

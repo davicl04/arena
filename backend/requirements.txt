@@ -7,6 +7,9 @@ pydantic-settings
 pwdlib[argon2]
 email-validator
 tzdata
+boto3==1.40.53
+Pillow==12.0.0
+python-multipart==0.0.20
 pytest
 pytest-cov
 httpx

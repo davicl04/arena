@@ -25,9 +25,26 @@ if (!(Test-Path .env)) { Copy-Item .env.example .env }
 .venv/Scripts/python.exe -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-Espere o banco aparecer como `healthy`. A API não cria tabelas automaticamente: aplique migrações antes de iniciar. Em Linux/macOS, substitua `.venv/Scripts/python.exe` por `.venv/bin/python` e use `cp` para copiar arquivos.
+Espere o banco aparecer como `healthy`. A API não cria tabelas automaticamente: aplique migrações antes de iniciar. A migração `0004` aplicada por `alembic upgrade head` cria o nome de usuário (@) e gera um @ para cada conta existente, a partir do nome; contas com nomes parecidos recebem número no final. Também adiciona a referência da capa de perfil. Não apaga contas nem volumes. Em Linux/macOS, substitua `.venv/Scripts/python.exe` por `.venv/bin/python` e use `cp` para copiar arquivos.
 
 API: [localhost:8000/docs](http://localhost:8000/docs). Saúde do processo: `/health/live`; prontidão do banco e esquema: `/health/ready`. O OpenAPI é gerado em `/openapi.json`.
+
+### Imagens e avatar local
+
+O Compose também fornece MinIO local, construído do código na versão fixada no `docker-compose.yml`, com API S3 em `localhost:9000`, console em `localhost:9001` e volume persistente `miniodata`. Inicie o serviço sem recriar nem apagar o PostgreSQL:
+
+```powershell
+docker compose up -d --build --wait minio
+```
+
+Configure no `backend/.env` `MEDIA_S3_ENDPOINT`, `MEDIA_S3_REGION`, `MEDIA_S3_BUCKET`, `MEDIA_S3_ACCESS_KEY` e `MEDIA_S3_SECRET_KEY`. Os valores de acesso precisam corresponder a `MINIO_ROOT_USER` e `MINIO_ROOT_PASSWORD` usados pelo Compose; se forem alterados, mantenha ambos os arquivos locais alinhados. Os valores de exemplo servem somente para desenvolvimento local. Depois que o MinIO estiver healthy e o ambiente do backend estiver configurado, crie o bucket privado explicitamente:
+
+```powershell
+cd backend
+.venv/Scripts/python.exe -m app.media_admin ensure-bucket
+```
+
+O bucket não é criado no startup da API. Para remover objetos com mais de 24 horas que não estejam vinculados a avatar, capa ou post, execute `.venv/Scripts/python.exe -m app.media_admin reconcile`. O comando preserva as imagens em uso. As imagens passam pela API autenticada; não compartilhe credenciais ou links públicos. A implementação aceita JPEG, PNG e WebP estáticos até 5 MiB e 25 megapixels. Avatares são armazenados como WebP quadrado de até 512 px. A capa de perfil (`/api/v1/me/cover`) usa recorte 5:2 de no máximo 1500×600 px, com os mesmos formatos e limites; na web ela é ajustada em Editar perfil › Foto de capa. A configuração de produção, provedor, HTTPS, política de backup e suporte do storage ainda precisa ser decidida.
 
 Por padrão, banco `arena`, usuário/senha `arena` e porta `5432` são exclusivos de desenvolvimento. Para trocar, configure `POSTGRES_USER`, `POSTGRES_PASSWORD` e `POSTGRES_DB` no `.env` da raiz e ajuste `DATABASE_URL` no `.env` do backend. O driver da URL é explícito: `postgresql+psycopg2://`.
 
@@ -46,7 +63,33 @@ if (!(Test-Path .env)) { Copy-Item .env.example .env }
 npm run dev
 ```
 
-Abra [localhost:5173](http://localhost:5173). Use o mesmo hostname para web e API: se abrir a web em `127.0.0.1`, configure `VITE_API_URL=http://127.0.0.1:8000`. A configuração padrão autoriza ambas as origens da web; outros endereços exigem atualizar `ALLOWED_ORIGINS` no backend e reiniciá-lo.
+Abra [localhost:5173](http://localhost:5173). Em desenvolvimento, `VITE_API_URL` vazio usa o protocolo e o hostname da página, com a API na porta 8000. Assim, abrir por `localhost`, `127.0.0.1` ou pelo IP do computador mantém web e API no mesmo site. Uma URL explícita em `VITE_API_URL` tem precedência; se o `.env` existente ainda aponta para `localhost`, deixe o valor vazio para usar esse comportamento. Em produção, configure a URL apropriada da API. A configuração padrão autoriza ambas as origens locais da web; outros endereços exigem atualizar `ALLOWED_ORIGINS` no backend e reiniciá-lo.
+
+### Acesso pelo celular na mesma rede
+
+Identifique o IPv4 da interface de rede do computador (PowerShell: `Get-NetIPConfiguration`). Em `backend/.env`, acrescente `http://IP_DO_COMPUTADOR:5173` à lista JSON de `ALLOWED_ORIGINS`, mantendo as origens existentes; use endereços explícitos. Reinicie a API e mantenha o comando com `--host 0.0.0.0`. Com `VITE_API_URL=` em `web/.env` e o Vite reiniciado, abra `http://IP_DO_COMPUTADOR:5173` no navegador do celular. As portas 5173 e 8000 precisam estar acessíveis entre os dispositivos.
+
+Para Expo Go, configure `EXPO_PUBLIC_API_URL=http://IP_DO_COMPUTADOR:8000` em `mobile/.env` e inicie ou reinicie com `npm start -- --lan`, em `mobile/`. Ao trocar a URL, use `npm start -- --lan --clear` para descartar transformações que ainda contenham o endereço anterior. Abra o endereço `exp://IP_DO_COMPUTADOR:8081` pelo Expo Go, ou o QR exibido pelo Expo. O cliente nativo usa Bearer e não envia `Origin`; CORS se aplica ao navegador. A porta do Metro pode variar se 8081 já estiver ocupada. Se o IP do computador mudar, atualize a origem autorizada e a URL do Expo. Essas configurações são para desenvolvimento local; produção mantém HTTPS, cookie seguro e as políticas de sessão documentadas.
+
+## Comunidade, posts e moderação
+
+Depois de aplicar as migrações com `alembic upgrade head`, a Comunidade usa posts com uma foto quadrada e legenda opcional. A web permite ajustar recorte e zoom; o Expo usa o seletor nativo com recorte 1:1. Curtidas, comentários, feed cronológico, busca por nome, galerias e relações são persistidos pela mesma API. A foto original permanece no dispositivo; a versão otimizada é armazenada no bucket privado.
+
+Contas começam privadas. Seguidores de contas privadas precisam de aprovação; tornar uma conta pública mostra os posts a usuários autenticados e aprova pedidos pendentes. As solicitações para seguir ficam, provisoriamente, em Notificações. Editar perfil reúne foto, capa, nome, nome de usuário (@), visibilidade e contas bloqueadas; as listas de conexões, abertas pelas contagens do perfil, permitem remover seguidores e deixar de seguir. Bloquear remove relações nos dois sentidos. E-mail, nascimento e perfis esportivos continuam privados. Imagens sociais não usam bucket público nem URLs presigned.
+
+Busca, galerias, comentários e gestão de relações permitem carregar páginas adicionais. As listas da API usam `{ items, next_cursor }`, inclusive `GET /api/v1/me/blocks`, com 20 itens por padrão e máximo de 50. O cursor deve ser reenviado na próxima chamada; não é uma autorização de acesso.
+
+Denúncias ficam em Menu (hambúrguer do perfil) → Moderação, visível apenas para administradores web. Cada decisão exige justificativa e registra administrador, alvo, ação e data.
+
+Uma conta suspensa pode ser reativada pela fila de denúncias resolvidas, com justificativa obrigatória. A fila informa o identificador e o estado da conta responsável sem expor conteúdo privado resolvido. A reativação preserva a revogação das sessões anteriores; o titular precisa entrar novamente.
+
+Para nomear uma conta administrativa de modo explícito, entre em `backend/` e execute, com uma conta já cadastrada:
+
+```powershell
+.venv/Scripts/python.exe -m app.admin_cli promote-admin atleta@example.com
+```
+
+Esse comando altera apenas o papel da conta indicada; não é executado durante o cadastro nem na inicialização da API. Para remover o papel, use `remove-admin` com o mesmo e-mail. Consulte [plano de posts](docs/plano-posts.md) para contratos e critérios e [situação da fundação](docs/situacao-fundacao.md) para evidências e limitações.
 
 ## Mobile
 
@@ -101,7 +144,7 @@ Os testes criam e removem somente um schema aleatório próprio no PostgreSQL in
 
 No diretório `web/`: `npm run lint`, `npm run typecheck` e `npm run build`. No diretório `mobile/`: `npm run lint`, `npm run typecheck`, `npx expo install --check` e `npm run export:android`. O workflow `.github/workflows/ci.yml` executa os checks com PostgreSQL e ambos os clientes. A geração do bundle não substitui validação Android/iOS em aparelho.
 
-Sessões expiram em 24 horas, não têm renovação automática e são revogadas no logout. Na web o token fica em cookie HttpOnly; no mobile, no SecureStore. Perfis não possuem consulta pública nesta etapa. Para ambiente fora de desenvolvimento, configure `COOKIE_SECURE=true`, HTTPS, origens explícitas e infraestrutura conforme as decisões documentadas.
+Sessões expiram em 24 horas, não têm renovação automática e são revogadas no logout. Na web o token fica em cookie HttpOnly; no mobile, no SecureStore. Perfis sociais públicos são distintos dos perfis esportivos, que continuam privados. Para ambiente fora de desenvolvimento, configure `COOKIE_SECURE=true`, HTTPS, origens explícitas e infraestrutura conforme as decisões documentadas.
 
 ## Estrutura
 

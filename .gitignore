@@ -11,6 +11,8 @@ htmlcov/
 .mypy_cache/
 .local/
 artifacts/
+# Protótipos de design (material de consulta local)
+prototypes/
 
 # ===== Node (web e mobile) =====
 node_modules/

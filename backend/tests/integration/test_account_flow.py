@@ -113,7 +113,7 @@ def test_concurrent_email_uniqueness_and_persistence(test_engine):
         assert len(users) == 1 and users[0].password_hash != ACCOUNT['password']
 
 
-@pytest.mark.parametrize('path', ['/api/v1/users/1', '/api/v1/users/1/sports-profiles'])
+@pytest.mark.parametrize('path', ['/api/v1/users/1/sports-profiles'])
 def test_no_arbitrary_user_route(client, path):
     http, _ = client
     assert http.get(path).status_code == 404
