@@ -1,5 +1,22 @@
 # Situação da fundação do Arena
 
+## Plano do perfil e da edição de perfil — 10 de outubro de 2026
+
+Registrado em [plano do perfil](plano-perfil.md) o plano para redesenhar o perfil, a edição de perfil e o perfil de visitante. Ele foi definido com o usuário a partir de oito rodadas de protótipos interativos. O protótipo de referência, `prototypes/editar-perfil.html`, não é versionado.
+
+O plano prevê:
+- edição em lista agrupada, com folhas inferiores;
+- nome de usuário (@) novo, gerado automaticamente para contas existentes e novas;
+- foto de capa personalizável;
+- contagens de seguidores sempre visíveis;
+- seguidores em comum no perfil de visitante;
+- engrenagem dedicada às configurações do app;
+- solicitações para seguir na tela Notificações, de forma provisória.
+
+O escopo cobre backend, web e mobile.
+
+Nada foi implementado: código, esquema e contratos permanecem como antes. Esta entrega é só de documentação. Foram conferidos os caminhos citados e o diff; não houve testes de código. As decisões de identidade, imagens e privacidade ainda precisam ser incorporadas a [decisões técnicas](decisoes/0001-fundacao.md) quando forem implementadas. O usuário solicitou o commit e o envio ao remoto `origin` na branch `feat/minio-images`; o protótipo não foi incluído.
+
 ## Correção local da conexão de mídia — 10 de outubro de 2026
 
 Investigado o erro `EndpointConnectionError` durante a publicação de posts. O container local do MinIO reiniciava porque `entrypoint.sh`, copiado do checkout Windows com finais CRLF, tinha um shebang inválido para Linux. O Dockerfile agora normaliza os finais de linha do entrypoint durante o build. A imagem foi reconstruída e somente o serviço MinIO foi recriado; `arena-minio` ficou healthy, `/minio/health/live` respondeu HTTP 200 e o PostgreSQL permaneceu healthy. O volume persistente `miniodata` foi preservado. Não foi possível executar `ensure-bucket` pela CLI, pois `backend/.venv` não existe neste checkout; nenhum post foi criado para teste.
