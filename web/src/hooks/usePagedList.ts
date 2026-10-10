@@ -1,44 +1,52 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Dispatch, SetStateAction } from 'react'
 import { ApiError, request } from '../api/client'
 import type { Page } from '../api/client'
 
-interface State<T> { path: string; items: T[]; cursor: string | null; error: ApiError | Error | null }
+interface State<T> {
+  path: string; generation: number; items: T[]; cursor: string | null; error: ApiError | Error | null
+  busy: boolean; moreError: string
+}
 
 /** Lista paginada por cursor. Trocar `path` recarrega a primeira página. */
 export function usePagedList<T>(path: string, onExpired: () => void) {
   const [state, setState] = useState<State<T> | null>(null)
   const [attempt, setAttempt] = useState(0)
-  const [busy, setBusy] = useState(false)
-  const [moreError, setMoreError] = useState('')
+  const generation = useRef(0)
   useEffect(() => {
-    let alive = true
+    const requestGeneration = ++generation.current
     request<Page<T>>(path).then(page => {
-      if (alive) setState({ path, items: page.items, cursor: page.next_cursor, error: null })
+      if (generation.current === requestGeneration) setState({ path, generation: requestGeneration, items: page.items, cursor: page.next_cursor, error: null, busy: false, moreError: '' })
     }).catch((err: unknown) => {
-      if (!alive) return
+      if (generation.current !== requestGeneration) return
       if (err instanceof ApiError && err.status === 401) onExpired()
-      setState({ path, items: [], cursor: null, error: err instanceof Error ? err : new Error('Não foi possível carregar a lista.') })
+      setState({ path, generation: requestGeneration, items: [], cursor: null, error: err instanceof Error ? err : new Error('Não foi possível carregar a lista.'), busy: false, moreError: '' })
     })
-    return () => { alive = false }
+    return () => { generation.current = requestGeneration + 1 }
   }, [path, attempt, onExpired])
   const current = state && state.path === path ? state : null
   const setItems: Dispatch<SetStateAction<T[]>> = useCallback(update => {
     setState(old => old ? { ...old, items: typeof update === 'function' ? update(old.items) : update } : old)
   }, [])
   const loadMore = useCallback(async () => {
-    if (!current?.cursor || busy) return
-    setBusy(true); setMoreError('')
+    if (!current?.cursor || current.busy || generation.current !== current.generation) return
+    const requestGeneration = current.generation
+    setState(old => old?.generation === requestGeneration ? { ...old, busy: true, moreError: '' } : old)
     try {
       const page = await request<Page<T>>(`${path}${path.includes('?') ? '&' : '?'}cursor=${encodeURIComponent(current.cursor)}`)
-      setState(old => old ? { ...old, items: [...old.items, ...page.items], cursor: page.next_cursor } : old)
+      if (generation.current !== requestGeneration) return
+      setState(old => old?.generation === requestGeneration ? { ...old, items: [...old.items, ...page.items], cursor: page.next_cursor } : old)
     } catch (err) {
+      if (generation.current !== requestGeneration) return
       if (err instanceof ApiError && err.status === 401) onExpired()
-      setMoreError(err instanceof Error ? err.message : 'Não foi possível carregar mais itens.')
-    } finally { setBusy(false) }
-  }, [current, busy, path, onExpired])
+      setState(old => old?.generation === requestGeneration ? { ...old, moreError: err instanceof Error ? err.message : 'Não foi possível carregar mais itens.' } : old)
+    } finally {
+      if (generation.current === requestGeneration) setState(old => old?.generation === requestGeneration ? { ...old, busy: false } : old)
+    }
+  }, [current, path, onExpired])
   return {
-    items: current?.items ?? [], loading: !current, error: current?.error ?? null, moreError,
-    hasMore: Boolean(current?.cursor), busy, setItems, loadMore, reload: () => { setState(null); setAttempt(n => n + 1) },
+    items: current?.items ?? [], loading: !current, error: current?.error ?? null, moreError: current?.moreError ?? '',
+    hasMore: Boolean(current?.cursor), busy: current?.busy ?? false, setItems, loadMore,
+    reload: () => { generation.current++; setState(null); setAttempt(n => n + 1) },
   }
 }

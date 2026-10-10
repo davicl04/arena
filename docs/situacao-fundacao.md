@@ -1,5 +1,22 @@
 # Situação da fundação do Arena
 
+## Correções da revisão da branch — 10 de outubro de 2026
+
+Corrigidos os quatro problemas encontrados na revisão de `feat/profile-improvement` contra `origin/main`, com três subagentes em paralelo e revisão conjunta no checkout atual:
+
+- MinIO: o `COPY` do entrypoint define permissão `0755`, independentemente da permissão do arquivo no checkout Linux. A normalização de CRLF foi preservada.
+- Paginação web: respostas, erros e finalizações de páginas antigas são descartados após troca de lista, recarga da mesma URL ou desmontagem. O cursor, o estado de carregamento e o erro de paginação pertencem à geração atual da lista.
+- Notificações web: "Aprovar todas" consulta e aprova lotes sequenciais até esvaziar a fila, inclusive pedidos ainda não carregados. Em erro parcial, recarrega os pedidos pendentes para permitir retomada; não mostra "Tudo em dia" enquanto a operação continua.
+- Expo: avatar e capa associam a falha à URL e à sessão que falharam. Uma imagem substituta ou uma nova sessão podem carregar sem precisar remontar a tela; as imagens continuam usando Bearer.
+
+**Validação desta correção.**
+- Web: lint sem avisos, build e **73 testes com cobertura** aprovados, incluindo 8 casos do hook de paginação e 4 de aprovação em múltiplas páginas/retomada. Cobertura de instruções: **71,10%**; pisos configurados atendidos.
+- Mobile: lint, typecheck, **47 testes com cobertura** e exportação Android aprovados. Os 3 casos novos verificam troca de URL após falha de avatar/capa e troca de sessão. Cobertura de instruções: **46,67%**; pisos configurados atendidos.
+- Infraestrutura: `docker compose config --quiet` aprovado; o Dockerfile preserva a configuração existente e acrescenta somente a permissão do entrypoint.
+- Navegador: ensaio isolado na porta 5181 com componentes reais e respostas controladas exclusivas de teste. Confirmados troca de Seguidores para Seguindo durante paginação lenta, descarte da página atrasada, erro parcial na aprovação e retomada até esvaziar 21 solicitações. Evidências locais em `artifacts/branch-review/`.
+
+**Limitações.** O daemon Docker e o PostgreSQL/API locais estavam indisponíveis. Não foram executados build/start do MinIO nem ensaio integrado com persistência nesta correção; a permissão do entrypoint foi verificada pelo diff, sem confirmação em container Linux. Os testes dos clientes e o ensaio de navegador usam doubles, não comprovam API, banco ou storage reais. Nenhum aparelho Android/iOS foi validado; CI remoto continua pendente. Sem novas dependências, migrações ou deploy. Após a validação, o usuário autorizou o commit das correções e o envio à branch remota `feat/profile-improvement`; esse envio não inclui deploy nem nova execução das verificações.
+
 ## Implementação do perfil, da edição de perfil e do perfil de visitante — 10 de outubro de 2026
 
 Implementado o [plano do perfil](plano-perfil.md) no backend, na web e no Expo. A pedido do usuário, a entrega foi versionada e enviada ao remoto `origin` na branch `feat/profile-improvement`, sem linhas `Co-Authored-By`; essa regra de commits foi registrada em `AGENTS.md`. As verificações abaixo não foram repetidas para o envio, que não inclui deploy.

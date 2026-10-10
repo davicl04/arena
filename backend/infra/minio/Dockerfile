@@ -6,7 +6,7 @@ RUN CGO_ENABLED=0 go install github.com/minio/minio@${MINIO_VERSION}
 FROM alpine:3.22
 RUN apk add --no-cache ca-certificates wget su-exec && adduser -D -u 10001 minio && mkdir /data
 COPY --from=build /go/bin/minio /usr/local/bin/minio
-COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+COPY --chmod=0755 entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN sed -i 's/\r$//' /usr/local/bin/entrypoint.sh
 EXPOSE 9000 9001
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
