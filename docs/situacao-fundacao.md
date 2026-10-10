@@ -4,6 +4,8 @@
 
 Investigado o erro `EndpointConnectionError` durante a publicação de posts. O container local do MinIO reiniciava porque `entrypoint.sh`, copiado do checkout Windows com finais CRLF, tinha um shebang inválido para Linux. O Dockerfile agora normaliza os finais de linha do entrypoint durante o build. A imagem foi reconstruída e somente o serviço MinIO foi recriado; `arena-minio` ficou healthy, `/minio/health/live` respondeu HTTP 200 e o PostgreSQL permaneceu healthy. O volume persistente `miniodata` foi preservado. Não foi possível executar `ensure-bucket` pela CLI, pois `backend/.venv` não existe neste checkout; nenhum post foi criado para teste.
 
+Após reiniciar a API, o log revelou `NoSuchBucket`. Criado e validado o bucket privado `arena-media` no MinIO local usando as credenciais configuradas, que foram comparadas sem exposição com as credenciais do container. O bucket está acessível; nenhum post ou dado existente foi alterado. A publicação não foi repetida para evitar inserir conteúdo de teste na conta.
+
 ## Versionamento de posts e correções — 10 de outubro de 2026
 
 O usuário autorizou o commit e o envio ao remoto `origin` na branch existente `feat/minio-images`. A entrega reúne a implementação de posts, perfis sociais e moderação, a migração `0003`, os clientes web/Expo, a documentação e as correções da revisão descritas abaixo. Artefatos de validação, ambientes locais e segredos permanecem fora do versionamento.
