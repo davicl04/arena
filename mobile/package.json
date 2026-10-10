@@ -9,7 +9,9 @@
     "ios": "expo start --ios",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
-    "export:android": "expo export --platform android"
+    "export:android": "expo export --platform android",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "expo": "57.0.27",
@@ -21,8 +23,10 @@
   },
   "devDependencies": {
     "@types/react": "19.2.18",
+    "@vitest/coverage-v8": "4.1.11",
     "eslint": "9.39.5",
     "eslint-config-expo": "57.0.2",
-    "typescript": "6.0.3"
+    "typescript": "6.0.3",
+    "vitest": "4.1.11"
   }
 }

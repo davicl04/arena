@@ -31,7 +31,20 @@ jobs:
       - run: ruff check app migrations tests
       - run: alembic upgrade head
       - run: alembic check
-      - run: pytest -q
+      - name: Unit tests and coverage
+        run: pytest tests/unit -q --cov=app --cov-branch --cov-fail-under=60 --cov-report=xml:../artifacts/coverage/backend/unit.xml --cov-report=html:../artifacts/coverage/backend/unit-html --junitxml=../artifacts/coverage/backend/unit-tests.xml
+      - name: Unit and PostgreSQL integration tests
+        run: pytest -q --cov=app --cov-branch --cov-fail-under=85 --cov-report=xml:../artifacts/coverage/backend/full.xml --cov-report=html:../artifacts/coverage/backend/full-html --junitxml=../artifacts/coverage/backend/full-tests.xml
+      - name: Publish quality summary
+        if: always()
+        run: python ../scripts/quality_summary.py backend ../artifacts/coverage/backend >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload backend test and coverage reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-backend
+          path: artifacts/coverage/backend/
+          if-no-files-found: error
   clients:
     runs-on: ubuntu-latest
     strategy:
@@ -50,6 +63,20 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm run lint
+      - run: npm run test:coverage
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Publish quality summary
+        if: always()
+        run: python ../scripts/quality_summary.py ${{ matrix.client }} ../artifacts/coverage/${{ matrix.client }} >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload client test and coverage reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ matrix.client }}
+          path: artifacts/coverage/${{ matrix.client }}/
+          if-no-files-found: error
       - if: matrix.client == 'web'
         run: npm run build
       - if: matrix.client == 'mobile'

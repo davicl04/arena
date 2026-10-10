@@ -37,7 +37,7 @@ Atualizar este Markdown a cada entrega ou alteração no projeto, registrando im
 | --- | --- |
 | Migração em PostgreSQL 16.14 vazio | Aplicada até `0001`; catálogo e tabelas criados. |
 | Alembic check | Sem operações novas de migração; modelos e banco coerentes. |
-| Testes backend | 16 aprovados: 8 unitários e 8 de integração, sem testes pulados. |
+| Testes backend | 60 aprovados: 52 unitários e 8 de integração, sem testes pulados. Cobertura de linhas: 62,11% apenas unidade e 88,20% na suíte completa. |
 | Integração PostgreSQL | Testes em schema aleatório isolado; unicidade concorrente, perfis, autorização, expiração e logout exercitados. |
 | Seed | Executado duas vezes sem duplicar a conta nem perfis. |
 | Web | Build, TypeScript e ESLint aprovados; fluxo de cadastro/login/perfil executado no navegador. |
@@ -90,3 +90,25 @@ Commit local na branch main autorizado pelo usuário, reunindo a fundação de b
 ## Envio ao repositório remoto — 9 de outubro de 2026
 
 O usuário autorizou enviar a main para origin (repositório davicl04/arena no GitHub). O commit a0b7603 reúne a fundação e os ajustes visuais; este registro acompanha o envio. Nenhuma alteração funcional nem novos testes de código nesta etapa. A confirmação do push é verificada pelo comando Git e pela comparação entre HEAD e a referência remota.
+
+## Correção da conexão com Compose — 9 de outubro de 2026
+
+Diagnosticado erro de conexão no Alembic: o backend/.env local ainda apontava para a porta auxiliar 55432, embora o PostgreSQL do Docker Compose estivesse healthy na porta 5432. A porta foi corrigida no arquivo local ignorado, preservando os demais valores. Alembic upgrade head, current (0001 head) e check executados com sucesso no banco do Compose. O auxiliar havia sido reiniciado durante o diagnóstico inicial e foi encerrado após a correção; seus dados foram preservados. README ampliado para explicar que a cópia condicional do .env não atualiza arquivos existentes e que os dois bancos possuem dados independentes. API e fluxos dos clientes não foram iniciados nem testados nesta etapa; reiniciar a API para carregar a configuração atualizada.
+
+## Indicadores de qualidade e testes unitários — 9 de outubro de 2026
+
+Avaliação dos itens 3.1 e 3.2 registrada em docs/qualidade-codigo.md, com repositório, padrões e resultados verificáveis. Executados 8 casos unitários do backend: 8 aprovados, zero falhas/pulados e taxa de sucesso de 100%. Cobertura de instruções de backend/app apenas por esses testes: 146 de 322 (45,34%; relatório arredondado 45%). XML local em artifacts/coverage-unit.xml. Ruff aprovado. Não foram repetidos testes de integração nem checks dos clientes. Pendente ampliar testes isolados, definir meta, publicar cobertura no CI e adicionar testes unitários de web/mobile; não há indicador de cobertura do sistema inteiro.
+
+## Ampliação dos testes e cobertura no CI — 9 de outubro de 2026
+
+Adicionados testes unitários de cadastro, autenticação, hash/sessão, expiração, proteção de origem e schemas no backend; transporte, cadastro/login, recuperação de conexão e abas por teclado na web; SecureStore/Bearer, respostas e timeout no mobile. Doubles são exclusivos dos testes, sem dados demonstrativos na interface. Vitest/V8 e Testing Library foram instalados como dependências de desenvolvimento com versões exatas e locks atualizados. Scripts npm test e test:coverage disponíveis nos dois clientes.
+
+Resultados locais: 52/52 unidades backend, 18/18 web e 12/12 mobile, com 100% de sucesso e zero falhas/pulados. Suíte completa do backend: 60/60, incluindo 8 testes PostgreSQL em schema isolado. Cobertura de linhas: backend unidade 62,11%, completo 88,20%, web 35,02%, mobile 16,66%. Cobertura de ramos: 47,83%, 71,74%, 34,69% e 8,91%, respectivamente. Cobertura combinada de instruções/ramos do backend: 60,33% unidade e 85,87% completo. Ambos os arquivos de transporte dos clientes têm 100% de linhas cobertas; cobertura global continua inicial, especialmente nas telas mobile.
+
+Checks: Ruff (incluindo scripts), lint e TypeScript web/mobile, build web e exportação Android aprovados. YAML do CI validado e gerador de resumo conferido com relatórios reais. Pisos iniciais de cobertura, uploads HTML/XML/JUnit/LCOV/JSON e resumos GitHub Actions configurados; execução remota desta alteração ainda pendente. Os 22 alertas transitivos anteriores do mobile permanecem, sem atualização forçada do Expo. Detalhes dos indicadores e comandos em docs/qualidade-codigo.md. Não houve alteração funcional dos clientes/API nem novo ensaio em aparelho.
+
+Roteiro Word atualizado nos itens 3.1/3.2 e no estado da fundação, preservando os cenários futuros como planejados. Estrutura DOCX, indicadores, tabelas e imagens conferidos; backup anterior local em artifacts/. A tentativa de renderização com a skill documents falhou porque o runtime não contém LibreOffice/soffice.exe. A paginação e aparência final do Word permanecem sem validação visual. README e AGENTS.md atualizados com execução e acompanhamento da cobertura. Sem commit/push nesta entrega.
+
+## Versionamento dos testes e indicadores — 9 de outubro de 2026
+
+Commit e envio à main de origin autorizados pelo usuário, incluindo testes unitários dos três módulos, configuração de cobertura/CI, documentação e roteiro Word atualizado. Revisão de whitespace e arquivos versionáveis realizada; relatórios, backup do Word e configuração local .env permanecem ignorados. Verificações de código registradas na entrega anterior não foram repetidas nesta etapa. Confirmação do envio por Git e comparação de HEAD com a referência remota; execução do novo CI remoto permanece pendente.

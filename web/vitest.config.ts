@@ -1,0 +1,26 @@
+import { defineConfig } from 'vitest/config'
+import react from '@vitejs/plugin-react'
+
+export default defineConfig({
+  plugins: [react()],
+  test: {
+    environment: 'jsdom',
+    env: { VITE_API_URL: 'http://localhost:8000' },
+    include: ['tests/**/*.test.{ts,tsx}'],
+    reporters: ['default', 'junit'],
+    outputFile: { junit: '../artifacts/coverage/web/tests.xml' },
+    restoreMocks: true,
+    unstubGlobals: true,
+    coverage: {
+      provider: 'v8',
+      include: ['src/**/*.{ts,tsx}'],
+      exclude: ['src/main.tsx'],
+      reportsDirectory: '../artifacts/coverage/web',
+      reporter: ['text', 'html', 'lcov', 'json-summary'],
+      thresholds: {
+        statements: 30, lines: 30, branches: 30, functions: 20,
+        'src/api/client.ts': { statements: 100, lines: 100, branches: 90, functions: 100 },
+      },
+    },
+  },
+})

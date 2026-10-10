@@ -65,14 +65,14 @@ Execute os comandos no diretório indicado, usando o ambiente instalado. Instale
 
 | Área alterada | Verificações |
 | --- | --- |
-| Web: TypeScript/React ou comportamento | Em `web/`: `npm run lint` e `npm run build` (inclui TypeScript). Confira o fluxo afetado no navegador. |
+| Web: TypeScript/React ou comportamento | Em `web/`: `npm run lint` e `npm run build` (inclui TypeScript). Execute `npm run test:coverage` quando alterar comportamento coberto pelos testes. Confira o fluxo afetado no navegador. |
 | Web: CSS ou assets | Em `web/`: `npm run build` e revisão visual das telas afetadas. |
 | Backend | Em `backend/`: `.venv/Scripts/python.exe -m ruff check app migrations tests` e `.venv/Scripts/python.exe -m pytest -q`, com `TEST_DATABASE_URL` configurada para integração. |
 | Esquema do banco | Aplique migrações em banco de desenvolvimento/teste apropriado e execute `.venv/Scripts/python.exe -m alembic check`, além dos testes afetados. |
-| Mobile | Em `mobile/`: `npm run lint`, `npm run typecheck` e `npm run export:android`. Se mudar dependências Expo, execute também `npx expo install --check`. |
+| Mobile | Em `mobile/`: `npm run lint`, `npm run typecheck` e `npm run export:android`, além de `npm run test:coverage` para alterações de comportamento. Se mudar dependências Expo, execute também `npx expo install --check`. |
 | Apenas documentação | Confira caminhos, comandos, coerência e conteúdo do diff; não é necessário executar testes de código. |
 
-No Linux/macOS, use `.venv/bin/python` no lugar de `.venv/Scripts/python.exe`. Consulte o README para configurar `TEST_DATABASE_URL`; testes de integração pulados não comprovam persistência. Os testes de integração usam schema aleatório isolado. Não invente credenciais nem registre segredos para executar checks.
+No Linux/macOS, use `.venv/bin/python` no lugar de `.venv/Scripts/python.exe`. Consulte o README para configurar `TEST_DATABASE_URL`; testes de integração pulados não comprovam persistência. Os testes de integração usam schema aleatório isolado. Para cobertura, use `--cov=app --cov-branch`; indicadores, pisos e comandos completos estão em `docs/qualidade-codigo.md`. Não exclua código sem testes apenas para elevar o percentual. Não invente credenciais nem registre segredos para executar checks.
 
 Para mudanças em fluxo integrado, confira os efeitos reais: ação no cliente, resposta da API e persistência após recarregar. Crie testes quando houver mudança de regra de negócio ou risco de regressão relevante; não crie testes que apenas repitam CSS ou textos de ajustes visuais simples. Informe checks não executados e bloqueios reais. Build mobile não comprova funcionamento em Android/iOS, e CI local não comprova execução remota.
 
