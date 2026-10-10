@@ -2,6 +2,8 @@
 
 Data: 10 de outubro de 2026. Especificação definida com o usuário a partir de oito rodadas de protótipos interativos. Implementada em 10 de outubro de 2026; verificações e pendências estão em [situação da fundação](situacao-fundacao.md).
 
+Atualização: o cabeçalho do perfil e a tela aberta pela engrenagem foram refinados em [plano do cabeçalho e do menu](plano-perfil-menu.md). O título passou a ser o @, o lápis virou pessoa com engrenagem e a engrenagem virou o hambúrguer do Menu. O item 4 e as menções a `app-settings`, `AppSettingsPage`, ao lápis e à engrenagem abaixo descrevem a entrega anterior.
+
 ## Contexto
 
 O perfil atual concentra tudo na tela de configurações. O botão "Editar perfil" e a engrenagem levam ao mesmo lugar (`go("settings")`), o e-mail aparece no perfil e só o nome é editável. A capa é uma imagem fixa (`/images/arena-cover.jpg`). Não existe tela de perfil de outra pessoa, apenas um painel inline na Comunidade.

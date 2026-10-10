@@ -8,7 +8,8 @@ import EmptyState from "../components/EmptyState";
 import HomePage from "./HomePage";
 import ProfilePage from "./ProfilePage";
 import EditProfilePage from "./EditProfilePage";
-import AppSettingsPage from "./AppSettingsPage";
+import MenuPage from "./MenuPage";
+import AdminReports from "../components/AdminReports";
 import BlockedAccountsPage from "./BlockedAccountsPage";
 import ConnectionsPage from "./ConnectionsPage";
 import UserProfilePage from "./UserProfilePage";
@@ -32,7 +33,8 @@ const titles: Record<Screen, string> = {
   community: "Comunidade",
   profile: "Perfil",
   "edit-profile": "Editar perfil",
-  "app-settings": "Configurações",
+  menu: "Menu",
+  moderation: "Moderação",
   blocked: "Contas bloqueadas",
   connections: "Conexões",
   "user-profile": "Perfil",
@@ -150,10 +152,10 @@ export default function ArenaPage({
     screen === "user-profile" || screen === "connections"
       ? root === "notifications" || root === "sports"
         ? "home"
-        : root === "edit-profile" || root === "app-settings" || root === "blocked"
+        : ["edit-profile", "menu", "moderation", "blocked"].includes(root)
           ? "profile"
           : root
-      : ["edit-profile", "app-settings", "blocked", "sports"].includes(screen)
+      : ["edit-profile", "menu", "moderation", "blocked", "sports"].includes(screen)
         ? "profile"
         : screen === "notifications"
           ? "home"
@@ -343,13 +345,18 @@ export default function ArenaPage({
               onExpired={onExpired}
             />
           )}
-          {screen === "app-settings" && (
-            <AppSettingsPage
+          {screen === "menu" && (
+            <MenuPage
               isAdmin={user.is_admin}
               busy={busy}
+              onEditProfile={() => go("edit-profile")}
+              onSports={() => go("sports")}
+              onModeration={() => go("moderation")}
               onLogout={logout}
-              onExpired={onExpired}
             />
+          )}
+          {screen === "moderation" && user.is_admin && (
+            <AdminReports onExpired={onExpired} />
           )}
         </main>
         <nav className="bottom-nav" aria-label="Navegação principal">

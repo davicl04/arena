@@ -40,7 +40,7 @@ describe('UserProfilePage', () => {
   it('mostra contagens e seguidores em comum, mas fecha listas e fotos de conta privada', async () => {
     mockProfile(base)
     const props = renderProfile()
-    expect(await screen.findByText('@atleta.dois')).not.toBeNull()
+    expect(await screen.findByRole('heading', { name: '@atleta.dois' })).not.toBeNull()
     expect(screen.getByRole('button', { name: '12 seguidores' })).not.toBeNull()
     expect(screen.getByRole('button', { name: '5 seguindo' })).not.toBeNull()
     expect(screen.getByText(/e mais 3 que você segue também seguem esta conta/).textContent).toBe('Ana Lima, Bia Souza e mais 3 que você segue também seguem esta conta')

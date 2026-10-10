@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { Pencil, Shield } from 'lucide-react'
+import { Shield, UserCog } from 'lucide-react'
 import { apiUrl, sports } from '../api/client'
 import type { Sport, SocialUser } from '../api/client'
 import { cover as defaultCover, sportIcons } from '../data/arena'
@@ -42,11 +42,11 @@ export default function ProfileHeader({ mode, name, username, avatar, coverUrl, 
     <section className="profile-intro" aria-label={mode === 'own' ? 'Seu perfil' : `Perfil de ${name}`}>
       <div className="avatar-wrap">
         <div className="avatar">{avatar}</div>
-        {mode === 'own' && onEdit && <button type="button" className="avatar-edit" aria-label="Editar perfil" onClick={onEdit}><Pencil size={14} /></button>}
+        {mode === 'own' && onEdit && <button type="button" className="avatar-edit" aria-label="Editar perfil" onClick={onEdit}><UserCog size={16} /></button>}
       </div>
       {actions && <div className="profile-intro-actions">{actions}</div>}
-      <h1>{name}</h1>
-      <p className="profile-handle">@{username}</p>
+      <h1><span className="profile-at">@</span>{username}</h1>
+      <p className="profile-name">{name}</p>
       {followerCount !== null && followingCount !== null && <div className="conn-line">
         <button type="button" onClick={onFollowers}><b>{followerCount}</b> <span>{followerCount === 1 ? 'seguidor' : 'seguidores'}</span></button>
         <span className="conn-sep" aria-hidden="true">·</span>

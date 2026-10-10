@@ -6,23 +6,17 @@ import { ApiError, clearToken, getToken, request, sports } from '../api/client'
 import type { City, Page, Profile, ProfileInput, SocialUser, Sport, User } from '../api/client'
 import { Button, Field, styles } from '../components/ui'
 import { Avatar, Cover } from '../components/media'
+import ListRow from '../components/ListRow'
+import ProfileTitle from '../components/ProfileTitle'
 import Sheet from '../components/Sheet'
 import UsernameForm from '../components/UsernameForm'
 import SportCard from '../components/SportCard'
+import { appVersion } from '../utils/appInfo'
 import { connectionsText } from '../utils/profile'
 
 type Which = 'requests' | 'blocks' | 'followers' | 'following'
-type SheetName = 'edit' | 'avatar' | 'cover' | 'name' | 'username' | 'visibility' | 'blocked' | 'connections' | 'settings'
+type SheetName = 'edit' | 'avatar' | 'cover' | 'name' | 'username' | 'visibility' | 'blocked' | 'connections' | 'menu'
 const MAX_IMAGE = 5 * 1024 * 1024
-
-function Row({ label, value, onPress }: { label: string; value?: string; onPress?: () => void }) {
-  return <Pressable accessibilityRole={onPress ? 'button' : undefined} accessibilityLabel={value ? `${label}: ${value}` : label} disabled={!onPress} onPress={onPress}
-    style={{ minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: 10, borderBottomWidth: 1, borderColor: '#edf3ef' }}>
-    <Text style={{ fontWeight: '600', color: '#343d39' }}>{label}</Text>
-    <Text numberOfLines={1} style={{ flex: 1, textAlign: 'right', color: '#606965' }}>{value ?? ''}</Text>
-    {onPress ? <Text style={{ color: '#606965' }}>›</Text> : null}
-  </Pressable>
-}
 
 function PersonRow({ person, token, children }: { person: SocialUser; token: string | null; children?: ReactNode }) {
   return <View style={[styles.row, { flexWrap: 'nowrap', marginVertical: 6 }]}>
@@ -55,6 +49,7 @@ export default function ProfileScreen({ user, onUser, onLogout, onExpired }: { u
   const [attempt, setAttempt] = useState(0)
   const [token, setToken] = useState<string | null>(null)
   const [sheet, setSheet] = useState<SheetName | null>(null)
+  const [fromMenu, setFromMenu] = useState(false)
   const [tab, setTab] = useState<'followers' | 'following'>('followers')
   const [draftPublic, setDraftPublic] = useState(user.social_public)
   const [counts, setCounts] = useState({ followers: 0, following: 0 })
@@ -73,7 +68,9 @@ export default function ProfileScreen({ user, onUser, onLogout, onExpired }: { u
   }, [attempt])
   useEffect(() => { let alive = true; void getToken().then(value => { if (alive) setToken(value) }); return () => { alive = false } }, [])
   function fail(err: unknown) { if (err instanceof ApiError && err.status === 401) onExpired(); setError(err instanceof Error ? err.message : 'Tente novamente.') }
-  function open(next: SheetName | null) { setError(''); setMessage(''); setSheet(next) }
+  function open(next: SheetName | null) { setError(''); setMessage(''); if (next === null || next === 'menu') setFromMenu(false); setSheet(next) }
+  // "Editar perfil" aberto pelo menu volta ao menu; aberto pelo selo do avatar apenas fecha.
+  function editFromMenu() { open('edit'); setFromMenu(true) }
   async function save(sport: Sport, input: ProfileInput) {
     try { const p = await request<Profile>(`/me/sports-profiles/${sport}`, 'PUT', input); setProfiles(old => [...old.filter(v => v.sport !== sport), p]) }
     catch (err) { if (err instanceof ApiError && err.status === 401) onExpired(); throw err }
@@ -178,14 +175,14 @@ export default function ProfileScreen({ user, onUser, onLogout, onExpired }: { u
   return <>
     <View style={[styles.card, { padding: 0, overflow: 'hidden' }]}>
       <Cover path={user.cover?.url ?? null} token={token} />
-      <Pressable accessibilityRole="button" accessibilityLabel="Configurações do app" onPress={() => open('settings')} style={{ position: 'absolute', top: 8, right: 8, minHeight: 44, minWidth: 44, borderRadius: 22, backgroundColor: '#ffffffd9', alignItems: 'center', justifyContent: 'center' }}><Text style={{ fontSize: 20 }}>⚙</Text></Pressable>
+      <Pressable accessibilityRole="button" accessibilityLabel="Menu" onPress={() => open('menu')} style={{ position: 'absolute', top: 8, right: 8, minHeight: 44, minWidth: 44, borderRadius: 22, backgroundColor: '#ffffffd9', alignItems: 'center', justifyContent: 'center' }}><Text style={{ fontSize: 20, color: '#343d39' }}>☰</Text></Pressable>
       <View style={{ paddingHorizontal: 22, paddingBottom: 22 }}>
         <View style={{ marginTop: -36, width: 80 }}>
           <View style={{ borderWidth: 3, borderColor: '#fff', borderRadius: 40 }}><Avatar path={user.avatar?.url ?? null} name={user.name} token={token} size={74} /></View>
-          <Pressable accessibilityRole="button" accessibilityLabel="Editar perfil" onPress={() => open('edit')} style={{ position: 'absolute', right: -4, bottom: 0, width: 32, height: 32, borderRadius: 16, backgroundColor: '#005a36', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#fff' }}>✎</Text></Pressable>
+          <Pressable accessibilityRole="button" accessibilityLabel="Editar perfil" onPress={() => open('edit')} style={{ position: 'absolute', right: -4, bottom: 0, width: 32, height: 32, borderRadius: 16, backgroundColor: '#005a36', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#fff' }}>⚙</Text></Pressable>
         </View>
-        <Text style={[styles.heading, { marginTop: 10, marginBottom: 2 }]}>{user.name}</Text>
-        <Text style={{ color: '#606965', marginBottom: 8 }}>@{user.username} · {user.social_public ? 'Conta pública' : 'Conta privada'}</Text>
+        <View style={{ marginTop: 10 }}><ProfileTitle name={user.name} username={user.username} /></View>
+        <Text style={{ color: '#606965', marginBottom: 8 }}>{user.social_public ? 'Conta pública' : 'Conta privada'}</Text>
         <Pressable accessibilityRole="button" accessibilityLabel={`Conexões: ${connectionsText(counts.followers, counts.following)}`} onPress={() => open('connections')} style={{ minHeight: 44, justifyContent: 'center' }}><Text style={{ fontWeight: '600', color: '#343d39' }}>{connectionsText(counts.followers, counts.following)}</Text></Pressable>
       </View>
     </View>
@@ -202,17 +199,17 @@ export default function ProfileScreen({ user, onUser, onLogout, onExpired }: { u
     <Text style={styles.heading}>Suas modalidades</Text>{loading ? <ActivityIndicator accessibilityLabel="Carregando modalidades" /> : sports.map(s => <SportCard key={s.value} sport={s.value} label={s.label} cities={cities} profile={profiles.find(p => p.sport === s.value)} onSave={save} />)}
     {!loading && !profiles.length && !error ? <Text style={styles.body}>Adicione sua primeira modalidade acima.</Text> : null}
 
-    {sheet === 'edit' ? <Sheet title="Editar perfil" onClose={() => open(null)}>
+    {sheet === 'edit' ? <Sheet title="Editar perfil" onClose={() => open(null)} onBack={fromMenu ? () => open('menu') : undefined}>
       {feedback}
       <Text style={styles.eyebrow}>PERFIL</Text>
-      <Row label="Foto" value={user.avatar ? 'Alterar' : 'Adicionar'} onPress={() => open('avatar')} />
-      <Row label="Foto de capa" value={user.cover ? 'Personalizada' : 'Padrão'} onPress={() => open('cover')} />
-      <Row label="Nome" value={user.name} onPress={() => { setName(user.name); open('name') }} />
-      <Row label="Nome de usuário" value={`@${user.username}`} onPress={() => open('username')} />
-      <Row label="E-mail" value={`${user.email} (somente leitura)`} />
+      <ListRow label="Foto" value={user.avatar ? 'Alterar' : 'Adicionar'} onPress={() => open('avatar')} />
+      <ListRow label="Foto de capa" value={user.cover ? 'Personalizada' : 'Padrão'} onPress={() => open('cover')} />
+      <ListRow label="Nome" value={user.name} onPress={() => { setName(user.name); open('name') }} />
+      <ListRow label="Nome de usuário" value={`@${user.username}`} onPress={() => open('username')} />
+      <ListRow label="E-mail" value={`${user.email} (somente leitura)`} />
       <Text style={[styles.eyebrow, { marginTop: 20 }]}>PRIVACIDADE</Text>
-      <Row label="Visibilidade da conta" value={user.social_public ? 'Pública' : 'Privada'} onPress={() => { setDraftPublic(user.social_public); open('visibility') }} />
-      <Row label="Contas bloqueadas" value={String(blocks.length) + (cursors.blocks ? '+' : '')} onPress={() => open('blocked')} />
+      <ListRow label="Visibilidade da conta" value={user.social_public ? 'Pública' : 'Privada'} onPress={() => { setDraftPublic(user.social_public); open('visibility') }} />
+      <ListRow label="Contas bloqueadas" value={String(blocks.length) + (cursors.blocks ? '+' : '')} onPress={() => open('blocked')} />
     </Sheet> : null}
     {sheet === 'avatar' ? <Sheet title="Foto de perfil" onClose={() => open(null)} onBack={back}>
       {feedback}
@@ -260,10 +257,15 @@ export default function ProfileScreen({ user, onUser, onLogout, onExpired }: { u
         {following.length ? following.map(person => <PersonRow key={person.id} person={person} token={token}><Button secondary title="Deixar de seguir" onPress={() => void unfollow(person.id)} /></PersonRow>) : <Text style={styles.body}>Você ainda não segue ninguém.</Text>}{more('following', 'contas seguidas')}
       </>}
     </Sheet> : null}
-    {sheet === 'settings' ? <Sheet title="Configurações do app" onClose={() => open(null)}>
+    {sheet === 'menu' ? <Sheet title="Menu" onClose={() => open(null)}>
       {feedback}
-      <Text style={styles.body}>Notificações e outras preferências do app ainda não estão disponíveis.</Text>
-      <Button secondary title={busy ? 'Aguarde…' : 'Sair da conta'} disabled={busy} onPress={() => void logout()} />
+      <Text style={styles.eyebrow}>CONTA</Text>
+      <ListRow label="Editar perfil" onPress={editFromMenu} />
+      <ListRow label="Minhas modalidades" onPress={() => open(null)} />
+      <Text style={[styles.eyebrow, { marginTop: 20 }]}>APP</Text>
+      <ListRow label="Notificações" value="Em breve" />
+      <ListRow label="Sobre o ARENA" value={`Versão ${appVersion}`} />
+      <View style={{ marginTop: 20 }}><ListRow tone="danger" label={busy ? 'Aguarde…' : 'Sair da conta'} disabled={busy} onPress={() => void logout()} /></View>
     </Sheet> : null}
   </>
 }

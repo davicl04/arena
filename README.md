@@ -73,7 +73,7 @@ Contas começam privadas. Seguidores de contas privadas precisam de aprovação;
 
 Busca, galerias, comentários e gestão de relações permitem carregar páginas adicionais. As listas da API usam `{ items, next_cursor }`, inclusive `GET /api/v1/me/blocks`, com 20 itens por padrão e máximo de 50. O cursor deve ser reenviado na próxima chamada; não é uma autorização de acesso.
 
-Denúncias ficam em Configurações (engrenagem do perfil) para administradores web. Cada decisão exige justificativa e registra administrador, alvo, ação e data.
+Denúncias ficam em Menu (hambúrguer do perfil) → Moderação, visível apenas para administradores web. Cada decisão exige justificativa e registra administrador, alvo, ação e data.
 
 Uma conta suspensa pode ser reativada pela fila de denúncias resolvidas, com justificativa obrigatória. A fila informa o identificador e o estado da conta responsável sem expor conteúdo privado resolvido. A reativação preserva a revogação das sessões anteriores; o titular precisa entrar novamente.
 

@@ -5,6 +5,7 @@ import { ApiError, apiUrl, getToken, request } from '../api/client'
 import type { MutualFollowersPage, Page, Post, SocialComment, SocialUser, User } from '../api/client'
 import { Button, Field, styles } from '../components/ui'
 import { Cover } from '../components/media'
+import ProfileTitle from '../components/ProfileTitle'
 import { connectionsText, mutualFollowersText } from '../utils/profile'
 
 export default function CommunityScreen({ user, onExpired }: { user: User; onExpired: () => void }) {
@@ -227,7 +228,7 @@ export default function CommunityScreen({ user, onExpired }: { user: User; onExp
   return <>
     <FlatList data={items} keyExtractor={item => String(item.id)} renderItem={renderPost} ListHeaderComponent={header} ListEmptyComponent={loading ? <ActivityIndicator accessibilityLabel="Carregando publicações" color="#005a36" /> : <Text style={styles.body}>Seu feed está vazio. Encontre atletas e solicite acesso a contas privadas.</Text>} contentContainerStyle={{ padding: 22, paddingBottom: 30 }} refreshControl={<RefreshControl refreshing={loading} onRefresh={() => void load(true)} />} onEndReached={() => { if (cursor && !busy) void load() }} onEndReachedThreshold={0.6} />
     <Modal visible={Boolean(profile)} animationType="slide" onRequestClose={() => setProfile(null)}><View style={[styles.screen, { padding: 22 }]}>
-      <Button secondary title="Fechar perfil" onPress={() => setProfile(null)} />{profile ? <><View style={[styles.card, { marginTop: 20, padding: 0, overflow: 'hidden' }]}><Cover path={profile.cover_url} token={token} /><View style={{ padding: 22 }}><View style={styles.row}>{avatar(profile.avatar_url, profile.name, 60)}<View style={{ flex: 1 }}><Text style={styles.heading}>{profile.name}</Text><Text style={styles.body}>@{profile.username} · {profile.social_public ? 'Perfil público' : 'Perfil privado'}</Text></View></View>
+      <Button secondary title="Fechar perfil" onPress={() => setProfile(null)} />{profile ? <><View style={[styles.card, { marginTop: 20, padding: 0, overflow: 'hidden' }]}><Cover path={profile.cover_url} token={token} /><View style={{ padding: 22 }}><View style={styles.row}>{avatar(profile.avatar_url, profile.name, 60)}<View style={{ flex: 1 }}><ProfileTitle name={profile.name} username={profile.username} /><Text style={styles.body}>{profile.social_public ? 'Perfil público' : 'Perfil privado'}</Text></View></View>
         <Text accessibilityLabel="Contagens do perfil" style={styles.body}>{canView ? `${profile.post_count} publicações · ` : ''}{connectionsText(profile.follower_count, profile.following_count)}</Text>
         {mutualText ? <Text style={styles.body}>{mutualText}</Text> : null}
         {profile.id !== user.id ? <><Button title={profile.follow_state === 'approved' ? 'Deixar de seguir' : profile.follow_state === 'pending' ? 'Cancelar solicitação' : profile.social_public ? 'Seguir' : 'Solicitar acesso'} onPress={() => void follow(profile)} /><Button secondary title="Bloquear conta" onPress={() => void block(profile)} /><Button secondary title="Denunciar conta" onPress={() => void report('user', profile.id)} /></> : null}

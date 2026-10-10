@@ -1,5 +1,53 @@
 # Situação da fundação do Arena
 
+## Cabeçalho do perfil e menu — 10 de outubro de 2026
+
+Implementado na web e depois no Expo o [plano do cabeçalho e do menu](plano-perfil-menu.md), definido com o usuário em quatro rodadas de protótipos interativos. A pedido do usuário, a verificação com API real e a adaptação ao Expo rodaram em paralelo com subagentes e foram revisadas antes deste registro.
+
+- `ProfileHeader` agora tem como título `@usuario`, com o @ em verde, e mostra o nome real menor e em cinza abaixo. A mudança vale para o perfil próprio e para o de visitante.
+- O selo de edição no avatar trocou o lápis por pessoa com engrenagem (`UserCog`), porque Editar perfil também reúne Privacidade. A engrenagem da capa virou o hambúrguer `Menu`.
+- A tela `app-settings` virou `menu` (`MenuPage.tsx`, título "Menu"), com lista agrupada:
+  - *Conta*: atalhos para Editar perfil e Minhas modalidades.
+  - *App*: Notificações "Em breve" e Sobre o ARENA com a versão.
+  - *Moderação*: Denúncias, só para administradores.
+  - "Sair da conta" em linha vermelha separada.
+- O painel `AdminReports` saiu dessa tela e foi para uma tela própria, `moderation` ("Moderação"), sem mudança de API. O sobretítulo "MODERAÇÃO" saiu do painel, e o título "Denúncias" ficou do tamanho de título de seção.
+- O `Row` de Editar perfil foi extraído para `components/ListRow.tsx`, reutilizado no menu, com a variante `danger`.
+- O README foi atualizado quanto ao acesso às denúncias.
+
+**Verificações executadas.**
+- Web: `npm run lint` sem avisos, `npm run build` e `npm run test:coverage` com **76 testes aprovados** e cobertura de instruções em **71,89%**, com os pisos atendidos. Na navegação, três testes são novos (@ como título, atalhos do menu com retorno e moderação só para administradores) e o teste de saída foi reescrito para o hambúrguer. Os testes de @ passaram a verificar o nome acessível do título.
+- Navegador: ensaio isolado no Chrome headless, com o app real na porta 5181 e respostas controladas exclusivas do ensaio, sem usar contas reais. Foram conferidos o perfil a 390 px, o menu comum e o de administrador, a tela Moderação, e o nome e @ longos com o menu a 320 px. Não houve overflow horizontal em nenhuma das telas. As capturas estão em `artifacts/perfil-menu/`, que não é versionado.
+
+- Navegador com API real: banco separado `arena_e2e` no PostgreSQL local, com migrações até `0004`. A API auxiliar rodou na porta 8010, com a origem permitida `http://localhost:5180` definida só no ambiente do processo, e a web auxiliar na porta 5180, no Chrome headless via CDP. Duas contas de teste `@example.com` foram criadas pela API: uma com nome e @ longos, outra promovida a administradora apenas em `arena_e2e`. Uma denúncia real foi criada pela API. Todos os pontos abaixo foram confirmados:
+  - O @ é o título e o nome fica abaixo, no perfil próprio e no de visitante, em 320, 390 e 1440 px, sem overflow horizontal.
+  - Os atalhos do Menu abrem Editar perfil e, por Minhas modalidades, a tela Suas modalidades. Nos dois casos, o Voltar retorna ao Menu.
+  - Moderação fica oculta para a conta comum e, para a administradora, mostra a denúncia real.
+  - A ordem do Tab passa pelo Menu e pelo selo, com foco visível, e o Enter ativa os itens.
+  - "Sair da conta" apaga a sessão em `auth_sessions`, `/me` responde 401 e a conta continua deslogada após recarregar.
+  - O console não teve erros além do 401 inicial e do `favicon.ico`.
+
+  As capturas estão em `artifacts/perfil-menu-e2e/` e os roteiros em `.local/e2e/`, ambos não versionados. O banco `arena_e2e`, com as contas e a denúncia pendente, foi mantido para novos ensaios. O banco de desenvolvimento não foi tocado.
+
+**Expo.** O perfil próprio e o visitado (Comunidade) usam o novo `components/ProfileTitle.tsx`, com `@usuario` como título (o @ em verde) e o nome real abaixo. O botão da capa virou "Menu" (☰) e abre a folha "Menu", que substitui "Configurações do app":
+- *Conta*: Editar perfil, que volta ao menu, e Minhas modalidades, que fecha a folha e deixa à vista a lista, logo abaixo no perfil.
+- *App*: Notificações "Em breve" e Sobre o ARENA, com a versão lida de `app.json` por `utils/appInfo.ts`.
+- "Sair da conta" em linha vermelha, com "Aguarde…" durante a saída.
+
+O `Row` local foi extraído para `components/ListRow.tsx`, com a variante `danger`. Há diferenças em relação à web:
+- O mobile não tem biblioteca de ícones, então o selo usa o glifo ⚙ no lugar de `UserCog`, mantendo o rótulo "Editar perfil", e as linhas do menu não têm ícones.
+- O grupo Moderação foi omitido, porque o Expo não tem painel de denúncias.
+
+Em `mobile/`, lint e typecheck passaram sem avisos, os **54 testes com cobertura** passaram (7 novos em `tests/profile-menu.test.ts`), com cobertura de instruções de **49,14%** e pisos atendidos, e `export:android` foi aprovado. Os comandos foram executados pelo subagente e repetidos na revisão.
+
+**Limitações.**
+- O Expo não foi validado em aparelho Android ou iOS. O layout em 320 e 390 px e a aparência dos glifos ☰ e ⚙ não foram conferidos, e não há paridade visual declarada com a web.
+- Ficaram fora do ensaio real a decisão sobre denúncias (a fila foi apenas exibida) e o envio de foto ou capa.
+- Duas observações que não são defeitos:
+  - O anel de foco global (#b26c08) tem contraste fraco sobre a capa padrão laranja, no botão Menu.
+  - O seletor de decisão de denúncia de conta começa em "Suspender conta responsável", comportamento anterior a esta entrega.
+- Não houve mudança de contrato, dependências, migrações ou deploy. A pedido do usuário, a entrega foi versionada e enviada à branch remota `feat/profile-improvement`, sem repetir as verificações para o envio.
+
 ## Correções da revisão da branch — 10 de outubro de 2026
 
 Corrigidos os quatro problemas encontrados na revisão de `feat/profile-improvement` contra `origin/main`, com três subagentes em paralelo e revisão conjunta no checkout atual:
@@ -150,7 +198,7 @@ Atualizar este Markdown a cada entrega ou alteração no projeto, registrando im
 | Partidas, ranking, estatísticas e notificações | Estrutura visual e estados vazios ou indicação de disponibilidade futura; sem dados demonstrativos ou integração de domínio. Notificações exibe, provisoriamente, as solicitações para seguir. |
 | Moedas e carteira | Removidas da interface web e fora da direção atual do produto; não implementar sem nova solicitação. |
 | Botão Jogar | Abre a preparação dos perfis esportivos; busca e agendamento ainda pendentes. |
-| Cliente Expo | Comunidade e recursos sociais implementados; a revisão visual do Figma foi aplicada somente à web. |
+| Cliente Expo | Comunidade e recursos sociais implementados; título @, hambúrguer e folha Menu aplicados; a revisão visual do Figma foi aplicada somente à web. |
 
 ## Evidências e limites
 

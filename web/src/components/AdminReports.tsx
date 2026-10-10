@@ -63,7 +63,7 @@ export default function AdminReports({ onExpired }: { onExpired: () => void }) {
     } finally { setBusy(false) }
   }
   return <section className="admin-reports" aria-labelledby="admin-reports-title">
-    <div className="social-heading"><div><p className="eyebrow">MODERAÇÃO</p><h2 id="admin-reports-title">Denúncias</h2></div><select aria-label="Estado das denúncias" value={status} onChange={event => { setStatus(event.target.value); void load(event.target.value) }}><option value="pending">Pendentes</option><option value="resolved">Resolvidas</option></select></div>
+    <div className="social-heading"><h2 id="admin-reports-title">Denúncias</h2><select aria-label="Estado das denúncias" value={status} onChange={event => { setStatus(event.target.value); void load(event.target.value) }}><option value="pending">Pendentes</option><option value="resolved">Resolvidas</option></select></div>
     {error && <p className="error" role="alert">{error}</p>}
     {!reports.length && !busy ? <p className="muted">Nenhuma denúncia nesta fila.</p> : reports.map(report => <article className="admin-report" key={report.id}>
       <p><b>{report.target_type === 'user' ? 'Conta' : report.target_type === 'post' ? 'Publicação' : 'Comentário'} · #{report.target_id}</b><small>{report.reason.replaceAll('_', ' ')} · {new Date(report.created_at).toLocaleString('pt-BR')}</small></p>

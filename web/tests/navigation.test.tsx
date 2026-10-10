@@ -33,9 +33,9 @@ beforeEach(() => {
 })
 afterEach(cleanup)
 
-const renderArena = (overrides: { onLogout?: () => void } = {}) => {
+const renderArena = (overrides: { onLogout?: () => void; user?: User } = {}) => {
   const onUser = vi.fn()
-  render(<ArenaPage user={me} onUser={onUser} onLogout={overrides.onLogout ?? vi.fn()} onExpired={vi.fn()} />)
+  render(<ArenaPage user={overrides.user ?? me} onUser={onUser} onLogout={overrides.onLogout ?? vi.fn()} onExpired={vi.fn()} />)
   return onUser
 }
 const nav = (name: string) => within(screen.getByRole('navigation', { name: 'Navegação principal' })).getByRole('button', { name })
@@ -65,7 +65,7 @@ describe('navegação do ArenaPage', () => {
     await ui.click(await screen.findByRole('button', { name: '1 seguidor' }))
     expect(screen.getByRole('heading', { name: 'Conexões' })).not.toBeNull()
     await ui.click(await screen.findByRole('button', { name: 'Abrir perfil de Atleta Dois' }))
-    expect(await screen.findByText('@atleta.dois')).not.toBeNull()
+    expect(await screen.findByRole('heading', { name: '@atleta.dois' })).not.toBeNull()
     expect(current()).toBe('Perfil')
     await ui.click(screen.getByRole('button', { name: '3 seguidores' }))
     expect(screen.getByRole('heading', { name: 'Conexões' })).not.toBeNull()
@@ -92,13 +92,48 @@ describe('navegação do ArenaPage', () => {
     expect(await screen.findByRole('region', { name: 'Comunidade Arena' })).not.toBeNull()
   })
 
-  it('abre as configurações do app pela engrenagem e sai da conta', async () => {
+  it('mostra o @ como título do perfil e o nome real abaixo', async () => {
+    const ui = userEvent.setup()
+    renderArena()
+    await ui.click(nav('Perfil'))
+    expect(await screen.findByRole('heading', { level: 1, name: '@eu.mesmo' })).not.toBeNull()
+    expect(screen.getByText('Eu Mesmo')).not.toBeNull()
+  })
+
+  it('abre os atalhos do menu e volta ao menu', async () => {
+    const ui = userEvent.setup()
+    renderArena()
+    await ui.click(nav('Perfil'))
+    await ui.click(await screen.findByRole('button', { name: 'Menu' }))
+    expect(screen.queryByRole('button', { name: /Denúncias/ })).toBeNull()
+    await ui.click(screen.getByRole('button', { name: /Editar perfil/ }))
+    expect(screen.getByRole('heading', { name: 'Editar perfil' })).not.toBeNull()
+    expect(current()).toBe('Perfil')
+    await ui.click(screen.getByRole('button', { name: 'Voltar' }))
+    await ui.click(screen.getByRole('button', { name: /Minhas modalidades/ }))
+    expect(screen.getByRole('heading', { name: 'Suas modalidades' })).not.toBeNull()
+    await ui.click(screen.getByRole('button', { name: 'Voltar' }))
+    expect(screen.getByRole('heading', { name: 'Menu' })).not.toBeNull()
+  })
+
+  it('mostra a moderação no menu apenas para administradores', async () => {
+    const ui = userEvent.setup()
+    renderArena({ user: { ...me, is_admin: true } })
+    await ui.click(nav('Perfil'))
+    await ui.click(await screen.findByRole('button', { name: 'Menu' }))
+    await ui.click(screen.getByRole('button', { name: /Denúncias/ }))
+    expect(screen.getByRole('heading', { name: 'Moderação' })).not.toBeNull()
+    expect(current()).toBe('Perfil')
+    await waitFor(() => expect(request).toHaveBeenCalledWith('/admin/reports?status=pending'))
+  })
+
+  it('abre o menu pelo hambúrguer e sai da conta', async () => {
     const onLogout = vi.fn()
     const ui = userEvent.setup()
     renderArena({ onLogout })
     await ui.click(nav('Perfil'))
-    await ui.click(await screen.findByRole('button', { name: 'Configurações do app' }))
-    expect(screen.getByRole('heading', { name: 'Configurações' })).not.toBeNull()
+    await ui.click(await screen.findByRole('button', { name: 'Menu' }))
+    expect(screen.getByRole('heading', { name: 'Menu' })).not.toBeNull()
     expect(screen.getByText('Em breve')).not.toBeNull()
     expect(screen.getByText(/^Versão \d/)).not.toBeNull()
     await ui.click(screen.getByRole('button', { name: 'Sair da conta' }))

@@ -624,9 +624,12 @@ a {
   font-size: 11px;
   padding: 8px 16px;
 }
-.profile-intro > .profile-handle {
+.profile-at {
   color: var(--green);
-  font-weight: 600;
+}
+.profile-intro > .profile-name {
+  color: var(--muted);
+  font-weight: 500;
   font-size: 12px;
   margin: 3px 0 4px;
 }
@@ -1208,6 +1211,8 @@ fieldset small {
 .social-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 15px; }
 .social-heading h2 { font-size: 26px; }
 .social-heading .secondary { min-height: 38px; padding: 7px 10px; font-size: 10px; }
+.admin-reports .social-heading h2 { font-size: 15px; }
+.admin-reports .social-heading select { width: auto; }
 .social-search { display: flex; gap: 8px; margin-bottom: 15px; }
 .social-search input { flex: 1; }
 .social-search button { min-width: 46px; }
@@ -1658,6 +1663,29 @@ button.list-row:hover {
 .list-group + .full-width,
 .list-group + .admin-reports {
   margin-top: 16px;
+}
+.page-topbar + .list-heading {
+  margin-top: 0;
+}
+.list-row.danger {
+  color: #b42318;
+}
+.list-row.danger .row-icon {
+  background: #b4231812;
+  color: #b42318;
+}
+button.list-row:disabled:hover {
+  background: transparent;
+}
+.soon-badge {
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: #4950571a;
+  font-size: 9px;
+  font-weight: 700;
+}
+.menu-exit {
+  margin-top: 20px;
 }
 
 /* Linhas compactas de pessoas */

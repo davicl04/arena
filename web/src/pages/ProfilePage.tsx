@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { CalendarDays, ChevronRight, Medal, Settings, Trophy } from "lucide-react";
+import { CalendarDays, ChevronRight, Medal, Menu, Trophy } from "lucide-react";
 import { request } from "../api/client";
 import type { Profile, SocialUser, User } from "../api/client";
 import EmptyState from "../components/EmptyState";
@@ -50,8 +50,8 @@ export default function ProfilePage({
         followingCount={counts?.following ?? null}
         sportList={profiles.map((p) => p.sport)}
         trailing={
-          <button className="icon-btn" aria-label="Configurações do app" onClick={() => go("app-settings")}>
-            <Settings size={21} />
+          <button className="icon-btn" aria-label="Menu" onClick={() => go("menu")}>
+            <Menu size={21} />
           </button>
         }
         onEdit={() => go("edit-profile")}
