@@ -15,7 +15,7 @@ O plano prevê:
 
 O escopo cobre backend, web e mobile.
 
-Nada foi implementado: código, esquema e contratos permanecem como antes. Esta entrega é só de documentação. Foram conferidos os caminhos citados e o diff; não houve testes de código. As decisões de identidade, imagens e privacidade ainda precisam ser incorporadas a [decisões técnicas](decisoes/0001-fundacao.md) quando forem implementadas. O usuário solicitou o commit e o envio ao remoto `origin` na branch `feat/minio-images`; o protótipo não foi incluído.
+Nada foi implementado: código, esquema e contratos permanecem como antes. Esta entrega é só de documentação. Foram conferidos os caminhos citados e o diff; não houve testes de código. As decisões de identidade, imagens e privacidade ainda precisam ser incorporadas a [decisões técnicas](decisoes/0001-fundacao.md) quando forem implementadas. O usuário solicitou o commit e o envio ao remoto `origin` na branch `feat/minio-images`; o protótipo não foi incluído. Em seguida, o diretório `prototypes/` foi adicionado ao `.gitignore`, a pedido do usuário, para manter os protótipos locais fora do versionamento.
 
 ## Correção local da conexão de mídia — 10 de outubro de 2026
 
