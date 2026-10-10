@@ -241,3 +241,75 @@ def test_block_lists_report_permissions_and_moderation_decisions(client, monkeyp
     assert http.get('/api/v1/me', headers=owner).status_code == 401
     actions = db.scalars(select(ModerationAction).where(ModerationAction.admin_id == admin_id)).all()
     assert len(actions) == 4
+
+
+def test_private_counts_stay_visible_while_lists_and_posts_stay_closed(client, monkeypatch):
+    http, _ = client
+    storage = FakeStorage()
+    monkeypatch.setattr(social_router, 'storage_client', lambda: storage)
+    monkeypatch.setattr(media_service, 'storage_client', lambda: storage)
+    owner = register(http, 'counts-owner@example.com', 'Conta Fechada')
+    fan = register(http, 'counts-fan@example.com', 'Pessoa Fã')
+    visitor = register(http, 'counts-visitor@example.com', 'Pessoa Curiosa')
+    owner_id = http.get('/api/v1/me', headers=owner).json()['id']
+    fan_id = http.get('/api/v1/me', headers=fan).json()['id']
+    assert create_post(http, owner).status_code == 201
+    http.put(f'/api/v1/users/{owner_id}/follow', headers=fan)
+    http.put(f'/api/v1/me/follow-requests/{fan_id}?approve=true', headers=owner)
+    http.put(f'/api/v1/users/{fan_id}/follow', headers=owner)
+    http.put(f'/api/v1/me/follow-requests/{owner_id}?approve=true', headers=fan)
+
+    profile = http.get(f'/api/v1/users/{owner_id}', headers=visitor).json()
+    assert (profile['follower_count'], profile['following_count'], profile['post_count']) == (1, 1, 0)
+    assert profile['username'] == 'conta.fechada'
+    for path in ('followers', 'following', 'posts'):
+        assert http.get(f'/api/v1/users/{owner_id}/{path}', headers=visitor).status_code == 404
+    assert http.get(f'/api/v1/users/{owner_id}', headers=fan).json()['post_count'] == 1
+
+
+def test_mutual_followers_lists_only_visible_people_the_viewer_follows(client):
+    http, db = client
+    viewer = register(http, 'mutual-viewer@example.com', 'Quem Visita')
+    owner = register(http, 'mutual-owner@example.com', 'Dona Privada')
+    ids = {}
+    headers = {}
+    for key in ('ana', 'bia', 'caio', 'davi', 'eva'):
+        headers[key] = register(http, f'mutual-{key}@example.com', f'Pessoa {key.title()}')
+        ids[key] = http.get('/api/v1/me', headers=headers[key]).json()['id']
+    viewer_id = http.get('/api/v1/me', headers=viewer).json()['id']
+    owner_id = http.get('/api/v1/me', headers=owner).json()['id']
+    for key in ('ana', 'bia', 'caio', 'davi', 'eva'):
+        http.put(f'/api/v1/users/{owner_id}/follow', headers=headers[key])
+        if key != 'eva':  # eva's request to the private owner stays pending
+            http.put(f"/api/v1/me/follow-requests/{ids[key]}?approve=true", headers=owner)
+    http.put('/api/v1/me/privacy', json={'social_public': True}, headers=viewer)
+    for key in ('ana', 'bia', 'caio', 'eva'):
+        http.put(f'/api/v1/users/{ids[key]}/follow', headers=viewer)
+    http.put(f"/api/v1/me/follow-requests/{viewer_id}?approve=true", headers=headers['ana'])
+    http.put(f"/api/v1/me/follow-requests/{viewer_id}?approve=true", headers=headers['bia'])
+    http.put(f"/api/v1/me/follow-requests/{viewer_id}?approve=true", headers=headers['eva'])
+    # caio's approval is still pending; davi is not followed by the viewer.
+    http.put(f"/api/v1/users/{viewer_id}/block", headers=headers['bia'])
+    http.put(f"/api/v1/users/{ids['bia']}/follow", headers=viewer)
+
+    page = http.get(f'/api/v1/users/{owner_id}/mutual-followers', headers=viewer).json()
+    assert page['total'] == 1 and page['next_cursor'] is None
+    assert [item['id'] for item in page['items']] == [ids['ana']]
+    assert page['items'][0]['username'] == 'pessoa.ana'
+
+    http.put(f"/api/v1/me/follow-requests/{viewer_id}?approve=true", headers=headers['caio'])
+    first = http.get(f'/api/v1/users/{owner_id}/mutual-followers?limit=1', headers=viewer).json()
+    assert first['total'] == 2 and len(first['items']) == 1 and first['next_cursor']
+    second = http.get(f"/api/v1/users/{owner_id}/mutual-followers?limit=1&cursor={first['next_cursor']}",
+                      headers=viewer).json()
+    assert {first['items'][0]['id'], second['items'][0]['id']} == {ids['ana'], ids['caio']}
+
+    db.get(User, ids['ana']).active = False
+    db.commit()
+    assert http.get(f'/api/v1/users/{owner_id}/mutual-followers', headers=viewer).json()['total'] == 1
+    assert http.get(f'/api/v1/users/{viewer_id}/mutual-followers', headers=viewer).json() == {
+        'items': [], 'total': 0, 'next_cursor': None}
+    http.put(f'/api/v1/users/{viewer_id}/block', headers=owner)
+    assert http.get(f'/api/v1/users/{owner_id}/mutual-followers', headers=viewer).status_code == 404
+    assert http.get('/api/v1/users/999999/mutual-followers', headers=viewer).status_code == 404
+    assert http.get(f'/api/v1/users/{owner_id}/mutual-followers').status_code == 401

@@ -8,6 +8,8 @@ Permitir ao titular adicionar, recortar, substituir e remover a foto de perfil n
 
 Nesta etapa não entram posts, galeria, capa, brasões, perfil público ou infraestrutura de produção. O avatar não altera a privacidade atual do perfil.
 
+> **Nota de 10/10/2026:** a foto de capa, que estava fora de escopo nesta etapa, foi incluída pelo [plano do perfil](plano-perfil.md), fase 1 do backend. Ela usa o mesmo bucket privado, com prefixo `covers/` e vínculo `users.cover_media_id`. Os formatos e limites são os do avatar (JPEG, PNG ou WebP estáticos, 5 MiB e 25 megapixels). O recorte é centralizado em 5:2, sem ampliar, com no máximo 1500×600 px. O reconcile passou a considerar avatares, capas e posts vinculados.
+
 ## Decisões
 
 - Usar MinIO local no Docker Compose, com volume persistente e bucket privado `arena-media`. Configuração e credenciais ficam no backend e em `.env` ignorado pelo Git; não expor credenciais ou URLs assinadas aos clientes.

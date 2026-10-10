@@ -7,7 +7,7 @@ from fastapi import HTTPException
 from PIL import Image
 
 from app.services import media as media_service
-from app.services.media import normalize_avatar, normalize_post_image
+from app.services.media import normalize_avatar, normalize_cover, normalize_post_image
 
 
 def image_bytes(image_format='PNG', size=(900, 600)):
@@ -185,8 +185,7 @@ def test_reconcile_removes_old_unlinked_objects_and_metadata(monkeypatch):
             return self
 
         def paginate(self, Prefix, **_):
-            keys = (['avatars/linked.webp', 'avatars/orphan.webp'] if Prefix == 'avatars/' else
-                    ['posts/linked.webp', 'posts/orphan.webp'])
+            keys = [f'{Prefix}linked.webp', f'{Prefix}orphan.webp']
             return [{'Contents': [
                 {'Key': keys[0], 'LastModified': datetime.now(timezone.utc) - timedelta(days=30)},
                 {'Key': keys[1], 'LastModified': datetime.now(timezone.utc) - timedelta(days=2)},
@@ -200,7 +199,8 @@ def test_reconcile_removes_old_unlinked_objects_and_metadata(monkeypatch):
 
     class Db:
         def __init__(self):
-            self.results = [Values(['avatars/linked.webp']), Values(['posts/linked.webp']), Values([SimpleNamespace()])]
+            self.results = [Values(['avatars/linked.webp', 'covers/linked.webp']), Values(['posts/linked.webp']),
+                            Values([SimpleNamespace()])]
             self.deleted = 0
         def scalars(self, _): return self.results.pop(0)
         def delete(self, _): self.deleted += 1
@@ -208,8 +208,9 @@ def test_reconcile_removes_old_unlinked_objects_and_metadata(monkeypatch):
 
     storage, db = Storage(), Db()
     monkeypatch.setattr(media_service, 'storage_client', lambda: storage)
-    assert media_service.reconcile_orphans(db) == 2
-    assert storage.deleted == ['avatars/orphan.webp', 'posts/orphan.webp'] and db.deleted == 1
+    assert media_service.reconcile_orphans(db) == 3
+    assert storage.deleted == ['avatars/orphan.webp', 'covers/orphan.webp', 'posts/orphan.webp']
+    assert db.deleted == 1
 
 
 def test_avatar_body_limit_rejects_length_before_reading_and_sets_cors():
@@ -274,3 +275,71 @@ def test_avatar_body_limit_bounds_chunked_requests_and_replays_allowed_body():
         {'type': 'http.request', 'body': b'part-2', 'more_body': False},
     ]
     assert asyncio.run(exercise(allowed, False)) == b'part-1part-2'
+
+
+@pytest.mark.parametrize(('size', 'expected'), [((3000, 3000), (1500, 600)), ((4000, 1000), (1500, 600)),
+                                                ((500, 400), (500, 200)), ((100, 20), (50, 20)), ((1, 1), (1, 1))])
+def test_cover_is_center_cropped_to_five_by_two_without_upscaling(size, expected):
+    normalized = normalize_cover(image_bytes(size=size))
+    with Image.open(io.BytesIO(normalized)) as image:
+        assert image.format == 'WEBP' and image.size == expected
+        assert not image.getexif()
+
+
+def test_cover_rejects_animation_and_invalid_files():
+    frames = [Image.new('RGB', (10, 10), color) for color in ('red', 'blue')]
+    stream = io.BytesIO()
+    frames[0].save(stream, format='GIF', save_all=True, append_images=frames[1:])
+    with pytest.raises(HTTPException) as animation:
+        normalize_cover(stream.getvalue())
+    assert animation.value.status_code == 415
+    with pytest.raises(HTTPException) as invalid:
+        normalize_cover(b'not an image')
+    assert invalid.value.status_code == 422
+
+
+def test_cover_is_stored_under_its_prefix_and_replaces_only_the_cover(monkeypatch):
+    from types import SimpleNamespace
+
+    class Storage:
+        saved, deleted = [], []
+        def put_object(self, **values): self.saved.append(values['Key'])
+        def delete_object(self, **values): self.deleted.append(values['Key'])
+
+    class Db:
+        def add(self, _): pass
+        def flush(self): pass
+        def commit(self): pass
+        def delete(self, _): pass
+        def rollback(self): pass
+
+    avatar = SimpleNamespace(bucket='arena-media', object_key='avatars/kept.webp')
+    user = SimpleNamespace(id=5, avatar_media=avatar,
+                           cover_media=SimpleNamespace(bucket='arena-media', object_key='covers/old.webp'))
+    storage = Storage()
+    monkeypatch.setattr(media_service, 'storage_client', lambda: storage)
+    media = media_service.store_user_image(Db(), user, normalize_cover(image_bytes(size=(500, 200))), 'cover')
+    assert storage.saved == [f'covers/{media.id}.webp'] and storage.deleted == ['covers/old.webp']
+    assert user.cover_media is media and user.avatar_media is avatar
+    assert (media.width, media.height) == (500, 200)
+
+
+def test_clearing_profile_image_unlinks_before_cleanup_and_tolerates_storage_failure(monkeypatch):
+    from types import SimpleNamespace
+
+    class Storage:
+        def delete_object(self, **_): raise OSError('storage temporarily unavailable')
+
+    class Db:
+        commits = rollbacks = 0
+        def commit(self): self.commits += 1
+        def delete(self, _): pass
+        def rollback(self): self.rollbacks += 1
+
+    monkeypatch.setattr(media_service, 'storage_client', lambda: Storage())
+    db = Db()
+    user = SimpleNamespace(cover_media=SimpleNamespace(bucket='arena-media', object_key='covers/x.webp'))
+    media_service.clear_user_image(db, user, 'cover')
+    assert user.cover_media is None and db.commits == 1 and db.rollbacks == 1
+    media_service.clear_user_image(db, user, 'cover')
+    assert db.commits == 1

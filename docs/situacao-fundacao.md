@@ -1,5 +1,23 @@
 # Situação da fundação do Arena
 
+## Implementação do perfil, da edição de perfil e do perfil de visitante — 10 de outubro de 2026
+
+Implementado o [plano do perfil](plano-perfil.md) no backend, na web e no Expo. A pedido do usuário, a entrega foi versionada e enviada ao remoto `origin` na branch `feat/profile-improvement`, sem linhas `Co-Authored-By`; essa regra de commits foi registrada em `AGENTS.md`. As verificações abaixo não foram repetidas para o envio, que não inclui deploy.
+
+**Backend.** Migração `0004`: `users.username` único (`uq_users_username`), com backfill a partir do nome, e `users.cover_media_id` com `ON DELETE SET NULL`. Regras do @ (3–30 caracteres `[a-z0-9._]`, sem ponto no início, no fim ou repetido, reservados recusados), geração no cadastro com nova tentativa em conflito concorrente, `PATCH /me` com `name` e/ou `username` (409 para @ em uso) e `GET /me/username-availability` autenticado, com até três sugestões. Capa em `PUT/GET/DELETE /me/cover` e `GET /users/{id}/cover`, recortada no servidor em 5:2 (até 1500×600, WebP), com o mesmo limite de corpo e a mesma proteção de origem do avatar; o reconcile considera o prefixo `covers/`. `SocialUser` ganhou `username` e `cover_url`; as contagens de seguidores e seguindo passaram a ser sempre visíveis, com `post_count` e as listas ainda fechados para quem não pode ver. Novo `GET /users/{id}/mutual-followers` (`items`, `total`, `next_cursor`). A busca aceita @ e trata `%`/`_` como literais.
+
+**Web.** Perfil próprio com capa, lápis no avatar (edição), engrenagem (Configurações), @ e "N seguidores · N seguindo", sem e-mail. Editar perfil em lista agrupada, com folhas inferiores para foto (recorte circular), capa (recorte 5:2, troca e capa padrão), nome, @ (regras ao vivo, verificação com debounce, sugestões, 409) e visibilidade (duas opções, fatos e avisos, substituindo o `window.confirm`). Telas de contas bloqueadas, conexões (seguidores/seguindo e "em comum"), perfil de visitante (Seguir/Solicitar/Cancelar, Bloquear/Denunciar, seguidores em comum, conteúdo fechado em conta privada) e Configurações (Notificações "Em breve", versão, Sair, denúncias para administradores). As solicitações para seguir ficaram, provisoriamente, em Notificações, com ✓/✕ e "Aprovar todas". A navegação passou a usar pilha, e o botão voltar retorna à tela anterior. `AvatarEditor.tsx` e `SocialSettings.tsx` foram removidos, e o painel inline de perfil da Comunidade deu lugar à tela de visitante. O recorte foi centralizado em `utils/cropImage.ts`.
+
+**Expo.** Mesmo fluxo com `Modal`: perfil próprio com capa (bloco de cor quando não há capa), lápis, @ e contagens; edição em lista; @ com disponibilidade; capa via `expo-image-picker` com `aspect: [5, 2]`; visibilidade em duas opções; bloqueadas; conexões; solicitações numa seção de notificações; configurações com Sair. Na Comunidade, o perfil visitado mostra capa, @, contagens sempre visíveis e seguidores em comum. O rótulo fixo "Perfil privado" foi corrigido.
+
+**Verificações executadas.**
+- Backend: ruff sem achados; `alembic upgrade head` no banco de desenvolvimento (5432), sem apagar dados, com @ gerados para as duas contas existentes; `alembic check` sem diferenças. **183 testes aprovados, 1 pulado** (S3 isolado opcional), com PostgreSQL em schemas aleatórios, cobertura combinada **90%** (piso 85%) e unitária **66%** (piso 60%). Inclui backfill da migração em schema próprio, cadastros concorrentes com o mesmo nome, capa com `FakeStorage` e seguidores em comum.
+- Web: lint e build aprovados; **61 testes aprovados**, cobertura de 69,91% em instruções e `client.ts` dentro do piso.
+- Mobile: lint, typecheck e `export:android` aprovados; **44 testes aprovados**, com `client.ts` em 100% de linhas.
+- Navegador (Chrome via Playwright, roteiro local fora do repositório): API e web auxiliares nas portas 8010/5180, com banco separado `arena_e2e` e o MinIO local, para não alterar as contas de desenvolvimento. Conferidos @ em uso (com sugestões), inválido e disponível, com persistência; Esc e foco nas folhas; recorte e envio de capa e de foto, servidas como WebP e mantidas após recarregar; ✓ e "Aprovar todas" em Notificações; avisos de visibilidade, com troca persistida; desbloqueio; remoção de seguidor; volta à tela anterior; busca por @; perfil de visitante privado com contagens, seguidores em comum, aviso nas contagens e solicitar/cancelar; Sair pela engrenagem. Sem overflow horizontal em 320, 390 e 1440 px. Console sem erros além do `favicon.ico` ausente e do 401 esperado da verificação de sessão antes do login. Capturas em `artifacts/perfil-e2e/` (não versionado).
+
+**Limitações e pendências.** O Expo não foi executado em aparelho ou emulador; o build não comprova o funcionamento, e não há paridade visual com a web. No iOS, o recorte nativo é quadrado e o servidor centraliza em 5:2. Bloquear e Denunciar na web mantêm o `window.confirm`/`window.prompt` que já existiam na Comunidade. "Aprovar todas" faz uma chamada por solicitação, pois não há rota em lote. A revisão definitiva de Notificações continua pendente. O banco auxiliar `arena_e2e` e os objetos de teste no bucket local (prefixos `avatars/` e `covers/`) permanecem; os objetos sem vínculo no banco de desenvolvimento podem ser removidos pelo reconcile após 24 horas. CI remoto não executado.
+
 ## Plano do perfil e da edição de perfil — 10 de outubro de 2026
 
 Registrado em [plano do perfil](plano-perfil.md) o plano para redesenhar o perfil, a edição de perfil e o perfil de visitante. Ele foi definido com o usuário a partir de oito rodadas de protótipos interativos. O protótipo de referência, `prototypes/editar-perfil.html`, não é versionado.
@@ -88,7 +106,7 @@ Data: 9 de outubro de 2026. Implementação inicial de conta e perfis, referente
 
 - API FastAPI com saúde, configuração, erros sem valores sensíveis e OpenAPI.
 - Cadastro adulto, e-mail normalizado e único, hash de senha Argon2, login, expiração e logout revogável.
-- Consulta e edição do nome e dos perfis privados de futebol, tênis e corrida, com autorização pelo titular.
+- Consulta e edição do nome, do nome de usuário (@) e dos perfis privados de futebol, tênis e corrida, com autorização pelo titular.
 - Migração Alembic com integridade relacional, catálogo inicial de seis municípios e seed idempotente de desenvolvimento.
 - Cliente React/Vite responsivo e cliente React Native/Expo consumindo a mesma API.
 - Frontend web aproximado do protótipo Figma Make: símbolo atualizado do Coliseu enviado pelo usuário, marca `arena.` com ponto verde, fontes Inter/Sora, cores, cards compactos, carrossel, capa e avatar do perfil e navegação inferior com Início, Ranking, Jogar, Comunidade e Perfil. Detalhes em [fidelidade ao Figma](fidelidade-figma.md).
@@ -109,9 +127,10 @@ Atualizar este Markdown a cada entrega ou alteração no projeto, registrando im
 | Cadastro, login, sessão e logout | Integrados à API. |
 | Nome, cidade, posição e disponibilidade esportiva | Integrados à API, com persistência. |
 | Saudação, iniciais do avatar e chips de modalidades | Derivados dos dados reais da conta. |
-| Foto de perfil (avatar) | Integrada à API e ao armazenamento privado, com recorte, troca e remoção na web e no mobile. |
+| Foto de perfil (avatar) e capa | Integradas à API e ao armazenamento privado, com recorte, troca e remoção (capa padrão) na web e no mobile. |
+| Edição de perfil e @ | Integradas à API: lista agrupada com folhas, @ único com verificação de disponibilidade, visibilidade, contas bloqueadas e conexões. |
 | Posts, comunidade e perfis sociais | Integrados à API: feed cronológico, foto/legenda, curtidas, comentários, busca, privacidade social, seguidores, bloqueios e denúncias. Painel administrativo web e histórico de decisões implementados. |
-| Partidas, ranking, estatísticas e notificações | Estrutura visual e estados vazios ou indicação de disponibilidade futura; sem dados demonstrativos ou integração de domínio. |
+| Partidas, ranking, estatísticas e notificações | Estrutura visual e estados vazios ou indicação de disponibilidade futura; sem dados demonstrativos ou integração de domínio. Notificações exibe, provisoriamente, as solicitações para seguir. |
 | Moedas e carteira | Removidas da interface web e fora da direção atual do produto; não implementar sem nova solicitação. |
 | Botão Jogar | Abre a preparação dos perfis esportivos; busca e agendamento ainda pendentes. |
 | Cliente Expo | Comunidade e recursos sociais implementados; a revisão visual do Figma foi aplicada somente à web. |

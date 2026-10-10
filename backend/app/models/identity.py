@@ -34,6 +34,7 @@ class User(Base):
     __tablename__ = 'users'
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(100))
+    username: Mapped[str] = mapped_column(String(30), unique=True)
     email: Mapped[str] = mapped_column(String(254), unique=True)
     birth_date: Mapped[date] = mapped_column(Date)
     password_hash: Mapped[str] = mapped_column(String(255))
@@ -47,12 +48,23 @@ class User(Base):
                                       ondelete='SET NULL', use_alter=True), nullable=True
     )
     avatar_media: Mapped['MediaObject | None'] = relationship(foreign_keys=[avatar_media_id])
+    cover_media_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey('media_objects.id', name='fk_users_cover_media_id_media_objects',
+                                      ondelete='SET NULL', use_alter=True), nullable=True
+    )
+    cover_media: Mapped['MediaObject | None'] = relationship(foreign_keys=[cover_media_id])
 
     @property
     def avatar(self):
         if self.avatar_media is None:
             return None
         return {'id': str(self.avatar_media.id), 'url': f'/api/v1/me/avatar?v={self.avatar_media.id}'}
+
+    @property
+    def cover(self):
+        if self.cover_media is None:
+            return None
+        return {'id': str(self.cover_media.id), 'url': f'/api/v1/me/cover?v={self.cover_media.id}'}
 
 
 class MediaObject(Base):

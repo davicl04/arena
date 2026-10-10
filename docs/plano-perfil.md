@@ -1,6 +1,6 @@
 # Perfil, edição de perfil e perfil de visitante no ARENA
 
-Data: 10 de outubro de 2026. Especificação definida com o usuário a partir de oito rodadas de protótipos interativos. Ainda não implementada; o estado verificado será registrado em [situação da fundação](situacao-fundacao.md).
+Data: 10 de outubro de 2026. Especificação definida com o usuário a partir de oito rodadas de protótipos interativos. Implementada em 10 de outubro de 2026; verificações e pendências estão em [situação da fundação](situacao-fundacao.md).
 
 ## Contexto
 

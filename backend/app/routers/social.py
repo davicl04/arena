@@ -37,6 +37,7 @@ from app.schemas.social import (
     FollowOut,
     ModerationInput,
     ModerationResult,
+    MutualFollowersOut,
     PostOut,
     PrivacyInput,
     ReportInput,
@@ -89,7 +90,23 @@ def _can_view(db: Session, viewer: User, owner: User | None) -> bool:
     ).limit(1)) is not None
 
 
+def _blocked_with(viewer_id: int, other_id_column):
+    return select(UserBlock.id).where(or_(
+        and_(UserBlock.blocker_id == viewer_id, UserBlock.blocked_id == other_id_column),
+        and_(UserBlock.blocker_id == other_id_column, UserBlock.blocked_id == viewer_id))).exists()
+
+
+def _image(media: MediaObject) -> BinaryResponse:
+    result = require_storage(lambda: storage_client().get_object(Bucket=media.bucket, Key=media.object_key))
+    try:
+        content = result['Body'].read()
+    finally:
+        result['Body'].close()
+    return BinaryResponse(content, media_type=media.content_type, headers={'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff'})
+
+
 def _social_user(db: Session, viewer: User, user: User) -> SocialUserOut:
+    # Connection counts are public to authenticated members; content stays behind _can_view.
     allowed = _can_view(db, viewer, user)
     follower_count = db.scalar(select(func.count()).select_from(Follow).where(
         Follow.followed_id == user.id, Follow.approved.is_(True))) or 0
@@ -104,12 +121,12 @@ def _social_user(db: Session, viewer: User, user: User) -> SocialUserOut:
             Follow.follower_id == user.id, Follow.followed_id == viewer.id, Follow.approved.is_(True)).limit(1)) is not None
     else:
         follow_state, follows_you = 'self', False
-    return SocialUserOut(id=user.id, name=user.name,
+    return SocialUserOut(id=user.id, name=user.name, username=user.username,
         avatar_url=f'/api/v1/users/{user.id}/avatar?v={user.avatar_media_id}' if user.avatar_media_id else None,
+        cover_url=f'/api/v1/users/{user.id}/cover?v={user.cover_media_id}' if user.cover_media_id else None,
         social_public=user.social_public,
         post_count=post_count if allowed else 0,
-        follower_count=follower_count if allowed else 0,
-        following_count=following_count if allowed else 0,
+        follower_count=follower_count, following_count=following_count,
         follows_you=follows_you, follow_state=follow_state)
 
 
@@ -165,11 +182,13 @@ def put_privacy(data: PrivacyInput, user: User = Depends(current_user), db: Sess
 def search_users(q: str = Query(min_length=1, max_length=100), cursor: str | None = None,
                  limit: int = Query(PAGE_DEFAULT, ge=1, le=PAGE_MAX), user: User = Depends(current_user),
                  db: Session = Depends(get_db)):
-    if not q.strip():
+    term = q.strip().removeprefix('@').strip()
+    if not term:
         raise HTTPException(422, 'Informe ao menos um caractere para buscar.')
-    statement = select(User).where(User.active.is_(True), User.name.ilike(f'%{q.strip()}%'), User.id != user.id,
-        ~select(UserBlock.id).where(or_(and_(UserBlock.blocker_id == user.id, UserBlock.blocked_id == User.id),
-        and_(UserBlock.blocker_id == User.id, UserBlock.blocked_id == user.id))).exists())
+    pattern = '%' + term.replace('!', '!!').replace('%', '!%').replace('_', '!_') + '%'
+    statement = select(User).where(User.active.is_(True), User.id != user.id,
+        or_(User.name.ilike(pattern, escape='!'), User.username.ilike(pattern, escape='!')),
+        ~_blocked_with(user.id, User.id))
     rows, next_cursor = _page(statement, cursor, limit, User.created_at, User.id, db)
     return {'items': [_social_user(db, user, person) for person in rows], 'next_cursor': next_cursor}
 
@@ -200,12 +219,35 @@ def social_avatar(user_id: int, v: uuid.UUID, user: User = Depends(current_user)
     media = db.get(MediaObject, v)
     if target is None or media is None or target.avatar_media_id != v or not target.active or _blocked(db, user.id, target.id):
         raise HTTPException(404, 'Foto não encontrada.')
-    result = require_storage(lambda: storage_client().get_object(Bucket=media.bucket, Key=media.object_key))
-    try:
-        content = result['Body'].read()
-    finally:
-        result['Body'].close()
-    return BinaryResponse(content, media_type=media.content_type, headers={'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff'})
+    return _image(media)
+
+
+@router.get('/users/{user_id}/cover')
+def social_cover(user_id: int, v: uuid.UUID, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    target = db.get(User, user_id)
+    media = db.get(MediaObject, v)
+    if target is None or media is None or target.cover_media_id != v or not target.active or _blocked(db, user.id, target.id):
+        raise HTTPException(404, 'Foto de capa não encontrada.')
+    return _image(media)
+
+
+@router.get('/users/{user_id}/mutual-followers', response_model=MutualFollowersOut)
+def mutual_followers(user_id: int, cursor: str | None = None, limit: int = Query(PAGE_DEFAULT, ge=1, le=PAGE_MAX),
+                     user: User = Depends(current_user), db: Session = Depends(get_db)):
+    """Accounts the viewer follows that also follow the profile owner."""
+    target = db.get(User, user_id)
+    if target is None or not target.active or (user.id != target.id and _blocked(db, user.id, target.id)):
+        raise HTTPException(404, 'Perfil não encontrado.')
+    if user.id == target.id:
+        return MutualFollowersOut(items=[], total=0, next_cursor=None)
+    viewer_follows = select(Follow.followed_id).where(Follow.follower_id == user.id, Follow.approved.is_(True))
+    statement = select(Follow).join(User, User.id == Follow.follower_id).where(
+        Follow.followed_id == target.id, Follow.approved.is_(True), Follow.follower_id.in_(viewer_follows),
+        User.active.is_(True), ~_blocked_with(user.id, User.id))
+    total = db.scalar(select(func.count()).select_from(statement.subquery())) or 0
+    rows, next_cursor = _page(statement, cursor, limit, Follow.created_at, Follow.id, db)
+    return MutualFollowersOut(items=[_social_user(db, user, db.get(User, row.follower_id)) for row in rows],
+                              total=total, next_cursor=next_cursor)
 
 
 @router.get('/posts')

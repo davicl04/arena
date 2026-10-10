@@ -57,13 +57,21 @@ class Page(BaseModel):
 class SocialUserOut(BaseModel):
     id: int
     name: str
+    username: str
     avatar_url: str | None
+    cover_url: str | None = None
     social_public: bool
     post_count: int
     follower_count: int
     following_count: int
     follows_you: bool = False
     follow_state: str = 'none'
+
+
+class MutualFollowersOut(BaseModel):
+    items: list[SocialUserOut]
+    total: int
+    next_cursor: str | None
 
 
 class PostOut(BaseModel):

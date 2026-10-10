@@ -91,7 +91,7 @@ def test_blocks_can_be_paginated_past_fifty_and_limit_is_validated(client):
     owner = db.get(User, owner_id)
     stamp = utcnow()
     for number in range(51):
-        other = User(name=f'Conta {number}', email=f'blocked-{number}@example.com',
+        other = User(name=f'Conta {number}', username=f'conta.bloqueada{number}', email=f'blocked-{number}@example.com',
                      birth_date=owner.birth_date, password_hash=owner.password_hash)
         db.add(other)
         db.flush()

@@ -7,9 +7,15 @@ export type Screen =
   | "play"
   | "community"
   | "profile"
-  | "settings"
+  | "edit-profile"
+  | "app-settings"
+  | "blocked"
+  | "connections"
+  | "user-profile"
   | "notifications"
   | "sports";
+export type ConnectionsTab = "followers" | "following";
+export { version as appVersion } from "../../package.json";
 export const cover = "/images/arena-cover.jpg";
 export const sportIcons = {
   futebol: FootballIcon,

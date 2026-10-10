@@ -19,6 +19,9 @@ app.add_middleware(CORSMiddleware, allow_origins=get_settings().allowed_origins,
                    allow_headers=['Content-Type', 'Authorization'])
 
 
+UPLOAD_PATHS = {('PUT', '/api/v1/me/avatar'), ('PUT', '/api/v1/me/cover'), ('POST', '/api/v1/posts')}
+
+
 class AvatarBodyLimitMiddleware:
     """Bounds multipart image uploads before multipart parsing begins."""
 
@@ -26,8 +29,7 @@ class AvatarBodyLimitMiddleware:
         self.application = application
 
     async def __call__(self, scope, receive, send):
-        upload_paths = {('PUT', '/api/v1/me/avatar'), ('POST', '/api/v1/posts')}
-        if scope['type'] != 'http' or (scope['method'], scope['path']) not in upload_paths:
+        if scope['type'] != 'http' or (scope['method'], scope['path']) not in UPLOAD_PATHS:
             await self.application(scope, receive, send)
             return
 
@@ -83,8 +85,7 @@ async def origin_protection(request: Request, call_next):
         origin = request.headers.get('origin')
         if origin and origin not in get_settings().allowed_origins:
             return JSONResponse({'detail': 'Origem da solicitação não autorizada.'}, status_code=403)
-        upload = (request.url.path == '/api/v1/me/avatar' and request.method == 'PUT') or (
-            request.url.path == '/api/v1/posts' and request.method == 'POST')
+        upload = (request.method, request.url.path) in UPLOAD_PATHS
         delete_avatar = request.url.path == '/api/v1/me/avatar' and request.method == 'DELETE'
         bodyless_action = request.method == 'DELETE' or (
             request.method == 'PUT' and any(marker in request.url.path for marker in ('/like', '/follow', '/block'))

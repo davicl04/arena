@@ -20,6 +20,7 @@ erDiagram
     users ||--o{ sports_profiles : possui
     users ||--o{ media_objects : titular
     users o|--o| media_objects : avatar
+    users o|--o| media_objects : capa
     users ||--o{ posts : publica
     media_objects ||--o| posts : foto
     posts ||--o{ post_likes : recebe
@@ -36,6 +37,7 @@ erDiagram
     users {
         int id PK
         string name
+        string username UK "Único, minúsculas"
         string email UK
         date birth_date
         string password_hash
@@ -45,6 +47,7 @@ erDiagram
         datetime created_at
         datetime updated_at
         uuid avatar_media_id FK "Nullable"
+        uuid cover_media_id FK "Nullable"
     }
     media_objects {
         uuid id PK

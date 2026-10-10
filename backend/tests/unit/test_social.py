@@ -14,8 +14,8 @@ from app.schemas.social import ReportInput
 
 
 def person(user_id=1, **values):
-    return User(id=user_id, name='Atleta', active=True, social_public=False, is_admin=False,
-                avatar_media_id=None, **values)
+    return User(id=user_id, name='Atleta', username='atleta', active=True, social_public=False, is_admin=False,
+                avatar_media_id=None, cover_media_id=None, **values)
 
 
 @pytest.mark.parametrize(('active', 'blocked', 'public', 'self_view', 'following', 'expected'), [
@@ -67,14 +67,18 @@ def test_page_returns_cursor_only_when_more_items_exist(has_more):
 
 
 @pytest.mark.parametrize('allowed', [False, True])
-def test_social_profile_hides_private_counts(monkeypatch, allowed):
+def test_social_profile_keeps_counts_visible_and_hides_private_post_count(monkeypatch, allowed):
     viewer, owner = person(), person(2)
+    owner.cover_media_id = uuid4()
     db = Mock()
     db.scalar.side_effect = [9, 7, 3, False, None]
     monkeypatch.setattr(social, '_can_view', lambda *_: allowed)
     result = social._social_user(db, viewer, owner)
-    assert (result.follower_count, result.following_count, result.post_count) == ((9, 7, 3) if allowed else (0, 0, 0))
+    assert (result.follower_count, result.following_count) == (9, 7)
+    assert result.post_count == (3 if allowed else 0)
     assert result.follow_state == 'pending'
+    assert result.username == 'atleta' and str(owner.cover_media_id) in result.cover_url
+    assert result.cover_url.startswith('/api/v1/users/2/cover?v=')
     assert 'email' not in result.model_dump()
 
 
