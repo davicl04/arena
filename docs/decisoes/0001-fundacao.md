@@ -10,11 +10,23 @@ O e-mail é validado e convertido para minúsculas antes de persistir ou autenti
 
 Perfis são únicos por usuário e modalidade (`futebol`, `tenis`, `corrida`). Cada perfil tem cidade e status de procura; no futebol, posição preferida opcional (`goleiro`, `defesa`, `meio_campo`, `atacante`). A posição por atuação será um dado distinto quando partidas forem implementadas. Nível é devolvido como `null`, pois não existem resultados para classificá-lo. O cliente não pode enviar nível, titular ou visibilidade.
 
-Todos os perfis permanecem privados e não existem endpoints de consulta pública. Galeria e publicações de fotos continuam previstas na entrega 7; o avatar desta entrega não altera a privacidade do perfil.
+Os perfis esportivos permanecem privados, sem endpoints públicos. A visibilidade social é um campo separado da conta; alterar a privacidade social nunca publica cidade, modalidade, posição ou disponibilidade esportiva.
 
 ### Imagens privadas e avatar
 
 O avatar é armazenado em objeto privado S3 compatível. Em desenvolvimento o Compose constrói MinIO a partir do código da versão fixada, mantém volume próprio e expõe portas 9000/9001; o bucket `arena-media` é preparado por comando explícito. A API grava metadados e um vínculo nullable no usuário, cria uma chave aleatória e serve a imagem por rota autenticada. Não persiste URL presigned nem expõe credenciais aos clientes. Upload valida o conteúdo decodificado (JPEG, PNG ou WebP estático, 5 MiB e 25 megapixels), aplica orientação EXIF, remove metadados e normaliza para WebP quadrado de até 512 px. Produção ainda requer decisão de provedor, suporte, hospedagem, HTTPS e backup.
+
+### Posts e privacidade social
+
+Posts reutilizam `media_objects`, mas vinculam uma foto quadrada otimizada de até 1.080 px; o servidor exige arquivo estático JPEG, PNG ou WebP, valida pelo conteúdo, corrige EXIF e remove metadados. O bucket continua privado e imagens são servidas pela API com sessão e `Cache-Control: private, no-store`. A reconciliação verifica vínculos tanto de avatares quanto de posts antes de excluir órfãos.
+
+Contas começam com `social_public=false`; conta pública permite leitura por usuários autenticados. Uma conta privada só libera posts, comentários e listas autorizadas a si e aos seguidores aprovados. Nome e avatar social ficam visíveis a usuários autenticados, inclusive em perfil privado; e-mail, nascimento e perfis esportivos não são incluídos nos schemas sociais. Bloqueios têm efeito nos dois sentidos, retiram relações e pedidos, e desbloqueio não recria vínculos. Mudanças de visibilidade são reavaliadas em cada rota e leitura de mídia.
+
+Feed, galerias, comentários, listas de seguidores/seguindo, solicitações, bloqueios e fila de moderação usam cursor por data e ID, 20 itens por padrão e limite de 50, no envelope `{ items, next_cursor }`. Curtidas e vínculos têm constraints únicas; repetição de curtida/seguir/aprovar é idempotente. Comentários têm até 1.000 caracteres; legendas até 2.200. Sem respostas encadeadas ou lista nominal de curtidas nesta versão.
+
+Denúncias referenciam post, comentário ou conta; decisões administrativas guardam administrador, alvo, ação, justificativa e data sem copiar conteúdo removido. Apenas contas promovidas pelo comando `python -m app.admin_cli promote-admin EMAIL` entram na área administrativa. Suspensão desativa a conta, revoga sessões e oculta seu conteúdo; só a fila pendente permite a um administrador visualizar conteúdo privado denunciado.
+
+A fila administrativa acrescenta `target_user_id` e `target_user_active` quando a conta responsável ainda pode ser identificada. Esses campos permitem a reativação pela fila resolvida, sem devolver foto ou texto privado nessa fila. A reativação usa `PUT /api/v1/admin/users/{id}/status` com `active=true` e justificativa; mantém sessões anteriores revogadas. Denunciar uma conta exige acesso ao perfil básico, enquanto denúncias de posts e comentários exigem autorização para o conteúdo correspondente. Bloqueio e suspensão são reavaliados também nas rotas de avatar social e de comentário.
 
 ## Cidades
 

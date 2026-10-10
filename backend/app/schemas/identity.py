@@ -53,6 +53,8 @@ class UserOut(BaseModel):
     name: str
     email: str
     birth_date: date
+    social_public: bool = False
+    is_admin: bool = False
     avatar: 'AvatarOut | None' = None
 
 

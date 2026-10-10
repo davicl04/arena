@@ -11,6 +11,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from app.core.config import get_settings
 from app.core.database import engine
 from app.routers.identity import router
+from app.routers.social import router as social_router
 
 app = FastAPI(title='Arena API', version='0.1.0')
 app.add_middleware(CORSMiddleware, allow_origins=get_settings().allowed_origins,
@@ -19,13 +20,14 @@ app.add_middleware(CORSMiddleware, allow_origins=get_settings().allowed_origins,
 
 
 class AvatarBodyLimitMiddleware:
-    """Buffers only the bounded avatar body before multipart parsing begins."""
+    """Bounds multipart image uploads before multipart parsing begins."""
 
     def __init__(self, application):
         self.application = application
 
     async def __call__(self, scope, receive, send):
-        if scope['type'] != 'http' or scope['method'] != 'PUT' or scope['path'] != '/api/v1/me/avatar':
+        upload_paths = {('PUT', '/api/v1/me/avatar'), ('POST', '/api/v1/posts')}
+        if scope['type'] != 'http' or (scope['method'], scope['path']) not in upload_paths:
             await self.application(scope, receive, send)
             return
 
@@ -81,10 +83,15 @@ async def origin_protection(request: Request, call_next):
         origin = request.headers.get('origin')
         if origin and origin not in get_settings().allowed_origins:
             return JSONResponse({'detail': 'Origem da solicitação não autorizada.'}, status_code=403)
-        upload = request.url.path == '/api/v1/me/avatar' and request.method == 'PUT'
+        upload = (request.url.path == '/api/v1/me/avatar' and request.method == 'PUT') or (
+            request.url.path == '/api/v1/posts' and request.method == 'POST')
         delete_avatar = request.url.path == '/api/v1/me/avatar' and request.method == 'DELETE'
+        bodyless_action = request.method == 'DELETE' or (
+            request.method == 'PUT' and any(marker in request.url.path for marker in ('/like', '/follow', '/block'))
+        ) or (request.method == 'PUT' and '/me/follow-requests/' in request.url.path)
         content_type = request.headers.get('content-type', '').split(';')[0]
-        if not upload and not delete_avatar and request.url.path != '/api/v1/auth/logout' and content_type != 'application/json':
+        if (not upload and not delete_avatar and not bodyless_action and request.url.path != '/api/v1/auth/logout'
+                and content_type != 'application/json'):
             return JSONResponse({'detail': 'Envie os dados em JSON.'}, status_code=415)
         if upload:
             if content_type != 'multipart/form-data':
@@ -123,3 +130,4 @@ def ready():
 
 
 app.include_router(router)
+app.include_router(social_router)

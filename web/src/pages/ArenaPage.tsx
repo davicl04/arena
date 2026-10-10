@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
-import { ArrowLeft, Bell, MapPin, Shield, Trophy, Users } from "lucide-react";
+import { ArrowLeft, Bell, MapPin, Shield, Trophy } from "lucide-react";
 import { ApiError, request, sports } from "../api/client";
 import type { City, Profile, ProfileInput, Sport, User } from "../api/client";
 import SportCard from "../components/SportCard";
@@ -9,6 +9,9 @@ import EmptyState from "../components/EmptyState";
 import HomePage from "./HomePage";
 import ProfilePage from "./ProfilePage";
 import AvatarEditor from "../components/AvatarEditor";
+import SocialCommunity from "../components/SocialCommunity";
+import SocialSettings from "../components/SocialSettings";
+import AdminReports from "../components/AdminReports";
 import { navItems, rankingTiers, sportIcons } from "../data/arena";
 import type { Screen } from "../data/arena";
 
@@ -31,6 +34,9 @@ export default function ArenaPage({
   const [busy, setBusy] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const [screen, setScreen] = useState<Screen>("home");
+  const updatePrivacy = useCallback((social_public: boolean) => {
+    if (user.social_public !== social_public) onUser({ ...user, social_public });
+  }, [user, onUser]);
   const [rankingSport, setRankingSport] = useState<Sport>("futebol");
   const mainRef = useRef<HTMLElement>(null);
   useEffect(() => {
@@ -272,23 +278,7 @@ export default function ArenaPage({
             </>
           )}
           {screen === "community" && (
-            <>
-              <div className="page-heading">
-                <p className="eyebrow">O ESPORTE CONECTA</p>
-                <h2>Comunidade</h2>
-              </div>
-              <EmptyState
-                Icon={Users}
-                title="Novas conexões em breve"
-                text="Este será seu espaço para acompanhar outros atletas e compartilhar sua trajetória."
-              />
-              <button
-                className="primary full-width"
-                onClick={() => go("profile")}
-              >
-                Ver meu perfil
-              </button>
-            </>
+            <SocialCommunity ownUserId={user.id} onExpired={onExpired} />
           )}
           {screen === "notifications" && (
             <EmptyState
@@ -329,10 +319,12 @@ export default function ArenaPage({
               <aside className="privacy-strip">
                 <Shield size={20} />
                 <p>
-                  Seu perfil é privado. Sua data de nascimento não aparece no
-                  perfil.
+                  Sua data de nascimento e seus perfis esportivos continuam
+                  privados em qualquer configuração social.
                 </p>
               </aside>
+              <SocialSettings userId={user.id} onExpired={onExpired} onPrivacyChange={updatePrivacy} />
+              {user.is_admin && <AdminReports onExpired={onExpired} />}
               <button
                 className="secondary full-width"
                 disabled={busy}

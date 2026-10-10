@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   CalendarDays,
   ChevronRight,
@@ -7,8 +7,8 @@ import {
   Shield,
   Trophy,
 } from "lucide-react";
-import { sports } from "../api/client";
-import type { Profile, User } from "../api/client";
+import { apiUrl, request, sports } from "../api/client";
+import type { Page, Post, Profile, User } from "../api/client";
 import EmptyState from "../components/EmptyState";
 import ProfileTabs from "../components/ProfileTabs";
 import { cover, sportIcons } from "../data/arena";
@@ -25,6 +25,27 @@ export default function ProfilePage({
   go: (screen: Screen) => void;
 }) {
   const [profileTab, setProfileTab] = useState("Atividades");
+  const [posts, setPosts] = useState<Post[] | null>(null);
+  const [cursor, setCursor] = useState<string | null>(null);
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    if (profileTab !== "Fotos") return;
+    let alive = true;
+    request<Page<Post>>(`/users/${user.id}/posts`)
+      .then((page) => { if (alive) { setPosts(page.items); setCursor(page.next_cursor); } })
+      .catch((err: unknown) => { if (alive) { setPosts([]); setError(err instanceof Error ? err.message : "Não foi possível carregar as fotos."); } })
+    return () => { alive = false; };
+  }, [profileTab, user.id]);
+  async function loadMore() {
+    if (!cursor || busy) return;
+    setBusy(true); setError("");
+    try {
+      const page = await request<Page<Post>>(`/users/${user.id}/posts?cursor=${encodeURIComponent(cursor)}`);
+      setPosts(old => [...(old ?? []), ...page.items]); setCursor(page.next_cursor);
+    } catch (err) { setError(err instanceof Error ? err.message : "Não foi possível carregar mais fotos."); }
+    finally { setBusy(false); }
+  }
   return (
     <>
       <div
@@ -65,7 +86,7 @@ export default function ProfilePage({
         </div>
         <p className="profile-counts">
           <Shield size={13} />
-          Perfil privado
+          Conta {user.social_public ? "pública" : "privada"}
         </p>
       </section>
       <div className="profile-actions">
@@ -95,13 +116,16 @@ export default function ProfilePage({
           <span>Pontos de elo</span>
         </div>
       </div>
-      <ProfileTabs value={profileTab} onChange={setProfileTab} />
+      <ProfileTabs value={profileTab} onChange={(value) => { setPosts(null); setCursor(null); setError(""); setProfileTab(value); }} />
       <div
         id="profile-content"
         role="tabpanel"
         aria-labelledby={`tab-${profileTab}`}
       >
-        <EmptyState
+      {error && <p className="error" role="alert">{error}</p>}
+      {profileTab === "Fotos" && posts?.length ? <div className="profile-photo-grid" aria-label="Publicações de fotos">
+          {posts.map((post) => <img key={post.id} src={apiUrl(post.image_url)} alt={post.caption || `Publicação de ${user.name}`} />)}
+        </div> : profileTab === "Fotos" && posts === null ? <p role="status">Carregando fotos…</p> : <EmptyState
           Icon={profileTab === "Partidas" ? CalendarDays : Medal}
           title={
             profileTab === "Fotos"
@@ -111,8 +135,9 @@ export default function ProfilePage({
                 : "Sua trajetória começa aqui"
           }
           text="Seus registros aparecerão aqui quando esta área estiver disponível."
-        />
+        />}
       </div>
+      {profileTab === "Fotos" && cursor && <button className="secondary full-width" disabled={busy} onClick={() => void loadMore()}>Carregar mais fotos</button>}
     </>
   );
 }

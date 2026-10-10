@@ -48,3 +48,22 @@ Em `web/` ou `mobile/`: `npm test` para unidades e `npm run test:coverage` para 
 Os relatórios locais ficam em `artifacts/coverage/{backend,web,mobile}/` (ignorados pelo Git). O CI gera XML/JUnit e HTML no backend; JUnit, HTML, LCOV e JSON nos clientes. Publica artifacts `coverage-backend`, `coverage-web` e `coverage-mobile` e resumos com taxa de sucesso, cobertura de linhas e ramos usando `scripts/quality_summary.py`. O upload de relatórios também é tentado quando testes falham.
 
 Pisos iniciais para impedir regressões: backend 60% em unidade e 85% na suíte completa (indicador combinado de instruções/ramos); web 30% de instruções/linhas/ramos e 20% de funções; mobile 10% de instruções/funções, 15% de linhas e 8% de ramos. Nos arquivos de transporte da API dos dois clientes, o piso é 100% de instruções/linhas/funções e 90% de ramos. Esses pisos refletem o estágio atual, não uma declaração de cobertura satisfatória de todo o produto. Próximas melhorias: ampliar testes das telas e dos fluxos esportivos e elevar gradualmente os pisos sem excluir arquivos para melhorar artificialmente os números.
+
+## Atualização de qualidade: posts e perfis sociais — 10 de outubro de 2026
+
+Para a entrega inicial de posts, foram ampliados os testes de integração PostgreSQL e adicionados testes de interface para os fluxos sociais. Backend: 79 aprovados e 1 teste de round-trip S3 real opcional pulado; cobertura da suíte completa: 86,13% combinada, 88,67% de linhas e 71,96% de ramos. Web: 24 aprovados, 39,83% de linhas e 31,84% de ramos. Mobile: 15 aprovados, 24,72% de linhas e 13,61% de ramos. Os pisos da suíte completa backend e dos clientes foram atendidos. A revisão posterior executou o piso unitário backend separadamente e encontrou 52,84%, abaixo de 60%; a correção está registrada a seguir.
+
+Ruff, ESLint, TypeScript web/mobile, build web e exportação Android aprovados. Alembic check não detectou divergências após aplicar a migração `0003` no PostgreSQL local. Os testes de integração social substituem o armazenamento S3 por um double; round-trip de imagem de post no MinIO real, revisão visual ao vivo e execução do CI remoto continuam pendentes. Testes de interface e exportação Android não equivalem a validação em navegador/aparelho.
+
+## Correções e regressões de posts — 10 de outubro de 2026
+
+| Escopo | Aprovados / executados | Linhas | Ramos | Indicador combinado backend |
+| --- | --- | --- | --- | --- |
+| Backend unitário | 108 / 108 | 69,14% | 45,50% | 65,48% |
+| Backend unidade + PostgreSQL + round-trip S3 | 130 / 130 | 89,77% | 75,23% | 87,52% |
+| Web | 33 / 33 | 58,11% | 48,09% | — |
+| Mobile | 20 / 20 | 46,03% | 29,86% | — |
+
+Todos os pisos existentes foram atendidos, sem reduzi-los ou excluir arquivos. Unidades novas exercitam autorização, dados privados da fila administrativa, cursores, reenvios, auditoria e a distinção entre falha anterior/posterior ao commit do upload. Regressões de integração cobrem bloqueio recebido no feed, acesso revogado à imagem, denúncia privada, aprovação repetida, post preservado após falha de leitura, bloqueios além de 50 itens e reativação auditada sem restaurar sessões. Web testa digitação completa/foco, continuação de listas, sincronização de privacidade e reativação; mobile testa continuação de busca, galeria, comentários e relações.
+
+Checks locais de Ruff, Alembic check, lint/tipos/build/cobertura web e lint/tipos/cobertura/exportação Android aprovados. Seis cenários adicionais em `artifacts/review-plans/` também passaram, incluindo avatares e posts na API com MinIO real em bucket isolado, removido após o ensaio. A conferência no navegador verificou dados existentes e layout em 320/390/1440 px; múltiplas páginas e decisões administrativas foram verificadas automaticamente. CI remoto e aparelhos permanecem sem validação nesta entrega.

@@ -7,7 +7,7 @@ from fastapi import HTTPException
 from PIL import Image
 
 from app.services import media as media_service
-from app.services.media import normalize_avatar
+from app.services.media import normalize_avatar, normalize_post_image
 
 
 def image_bytes(image_format='PNG', size=(900, 600)):
@@ -28,6 +28,16 @@ def test_small_avatar_is_not_upscaled():
     normalized = normalize_avatar(image_bytes(size=(120, 80)))
     with Image.open(io.BytesIO(normalized)) as image:
         assert image.size == (80, 80)
+
+
+def test_post_image_must_be_square_and_is_optimized_without_upscaling():
+    with pytest.raises(HTTPException) as error:
+        normalize_post_image(image_bytes())
+    assert error.value.status_code == 422
+    normalized = normalize_post_image(image_bytes(size=(700, 700)))
+    with Image.open(io.BytesIO(normalized)) as image:
+        assert image.format == 'WEBP' and image.size == (700, 700)
+        assert not image.getexif()
 
 
 def test_rejects_animation_and_unsupported_image_formats():
@@ -174,10 +184,12 @@ def test_reconcile_removes_old_unlinked_objects_and_metadata(monkeypatch):
         def get_paginator(self, _):
             return self
 
-        def paginate(self, **_):
+        def paginate(self, Prefix, **_):
+            keys = (['avatars/linked.webp', 'avatars/orphan.webp'] if Prefix == 'avatars/' else
+                    ['posts/linked.webp', 'posts/orphan.webp'])
             return [{'Contents': [
-                {'Key': 'avatars/linked.webp', 'LastModified': datetime.now(timezone.utc) - timedelta(days=30)},
-                {'Key': 'avatars/orphan.webp', 'LastModified': datetime.now(timezone.utc) - timedelta(days=2)},
+                {'Key': keys[0], 'LastModified': datetime.now(timezone.utc) - timedelta(days=30)},
+                {'Key': keys[1], 'LastModified': datetime.now(timezone.utc) - timedelta(days=2)},
             ]}]
 
         def delete_object(self, **values): self.deleted.append(values['Key'])
@@ -188,7 +200,7 @@ def test_reconcile_removes_old_unlinked_objects_and_metadata(monkeypatch):
 
     class Db:
         def __init__(self):
-            self.results = [Values(['avatars/linked.webp']), Values([SimpleNamespace()])]
+            self.results = [Values(['avatars/linked.webp']), Values(['posts/linked.webp']), Values([SimpleNamespace()])]
             self.deleted = 0
         def scalars(self, _): return self.results.pop(0)
         def delete(self, _): self.deleted += 1
@@ -196,8 +208,8 @@ def test_reconcile_removes_old_unlinked_objects_and_metadata(monkeypatch):
 
     storage, db = Storage(), Db()
     monkeypatch.setattr(media_service, 'storage_client', lambda: storage)
-    assert media_service.reconcile_orphans(db) == 1
-    assert storage.deleted == ['avatars/orphan.webp'] and db.deleted == 1
+    assert media_service.reconcile_orphans(db) == 2
+    assert storage.deleted == ['avatars/orphan.webp', 'posts/orphan.webp'] and db.deleted == 1
 
 
 def test_avatar_body_limit_rejects_length_before_reading_and_sets_cors():

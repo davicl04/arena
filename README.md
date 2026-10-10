@@ -65,6 +65,26 @@ npm run dev
 
 Abra [localhost:5173](http://localhost:5173). Use o mesmo hostname para web e API: se abrir a web em `127.0.0.1`, configure `VITE_API_URL=http://127.0.0.1:8000`. A configuração padrão autoriza ambas as origens da web; outros endereços exigem atualizar `ALLOWED_ORIGINS` no backend e reiniciá-lo.
 
+## Comunidade, posts e moderação
+
+Depois de aplicar as migrações com `alembic upgrade head`, a Comunidade usa posts com uma foto quadrada e legenda opcional. A web permite ajustar recorte e zoom; o Expo usa o seletor nativo com recorte 1:1. Curtidas, comentários, feed cronológico, busca por nome, galerias e relações são persistidos pela mesma API. A foto original permanece no dispositivo; a versão otimizada é armazenada no bucket privado.
+
+Contas começam privadas. Seguidores de contas privadas precisam de aprovação; tornar uma conta pública mostra os posts a usuários autenticados e aprova pedidos pendentes. Configurações permite responder solicitações, remover seguidores, deixar de seguir e gerir bloqueios. Bloquear remove relações nos dois sentidos. E-mail, nascimento e perfis esportivos continuam privados. Imagens sociais não usam bucket público nem URLs presigned.
+
+Busca, galerias, comentários e gestão de relações permitem carregar páginas adicionais. As listas da API usam `{ items, next_cursor }`, inclusive `GET /api/v1/me/blocks`, com 20 itens por padrão e máximo de 50. O cursor deve ser reenviado na próxima chamada; não é uma autorização de acesso.
+
+Denúncias ficam em Configurações para administradores web. Cada decisão exige justificativa e registra administrador, alvo, ação e data.
+
+Uma conta suspensa pode ser reativada pela fila de denúncias resolvidas, com justificativa obrigatória. A fila informa o identificador e o estado da conta responsável sem expor conteúdo privado resolvido. A reativação preserva a revogação das sessões anteriores; o titular precisa entrar novamente.
+
+Para nomear uma conta administrativa de modo explícito, entre em `backend/` e execute, com uma conta já cadastrada:
+
+```powershell
+.venv/Scripts/python.exe -m app.admin_cli promote-admin atleta@example.com
+```
+
+Esse comando altera apenas o papel da conta indicada; não é executado durante o cadastro nem na inicialização da API. Para remover o papel, use `remove-admin` com o mesmo e-mail. Consulte [plano de posts](docs/plano-posts.md) para contratos e critérios e [situação da fundação](docs/situacao-fundacao.md) para evidências e limitações.
+
 ## Mobile
 
 Em outro terminal, a partir da raiz:
@@ -118,7 +138,7 @@ Os testes criam e removem somente um schema aleatório próprio no PostgreSQL in
 
 No diretório `web/`: `npm run lint`, `npm run typecheck` e `npm run build`. No diretório `mobile/`: `npm run lint`, `npm run typecheck`, `npx expo install --check` e `npm run export:android`. O workflow `.github/workflows/ci.yml` executa os checks com PostgreSQL e ambos os clientes. A geração do bundle não substitui validação Android/iOS em aparelho.
 
-Sessões expiram em 24 horas, não têm renovação automática e são revogadas no logout. Na web o token fica em cookie HttpOnly; no mobile, no SecureStore. Perfis não possuem consulta pública nesta etapa. Para ambiente fora de desenvolvimento, configure `COOKIE_SECURE=true`, HTTPS, origens explícitas e infraestrutura conforme as decisões documentadas.
+Sessões expiram em 24 horas, não têm renovação automática e são revogadas no logout. Na web o token fica em cookie HttpOnly; no mobile, no SecureStore. Perfis sociais públicos são distintos dos perfis esportivos, que continuam privados. Para ambiente fora de desenvolvimento, configure `COOKIE_SECURE=true`, HTTPS, origens explícitas e infraestrutura conforme as decisões documentadas.
 
 ## Estrutura
 

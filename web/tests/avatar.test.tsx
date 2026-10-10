@@ -11,7 +11,7 @@ vi.mock('react-easy-crop', () => ({
   },
 }))
 
-const user: User = { id: 1, name: 'Atleta Arena', email: 'athlete@example.com', birth_date: '1995-01-01', avatar: null }
+const user: User = { id: 1, name: 'Atleta Arena', email: 'athlete@example.com', birth_date: '1995-01-01', social_public: false, is_admin: false, avatar: null }
 
 afterEach(() => { vi.unstubAllGlobals() })
 

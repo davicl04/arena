@@ -1,5 +1,60 @@
 # Situação da fundação do Arena
 
+## Versionamento de posts e correções — 10 de outubro de 2026
+
+O usuário autorizou o commit e o envio ao remoto `origin` na branch existente `feat/minio-images`. A entrega reúne a implementação de posts, perfis sociais e moderação, a migração `0003`, os clientes web/Expo, a documentação e as correções da revisão descritas abaixo. Artefatos de validação, ambientes locais e segredos permanecem fora do versionamento.
+
+O diff foi conferido para esta entrega. As verificações de código e dos fluxos são as registradas na seção de correções; não foram repetidas para este registro de versionamento. A execução remota do CI, o ensaio em aparelhos e o aceite cruzado com reinício permanecem pendentes. Este envio não inclui deploy.
+
+## Correções da revisão de imagens e posts — 10 de outubro de 2026
+
+Corrigidos os nove achados da revisão abaixo. O feed filtra bloqueios nos dois sentidos; a leitura do avatar de comentário reavalia bloqueio e suspensão do comentarista; falhas de leitura posteriores ao commit não apagam a imagem de um post persistido. Denúncias de contas privadas visíveis não exigem autorização para seus posts, mantendo a proteção de posts/comentários privados. Aprovações repetidas retornam sucesso e rejeitar uma solicitação já rejeitada é idempotente, sem excluir uma relação aprovada.
+
+O card de publicação web foi extraído para `SocialPostCard`, preservando o foco enquanto se digita. Busca, galerias, comentários, solicitações, seguidores, seguindo e bloqueios agora oferecem continuação por cursor na web e no Expo. `GET /api/v1/me/blocks` passou a responder `{ items, next_cursor }`, com 20 itens por padrão e limite máximo de 50; ambos os clientes e testes foram atualizados. A fila administrativa inclui `target_user_id` e `target_user_active`, referências administrativas que permitem reativar uma conta suspensa após resolver a denúncia sem revelar o conteúdo privado na fila resolvida. A reativação usa a rota administrativa existente, exige justificativa, registra decisão e não restaura sessões revogadas. A privacidade carregada/alterada em Configurações também é sincronizada com o estado da conta na web.
+
+Adicionados testes unitários para regras de autorização, cursores, redação dos dados privados na moderação, reenvios e compensação de upload, além de regressões PostgreSQL e testes de digitação/paginação/reativação nos clientes. Os pisos do CI foram preservados, sem exclusão de arquivos da cobertura. Resultados: **108 unidades backend aprovadas**, cobertura combinada **65,48%** (piso 60%); **130 testes backend aprovados, nenhum pulado**, com PostgreSQL em schemas aleatórios e bucket MinIO isolado, cobertura combinada **87,52%** (piso 85%); **33 testes web** e **20 mobile** aprovados com cobertura. Ruff, Alembic check, lint/build web, lint/typecheck/exportação Android mobile aprovados. `expo install --check` já havia passado nesta sessão de revisão, e nenhuma dependência foi alterada nas correções. Detalhes de cobertura em [qualidade do código](qualidade-codigo.md).
+
+Os seis cenários adicionais locais de API também passaram, incluindo upload/leitura/troca/remoção de avatar e publicação/leitura/exclusão de post no MinIO real. No navegador da web, com a sessão local existente, conferidos feed/imagens, digitação completa com foco preservado, aba Fotos, Configurações, relações e sincronização do indicador de privacidade. Conferidas larguras de 320, 390 e 1440 px, sem overflow horizontal da página; o viewport original foi restaurado. Não foram alterados posts, comentários ou privacidade da conta existente durante a conferência, e o rascunho de teste foi limpo. Paginação com múltiplas páginas e moderação foram verificadas por testes automatizados, sem acrescentar dados fictícios à interface.
+
+Persistem pendentes ensaio em aparelhos Android/iOS, aceite cruzado web/mobile com reinício e execução remota do CI. Contas, mídias vinculadas, configurações locais e volumes foram preservados. Nenhum commit, push ou deploy foi realizado. A seção de revisão abaixo é o registro histórico dos defeitos anteriores a estas correções.
+
+## Revisão dos planos de imagens e posts — 10 de outubro de 2026
+
+Revisados o commit `fb75efc` de avatar/MinIO e as alterações locais de posts, comparando implementação, contratos e testes com [plano-minio-imagens.md](plano-minio-imagens.md) e [plano-posts.md](plano-posts.md). A entrega social ainda não satisfaz todos os critérios de aceite. Esta revisão preservou o código existente; as falhas abaixo não foram corrigidas.
+
+Achados prioritários, reproduzidos em testes adicionais locais:
+
+- **P1 — bloqueio recebido não filtra o feed:** em `backend/app/routers/social.py:209–210`, a condição inversa compara `blocked_id` com o autor, em vez do leitor. Se uma conta pública bloqueia o visitante, o detalhe e a imagem retornam 404, mas o feed ainda entrega nome, legenda e metadados de seus posts.
+- **P1 — avatar de comentário ignora bloqueio/suspensão do comentarista:** em `backend/app/routers/social.py:349–350`, a autorização confere apenas o dono do post. Num post público de terceiro, a URL previamente obtida continua retornando a imagem após bloqueio entre leitor e comentarista, embora o comentário seja ocultado. A mesma verificação não exige que o comentarista esteja ativo.
+- **P1 — falha após commit exclui a imagem de post persistido:** em `backend/app/routers/social.py:240–244`, `refresh` está no mesmo tratamento de falhas da gravação. Uma falha de leitura depois do commit executa a exclusão S3; rollback já não desfaz o post. A injeção dessa falha confirmou registro persistido sem sua imagem.
+- **P1 — comentário web perde foco a cada caractere:** em `web/src/components/SocialCommunity.tsx:187`, `PostCard` é definido dentro do componente pai. Cada atualização do rascunho remonta o card e o input. Digitar `Boa!` com eventos reais de teclado do Testing Library resultou somente em `B`.
+- **P2 — denúncia de conta privada exige acesso aos posts:** em `backend/app/routers/social.py:482–486`, `_can_view` também é exigido para alvo de tipo `user`. O perfil básico pode ser aberto e os clientes oferecem denúncia, mas um não seguidor recebe 404 mesmo denunciando a conta visível. A autorização da denúncia de conta precisa distinguir perfil básico de conteúdo privado.
+- **P2 — aprovação não suporta reenvio:** em `backend/app/routers/social.py:406–409`, somente relações pendentes são buscadas. Repetir uma aprovação bem-sucedida retorna 404, contrariando a idempotência prevista no plano.
+- **P2 — cursores descartados pelos clientes:** `SocialSettings`, `ProfilePage` e os perfis/comentários/busca de `SocialCommunity` e `CommunityScreen`, além das relações no perfil Expo, consomem somente a primeira página e descartam `next_cursor`. Galerias, comentários, busca e gestão de relações ficam limitados aos primeiros 20 itens carregados. Confirmada na web a ausência de continuação quando a API devolve cursor de solicitações. A API de bloqueios também limita silenciosamente a lista a 50 contas, sem continuação.
+- **P2 — painel não reativa conta já suspensa:** em `web/src/components/AdminReports.tsx:58`, ações aparecem somente em denúncias pendentes. Suspender resolve a denúncia; a fila resolvida não oferece reativação, e o cliente não usa `/admin/users/{id}/status`. Confirmada a ausência de controle de reativação na fila resolvida. Uma nova denúncia pendente não é um caminho confiável, pois contas suspensas são ocultadas.
+
+**P1 — piso de cobertura do CI não atendido:** executado o comando de unidades com `--cov=app --cov-branch --cov-fail-under=60`, equivalente ao passo `.github/workflows/ci.yml:42`. Os 65 testes passaram, mas o comando terminou com código 1 por cobertura combinada de **52,84%**, inferior a 60%. O CI configurado ficará bloqueado nesse passo; ampliar cobertura de unidades sem excluir arquivos ou reduzir o piso para esconder a regressão.
+
+Verificações aprovadas: Ruff; Alembic check no banco de desenvolvimento; aplicação de todas as migrações em schemas PostgreSQL aleatórios dos testes; suíte completa backend com **80 testes aprovados, nenhum pulado**, incluindo round-trip S3 e rejeição de leitura anônima em bucket MinIO isolado; web lint/build e **24 testes com cobertura**; mobile lint/typecheck, **15 testes com cobertura**, `expo install --check` e exportação Android. Teste adicional com MinIO real aprovou upload/leitura/troca/remoção idempotente de avatar, isolamento da rota privada entre contas, e criação/leitura/exclusão de post. O bucket temporário da revisão foi removido após a execução, preservando buckets, contas e volumes existentes.
+
+Os cenários adicionais confirmaram **cinco falhas de comportamento backend e três web**, separadamente das suítes existentes que passaram. Reproduções e relatórios ficam em `artifacts/review-plans/`, ignorado pelo Git. Não houve revisão visual em navegador, teste em aparelho Android/iOS, fluxo cruzado web/mobile com reinício nem execução remota do CI nesta revisão. Essas validações de aceite permanecem pendentes, assim como correção dos achados. Nenhum commit, push ou deploy foi realizado.
+
+## Plano de posts, perfis sociais e moderação — 10 de outubro de 2026
+
+Salvo o [plano de posts](plano-posts.md), definido com o usuário para web e mobile autenticados: uma foto quadrada com recorte ajustável e legenda opcional, feed geral cronológico, curtidas, comentários, privacidade social por conta, seguidores com aprovação, bloqueios, denúncias e painel administrativo web. O plano também registra contratos previstos, reutilização do armazenamento privado, sequência de implementação e critérios de aceite. A foto original no dispositivo será preservada; somente a versão recortada e otimizada será publicada.
+
+## Implementação de posts, perfis sociais e moderação — 10 de outubro de 2026
+
+Implementado o escopo do [plano de posts](plano-posts.md) nos contratos da API, PostgreSQL, web e Expo. A migração `0003` acrescenta visibilidade social privada por padrão, posts, curtidas, comentários, seguidores aprovados/pendentes, bloqueios, denúncias, papel administrativo e histórico de decisões. A autorização é conferida em consultas e em cada leitura de imagem; dados pessoais e perfis esportivos não se tornam públicos. Posts usam MinIO/S3 privado, foto quadrada WebP até 1.080 px e reconciliação de órfãos que preserva avatares e posts vinculados.
+
+A web agora tem criação com recorte e zoom, feed cronológico, busca, perfis/galeria, interações e painel administrativo em Configurações. O Expo tem Comunidade com lista virtualizada e seletor/recorte nativo, perfil e ferramentas sociais. Contas públicas aprovam pedidos pendentes quando a visibilidade muda; tornar privada preserva seguidores existentes. Bloqueio remove vínculos e não os restaura ao desbloquear. O papel de administrador é concedido somente pelo comando explícito `python -m app.admin_cli promote-admin EMAIL`.
+
+Verificações desta entrega: Ruff aprovado; backend com PostgreSQL em schema aleatório, 79 testes aprovados e 1 teste de round-trip S3 real pulado; cobertura combinada de 86,13% (88,67% de linhas e 71,96% de ramos). Web ESLint, TypeScript, build e 24 testes com cobertura aprovados (39,83% de linhas, 31,84% de ramos); mobile ESLint, TypeScript, exportação Android e 15 testes com cobertura aprovados (24,72% de linhas, 13,61% de ramos). Os testes de integração social usaram armazenamento S3 falso; a integração MinIO/S3 real não foi repetida nesta entrega. No navegador local, a tela inicial carregou, mas a API estava indisponível; por isso não foi possível revisar os fluxos sociais ou a responsividade. Nenhum aparelho foi validado e o CI remoto não foi executado. Migração e Alembic check foram aplicados/verificados no banco local de desenvolvimento sem apagar dados. Permanecem pendentes ensaio em Android/iOS, revisão responsiva ao vivo, S3 real para posts e execução remota do CI. Nenhum mock foi acrescentado à interface. Sem commit, push ou deploy.
+
+## Plano definido — posts, perfis sociais e moderação — 10 de outubro de 2026
+
+O plano foi registrado com o usuário antes desta implementação. Seus critérios e contratos continuam em [plano de posts](plano-posts.md); o estado verificado desta entrega está na seção acima.
+
 ## Plano da próxima evolução: imagens e avatar — 9 de outubro de 2026
 
 Implementado o armazenamento privado S3 compatível e o fluxo de foto de perfil na web e no mobile, conforme [plano-minio-imagens.md](plano-minio-imagens.md). PostgreSQL guarda metadados e referência nullable; a API autenticada serve as imagens. MinIO local usa volume próprio. Posts, brasões, perfis públicos e infraestrutura de produção continuam fora desta entrega.
@@ -32,12 +87,25 @@ Atualizar este Markdown a cada entrega ou alteração no projeto, registrando im
 | Nome, cidade, posição e disponibilidade esportiva | Integrados à API, com persistência. |
 | Saudação, iniciais do avatar e chips de modalidades | Derivados dos dados reais da conta. |
 | Foto de perfil (avatar) | Integrada à API e ao armazenamento privado, com recorte, troca e remoção na web e no mobile. |
-| Partidas, ranking, estatísticas, comunidade, publicações de fotos e notificações | Estrutura visual e estados vazios ou indicação de disponibilidade futura; sem dados demonstrativos preenchidos e sem integração de domínio. Manter essa apresentação até as integrações ou uma nova solicitação do usuário. |
+| Posts, comunidade e perfis sociais | Integrados à API: feed cronológico, foto/legenda, curtidas, comentários, busca, privacidade social, seguidores, bloqueios e denúncias. Painel administrativo web e histórico de decisões implementados. |
+| Partidas, ranking, estatísticas e notificações | Estrutura visual e estados vazios ou indicação de disponibilidade futura; sem dados demonstrativos ou integração de domínio. |
 | Moedas e carteira | Removidas da interface web e fora da direção atual do produto; não implementar sem nova solicitação. |
 | Botão Jogar | Abre a preparação dos perfis esportivos; busca e agendamento ainda pendentes. |
-| Cliente Expo | Mantém a interface anterior; a revisão visual do Figma foi aplicada somente à web. |
+| Cliente Expo | Comunidade e recursos sociais implementados; a revisão visual do Figma foi aplicada somente à web. |
 
 ## Evidências e limites
+
+### Posts e perfis sociais — 10 de outubro de 2026
+
+| Verificação | Resultado |
+| --- | --- |
+| Migração e esquema | `0003` aplicado no PostgreSQL local preservando os dados existentes; Alembic check sem diferenças. |
+| Backend | Ruff aprovado; 79 testes aprovados em PostgreSQL isolado, com um teste opcional S3 real pulado; cobertura combinada: 86,13% (88,67% de linhas, 71,96% de ramos). |
+| Fluxos sociais PostgreSQL | Privacidade, solicitação/aprovação, feed, imagem autorizada, curtida idempotente, comentário, bloqueio/desbloqueio, denúncia e suspensão testados. Storage de integração social substituído por double; MinIO real para posts pendente. |
+| Web | ESLint, TypeScript, build e 24 testes/cobertura aprovados; cobertura de ramos: 31,84%. |
+| Mobile | ESLint, typecheck, 15 testes/cobertura e exportação Android aprovados. |
+| Navegador e aparelhos | A tela inicial abriu, mas API indisponível impediu validar a Comunidade e a revisão responsiva; nenhum aparelho Android/iOS foi validado. |
+| CI remoto | Pendente. |
 
 | Verificação | Resultado |
 | --- | --- |
@@ -65,11 +133,11 @@ O audit inicial do mobile apontou 22 alertas transitivos em ferramentas Expo/Met
 
 ## Relação com as especificações
 
-HU01, RN01 e a seleção de modalidades em RN02 possuem implementação; RN22 é respeitada pelo padrão privado, mas publicação opt-in/fotos ainda não está construída. TI01 e a parte de perfis de TI05 foram exercitados; busca e inscrições de TI05 permanecem futuras.
+HU01, RN01 e a seleção de modalidades em RN02 possuem implementação. RN22 é atendida por perfis sociais privados por padrão, publicação opt-in, posts com fotos e controles de acesso; busca de contas também foi implementada. Inscrições de TI05 permanecem futuras.
 
-O roteiro original contém propostas e diagramas para o MVP completo. A modelagem implementada nesta entrega corresponde somente a cidades, usuários, sessões e perfis; o [diagrama da fundação](diagramas/fundacao.md) registra essas tabelas. Os diagramas anteriores continuam como desenho futuro e não devem ser apresentados como banco já implementado.
+O roteiro original contém propostas e diagramas para o MVP completo. Na entrega inicial, a modelagem se limitava a cidades, usuários, sessões e perfis. A entrega de 10 de outubro também implementou as tabelas sociais descritas nesta página e no [diagrama da fundação](diagramas/fundacao.md); as demais propostas do MVP continuam como desenho futuro.
 
-A primeira entrega ainda exige demonstração em aparelho mobile para satisfazer todos os critérios de aceite do plano. Times, vagas, partidas, chat, resultados, rankings, corrida, eventos e revisão administrativa não estão implementados nesta etapa.
+A implementação social ainda exige validação visual em navegador e demonstração em aparelho mobile. Times, vagas, partidas, chat, resultados, rankings, corrida e eventos permanecem fora das entregas realizadas até aqui.
 
 A revisão do arquivo Word ficou pendente: o renderizador da skill de documentos não encontrou o LibreOffice necessário à inspeção visual. O arquivo original foi preservado; este registro e o README descrevem o estado atual e devem orientar a atualização do roteiro quando houver renderização disponível.
 

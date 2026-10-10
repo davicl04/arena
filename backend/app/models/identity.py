@@ -1,7 +1,19 @@
 from datetime import date, datetime, timezone
 from uuid import UUID
 
-from sqlalchemy import Boolean, CheckConstraint, Date, DateTime, ForeignKey, String, UniqueConstraint, Uuid
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    Date,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    Uuid,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -26,6 +38,8 @@ class User(Base):
     birth_date: Mapped[date] = mapped_column(Date)
     password_hash: Mapped[str] = mapped_column(String(255))
     active: Mapped[bool] = mapped_column(Boolean, default=True)
+    social_public: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    is_admin: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
     avatar_media_id: Mapped[UUID | None] = mapped_column(
@@ -51,6 +65,84 @@ class MediaObject(Base):
     size_bytes: Mapped[int]
     width: Mapped[int]
     height: Mapped[int]
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class Post(Base):
+    __tablename__ = 'posts'
+    __table_args__ = (Index('ix_posts_created_id', 'created_at', 'id'),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey('users.id', ondelete='CASCADE'), index=True)
+    media_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey('media_objects.id', ondelete='RESTRICT'), unique=True)
+    caption: Mapped[str] = mapped_column(String(2200), default='', nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class PostLike(Base):
+    __tablename__ = 'post_likes'
+    __table_args__ = (UniqueConstraint('post_id', 'user_id', name='uq_post_like_user'),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    post_id: Mapped[int] = mapped_column(ForeignKey('posts.id', ondelete='CASCADE'), index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey('users.id', ondelete='CASCADE'), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class PostComment(Base):
+    __tablename__ = 'post_comments'
+    id: Mapped[int] = mapped_column(primary_key=True)
+    post_id: Mapped[int] = mapped_column(ForeignKey('posts.id', ondelete='CASCADE'), index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey('users.id', ondelete='CASCADE'), index=True)
+    body: Mapped[str] = mapped_column(String(1000), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+
+
+class Follow(Base):
+    __tablename__ = 'follows'
+    __table_args__ = (
+        UniqueConstraint('follower_id', 'followed_id', name='uq_follow_pair'),
+        CheckConstraint('follower_id <> followed_id', name='ck_follow_not_self'),
+    )
+    id: Mapped[int] = mapped_column(primary_key=True)
+    follower_id: Mapped[int] = mapped_column(ForeignKey('users.id', ondelete='CASCADE'), index=True)
+    followed_id: Mapped[int] = mapped_column(ForeignKey('users.id', ondelete='CASCADE'), index=True)
+    approved: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class UserBlock(Base):
+    __tablename__ = 'user_blocks'
+    __table_args__ = (
+        UniqueConstraint('blocker_id', 'blocked_id', name='uq_user_block_pair'),
+        CheckConstraint('blocker_id <> blocked_id', name='ck_block_not_self'),
+    )
+    id: Mapped[int] = mapped_column(primary_key=True)
+    blocker_id: Mapped[int] = mapped_column(ForeignKey('users.id', ondelete='CASCADE'), index=True)
+    blocked_id: Mapped[int] = mapped_column(ForeignKey('users.id', ondelete='CASCADE'), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class ContentReport(Base):
+    __tablename__ = 'content_reports'
+    id: Mapped[int] = mapped_column(primary_key=True)
+    reporter_id: Mapped[int] = mapped_column(ForeignKey('users.id', ondelete='CASCADE'), index=True)
+    target_type: Mapped[str] = mapped_column(String(20))
+    target_id: Mapped[int] = mapped_column(Integer)
+    reason: Mapped[str] = mapped_column(String(30))
+    description: Mapped[str | None] = mapped_column(String(1000))
+    status: Mapped[str] = mapped_column(String(20), default='pending', nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class ModerationAction(Base):
+    __tablename__ = 'moderation_actions'
+    id: Mapped[int] = mapped_column(primary_key=True)
+    admin_id: Mapped[int] = mapped_column(ForeignKey('users.id', ondelete='RESTRICT'), index=True)
+    report_id: Mapped[int | None] = mapped_column(ForeignKey('content_reports.id', ondelete='SET NULL'), nullable=True, index=True)
+    target_type: Mapped[str] = mapped_column(String(20))
+    target_id: Mapped[int] = mapped_column(Integer)
+    action: Mapped[str] = mapped_column(String(30))
+    justification: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
