@@ -8,6 +8,7 @@ import { ArenaMark } from "../components/Brand";
 import EmptyState from "../components/EmptyState";
 import HomePage from "./HomePage";
 import ProfilePage from "./ProfilePage";
+import AvatarEditor from "../components/AvatarEditor";
 import { navItems, rankingTiers, sportIcons } from "../data/arena";
 import type { Screen } from "../data/arena";
 
@@ -299,6 +300,7 @@ export default function ArenaPage({
           {screen === "settings" && (
             <>
               <section className="settings-card">
+                <AvatarEditor user={user} onUser={onUser} onExpired={onExpired} />
                 <h2>Dados da conta</h2>
                 <form onSubmit={rename}>
                   <fieldset disabled={busy}>

@@ -1,1 +1,1 @@
-{"expo":{"name":"Arena","slug":"arena","version":"0.1.0","orientation":"portrait","userInterfaceStyle":"light","ios":{"supportsTablet":true},"android":{"package":"com.arena.sports"},"plugins":["expo-secure-store"]}}
+{"expo":{"name":"Arena","slug":"arena","version":"0.1.0","orientation":"portrait","userInterfaceStyle":"light","ios":{"supportsTablet":true},"android":{"package":"com.arena.sports"},"plugins":["expo-secure-store",["expo-image-picker",{"photosPermission":"Permitir que o Arena acesse uma foto para seu perfil."}]]}}

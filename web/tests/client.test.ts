@@ -21,6 +21,17 @@ describe('transporte da API web', () => {
     expect(fetch.mock.calls[0][1]).toMatchObject({ method: 'GET', headers: {}, body: undefined })
   })
 
+  it('envia multipart sem definir o boundary manualmente', async () => {
+    const form = new FormData()
+    form.append('file', new Blob(['avatar']), 'avatar.webp')
+    const fetch = vi.fn().mockResolvedValue(new Response('{"id":1}'))
+    vi.stubGlobal('fetch', fetch)
+    await request('/me/avatar', 'PUT', form)
+    expect(fetch).toHaveBeenCalledWith('http://localhost:8000/api/v1/me/avatar', expect.objectContaining({
+      method: 'PUT', body: form, headers: {},
+    }))
+  })
+
   it('aceita resposta 204 sem tentar ler JSON', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 204 })))
     await expect(request('/auth/logout', 'POST')).resolves.toBeUndefined()

@@ -1,5 +1,9 @@
 # Situação da fundação do Arena
 
+## Plano da próxima evolução: imagens e avatar — 9 de outubro de 2026
+
+Implementado o armazenamento privado S3 compatível e o fluxo de foto de perfil na web e no mobile, conforme [plano-minio-imagens.md](plano-minio-imagens.md). PostgreSQL guarda metadados e referência nullable; a API autenticada serve as imagens. MinIO local usa volume próprio. Posts, brasões, perfis públicos e infraestrutura de produção continuam fora desta entrega.
+
 Data: 9 de outubro de 2026. Implementação inicial de conta e perfis, referente à entrega 1. Este registro complementa o roteiro e não declara o MVP completo.
 
 ## Implementado
@@ -12,6 +16,7 @@ Data: 9 de outubro de 2026. Implementação inicial de conta e perfis, referente
 - Frontend web aproximado do protótipo Figma Make: símbolo atualizado do Coliseu enviado pelo usuário, marca `arena.` com ponto verde, fontes Inter/Sora, cores, cards compactos, carrossel, capa e avatar do perfil e navegação inferior com Início, Ranking, Jogar, Comunidade e Perfil. Detalhes em [fidelidade ao Figma](fidelidade-figma.md).
 - Estados de carregamento, erro recuperável, sucesso e sessão expirada; labels e foco na web, controles acessíveis e adaptação ao teclado no mobile.
 - Arquivos de lock, exemplos de ambiente, comandos de execução e workflow CI.
+- Avatar privado: MinIO local construído da versão fixada no Compose, bucket `arena-media` criado por comando explícito, entidade de mídia e referência nullable por migração, upload autenticado com normalização WebP e leitura/removal sob sessão. A web permite recorte quadrado com arraste/zoom; o Expo usa seletor e editor nativo quadrado. Os dois clientes enviam multipart e não recebem URL presigned.
 
 ## Diretriz para esta fase inicial
 
@@ -26,7 +31,8 @@ Atualizar este Markdown a cada entrega ou alteração no projeto, registrando im
 | Cadastro, login, sessão e logout | Integrados à API. |
 | Nome, cidade, posição e disponibilidade esportiva | Integrados à API, com persistência. |
 | Saudação, iniciais do avatar e chips de modalidades | Derivados dos dados reais da conta. |
-| Partidas, ranking, estatísticas, comunidade, fotos e notificações | Estrutura visual e estados vazios ou indicação de disponibilidade futura; sem dados demonstrativos preenchidos e sem integração de domínio. Manter essa apresentação até as integrações ou uma nova solicitação do usuário. |
+| Foto de perfil (avatar) | Integrada à API e ao armazenamento privado, com recorte, troca e remoção na web e no mobile. |
+| Partidas, ranking, estatísticas, comunidade, publicações de fotos e notificações | Estrutura visual e estados vazios ou indicação de disponibilidade futura; sem dados demonstrativos preenchidos e sem integração de domínio. Manter essa apresentação até as integrações ou uma nova solicitação do usuário. |
 | Moedas e carteira | Removidas da interface web e fora da direção atual do produto; não implementar sem nova solicitação. |
 | Botão Jogar | Abre a preparação dos perfis esportivos; busca e agendamento ainda pendentes. |
 | Cliente Expo | Mantém a interface anterior; a revisão visual do Figma foi aplicada somente à web. |
@@ -47,6 +53,8 @@ Atualizar este Markdown a cada entrega ou alteração no projeto, registrando im
 | Mobile | TypeScript, ESLint e exportação Android aprovados; transporte Bearer coberto nos testes da API. |
 | Aparelhos Android e iOS | Pendente; bundle gerado não comprova usabilidade ou SecureStore em dispositivo. |
 | CI remoto | Workflow criado, ainda não executado no GitHub. |
+| Imagens e avatar | Migração `0002` aplicada e `alembic check` limpo. Suíte backend: 73 aprovados com PostgreSQL e MinIO local; round-trip S3 real aprovado. Web: lint, TypeScript, cobertura (22 testes) e build aprovados. Mobile: lint, typecheck, cobertura (14 testes), Expo install check e export Android aprovados. |
+| Aplicativo mobile em aparelhos | Pendente; o seletor e recorte foram configurados no Expo, mas nenhum aparelho foi validado. |
 | Meta de desempenho RNF03 | Não medida; carga e matriz de ensaio pendentes. |
 
 O Docker Desktop falhou ao iniciar seu serviço de inferência. Os testes usaram PostgreSQL isolado na porta 55432; o Compose permanece configurado para porta 5432. Testes de integração precisam de `TEST_DATABASE_URL`; sem essa variável ficam explicitamente pulados e não comprovam persistência.
@@ -90,6 +98,14 @@ Commit local na branch main autorizado pelo usuário, reunindo a fundação de b
 ## Envio ao repositório remoto — 9 de outubro de 2026
 
 O usuário autorizou enviar a main para origin (repositório davicl04/arena no GitHub). O commit a0b7603 reúne a fundação e os ajustes visuais; este registro acompanha o envio. Nenhuma alteração funcional nem novos testes de código nesta etapa. A confirmação do push é verificada pelo comando Git e pela comparação entre HEAD e a referência remota.
+
+## Armazenamento privado e avatar — 9 de outubro de 2026
+
+Adicionado MinIO local, compilado do código da versão `RELEASE.2025-10-15T17-29-55Z`, com portas 9000/9001 e volume próprio `miniodata`; o volume `pgdata` foi preservado. Bucket `arena-media` inicializado pelo comando administrativo explícito. A migração `0002` registra mídia com UUID, titular, chave opaca, MIME, tamanho, dimensões e data, e acrescenta ao usuário a referência nullable do avatar. Upload limita tamanho e megapixels, valida JPEG/PNG/WebP estáticos pelo conteúdo, corrige EXIF, remove metadados e converte para WebP quadrado de até 512 px. A API serve e remove a imagem somente com a sessão do titular; falha na limpeza da imagem anterior não desfaz uma troca já persistida e o comando `reconcile` limpa órfãos com mais de 24 horas.
+
+A web tem editor quadrado com arraste, zoom, prévia e controles por teclado; o mobile usa `expo-image-picker` com recorte nativo. Cancelamento e erro preservam a foto atual; sem foto ou em falha de leitura aparecem as iniciais. As abas de fotos continuam vazias. Atualizados README, decisões técnicas, diagrama, workflow de CI e locks.
+
+Verificações executadas: Alembic upgrade/check; Ruff; 76 testes backend aprovados com PostgreSQL e round-trip S3 contra MinIO local; cobertura unitária 72,69% e total 87,71%, acima dos pisos de 60% e 85%. Web lint, typecheck, cobertura (22 testes) e build passaram. Mobile lint, typecheck, cobertura (14 testes), `expo install --check` e exportação Android passaram. A primeira tentativa do MinIO revelou permissão no volume Docker; o entrypoint foi ajustado para preparar o diretório e executar o processo como usuário sem privilégios. O serviço ficou healthy e o round-trip S3 passou. A revisão visual web do avatar não foi concluída porque o navegador estava sem acesso à API local. Nenhum aparelho Android/iOS foi testado; suporte, hospedagem, HTTPS e backup de produção seguem pendentes.
 
 ## Correção da conexão com Compose — 9 de outubro de 2026
 

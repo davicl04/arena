@@ -13,6 +13,7 @@ import EmptyState from "../components/EmptyState";
 import ProfileTabs from "../components/ProfileTabs";
 import { cover, sportIcons } from "../data/arena";
 import type { Screen } from "../data/arena";
+import Avatar from "../components/Avatar";
 
 export default function ProfilePage({
   user,
@@ -24,13 +25,6 @@ export default function ProfilePage({
   go: (screen: Screen) => void;
 }) {
   const [profileTab, setProfileTab] = useState("Atividades");
-  const initials = user.name
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase();
   return (
     <>
       <div
@@ -46,7 +40,7 @@ export default function ProfilePage({
         </button>
       </div>
       <section className="profile-intro">
-        <div className="avatar">{initials}</div>
+        <Avatar key={user.avatar?.id ?? "initials"} user={user} className="avatar" />
         <button
           className="secondary edit-profile"
           onClick={() => go("settings")}

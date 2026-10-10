@@ -5,6 +5,7 @@ export interface User {
   name: string
   email: string
   birth_date: string
+  avatar: { id: string; url: string } | null
 }
 export interface City {
   id: number
@@ -33,6 +34,7 @@ const base = (import.meta.env.VITE_API_URL || 'http://localhost:8000').replace(
   /\/$/,
   '',
 )
+export const apiUrl = (path: string) => `${base}${path}`
 export async function request<T>(
   path: string,
   method = 'GET',
@@ -43,8 +45,8 @@ export async function request<T>(
     response = await fetch(`${base}/api/v1${path}`, {
       method,
       credentials: 'include',
-      headers: body ? { 'Content-Type': 'application/json' } : {},
-      body: body ? JSON.stringify(body) : undefined,
+      headers: body ? (body instanceof FormData ? {} : { 'Content-Type': 'application/json' }) : {},
+      body: body ? (body instanceof FormData ? body : JSON.stringify(body)) : undefined,
       signal: AbortSignal.timeout(15000),
     })
   } catch {

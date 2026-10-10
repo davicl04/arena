@@ -29,6 +29,23 @@ Espere o banco aparecer como `healthy`. A API não cria tabelas automaticamente:
 
 API: [localhost:8000/docs](http://localhost:8000/docs). Saúde do processo: `/health/live`; prontidão do banco e esquema: `/health/ready`. O OpenAPI é gerado em `/openapi.json`.
 
+### Imagens e avatar local
+
+O Compose também fornece MinIO local, construído do código na versão fixada no `docker-compose.yml`, com API S3 em `localhost:9000`, console em `localhost:9001` e volume persistente `miniodata`. Inicie o serviço sem recriar nem apagar o PostgreSQL:
+
+```powershell
+docker compose up -d --build --wait minio
+```
+
+Configure no `backend/.env` `MEDIA_S3_ENDPOINT`, `MEDIA_S3_REGION`, `MEDIA_S3_BUCKET`, `MEDIA_S3_ACCESS_KEY` e `MEDIA_S3_SECRET_KEY`. Os valores de acesso precisam corresponder a `MINIO_ROOT_USER` e `MINIO_ROOT_PASSWORD` usados pelo Compose; se forem alterados, mantenha ambos os arquivos locais alinhados. Os valores de exemplo servem somente para desenvolvimento local. Depois que o MinIO estiver healthy e o ambiente do backend estiver configurado, crie o bucket privado explicitamente:
+
+```powershell
+cd backend
+.venv/Scripts/python.exe -m app.media_admin ensure-bucket
+```
+
+O bucket não é criado no startup da API. Para remover objetos sem vínculo com avatar que tenham mais de 24 horas, execute `.venv/Scripts/python.exe -m app.media_admin reconcile`. As imagens passam pela API autenticada; não compartilhe credenciais ou links públicos. A implementação aceita JPEG, PNG e WebP estáticos até 5 MiB e 25 megapixels, e armazena versão WebP quadrada de até 512 px. A configuração de produção, provedor, HTTPS, política de backup e suporte do storage ainda precisa ser decidida.
+
 Por padrão, banco `arena`, usuário/senha `arena` e porta `5432` são exclusivos de desenvolvimento. Para trocar, configure `POSTGRES_USER`, `POSTGRES_PASSWORD` e `POSTGRES_DB` no `.env` da raiz e ajuste `DATABASE_URL` no `.env` do backend. O driver da URL é explícito: `postgresql+psycopg2://`.
 
 No Windows, se o Docker não iniciar, corrija a instalação ou use uma instância PostgreSQL própria e ajuste `DATABASE_URL`; não será possível usar o Compose até o engine estar disponível. A validação desta implementação usou uma instância isolada na porta 55432 devido a um erro local do Docker Desktop. Esse ambiente auxiliar não faz parte da instalação padrão.

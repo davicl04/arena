@@ -1,4 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
+import logging
+import uuid
+
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, Response, UploadFile
+from fastapi.responses import Response as BinaryResponse
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
@@ -19,8 +23,10 @@ from app.schemas.identity import (
     UserOut,
 )
 from app.services.identity import authenticate, create_session, register_user
+from app.services.media import normalize_avatar, remove_object, require_storage, storage_client, store_avatar
 
 router = APIRouter(prefix='/api/v1')
+logger = logging.getLogger('arena.media')
 
 
 @router.post('/auth/register', response_model=UserOut, status_code=201)
@@ -72,6 +78,50 @@ def cities(q: str = Query('', max_length=100), db: Session = Depends(get_db)):
 def profiles(user: User = Depends(current_user), db: Session = Depends(get_db)):
     return db.scalars(select(SportsProfile).where(SportsProfile.user_id == user.id)
                       .order_by(SportsProfile.sport)).all()
+
+
+@router.put('/me/avatar', response_model=UserOut)
+async def put_avatar(file: UploadFile = File(...), user: User = Depends(current_user),
+                     db: Session = Depends(get_db)):
+    raw = await file.read(get_settings().media_max_upload_bytes + 1)
+    await file.close()
+    if len(raw) > get_settings().media_max_upload_bytes:
+        raise HTTPException(413, 'A imagem excede o limite de 5 MiB.')
+    normalized = normalize_avatar(raw)
+    store_avatar(db, user, normalized)
+    return user
+
+
+@router.get('/me/avatar')
+def get_avatar(v: uuid.UUID, user: User = Depends(current_user)):
+    media = user.avatar_media
+    if media is None or media.id != v:
+        raise HTTPException(404, 'Foto de perfil não encontrada.')
+    result = require_storage(lambda: storage_client().get_object(Bucket=media.bucket, Key=media.object_key))
+    try:
+        content = result['Body'].read()
+    finally:
+        result['Body'].close()
+    return BinaryResponse(content, media_type=media.content_type, headers={
+        'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff',
+    })
+
+
+@router.delete('/me/avatar', status_code=204)
+def delete_avatar(user: User = Depends(current_user), db: Session = Depends(get_db)):
+    media = user.avatar_media
+    if media is None:
+        return Response(status_code=204)
+    user.avatar_media = None
+    db.commit()
+    try:
+        remove_object(media)
+        db.delete(media)
+        db.commit()
+    except Exception as error:
+        db.rollback()
+        logger.error('Removed avatar cleanup deferred: %s', type(error).__name__)
+    return Response(status_code=204)
 
 
 @router.put('/me/sports-profiles/{sport}', response_model=ProfileOut)

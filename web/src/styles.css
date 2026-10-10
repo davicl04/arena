@@ -556,6 +556,13 @@ a {
   font-weight: 800;
   font-size: 22px;
   box-shadow: 0 2px 8px #0001;
+  overflow: hidden;
+}
+.avatar img,
+.avatar-editor-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 .edit-profile {
   width: 112px;
@@ -823,6 +830,26 @@ a {
 .settings-card h2 {
   font-size: 16px;
 }
+.avatar-editor {
+  margin-bottom: 22px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--line);
+}
+.avatar-editor-current { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.avatar-editor-current h3 { font-size: 13px; }
+.avatar-editor-current p { color: var(--muted); font-size: 10px; margin-top: 4px; }
+.avatar-editor-preview { width: 64px; height: 64px; position: static; flex: 0 0 64px; font-size: 17px; }
+.avatar-file-button { cursor: pointer; }
+.avatar-remove { display: inline-flex; margin-left: 10px; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+.visually-hidden:focus-visible + .avatar-file-button { outline: 3px solid #b26c08; outline-offset: 3px; }
+.crop-dialog { position: fixed; z-index: 50; inset: 0; display: grid; place-items: center; padding: 16px; background: #101814b8; }
+.crop-panel { width: min(100%, 430px); padding: 20px; border-radius: 18px; background: white; box-shadow: 0 20px 70px #0005; }
+.crop-panel h3 { font-size: 17px; }
+.crop-panel > p { margin-top: 6px; font-size: 12px; line-height: 1.5; color: var(--muted); }
+.crop-area { position: relative; width: min(100%, 360px); aspect-ratio: 1; margin: 18px auto; background: #202622; }
+.crop-panel input[type="range"] { min-height: 32px; accent-color: var(--green); }
+.crop-panel .form-actions { justify-content: flex-end; }
 fieldset {
   border: 0;
   margin: 0;

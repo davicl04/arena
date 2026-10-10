@@ -2,7 +2,7 @@ import * as SecureStore from 'expo-secure-store'
 
 export type Sport = 'futebol' | 'tenis' | 'corrida'
 export type Position = 'goleiro' | 'defesa' | 'meio_campo' | 'atacante'
-export interface User { id: number; name: string; email: string; birth_date: string }
+export interface User { id: number; name: string; email: string; birth_date: string; avatar: { id: string; url: string } | null }
 export interface City { id: number; name: string; state: string }
 export interface ProfileInput { city_id: number; position: Position | null; looking_for: boolean }
 export interface Profile extends ProfileInput { id: number; sport: Sport; is_public: boolean; level: string | null }
@@ -13,6 +13,8 @@ const base = (process.env.EXPO_PUBLIC_API_URL || 'http://10.0.2.2:8000').replace
 const key = 'arena.session.v1'
 export const saveToken = (token: string) => SecureStore.setItemAsync(key, token)
 export const clearToken = () => SecureStore.deleteItemAsync(key)
+export const getToken = () => SecureStore.getItemAsync(key)
+export const apiUrl = (path: string) => `${base}${path}`
 export async function request<T>(path: string, method = 'GET', body?: unknown): Promise<T> {
   const token = await SecureStore.getItemAsync(key)
   const controller = new AbortController()
@@ -20,8 +22,8 @@ export async function request<T>(path: string, method = 'GET', body?: unknown): 
   let response: Response
   try {
     response = await fetch(`${base}/api/v1${path}`, { method,
-      headers: { ...(body ? { 'Content-Type': 'application/json' } : {}), ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-      body: body ? JSON.stringify(body) : undefined, signal: controller.signal,
+      headers: { ...(body ? (body instanceof FormData ? {} : { 'Content-Type': 'application/json' }) : {}), ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: body ? (body instanceof FormData ? body : JSON.stringify(body)) as BodyInit : undefined, signal: controller.signal,
     })
   } catch { throw new ApiError('Não foi possível conectar ao Arena. Verifique a conexão e tente novamente.', 0) }
   finally { clearTimeout(timer) }

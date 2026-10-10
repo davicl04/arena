@@ -1,7 +1,8 @@
 from datetime import date, datetime, timezone
+from uuid import UUID
 
-from sqlalchemy import Boolean, CheckConstraint, Date, DateTime, ForeignKey, String, UniqueConstraint
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import Boolean, CheckConstraint, Date, DateTime, ForeignKey, String, UniqueConstraint, Uuid
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
 
@@ -27,6 +28,30 @@ class User(Base):
     active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+    avatar_media_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey('media_objects.id', name='fk_users_avatar_media_id_media_objects',
+                                      ondelete='SET NULL', use_alter=True), nullable=True
+    )
+    avatar_media: Mapped['MediaObject | None'] = relationship(foreign_keys=[avatar_media_id])
+
+    @property
+    def avatar(self):
+        if self.avatar_media is None:
+            return None
+        return {'id': str(self.avatar_media.id), 'url': f'/api/v1/me/avatar?v={self.avatar_media.id}'}
+
+
+class MediaObject(Base):
+    __tablename__ = 'media_objects'
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey('users.id', ondelete='CASCADE'), index=True)
+    bucket: Mapped[str] = mapped_column(String(63))
+    object_key: Mapped[str] = mapped_column(String(200), unique=True)
+    content_type: Mapped[str] = mapped_column(String(50))
+    size_bytes: Mapped[int]
+    width: Mapped[int]
+    height: Mapped[int]
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
 class AuthSession(Base):

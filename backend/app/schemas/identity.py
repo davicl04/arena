@@ -53,6 +53,12 @@ class UserOut(BaseModel):
     name: str
     email: str
     birth_date: date
+    avatar: 'AvatarOut | None' = None
+
+
+class AvatarOut(BaseModel):
+    id: str
+    url: str
 
 
 class ProfileInput(Input):

@@ -10,7 +10,11 @@ O e-mail é validado e convertido para minúsculas antes de persistir ou autenti
 
 Perfis são únicos por usuário e modalidade (`futebol`, `tenis`, `corrida`). Cada perfil tem cidade e status de procura; no futebol, posição preferida opcional (`goleiro`, `defesa`, `meio_campo`, `atacante`). A posição por atuação será um dado distinto quando partidas forem implementadas. Nível é devolvido como `null`, pois não existem resultados para classificá-lo. O cliente não pode enviar nível, titular ou visibilidade.
 
-Todos os perfis permanecem privados e não existem endpoints de consulta pública. A publicação opt-in e fotos continuam previstas na entrega 7.
+Todos os perfis permanecem privados e não existem endpoints de consulta pública. Galeria e publicações de fotos continuam previstas na entrega 7; o avatar desta entrega não altera a privacidade do perfil.
+
+### Imagens privadas e avatar
+
+O avatar é armazenado em objeto privado S3 compatível. Em desenvolvimento o Compose constrói MinIO a partir do código da versão fixada, mantém volume próprio e expõe portas 9000/9001; o bucket `arena-media` é preparado por comando explícito. A API grava metadados e um vínculo nullable no usuário, cria uma chave aleatória e serve a imagem por rota autenticada. Não persiste URL presigned nem expõe credenciais aos clientes. Upload valida o conteúdo decodificado (JPEG, PNG ou WebP estático, 5 MiB e 25 megapixels), aplica orientação EXIF, remove metadados e normaliza para WebP quadrado de até 512 px. Produção ainda requer decisão de provedor, suporte, hospedagem, HTTPS e backup.
 
 ## Cidades
 
