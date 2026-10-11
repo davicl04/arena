@@ -1,6 +1,9 @@
+import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vitest/config'
 
 export default defineConfig({
+  // O NativeWind só processa classes no Metro; nos testes, `styled` vira identidade.
+  resolve: { alias: { nativewind: fileURLToPath(new URL('./tests/support/nativewind.ts', import.meta.url)) } },
   test: {
     environment: 'node',
     env: { EXPO_PUBLIC_API_URL: 'http://10.0.2.2:8000' },

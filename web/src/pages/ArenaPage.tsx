@@ -3,8 +3,13 @@ import { ArrowLeft, MapPin, Shield, Trophy } from "lucide-react";
 import { ApiError, request, sports } from "../api/client";
 import type { City, Profile, ProfileInput, Sport, User } from "../api/client";
 import SportCard from "../components/SportCard";
-import { ArenaMark } from "../components/Brand";
-import EmptyState from "../components/EmptyState";
+import BottomNav from "../components/BottomNav";
+import { Button, IconButton } from "@/components/ui/button";
+import { Chip } from "@/components/ui/chip";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Eyebrow } from "@/components/ui/eyebrow";
+import { feedbackVariants } from "@/components/ui/feedback";
+import { cn } from "@/lib/utils";
 import HomePage from "./HomePage";
 import ProfilePage from "./ProfilePage";
 import EditProfilePage from "./EditProfilePage";
@@ -15,7 +20,7 @@ import ConnectionsPage from "./ConnectionsPage";
 import UserProfilePage from "./UserProfilePage";
 import NotificationsPage from "./NotificationsPage";
 import SocialCommunity from "../components/SocialCommunity";
-import { navItems, rankingTiers, sportIcons } from "../data/arena";
+import { rankingTiers, sportIcons } from "../data/arena";
 import type { ConnectionsTab, Screen } from "../data/arena";
 
 /** Uma tela da pilha de navegação, com o contexto necessário para restaurá-la ao voltar. */
@@ -25,6 +30,8 @@ interface Entry {
   tab?: ConnectionsTab;
   mutual?: boolean;
 }
+/** Subtítulo das telas Jogar e Ranking. */
+const subtitle = "mb-[25px] text-[12px] leading-[1.6] text-ink-muted";
 const rootScreens: Screen[] = ["home", "ranking", "play", "community", "profile"];
 const titles: Record<Screen, string> = {
   home: "Início",
@@ -163,33 +170,32 @@ export default function ArenaPage({
   const profileLayout = screen === "profile" || screen === "user-profile";
 
   return (
-    <div className="app-shell">
-      <div className="arena-app">
+    <div className="grid min-h-dvh place-items-center p-6 app-narrow:p-0">
+      <div className="relative h-[844px] max-h-[calc(100dvh-48px)] w-[390px] overflow-hidden rounded-app border border-solid border-line bg-app shadow-app app-narrow:h-dvh app-narrow:max-h-none app-narrow:w-full app-narrow:rounded-none app-narrow:border-0 app-narrow:shadow-none">
         <main
           id="main"
           ref={mainRef}
           tabIndex={-1}
-          className={`screen ${profileLayout ? "profile-screen" : ""}`}
+          className={cn(
+            "h-full overflow-x-hidden overflow-y-auto px-5 pt-[18px] pb-28 outline-none scrollbar-hidden app-narrow:pb-[calc(112px+env(safe-area-inset-bottom))]",
+            profileLayout && "@container-size pt-0",
+          )}
           aria-label={title}
         >
           {screen !== "home" && !profileLayout && (
-            <header className="page-topbar">
-              <button
-                className="icon-btn"
-                aria-label="Voltar"
-                onClick={back}
-              >
+            <header className="-mx-2 -mt-2 mb-[18px] flex min-h-[54px] items-center justify-between">
+              <IconButton aria-label="Voltar" onClick={back}>
                 <ArrowLeft size={21} />
-              </button>
-              <h1>{title}</h1>
-              <span className="topbar-spacer" />
+              </IconButton>
+              <h1 className="text-[17px]">{title}</h1>
+              <span className="w-11" />
             </header>
           )}
           {error && (
-            <div className="notice" role="alert">
+            <div className={feedbackVariants()} role="alert">
               {error}
-              <button
-                className="text-button"
+              <Button
+                variant="text"
                 onClick={() => {
                   setLoading(true);
                   setError("");
@@ -197,7 +203,7 @@ export default function ArenaPage({
                 }}
               >
                 Recarregar dados
-              </button>
+              </Button>
             </div>
           )}
           {screen === "home" && (
@@ -221,9 +227,9 @@ export default function ArenaPage({
             <>
               {screen === "play" && (
                 <>
-                  <p className="eyebrow">ESCOLHA SEU ESPORTE</p>
-                  <h2 className="flow-title">Qual é o jogo de hoje?</h2>
-                  <p className="flow-subtitle">
+                  <Eyebrow>ESCOLHA SEU ESPORTE</Eyebrow>
+                  <h2 className="mt-[5px] mb-1.5 text-[24px]">Qual é o jogo de hoje?</h2>
+                  <p className={subtitle}>
                     Prepare seu perfil para encontrar sua próxima partida. O
                     agendamento de partidas estará disponível em breve.
                   </p>
@@ -232,7 +238,7 @@ export default function ArenaPage({
               {loading ? (
                 <p role="status">Carregando modalidades…</p>
               ) : (
-                <div className="sports-grid">
+                <div className="grid gap-3">
                   {sports.map((s) => (
                     <SportCard
                       key={s.value}
@@ -245,9 +251,9 @@ export default function ArenaPage({
                   ))}
                 </div>
               )}
-              <aside className="privacy-strip">
+              <aside className="my-[18px] flex items-start gap-2.5 rounded-control bg-[#005a360c] p-3.5 text-brand">
                 <Shield size={20} />
-                <p>
+                <p className="text-[11px] leading-[1.7] text-ink-muted">
                   Seus perfis começam privados. Você cuida dos dados da sua
                   trajetória.
                 </p>
@@ -256,38 +262,47 @@ export default function ArenaPage({
           )}
           {screen === "ranking" && (
             <>
-              <div className="page-heading">
-                <p className="eyebrow">CADA JOGO CONTA</p>
-                <h2>Ranking</h2>
-                <p className="flow-subtitle">
-                  Reconstrua sua arena a cada elo.
-                </p>
+              <div className="mt-1.5 mb-[17px]">
+                <Eyebrow>CADA JOGO CONTA</Eyebrow>
+                <h2 className="mt-[3px] text-[28px]">Ranking</h2>
+                <p className={subtitle}>Reconstrua sua arena a cada elo.</p>
               </div>
-              <div className="ranking-tiers" aria-label="Elos do ranking">
+              <div
+                className="mb-6 flex flex-wrap justify-center gap-2.5"
+                aria-label="Elos do ranking"
+              >
                 {rankingTiers.map((tier) => (
-                  <figure key={tier.image}>
-                    <img src={`/images/brand/${tier.image}.svg`} alt="" />
-                    <figcaption>{tier.name}</figcaption>
+                  <figure
+                    key={tier.image}
+                    className="m-0 w-[calc((100%-20px)/3)] rounded-xl bg-forest px-1.5 py-3 text-center"
+                  >
+                    <img
+                      className="inline h-[52px] w-full align-baseline object-contain"
+                      src={`/images/brand/${tier.image}.svg`}
+                      alt=""
+                    />
+                    <figcaption className="mt-1.5 text-[11px] font-bold text-[#edebe2]">
+                      {tier.name}
+                    </figcaption>
                   </figure>
                 ))}
               </div>
-              <div className="chip-row">
+              <div className="mb-3.5 flex flex-wrap gap-[7px]">
                 {sports.map((s) => {
                   const Icon = sportIcons[s.value];
                   return (
-                    <button
+                    <Chip
                       key={s.value}
-                      className={`sport-chip ${rankingSport === s.value ? "active" : ""}`}
                       aria-pressed={rankingSport === s.value}
                       onClick={() => setRankingSport(s.value)}
                     >
                       <Icon size={15} />
                       {s.label}
-                    </button>
+                    </Chip>
                   );
                 })}
               </div>
-              <div className="filter-bar">
+              <div className="flex items-center gap-2 rounded-xl bg-white px-[13px] py-[11px] text-[11px]">
                 <MapPin size={16} />
                 {cities.find(
                   (c) =>
@@ -300,12 +315,13 @@ export default function ArenaPage({
                 title="Seu elo começa em campo"
                 text="O ranking estará disponível após a integração dos resultados das partidas."
               />
-              <button
-                className="secondary full-width"
+              <Button
+                variant="secondary"
+                className="mt-[18px] w-full"
                 onClick={() => go("sports")}
               >
                 Configurar modalidade
-              </button>
+              </Button>
             </>
           )}
           {screen === "community" && (
@@ -359,27 +375,7 @@ export default function ArenaPage({
             <AdminReports onExpired={onExpired} />
           )}
         </main>
-        <nav className="bottom-nav" aria-label="Navegação principal">
-          {navItems.map(({ screen: target, label, Icon }) => (
-            <button
-              key={target}
-              className={`${activeNav === target ? "active" : ""} ${target === "play" ? "play-nav" : ""}`}
-              aria-current={activeNav === target ? "page" : undefined}
-              onClick={() => go(target)}
-            >
-              {target === "play" ? (
-                <span className="play-circle">
-                  <ArenaMark compact />
-                </span>
-              ) : target === "ranking" ? (
-                <ArenaMark />
-              ) : (
-                <Icon size={21} />
-              )}
-              <span>{label}</span>
-            </button>
-          ))}
-        </nav>
+        <BottomNav active={activeNav} onGo={go} />
       </div>
     </div>
   );

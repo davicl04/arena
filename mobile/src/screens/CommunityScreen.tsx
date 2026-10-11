@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useState } from 'react'
 import { ActivityIndicator, FlatList, Image, Modal, RefreshControl, ScrollView, Text, View } from 'react-native'
-import { SafeAreaView } from 'react-native-safe-area-context'
 import * as ImagePicker from 'expo-image-picker'
 import { ApiError, getToken, request } from '../api/client'
 import type { MutualFollowersPage, Page, Post, SocialUser, User } from '../api/client'
 import { CAPTION_MAX } from '../api/social'
 import { usePagedList } from '../hooks/usePagedList'
-import { Button, Field, styles } from '../components/ui'
+import { Button, Field } from '../components/ui'
+import { Screen } from '../components/Screen'
+import { cx, tw } from '../styles'
+import { colors } from '../theme'
 import { Avatar, Cover } from '../components/media'
 import AccountActions from '../components/AccountActions'
 import PostItem from '../components/PostItem'
@@ -31,34 +33,34 @@ function VisitedProfile({ profile, user, token, mutualText, error, onClose, onFo
   const own = profile.id === user.id
   const canView = profile.social_public || profile.follow_state === 'approved' || own
   return <Modal visible animationType="slide" onRequestClose={() => { if (actions) setActions(false); else onClose() }}>
-    <SafeAreaView style={[styles.screen, { flex: 1 }]}>
-      <ScrollView onScroll={onScroll} scrollEventThrottle={16} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 40 }}>
-        <View style={{ backgroundColor: '#fff' }}>
+    <Screen className={tw.screen}>
+      <ScrollView onScroll={onScroll} scrollEventThrottle={16} keyboardShouldPersistTaps="handled" contentContainerClassName="pb-10">
+        <View className="bg-white">
           <Cover path={profile.cover_url} token={token} height={COVER_HEIGHT} />
-          <View style={{ paddingHorizontal: 22, paddingBottom: 18 }}>
-            <View style={{ marginTop: -32, width: 72, borderWidth: 3, borderColor: '#fff', borderRadius: 36 }}><Avatar path={profile.avatar_url} name={profile.name} token={token} size={66} /></View>
-            <View style={{ marginTop: 10 }}><ProfileTitle name={profile.name} username={profile.username} /></View>
-            <Text style={styles.body}>{profile.social_public ? 'Perfil público' : 'Perfil privado'}</Text>
-            <Text accessibilityLabel="Contagens do perfil" style={styles.body}>{canView ? `${profile.post_count} publicações · ` : ''}{connectionsText(profile.follower_count, profile.following_count)}</Text>
-            {mutualText ? <Text style={styles.body}>{mutualText}</Text> : null}
+          <View className="px-5.5 pb-4.5">
+            <View className="-mt-8 w-[72px] rounded-[36px] border-[3px] border-white"><Avatar path={profile.avatar_url} name={profile.name} token={token} size={66} /></View>
+            <View className="mt-2.5"><ProfileTitle name={profile.name} username={profile.username} /></View>
+            <Text className={tw.body}>{profile.social_public ? 'Perfil público' : 'Perfil privado'}</Text>
+            <Text accessibilityLabel="Contagens do perfil" className={tw.body}>{canView ? `${profile.post_count} publicações · ` : ''}{connectionsText(profile.follower_count, profile.following_count)}</Text>
+            {mutualText ? <Text className={tw.body}>{mutualText}</Text> : null}
             {!own ? <Button title={profile.follow_state === 'approved' ? 'Deixar de seguir' : profile.follow_state === 'pending' ? 'Cancelar solicitação' : profile.social_public ? 'Seguir' : 'Solicitar acesso'} onPress={() => onFollow(profile)} /> : null}
-            {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
+            {error ? <Text accessibilityRole="alert" className={tw.error}>{error}</Text> : null}
           </View>
         </View>
         {canView ? <>
           <ProfileTabs value={tab} onChange={setTab} />
-          <View accessibilityLabel={tab} style={{ minHeight: 280 }}>
+          <View accessibilityLabel={tab} className="min-h-[280px]">
             {tab === 'Fotos'
               ? <ProfileGallery key={profile.id} userId={profile.id} ownerName={profile.name} ownerUsername={profile.username} viewerId={user.id} token={token} onPostUpdate={onPostUpdate} onPostRemove={onPostRemove} onExpired={onExpired} />
               : <MatchesEmpty />}
           </View>
-        </> : <Text style={[styles.body, { padding: 22 }]}>Esta conta é privada. Solicite acesso para ver as publicações; as listas de seguidores também ficam fechadas até lá.</Text>}
+        </> : <Text className={cx(tw.body, 'p-5.5')}>Esta conta é privada. Solicite acesso para ver as publicações; as listas de seguidores também ficam fechadas até lá.</Text>}
       </ScrollView>
       <ProfileTopBar condensed={condensed} username={profile.username}
         leading={<TopBarButton label="Voltar" glyph="‹" condensed={condensed} onPress={onClose} />}
         trailing={own ? undefined : <TopBarButton label="Ações da conta" glyph="•••" condensed={condensed} onPress={() => setActions(true)} />} />
       {actions ? <AccountActions person={profile} token={token} onClose={() => setActions(false)} onBlocked={onBlocked} onExpired={onExpired} /> : null}
-    </SafeAreaView>
+    </Screen>
   </Modal>
 }
 
@@ -173,27 +175,27 @@ export default function CommunityScreen({ user, onExpired }: { user: User; onExp
   }
 
   const header = <View>
-    <Text style={styles.eyebrow}>O ESPORTE CONECTA</Text><Text style={styles.title}>Comunidade</Text>
-    {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
-    <View style={styles.card}><Text style={styles.heading}>Compartilhe sua trajetória</Text><Text style={styles.body}>Publique uma foto quadrada e uma legenda opcional.</Text><Button title={selectedImage ? 'Trocar foto' : 'Escolher foto'} onPress={() => void choosePhoto()} />
-      {selectedImage ? <><Image source={{ uri: selectedImage.uri }} accessibilityLabel="Prévia da foto recortada" style={{ width: '100%', aspectRatio: 1, marginTop: 12, borderRadius: 12 }} /><Field label="Legenda (opcional)" value={caption} onChangeText={setCaption} maxLength={CAPTION_MAX} multiline /><Text style={styles.body}>{caption.length}/2.200</Text><Button title={busy ? 'Publicando…' : 'Publicar'} disabled={busy} onPress={() => void publish()} /><Button secondary title="Cancelar foto" disabled={busy} onPress={() => { setSelectedImage(null); setCaption('') }} /></> : null}
+    <Text className={tw.eyebrow}>O ESPORTE CONECTA</Text><Text className={tw.title}>Comunidade</Text>
+    {error ? <Text accessibilityRole="alert" className={tw.error}>{error}</Text> : null}
+    <View className={tw.card}><Text className={tw.heading}>Compartilhe sua trajetória</Text><Text className={tw.body}>Publique uma foto quadrada e uma legenda opcional.</Text><Button title={selectedImage ? 'Trocar foto' : 'Escolher foto'} onPress={() => void choosePhoto()} />
+      {selectedImage ? <><Image source={{ uri: selectedImage.uri }} accessibilityLabel="Prévia da foto recortada" className="mt-3 aspect-square w-full rounded-lg" /><Field label="Legenda (opcional)" value={caption} onChangeText={setCaption} maxLength={CAPTION_MAX} multiline /><Text className={tw.body}>{caption.length}/2.200</Text><Button title={busy ? 'Publicando…' : 'Publicar'} disabled={busy} onPress={() => void publish()} /><Button secondary title="Cancelar foto" disabled={busy} onPress={() => { setSelectedImage(null); setCaption('') }} /></> : null}
     </View>
-    <View style={styles.card}><Text style={styles.heading}>Encontrar atletas</Text><Field label="Nome ou @" value={query} onChangeText={setQuery} maxLength={100} /><Button title="Buscar" onPress={() => void search()} />{people.map(person => <View key={person.id} style={[styles.row, { marginTop: 10 }]}><Avatar path={person.avatar_url} name={person.name} token={token} /><View><Button secondary title={person.name} onPress={() => void openProfile(person.id)} /><Text style={{ color: '#606965', fontSize: 13 }}>@{person.username}</Text></View><Button title={person.follow_state === 'approved' ? 'Seguindo' : person.follow_state === 'pending' ? 'Solicitado' : 'Seguir'} onPress={() => void follow(person)} /></View>)}{peopleCursor ? <Button secondary title="Carregar mais atletas" disabled={busy} onPress={() => void morePeople()} /> : null}</View>
-    <Text style={styles.heading}>Publicações recentes</Text>
-    {feed.error ? <><Text accessibilityRole="alert" style={styles.error}>{feed.error.message}</Text><Button secondary title="Tentar novamente" onPress={reloadFeed} /></> : null}
+    <View className={tw.card}><Text className={tw.heading}>Encontrar atletas</Text><Field label="Nome ou @" value={query} onChangeText={setQuery} maxLength={100} /><Button title="Buscar" onPress={() => void search()} />{people.map(person => <View key={person.id} className={cx(tw.row, 'mt-2.5')}><Avatar path={person.avatar_url} name={person.name} token={token} /><View><Button secondary title={person.name} onPress={() => void openProfile(person.id)} /><Text className="text-[13px] text-ink-muted">@{person.username}</Text></View><Button title={person.follow_state === 'approved' ? 'Seguindo' : person.follow_state === 'pending' ? 'Solicitado' : 'Seguir'} onPress={() => void follow(person)} /></View>)}{peopleCursor ? <Button secondary title="Carregar mais atletas" disabled={busy} onPress={() => void morePeople()} /> : null}</View>
+    <Text className={tw.heading}>Publicações recentes</Text>
+    {feed.error ? <><Text accessibilityRole="alert" className={tw.error}>{feed.error.message}</Text><Button secondary title="Tentar novamente" onPress={reloadFeed} /></> : null}
   </View>
 
   const footer = <View>
-    {feed.moreError ? <Text accessibilityRole="alert" style={styles.error}>{feed.moreError}</Text> : null}
-    {feed.busy ? <ActivityIndicator accessibilityLabel="Carregando mais publicações" color="#005a36" /> : feed.hasMore ? <Button secondary title="Carregar mais publicações" onPress={() => void feed.loadMore()} /> : null}
+    {feed.moreError ? <Text accessibilityRole="alert" className={tw.error}>{feed.moreError}</Text> : null}
+    {feed.busy ? <ActivityIndicator accessibilityLabel="Carregando mais publicações" color={colors.brand} /> : feed.hasMore ? <Button secondary title="Carregar mais publicações" onPress={() => void feed.loadMore()} /> : null}
   </View>
 
   return <>
     <FlatList data={feed.items} keyExtractor={item => String(item.id)} keyboardShouldPersistTaps="handled"
       renderItem={({ item }) => <PostItem post={item} viewerId={user.id} token={token} onUpdate={updatePost} onRemove={removePost} onOpenProfile={id => void openProfile(id)} onExpired={onExpired} />}
       ListHeaderComponent={header} ListFooterComponent={footer}
-      ListEmptyComponent={feed.loading ? <ActivityIndicator accessibilityLabel="Carregando publicações" color="#005a36" /> : feed.error ? null : <Text style={styles.body}>Seu feed está vazio. Encontre atletas e solicite acesso a contas privadas.</Text>}
-      contentContainerStyle={{ padding: 22, paddingBottom: 30 }} refreshControl={<RefreshControl refreshing={feed.loading} onRefresh={reloadFeed} />}
+      ListEmptyComponent={feed.loading ? <ActivityIndicator accessibilityLabel="Carregando publicações" color={colors.brand} /> : feed.error ? null : <Text className={tw.body}>Seu feed está vazio. Encontre atletas e solicite acesso a contas privadas.</Text>}
+      contentContainerClassName="p-5.5 pb-7.5" refreshControl={<RefreshControl refreshing={feed.loading} onRefresh={reloadFeed} />}
       onEndReached={() => { if (feed.hasMore && !feed.busy) void feed.loadMore() }} onEndReachedThreshold={0.6} />
     {profile ? <VisitedProfile profile={profile} user={user} token={token} mutualText={mutualText} error={profileError} onClose={() => setProfile(null)} onFollow={person => void follow(person)}
       onBlocked={blocked} onPostUpdate={updatePost} onPostRemove={removeProfilePost} onExpired={onExpired} /> : null}

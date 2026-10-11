@@ -26,7 +26,6 @@ export function reactNativeMock() {
 export const safeAreaMock = () => ({ SafeAreaView: element('SafeAreaView') })
 
 export const uiMock = () => ({
-  styles: {},
   Button: ({ title, ...props }: Record<string, unknown>) => React.createElement('Button', { ...props, title }, title as React.ReactNode),
   Field: ({ label, ...props }: Record<string, unknown>) => React.createElement('TextInput', { ...props, accessibilityLabel: label }),
 })

@@ -3,9 +3,11 @@ import { Ban, Flag } from 'lucide-react'
 import { ApiError } from '../api/client'
 import type { SocialUser } from '../api/client'
 import { blockUser } from '../api/social'
-import GlassPanel from './GlassPanel'
 import ReportForm from './ReportForm'
 import { SocialPhoto } from './SocialPhoto'
+import { Button } from '@/components/ui/button'
+import { Glass, GlassChoice, GlassChoices, GlassConfirm } from '@/components/ui/glass'
+import { glassMessageVariants } from '@/components/ui/glass-variants'
 
 type Step = 'menu' | 'block' | 'report'
 const titles: Record<Step, string> = { menu: 'Ações da conta', block: 'Bloquear conta', report: 'Denunciar conta' }
@@ -34,28 +36,24 @@ export default function AccountActions({ person, onClose, onBlocked, onReported,
     }
   }
 
-  return <GlassPanel key={step} variant="screen" label={titles[step]} title={step === 'menu' ? undefined : titles[step]}
-    onClose={onClose} onBack={step === 'menu' ? undefined : () => go('menu')} className="account-actions">
+  return <Glass key={step} variant="screen" label={titles[step]} title={step === 'menu' ? undefined : titles[step]}
+    onClose={onClose} onBack={step === 'menu' ? undefined : () => go('menu')}>
     {step === 'menu' && <>
-      <div className="glass-who">
-        <SocialPhoto path={person.avatar_url} name={person.name} />
-        <b>@{person.username}</b>
-        <small>{person.name}</small>
+      <div className="mx-0 mt-auto mb-[26px] grid justify-items-center gap-1 text-center">
+        <SocialPhoto path={person.avatar_url} name={person.name} size="lg" />
+        <b className="font-display text-[15px] font-bold wrap-anywhere">@{person.username}</b>
+        <small className="text-[11px] text-[#ffffffa6]">{person.name}</small>
       </div>
-      <div className="glass-choices">
-        <button type="button" onClick={() => go('block')}><span><Ban size={22} /></span>Bloquear</button>
-        <button type="button" className="danger" onClick={() => go('report')}><span><Flag size={22} /></span>Denunciar conta</button>
-      </div>
+      <GlassChoices className="mt-0">
+        <GlassChoice type="button" icon={<Ban size={22} />} onClick={() => go('block')}>Bloquear</GlassChoice>
+        <GlassChoice type="button" danger icon={<Flag size={22} />} onClick={() => go('report')}>Denunciar conta</GlassChoice>
+      </GlassChoices>
     </>}
-    {step === 'block' && <div className="glass-confirm">
-      <p className="glass-question">Bloquear @{person.username}?</p>
-      <p>Os vínculos atuais são removidos e esta conta deixa de ver seu perfil. Você pode desbloquear depois em Contas bloqueadas.</p>
-      <div className="glass-actions">
-        <button type="button" className="glass-secondary" data-autofocus onClick={() => go('menu')}>Cancelar</button>
-        <button type="button" className="glass-primary danger" disabled={busy} onClick={() => void block()}>{busy ? 'Bloqueando…' : 'Bloquear'}</button>
-      </div>
-    </div>}
+    {step === 'block' && <GlassConfirm question={<>Bloquear @{person.username}?</>} actions={<>
+      <Button type="button" variant="glass-secondary" data-autofocus onClick={() => go('menu')}>Cancelar</Button>
+      <Button type="button" variant="glass-danger" disabled={busy} onClick={() => void block()}>{busy ? 'Bloqueando…' : 'Bloquear'}</Button>
+    </>}>Os vínculos atuais são removidos e esta conta deixa de ver seu perfil. Você pode desbloquear depois em Contas bloqueadas.</GlassConfirm>}
     {step === 'report' && <ReportForm target="user" targetId={person.id} title="Por que você quer denunciar esta conta?" onSent={onReported} onExpired={onExpired} />}
-    {error && <p className="glass-error" role="alert">{error}</p>}
-  </GlassPanel>
+    {error && <p className={glassMessageVariants()} role="alert">{error}</p>}
+  </Glass>
 }

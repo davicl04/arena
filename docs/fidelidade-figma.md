@@ -50,3 +50,19 @@ Em sessão de protótipos, o usuário fechou as decisões abaixo para o conteúd
 | Partidas (P2) | Boletim por modalidade registrado **somente como desenho**. Sem domínio de partidas no backend, a aba mostra apenas um estado vazio; nenhum resultado é simulado. |
 
 Na Comunidade, o card de post anterior deu lugar ao post A3. No Expo, sem bibliotecas de ícones ou desfoque, os botões usam glifos Unicode com rótulos de acessibilidade e o vidro é uma camada escura semitransparente; não há declaração de paridade visual com a web nem validação em aparelho.
+
+## Migração para Tailwind — 11 de outubro de 2026
+
+A troca do CSS escrito à mão por utilitários Tailwind ([plano](plano-migracao-tailwind.md)) não mudou a interface aprovada: paleta, tipografia, espaçamentos e comportamento foram preservados.
+
+**Como a web foi conferida:**
+- Linha de base de 138 capturas em Chrome headless: 46 telas em 320, 390 e 1440 px.
+- Comparação por pixel a cada etapa e após ligar o preflight. Nenhuma tela teve diferença perceptível; restou apenas o ruído medido entre duas capturas sem mudança.
+- Comparação de estilos computados e geometria.
+- Conferência de teclado e foco: 66 itens em cada largura.
+
+**Mudanças de comportamento, sem efeito visual:**
+- As abas de Conexões passaram a aceitar setas, Home e End, como as abas do perfil.
+- Ao fechar com Esc os vidros sobre a foto do post (comentários e •••), o foco volta ao botão de origem. Antes, ia para o corpo da página.
+
+**Expo:** foi migrado para NativeWind preservando os valores visuais anteriores do app, mas sem conferência em aparelho. Não há declaração de paridade visual.

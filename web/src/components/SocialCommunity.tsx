@@ -5,8 +5,18 @@ import { MessageCircle, Search, Shield, UserRoundPlus } from 'lucide-react'
 import { request } from '../api/client'
 import type { Page, Post, SocialUser } from '../api/client'
 import { cropImage, validateImageFile } from '../utils/cropImage'
+import { Button } from '@/components/ui/button'
+import { buttonVariants } from '@/components/ui/button-variants'
+import { Card } from '@/components/ui/card'
+import { EmptyState } from '@/components/ui/empty-state'
+import { Eyebrow } from '@/components/ui/eyebrow'
+import { feedbackVariants } from '@/components/ui/feedback'
+import { PersonList, PersonRow } from '@/components/ui/person-row'
+import { cn } from '@/lib/utils'
+
+/* Parágrafos do cartão de publicação (texto de apoio e nome do arquivo escolhido). */
+const composerText = 'mt-[5px] text-[10px] leading-[1.6] text-ink-muted'
 import ImageCropSheet from './ImageCropSheet'
-import PersonRow from './PersonRow'
 import PostItem from './PostItem'
 import type { PostUpdate } from './PostItem'
 
@@ -106,29 +116,37 @@ export default function SocialCommunity({ viewerId, onOpenUser, onExpired }: { v
   }, [])
   const removePost = useCallback((postId: number) => setFeed(old => old.filter(item => item.id !== postId)), [])
 
-  return <section className="social-community" aria-label="Comunidade Arena">
-    <div className="social-heading"><div><p className="eyebrow">O ESPORTE CONECTA</p><h2>Comunidade</h2></div><button className="secondary" onClick={() => void refresh()} disabled={loading}>Atualizar feed</button></div>
-    {error && <p className="error" role="alert">{error}</p>}{notice && <p className="success" role="status">{notice}</p>}
-    <form className="social-search" onSubmit={event => void search(event)}><label className="visually-hidden" htmlFor="social-search-input">Buscar atletas por nome ou @</label><input id="social-search-input" value={query} onChange={event => setQuery(event.target.value)} maxLength={100} placeholder="Encontre atletas pelo nome ou @" /><button className="secondary" aria-label="Buscar atletas"><Search size={18} /></button></form>
-    {people.length > 0 && <div className="person-list" aria-label="Resultados da busca">{people.map(person => <PersonRow key={person.id} person={person} onOpen={onOpenUser}
-      info={person.social_public ? 'Conta pública' : 'Conta privada'}
-      actions={<button className="secondary compact" onClick={() => void follow(person)} disabled={busy}>{person.follow_state === 'approved' ? 'Seguindo' : person.follow_state === 'pending' ? 'Solicitado' : <><UserRoundPlus size={16} /> Seguir</>}</button>} />)}</div>}
-    {peopleCursor && <button className="secondary full-width" disabled={busy} onClick={() => void loadPeople()}>Carregar mais atletas</button>}
-    <form className="social-composer" onSubmit={(event: FormEvent) => event.preventDefault()}>
-      <h3>Compartilhe sua trajetória</h3><p>Uma foto quadrada por publicação. A imagem original fica no seu dispositivo.</p>
-      <label className="secondary social-file-label" htmlFor="post-image">{original ? 'Trocar foto' : 'Escolher foto'}</label>
-      <input id="post-image" className="visually-hidden" type="file" accept="image/jpeg,image/png,image/webp" disabled={busy} onChange={event => { choose(event.target.files?.[0]); event.target.value = '' }} />
-      {original && <p className="social-file-name">{original.name}</p>}
-      <label htmlFor="post-caption">Legenda (opcional)</label><textarea id="post-caption" value={caption} onChange={event => setCaption(event.target.value)} maxLength={2200} rows={3} placeholder="Conte um pouco sobre esse momento" />
-      <div className="social-compose-footer"><small>{caption.length}/2.200</small><button className="primary" disabled={busy || !original}>{busy ? 'Publicando…' : 'Publicar foto'}</button></div>
+  return <section className="pb-[18px] min-[700px]:mx-auto min-[700px]:max-w-[560px]" aria-label="Comunidade Arena">
+    <div className="mb-[15px] flex items-center justify-between gap-3">
+      <div><Eyebrow>O ESPORTE CONECTA</Eyebrow><h2 className="text-[26px]">Comunidade</h2></div>
+      <Button variant="secondary" className="min-h-[38px] px-2.5 py-[7px] text-[10px]" onClick={() => void refresh()} disabled={loading}>Atualizar feed</Button>
+    </div>
+    {error && <p className={feedbackVariants()} role="alert">{error}</p>}{notice && <p className={feedbackVariants({ tone: 'success' })} role="status">{notice}</p>}
+    <form className="mb-[15px] flex gap-2" onSubmit={event => void search(event)}>
+      <label className="sr-only" htmlFor="social-search-input">Buscar atletas por nome ou @</label>
+      <input id="social-search-input" className="flex-1" value={query} onChange={event => setQuery(event.target.value)} maxLength={100} placeholder="Encontre atletas pelo nome ou @" />
+      <Button variant="secondary" className="min-w-[46px]" aria-label="Buscar atletas"><Search size={18} /></Button>
     </form>
+    {people.length > 0 && <PersonList aria-label="Resultados da busca">{people.map(person => <PersonRow key={person.id} person={person} onOpen={onOpenUser}
+      info={person.social_public ? 'Conta pública' : 'Conta privada'}
+      actions={<Button variant="secondary" size="compact" onClick={() => void follow(person)} disabled={busy}>{person.follow_state === 'approved' ? 'Seguindo' : person.follow_state === 'pending' ? 'Solicitado' : <><UserRoundPlus size={16} /> Seguir</>}</Button>} />)}</PersonList>}
+    {peopleCursor && <Button variant="secondary" className="mt-[18px] w-full" disabled={busy} onClick={() => void loadPeople()}>Carregar mais atletas</Button>}
+    <Card as="form" className="my-[17px] p-[15px]" onSubmit={(event: FormEvent) => event.preventDefault()}>
+      <h3 className="text-[14px]">Compartilhe sua trajetória</h3><p className={composerText}>Uma foto quadrada por publicação. A imagem original fica no seu dispositivo.</p>
+      <label className={cn(buttonVariants({ variant: 'secondary' }), 'mt-[13px] min-h-[38px] cursor-pointer text-[10px]')} htmlFor="post-image">{original ? 'Trocar foto' : 'Escolher foto'}</label>
+      <input id="post-image" className="sr-only" type="file" accept="image/jpeg,image/png,image/webp" disabled={busy} onChange={event => { choose(event.target.files?.[0]); event.target.value = '' }} />
+      {original && <p className={cn(composerText, 'wrap-anywhere')}>{original.name}</p>}
+      <label htmlFor="post-caption">Legenda (opcional)</label>
+      <textarea id="post-caption" className="block w-full min-w-0 resize-y rounded-field border border-solid border-field-border bg-white px-3 py-[11px] text-[12px] text-ink placeholder:text-[#757575]" value={caption} onChange={event => setCaption(event.target.value)} maxLength={2200} rows={3} placeholder="Conte um pouco sobre esse momento" />
+      <div className="mt-[9px] flex items-center justify-between gap-2.5"><small className="text-[10px] text-ink-muted">{caption.length}/2.200</small><Button className="min-h-[38px] px-3 py-[7px] text-[10px]" disabled={busy || !original}>{busy ? 'Publicando…' : 'Publicar foto'}</Button></div>
+    </Card>
     {source && <ImageCropSheet source={source} title="Enquadrar publicação" description="Arraste a foto e ajuste o zoom para escolher a imagem quadrada." aspect={1}
       confirmLabel="Confirmar recorte e publicar" busy={busy} error="" onCancel={() => { setSource(''); setOriginal(null) }} onConfirm={area => void publish(area)} />}
     {loading && <p role="status">Carregando publicações…</p>}
-    {!loading && feed.length === 0 && <div className="empty-state"><span className="empty-icon"><MessageCircle size={26} /></span><h2>Seu feed começa aqui</h2><p>Siga contas públicas ou peça acesso a perfis privados para acompanhar publicações.</p></div>}
-    <div className="social-feed">{feed.map(post => <PostItem key={post.id} post={post} viewerId={viewerId}
+    {!loading && feed.length === 0 && <EmptyState Icon={MessageCircle} title="Seu feed começa aqui" text="Siga contas públicas ou peça acesso a perfis privados para acompanhar publicações." />}
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-[18px]">{feed.map(post => <PostItem key={post.id} post={post} viewerId={viewerId}
       onUpdate={updatePost} onRemoved={removePost} onOpenProfile={onOpenUser} onExpired={onExpired} />)}</div>
-    {feedCursor && <button className="secondary full-width" disabled={busy} onClick={() => void loadMore()}>Carregar mais publicações</button>}
-    <p className="social-privacy-note"><Shield size={15} /> Publicações são exibidas conforme a privacidade da conta e os vínculos aprovados.</p>
+    {feedCursor && <Button variant="secondary" className="mt-[18px] w-full" disabled={busy} onClick={() => void loadMore()}>Carregar mais publicações</Button>}
+    <p className="flex items-center gap-1.5 px-[3px] py-3.5 text-[10px] leading-[1.5] text-ink-muted"><Shield size={15} /> Publicações são exibidas conforme a privacidade da conta e os vínculos aprovados.</p>
   </section>
 }

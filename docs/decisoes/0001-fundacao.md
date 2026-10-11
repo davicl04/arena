@@ -50,7 +50,26 @@ As alterações de perfil usam o usuário da sessão, nunca um ID enviado pelo c
 
 ## Ferramentas e execução
 
-Backend usa Python 3.13, FastAPI, SQLAlchemy e Alembic com driver explícito `psycopg2`. `requirements.txt` identifica dependências diretas e `requirements.lock.txt` fixa o ambiente instalado, incluindo testes e lint. Web usa React, TypeScript e Vite; desde 11 de outubro de 2026, também Tailwind CSS 4 e componentes shadcn/ui (preset `base-nova`, sobre Base UI) em `web/src/components/ui/`, a pedido do usuário. O Tailwind é carregado sem o preflight (`src/ui.css`) para não alterar as telas estilizadas em `styles.css`; os tokens do shadcn usam variáveis `--ui-*`, porque `--muted` já é a cor de texto secundário do ARENA, e regras globais de `label`/`input` excluem elementos com `data-slot`. O primeiro uso é o RadioGroup das denúncias. Mobile usa versões compatíveis com o template e SDK Expo 57. Dependências dos clientes são registradas com versões e `package-lock.json` para `npm ci`.
+Backend usa Python 3.13, FastAPI, SQLAlchemy e Alembic com driver explícito `psycopg2`. `requirements.txt` identifica dependências diretas e `requirements.lock.txt` fixa o ambiente instalado, incluindo testes e lint. Web usa React, TypeScript e Vite; desde 11 de outubro de 2026, também Tailwind CSS 4 e componentes shadcn/ui (preset `base-nova`, sobre Base UI) em `web/src/components/ui/`, a pedido do usuário.
+
+**Estilo da web (desde a migração de 11 de outubro de 2026):**
+- Todo o visual usa utilitários Tailwind. O antigo `styles.css` foi removido.
+- `src/ui.css` é a única folha de estilo. Ela importa o Tailwind completo, com preflight, e reúne:
+  - os tokens em `@theme`: cores `brand`, `ink`, `ink-muted`, `line`, `app`, `focus`, `danger` e outras; fontes `sans`/`display`; raios, sombras, camadas `--z-index-*` e animações;
+  - a variante `app-narrow` (até 430 px);
+  - a base ARENA em `@layer base`: tipografia do documento, foco laranja, campos e ajustes que neutralizam o preflight.
+- Padrões repetidos são primitivos com `class-variance-authority` em `web/src/components/ui/`: Button/IconButton, Sheet (com `useDialogFocus`), Tabs, Glass, ListRow/PersonRow, Chip, Card, EmptyState e outros. As páginas não repetem classes longas.
+- Os tokens do shadcn continuam em `--ui-*` e apontam para os tokens ARENA.
+- Os componentes shadcn do preset não foram adotados para Button, Tabs e Sheet, porque não reduziriam código nem preservariam o foco atual.
+
+**Estilo do mobile:**
+- O mobile usa NativeWind 5.0.0-rc.0 (Tailwind 4.1.12, sobre `react-native-css` 3.1.0-rc.0). É uma versão candidata, autorizada pelo usuário.
+- Exige `react-native-reanimated` e `react-native-worklets`, `metro.config.js` com `withNativewind`, `postcss.config.mjs` e `global.css`, importado em `App.tsx`. O `lightningcss` 1.30.1 é fixado por `overrides` em `@expo/metro-config`.
+- Os tokens têm os mesmos nomes da web, em `mobile/global.css` (`@theme`) e `mobile/src/theme.ts` (valores usados em JS). Os dois arquivos devem permanecer sincronizados.
+- Os valores preservam o visual anterior do app, por isso `ink`, `ink-muted`, `line` e `danger` diferem da web. `--spacing` é 4 px.
+- Valores dinâmicos, como avatar, altura da capa e sombra de texto, ficam em `style`.
+
+Mobile usa versões compatíveis com o template e SDK Expo 57. Dependências dos clientes são registradas com versões e `package-lock.json` para `npm ci`.
 
 A web preserva a paleta do documento de iniciação e usa Sora/Inter com fallback de sistema. As fontes web vêm do Google Fonts; o mobile usa fontes de sistema nesta entrega. Cada cliente mantém seus componentes; os contratos são os mesmos, descritos pelo OpenAPI da API.
 

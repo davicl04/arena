@@ -1,56 +1,23 @@
+import type { ReactNode } from 'react'
 import { CalendarDays, Grid3x3 } from 'lucide-react'
+import { Tabs } from '@/components/ui/tabs'
 
-const profileTabs = ['Fotos', 'Partidas'] as const
-export type ProfileTab = (typeof profileTabs)[number]
-const icons = { Fotos: Grid3x3, Partidas: CalendarDays }
+const profileTabs = [
+  { value: 'Fotos', label: 'Fotos', Icon: Grid3x3 },
+  { value: 'Partidas', label: 'Partidas', Icon: CalendarDays },
+] as const
+export type ProfileTab = (typeof profileTabs)[number]['value']
 
-/** Abas do conteúdo do perfil, fixas abaixo da barra superior, com setas, Home e End. */
-export default function ProfileTabs({
-  value,
-  onChange,
-}: {
-  value: ProfileTab
-  onChange: (value: ProfileTab) => void
-}) {
-  return (
-    <div className="tabs" role="tablist" aria-label="Conteúdo do perfil">
-      {profileTabs.map((tab, index) => {
-        const Icon = icons[tab]
-        return (
-          <button
-            id={`tab-${tab}`}
-            key={tab}
-            type="button"
-            role="tab"
-            aria-selected={value === tab}
-            aria-controls="profile-content"
-            tabIndex={value === tab ? 0 : -1}
-            className={value === tab ? 'active' : ''}
-            onClick={() => onChange(tab)}
-            onKeyDown={(event) => {
-              const next =
-                event.key === 'ArrowRight'
-                  ? (index + 1) % profileTabs.length
-                  : event.key === 'ArrowLeft'
-                    ? (index + profileTabs.length - 1) % profileTabs.length
-                    : event.key === 'Home'
-                      ? 0
-                      : event.key === 'End'
-                        ? profileTabs.length - 1
-                        : null
-              if (next === null) return
-              event.preventDefault()
-              onChange(profileTabs[next])
-              const buttons =
-                event.currentTarget.parentElement?.querySelectorAll('button')
-              buttons?.[next]?.focus()
-            }}
-          >
-            <Icon size={16} aria-hidden="true" />
-            {tab}
-          </button>
-        )
-      })}
-    </div>
-  )
+/** Abas do conteúdo do perfil, fixas abaixo da barra superior, com setas, Home e End (primitivo Tabs). */
+export default function ProfileTabs({ value, onChange }: { value: ProfileTab; onChange: (value: ProfileTab) => void }) {
+  return <Tabs items={profileTabs} value={value} onChange={onChange} label="Conteúdo do perfil" idPrefix="tab-" controls="profile-content" />
+}
+
+/*
+ * Painel das abas: ocupa ao menos a altura visível abaixo da barra (56 px) e das abas (49 px), em unidades do
+ * contêiner `main` (60vh sem suporte a cqh). O estado vazio direto no painel ganha 34 px no topo.
+ */
+export function ProfilePanel({ tab, children }: { tab: ProfileTab; children: ReactNode }) {
+  return <div id="profile-content" role="tabpanel" aria-labelledby={`tab-${tab}`}
+    className="min-h-[60vh] supports-[height:100cqh]:min-h-[calc(100cqh-56px-49px)] [&>[data-slot=empty-state]]:pt-[34px]">{children}</div>
 }

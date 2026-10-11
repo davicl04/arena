@@ -52,7 +52,8 @@ describe('galeria do perfil e visualizador "Publicações"', () => {
     const tree = await mountGallery({ own: true, onNewPhoto })
     expect(request).toHaveBeenCalledWith('/users/1/posts')
     expect(tiles(tree)).toEqual(['Abrir publicação: Foto 1', 'Abrir publicação: Foto 2', 'Abrir publicação: Foto 3', 'Abrir publicação: Foto 4'])
-    expect(tree.root.findAll(node => String(node.type) === 'View' && node.props.style?.flexDirection === 'row' && node.props.style?.gap === 2)).toHaveLength(2)
+    // Duas linhas de três: quatro fotos, "Nova foto" e um espaço vazio.
+    expect(byLabel(tree, 'Fotos de Eu Mesmo')[0].children).toHaveLength(2)
     await press(tree, 'Nova foto')
     expect(onNewPhoto).toHaveBeenCalledOnce()
     await click(tree, 'Carregar mais fotos')
@@ -186,13 +187,15 @@ describe('telas com abas, topo fixo e ações da conta', () => {
 
     const scroll = tree.root.findAllByType('ScrollView' as never)[0]
     const bar = () => tree.root.findAll(node => String(node.type) === 'View' && node.props.pointerEvents === 'box-none')[0]
-    expect(bar().props.style.backgroundColor).toBe('transparent')
+    // A barra condensada ganha o título @usuário; sobre a capa ela só tem os botões.
+    const barTitle = () => bar().findAll(node => String(node.type) === 'Text' && node.props.accessibilityRole === 'header')
+    expect(barTitle()).toHaveLength(0)
     await act(async () => { scroll.props.onScroll({ nativeEvent: { contentOffset: { y: 200 } } }) })
-    expect(bar().props.style.backgroundColor).toBe('#ffffff')
+    expect(barTitle()).toHaveLength(1)
     expect(textOf(tree)).toContain('@ | eu.atleta')
     expect(byLabel(tree, 'Menu')).toHaveLength(1)
     await act(async () => { scroll.props.onScroll({ nativeEvent: { contentOffset: { y: 10 } } }) })
-    expect(bar().props.style.backgroundColor).toBe('transparent')
+    expect(barTitle()).toHaveLength(0)
     await act(async () => { tree.unmount() })
   })
 

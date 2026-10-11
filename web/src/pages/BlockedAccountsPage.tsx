@@ -2,8 +2,10 @@ import { useState } from 'react'
 import { ShieldOff } from 'lucide-react'
 import { ApiError, request } from '../api/client'
 import type { SocialUser } from '../api/client'
-import EmptyState from '../components/EmptyState'
-import PersonRow from '../components/PersonRow'
+import { Button } from '@/components/ui/button'
+import { EmptyState } from '@/components/ui/empty-state'
+import { feedbackVariants } from '@/components/ui/feedback'
+import { PersonList, PersonRow } from '@/components/ui/person-row'
 import { usePagedList } from '../hooks/usePagedList'
 
 export default function BlockedAccountsPage({ onExpired }: { onExpired: () => void }) {
@@ -21,16 +23,16 @@ export default function BlockedAccountsPage({ onExpired }: { onExpired: () => vo
     } finally { setPending(null) }
   }
   return <section aria-label="Contas bloqueadas">
-    <p className="muted">Contas bloqueadas não veem seu perfil nem interagem com você.</p>
+    <p className="text-[11px] leading-[1.6] text-ink-muted">Contas bloqueadas não veem seu perfil nem interagem com você.</p>
     {list.loading && <p role="status">Carregando contas bloqueadas…</p>}
-    {list.error && <div className="error" role="alert">{list.error.message} <button className="text-button" onClick={list.reload}>Tentar novamente</button></div>}
-    {error && <p className="error" role="alert">{error}</p>}
+    {list.error && <div className={feedbackVariants()} role="alert">{list.error.message} <Button variant="text" onClick={list.reload}>Tentar novamente</Button></div>}
+    {error && <p className={feedbackVariants()} role="alert">{error}</p>}
     {!list.loading && !list.error && !list.items.length && <EmptyState Icon={ShieldOff} title="Nenhuma conta bloqueada" text="Quando você bloquear alguém, a conta aparecerá aqui." />}
-    <div className="person-list">
+    <PersonList>
       {list.items.map(person => <PersonRow key={person.id} person={person}
-        actions={<button className="secondary compact" disabled={pending !== null} onClick={() => void unblock(person)}>Desbloquear</button>} />)}
-    </div>
-    {list.moreError && <p className="error" role="alert">{list.moreError}</p>}
-    {list.hasMore && <button className="secondary full-width" disabled={list.busy} onClick={() => void list.loadMore()}>Carregar mais contas bloqueadas</button>}
+        actions={<Button variant="secondary" size="compact" disabled={pending !== null} onClick={() => void unblock(person)}>Desbloquear</Button>} />)}
+    </PersonList>
+    {list.moreError && <p className={feedbackVariants()} role="alert">{list.moreError}</p>}
+    {list.hasMore && <Button variant="secondary" className="mt-[18px] w-full" disabled={list.busy} onClick={() => void list.loadMore()}>Carregar mais contas bloqueadas</Button>}
   </section>
 }

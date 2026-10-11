@@ -17,7 +17,7 @@ function mockObserver() {
   return observers
 }
 
-const renderHeader = () => render(<main className="screen profile-screen">
+const renderHeader = () => render(<main>
   <ProfileHeader mode="visitor" name="Atleta Dois" username="atleta.dois" avatar={<span />} coverUrl={null} isPublic
     followerCount={1} followingCount={2} leading={<button aria-label="Voltar" />} trailing={<button aria-label="Ações da conta" />}
     onFollowers={vi.fn()} onFollowing={vi.fn()} />
@@ -26,9 +26,10 @@ const renderHeader = () => render(<main className="screen profile-screen">
 it('mantém os botões na barra fixa antes da capa e condensa com @usuário quando a capa passa por baixo dela', () => {
   const observers = mockObserver()
   const { container, unmount } = renderHeader()
-  const topbar = container.querySelector('.profile-topbar') as HTMLElement
-  const cover = container.querySelector('.profile-cover') as HTMLElement
-  expect(topbar.nextElementSibling).toBe(cover)
+  // Barra identificada pelo atributo de estado; a capa é o elemento seguinte (sem depender de classes CSS).
+  const topbar = screen.getByRole('button', { name: 'Voltar' }).closest('[data-condensed]') as HTMLElement
+  const cover = topbar.nextElementSibling as HTMLElement
+  expect(cover.style.backgroundImage).toContain('arena-cover')
   expect(topbar.contains(screen.getByRole('button', { name: 'Voltar' }))).toBe(true)
   expect(topbar.contains(screen.getByRole('button', { name: 'Ações da conta' }))).toBe(true)
   expect(cover.querySelector('button')).toBeNull()
@@ -36,19 +37,19 @@ it('mantém os botões na barra fixa antes da capa e condensa com @usuário quan
 
   expect(observers).toHaveLength(1)
   expect(observers[0].observe).toHaveBeenCalledWith(cover)
-  expect(observers[0].options).toMatchObject({ root: container.querySelector('.screen'), rootMargin: '-56px 0px 0px 0px' })
-  expect(topbar.classList.contains('is-condensed')).toBe(false)
+  expect(observers[0].options).toMatchObject({ root: container.querySelector('main'), rootMargin: '-56px 0px 0px 0px' })
+  expect(topbar.dataset.condensed).toBe('false')
   act(() => observers[0].callback([{ isIntersecting: false }]))
-  expect(topbar.classList.contains('is-condensed')).toBe(true)
+  expect(topbar.dataset.condensed).toBe('true')
   act(() => observers[0].callback([{ isIntersecting: true }]))
-  expect(topbar.classList.contains('is-condensed')).toBe(false)
+  expect(topbar.dataset.condensed).toBe('false')
   unmount()
   expect(observers[0].disconnect).toHaveBeenCalled()
 })
 
 it('funciona sem IntersectionObserver, mantendo a barra expandida', () => {
   vi.stubGlobal('IntersectionObserver', undefined)
-  const { container } = renderHeader()
-  expect(container.querySelector('.profile-topbar')?.classList.contains('is-condensed')).toBe(false)
+  renderHeader()
+  expect((screen.getByRole('button', { name: 'Voltar' }).closest('[data-condensed]') as HTMLElement).dataset.condensed).toBe('false')
   expect(screen.getByRole('heading', { name: '@atleta.dois' })).not.toBeNull()
 })

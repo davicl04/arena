@@ -24,7 +24,6 @@ vi.mock('../src/components/SportCard', () => ({ default: () => null }))
 vi.mock('../src/components/ui', async () => {
   const ReactModule = await import('react')
   return {
-    styles: {},
     Button: ({ title, ...props }: Record<string, unknown>) => ReactModule.createElement('Button', { ...props, title }, title as React.ReactNode),
     Field: ({ label, ...props }: Record<string, unknown>) => ReactModule.createElement('TextInput', { ...props, accessibilityLabel: label }),
   }

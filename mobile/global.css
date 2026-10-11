@@ -1,0 +1,46 @@
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/preflight.css" layer(base);
+@import "tailwindcss/utilities.css";
+
+@import "nativewind/theme";
+
+/*
+ * Tokens do app, com os nomes da web e os valores do mobile.
+ * Mantenha sincronizado com src/theme.ts (mesmos nomes e valores).
+ */
+@theme {
+  /* Escala de espaçamento em pontos: p-4 = 16, p-5.5 = 22 (independe do rem nativo, que é 14). */
+  --spacing: 4px;
+
+  --color-brand: #005a36;
+  --color-brand-soft: #edf3ef;
+  --color-ink: #343d39;
+  --color-ink-muted: #606965;
+  --color-ink-soft: #626970;
+  --color-line: #cdd4d0;
+  --color-app: #e2e4e9;
+  --color-field: #fafbfa;
+  --color-placeholder: #727b76;
+  --color-error: #94351e;
+  --color-danger: #b42318;
+  --color-like: #ff8a80;
+  --color-scrim: #0008;
+  --color-glass: rgba(8, 20, 14, 0.92);
+  --color-glass-ink: #08140e;
+  --color-glass-pill: rgba(8, 20, 14, 0.6);
+  --color-glass-button: rgba(8, 20, 14, 0.45);
+  --color-glass-light: #ffffffd9;
+  --color-glass-muted: #ffffffb3;
+  --color-glass-line: #ffffff33;
+  --color-glass-field: #ffffff1a;
+  --color-glass-danger: #ffb4a8;
+  --color-glass-accent: #8fe0b4;
+
+  --radius-control: 8px;
+  --radius-lg: 12px;
+  --radius-card: 16px;
+  --radius-sheet: 20px;
+
+  /* Elevação Android do vidro (as demais vêm do nativewind/theme: elevation-sm = 3). */
+  --elevation-overlay: 20;
+}

@@ -1,5 +1,92 @@
 # Situação da fundação do Arena
 
+## Migração do visual para Tailwind (web) e NativeWind (Expo) — 11 de outubro de 2026
+
+A pedido do usuário, foi executado o [plano de migração](plano-migracao-tailwind.md), sem commit. Para o mobile, o usuário autorizou a versão candidata do NativeWind 5. A interface aprovada não mudou e nenhuma funcionalidade foi acrescentada.
+
+### Web
+
+**Rede de segurança (A0)**
+- Roteiro local de capturas em Chrome headless, em `.local/e2e/`: 46 telas × 320/390/1440 px = 138 PNG.
+  - Datas congeladas, animações desligadas e seletores por papel, rótulo e texto.
+  - Comparação por pixel com relatório.
+  - Também há despejo de estilos computados e geometria (`style-dump`, `layout-diff`) e conferência de teclado com teclas reais (`keyboard-check`).
+  - O guia está em `.local/e2e/README-tailwind.md`. Nada disso é versionado.
+- As capturas usam o ambiente auxiliar já documentado: API na porta 8010, banco `arena_e2e` do Compose e Vite na 5180. Nesse banco foram semeadas quatro contas de teste com posts, comentários, solicitações, denúncias e um bloqueio. O banco `arena` de desenvolvimento não foi alterado.
+- **Incidente, já corrigido:** um script de estilos criou uma denúncia real no `arena_e2e`. Ela foi apagada e a sequência restaurada, e os scripts agora bloqueiam escritas não simuladas.
+- Nove consultas de teste por classe CSS passaram a usar papéis, `data-condensed`, `data-state` ou `data-testid`.
+
+**Tokens (A1)**
+- `@theme` em `web/src/ui.css` virou a fonte única:
+  - cores `brand`, `ink`, `ink-muted`, `line`, `app`, `focus`, `danger`, `mint`, `glass` e outras;
+  - fontes `sans`/`display`, raios e sombras;
+  - camadas `--z-index-*`: tabs 12, topbar 15, viewer 19, nav 20, scrim 40, sheet 41 e outras. O valor 25 citado no plano não existia no código.
+  - animações e a variante `app-narrow` (até 430 px).
+- Os `--ui-*` do shadcn apontam para esses tokens.
+
+**Primitivos (A2)**
+- Em `web/src/components/ui/`, com `class-variance-authority`: Button/IconButton, Sheet (com `useDialogFocus`), Tabs, Glass (com escolhas, ações, confirmação e textarea), ListHeading/ListGroup/ListRow, PersonRow/PersonList, Chip, Card, EmptyState, Badge, IconTile, SectionTitle, Eyebrow e variantes de feedback e avatar.
+- Nenhum componente shadcn novo foi adotado: os do preset não reduziriam código nem manteriam o foco atual.
+
+**Migração por área (A3, etapas 1 a 10)**
+- Áreas migradas: casca (`BottomNav` novo), autenticação, Início, Ranking/Jogar, listas do Menu, Editar perfil e folhas, cabeçalho/abas/grade do perfil, post/visualizador/vidros, Comunidade e moderação.
+- As regras de `styles.css` foram apagadas a cada etapa: 2.476 → 0 linhas.
+- Removidos `BottomSheet`, `EmptyState`, `GlassPanel`, `ListRow` e `PersonRow` antigos, substituídos pelos primitivos.
+
+**Encerramento (A4)**
+- Preflight ligado (`@import "tailwindcss"`), `styles.css` removido e a base ARENA levada para `@layer base`.
+- Exceções `:where(:not([data-slot]))` e `[aria-hidden="true"]` removidas. A regra de campos agora exclui `checkbox` e `radio` por tipo.
+- Ajustes pontuais neutralizam o preflight: elos do Ranking, botões da navegação, `legend` da denúncia, caixa de seleção do cartão, `small` da moderação e textarea.
+
+**Mudanças de comportamento**
+- As abas de Conexões ganharam setas, Home e End, o padrão do primitivo de abas.
+- `useDialogFocus` passou a devolver o foco ao botão de origem ao fechar com Esc os vidros de comentários e ••• sobre a foto. A falha já existia antes da migração, conferida no código de `7be7196`. Ganhou teste.
+- Continua igual ao que era: num vidro aberto a partir de outro (••• → Editar legenda → Esc), o foco ainda vai para o corpo da página.
+
+**CSS de produção:** 55.283 B (11,39 kB gzip) → 60.301 B (12,03 kB gzip). A diferença vem da camada base com o preflight, cerca de 5 kB.
+
+### Expo
+
+- **Dependências:**
+  - `nativewind` 5.0.0-rc.0 e `react-native-css` 3.1.0-rc.0 (peer exato da rc);
+  - `react-native-reanimated` 4.5.1 e `react-native-worklets` 0.10.1, via `npx expo install`;
+  - em desenvolvimento, `tailwindcss` e `@tailwindcss/postcss` 4.1.12 (versão testada pelo guia da v5; a web usa 4.3.3), `postcss` 8.5.29 e `lightningcss` 1.30.1, fixado em `@expo/metro-config` por `overrides`.
+- **Arquivos novos:** `metro.config.js`, `postcss.config.mjs`, `global.css` (importado em `App.tsx`), `nativewind-env.d.ts`, `css-modules.d.ts`, `src/theme.ts`, `src/styles.ts` (classes compartilhadas) e `src/components/Screen.tsx`.
+- **Migração:** todas as telas e componentes saíram de `StyleSheet.create` e objetos `style` estáticos. Ficaram em `style` só valores dinâmicos: tamanho do avatar, altura da capa e sombra de texto do post.
+- **Tokens:** mesmos nomes da web, em `global.css` e `theme.ts`, mantidos em sincronia. Os valores preservam o app anterior: `ink` #343d39, `ink-muted` #606965, `line` #cdd4d0 e `danger` #b42318 diferem da web. O mobile continua com fontes do sistema.
+- **Testes:** o Vitest ganhou um stub de `nativewind`. Duas verificações que liam `style` passaram a verificar estrutura e texto.
+
+### Verificações executadas
+
+**Web**, em `web/`, no estado final:
+- `npm run lint` e `npm run build` aprovados.
+- `npm run test:coverage`: 16 arquivos e **107 testes aprovados**. Instruções 78,58%, ramos 70,75%, funções 79,82%, linhas 84,1%; pisos atendidos.
+- Comparação visual completa contra a linha de base, a cada etapa e no fim: nenhuma tela com diferença perceptível. As 9 telas com diferença estão dentro do ruído medido (reamostragem da capa JPEG e borda da sombra do Jogar), com menos de 0,001% dos pixels acima da tolerância.
+- Nenhum overflow horizontal em 320 px.
+- `keyboard-check`: 66/66 em 320, 390 e 1440 px.
+
+**Mobile**, em `mobile/`:
+- `npm run lint` e `npm run typecheck` aprovados.
+- `npm run test:coverage`: 9 arquivos e **89 testes aprovados**. Instruções 69,2%, ramos 63,12%, funções 71,68%, linhas 75,68%.
+- `npx expo install --check`: "Dependencies are up to date".
+- `npm run export:android` aprovado, com 1.171 módulos.
+- O bundle foi inspecionado e aplica as regras compiladas pelo `react-native-css`.
+
+### Limitações e pendências
+
+- **Sem aparelho:** não houve teste em aparelho nem Expo Go. Paridade visual do Expo não verificada: sombras/elevação, bordas de um lado só e `aspect-[4/5]` precisam de conferência.
+- **Versão candidata:** o NativeWind 5 rc não é recomendado para produção pelo próprio projeto. Rever ao sair a versão estável.
+- **Divergências web × mobile:** decidir se a versão do Tailwind (4.3.3 × 4.1.12) e os valores de `ink`, `ink-muted`, `line` e `danger` devem convergir.
+- **`npm audit` no mobile:** subiu de 22 para 27 alertas, herdados de react-native, metro e `@expo/metro-config`.
+- **Navegador:** web conferida só em Chrome headless. O hover dos utilitários vale apenas em dispositivos com hover.
+- **Fluxos que gravam dados** (salvar, publicar, denunciar, moderar) foram conferidos até a confirmação, para não invalidar a linha de base. Os testes automatizados cobrem as gravações.
+- **Ambiente local:** durante a A4, um `git worktree remove` apagou parte de `web/node_modules`. Foi restaurado com `npm install`, sem mudar o `package-lock.json`. Reinicie o `npm run dev` se ele se comportar de forma estranha.
+- **README:** os comandos não mudaram.
+
+## Plano de migração para Tailwind — 11 de outubro de 2026
+
+A pedido do usuário, criada a branch local `feat/tailwind-migrate` a partir de `7be7196` e registrado em [docs/plano-migracao-tailwind.md](plano-migracao-tailwind.md) o plano para substituir `web/src/styles.css` (2.476 linhas, cerca de 435 regras) por utilitários Tailwind sem alterar o visual aprovado. O plano prevê: linha de base de capturas em 320, 390 e 1440 px antes de migrar; tokens únicos no `@theme`, sem a colisão de `--muted`; primitivos reutilizáveis com variantes; dez etapas por área, apagando o CSS correspondente em cada uma; e preflight ligado só ao final. Para o Expo, o plano registra que a adoção exige NativeWind: a versão estável 4.2.7 usa Tailwind 3 e exige Reanimated, Babel e Metro configurados, e a 5.0 (Tailwind 4) ainda é candidata. Recomenda centralizar já os tokens em `mobile/src/theme.ts` e fazer uma prova de conceito isolada com teste em aparelho. Somente documentação: nenhum código foi alterado e nenhum teste foi executado. Versões do NativeWind conferidas no npm e na documentação oficial. Sem commit, push ou publicação.
+
 ## Versionamento do conteúdo do perfil — 11 de outubro de 2026
 
 A pedido do usuário, reunidas em um commit na branch `feat/profile-improvement` e enviadas ao remoto as entregas registradas abaixo: conteúdo do perfil, visualizador de posts, denúncias e topo fixo (web e Expo), topo do post sem sombreamento, navegação inferior sobre o visualizador e denúncias com RadioGroup do shadcn/ui, além do plano e da documentação. Credenciais e capturas do ensaio permanecem em `.local/` e `artifacts/`, ignorados. Os checks aprovados nas entregas abaixo não foram repetidos, pois o código não mudou desde a validação; a execução remota do CI não foi verificada.

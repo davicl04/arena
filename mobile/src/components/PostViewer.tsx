@@ -1,11 +1,13 @@
 import { useEffect, useRef } from 'react'
 import { ActivityIndicator, FlatList, KeyboardAvoidingView, Modal, Platform, Pressable, Text, View } from 'react-native'
-import { SafeAreaView } from 'react-native-safe-area-context'
 import type { Post } from '../api/client'
 import type { PagedList } from '../hooks/usePagedList'
 import PostItem from './PostItem'
 import type { PostUpdate } from './PostItem'
-import { Button, styles } from './ui'
+import { Screen } from './Screen'
+import { Button } from './ui'
+import { tw } from '../styles'
+import { colors } from '../theme'
 
 /**
  * Página "Publicações": feed vertical em tela cheia que abre no post tocado.
@@ -21,16 +23,16 @@ export default function PostViewer({ list, index, username, viewerId, token, onU
   useEffect(() => { if (empty) onClose() }, [empty, onClose])
   const start = Math.max(0, Math.min(index, list.items.length - 1))
   return <Modal visible animationType="slide" onRequestClose={onClose}>
-    <SafeAreaView style={[styles.screen, { flex: 1 }]}><KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 8, paddingVertical: 6, backgroundColor: '#fff', borderBottomWidth: 1, borderColor: '#cdd4d0' }}>
-        <Pressable accessibilityRole="button" accessibilityLabel="Voltar" onPress={onClose} style={{ minHeight: 44, minWidth: 44, alignItems: 'center', justifyContent: 'center' }}><Text style={{ fontSize: 24, color: '#005a36' }}>‹</Text></Pressable>
-        <View style={{ flex: 1 }}>
-          <Text numberOfLines={1} style={{ fontSize: 11, letterSpacing: 1.5, fontWeight: '700', color: '#005a36' }}>@{username.toUpperCase()}</Text>
-          <Text accessibilityRole="header" style={{ fontSize: 18, fontWeight: '700', color: '#343d39' }}>Publicações</Text>
+    <Screen className={tw.screen}><KeyboardAvoidingView className="grow basis-0" behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <View className="flex-row items-center gap-2 border-b border-line bg-white px-2 py-1.5">
+        <Pressable accessibilityRole="button" accessibilityLabel="Voltar" onPress={onClose} className="min-h-11 min-w-11 items-center justify-center"><Text className="text-[24px] text-brand">‹</Text></Pressable>
+        <View className="grow basis-0">
+          <Text numberOfLines={1} className="text-[11px] font-bold tracking-[1.5px] text-brand">@{username.toUpperCase()}</Text>
+          <Text accessibilityRole="header" className="text-[18px] font-bold text-ink">Publicações</Text>
         </View>
       </View>
       <FlatList ref={ref} data={list.items} keyExtractor={item => String(item.id)} initialScrollIndex={start}
-        contentContainerStyle={{ padding: 14, paddingBottom: 40 }} keyboardShouldPersistTaps="handled"
+        contentContainerClassName="p-3.5 pb-10" keyboardShouldPersistTaps="handled"
         onScrollToIndexFailed={info => {
           // Sem altura fixa por item: aproxima pelo tamanho médio e tenta de novo após o layout.
           ref.current?.scrollToOffset({ offset: info.averageItemLength * info.index, animated: false })
@@ -39,10 +41,10 @@ export default function PostViewer({ list, index, username, viewerId, token, onU
         renderItem={({ item }) => <PostItem post={item} viewerId={viewerId} token={token} onUpdate={onUpdate} onRemove={onRemove} onExpired={onExpired} />}
         onEndReached={() => { if (list.hasMore && !list.busy) void list.loadMore() }} onEndReachedThreshold={0.5}
         ListFooterComponent={<View>
-          {list.busy ? <ActivityIndicator accessibilityLabel="Carregando publicações" color="#005a36" /> : null}
-          {list.moreError ? <Text accessibilityRole="alert" style={styles.error}>{list.moreError}</Text> : null}
+          {list.busy ? <ActivityIndicator accessibilityLabel="Carregando publicações" color={colors.brand} /> : null}
+          {list.moreError ? <Text accessibilityRole="alert" className={tw.error}>{list.moreError}</Text> : null}
           {list.hasMore && !list.busy ? <Button secondary title="Carregar mais publicações" onPress={() => void list.loadMore()} /> : null}
         </View>} />
-    </KeyboardAvoidingView></SafeAreaView>
+    </KeyboardAvoidingView></Screen>
   </Modal>
 }

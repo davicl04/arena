@@ -3,10 +3,12 @@ import { ArrowLeft, CalendarDays, Ellipsis, Shield } from 'lucide-react'
 import { ApiError, request } from '../api/client'
 import type { MutualFollowersPage, SocialUser } from '../api/client'
 import AccountActions from '../components/AccountActions'
-import EmptyState from '../components/EmptyState'
+import { Button, IconButton } from '@/components/ui/button'
+import { EmptyState } from '@/components/ui/empty-state'
+import { feedbackVariants } from '@/components/ui/feedback'
 import ProfileGallery from '../components/ProfileGallery'
-import ProfileHeader, { ProfileTopbar } from '../components/ProfileHeader'
-import ProfileTabs from '../components/ProfileTabs'
+import ProfileHeader, { ProfileCover, ProfileTopbar } from '../components/ProfileHeader'
+import ProfileTabs, { ProfilePanel } from '../components/ProfileTabs'
 import type { ProfileTab } from '../components/ProfileTabs'
 import { SocialPhoto } from '../components/SocialPhoto'
 import type { ConnectionsTab } from '../data/arena'
@@ -60,13 +62,13 @@ export default function UserProfilePage({ userId, ownUserId, onBack, onOpenConne
     } catch (cause) { fail(cause, 'Não foi possível atualizar o vínculo.') } finally { setBusy(false) }
   }
 
-  const back = <button className="icon-btn" aria-label="Voltar" onClick={onBack}><ArrowLeft size={21} /></button>
+  const back = <IconButton tone="cover" aria-label="Voltar" onClick={onBack}><ArrowLeft size={21} /></IconButton>
   if (!person) {
     return <>
       <ProfileTopbar leading={back} />
-      <div className="profile-cover" />
+      <ProfileCover />
       {loadError
-        ? <div className="error" role="alert">{loadError}</div>
+        ? <div className={feedbackVariants()} role="alert">{loadError}</div>
         : <p role="status">Carregando perfil…</p>}
     </>
   }
@@ -84,32 +86,33 @@ export default function UserProfilePage({ userId, ownUserId, onBack, onOpenConne
       mode="visitor"
       name={person.name}
       username={person.username}
-      avatar={<SocialPhoto path={person.avatar_url} name={person.name} />}
+      avatar={<SocialPhoto path={person.avatar_url} name={person.name} size="fill" />}
       coverUrl={person.cover_url}
       isPublic={person.social_public}
       followerCount={person.follower_count}
       followingCount={person.following_count}
       mutual={mutual ?? undefined}
       leading={back}
-      trailing={person.id !== ownUserId && <button type="button" className="icon-btn" aria-label="Ações da conta" aria-haspopup="dialog"
-        aria-expanded={actionsOpen} onClick={() => { setNotice(''); setActionsOpen(true) }}><Ellipsis size={21} /></button>}
-      actions={person.id !== ownUserId && <button className={person.follow_state === 'none' ? 'primary' : 'secondary'} disabled={busy} onClick={() => void follow()}>{followLabel}</button>}
+      trailing={person.id !== ownUserId && <IconButton type="button" tone="cover" aria-label="Ações da conta" aria-haspopup="dialog"
+        aria-expanded={actionsOpen} onClick={() => { setNotice(''); setActionsOpen(true) }}><Ellipsis size={21} /></IconButton>}
+      actions={person.id !== ownUserId && <Button variant={person.follow_state === 'none' ? 'primary' : 'secondary'} className="min-h-[37px] px-4 py-2 text-[11px]"
+        disabled={busy} onClick={() => void follow()}>{followLabel}</Button>}
       onFollowers={() => openList('followers')}
       onFollowing={() => openList('following')}
       onMutual={() => onOpenConnections(person.id, 'followers', true)}
     />
-    {error && <p className="error" role="alert">{error}</p>}
-    {notice && <p className="success" role="status">{notice}</p>}
+    {error && <p className={feedbackVariants()} role="alert">{error}</p>}
+    {notice && <p className={feedbackVariants({ tone: 'success' })} role="status">{notice}</p>}
     {canView
       ? <>
         <ProfileTabs value={tab} onChange={setTab} />
-        <div id="profile-content" className="profile-panel" role="tabpanel" aria-labelledby={`tab-${tab}`}>
+        <ProfilePanel tab={tab}>
           {tab === 'Fotos'
             ? <ProfileGallery userId={person.id} username={person.username} ownerName={person.name} viewerId={ownUserId} own={false} onExpired={onExpired} />
             : <EmptyState Icon={CalendarDays} title="História em campo" text="Quando as partidas estiverem disponíveis, os resultados desta conta ficam registrados aqui." />}
-        </div>
+        </ProfilePanel>
       </>
-      : <p className="social-private"><Shield size={20} /> Esta conta é privada. Solicite acesso para ver as publicações.</p>}
+      : <p className="flex items-center justify-center gap-2 px-2 py-5 text-center text-[12px] leading-[1.6] text-ink-muted"><Shield size={20} /> Esta conta é privada. Solicite acesso para ver as publicações.</p>}
     {actionsOpen && <AccountActions person={person} onClose={() => setActionsOpen(false)} onBlocked={onBack} onExpired={onExpired}
       onReported={() => { setActionsOpen(false); setNotice('Denúncia enviada para análise.') }} />}
   </>

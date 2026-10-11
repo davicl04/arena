@@ -3,7 +3,8 @@ import { Pressable, Text, View } from 'react-native'
 import { ApiError, request } from '../api/client'
 import type { User, UsernameAvailability } from '../api/client'
 import { availabilityMessage, normalizeUsername, usernameProblem } from '../utils/profile'
-import { Button, Field, styles } from './ui'
+import { Button, Field } from './ui'
+import { cx, tw } from '../styles'
 
 // O resultado fica ligado ao @ consultado (for): se o texto mudou, a verificação está pendente.
 type Check = { for: string; failed: boolean; text: string; result?: UsernameAvailability }
@@ -42,11 +43,11 @@ export default function UsernameForm({ current, onSaved, onExpired }: { current:
   const note = unchanged ? 'Este é o seu nome de usuário atual.' : problem ?? (checking ? 'Verificando disponibilidade…' : entry?.text ?? '')
   const good = !unchanged && !problem && entry?.result?.available
   return <View>
-    <Text style={styles.body}>Seu @ é único, aparece mesmo com a conta privada e tem de 3 a 30 caracteres: letras minúsculas, números, ponto e sublinhado, sem ponto no início, no fim ou repetido.</Text>
+    <Text className={tw.body}>Seu @ é único, aparece mesmo com a conta privada e tem de 3 a 30 caracteres: letras minúsculas, números, ponto e sublinhado, sem ponto no início, no fim ou repetido.</Text>
     <Field label="Nome de usuário" value={value} onChangeText={setValue} autoCapitalize="none" autoCorrect={false} maxLength={31} placeholder="seu.usuario" editable={!busy} />
-    {note ? <Text accessibilityLiveRegion="polite" style={good ? styles.success : styles.error}>{note}</Text> : null}
-    {entry?.result?.suggestions.length ? <View style={styles.row}>{entry.result.suggestions.map(item => <Pressable key={item} accessibilityRole="button" accessibilityLabel={`Usar ${item}`} onPress={() => setValue(item)} style={styles.chip}><Text style={styles.chipText}>@{item}</Text></Pressable>)}</View> : null}
-    {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
+    {note ? <Text accessibilityLiveRegion="polite" className={good ? tw.success : tw.error}>{note}</Text> : null}
+    {entry?.result?.suggestions.length ? <View className={tw.row}>{entry.result.suggestions.map(item => <Pressable key={item} accessibilityRole="button" accessibilityLabel={`Usar ${item}`} onPress={() => setValue(item)} className={cx(tw.chip.base, tw.chip.idle)}><Text className={tw.chipText.idle}>@{item}</Text></Pressable>)}</View> : null}
+    {error ? <Text accessibilityRole="alert" className={tw.error}>{error}</Text> : null}
     <Button title={busy ? 'Salvando…' : 'Salvar nome de usuário'} disabled={busy || Boolean(problem) || unchanged || unavailable || checking} onPress={() => void save()} />
   </View>
 }

@@ -2,8 +2,10 @@ import { useState } from 'react'
 import { Bell, Check, X } from 'lucide-react'
 import { ApiError, request } from '../api/client'
 import type { Page, SocialUser } from '../api/client'
-import EmptyState from '../components/EmptyState'
-import PersonRow from '../components/PersonRow'
+import { Button, IconButton } from '@/components/ui/button'
+import { EmptyState } from '@/components/ui/empty-state'
+import { feedbackVariants } from '@/components/ui/feedback'
+import { PersonList, PersonRow } from '@/components/ui/person-row'
 import { usePagedList } from '../hooks/usePagedList'
 
 type FollowRequest = { user: SocialUser; state: string }
@@ -41,27 +43,27 @@ export default function NotificationsPage({ onOpenUser, onExpired }: { onOpenUse
     } finally { list.reload(); setBusy(false) }
   }
   if (list.loading) return <p role="status">Carregando notificações…</p>
-  if (list.error) return <div className="error" role="alert">{list.error.message} <button className="text-button" onClick={list.reload}>Tentar novamente</button></div>
+  if (list.error) return <div className={feedbackVariants()} role="alert">{list.error.message} <Button variant="text" onClick={list.reload}>Tentar novamente</Button></div>
   return <>
-    {error && <p className="error" role="alert">{error}</p>}
+    {error && <p className={feedbackVariants()} role="alert">{error}</p>}
     {list.items.length === 0 && busy
       ? <p role="status">Aprovando solicitações…</p>
       : list.items.length === 0
       ? <EmptyState Icon={Bell} title="Tudo em dia" text="As notificações das suas atividades estarão disponíveis em breve." />
       : <section aria-label="Solicitações para seguir">
-        <div className="list-head">
-          <h2>Solicitações para seguir <span className="social-count-badge">{list.items.length}{list.hasMore ? '+' : ''}</span></h2>
-          <button className="text-button" disabled={busy || list.busy} onClick={() => void approveAll()}>Aprovar todas</button>
+        <div className="mt-1 mb-1.5 flex items-center justify-between gap-2">
+          <h2 className="flex items-center gap-[7px] text-[14px]">Solicitações para seguir <span className="inline-grid h-[21px] min-w-[21px] place-items-center rounded-[11px] bg-[#005a3612] px-1 text-[10px] text-brand">{list.items.length}{list.hasMore ? '+' : ''}</span></h2>
+          <Button variant="text" className="m-0 shrink-0" disabled={busy || list.busy} onClick={() => void approveAll()}>Aprovar todas</Button>
         </div>
-        <div className="person-list">
+        <PersonList>
           {list.items.map(({ user }) => <PersonRow key={user.id} person={user} onOpen={onOpenUser}
             actions={<>
-              <button className="icon-action approve" aria-label={`Aprovar solicitação de ${user.name}`} disabled={busy} onClick={() => void resolve(user, true)}><Check size={18} /></button>
-              <button className="icon-action reject" aria-label={`Recusar solicitação de ${user.name}`} disabled={busy} onClick={() => void resolve(user, false)}><X size={18} /></button>
+              <IconButton tone="approve" aria-label={`Aprovar solicitação de ${user.name}`} disabled={busy} onClick={() => void resolve(user, true)}><Check size={18} /></IconButton>
+              <IconButton tone="outline" aria-label={`Recusar solicitação de ${user.name}`} disabled={busy} onClick={() => void resolve(user, false)}><X size={18} /></IconButton>
             </>} />)}
-        </div>
-        {list.moreError && <p className="error" role="alert">{list.moreError}</p>}
-        {list.hasMore && <button className="secondary full-width" disabled={busy || list.busy} onClick={() => void list.loadMore()}>Carregar mais solicitações</button>}
+        </PersonList>
+        {list.moreError && <p className={feedbackVariants()} role="alert">{list.moreError}</p>}
+        {list.hasMore && <Button variant="secondary" className="mt-[18px] w-full" disabled={busy || list.busy} onClick={() => void list.loadMore()}>Carregar mais solicitações</Button>}
       </section>}
   </>
 }

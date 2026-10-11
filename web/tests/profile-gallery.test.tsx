@@ -62,7 +62,7 @@ describe('ProfileGallery e PostViewer', () => {
     const dialog = viewer()
     expect(dialog.getAttribute('aria-modal')).toBe('true')
     expect(within(dialog).getByText('@eu.mesmo')).not.toBeNull()
-    expect((dialog.querySelector('.viewer-scroll') as HTMLElement).scrollTop).toBe(800)
+    expect(within(dialog).getByTestId('viewer-scroll').scrollTop).toBe(800)
     expect(within(dialog).getAllByRole('article').map(item => item.getAttribute('aria-label'))).toHaveLength(3)
     act(() => observers.at(-1)?.([{ isIntersecting: true }]))
     await waitFor(() => expect(request).toHaveBeenCalledWith('/users/1/posts?cursor=gallery-next'))
@@ -174,7 +174,8 @@ describe('ProfileGallery e PostViewer', () => {
     const props = renderGallery()
     await user.click(await screen.findByRole('button', { name: 'Nova foto' }))
     expect(props.onNewPhoto).toHaveBeenCalled()
-    expect(document.querySelectorAll('.ghost-tile')).toHaveLength(1)
+    // Quadros fantasmas completam a linha: filhos decorativos (aria-hidden) da grade, fora dos itens da lista.
+    expect(screen.getByRole('list', { name: 'Fotos de Eu Mesmo' }).querySelectorAll(':scope > [aria-hidden="true"]')).toHaveLength(1)
     cleanup()
     renderGallery({ own: false, onNewPhoto: undefined, viewerId: 2 })
     await tile('Primeira')

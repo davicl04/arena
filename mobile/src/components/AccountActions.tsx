@@ -3,13 +3,11 @@ import { Text, View } from 'react-native'
 import { ApiError } from '../api/client'
 import type { SocialUser } from '../api/client'
 import { blockUser } from '../api/social'
-import GlassOverlay, { GlassRow, glass } from './GlassOverlay'
+import GlassOverlay, { GlassRow } from './GlassOverlay'
 import ReportForm from './ReportForm'
 import { Avatar } from './media'
 import { Button } from './ui'
-
 type Step = 'menu' | 'block' | 'report'
-
 /** Ações da conta visitada em vidro de tela cheia: Bloquear (com confirmação) e Denunciar conta. */
 export default function AccountActions({ person, token, onClose, onBlocked, onExpired }: {
   person: SocialUser; token: string | null; onClose: () => void; onBlocked: () => void; onExpired: () => void
@@ -27,18 +25,18 @@ export default function AccountActions({ person, token, onClose, onBlocked, onEx
   const title = step === 'block' ? 'Bloquear conta' : step === 'report' ? 'Denunciar conta' : 'Ações da conta'
   return <GlassOverlay variant="screen" title={title} onClose={onClose} onBack={step === 'menu' || busy ? undefined : () => go('menu')}>
     {step === 'menu' ? <>
-      <View style={{ alignItems: 'center', gap: 4, marginVertical: 16 }}>
+      <View className="my-4 items-center gap-1">
         <Avatar path={person.avatar_url} name={person.name} token={token} size={64} />
-        <Text style={{ color: glass.text, fontSize: 17, fontWeight: '700' }}>@{person.username}</Text>
-        <Text style={{ color: glass.muted }}>{person.name}</Text>
+        <Text className="text-[17px] font-bold text-white">@{person.username}</Text>
+        <Text className="text-glass-muted">{person.name}</Text>
       </View>
       <GlassRow label="Bloquear" onPress={() => go('block')} />
       <GlassRow danger label="Denunciar conta" onPress={() => go('report')} />
     </> : null}
     {step === 'block' ? <View>
-      <Text style={{ color: glass.text, fontSize: 16, fontWeight: '700' }}>Bloquear @{person.username}?</Text>
-      <Text style={{ color: glass.muted, lineHeight: 20, marginTop: 6 }}>Os vínculos atuais são removidos e esta conta deixa de ver seu perfil. Você pode desbloquear depois em Contas bloqueadas.</Text>
-      {error ? <Text accessibilityRole="alert" style={{ color: glass.danger, marginTop: 8 }}>{error}</Text> : null}
+      <Text className="text-[16px] font-bold text-white">Bloquear @{person.username}?</Text>
+      <Text className="mt-1.5 leading-[20px] text-glass-muted">Os vínculos atuais são removidos e esta conta deixa de ver seu perfil. Você pode desbloquear depois em Contas bloqueadas.</Text>
+      {error ? <Text accessibilityRole="alert" className="mt-2 text-glass-danger">{error}</Text> : null}
       <Button title={busy ? 'Bloqueando…' : 'Confirmar bloqueio'} disabled={busy} onPress={() => void block()} />
       <Button secondary title="Cancelar" disabled={busy} onPress={() => go('menu')} />
     </View> : null}

@@ -32,11 +32,14 @@ export default function App() {
   }, [])
   return (
     <>
-      <a className="skip-link" href="#main">
+      <a
+        className="absolute -top-20 left-5 z-skip-link rounded-[8px] bg-white p-3.5 underline focus:top-2.5"
+        href="#main"
+      >
         Pular para conteúdo
       </a>
       {loading ? (
-        <main id="main" className="loading" role="status">
+        <main id="main" className="grid min-h-dvh place-items-center" role="status">
           Carregando seu Arena…
         </main>
       ) : user ? (

@@ -3,7 +3,10 @@ import type { FormEvent } from 'react'
 import { ApiError } from '../api/client'
 import { REPORT_DETAILS_MAX, REPORT_REASONS, sendReport } from '../api/social'
 import type { ReportReason, ReportTarget } from '../api/social'
+import { Button } from '@/components/ui/button'
 import { Field, FieldContent, FieldDescription, FieldLabel, FieldLegend, FieldSet, FieldTitle } from '@/components/ui/field'
+import { GlassTextarea } from '@/components/ui/glass'
+import { glassMessageVariants } from '@/components/ui/glass-variants'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 
 /** Formulário de denúncia de post, comentário ou conta: motivo obrigatório e detalhes opcionais. */
@@ -34,9 +37,9 @@ export default function ReportForm({ target, targetId, title = 'Por que você qu
     }
   }
 
-  return <form className="report-form dark" onSubmit={event => void submit(event)}>
+  return <form className="dark grid gap-1.5" onSubmit={event => void submit(event)}>
     <FieldSet className="gap-2">
-      <FieldLegend variant="label" className="mb-0 text-[13px] font-bold">{title}</FieldLegend>
+      <FieldLegend variant="label" className="mb-0 px-0.5 text-[13px] font-bold">{title}</FieldLegend>
       <RadioGroup className="gap-1.5" name={`${id}-reason`} value={reason}
         onValueChange={value => setReason(value as ReportReason)}>
         {REPORT_REASONS.map(option => <FieldLabel key={option.value} htmlFor={`${id}-${option.value}`}
@@ -51,10 +54,10 @@ export default function ReportForm({ target, targetId, title = 'Por que você qu
         </FieldLabel>)}
       </RadioGroup>
     </FieldSet>
-    <label className="visually-hidden" htmlFor={`${id}-details`}>Detalhes da denúncia (opcional)</label>
-    <textarea id={`${id}-details`} value={details} maxLength={REPORT_DETAILS_MAX} rows={2}
+    <label className="sr-only" htmlFor={`${id}-details`}>Detalhes da denúncia (opcional)</label>
+    <GlassTextarea id={`${id}-details`} className="min-h-12" value={details} maxLength={REPORT_DETAILS_MAX} rows={2}
       placeholder="Detalhes (opcional)" onChange={event => setDetails(event.target.value)} />
-    {error && <p className="glass-error" role="alert">{error}</p>}
-    <button type="submit" className="glass-primary" disabled={!reason || busy}>{busy ? 'Enviando…' : 'Enviar denúncia'}</button>
+    {error && <p className={glassMessageVariants()} role="alert">{error}</p>}
+    <Button type="submit" variant="glass" className="mt-0.5 justify-self-end" disabled={!reason || busy}>{busy ? 'Enviando…' : 'Enviar denúncia'}</Button>
   </form>
 }

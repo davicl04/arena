@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { Text, View } from 'react-native'
 import { request, saveToken } from '../api/client'
 import type { User } from '../api/client'
-import { Button, Field, styles } from '../components/ui'
+import { Button, Field } from '../components/ui'
+import { tw } from '../styles'
 
 export default function AuthScreen({ onLogin }: { onLogin: (user: User) => void }) {
   const [register, setRegister] = useState(false)
@@ -30,12 +31,12 @@ export default function AuthScreen({ onLogin }: { onLogin: (user: User) => void 
     } catch (err) { setError(err instanceof Error ? err.message : 'Tente novamente.') }
     finally { setBusy(false) }
   }
-  return <><Text style={styles.eyebrow}>SEU ESPORTE, SUA HISTÓRIA</Text><Text style={styles.title}>Encontre seu próximo começo.</Text><Text style={styles.body}>Futebol, tênis e corrida. Sua trajetória começa aqui.</Text><View style={styles.card}><Text style={styles.heading}>{register ? 'Crie sua conta' : 'Bom ter você aqui'}</Text>
-    {register ? <><Field label="Nome completo" value={name} onChangeText={setName} editable={!busy} autoComplete="name" maxLength={100} /><Field label="Data de nascimento (DD/MM/AAAA)" value={birth} onChangeText={setBirth} editable={!busy} placeholder="DD/MM/AAAA" keyboardType="numbers-and-punctuation" maxLength={10} /><Text style={styles.body}>Para pessoas com 18 anos completos ou mais.</Text></> : null}
+  return <><Text className={tw.eyebrow}>SEU ESPORTE, SUA HISTÓRIA</Text><Text className={tw.title}>Encontre seu próximo começo.</Text><Text className={tw.body}>Futebol, tênis e corrida. Sua trajetória começa aqui.</Text><View className={tw.card}><Text className={tw.heading}>{register ? 'Crie sua conta' : 'Bom ter você aqui'}</Text>
+    {register ? <><Field label="Nome completo" value={name} onChangeText={setName} editable={!busy} autoComplete="name" maxLength={100} /><Field label="Data de nascimento (DD/MM/AAAA)" value={birth} onChangeText={setBirth} editable={!busy} placeholder="DD/MM/AAAA" keyboardType="numbers-and-punctuation" maxLength={10} /><Text className={tw.body}>Para pessoas com 18 anos completos ou mais.</Text></> : null}
     <Field label="E-mail" value={email} onChangeText={setEmail} editable={!busy} autoCapitalize="none" autoComplete="email" keyboardType="email-address" maxLength={254} />
     <Field label={register ? 'Senha (10 a 128 caracteres)' : 'Senha'} value={password} onChangeText={setPassword} editable={!busy} secureTextEntry autoCapitalize="none" autoComplete={register ? 'new-password' : 'current-password'} maxLength={128} />
-    {error ? <Text style={styles.error} accessibilityRole="alert">{error}</Text> : null}{message ? <Text style={styles.success} accessibilityLiveRegion="polite">{message}</Text> : null}
+    {error ? <Text className={tw.error} accessibilityRole="alert">{error}</Text> : null}{message ? <Text className={tw.success} accessibilityLiveRegion="polite">{message}</Text> : null}
     <Button title={busy ? 'Aguarde…' : register ? 'Criar minha conta' : 'Entrar no Arena'} onPress={() => void submit()} disabled={busy} />
     <Button secondary title={register ? 'Já tenho conta' : 'Criar conta'} disabled={busy} onPress={() => { setRegister(v => !v); setError(''); setMessage(''); setPassword('') }} />
-  </View><Text style={styles.body}>Seu perfil começa privado.</Text></>
+  </View><Text className={tw.body}>Seu perfil começa privado.</Text></>
 }
