@@ -1,8 +1,9 @@
+import { StrictMode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { request } from '../src/api/client'
-import type { SocialUser, User } from '../src/api/client'
+import type { Post, SocialUser, User } from '../src/api/client'
 import ArenaPage from '../src/pages/ArenaPage'
 
 vi.mock('../src/api/client', async original => ({
@@ -14,6 +15,8 @@ const me: User = { id: 1, name: 'Eu Mesmo', username: 'eu.mesmo', email: 'eu@exa
 const other: SocialUser = { id: 2, name: 'Atleta Dois', username: 'atleta.dois', avatar_url: null, cover_url: null, social_public: true,
   post_count: 0, follower_count: 3, following_count: 2, follows_you: false, follow_state: 'approved' }
 const page = (items: unknown[]) => ({ items, next_cursor: null })
+const post: Post = { id: 1, author: other, caption: 'Treino do dia', image_url: '/foto.webp', created_at: '2026-10-11T12:00:00Z',
+  like_count: 0, comment_count: 0, liked_by_me: false, can_edit: false }
 
 beforeEach(() => {
   Element.prototype.scrollTo = () => {} // jsdom não implementa rolagem
@@ -22,6 +25,8 @@ beforeEach(() => {
     if (path === '/me/sports-profiles' || path === '/cities') return [] as never
     if (path === '/users/1') return { ...other, id: 1, name: me.name, username: me.username, follower_count: 1, following_count: 0, follow_state: 'self' } as never
     if (path === '/users/2') return other as never
+    if (path === '/users/1/posts') return page([{ ...post, author: { ...other, id: me.id, username: me.username } }]) as never
+    if (path === '/posts') return page([post]) as never
     if (path === '/users/1/followers') return page([{ user: other, state: 'approved' }]) as never
     if (path === '/users/2/followers') return page([]) as never
     if (path.startsWith('/users/2/mutual-followers')) return { items: [], total: 0, next_cursor: null } as never
@@ -42,6 +47,31 @@ const nav = (name: string) => within(screen.getByRole('navigation', { name: 'Nav
 const current = () => within(screen.getByRole('navigation', { name: 'Navegação principal' })).getByRole('button', { current: 'page' }).textContent
 
 describe('navegação do ArenaPage', () => {
+  it.each(['Fechar', 'Escape'])('consome Nova foto uma vez ao abrir, permite nova abertura e não reabre ao voltar após %s', async close => {
+    const ui = userEvent.setup()
+    render(<StrictMode><ArenaPage user={me} onUser={vi.fn()} onLogout={vi.fn()} onExpired={vi.fn()} /></StrictMode>)
+    await ui.click(nav('Perfil'))
+    await ui.click(await screen.findByRole('button', { name: 'Nova foto' }))
+    expect(screen.getByRole('dialog', { name: 'Nova publicação' })).not.toBeNull()
+    expect(current()).toBe('Comunidade')
+    if (close === 'Escape') await ui.keyboard('{Escape}')
+    else await ui.click(screen.getByRole('button', { name: 'Fechar', exact: true }))
+    expect(screen.queryByRole('dialog', { name: 'Nova publicação' })).toBeNull()
+
+    await ui.click(await screen.findByRole('button', { name: 'Abrir perfil de @atleta.dois' }))
+    await screen.findByRole('region', { name: 'Perfil de Atleta Dois' })
+    await ui.click(screen.getByRole('button', { name: 'Voltar', exact: true }))
+    expect(screen.getByRole('region', { name: 'Comunidade Arena' })).not.toBeNull()
+    expect(screen.queryByRole('dialog', { name: 'Nova publicação' })).toBeNull()
+
+    await ui.click(screen.getByRole('button', { name: 'Nova publicação', exact: true }))
+    expect(screen.getByRole('dialog', { name: 'Nova publicação' })).not.toBeNull()
+    await ui.click(screen.getByRole('button', { name: 'Fechar', exact: true }))
+    await ui.click(nav('Perfil'))
+    await ui.click(await screen.findByRole('button', { name: 'Nova foto' }))
+    expect(screen.getByRole('dialog', { name: 'Nova publicação' })).not.toBeNull()
+  })
+
   it('volta de cada tela de perfil para a tela anterior correta', async () => {
     const ui = userEvent.setup()
     renderArena()

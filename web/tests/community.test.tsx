@@ -1,10 +1,11 @@
-import { useEffect } from 'react'
+import { StrictMode, useEffect } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { request } from '../src/api/client'
-import type { Post, SocialUser } from '../src/api/client'
+import type { Post, SocialUser, User } from '../src/api/client'
 import SocialCommunity from '../src/components/SocialCommunity'
+import ArenaPage from '../src/pages/ArenaPage'
 import { cropImage } from '../src/utils/cropImage'
 
 vi.mock('../src/api/client', async original => ({
@@ -26,6 +27,8 @@ vi.mock('react-easy-crop', () => ({
 
 const athlete: SocialUser = { id: 2, name: 'Atleta Dois', username: 'atleta.dois', avatar_url: null, cover_url: null, social_public: true,
   post_count: 1, follower_count: 3, following_count: 2, follows_you: false, follow_state: 'approved' }
+const me: User = { id: 1, name: 'Eu Mesmo', username: 'eu', email: 'eu@example.com', birth_date: '1990-01-01',
+  social_public: true, is_admin: false, avatar: null, cover: null }
 const post: Post = { id: 7, author: athlete, caption: 'Treino do dia', image_url: '/post.webp', created_at: '2026-10-10T10:00:00Z',
   like_count: 2, comment_count: 1, liked_by_me: false, can_edit: false }
 const page = (items: unknown[], next_cursor: string | null = null) => ({ items, next_cursor })
@@ -35,6 +38,10 @@ function mockApi(feed: () => unknown = () => page([post])) {
   vi.mocked(request).mockImplementation(async (path, method) => {
     if (path === '/posts' && method === 'POST') return { ...post, id: 99, caption: 'Nova', author: { ...athlete, id: 1, username: 'eu' } } as never
     if (path === '/posts') return feed() as never
+    if (path === '/cities' || path === '/me/sports-profiles') return [] as never
+    if (path === '/users/1') return { ...athlete, id: me.id, name: me.name, username: me.username, follow_state: 'self' } as never
+    if (path === '/users/2') return athlete as never
+    if (path === '/users/1/posts') return page([{ ...post, author: { ...athlete, id: me.id, name: me.name, username: me.username } }]) as never
     if (path === '/users/1/following') return page([{ user: athlete, state: 'approved' }]) as never
     return page([]) as never
   })
@@ -169,6 +176,34 @@ describe('Atualizar o feed', () => {
 })
 
 describe('Nova publicação', () => {
+  it('publica a partir de Nova foto sem reabrir o compositor ao visitar outro perfil e voltar', async () => {
+    mockApi()
+    vi.stubGlobal('URL', { createObjectURL: vi.fn(() => 'blob:foto'), revokeObjectURL: vi.fn() })
+    const ui = userEvent.setup()
+    render(<StrictMode><ArenaPage user={me} onUser={vi.fn()} onLogout={vi.fn()} onExpired={vi.fn()} /></StrictMode>)
+    const nav = within(screen.getByRole('navigation', { name: 'Navegação principal' }))
+    await ui.click(nav.getByRole('button', { name: 'Perfil' }))
+    await ui.click(await screen.findByRole('button', { name: 'Nova foto' }))
+    const dialog = screen.getByRole('dialog', { name: 'Nova publicação' })
+    fireEvent.change(dialog.querySelector('input[type="file"]')!, { target: { files: [new File(['x'], 'quadra.png', { type: 'image/png' })] } })
+    await ui.click(screen.getByRole('button', { name: 'Continuar' }))
+    await ui.type(await screen.findByLabelText('Legenda (opcional)'), 'Nova')
+    await ui.click(within(dialog).getByRole('button', { name: 'Publicar' }))
+    expect(await screen.findByText('Publicação compartilhada.')).not.toBeNull()
+    expect(screen.queryByRole('dialog', { name: 'Nova publicação' })).toBeNull()
+    expect(screen.getAllByRole('article')[0].getAttribute('aria-label')).toBe('Publicação de @eu')
+
+    await ui.click(screen.getByRole('button', { name: 'Abrir perfil de @atleta.dois' }))
+    await screen.findByRole('region', { name: 'Perfil de Atleta Dois' })
+    await ui.click(screen.getByRole('button', { name: 'Voltar', exact: true }))
+    expect(screen.getByRole('region', { name: 'Comunidade Arena' })).not.toBeNull()
+    expect(screen.queryByRole('dialog', { name: 'Nova publicação' })).toBeNull()
+
+    await ui.click(nav.getByRole('button', { name: 'Perfil' }))
+    await ui.click(await screen.findByRole('button', { name: 'Nova foto' }))
+    expect(screen.getByRole('dialog', { name: 'Nova publicação' })).not.toBeNull()
+  })
+
   it('recorta (atalhos, girar, centralizar, redefinir), escreve a legenda e publica no topo do feed', async () => {
     mockApi()
     vi.stubGlobal('URL', { createObjectURL: vi.fn(() => 'blob:foto'), revokeObjectURL: vi.fn() })

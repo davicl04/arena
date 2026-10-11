@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowLeft, MapPin, Shield, Trophy } from "lucide-react";
 import { ApiError, request, sports } from "../api/client";
 import type { City, Profile, ProfileInput, Sport, User } from "../api/client";
@@ -117,6 +117,11 @@ export default function ArenaPage({
   function openComposer() {
     show(() => [{ screen: "community", compose: true }]);
   }
+  const consumeComposeRequest = useCallback(() => {
+    setStack((old) =>
+      old.map((entry) => (entry.compose ? { ...entry, compose: false } : entry)),
+    );
+  }, []);
   function openUser(id: number) {
     if (id === user.id) go("profile");
     else show((old) => [...old, { screen: "user-profile", userId: id }]);
@@ -335,11 +340,11 @@ export default function ArenaPage({
           )}
           {screen === "community" && (
             <SocialCommunity
-              key={current.compose ? "compose" : "feed"}
               viewerId={user.id}
               onOpenUser={openUser}
               onExpired={onExpired}
               composeOnOpen={Boolean(current.compose)}
+              onComposeStarted={consumeComposeRequest}
             />
           )}
           {screen === "notifications" && (

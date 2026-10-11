@@ -1,5 +1,31 @@
 # Situação da fundação do Arena
 
+## Correções da revisão da branch — 11 de outubro de 2026
+
+Corrigidos os dois achados da revisão de `feat/tailwind-migrate`, com subagentes em paralelo autorizados pelo usuário:
+
+- O pedido de nova publicação vindo de "Nova foto" agora é consumido ao abrir. A Comunidade permanece montada durante o consumo, preservando o compositor e o foco; fechar ou publicar, visitar outro perfil e voltar não reabre o diálogo. Novas aberturas pelo perfil e pelo cabeçalho continuam disponíveis.
+- O `Slider` normaliza valores escalares controlados ou iniciais em um único controle, incluindo zero. Intervalos mantêm controles separados com índices explícitos; sem valor informado, o controle usa o mínimo, conforme o Base UI.
+
+Adicionados nove testes de regressão: seis do slider (incluindo teclado e intervalos), dois de navegação com `StrictMode` (Fechar e Escape, retorno e reabertura) e um de publicação seguida de visita a perfil e retorno. Web: `npm run lint`, `npm run build` e `npm run test:coverage` aprovados, com 129 testes em 19 arquivos; cobertura de 83,82% de statements e 73,78% de branches. A revisão React conferiu callback estável, atualização funcional da pilha e preservação do foco.
+
+O navegador confirmou fechamento, navegação/retorno, reabertura intencional, recorte, zoom por teclado (1 → 1,05) com um único controle e publicação seguida de retorno. Conferidos recorte e ausência de overflow horizontal em 320, 390 e 1440 px. Usadas respostas simuladas apenas no cenário auxiliar `.local/review-branch/`, sem inclusão no produto; evidência visual em `artifacts/review-tailwind/zoom-corrigido.png`.
+
+Limitações: não foram exercitadas a API real nem a persistência nesta correção. Backend, esquema, contratos e mobile não foram alterados; seus checks não foram repetidos. Sem validação em aparelho ou CI remoto. `git diff --check` das alterações locais aprovado. O usuário autorizou o commit das correções em `feat/tailwind-migrate` e, em seguida, a criação de `feat/play-page` a partir dele. Sem push ou publicação.
+
+## Revisão da branch `feat/tailwind-migrate` — 11 de outubro de 2026
+
+Revisados os três commits entre a base `6f1c850` de `origin/main` e `cd6d278`, abrangendo conteúdo do perfil, Tailwind/NativeWind e nova Comunidade. Nenhuma correção funcional foi aplicada nesta revisão.
+
+Dois achados confirmados na web:
+
+- **P2:** o pedido `compose` permanece na pilha de navegação. Depois de abrir "Nova foto", fechar o compositor, visitar outro perfil e voltar, "Nova publicação" abre novamente sem solicitação. O pedido precisa ser consumido ao abrir.
+- **P3:** `Slider` usa `[min, max]` como fallback mesmo quando recebe um `value` escalar. O zoom do compositor monta dois controles sobrepostos, ambos chamados "Zoom", criando uma parada de foco duplicada. Valores escalares devem gerar apenas um controle.
+
+Verificações executadas: web lint, build e cobertura (120 testes aprovados); mobile lint, typecheck, cobertura (107 testes aprovados), exportação Android e `expo install --check`. Duas reproduções isoladas confirmaram os achados; a fonte está em `artifacts/review-tailwind/reproducoes.test.tsx`, sem inclusão na suíte versionada. O navegador também confirmou ambos em uma página isolada com respostas simuladas exclusivamente para teste. Conferidos visualizador, abertura do compositor após rolagem, recorte e passagem à legenda; ausência de overflow horizontal nas larguras 320, 390 e 1440 px. O cenário auxiliar fica em `.local/review-branch/` e não faz parte do produto.
+
+Limitações: a API real e a persistência não foram exercitadas nesta revisão; backend e esquema não foram alterados pela branch. Não houve execução em aparelho/emulador nem CI remoto. `git diff --check origin/main...HEAD` identificou somente uma linha em branco adicional no fim de `web/src/components/ui/button-variants.ts`. A revisão atualizou apenas este registro versionado; sem commit, push ou publicação.
+
 ## Nova Comunidade (web e Expo) — 11 de outubro de 2026
 
 Implementado o [plano da Comunidade](plano-comunidade.md), sem mudança de backend, contrato da API, esquema ou dependências. As versões de `package.json` e dos locks não mudaram.

@@ -26,12 +26,14 @@ const TITLE_ROW = 54
  * Ao rolar para baixo, o título recolhe e só as abas ficam. O feed atualiza ao ser puxado no topo (com um botão
  * visível só no foco, para o teclado). A rolagem é a do `main` do app, onde a seção é montada.
  */
-export default function SocialCommunity({ viewerId, onOpenUser, onExpired, composeOnOpen = false }: {
+export default function SocialCommunity({ viewerId, onOpenUser, onExpired, composeOnOpen = false, onComposeStarted }: {
   viewerId: number
   onOpenUser: (id: number) => void
   onExpired: () => void
   /** Abre direto a nova publicação (quadro "Nova foto" do perfil). */
   composeOnOpen?: boolean
+  /** Consome o pedido de abertura sem remontar a Comunidade. */
+  onComposeStarted?: () => void
 }) {
   const [tab, setTab] = useState<CommunityTab>('feed')
   const [composing, setComposing] = useState(composeOnOpen)
@@ -43,6 +45,10 @@ export default function SocialCommunity({ viewerId, onOpenUser, onExpired, compo
   const rootRef = useCallback((node: HTMLElement | null) => setScroller(node?.closest('main') ?? null), [])
   const feed = usePagedList<Post>('/posts', onExpired)
   const { pull, ready } = usePullToRefresh(scroller, feed.reload, tab === 'feed' && !feed.loading && !composing)
+
+  useEffect(() => {
+    if (composeOnOpen) onComposeStarted?.()
+  }, [composeOnOpen, onComposeStarted])
 
   // Busca com espera curta enquanto se digita; Enter busca na hora.
   useEffect(() => {
