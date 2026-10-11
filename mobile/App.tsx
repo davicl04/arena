@@ -19,6 +19,9 @@ export default function App() {
   const [error, setError] = useState('')
   const [attempt, setAttempt] = useState(0)
   const [tab, setTab] = useState<'community' | 'profile'>('community')
+  // Pedido do quadro "Nova foto" do perfil: a Comunidade abre já no fluxo de nova publicação.
+  const [compose, setCompose] = useState(false)
+  const composeStarted = useCallback(() => setCompose(false), [])
   useEffect(() => {
     let alive = true
     request<User>('/me').then(value => { if (alive) setUser(value) }).catch(async err => {
@@ -31,7 +34,7 @@ export default function App() {
   return <SafeAreaProvider><Screen className={tw.screen}><StatusBar style="dark" /><KeyboardAvoidingView className="grow basis-0" behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
     {loading ? <ScrollView contentContainerClassName={tw.content}><Text className={cx(tw.brand, 'mb-7.5')}>arena.</Text><ActivityIndicator accessibilityLabel="Carregando Arena" color={colors.brand} /></ScrollView> : user ? <>
       <View className="px-5.5 pt-3.5"><Text className={cx(tw.brand, 'mb-2')}>arena.</Text></View>
-      <View className="grow basis-0">{tab === 'community' ? <CommunityScreen key="community" user={user} onExpired={expired} /> : <ProfileScreen user={user} onUser={setUser} onLogout={() => setUser(null)} onExpired={expired} onNewPhoto={() => setTab('community')} />}</View>
+      <View className="grow basis-0">{tab === 'community' ? <CommunityScreen key="community" user={user} onExpired={expired} composeOnOpen={compose} onComposeStarted={composeStarted} /> : <ProfileScreen user={user} onUser={setUser} onLogout={() => setUser(null)} onExpired={expired} onNewPhoto={() => { setCompose(true); setTab('community') }} />}</View>
       <View accessibilityRole="tablist" className="flex-row border-t border-line bg-white p-2">
         {(['community', 'profile'] as const).map(value => <Pressable key={value} accessibilityRole="tab" accessibilityState={{ selected: tab === value }} onPress={() => setTab(value)} className="min-h-[46px] grow basis-0 items-center justify-center"><Text className={tab === value ? 'font-bold text-brand' : 'font-medium text-ink-muted'}>{value === 'community' ? 'Comunidade' : 'Perfil'}</Text></Pressable>)}
       </View>

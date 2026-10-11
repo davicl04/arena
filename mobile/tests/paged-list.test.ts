@@ -108,4 +108,33 @@ describe('usePagedList (mobile)', () => {
     expect(current.items.map(item => item.id)).toEqual([2])
     await act(async () => { tree.unmount() })
   })
+
+  it('refresh relê a primeira página mantendo os itens, descarta o "carregar mais" pendente e trata falha', async () => {
+    let reads = 0
+    let releaseFirst!: () => void
+    let releaseMore!: () => void
+    vi.mocked(request).mockImplementation(async path => {
+      if (path.includes('cursor=')) { await new Promise<void>(resolve => { releaseMore = resolve }); return page([3], null) as never }
+      reads += 1
+      if (reads === 2) { await new Promise<void>(resolve => { releaseFirst = resolve }); return page([0, 1], null) as never }
+      if (reads === 3) throw new Error('Sem conexão.')
+      return page([1, 2], 'c2') as never
+    })
+    const { tree } = await mount('/posts')
+    await act(async () => { void current.loadMore() })
+    await act(async () => { current.refresh() })
+    expect(current.refreshing).toBe(true)
+    expect(current.loading).toBe(false)
+    expect(current.items.map(item => item.id)).toEqual([1, 2])
+    await act(async () => { releaseMore() })
+    expect(current.items.map(item => item.id)).toEqual([1, 2])
+    await act(async () => { releaseFirst() })
+    expect(current.refreshing).toBe(false)
+    expect(current.items.map(item => item.id)).toEqual([0, 1])
+    expect(current.hasMore).toBe(false)
+    await act(async () => { current.refresh() })
+    expect(current.refreshing).toBe(false)
+    expect(current.error?.message).toBe('Sem conexão.')
+    await act(async () => { tree.unmount() })
+  })
 })

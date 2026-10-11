@@ -18,12 +18,15 @@ export default function ProfilePage({
   user,
   profiles,
   go,
+  onNewPhoto,
   openConnections,
   onExpired,
 }: {
   user: User;
   profiles: Profile[];
   go: (screen: Screen) => void;
+  /** Abre a Comunidade já na nova publicação. */
+  onNewPhoto: () => void;
   openConnections: (userId: number, tab: ConnectionsTab) => void;
   onExpired: () => void;
 }) {
@@ -94,7 +97,7 @@ export default function ProfilePage({
             ownerName={user.name}
             viewerId={user.id}
             own
-            onNewPhoto={() => go("community")}
+            onNewPhoto={onNewPhoto}
             onExpired={onExpired}
           />
         ) : (

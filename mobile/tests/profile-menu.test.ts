@@ -5,14 +5,9 @@ import { clearToken, request } from '../src/api/client'
 import CommunityScreen from '../src/screens/CommunityScreen'
 import ProfileScreen from '../src/screens/ProfileScreen'
 import { appVersion } from '../src/utils/appInfo'
+import { searchAthletes } from './support/native'
 
-vi.mock('react-native', async () => {
-  const ReactModule = await import('react')
-  const element = (name: string) => ({ children, ...props }: Record<string, unknown>) => ReactModule.createElement(name, props, children as React.ReactNode)
-  const FlatList = ({ data = [], renderItem, ListHeaderComponent, ...props }: Record<string, any>) => ReactModule.createElement('FlatList', props,
-    ListHeaderComponent, data.map((item: unknown, index: number) => ReactModule.createElement(ReactModule.Fragment, { key: index }, renderItem({ item }))))
-  return { ActivityIndicator: element('ActivityIndicator'), Alert: { alert: vi.fn() }, FlatList, Image: element('Image'), KeyboardAvoidingView: element('KeyboardAvoidingView'), Modal: element('Modal'), Platform: { OS: 'android' }, Pressable: element('Pressable'), RefreshControl: element('RefreshControl'), ScrollView: element('ScrollView'), Text: element('Text'), TextInput: element('TextInput'), View: element('View') }
-})
+vi.mock('react-native', async () => (await import('./support/native')).reactNativeMock())
 vi.mock('react-native-safe-area-context', async () => {
   const ReactModule = await import('react')
   return { SafeAreaView: ({ children, ...props }: Record<string, unknown>) => ReactModule.createElement('SafeAreaView', props, children as React.ReactNode) }
@@ -151,11 +146,8 @@ describe('menu do perfil', () => {
     })
     let tree!: Tree
     await act(async () => { tree = create(React.createElement(CommunityScreen, { user: me, onExpired: vi.fn() })) })
-    const query = tree.root.findAllByType('TextInput' as never).find(input => input.props.accessibilityLabel === 'Nome ou @')
-    await act(async () => { query!.props.onChangeText('atleta') })
-    const click = async (title: string) => { await act(async () => { tree.root.findAllByType('Button' as never).find(button => button.props.title === title)!.props.onPress() }) }
-    await click('Buscar')
-    await click('Atleta A')
+    await searchAthletes(tree, 'atleta')
+    await press(tree, 'Abrir perfil de Atleta A')
     expect(titles(tree, 'atleta.a').length).toBeGreaterThan(0)
     expect(texts(tree)).toContain('Perfil público')
     await act(async () => { tree.unmount() })

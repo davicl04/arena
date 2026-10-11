@@ -10,13 +10,16 @@ interface State<T> {
 
 export interface PagedList<T> {
   items: T[]; loading: boolean; error: ApiError | Error | null; moreError: string; hasMore: boolean; busy: boolean
-  setItems: Dispatch<SetStateAction<T[]>>; loadMore: () => Promise<void>; reload: () => void
+  /** Verdadeiro durante `refresh`: a primeira página é relida sem esvaziar a lista (puxar para atualizar). */
+  refreshing: boolean
+  setItems: Dispatch<SetStateAction<T[]>>; loadMore: () => Promise<void>; reload: () => void; refresh: () => void
 }
 
 /** Lista paginada por cursor (porta do hook da web). Trocar `path` recarrega a primeira página. */
 export function usePagedList<T>(path: string, onExpired: () => void): PagedList<T> {
   const [state, setState] = useState<State<T> | null>(null)
   const [attempt, setAttempt] = useState(0)
+  const [refreshing, setRefreshing] = useState(false)
   const generation = useRef(0)
   // `onEndReached` pode disparar várias vezes antes de o estado `busy` chegar à tela.
   const loadingMore = useRef(false)
@@ -24,9 +27,12 @@ export function usePagedList<T>(path: string, onExpired: () => void): PagedList<
     const requestGeneration = ++generation.current
     loadingMore.current = false
     request<Page<T>>(path).then(page => {
-      if (generation.current === requestGeneration) setState({ path, generation: requestGeneration, items: page.items, cursor: page.next_cursor, error: null, busy: false, moreError: '' })
+      if (generation.current !== requestGeneration) return
+      setState({ path, generation: requestGeneration, items: page.items, cursor: page.next_cursor, error: null, busy: false, moreError: '' })
+      setRefreshing(false)
     }).catch((err: unknown) => {
       if (generation.current !== requestGeneration) return
+      setRefreshing(false)
       if (err instanceof ApiError && err.status === 401) onExpired()
       setState({ path, generation: requestGeneration, items: [], cursor: null, error: err instanceof Error ? err : new Error('Não foi possível carregar a lista.'), busy: false, moreError: '' })
     })
@@ -56,9 +62,11 @@ export function usePagedList<T>(path: string, onExpired: () => void): PagedList<
       }
     }
   }, [current, path, onExpired])
-  const reload = useCallback(() => { generation.current++; loadingMore.current = false; setState(null); setAttempt(n => n + 1) }, [])
+  const reload = useCallback(() => { generation.current++; loadingMore.current = false; setRefreshing(false); setState(null); setAttempt(n => n + 1) }, [])
+  // Mantém os itens na tela; a nova geração (no efeito) descarta um "carregar mais" ainda pendente.
+  const refresh = useCallback(() => { setRefreshing(true); setAttempt(n => n + 1) }, [])
   return {
     items: current?.items ?? [], loading: !current, error: current?.error ?? null, moreError: current?.moreError ?? '',
-    hasMore: Boolean(current?.cursor), busy: current?.busy ?? false, setItems, loadMore, reload,
+    hasMore: Boolean(current?.cursor), busy: current?.busy ?? false, refreshing, setItems, loadMore, reload, refresh,
   }
 }

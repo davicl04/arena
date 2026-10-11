@@ -66,3 +66,27 @@ A troca do CSS escrito à mão por utilitários Tailwind ([plano](plano-migracao
 - Ao fechar com Esc os vidros sobre a foto do post (comentários e •••), o foco volta ao botão de origem. Antes, ia para o corpo da página.
 
 **Expo:** foi migrado para NativeWind preservando os valores visuais anteriores do app, mas sem conferência em aparelho. Não há declaração de paridade visual.
+
+## Nova Comunidade — 11 de outubro de 2026
+
+Em dez rodadas de protótipos, o usuário redesenhou a Comunidade. As decisões estão no [plano](plano-comunidade.md) e valem para a web e o Expo:
+
+- **Barra:** barra escura (`forest`) com o Coliseu e as abas Publicações | Atletas sublinhadas em menta. O título recolhe ao rolar.
+- **Atualizar:** puxar o feed para baixo no topo.
+- **Feed:** o mesmo post do visualizador do perfil.
+- **Estados:** estilo "arquibancada" (vazio, carregando, fim da lista e erro).
+- **Atletas:** busca dentro da barra e uma fileira com quem você segue.
+- **Nova publicação:** tela cheia escura em dois passos (recorte e depois legenda).
+
+Uma revisão posterior mudou o post. As regras abaixo **substituem o post A3** da revisão de 10 de outubro, também no visualizador do perfil:
+
+- **Proporção 1:1.** O recorte e o servidor já eram quadrados, mas a exibição em 4:5 cortava as laterais.
+- **Autor como etiqueta compacta de vidro escuro:** avatar sem contorno branco e `@usuário` (o @ em menta), no lugar do nome sobre a foto. O tom escuro mantém a leitura em fotos claras.
+- **Data no início da linha da legenda.** O ••• fica num círculo do mesmo vidro.
+
+O protótipo foi rejeitado na versão de barra clara mínima, considerada "muito Instagram". A fonte do protótipo final está em `artifacts/prototipos/comunidade.src.html`, que não é versionada.
+
+**Expo:**
+- Sem marca do Coliseu nos assets do mobile: a barra mostra só o título, e o estado vazio usa um glifo.
+- O recorte é o editor nativo do seletor de fotos, sem os controles de zoom, giro e centralização da web.
+- Não há declaração de paridade visual nem validação em aparelho.

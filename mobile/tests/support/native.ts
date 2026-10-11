@@ -11,13 +11,25 @@ const element = (name: string) => {
 }
 const renderComponent = (value: unknown) => React.isValidElement(value) ? value : value ? React.createElement(value as React.ElementType) : null
 
+// Animated sem driver: valores e interpolações são inertes; as animações só registram start/stop.
+class AnimatedValue {
+  constructor(public value = 0) {}
+  interpolate() { return this }
+  setValue(value: number) { this.value = value }
+}
+const animation = () => ({ start: () => undefined, stop: () => undefined })
+
 export function reactNativeMock() {
   const FlatList = ({ data = [], renderItem, ListHeaderComponent, ListEmptyComponent, ListFooterComponent, ...props }: Record<string, any>) => React.createElement('FlatList', props,
     renderComponent(ListHeaderComponent),
     data.length ? data.map((item: unknown, index: number) => React.createElement(React.Fragment, { key: index }, renderItem({ item, index }))) : renderComponent(ListEmptyComponent),
     renderComponent(ListFooterComponent))
+  const Animated = {
+    Value: AnimatedValue, View: element('Animated.View'), FlatList, event: () => () => undefined, diffClamp: (value: AnimatedValue) => value,
+    timing: animation, loop: animation,
+  }
   return {
-    ActivityIndicator: element('ActivityIndicator'), Alert: { alert: vi.fn() }, FlatList, Image: element('Image'), KeyboardAvoidingView: element('KeyboardAvoidingView'),
+    ActivityIndicator: element('ActivityIndicator'), Alert: { alert: vi.fn() }, Animated, FlatList, Image: element('Image'), KeyboardAvoidingView: element('KeyboardAvoidingView'),
     Modal: element('Modal'), Platform: { OS: 'android' }, Pressable: element('Pressable'), RefreshControl: element('RefreshControl'), ScrollView: element('ScrollView'),
     Text: element('Text'), TextInput: element('TextInput'), View: element('View'), useWindowDimensions: () => ({ width: 390, height: 844, scale: 2, fontScale: 1 }),
   }
@@ -54,4 +66,14 @@ export async function type(tree: ReactTestRenderer, label: string, value: string
   const input = tree.root.findAllByType('TextInput' as never).find(entry => entry.props.accessibilityLabel === label)
   expect(input, `TextInput "${label}"`).toBeTruthy()
   await act(async () => { input!.props.onChangeText(value) })
+}
+
+/** Abre a aba Atletas (se preciso), digita na busca da barra escura e vence o debounce. */
+export async function searchAthletes(tree: ReactTestRenderer, term: string) {
+  vi.useFakeTimers()
+  try {
+    if (!byLabel(tree, 'Buscar atletas por nome ou @').length) await press(tree, 'Atletas')
+    await type(tree, 'Buscar atletas por nome ou @', term)
+    await act(async () => { await vi.advanceTimersByTimeAsync(300) })
+  } finally { vi.useRealTimers() }
 }

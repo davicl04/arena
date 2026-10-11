@@ -93,6 +93,7 @@ it('mostra estado vazio de contas bloqueadas', async () => {
 
 it('pagina busca e comentários com seus respectivos cursores', async () => {
   vi.mocked(request).mockImplementation(async path => {
+    if (path === '/users/1/following') return { items: [], next_cursor: null } as never
     if (path.startsWith('/users?q=')) return { items: path.includes('cursor=') ? [{ ...person, id: 3, name: 'Outro atleta' }] : [person], next_cursor: path.includes('cursor=') ? null : 'people-next' } as never
     if (path.startsWith('/posts/7/comments')) return { items: [{ id: path.includes('cursor=') ? 12 : 11, author_name: 'Comentarista', author_id: 3, author_avatar_url: null, body: path.includes('cursor=') ? 'Comentário antigo' : 'Comentário recente', created_at: post.created_at, can_delete: false }], next_cursor: path.includes('cursor=') ? null : 'comments-next' } as never
     return { items: [post], next_cursor: null } as never
@@ -103,8 +104,8 @@ it('pagina busca e comentários com seus respectivos cursores', async () => {
   await user.click(await screen.findByRole('button', { name: 'Carregar mais comentários' }))
   expect(await screen.findByText(/Comentário antigo/)).not.toBeNull()
   expect(request).toHaveBeenCalledWith('/posts/7/comments?cursor=comments-next')
-  await user.type(screen.getByLabelText('Buscar atletas por nome ou @'), 'Atleta')
-  await user.click(screen.getByRole('button', { name: 'Buscar atletas' }))
+  await user.click(screen.getByRole('tab', { name: 'Atletas' }))
+  await user.type(screen.getByLabelText('Buscar atletas por nome ou @'), 'Atleta{Enter}')
   await user.click(await screen.findByRole('button', { name: 'Carregar mais atletas' }))
   expect(await screen.findByRole('button', { name: 'Abrir perfil de Outro atleta' })).not.toBeNull()
   expect(request).toHaveBeenCalledWith('/users?q=Atleta&cursor=people-next')
@@ -116,9 +117,10 @@ it('abre o próprio perfil em Fotos, pagina a grade e abre as conexões pelas co
     return { items: [{ ...post, id: path.includes('cursor=') ? 8 : 7, caption: path.includes('cursor=') ? 'Foto antiga' : 'Foto recente' }], next_cursor: path.includes('cursor=') ? null : 'own-gallery' } as never
   })
   const go = vi.fn()
+  const onNewPhoto = vi.fn()
   const openConnections = vi.fn()
   const user = userEvent.setup()
-  render(<ProfilePage user={me} profiles={[]} go={go} openConnections={openConnections} onExpired={vi.fn()} />)
+  render(<ProfilePage user={me} profiles={[]} go={go} onNewPhoto={onNewPhoto} openConnections={openConnections} onExpired={vi.fn()} />)
   expect(screen.queryByText('eu@example.com')).toBeNull()
   expect(screen.getByRole('heading', { name: '@eu' })).not.toBeNull()
   expect(screen.getAllByRole('tab').map(tab => tab.textContent)).toEqual(['Fotos', 'Partidas'])
@@ -134,9 +136,9 @@ it('abre o próprio perfil em Fotos, pagina a grade e abre as conexões pelas co
   await user.click(await screen.findByRole('button', { name: 'Carregar mais fotos' }))
   expect(await screen.findByRole('button', { name: /Abrir publicação .*: Foto antiga/ })).not.toBeNull()
   expect(request).toHaveBeenCalledWith('/users/1/posts?cursor=own-gallery')
-  // Duas fotos: o quadro "Nova foto" completa a linha e leva à Comunidade.
+  // Duas fotos: o quadro "Nova foto" completa a linha e abre a nova publicação na Comunidade.
   await user.click(screen.getByRole('button', { name: 'Nova foto' }))
-  expect(go).toHaveBeenCalledWith('community')
+  expect(onNewPhoto).toHaveBeenCalled()
   await user.click(screen.getByRole('tab', { name: 'Partidas' }))
   expect(screen.getByText('Sua história em campo')).not.toBeNull()
   expect(screen.queryByRole('button', { name: 'Nova foto' })).toBeNull()

@@ -1,16 +1,22 @@
-import { useCallback, useEffect, useState } from 'react'
-import { ActivityIndicator, FlatList, Image, Modal, RefreshControl, ScrollView, Text, View } from 'react-native'
-import * as ImagePicker from 'expo-image-picker'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { Animated, Modal, RefreshControl, ScrollView, Text, View } from 'react-native'
+import type { FlatList } from 'react-native'
 import { ApiError, getToken, request } from '../api/client'
-import type { MutualFollowersPage, Page, Post, SocialUser, User } from '../api/client'
-import { CAPTION_MAX } from '../api/social'
+import type { MutualFollowersPage, Post, SocialUser, User } from '../api/client'
+import { useAthleteSearch } from '../hooks/useAthleteSearch'
 import { usePagedList } from '../hooks/usePagedList'
-import { Button, Field } from '../components/ui'
+import { Button } from '../components/ui'
 import { Screen } from '../components/Screen'
 import { cx, tw } from '../styles'
 import { colors } from '../theme'
 import { Avatar, Cover } from '../components/media'
 import AccountActions from '../components/AccountActions'
+import CommunityBar, { TITLE_ROW_HEIGHT } from '../components/CommunityBar'
+import type { CommunityTab } from '../components/CommunityBar'
+import CommunityPeople from '../components/CommunityPeople'
+import { FeedEmpty, FeedEnd, FeedError, FeedLoading, ProgressBar } from '../components/CommunityStates'
+import PostComposer, { pickSquarePhoto } from '../components/PostComposer'
+import type { PhotoAsset } from '../components/PostComposer'
 import PostItem from '../components/PostItem'
 import type { PostUpdate } from '../components/PostItem'
 import ProfileGallery from '../components/ProfileGallery'
@@ -64,26 +70,62 @@ function VisitedProfile({ profile, user, token, mutualText, error, onClose, onFo
   </Modal>
 }
 
-export default function CommunityScreen({ user, onExpired }: { user: User; onExpired: () => void }) {
+const NOTICE_MS = 4000
+type FollowState = SocialUser['follow_state']
+
+/**
+ * Rolagem do feed → deslocamento da barra: ao descer, a linha do título recolhe (até a sua altura);
+ * ao subir, volta. Tudo no driver nativo, sem renderizar a tela a cada evento de rolagem.
+ */
+function useCollapsingTitle() {
+  const [anim] = useState(() => {
+    const scrollY = new Animated.Value(0)
+    // O deslocamento negativo (puxar para atualizar, bounce do iOS) não mexe na barra.
+    const offset = scrollY.interpolate({ inputRange: [0, 1], outputRange: [0, 1], extrapolateLeft: 'clamp' })
+    const translateY = Animated.diffClamp(offset, 0, TITLE_ROW_HEIGHT).interpolate({ inputRange: [0, TITLE_ROW_HEIGHT], outputRange: [0, -TITLE_ROW_HEIGHT] })
+    const onScroll = Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: true })
+    return { translateY, onScroll }
+  })
+  return anim
+}
+
+/**
+ * Comunidade: barra escura fixa (título, + e abas Publicações | Atletas), feed de ponta a ponta com
+ * puxar para atualizar e paginação por cursor, busca de atletas e publicação em dois passos.
+ * `composeOnOpen` (vindo do quadro "Nova foto" do perfil) abre o seletor assim que a tela aparece.
+ */
+export default function CommunityScreen({ user, onExpired, composeOnOpen = false, onComposeStarted }: {
+  user: User; onExpired: () => void; composeOnOpen?: boolean; onComposeStarted?: () => void
+}) {
   const feed = usePagedList<Post>('/posts', onExpired)
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
-  const [token, setToken] = useState<string | null>(null)
+  const [tab, setTab] = useState<CommunityTab>('Publicações')
   const [query, setQuery] = useState('')
-  const [searchQuery, setSearchQuery] = useState('')
-  const [peopleCursor, setPeopleCursor] = useState<string | null>(null)
-  const [people, setPeople] = useState<SocialUser[]>([])
+  const search = useAthleteSearch(query, onExpired)
+  const [following, setFollowing] = useState<number[]>([])
+  const [error, setError] = useState('')
+  const [notice, setNotice] = useState('')
+  const [token, setToken] = useState<string | null>(null)
+  const [draft, setDraft] = useState<PhotoAsset | null>(null)
   const [profile, setProfile] = useState<SocialUser | null>(null)
   const [profileError, setProfileError] = useState('')
   const [mutualText, setMutualText] = useState<string | null>(null)
-  const [selectedImage, setSelectedImage] = useState<ImagePicker.ImagePickerAsset | null>(null)
-  const [caption, setCaption] = useState('')
+  const [height, setHeight] = useState(0)
+  const listRef = useRef<FlatList<Post>>(null)
+  const picking = useRef(false)
+  const followBusy = useRef(new Set<number>())
+  const { translateY, onScroll } = useCollapsingTitle()
 
   useEffect(() => {
     let alive = true
     void getToken().then(value => { if (alive) setToken(value) })
     return () => { alive = false }
   }, [])
+
+  useEffect(() => {
+    if (!notice) return
+    const timer = setTimeout(() => setNotice(''), NOTICE_MS)
+    return () => clearTimeout(timer)
+  }, [notice])
 
   const { setItems: setFeedItems, reload: reloadFeed } = feed
   const updatePost: PostUpdate = useCallback((id, change) => setFeedItems(old => old.map(post => post.id === id ? change(post) : post)), [setFeedItems])
@@ -99,45 +141,40 @@ export default function CommunityScreen({ user, onExpired }: { user: User; onExp
     setError(err instanceof Error ? err.message : fallback)
   }
 
-  async function choosePhoto() {
-    setError('')
+  // Passo 1: recorte 1:1 no editor nativo. Cancelar não muda nada; com a foto, abre o passo 2.
+  const startCompose = useCallback(async () => {
+    if (picking.current) return
+    picking.current = true
     try {
-      const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsMultipleSelection: false, allowsEditing: true, aspect: [1, 1], quality: 0.9 })
-      if (result.canceled || !result.assets[0]) return
-      const asset = result.assets[0]
-      if (asset.fileSize && asset.fileSize > 5 * 1024 * 1024) { setError('A imagem deve ter até 5 MiB.'); return }
-      setSelectedImage(asset)
+      const asset = await pickSquarePhoto()
+      setError('')
+      if (asset) setDraft(asset)
     } catch (err) { setError(err instanceof Error ? err.message : 'Não foi possível abrir as fotos.') }
+    finally { picking.current = false }
+  }, [])
+
+  // Abre o seletor depois da montagem (o estado só muda quando ele responde).
+  useEffect(() => {
+    if (!composeOnOpen) return
+    onComposeStarted?.()
+    void Promise.resolve().then(startCompose)
+  }, [composeOnOpen, onComposeStarted, startCompose])
+
+  const toTop = () => listRef.current?.scrollToOffset({ offset: 0, animated: true })
+
+  function published(post: Post) {
+    setDraft(null)
+    setFeedItems(old => [post, ...old.filter(item => item.id !== post.id)])
+    setTab('Publicações')
+    setNotice('Publicação compartilhada.')
+    toTop()
   }
 
-  async function publish() {
-    if (!selectedImage || busy) return
-    setBusy(true); setError('')
-    const form = new FormData()
-    form.append('file', { uri: selectedImage.uri, name: selectedImage.fileName ?? 'publicacao.jpg', type: selectedImage.mimeType ?? 'image/jpeg' } as unknown as Blob)
-    form.append('caption', caption)
-    try {
-      const created = await request<Post>('/posts', 'POST', form)
-      setFeedItems(old => [created, ...old]); setSelectedImage(null); setCaption('')
-    } catch (err) { fail(err, 'Não foi possível publicar a foto.') }
-    finally { setBusy(false) }
-  }
-
-  async function search() {
-    if (!query.trim()) return
+  function selectTab(next: CommunityTab) {
+    // Tocar na aba já ativa só volta ao início do feed (não recarrega).
+    if (next === tab) { if (next === 'Publicações') toTop(); return }
     setError('')
-    try { const page = await request<Page<SocialUser>>(`/users?q=${encodeURIComponent(query.trim())}`); setPeople(page.items); setPeopleCursor(page.next_cursor); setSearchQuery(query.trim()) }
-    catch (err) { fail(err, 'Busca indisponível.') }
-  }
-
-  async function morePeople() {
-    if (!peopleCursor || busy) return
-    setBusy(true); setError('')
-    try {
-      const page = await request<Page<SocialUser>>(`/users?q=${encodeURIComponent(searchQuery)}&cursor=${encodeURIComponent(peopleCursor)}`)
-      setPeople(old => [...old, ...page.items]); setPeopleCursor(page.next_cursor)
-    } catch (err) { fail(err, 'Não foi possível carregar mais itens.') }
-    finally { setBusy(false) }
+    setTab(next)
   }
 
   async function openProfile(id: number) {
@@ -157,47 +194,74 @@ export default function CommunityScreen({ user, onExpired }: { user: User; onExp
     }
   }
 
-  async function follow(person: SocialUser) {
+  /** Alterna o vínculo: aprovado ou pendente → DELETE; sem vínculo → PUT, que diz se ficou aprovado ou pendente. */
+  async function changeFollow(person: SocialUser) {
+    let state: FollowState = 'none'
+    if (person.follow_state === 'approved' || person.follow_state === 'pending') await request<void>(`/users/${person.id}/follow`, 'DELETE')
+    else {
+      const result = await request<{ state: 'approved' | 'pending' } | undefined>(`/users/${person.id}/follow`, 'PUT')
+      state = result?.state ?? (person.social_public ? 'approved' : 'pending')
+    }
+    search.update(person.id, item => ({ ...item, follow_state: state }))
+  }
+
+  async function followFromList(person: SocialUser) {
+    if (followBusy.current.has(person.id)) return
+    followBusy.current.add(person.id)
+    setFollowing(old => [...old, person.id]); setError('')
+    try { await changeFollow(person) }
+    catch (err) { fail(err, 'Não foi possível atualizar o vínculo.') }
+    finally { followBusy.current.delete(person.id); setFollowing(old => old.filter(id => id !== person.id)) }
+  }
+
+  async function followFromProfile(person: SocialUser) {
     setProfileError('')
-    try {
-      if (person.follow_state === 'approved' || person.follow_state === 'pending') await request<void>(`/users/${person.id}/follow`, 'DELETE')
-      else await request(`/users/${person.id}/follow`, 'PUT')
-      await openProfile(person.id)
-      setPeople(old => old.map(item => item.id === person.id ? { ...item, follow_state: item.social_public ? (item.follow_state === 'approved' ? 'none' : 'approved') : (item.follow_state === 'pending' ? 'none' : 'pending') } : item))
-    } catch (err) { if (err instanceof ApiError && err.status === 401) onExpired(); setProfileError(err instanceof Error ? err.message : 'Não foi possível atualizar o vínculo.') }
+    try { await changeFollow(person); await openProfile(person.id) }
+    catch (err) { if (err instanceof ApiError && err.status === 401) onExpired(); setProfileError(err instanceof Error ? err.message : 'Não foi possível atualizar o vínculo.') }
   }
 
   function blocked() {
     const id = profile?.id
     setProfile(null)
-    setPeople(old => old.filter(person => person.id !== id))
+    if (id !== undefined) search.remove(id)
     reloadFeed()
   }
 
-  const header = <View>
-    <Text className={tw.eyebrow}>O ESPORTE CONECTA</Text><Text className={tw.title}>Comunidade</Text>
-    {error ? <Text accessibilityRole="alert" className={tw.error}>{error}</Text> : null}
-    <View className={tw.card}><Text className={tw.heading}>Compartilhe sua trajetória</Text><Text className={tw.body}>Publique uma foto quadrada e uma legenda opcional.</Text><Button title={selectedImage ? 'Trocar foto' : 'Escolher foto'} onPress={() => void choosePhoto()} />
-      {selectedImage ? <><Image source={{ uri: selectedImage.uri }} accessibilityLabel="Prévia da foto recortada" className="mt-3 aspect-square w-full rounded-lg" /><Field label="Legenda (opcional)" value={caption} onChangeText={setCaption} maxLength={CAPTION_MAX} multiline /><Text className={tw.body}>{caption.length}/2.200</Text><Button title={busy ? 'Publicando…' : 'Publicar'} disabled={busy} onPress={() => void publish()} /><Button secondary title="Cancelar foto" disabled={busy} onPress={() => { setSelectedImage(null); setCaption('') }} /></> : null}
-    </View>
-    <View className={tw.card}><Text className={tw.heading}>Encontrar atletas</Text><Field label="Nome ou @" value={query} onChangeText={setQuery} maxLength={100} /><Button title="Buscar" onPress={() => void search()} />{people.map(person => <View key={person.id} className={cx(tw.row, 'mt-2.5')}><Avatar path={person.avatar_url} name={person.name} token={token} /><View><Button secondary title={person.name} onPress={() => void openProfile(person.id)} /><Text className="text-[13px] text-ink-muted">@{person.username}</Text></View><Button title={person.follow_state === 'approved' ? 'Seguindo' : person.follow_state === 'pending' ? 'Solicitado' : 'Seguir'} onPress={() => void follow(person)} /></View>)}{peopleCursor ? <Button secondary title="Carregar mais atletas" disabled={busy} onPress={() => void morePeople()} /> : null}</View>
-    <Text className={tw.heading}>Publicações recentes</Text>
-    {feed.error ? <><Text accessibilityRole="alert" className={tw.error}>{feed.error.message}</Text><Button secondary title="Tentar novamente" onPress={reloadFeed} /></> : null}
-  </View>
-
-  const footer = <View>
-    {feed.moreError ? <Text accessibilityRole="alert" className={tw.error}>{feed.moreError}</Text> : null}
-    {feed.busy ? <ActivityIndicator accessibilityLabel="Carregando mais publicações" color={colors.brand} /> : feed.hasMore ? <Button secondary title="Carregar mais publicações" onPress={() => void feed.loadMore()} /> : null}
-  </View>
+  const onFeed = tab === 'Publicações'
+  const compose = () => void startCompose()
+  const feedEmpty = feed.loading ? <FeedLoading /> : feed.error ? <FeedError onRetry={reloadFeed} /> : <FeedEmpty onPublish={compose} onSearch={() => selectTab('Atletas')} />
+  const feedFooter = feed.items.length ? <View>
+    {feed.busy ? <View className="py-3"><ProgressBar label="Carregando mais publicações" /></View> : null}
+    {feed.moreError ? <View className="px-4">
+      <Text accessibilityRole="alert" className={tw.error}>{feed.moreError}</Text>
+      <Button secondary title="Carregar mais publicações" onPress={() => void feed.loadMore()} />
+    </View> : null}
+    {!feed.hasMore ? <FeedEnd onPublish={compose} /> : null}
+  </View> : null
+  // Com a área medida, barra e feed sobem juntos a altura do título; no feed, o quadro ganha essa altura para não abrir vão embaixo.
+  const frame = height ? { height: height + (onFeed ? TITLE_ROW_HEIGHT : 0) } : { flexGrow: 1 }
 
   return <>
-    <FlatList data={feed.items} keyExtractor={item => String(item.id)} keyboardShouldPersistTaps="handled"
-      renderItem={({ item }) => <PostItem post={item} viewerId={user.id} token={token} onUpdate={updatePost} onRemove={removePost} onOpenProfile={id => void openProfile(id)} onExpired={onExpired} />}
-      ListHeaderComponent={header} ListFooterComponent={footer}
-      ListEmptyComponent={feed.loading ? <ActivityIndicator accessibilityLabel="Carregando publicações" color={colors.brand} /> : feed.error ? null : <Text className={tw.body}>Seu feed está vazio. Encontre atletas e solicite acesso a contas privadas.</Text>}
-      contentContainerClassName="p-5.5 pb-7.5" refreshControl={<RefreshControl refreshing={feed.loading} onRefresh={reloadFeed} />}
-      onEndReached={() => { if (feed.hasMore && !feed.busy) void feed.loadMore() }} onEndReachedThreshold={0.6} />
-    {profile ? <VisitedProfile profile={profile} user={user} token={token} mutualText={mutualText} error={profileError} onClose={() => setProfile(null)} onFollow={person => void follow(person)}
+    <View className="grow basis-0 overflow-hidden bg-app" onLayout={event => setHeight(Math.round(event.nativeEvent.layout.height))}>
+      <Animated.View style={[frame, { transform: [{ translateY: onFeed ? translateY : 0 }] }]}>
+        <CommunityBar tab={tab} onTab={selectTab} onCompose={compose} query={query} onQuery={setQuery} />
+        {error ? <Text accessibilityRole="alert" className={cx(tw.error, 'px-4')}>{error}</Text> : null}
+        {notice && onFeed ? <Text accessibilityLiveRegion="polite" className={cx(tw.success, 'px-4')}>{notice}</Text> : null}
+        <View className={onFeed ? 'grow basis-0' : 'hidden'}>
+          <Animated.FlatList ref={listRef} data={feed.items} keyExtractor={(item: Post) => String(item.id)} keyboardShouldPersistTaps="handled"
+            renderItem={({ item }: { item: Post }) => <PostItem post={item} viewerId={user.id} token={token} onUpdate={updatePost} onRemove={removePost} onOpenProfile={id => void openProfile(id)} onExpired={onExpired} />}
+            ListEmptyComponent={feedEmpty} ListFooterComponent={feedFooter}
+            onScroll={onScroll} scrollEventThrottle={16} contentContainerStyle={{ paddingBottom: 24 }}
+            refreshControl={<RefreshControl refreshing={feed.refreshing} onRefresh={feed.refresh} colors={[colors.brand]} tintColor={colors.brand} />}
+            onEndReached={() => { if (feed.hasMore && !feed.busy && !feed.moreError) void feed.loadMore() }} onEndReachedThreshold={0.6} />
+        </View>
+        {!onFeed ? <View className="grow basis-0">
+          <CommunityPeople userId={user.id} token={token} search={search} pendingIds={following} onFollow={person => void followFromList(person)} onOpenProfile={id => void openProfile(id)} onExpired={onExpired} />
+        </View> : null}
+      </Animated.View>
+    </View>
+    {draft ? <PostComposer key={draft.uri} initial={draft} onClose={() => setDraft(null)} onPublished={published} onExpired={onExpired} /> : null}
+    {profile ? <VisitedProfile profile={profile} user={user} token={token} mutualText={mutualText} error={profileError} onClose={() => setProfile(null)} onFollow={person => void followFromProfile(person)}
       onBlocked={blocked} onPostUpdate={updatePost} onPostRemove={removeProfilePost} onExpired={onExpired} /> : null}
   </>
 }

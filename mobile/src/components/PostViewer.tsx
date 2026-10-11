@@ -32,7 +32,7 @@ export default function PostViewer({ list, index, username, viewerId, token, onU
         </View>
       </View>
       <FlatList ref={ref} data={list.items} keyExtractor={item => String(item.id)} initialScrollIndex={start}
-        contentContainerClassName="p-3.5 pb-10" keyboardShouldPersistTaps="handled"
+        contentContainerClassName="pb-10" keyboardShouldPersistTaps="handled"
         onScrollToIndexFailed={info => {
           // Sem altura fixa por item: aproxima pelo tamanho médio e tenta de novo após o layout.
           ref.current?.scrollToOffset({ offset: info.averageItemLength * info.index, animated: false })

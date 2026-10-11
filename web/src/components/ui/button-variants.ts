@@ -37,11 +37,12 @@ export const buttonVariants = cva('', {
 
 /*
  * Botão redondo de ícone (.icon-btn, 44 px). Tons conforme o fundo:
- * default → .icon-btn · glass → .glass .icon-btn · photo → .post-top .icon-btn ·
+ * default → .icon-btn · glass → .glass .icon-btn ·
  * cover → .profile-topbar .icon-btn (círculo de vidro sobre a capa; volta ao padrão dentro de
  * um ancestral `group/topbar` com `data-condensed="true"`). Sem padding (zerado pelo preflight): o ícone fica
  * centralizado pela grade no mesmo ponto em que ficava com o padding simétrico padrão do navegador.
  * outline/approve → .icon-action / .icon-action.approve (40 px com contorno; aprovar/recusar solicitações).
+ * media → círculo de vidro escuro sobre a foto do post (•••), par da etiqueta do autor ·
  * glass-small → .comment-action (32 px, denunciar/excluir comentário) · send → .comment-send (38 px, enviar comentário;
  * desabilitado fica apagado sem a opacidade padrão).
  */
@@ -50,7 +51,7 @@ export const iconButtonVariants = cva('grid size-11 place-items-center rounded-f
     tone: {
       default: 'bg-transparent hover:bg-[#49505712]',
       glass: 'shrink-0 bg-transparent text-white hover:bg-[#ffffff1a]',
-      photo: 'bg-transparent text-white drop-shadow-[0_1px_2px_#000b] hover:bg-[#ffffff1f]',
+      media: 'size-[38px] border border-solid border-[#ffffff2e] bg-[#0c161199] text-white backdrop-blur-[14px] backdrop-saturate-[1.7] hover:bg-[#0c1611cc]',
       cover:
         'border border-solid border-[#ffffff2e] bg-[#0b221859] text-white backdrop-blur-[10px] hover:bg-[#0b221880] motion-safe:transition-[background-color,border-color,opacity] motion-safe:duration-200 motion-safe:ease-[ease] group-data-[condensed=true]/topbar:border-transparent group-data-[condensed=true]/topbar:bg-transparent group-data-[condensed=true]/topbar:text-ink group-data-[condensed=true]/topbar:backdrop-blur-none group-data-[condensed=true]/topbar:hover:bg-[#49505712]',
       outline: 'size-10 border-[1.5px] border-solid border-line-strong bg-transparent',

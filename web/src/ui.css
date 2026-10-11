@@ -77,9 +77,14 @@
   /* Animações (só com prefers-reduced-motion: no-preference → usar `motion-safe:animate-…`). */
   --animate-glass-in: glass-in 0.2s ease-out;
   --animate-viewer-in: viewer-in 0.22s ease-out;
+  --animate-indeterminate: indeterminate 1.1s ease-in-out infinite; /* barra de progresso sem valor (Comunidade) */
   @keyframes glass-in {
     from { opacity: 0; }
     to { opacity: 1; }
+  }
+  @keyframes indeterminate {
+    from { translate: -100% 0; }
+    to { translate: 250% 0; }
   }
   @keyframes viewer-in {
     from { transform: translateX(100%); }

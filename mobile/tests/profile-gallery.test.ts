@@ -210,7 +210,7 @@ describe('telas com abas, topo fixo e ações da conta', () => {
     })
     let tree!: Tree
     await act(async () => { tree = create(React.createElement(CommunityScreen, { user: me, onExpired: vi.fn() })) })
-    await press(tree, 'Abrir perfil de Atleta A')
+    await press(tree, 'Abrir perfil de @atleta.a')
     expect(tree.root.findAllByType('Modal' as never)).toHaveLength(1)
     expect(byLabel(tree, 'Voltar')).toHaveLength(1)
     expect(request).toHaveBeenCalledWith('/users/2/posts')
@@ -228,7 +228,7 @@ describe('telas com abas, topo fixo e ações da conta', () => {
     expect(tree.root.findAllByType('Modal' as never)).toHaveLength(0)
     expect(vi.mocked(request).mock.calls.filter(([path]) => path === '/posts')).toHaveLength(2)
 
-    await press(tree, 'Abrir perfil de Atleta A')
+    await press(tree, 'Abrir perfil de @atleta.a')
     await press(tree, 'Ações da conta')
     await press(tree, 'Denunciar conta')
     expect(textOf(tree)).toContain('Por que você quer denunciar esta conta?')
@@ -253,7 +253,7 @@ describe('telas com abas, topo fixo e ações da conta', () => {
     })
     let tree!: Tree
     await act(async () => { tree = create(React.createElement(CommunityScreen, { user: me, onExpired: vi.fn() }), { createNodeMock: nodeMock }) })
-    await press(tree, 'Abrir perfil de Eu Mesmo')
+    await press(tree, 'Abrir perfil de @eu.atleta')
     expect(byLabel(tree, 'Ações da conta')).toHaveLength(0)
     expect(byLabel(tree, 'Nova foto')).toHaveLength(0)
     expect(textOf(tree)).toContain('1 publicações')
@@ -271,7 +271,7 @@ describe('telas com abas, topo fixo e ações da conta', () => {
     expect(request).toHaveBeenCalledWith('/posts/7', 'DELETE')
     expect(byLabel(tree, 'Ações da publicação')).toHaveLength(0)
     expect(textOf(tree)).toContain('0 publicações')
-    expect(textOf(tree)).toContain('Seu feed está vazio')
+    expect(textOf(tree)).toContain('A arquibancada está vazia')
     await act(async () => { tree.unmount() })
   })
 })

@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiError, request } from '../src/api/client'
 import type { Post, SocialComment } from '../src/api/client'
 import PostImage from '../src/components/PostImage'
-import PostItem from '../src/components/PostItem'
+import PostItem, { postDate } from '../src/components/PostItem'
 import { button, byLabel, click, enableAct, press, textOf, type } from './support/native'
 
 vi.mock('react-native', async () => (await import('./support/native')).reactNativeMock())
@@ -43,8 +43,7 @@ describe('PostItem, PostActions, ReportForm e PostComments', () => {
     const openProfile = vi.fn()
     const tree = await mount({}, vi.fn(), openProfile)
     expect(textOf(tree)).toContain('Treino do dia')
-    expect(textOf(tree)).toContain('2026')
-    await press(tree, 'Abrir perfil de Atleta A')
+    await press(tree, 'Abrir perfil de @atleta.a')
     expect(openProfile).toHaveBeenCalledWith(2)
     await press(tree, 'Curtir, 2 curtidas')
     expect(request).toHaveBeenCalledWith('/posts/7/like', 'PUT')
@@ -55,6 +54,32 @@ describe('PostItem, PostActions, ReportForm e PostComments', () => {
     vi.mocked(request).mockRejectedValueOnce(new Error('Sem conexão.'))
     await press(tree, 'Curtir, 2 curtidas')
     expect(textOf(tree)).toContain('Sem conexão.')
+    await act(async () => { tree.unmount() })
+  })
+
+  it('A5: etiqueta com @usuário sobre a foto 1:1 e a data curta no início da legenda', async () => {
+    const tree = await mount({}, vi.fn(), vi.fn())
+    const tag = byLabel(tree, 'Abrir perfil de @atleta.a')[0]
+    const tagText = tag.findAllByType('Text' as never).map(node => node.props.children).flat()
+    expect(tagText).toEqual(expect.arrayContaining(['@', 'atleta.a']))
+    // O nome não aparece mais sobre a foto; só o @ (o avatar mostra as iniciais).
+    expect(textOf(tree)).not.toContain('Atleta A')
+    const media = tree.root.findAll(node => String(node.type) === 'View' && String(node.props.className).includes('aspect-square'))
+    expect(media).toHaveLength(1)
+    expect(tree.root.findAll(node => String(node.props.className ?? '').includes('aspect-[4/5]'))).toHaveLength(0)
+    // A linha da legenda começa pela data (em cinza) e segue com o texto.
+    const caption = tree.root.findAllByType('Text' as never).find(node => Array.isArray(node.props.children) && String(node.props.children[1]).includes('Treino do dia'))!
+    expect(caption.findAllByType('Text' as never)[1].props.children).toBe('10 de out.')
+    await act(async () => { tree.unmount() })
+  })
+
+  it('sem legenda mostra só a data; no visualizador sem onOpenProfile a etiqueta não é botão', async () => {
+    const tree = await mount({ caption: '' })
+    expect(textOf(tree)).toContain('10 de out.')
+    expect(byLabel(tree, 'Abrir perfil de @atleta.a')).toHaveLength(0)
+    expect(byLabel(tree, '@atleta.a')).toHaveLength(1)
+    expect(postDate('2025-03-02T12:00:00Z', new Date('2026-10-11T12:00:00Z'))).toBe('2 de mar. de 2025')
+    expect(postDate('2026-03-02T12:00:00Z', new Date('2026-10-11T12:00:00Z'))).toBe('2 de mar.')
     await act(async () => { tree.unmount() })
   })
 

@@ -29,6 +29,8 @@ interface Entry {
   userId?: number;
   tab?: ConnectionsTab;
   mutual?: boolean;
+  /** Comunidade aberta já na nova publicação (quadro "Nova foto" do perfil). */
+  compose?: boolean;
 }
 /** Subtítulo das telas Jogar e Ranking. */
 const subtitle = "mb-[25px] text-[12px] leading-[1.6] text-ink-muted";
@@ -112,6 +114,9 @@ export default function ArenaPage({
   function back() {
     show((old) => (old.length > 1 ? old.slice(0, -1) : [{ screen: "home" }]));
   }
+  function openComposer() {
+    show(() => [{ screen: "community", compose: true }]);
+  }
   function openUser(id: number) {
     if (id === user.id) go("profile");
     else show((old) => [...old, { screen: "user-profile", userId: id }]);
@@ -168,6 +173,8 @@ export default function ArenaPage({
           ? "home"
           : screen;
   const profileLayout = screen === "profile" || screen === "user-profile";
+  // A Comunidade tem barra própria, de ponta a ponta, presa ao topo do `main`.
+  const communityLayout = screen === "community";
 
   return (
     <div className="grid min-h-dvh place-items-center p-6 app-narrow:p-0">
@@ -179,10 +186,11 @@ export default function ArenaPage({
           className={cn(
             "h-full overflow-x-hidden overflow-y-auto px-5 pt-[18px] pb-28 outline-none scrollbar-hidden app-narrow:pb-[calc(112px+env(safe-area-inset-bottom))]",
             profileLayout && "@container-size pt-0",
+            communityLayout && "px-0 pt-0",
           )}
           aria-label={title}
         >
-          {screen !== "home" && !profileLayout && (
+          {screen !== "home" && !profileLayout && !communityLayout && (
             <header className="-mx-2 -mt-2 mb-[18px] flex min-h-[54px] items-center justify-between">
               <IconButton aria-label="Voltar" onClick={back}>
                 <ArrowLeft size={21} />
@@ -219,6 +227,7 @@ export default function ArenaPage({
               user={user}
               profiles={profiles}
               go={go}
+              onNewPhoto={openComposer}
               openConnections={openConnections}
               onExpired={onExpired}
             />
@@ -325,7 +334,13 @@ export default function ArenaPage({
             </>
           )}
           {screen === "community" && (
-            <SocialCommunity viewerId={user.id} onOpenUser={openUser} onExpired={onExpired} />
+            <SocialCommunity
+              key={current.compose ? "compose" : "feed"}
+              viewerId={user.id}
+              onOpenUser={openUser}
+              onExpired={onExpired}
+              composeOnOpen={Boolean(current.compose)}
+            />
           )}
           {screen === "notifications" && (
             <NotificationsPage onOpenUser={openUser} onExpired={onExpired} />

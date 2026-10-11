@@ -22,15 +22,18 @@ export const colors = {
   glass: 'rgba(8,20,14,0.92)',
   'glass-ink': '#08140e',
   'glass-pill': 'rgba(8,20,14,0.6)',
-  'glass-button': 'rgba(8,20,14,0.45)',
   'glass-light': '#ffffffd9',
   'glass-muted': '#ffffffb3',
   'glass-line': '#ffffff33',
   'glass-field': '#ffffff1a',
   'glass-danger': '#ffb4a8',
   'glass-accent': '#8fe0b4',
-  /** Só em JS: a sombra do texto sobre a foto continua em `style`. */
-  'text-shadow': '#0009',
+  /** Barra escura da Comunidade, etiqueta de vidro do post e tela de nova publicação. */
+  forest: '#0b2218',
+  'forest-field': '#ffffff14',
+  'forest-line': '#ffffff2e',
+  'glass-tag': 'rgba(12,22,17,0.6)',
+  'mint-track': '#8fe0b44d',
 } as const
 
 /** Raios em pontos (dp). Classes: rounded-control, rounded-lg, rounded-card, rounded-sheet. */

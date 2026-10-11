@@ -1,5 +1,104 @@
 # Situação da fundação do Arena
 
+## Nova Comunidade (web e Expo) — 11 de outubro de 2026
+
+Implementado o [plano da Comunidade](plano-comunidade.md), sem mudança de backend, contrato da API, esquema ou dependências. As versões de `package.json` e dos locks não mudaram.
+
+### Web
+
+**Comunidade (`SocialCommunity`, `CommunityFeed`, `CommunityPeople`, `PostComposer`)**
+- Barra escura fixa no topo do `main`, com:
+  - o Coliseu;
+  - o botão "Nova publicação";
+  - as abas Publicações | Atletas, numa nova variante `dark` de `Tabs`.
+- O título recolhe ao rolar para baixo. Tocar em "Publicações" já ativa só volta ao início.
+- Feed:
+  - puxar para atualizar (`usePullToRefresh`: toque e roda do mouse a partir do topo);
+  - botão "Atualizar feed" visível só no foco;
+  - paginação automática;
+  - estados "arquibancada", com barra de progresso indeterminada.
+- Atletas:
+  - busca na barra, com espera de 300 ms;
+  - Seguir/Solicitar/Solicitado/Seguindo;
+  - "Segue você";
+  - fileira de quem você segue (`/users/{id}/following`).
+- Nova publicação em tela cheia escura:
+  - escolher a foto;
+  - recorte com atalhos 1×–3×, Slider, girar, Centralizar e Redefinir;
+  - legenda e "Publicar".
+- `cropImage` passou a aceitar `rotation`.
+- O quadro "Nova foto" do perfil abre a Comunidade já na nova publicação.
+
+**Post (Comunidade e visualizador do perfil)**
+- Foto 1:1.
+- Etiqueta de vidro com avatar sem contorno e `@usuário`.
+- ••• em círculo de vidro.
+- Data no início da legenda.
+- O layout `feed`, o tamanho de avatar `author` e o tom de botão `photo` foram removidos por falta de uso.
+
+**shadcn/ui:** entraram Slider, Toggle Group e Progress, ligados ao Base UI. As correções do que o CLI gerou estão no plano.
+
+### Expo
+
+Mesma estrutura, feita por um agente restrito a `mobile/` e revisada:
+- barra escura com abas e título que recolhe (`Animated`);
+- `RefreshControl`;
+- estados do feed;
+- busca e fileira de quem você segue;
+- post 1:1 com o autor no novo formato;
+- publicação em dois passos: recorte pelo editor nativo e tela escura de legenda;
+- "Nova foto" do perfil abre o seletor.
+
+`usePagedList` ganhou `refresh()`, que relê a primeira página sem esvaziar a lista. Diferenças em relação à web:
+- não há marca do Coliseu nos assets do mobile;
+- o recorte não tem atalhos de zoom, giro nem centralização, porque exigiria dependências novas.
+
+### Verificações executadas
+
+**Web**
+- `npm run lint`, `npm run build` e `npm run test:coverage`: **120 testes aprovados** e pisos atendidos. Cobertura de 83,6% em instruções e 73% em ramos.
+- Testes novos em `tests/community.test.tsx` e `tests/crop-image.test.ts`.
+
+**Navegador** (Chrome headless, ambiente auxiliar: API 8010 com `arena_e2e`, web 5180, conta de teste), em 320, 390 e 1440 px:
+- sem overflow horizontal e sem erros no console;
+- foto 1:1;
+- barra recolhendo e voltando;
+- busca;
+- recorte com 2× e giro;
+- legenda.
+
+Em 390 px também houve uma publicação real: o post persistiu após recarregar e depois foi excluído pela interface. Capturas em `artifacts/comunidade-web/` (não versionado).
+
+O ensaio real revelou que `/users/{id}/following` devolve `{ user, state }`; o código e o mock foram corrigidos.
+
+**Mobile**
+- `npm run lint`, `npm run typecheck` e `npm run test:coverage`: **107 testes aprovados** e pisos atendidos.
+- `npm run export:android`: aprovado.
+
+### Limitações
+- O Expo não foi executado em aparelho ou emulador: o recolhimento da barra, o `RefreshControl`, o Modal com teclado e as datas no Hermes não foram conferidos. Não há paridade visual declarada.
+- O gesto de puxar foi exercitado com eventos simulados no jsdom e com a rolagem no Chrome headless, não com toque real.
+- CI remoto não executado.
+- Durante a sessão, um `npm ci` na web falhou porque os servidores Vite em execução travavam um binário. As dependências foram restauradas com `npm install`, a partir do lock e sem mudanças nele.
+
+Sem commit, push ou publicação.
+
+## Plano da nova Comunidade — 11 de outubro de 2026
+
+A pedido do usuário, a Comunidade foi redesenhada em oito rodadas de protótipos, e as decisões foram registradas em [docs/plano-comunidade.md](plano-comunidade.md):
+
+- Barra escura compacta com o Coliseu e as abas Publicações | Atletas. O título recolhe ao rolar e "Publicações" volta ao início.
+- Puxar para atualizar no lugar do botão "Atualizar feed".
+- Feed igual ao visualizador do perfil.
+- Busca de atletas dentro da barra, com uma fileira de quem você segue.
+- Publicação em tela cheia com painel de vidro e recorte com atalhos de zoom, Slider, girar, Centralizar e Redefinir.
+- Estados do feed "arquibancada".
+- Componentes shadcn/ui: Slider, Toggle Group, Progress e Input Group.
+
+A sessão encontrou uma divergência no código: o servidor exige foto quadrada e o recorte da web é 1:1, mas o `PostItem` exibe o post em 4:5 com `object-cover`, cortando as laterais. O usuário decidiu manter 1:1 e exibir o post quadrado no feed e no perfil.
+
+Depois, o usuário confirmou o Expo nesta entrega e um botão "Atualizar feed", visível só no foco, como alternativa de teclado ao gesto. Seguem em protótipo o fluxo da publicação em dois passos e o autor sobre a foto (@usuário legível, sem contorno branco). O protótipo é um artefato privado do usuário; a fonte local fica em `artifacts/prototipos/`, que não é versionado. Somente documentação: nenhum código foi alterado e nenhum teste foi executado. Diff conferido. Sem commit, push ou publicação.
+
 ## Migração do visual para Tailwind (web) e NativeWind (Expo) — 11 de outubro de 2026
 
 A pedido do usuário, foi executado o [plano de migração](plano-migracao-tailwind.md), sem commit. Para o mobile, o usuário autorizou a versão candidata do NativeWind 5. A interface aprovada não mudou e nenhuma funcionalidade foi acrescentada.

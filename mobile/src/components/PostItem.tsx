@@ -8,18 +8,22 @@ import PostComments from './PostComments'
 import PostImage from './PostImage'
 import { Avatar } from './media'
 import { cx } from '../styles'
-import { colors } from '../theme'
 
 export type PostUpdate = (id: number, update: (post: Post) => Post) => void
 
-export const postDate = (value: string) => new Date(value).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })
+/** Data curta em pt-BR ("10 de out."); o ano só aparece quando não é o atual. */
+export function postDate(value: string, now = new Date()) {
+  const date = new Date(value)
+  return date.toLocaleDateString('pt-BR', date.getFullYear() === now.getFullYear() ? { day: 'numeric', month: 'short' } : { day: 'numeric', month: 'short', year: 'numeric' })
+}
 
-// Sombra do texto sobre a foto em `style`: a classe text-shadow-* fixaria textShadowOffset em 0, que hoje não é definido.
-const textShadow = { textShadowColor: colors['text-shadow'], textShadowRadius: 4 }
+// Vidro escuro da etiqueta do autor e do botão •••.
+const glassTag = 'flex-row items-center gap-1.5 rounded-full border border-forest-line bg-glass-tag py-1 pr-2.5 pl-1'
 const pill = 'min-h-10 flex-row items-center gap-1.5 rounded-[20px] bg-glass-pill px-3.5'
 
 /**
- * Post A3: foto 4:5 com autor e data sobrepostos, pílulas de curtir e comentar e legenda abaixo.
+ * Post de ponta a ponta: foto 1:1 com a etiqueta do autor (A5) e o ••• sobrepostos, pílulas de curtir e comentar
+ * e, abaixo, a data seguida da legenda. Usado no feed da Comunidade e no visualizador "Publicações" do perfil.
  * Só um vidro fica aberto por vez (comentários ou menu •••).
  */
 export default function PostItem({ post, viewerId, token, onUpdate, onRemove, onOpenProfile, onExpired }: {
@@ -40,21 +44,22 @@ export default function PostItem({ post, viewerId, token, onUpdate, onRemove, on
     finally { setLiking(false) }
   }
   const author = post.author
-  const name = <>
-    <Text numberOfLines={1} className="font-bold text-white" style={textShadow}>{author.name}</Text>
-    <Text numberOfLines={1} className="text-[12px] text-white" style={textShadow}>{postDate(post.created_at)}</Text>
-  </>
-  return <View className="mb-4.5 overflow-hidden rounded-card bg-white">
-    <View className="aspect-[4/5] w-full">
-      <PostImage path={post.image_url} token={token} label={post.caption || `Publicação de ${author.name}`} className="h-full w-full" />
-      <View className="absolute top-0 right-0 left-0 flex-row items-center gap-2 p-2.5">
-        <Avatar path={author.avatar_url} name={author.name} token={token} size={34} />
+  const tag = <View className={glassTag}>
+    <Avatar path={author.avatar_url} name={author.name} token={token} size={24} />
+    <Text numberOfLines={1} className="shrink text-[12px] font-bold text-white"><Text className="text-glass-accent">@</Text>{author.username}</Text>
+  </View>
+  return <View className="mb-1.5 bg-white">
+    <View className="aspect-square w-full overflow-hidden">
+      <PostImage path={post.image_url} token={token} label={post.caption || `Publicação de @${author.username}`} className="h-full w-full" />
+      <View className="absolute top-0 right-0 left-0 flex-row items-start justify-between gap-2 p-1.5">
         {onOpenProfile
-          ? <Pressable accessibilityRole="button" accessibilityLabel={`Abrir perfil de ${author.name}`} onPress={() => onOpenProfile(author.id)} className="min-h-11 grow basis-0 justify-center">{name}</Pressable>
-          : <View className="grow basis-0">{name}</View>}
+          ? <Pressable accessibilityRole="button" accessibilityLabel={`Abrir perfil de @${author.username}`} onPress={() => onOpenProfile(author.id)} className="min-h-11 shrink justify-center">{tag}</Pressable>
+          : <View accessible accessibilityLabel={`@${author.username}`} className="min-h-11 shrink justify-center">{tag}</View>}
         <Pressable accessibilityRole="button" accessibilityLabel="Ações da publicação" accessibilityState={{ expanded: panel === 'actions' }} onPress={() => setPanel(panel === 'actions' ? null : 'actions')}
-          className="min-h-11 min-w-11 items-center justify-center rounded-[22px] bg-glass-button">
-          <Text className="text-[16px] font-extrabold text-white">•••</Text>
+          className="min-h-11 min-w-11 items-center justify-center">
+          <View className="h-8 w-8 items-center justify-center rounded-full border border-forest-line bg-glass-tag">
+            <Text className="text-[13px] font-extrabold text-white">•••</Text>
+          </View>
         </Pressable>
       </View>
       <View className="absolute bottom-2.5 left-2.5 flex-row gap-2">
@@ -73,6 +78,8 @@ export default function PostItem({ post, viewerId, token, onUpdate, onRemove, on
         onUpdated={updated => onUpdate(post.id, () => updated)} onDeleted={onRemove} /> : null}
     </View>
     {error ? <Text accessibilityRole="alert" className="px-3.5 pt-2.5 text-error">{error}</Text> : null}
-    {post.caption ? <Text className="p-3.5 text-[14px] leading-[21px] text-ink">{post.caption}</Text> : <View className="h-1.5" />}
+    <Text className="px-3.5 py-3 text-[14px] leading-[21px] text-ink">
+      <Text className="text-ink-muted">{postDate(post.created_at)}</Text>{post.caption ? `  ${post.caption}` : null}
+    </Text>
   </View>
 }
