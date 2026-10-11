@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import type { SocialUser } from '../api/client'
-import { SocialPhoto } from './SocialPostCard'
+import { SocialPhoto } from './SocialPhoto'
 
 /** Linha compacta de pessoa: foto, nome, @, informação extra e ações rápidas. */
 export default function PersonRow({ person, info, actions, onOpen }: {

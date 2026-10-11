@@ -23,8 +23,8 @@ afterEach(cleanup)
 it('mantém foco e todos os caracteres enquanto digita comentário', async () => {
   vi.mocked(request).mockImplementation(async path => ({ items: path === '/posts' ? [post] : [], next_cursor: null }) as never)
   const user = userEvent.setup()
-  render(<SocialCommunity onOpenUser={vi.fn()} onExpired={vi.fn()} />)
-  await user.click(await screen.findByRole('button', { name: /Comentários · 0/ }))
+  render(<SocialCommunity viewerId={1} onOpenUser={vi.fn()} onExpired={vi.fn()} />)
+  await user.click(await screen.findByRole('button', { name: 'Comentários (0)' }))
   const input = await screen.findByLabelText('Escreva um comentário')
   await user.type(input, 'Boa!')
   expect((screen.getByLabelText('Escreva um comentário') as HTMLInputElement).value).toBe('Boa!')
@@ -98,8 +98,8 @@ it('pagina busca e comentários com seus respectivos cursores', async () => {
     return { items: [post], next_cursor: null } as never
   })
   const user = userEvent.setup()
-  render(<SocialCommunity onOpenUser={vi.fn()} onExpired={vi.fn()} />)
-  await user.click(await screen.findByRole('button', { name: /Comentários · 0/ }))
+  render(<SocialCommunity viewerId={1} onOpenUser={vi.fn()} onExpired={vi.fn()} />)
+  await user.click(await screen.findByRole('button', { name: 'Comentários (0)' }))
   await user.click(await screen.findByRole('button', { name: 'Carregar mais comentários' }))
   expect(await screen.findByText(/Comentário antigo/)).not.toBeNull()
   expect(request).toHaveBeenCalledWith('/posts/7/comments?cursor=comments-next')
@@ -110,7 +110,7 @@ it('pagina busca e comentários com seus respectivos cursores', async () => {
   expect(request).toHaveBeenCalledWith('/users?q=Atleta&cursor=people-next')
 })
 
-it('pagina a aba Fotos do próprio perfil e abre as conexões pelas contagens', async () => {
+it('abre o próprio perfil em Fotos, pagina a grade e abre as conexões pelas contagens', async () => {
   vi.mocked(request).mockImplementation(async path => {
     if (path === '/users/1') return { ...person, id: 1, follower_count: 4, following_count: 1, username: 'eu' } as never
     return { items: [{ ...post, id: path.includes('cursor=') ? 8 : 7, caption: path.includes('cursor=') ? 'Foto antiga' : 'Foto recente' }], next_cursor: path.includes('cursor=') ? null : 'own-gallery' } as never
@@ -121,6 +121,8 @@ it('pagina a aba Fotos do próprio perfil e abre as conexões pelas contagens', 
   render(<ProfilePage user={me} profiles={[]} go={go} openConnections={openConnections} onExpired={vi.fn()} />)
   expect(screen.queryByText('eu@example.com')).toBeNull()
   expect(screen.getByRole('heading', { name: '@eu' })).not.toBeNull()
+  expect(screen.getAllByRole('tab').map(tab => tab.textContent)).toEqual(['Fotos', 'Partidas'])
+  expect(screen.getByRole('tab', { name: 'Fotos' }).getAttribute('aria-selected')).toBe('true')
   await user.click(await screen.findByRole('button', { name: '4 seguidores' }))
   expect(openConnections).toHaveBeenCalledWith(1, 'followers')
   await user.click(screen.getByRole('button', { name: '1 seguindo' }))
@@ -129,10 +131,15 @@ it('pagina a aba Fotos do próprio perfil e abre as conexões pelas contagens', 
   expect(go).toHaveBeenCalledWith('edit-profile')
   await user.click(screen.getByRole('button', { name: 'Menu' }))
   expect(go).toHaveBeenCalledWith('menu')
-  await user.click(screen.getByRole('tab', { name: 'Fotos' }))
   await user.click(await screen.findByRole('button', { name: 'Carregar mais fotos' }))
-  expect(await screen.findByAltText('Foto antiga')).not.toBeNull()
-  expect(screen.getByAltText('Foto recente')).not.toBeNull()
+  expect(await screen.findByRole('button', { name: /Abrir publicação .*: Foto antiga/ })).not.toBeNull()
+  expect(request).toHaveBeenCalledWith('/users/1/posts?cursor=own-gallery')
+  // Duas fotos: o quadro "Nova foto" completa a linha e leva à Comunidade.
+  await user.click(screen.getByRole('button', { name: 'Nova foto' }))
+  expect(go).toHaveBeenCalledWith('community')
+  await user.click(screen.getByRole('tab', { name: 'Partidas' }))
+  expect(screen.getByText('Sua história em campo')).not.toBeNull()
+  expect(screen.queryByRole('button', { name: 'Nova foto' })).toBeNull()
 })
 
 it('oferece reativação da conta depois de suspensão pela fila', async () => {

@@ -1,8 +1,7 @@
-import { useEffect, useId, useRef } from 'react'
-import type { KeyboardEvent, ReactNode } from 'react'
+import { useId } from 'react'
+import type { ReactNode } from 'react'
 import { X } from 'lucide-react'
-
-const focusable = 'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+import { useDialogFocus } from '../hooks/useDialogFocus'
 
 /** Folha inferior modal posicionada dentro de `.arena-app` (não na viewport). */
 export default function BottomSheet({ title, description, onClose, children }: {
@@ -12,26 +11,7 @@ export default function BottomSheet({ title, description, onClose, children }: {
   children: ReactNode
 }) {
   const titleId = useId()
-  const dialog = useRef<HTMLElement>(null)
-  useEffect(() => {
-    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null
-    const node = dialog.current
-    const preferred = node?.querySelector<HTMLElement>('[data-autofocus]')
-    const target = preferred ?? node
-    target?.focus()
-    return () => { previous?.focus() }
-  }, [])
-  function onKeyDown(event: KeyboardEvent<HTMLElement>) {
-    if (event.key === 'Escape') { event.stopPropagation(); onClose(); return }
-    if (event.key !== 'Tab' || !dialog.current) return
-    const items = Array.from(dialog.current.querySelectorAll<HTMLElement>(focusable))
-    if (!items.length) { event.preventDefault(); return }
-    const first = items[0]
-    const last = items[items.length - 1]
-    const active = document.activeElement
-    if (event.shiftKey && (active === first || active === dialog.current)) { event.preventDefault(); last.focus() }
-    else if (!event.shiftKey && active === last) { event.preventDefault(); first.focus() }
-  }
+  const { ref: dialog, onKeyDown } = useDialogFocus<HTMLElement>(onClose)
   return <>
     <div className="sheet-scrim" data-testid="sheet-scrim" onClick={onClose} />
     <section ref={dialog} className="sheet" role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} onKeyDown={onKeyDown}>

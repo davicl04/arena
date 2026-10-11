@@ -1,9 +1,10 @@
+import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Shield, UserCog } from 'lucide-react'
 import { apiUrl, sports } from '../api/client'
 import type { Sport, SocialUser } from '../api/client'
 import { cover as defaultCover, sportIcons } from '../data/arena'
-import { SocialPhoto } from './SocialPostCard'
+import { SocialPhoto } from './SocialPhoto'
 
 function MutualSummary({ items, total }: { items: SocialUser[]; total: number }) {
   const [first, second] = items
@@ -11,6 +12,20 @@ function MutualSummary({ items, total }: { items: SocialUser[]; total: number })
   if (total === 1) return <><b>{first.name}</b>, que você segue, também segue esta conta</>
   if (total === 2 && second) return <><b>{first.name}</b> e <b>{second.name}</b> que você segue também seguem esta conta</>
   return <><b>{first.name}</b>{second && <>, <b>{second.name}</b></>} e mais {total - (second ? 2 : 1)} que você segue também seguem esta conta</>
+}
+
+/** Barra fixa do perfil: botões em círculos de vidro sobre a capa; condensada (fundo claro e @usuário) depois dela. */
+export function ProfileTopbar({ leading, trailing, username, condensed = false }: {
+  leading?: ReactNode
+  trailing?: ReactNode
+  username?: string
+  condensed?: boolean
+}) {
+  return <div className={`profile-topbar ${condensed ? 'is-condensed' : ''}`}>
+    <span className="profile-topbar-slot">{leading}</span>
+    <span className="profile-topbar-title" aria-hidden="true">{username ? `@${username}` : ''}</span>
+    <span className="profile-topbar-slot end">{trailing}</span>
+  </div>
 }
 
 /** Capa, avatar, identidade e conexões — perfil próprio (`own`) ou de outra pessoa (`visitor`). */
@@ -34,11 +49,20 @@ export default function ProfileHeader({ mode, name, username, avatar, coverUrl, 
   onFollowing: () => void
   onMutual?: () => void
 }) {
+  const cover = useRef<HTMLDivElement>(null)
+  const [condensed, setCondensed] = useState(false)
+  useEffect(() => {
+    const node = cover.current
+    if (!node || typeof IntersectionObserver === 'undefined') return
+    // A capa "sai" quando passa por baixo da barra (56 px): a partir daí a barra condensa.
+    const observer = new IntersectionObserver(([entry]) => setCondensed(!entry.isIntersecting),
+      { root: node.closest('.screen'), rootMargin: '-56px 0px 0px 0px' })
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [])
   return <>
-    <div className="profile-cover" style={{ backgroundImage: `url("${coverUrl ? apiUrl(coverUrl) : defaultCover}")` }}>
-      <span className="profile-cover-slot">{leading}</span>
-      <span className="profile-cover-slot">{trailing}</span>
-    </div>
+    <ProfileTopbar leading={leading} trailing={trailing} username={username} condensed={condensed} />
+    <div ref={cover} className="profile-cover" style={{ backgroundImage: `url("${coverUrl ? apiUrl(coverUrl) : defaultCover}")` }} />
     <section className="profile-intro" aria-label={mode === 'own' ? 'Seu perfil' : `Perfil de ${name}`}>
       <div className="avatar-wrap">
         <div className="avatar">{avatar}</div>

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ApiError, request } from '../src/api/client'
 import type { SocialUser } from '../src/api/client'
@@ -54,7 +54,9 @@ describe('UserProfilePage', () => {
   it('abre conexões e seguidores em comum quando a conta é visível', async () => {
     mockProfile({ ...base, social_public: true }, { items: [friend(7, 'Ana Lima')], total: 1, next_cursor: null })
     const props = renderProfile()
-    expect(await screen.findByAltText('Treino')).not.toBeNull()
+    expect(await screen.findByRole('button', { name: /Abrir publicação .*: Treino/ })).not.toBeNull()
+    expect(screen.getAllByRole('tab').map(tab => tab.textContent)).toEqual(['Fotos', 'Partidas'])
+    expect(screen.queryByRole('button', { name: 'Nova foto' })).toBeNull()
     expect(screen.getByText(/que você segue, também segue esta conta/).textContent).toBe('Ana Lima, que você segue, também segue esta conta')
     const ui = userEvent.setup()
     await ui.click(screen.getByRole('button', { name: '5 seguindo' }))
@@ -79,19 +81,44 @@ describe('UserProfilePage', () => {
     expect(await screen.findByRole('button', { name: 'Deixar de seguir' })).not.toBeNull()
   })
 
-  it('bloqueia (voltando à tela anterior) e denuncia a conta', async () => {
+  it('denuncia a conta e bloqueia pelo vidro, voltando à tela anterior', async () => {
     mockProfile(base)
-    vi.stubGlobal('confirm', vi.fn(() => true))
-    vi.stubGlobal('prompt', vi.fn(() => 'spam'))
     const props = renderProfile()
     const ui = userEvent.setup()
-    await ui.click(await screen.findByText('•••'))
-    await ui.click(screen.getByRole('button', { name: 'Denunciar conta' }))
+    await ui.click(await screen.findByRole('button', { name: 'Ações da conta' }))
+    const glass = screen.getByRole('dialog', { name: 'Ações da conta' })
+    expect(glass.getAttribute('aria-modal')).toBe('true')
+    expect(within(glass).getByText('@atleta.dois')).not.toBeNull()
+    await ui.click(within(glass).getByRole('button', { name: 'Denunciar conta' }))
+    const send = screen.getByRole('button', { name: 'Enviar denúncia' }) as HTMLButtonElement
+    expect(send.disabled).toBe(true)
+    await ui.click(screen.getByRole('radio', { name: /Spam/ }))
+    await ui.click(send)
     await waitFor(() => expect(request).toHaveBeenCalledWith('/reports', 'POST', { target_type: 'user', target_id: 2, reason: 'spam' }))
     expect(await screen.findByText('Denúncia enviada para análise.')).not.toBeNull()
+    expect(screen.queryByRole('dialog')).toBeNull()
+
+    await ui.click(screen.getByRole('button', { name: 'Ações da conta' }))
+    await ui.click(screen.getByRole('button', { name: 'Bloquear' }))
+    expect(screen.getByText('Bloquear @atleta.dois?')).not.toBeNull()
+    await ui.click(screen.getByRole('button', { name: 'Cancelar' }))
+    expect(request).not.toHaveBeenCalledWith('/users/2/block', 'PUT')
+    await ui.click(screen.getByRole('button', { name: 'Bloquear' }))
     await ui.click(screen.getByRole('button', { name: 'Bloquear' }))
     await waitFor(() => expect(request).toHaveBeenCalledWith('/users/2/block', 'PUT'))
     await waitFor(() => expect(props.onBack).toHaveBeenCalled())
+  })
+
+  it('fecha o vidro da conta com Esc e devolve o foco ao botão •••', async () => {
+    mockProfile(base)
+    renderProfile()
+    const ui = userEvent.setup()
+    const trigger = await screen.findByRole('button', { name: 'Ações da conta' })
+    await ui.click(trigger)
+    expect(screen.getByRole('dialog', { name: 'Ações da conta' })).not.toBeNull()
+    await ui.keyboard('{Escape}')
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(document.activeElement).toBe(trigger)
   })
 
   it('mostra o erro quando o perfil está indisponível e permite voltar', async () => {

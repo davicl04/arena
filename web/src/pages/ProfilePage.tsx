@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
-import { CalendarDays, ChevronRight, Medal, Menu, Trophy } from "lucide-react";
+import { CalendarDays, ChevronRight, Menu, Trophy } from "lucide-react";
 import { request } from "../api/client";
 import type { Profile, SocialUser, User } from "../api/client";
 import EmptyState from "../components/EmptyState";
-import PhotoGrid from "../components/PhotoGrid";
+import ProfileGallery from "../components/ProfileGallery";
 import ProfileHeader from "../components/ProfileHeader";
 import ProfileTabs from "../components/ProfileTabs";
+import type { ProfileTab } from "../components/ProfileTabs";
 import Avatar from "../components/Avatar";
 import type { ConnectionsTab, Screen } from "../data/arena";
 
@@ -22,7 +23,7 @@ export default function ProfilePage({
   openConnections: (userId: number, tab: ConnectionsTab) => void;
   onExpired: () => void;
 }) {
-  const [profileTab, setProfileTab] = useState("Atividades");
+  const [profileTab, setProfileTab] = useState<ProfileTab>("Fotos");
   const [counts, setCounts] = useState<{ followers: number; following: number } | null>(null);
   useEffect(() => {
     let alive = true;
@@ -86,19 +87,22 @@ export default function ProfilePage({
         </div>
       </div>
       <ProfileTabs value={profileTab} onChange={setProfileTab} />
-      <div id="profile-content" role="tabpanel" aria-labelledby={`tab-${profileTab}`}>
+      <div id="profile-content" className="profile-panel" role="tabpanel" aria-labelledby={`tab-${profileTab}`}>
         {profileTab === "Fotos" ? (
-          <PhotoGrid
+          <ProfileGallery
             userId={user.id}
+            username={user.username}
             ownerName={user.name}
+            viewerId={user.id}
+            own
+            onNewPhoto={() => go("community")}
             onExpired={onExpired}
-            empty={<EmptyState Icon={Medal} title="Nenhuma foto por aqui" text="Seus registros aparecerão aqui quando esta área estiver disponível." />}
           />
         ) : (
           <EmptyState
-            Icon={profileTab === "Partidas" ? CalendarDays : Medal}
-            title={profileTab === "Partidas" ? "Sua história em campo" : "Sua trajetória começa aqui"}
-            text="Seus registros aparecerão aqui quando esta área estiver disponível."
+            Icon={CalendarDays}
+            title="Sua história em campo"
+            text="Quando as partidas estiverem disponíveis, seus resultados ficam registrados aqui."
           />
         )}
       </div>

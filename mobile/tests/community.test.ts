@@ -15,6 +15,10 @@ vi.mock('react-native', async () => {
   return { ActivityIndicator: element('ActivityIndicator'), Alert: { alert: vi.fn() }, FlatList, Image: element('Image'), KeyboardAvoidingView: element('KeyboardAvoidingView'), Modal: element('Modal'), Platform: { OS: 'android' }, Pressable: element('Pressable'), RefreshControl: element('RefreshControl'), ScrollView: element('ScrollView'), Text: element('Text'), TextInput: element('TextInput'), View: element('View') }
 })
 
+vi.mock('react-native-safe-area-context', async () => {
+  const ReactModule = await import('react')
+  return { SafeAreaView: ({ children, ...props }: Record<string, unknown>) => ReactModule.createElement('SafeAreaView', props, children as React.ReactNode) }
+})
 vi.mock('expo-image-picker', () => ({ launchImageLibraryAsync: vi.fn(), ImagePickerResult: undefined }))
 vi.mock('../src/components/SportCard', () => ({ default: () => null }))
 vi.mock('../src/components/ui', async () => {
@@ -54,18 +58,21 @@ describe('CommunityScreen', () => {
     let tree!: ReturnType<typeof create>
     await act(async () => { tree = create(React.createElement(CommunityScreen, { user: { id: 1, name: 'Eu', username: 'eu.atleta', email: 'eu@example.com', birth_date: '1995-01-01', social_public: false, is_admin: false, avatar: null, cover: null }, onExpired: vi.fn() })); await Promise.resolve() })
     expect(tree.root.findAllByType('Text' as never).some(text => JSON.stringify(text.props.children).includes('Treino do dia'))).toBe(true)
-    const like = tree.root.findAllByType('Button' as never).find(button => String(button.props.title).includes('Curtir · 2'))
+    const pressable = (label: string) => tree.root.findAllByType('Pressable' as never).find(entry => entry.props.accessibilityLabel === label)
+    const like = pressable('Curtir, 2 curtidas')
     expect(like).toBeTruthy()
     await act(async () => { like?.props.onPress(); await Promise.resolve() })
     expect(request).toHaveBeenCalledWith('/posts/7/like', 'PUT')
-    const comments = tree.root.findAllByType('Button' as never).find(button => String(button.props.title).includes('Comentários · 0'))
+    expect(pressable('Curtir, 3 curtidas')?.props.accessibilityState.checked).toBe(true)
+    const comments = pressable('Comentários, 0')
     await act(async () => { comments?.props.onPress(); await Promise.resolve() })
     const input = tree.root.findAllByType('TextInput' as never).find(field => field.props.accessibilityLabel === 'Escreva um comentário')
     expect(input).toBeTruthy()
     await act(async () => { input?.props.onChangeText('Boa!') })
-    const submit = tree.root.findAllByType('Button' as never).find(button => button.props.title === 'Enviar')
+    const submit = pressable('Enviar comentário')
     await act(async () => { submit?.props.onPress(); await Promise.resolve() })
     expect(request).toHaveBeenCalledWith('/posts/7/comments', 'POST', { body: 'Boa!' })
+    expect(pressable('Comentários, 1')).toBeTruthy()
   })
 
   it('pagina busca, galeria e comentários usando cursores independentes', async () => {
@@ -73,7 +80,7 @@ describe('CommunityScreen', () => {
     vi.mocked(request).mockImplementation(async path => {
       if (path.startsWith('/users?q=')) return { items: [{ ...athlete, id: path.includes('cursor=') ? 3 : 2, name: path.includes('cursor=') ? 'Outro atleta' : 'Atleta A' }], next_cursor: path.includes('cursor=') ? null : 'people-next' } as never
       if (path === '/users/2') return athlete as never
-      if (path.startsWith('/users/2/posts')) return { items: path.includes('cursor=') ? [{ ...post, id: 8, caption: 'Foto antiga' }] : [], next_cursor: path.includes('cursor=') ? null : 'gallery-next' } as never
+      if (path.startsWith('/users/2/posts')) return { items: [path.includes('cursor=') ? { ...post, id: 8, caption: 'Foto antiga' } : post], next_cursor: path.includes('cursor=') ? null : 'gallery-next' } as never
       if (path.startsWith('/posts/7/comments')) return { items: [{ id: path.includes('cursor=') ? 12 : 11, author_id: 2, author_name: 'Atleta A', author_avatar_url: null, body: path.includes('cursor=') ? 'Comentário antigo' : 'Recente', created_at: post.created_at, can_delete: false }], next_cursor: path.includes('cursor=') ? null : 'comments-next' } as never
       return { items: [post], next_cursor: null } as never
     })
@@ -84,8 +91,13 @@ describe('CommunityScreen', () => {
       expect(button).toBeTruthy()
       await act(async () => { button!.props.onPress() })
     }
-    await click('Comentários · 0')
-    await click('Carregar mais comentários')
+    const pressLabel = async (label: string) => {
+      const target = tree.root.findAllByType('Pressable' as never).find(entry => entry.props.accessibilityLabel === label)
+      expect(target, label).toBeTruthy()
+      await act(async () => { target!.props.onPress() })
+    }
+    await pressLabel('Comentários, 0')
+    await pressLabel('Carregar mais comentários')
     expect(request).toHaveBeenCalledWith('/posts/7/comments?cursor=comments-next')
     const query = tree.root.findAllByType('TextInput' as never).find(input => input.props.accessibilityLabel === 'Nome ou @')
     await act(async () => { query!.props.onChangeText('Atleta') })
@@ -121,7 +133,7 @@ describe('CommunityScreen', () => {
         await act(async () => { row!.props.onPress() })
       }
       if (which === 'following') {
-        const tab = tree.root.findAllByType('Pressable' as never).find(entry => entry.props.accessibilityRole === 'tab' && !entry.props.accessibilityState.selected)
+        const tab = tree.root.findAllByType('Pressable' as never).find(entry => entry.props.accessibilityRole === 'tab' && !entry.props.accessibilityState.selected && entry.findAllByType('Text' as never).some(text => String(text.props.children).startsWith('Seguindo')))
         await act(async () => { tab!.props.onPress() })
       }
     }

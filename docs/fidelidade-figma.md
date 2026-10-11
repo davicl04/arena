@@ -32,3 +32,21 @@ O usuário forneceu `Resumo Arena.html` como referência dos símbolos. Sete SVG
 Moedas, carteira e seus acessos foram removidos da web. A sequência visual de elos não simula classificação, saldo nem resultados. Build, TypeScript e ESLint passaram; ilustrações e navegação foram conferidas no navegador, junto ao perfil sem carteira.
 
 Os ícones de modalidades foram posteriormente substituídos pelos três PNGs enviados pelo usuário, de forma provisória. A troca foi centralizada no componente `SportIcon`, incluindo home, preparação esportiva, filtros e chips, sem modificar a marca nem os SVGs de elo.
+
+## Revisão do conteúdo do perfil — 10 de outubro de 2026
+
+Em sessão de protótipos, o usuário fechou as decisões abaixo para o conteúdo do perfil, registradas no [plano](plano-perfil-conteudo.md). Elas valem para a web e para o Expo e também para o feed da Comunidade. O HTML final do protótipo foi copiado para `artifacts/prototipos/perfil-conteudo.html` (não versionado) como referência.
+
+| Parte | Decisão aplicada |
+| --- | --- |
+| Abas (A) | **Fotos \| Partidas**, com ícone e fixas abaixo do topo. Atividades saiu do perfil e deve ir para Notificações em entrega futura. |
+| Grade | Três colunas de ponta a ponta, com altura mínima na aba. No perfil próprio, o quadro "Nova foto" completa a última linha. |
+| Visualizador | Página "Publicações" com feed vertical que abre no post tocado. |
+| Post (A3) | Foto 4:5 com autor e data sobrepostos, pílulas de curtir e comentar sobre a imagem e legenda abaixo. `Post` não tem modalidade, por isso o sobreposto mostra autor e data em vez da modalidade do protótipo. |
+| Comentários (C4) | Vidro escuro sobre a foto, com envio por ícone. |
+| Menu ••• (M3) | Vidro sobre a foto. Dono: editar legenda (contador /2200) e excluir com confirmação. Visitante: denunciar. |
+| Denúncias | Post (M3), comentário (bandeira → formulário no vidro C4) e conta (••• da capa → vidro em tela cheia com Bloquear e Denunciar). Motivos: spam, assédio, conteúdo inadequado e outro, com detalhes opcionais de até 1000 caracteres. |
+| Topo | Barra fixa que condensa: botões em círculos de vidro sobre a capa e, depois da capa, fundo claro com @usuário. |
+| Partidas (P2) | Boletim por modalidade registrado **somente como desenho**. Sem domínio de partidas no backend, a aba mostra apenas um estado vazio; nenhum resultado é simulado. |
+
+Na Comunidade, o card de post anterior deu lugar ao post A3. No Expo, sem bibliotecas de ícones ou desfoque, os botões usam glifos Unicode com rótulos de acessibilidade e o vidro é uma camada escura semitransparente; não há declaração de paridade visual com a web nem validação em aparelho.

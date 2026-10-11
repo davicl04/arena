@@ -309,7 +309,7 @@ export default function ArenaPage({
             </>
           )}
           {screen === "community" && (
-            <SocialCommunity onOpenUser={openUser} onExpired={onExpired} />
+            <SocialCommunity viewerId={user.id} onOpenUser={openUser} onExpired={onExpired} />
           )}
           {screen === "notifications" && (
             <NotificationsPage onOpenUser={openUser} onExpired={onExpired} />

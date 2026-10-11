@@ -1,15 +1,16 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import type { Area } from 'react-easy-crop'
 import { MessageCircle, Search, Shield, UserRoundPlus } from 'lucide-react'
 import { request } from '../api/client'
-import type { Page, Post, SocialComment, SocialUser } from '../api/client'
+import type { Page, Post, SocialUser } from '../api/client'
 import { cropImage, validateImageFile } from '../utils/cropImage'
 import ImageCropSheet from './ImageCropSheet'
 import PersonRow from './PersonRow'
-import SocialPostCard from './SocialPostCard'
+import PostItem from './PostItem'
+import type { PostUpdate } from './PostItem'
 
-export default function SocialCommunity({ onOpenUser, onExpired }: { onOpenUser: (id: number) => void; onExpired: () => void }) {
+export default function SocialCommunity({ viewerId, onOpenUser, onExpired }: { viewerId: number; onOpenUser: (id: number) => void; onExpired: () => void }) {
   const [feed, setFeed] = useState<Post[]>([])
   const [feedCursor, setFeedCursor] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -22,11 +23,7 @@ export default function SocialCommunity({ onOpenUser, onExpired }: { onOpenUser:
   const [query, setQuery] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
   const [peopleCursor, setPeopleCursor] = useState<string | null>(null)
-  const [commentCursors, setCommentCursors] = useState<Record<number, string | null>>({})
   const [people, setPeople] = useState<SocialUser[]>([])
-  const [comments, setComments] = useState<Record<number, SocialComment[]>>({})
-  const [openComments, setOpenComments] = useState<number | null>(null)
-  const [commentText, setCommentText] = useState<Record<number, string>>({})
 
   async function refresh() {
     setLoading(true); setError('')
@@ -95,57 +92,6 @@ export default function SocialCommunity({ onOpenUser, onExpired }: { onOpenUser:
     } catch (err) { fail(err) } finally { setBusy(false) }
   }
 
-  async function toggleLike(post: Post) {
-    try {
-      await request<void>(`/posts/${post.id}/like`, post.liked_by_me ? 'DELETE' : 'PUT')
-      const update = (item: Post) => item.id === post.id ? { ...item, liked_by_me: !post.liked_by_me, like_count: item.like_count + (post.liked_by_me ? -1 : 1) } : item
-      setFeed(old => old.map(update))
-    } catch (err) { fail(err) }
-  }
-
-  async function toggleComments(post: Post) {
-    if (openComments === post.id) { setOpenComments(null); return }
-    setOpenComments(post.id)
-    try { const page = await request<Page<SocialComment>>(`/posts/${post.id}/comments`); setComments(old => ({ ...old, [post.id]: page.items })); setCommentCursors(old => ({ ...old, [post.id]: page.next_cursor })) }
-    catch (err) { fail(err) }
-  }
-
-  async function sendComment(event: FormEvent, post: Post) {
-    event.preventDefault()
-    const body = commentText[post.id]?.trim()
-    if (!body || busy) return
-    setBusy(true)
-    try {
-      const added = await request<SocialComment>(`/posts/${post.id}/comments`, 'POST', { body })
-      setComments(old => ({ ...old, [post.id]: [...(old[post.id] ?? []), added] }))
-      setCommentText(old => ({ ...old, [post.id]: '' }))
-      const update = (item: Post) => item.id === post.id ? { ...item, comment_count: item.comment_count + 1 } : item
-      setFeed(old => old.map(update))
-    } catch (err) { fail(err) } finally { setBusy(false) }
-  }
-
-  async function report(targetType: string, targetId: number) {
-    const reason = window.prompt('Motivo: spam, assedio, conteudo_inadequado ou outro')
-    if (!reason || !['spam', 'assedio', 'conteudo_inadequado', 'outro'].includes(reason)) return
-    try { await request('/reports', 'POST', { target_type: targetType, target_id: targetId, reason }); setNotice('Denúncia enviada para análise.') }
-    catch (err) { fail(err) }
-  }
-
-  async function removePost(post: Post) {
-    if (!window.confirm('Excluir esta publicação?')) return
-    try { await request<void>(`/posts/${post.id}`, 'DELETE'); setFeed(old => old.filter(item => item.id !== post.id)) }
-    catch (err) { fail(err) }
-  }
-
-  async function editCaption(post: Post) {
-    const next = window.prompt('Editar legenda', post.caption)
-    if (next === null || next.length > 2200) return
-    try { const updated = await request<Post>(`/posts/${post.id}`, 'PATCH', { caption: next });
-      const replace = (item: Post) => item.id === post.id ? updated : item
-      setFeed(old => old.map(replace))
-    } catch (err) { fail(err) }
-  }
-
   async function loadPeople() {
     if (!peopleCursor || busy) return
     setBusy(true)
@@ -155,37 +101,10 @@ export default function SocialCommunity({ onOpenUser, onExpired }: { onOpenUser:
     } catch (err) { fail(err) } finally { setBusy(false) }
   }
 
-  async function loadComments(post: Post) {
-    const cursor = commentCursors[post.id]
-    if (!cursor || busy) return
-    setBusy(true)
-    try {
-      const page = await request<Page<SocialComment>>(`/posts/${post.id}/comments?cursor=${encodeURIComponent(cursor)}`)
-      setComments(old => ({ ...old, [post.id]: [...(old[post.id] ?? []), ...page.items] }))
-      setCommentCursors(old => ({ ...old, [post.id]: page.next_cursor }))
-    } catch (err) { fail(err) } finally { setBusy(false) }
-  }
-
-  async function deleteComment(post: Post, comment: SocialComment) {
-    try {
-      await request<void>(`/comments/${comment.id}`, 'DELETE')
-      setComments(old => ({ ...old, [post.id]: (old[post.id] ?? []).filter(item => item.id !== comment.id) }))
-      const update = (item: Post) => item.id === post.id ? { ...item, comment_count: Math.max(0, item.comment_count - 1) } : item
-      setFeed(old => old.map(update))
-    } catch (err) { fail(err) }
-  }
-
-  function renderPost(post: Post) {
-    return <SocialPostCard key={post.id} post={post} comments={comments[post.id] ?? []}
-      open={openComments === post.id} draft={commentText[post.id] ?? ''} busy={busy}
-      commentCursor={commentCursors[post.id] ?? null}
-      onOpenProfile={onOpenUser} onEditCaption={post => void editCaption(post)}
-      onRemovePost={post => void removePost(post)} onReport={(type, id) => void report(type, id)}
-      onToggleLike={post => void toggleLike(post)} onToggleComments={post => void toggleComments(post)}
-      onSendComment={(event, post) => void sendComment(event, post)}
-      onDraftChange={(id, value) => setCommentText(old => ({ ...old, [id]: value }))}
-      onDeleteComment={(post, comment) => void deleteComment(post, comment)} onLoadComments={post => void loadComments(post)} />
-  }
+  const updatePost: PostUpdate = useCallback((postId, change) => {
+    setFeed(old => old.map(item => item.id === postId ? change(item) : item))
+  }, [])
+  const removePost = useCallback((postId: number) => setFeed(old => old.filter(item => item.id !== postId)), [])
 
   return <section className="social-community" aria-label="Comunidade Arena">
     <div className="social-heading"><div><p className="eyebrow">O ESPORTE CONECTA</p><h2>Comunidade</h2></div><button className="secondary" onClick={() => void refresh()} disabled={loading}>Atualizar feed</button></div>
@@ -207,7 +126,8 @@ export default function SocialCommunity({ onOpenUser, onExpired }: { onOpenUser:
       confirmLabel="Confirmar recorte e publicar" busy={busy} error="" onCancel={() => { setSource(''); setOriginal(null) }} onConfirm={area => void publish(area)} />}
     {loading && <p role="status">Carregando publicações…</p>}
     {!loading && feed.length === 0 && <div className="empty-state"><span className="empty-icon"><MessageCircle size={26} /></span><h2>Seu feed começa aqui</h2><p>Siga contas públicas ou peça acesso a perfis privados para acompanhar publicações.</p></div>}
-    <div className="social-feed">{feed.map(renderPost)}</div>
+    <div className="social-feed">{feed.map(post => <PostItem key={post.id} post={post} viewerId={viewerId}
+      onUpdate={updatePost} onRemoved={removePost} onOpenProfile={onOpenUser} onExpired={onExpired} />)}</div>
     {feedCursor && <button className="secondary full-width" disabled={busy} onClick={() => void loadMore()}>Carregar mais publicações</button>}
     <p className="social-privacy-note"><Shield size={15} /> Publicações são exibidas conforme a privacidade da conta e os vínculos aprovados.</p>
   </section>

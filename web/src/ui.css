@@ -1,0 +1,60 @@
+/* Tailwind + shadcn/ui sem o preflight: o reset global alteraria as telas aprovadas em styles.css. */
+@layer theme, base, components, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Tokens do shadcn/ui ligados à identidade ARENA. Os valores ficam em `--ui-*` porque
+ * `--muted` já é a cor de texto secundário de styles.css; aqui só o utilitário usa o nome.
+ * `.dark` é aplicado nos formulários sobre o vidro escuro (ex.: denúncias).
+ */
+@theme inline {
+  --color-background: var(--ui-background);
+  --color-foreground: var(--ui-foreground);
+  --color-primary: var(--ui-primary);
+  --color-primary-foreground: var(--ui-primary-foreground);
+  --color-muted: var(--ui-muted);
+  --color-muted-foreground: var(--ui-muted-foreground);
+  --color-border: var(--ui-border);
+  --color-input: var(--ui-input);
+  --color-ring: var(--ui-ring);
+  --color-destructive: var(--ui-destructive);
+  --radius-lg: 12px;
+}
+
+:root {
+  --ui-background: #ffffff;
+  --ui-foreground: #495057;
+  --ui-primary: #005a36;
+  --ui-primary-foreground: #ffffff;
+  --ui-muted: #f1f2f5;
+  --ui-muted-foreground: #626970;
+  --ui-border: #49505726;
+  --ui-input: #49505740;
+  --ui-ring: #b26c08;
+  --ui-destructive: #b93749;
+}
+
+.dark {
+  --ui-background: #08140e;
+  --ui-foreground: #ffffff;
+  --ui-primary: #8fe0b4;
+  --ui-primary-foreground: #08140e;
+  --ui-muted: #ffffff1a;
+  --ui-muted-foreground: #ffffffa6;
+  --ui-border: #ffffff2e;
+  --ui-input: #ffffff73;
+  --ui-ring: #8fe0b4;
+  --ui-destructive: #ff8a80;
+  color: var(--ui-foreground);
+}
+
+/* Equivalente à base do shadcn (`* { border-border outline-ring/50 }`), restrito aos seus componentes. */
+@layer base {
+  [data-slot] {
+    border-color: var(--ui-border);
+    outline-color: color-mix(in oklab, var(--ui-ring) 50%, transparent);
+  }
+}

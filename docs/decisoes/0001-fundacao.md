@@ -50,7 +50,7 @@ As alterações de perfil usam o usuário da sessão, nunca um ID enviado pelo c
 
 ## Ferramentas e execução
 
-Backend usa Python 3.13, FastAPI, SQLAlchemy e Alembic com driver explícito `psycopg2`. `requirements.txt` identifica dependências diretas e `requirements.lock.txt` fixa o ambiente instalado, incluindo testes e lint. Web usa React, TypeScript e Vite; mobile usa versões compatíveis com o template e SDK Expo 57. Dependências dos clientes são registradas com versões e `package-lock.json` para `npm ci`.
+Backend usa Python 3.13, FastAPI, SQLAlchemy e Alembic com driver explícito `psycopg2`. `requirements.txt` identifica dependências diretas e `requirements.lock.txt` fixa o ambiente instalado, incluindo testes e lint. Web usa React, TypeScript e Vite; desde 11 de outubro de 2026, também Tailwind CSS 4 e componentes shadcn/ui (preset `base-nova`, sobre Base UI) em `web/src/components/ui/`, a pedido do usuário. O Tailwind é carregado sem o preflight (`src/ui.css`) para não alterar as telas estilizadas em `styles.css`; os tokens do shadcn usam variáveis `--ui-*`, porque `--muted` já é a cor de texto secundário do ARENA, e regras globais de `label`/`input` excluem elementos com `data-slot`. O primeiro uso é o RadioGroup das denúncias. Mobile usa versões compatíveis com o template e SDK Expo 57. Dependências dos clientes são registradas com versões e `package-lock.json` para `npm ci`.
 
 A web preserva a paleta do documento de iniciação e usa Sora/Inter com fallback de sistema. As fontes web vêm do Google Fonts; o mobile usa fontes de sistema nesta entrega. Cada cliente mantém seus componentes; os contratos são os mesmos, descritos pelo OpenAPI da API.
 

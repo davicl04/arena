@@ -1,62 +1,101 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { ActivityIndicator, Alert, FlatList, Image, Modal, RefreshControl, Text, TextInput, View } from 'react-native'
+import { useCallback, useEffect, useState } from 'react'
+import { ActivityIndicator, FlatList, Image, Modal, RefreshControl, ScrollView, Text, View } from 'react-native'
+import { SafeAreaView } from 'react-native-safe-area-context'
 import * as ImagePicker from 'expo-image-picker'
-import { ApiError, apiUrl, getToken, request } from '../api/client'
-import type { MutualFollowersPage, Page, Post, SocialComment, SocialUser, User } from '../api/client'
+import { ApiError, getToken, request } from '../api/client'
+import type { MutualFollowersPage, Page, Post, SocialUser, User } from '../api/client'
+import { CAPTION_MAX } from '../api/social'
+import { usePagedList } from '../hooks/usePagedList'
 import { Button, Field, styles } from '../components/ui'
-import { Cover } from '../components/media'
+import { Avatar, Cover } from '../components/media'
+import AccountActions from '../components/AccountActions'
+import PostItem from '../components/PostItem'
+import type { PostUpdate } from '../components/PostItem'
+import ProfileGallery from '../components/ProfileGallery'
+import { MatchesEmpty, ProfileTabs } from '../components/ProfileTabs'
+import type { ProfileTab } from '../components/ProfileTabs'
 import ProfileTitle from '../components/ProfileTitle'
+import ProfileTopBar, { TopBarButton, useCondensedTopBar } from '../components/ProfileTopBar'
 import { connectionsText, mutualFollowersText } from '../utils/profile'
 
+const COVER_HEIGHT = 120
+
+/** Perfil visitado em tela cheia: topo fixo (‹ e •••), abas Fotos | Partidas e grade compartilhada com o visualizador. */
+function VisitedProfile({ profile, user, token, mutualText, error, onClose, onFollow, onBlocked, onPostUpdate, onPostRemove, onExpired }: {
+  profile: SocialUser; user: User; token: string | null; mutualText: string | null; error: string
+  onClose: () => void; onFollow: (person: SocialUser) => void; onBlocked: () => void; onPostUpdate: PostUpdate; onPostRemove: (id: number) => void; onExpired: () => void
+}) {
+  const [tab, setTab] = useState<ProfileTab>('Fotos')
+  const [actions, setActions] = useState(false)
+  const { condensed, onScroll } = useCondensedTopBar(COVER_HEIGHT)
+  const own = profile.id === user.id
+  const canView = profile.social_public || profile.follow_state === 'approved' || own
+  return <Modal visible animationType="slide" onRequestClose={() => { if (actions) setActions(false); else onClose() }}>
+    <SafeAreaView style={[styles.screen, { flex: 1 }]}>
+      <ScrollView onScroll={onScroll} scrollEventThrottle={16} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 40 }}>
+        <View style={{ backgroundColor: '#fff' }}>
+          <Cover path={profile.cover_url} token={token} height={COVER_HEIGHT} />
+          <View style={{ paddingHorizontal: 22, paddingBottom: 18 }}>
+            <View style={{ marginTop: -32, width: 72, borderWidth: 3, borderColor: '#fff', borderRadius: 36 }}><Avatar path={profile.avatar_url} name={profile.name} token={token} size={66} /></View>
+            <View style={{ marginTop: 10 }}><ProfileTitle name={profile.name} username={profile.username} /></View>
+            <Text style={styles.body}>{profile.social_public ? 'Perfil público' : 'Perfil privado'}</Text>
+            <Text accessibilityLabel="Contagens do perfil" style={styles.body}>{canView ? `${profile.post_count} publicações · ` : ''}{connectionsText(profile.follower_count, profile.following_count)}</Text>
+            {mutualText ? <Text style={styles.body}>{mutualText}</Text> : null}
+            {!own ? <Button title={profile.follow_state === 'approved' ? 'Deixar de seguir' : profile.follow_state === 'pending' ? 'Cancelar solicitação' : profile.social_public ? 'Seguir' : 'Solicitar acesso'} onPress={() => onFollow(profile)} /> : null}
+            {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
+          </View>
+        </View>
+        {canView ? <>
+          <ProfileTabs value={tab} onChange={setTab} />
+          <View accessibilityLabel={tab} style={{ minHeight: 280 }}>
+            {tab === 'Fotos'
+              ? <ProfileGallery key={profile.id} userId={profile.id} ownerName={profile.name} ownerUsername={profile.username} viewerId={user.id} token={token} onPostUpdate={onPostUpdate} onPostRemove={onPostRemove} onExpired={onExpired} />
+              : <MatchesEmpty />}
+          </View>
+        </> : <Text style={[styles.body, { padding: 22 }]}>Esta conta é privada. Solicite acesso para ver as publicações; as listas de seguidores também ficam fechadas até lá.</Text>}
+      </ScrollView>
+      <ProfileTopBar condensed={condensed} username={profile.username}
+        leading={<TopBarButton label="Voltar" glyph="‹" condensed={condensed} onPress={onClose} />}
+        trailing={own ? undefined : <TopBarButton label="Ações da conta" glyph="•••" condensed={condensed} onPress={() => setActions(true)} />} />
+      {actions ? <AccountActions person={profile} token={token} onClose={() => setActions(false)} onBlocked={onBlocked} onExpired={onExpired} /> : null}
+    </SafeAreaView>
+  </Modal>
+}
+
 export default function CommunityScreen({ user, onExpired }: { user: User; onExpired: () => void }) {
-  const [items, setItems] = useState<Post[]>([])
-  const [cursor, setCursor] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
+  const feed = usePagedList<Post>('/posts', onExpired)
   const [busy, setBusy] = useState(false)
-  const loadingMore = useRef(false)
   const [error, setError] = useState('')
   const [token, setToken] = useState<string | null>(null)
   const [query, setQuery] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
   const [peopleCursor, setPeopleCursor] = useState<string | null>(null)
-  const [profileCursor, setProfileCursor] = useState<string | null>(null)
-  const [commentCursors, setCommentCursors] = useState<Record<number, string | null>>({})
   const [people, setPeople] = useState<SocialUser[]>([])
   const [profile, setProfile] = useState<SocialUser | null>(null)
+  const [profileError, setProfileError] = useState('')
   const [mutualText, setMutualText] = useState<string | null>(null)
-  const [profilePosts, setProfilePosts] = useState<Post[]>([])
   const [selectedImage, setSelectedImage] = useState<ImagePicker.ImagePickerAsset | null>(null)
   const [caption, setCaption] = useState('')
-  const [editingPost, setEditingPost] = useState<Post | null>(null)
-  const [editingCaption, setEditingCaption] = useState('')
-  const [commentsFor, setCommentsFor] = useState<number | null>(null)
-  const [comments, setComments] = useState<Record<number, SocialComment[]>>({})
-  const [commentDraft, setCommentDraft] = useState<Record<number, string>>({})
-
-  const load = useCallback(async (refresh = false) => {
-    if (!refresh && loadingMore.current) return
-    if (!refresh) loadingMore.current = true
-    if (refresh) setLoading(true)
-    setError('')
-    try {
-      const path = refresh || !cursor ? '/posts' : `/posts?cursor=${encodeURIComponent(cursor)}`
-      const page = await request<Page<Post>>(path)
-      setItems(old => refresh || !cursor ? page.items : [...old, ...page.items])
-      setCursor(page.next_cursor)
-    } catch (err) { if (err instanceof ApiError && err.status === 401) onExpired(); setError(err instanceof Error ? err.message : 'Não foi possível carregar o feed.') }
-    finally { setLoading(false); if (!refresh) loadingMore.current = false }
-  }, [cursor, onExpired])
 
   useEffect(() => {
     let alive = true
     void getToken().then(value => { if (alive) setToken(value) })
-    request<Page<Post>>('/posts').then(page => {
-      if (alive) { setItems(page.items); setCursor(page.next_cursor) }
-    }).catch(err => {
-      if (alive) { if (err instanceof ApiError && err.status === 401) onExpired(); setError(err instanceof Error ? err.message : 'Não foi possível carregar o feed.') }
-    }).finally(() => { if (alive) setLoading(false) })
     return () => { alive = false }
-  }, [onExpired])
+  }, [])
+
+  const { setItems: setFeedItems, reload: reloadFeed } = feed
+  const updatePost: PostUpdate = useCallback((id, change) => setFeedItems(old => old.map(post => post.id === id ? change(post) : post)), [setFeedItems])
+  const removePost = useCallback((id: number) => setFeedItems(old => old.filter(post => post.id !== id)), [setFeedItems])
+  // Exclusões feitas na grade do perfil visitado também saem do feed e da contagem do cabeçalho.
+  const removeProfilePost = useCallback((id: number) => {
+    removePost(id)
+    setProfile(old => old ? { ...old, post_count: Math.max(0, old.post_count - 1) } : old)
+  }, [removePost])
+
+  function fail(err: unknown, fallback: string) {
+    if (err instanceof ApiError && err.status === 401) onExpired()
+    setError(err instanceof Error ? err.message : fallback)
+  }
 
   async function choosePhoto() {
     setError('')
@@ -77,8 +116,8 @@ export default function CommunityScreen({ user, onExpired }: { user: User; onExp
     form.append('caption', caption)
     try {
       const created = await request<Post>('/posts', 'POST', form)
-      setItems(old => [created, ...old]); setSelectedImage(null); setCaption('')
-    } catch (err) { if (err instanceof ApiError && err.status === 401) onExpired(); setError(err instanceof Error ? err.message : 'Não foi possível publicar a foto.') }
+      setFeedItems(old => [created, ...old]); setSelectedImage(null); setCaption('')
+    } catch (err) { fail(err, 'Não foi possível publicar a foto.') }
     finally { setBusy(false) }
   }
 
@@ -86,154 +125,77 @@ export default function CommunityScreen({ user, onExpired }: { user: User; onExp
     if (!query.trim()) return
     setError('')
     try { const page = await request<Page<SocialUser>>(`/users?q=${encodeURIComponent(query.trim())}`); setPeople(page.items); setPeopleCursor(page.next_cursor); setSearchQuery(query.trim()) }
-    catch (err) { if (err instanceof ApiError && err.status === 401) onExpired(); setError(err instanceof Error ? err.message : 'Busca indisponível.') }
+    catch (err) { fail(err, 'Busca indisponível.') }
+  }
+
+  async function morePeople() {
+    if (!peopleCursor || busy) return
+    setBusy(true); setError('')
+    try {
+      const page = await request<Page<SocialUser>>(`/users?q=${encodeURIComponent(searchQuery)}&cursor=${encodeURIComponent(peopleCursor)}`)
+      setPeople(old => [...old, ...page.items]); setPeopleCursor(page.next_cursor)
+    } catch (err) { fail(err, 'Não foi possível carregar mais itens.') }
+    finally { setBusy(false) }
   }
 
   async function openProfile(id: number) {
-    setProfilePosts([]); setProfileCursor(null); setMutualText(null); setError('')
+    setError(''); setProfileError('')
     try {
       const person = await request<SocialUser>(`/users/${id}`)
-      setProfile(person)
       if (person.id !== user.id) {
         // Seguidores em comum são complementares: uma falha aqui não impede de ver o perfil.
         try { const mutual = await request<MutualFollowersPage>(`/users/${id}/mutual-followers?limit=2`); setMutualText(mutualFollowersText(mutual.items ?? [], mutual.total ?? 0)) }
-        catch (err) { if (err instanceof ApiError && err.status === 401) onExpired() }
-      }
-      if (person.social_public || person.follow_state === 'approved' || person.id === user.id) {
-        const page = await request<Page<Post>>(`/users/${id}/posts`)
-        setProfilePosts(page.items); setProfileCursor(page.next_cursor)
-      }
-    } catch (err) { if (err instanceof ApiError && err.status === 401) onExpired(); setError(err instanceof Error ? err.message : 'Perfil indisponível.') }
+        catch (err) { setMutualText(null); if (err instanceof ApiError && err.status === 401) onExpired() }
+      } else setMutualText(null)
+      setProfile(person)
+    } catch (err) {
+      // Com o perfil aberto (ex.: após seguir), o erro aparece nele; senão, no topo da Comunidade.
+      if (!profile) fail(err, 'Perfil indisponível.')
+      else { if (err instanceof ApiError && err.status === 401) onExpired(); setProfileError(err instanceof Error ? err.message : 'Perfil indisponível.') }
+    }
   }
 
   async function follow(person: SocialUser) {
+    setProfileError('')
     try {
       if (person.follow_state === 'approved' || person.follow_state === 'pending') await request<void>(`/users/${person.id}/follow`, 'DELETE')
       else await request(`/users/${person.id}/follow`, 'PUT')
       await openProfile(person.id)
       setPeople(old => old.map(item => item.id === person.id ? { ...item, follow_state: item.social_public ? (item.follow_state === 'approved' ? 'none' : 'approved') : (item.follow_state === 'pending' ? 'none' : 'pending') } : item))
-    } catch (err) { setError(err instanceof Error ? err.message : 'Não foi possível atualizar o vínculo.') }
+    } catch (err) { if (err instanceof ApiError && err.status === 401) onExpired(); setProfileError(err instanceof Error ? err.message : 'Não foi possível atualizar o vínculo.') }
   }
 
-  async function block(person: SocialUser) {
-    Alert.alert('Bloquear conta', `Bloquear ${person.name}? Os vínculos atuais serão removidos.`, [
-      { text: 'Cancelar', style: 'cancel' },
-      { text: 'Bloquear', style: 'destructive', onPress: () => { void request<void>(`/users/${person.id}/block`, 'PUT').then(() => { setProfile(null); void load(true) }).catch(err => setError(err.message)) } },
-    ])
-  }
-
-  async function report(type: string, id: number) {
-    const choices = ['spam', 'assedio', 'conteudo_inadequado', 'outro'].map(reason => ({
-      text: reason.replaceAll('_', ' '), onPress: () => { void request('/reports', 'POST', { target_type: type, target_id: id, reason }).then(() => Alert.alert('Denúncia enviada', 'A equipe de moderação fará a análise.')).catch(err => setError(err.message)) },
-    }))
-    Alert.alert('Denunciar', 'Selecione o motivo da denúncia.', [...choices, { text: 'Cancelar', style: 'cancel' }])
-  }
-
-  async function toggleLike(post: Post) {
-    try {
-      await request<void>(`/posts/${post.id}/like`, post.liked_by_me ? 'DELETE' : 'PUT')
-      const update = (item: Post) => item.id === post.id ? { ...item, liked_by_me: !post.liked_by_me, like_count: item.like_count + (post.liked_by_me ? -1 : 1) } : item
-      setItems(old => old.map(update)); setProfilePosts(old => old.map(update))
-    } catch (err) { setError(err instanceof Error ? err.message : 'Não foi possível curtir.') }
-  }
-
-  async function saveCaption() {
-    if (!editingPost || busy) return
-    setBusy(true)
-    try {
-      const updated = await request<Post>(`/posts/${editingPost.id}`, 'PATCH', { caption: editingCaption })
-      const replace = (post: Post) => post.id === updated.id ? updated : post
-      setItems(old => old.map(replace)); setProfilePosts(old => old.map(replace)); setEditingPost(null)
-    } catch (err) { setError(err instanceof Error ? err.message : 'Não foi possível editar a legenda.') }
-    finally { setBusy(false) }
-  }
-
-  async function showComments(post: Post) {
-    setCommentsFor(commentsFor === post.id ? null : post.id)
-    if (commentsFor === post.id) return
-    try { const page = await request<Page<SocialComment>>(`/posts/${post.id}/comments`); setComments(old => ({ ...old, [post.id]: page.items })); setCommentCursors(old => ({ ...old, [post.id]: page.next_cursor })) }
-    catch (err) { setError(err instanceof Error ? err.message : 'Comentários indisponíveis.') }
-  }
-
-  async function sendComment(post: Post) {
-    const body = commentDraft[post.id]?.trim()
-    if (!body || busy) return
-    setBusy(true)
-    try {
-      const added = await request<SocialComment>(`/posts/${post.id}/comments`, 'POST', { body })
-      setComments(old => ({ ...old, [post.id]: [...(old[post.id] ?? []), added] })); setCommentDraft(old => ({ ...old, [post.id]: '' }))
-      setItems(old => old.map(item => item.id === post.id ? { ...item, comment_count: item.comment_count + 1 } : item))
-    } catch (err) { setError(err instanceof Error ? err.message : 'Não foi possível comentar.') }
-    finally { setBusy(false) }
-  }
-
-  async function loadSocialPage(which: 'people' | 'profile' | 'comments', postId?: number) {
-    const next = which === 'people' ? peopleCursor : which === 'profile' ? profileCursor : postId ? commentCursors[postId] : null
-    if (!next || busy) return
-    setBusy(true); setError('')
-    try {
-      const suffix = `cursor=${encodeURIComponent(next)}`
-      if (which === 'people') {
-        const page = await request<Page<SocialUser>>(`/users?q=${encodeURIComponent(searchQuery)}&${suffix}`)
-        setPeople(old => [...old, ...page.items]); setPeopleCursor(page.next_cursor)
-      } else if (which === 'profile' && profile) {
-        const page = await request<Page<Post>>(`/users/${profile.id}/posts?${suffix}`)
-        setProfilePosts(old => [...old, ...page.items]); setProfileCursor(page.next_cursor)
-      } else if (postId) {
-        const page = await request<Page<SocialComment>>(`/posts/${postId}/comments?${suffix}`)
-        setComments(old => ({ ...old, [postId]: [...(old[postId] ?? []), ...page.items] }))
-        setCommentCursors(old => ({ ...old, [postId]: page.next_cursor }))
-      }
-    } catch (err) { if (err instanceof ApiError && err.status === 401) onExpired(); setError(err instanceof Error ? err.message : 'Não foi possível carregar mais itens.') }
-    finally { setBusy(false) }
-  }
-
-  function avatar(path: string | null, name: string, size = 42) {
-    return path && token ? <Image source={{ uri: apiUrl(path), headers: { Authorization: `Bearer ${token}` } }} accessibilityLabel={`Foto de ${name}`} style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: '#e2e4e9' }} /> :
-      <View accessibilityRole="image" accessibilityLabel={name} style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: '#edf3ef', alignItems: 'center', justifyContent: 'center' }}><Text style={styles.heading}>{name.slice(0, 1).toUpperCase()}</Text></View>
-  }
-
-  function renderPost({ item }: { item: Post }) {
-    return <View style={styles.card}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-        {avatar(item.author.avatar_url, item.author.name, 38)}
-        <Button secondary title={item.author.name} onPress={() => void openProfile(item.author.id)} />
-        {!item.can_edit ? <Button secondary title="Denunciar" onPress={() => void report('post', item.id)} /> : <><Button secondary title="Editar legenda" onPress={() => { setEditingPost(item); setEditingCaption(item.caption) }} /><Button secondary title="Excluir" onPress={() => Alert.alert('Excluir publicação', 'Deseja remover esta foto?', [{ text: 'Cancelar', style: 'cancel' }, { text: 'Excluir', style: 'destructive', onPress: () => { void request<void>(`/posts/${item.id}`, 'DELETE').then(() => setItems(old => old.filter(post => post.id !== item.id))).catch(err => setError(err.message)) } }])} /></>}
-      </View>
-      <Image source={{ uri: apiUrl(item.image_url), headers: token ? { Authorization: `Bearer ${token}` } : {} }} accessibilityLabel={item.caption || `Publicação de ${item.author.name}`} style={{ width: '100%', aspectRatio: 1, borderRadius: 10, backgroundColor: '#e2e4e9' }} />
-      {item.caption ? <Text style={[styles.body, { marginTop: 10 }]}>{item.caption}</Text> : null}
-      <View style={styles.row}><Button secondary title={`${item.liked_by_me ? 'Curtido' : 'Curtir'} · ${item.like_count}`} onPress={() => void toggleLike(item)} /><Button secondary title={`Comentários · ${item.comment_count}`} onPress={() => void showComments(item)} /></View>
-      {commentsFor === item.id ? <View style={{ marginTop: 10 }}>
-        {(comments[item.id] ?? []).map(comment => <View key={comment.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginVertical: 5 }}>
-          {avatar(comment.author_avatar_url, comment.author_name, 28)}<Text style={[styles.body, { flex: 1, marginBottom: 0 }]}><Text style={{ fontWeight: '700' }}>{comment.author_name} </Text>{comment.body}</Text>
-          {comment.can_delete ? <Button secondary title="Excluir" onPress={() => { void request<void>(`/comments/${comment.id}`, 'DELETE').then(() => setComments(old => ({ ...old, [item.id]: (old[item.id] ?? []).filter(entry => entry.id !== comment.id) }))).catch(err => setError(err.message)) }} /> : null}
-        </View>)}
-        {commentCursors[item.id] ? <Button secondary title="Carregar mais comentários" disabled={busy} onPress={() => void loadSocialPage('comments', item.id)} /> : null}
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><TextInput accessibilityLabel="Escreva um comentário" value={commentDraft[item.id] ?? ''} onChangeText={value => setCommentDraft(old => ({ ...old, [item.id]: value }))} maxLength={1000} placeholder="Adicione um comentário" style={[styles.input, { flex: 1, marginTop: 8 }]} /><Button title="Enviar" disabled={busy || !commentDraft[item.id]?.trim()} onPress={() => void sendComment(item)} /></View>
-      </View> : null}
-    </View>
+  function blocked() {
+    const id = profile?.id
+    setProfile(null)
+    setPeople(old => old.filter(person => person.id !== id))
+    reloadFeed()
   }
 
   const header = <View>
     <Text style={styles.eyebrow}>O ESPORTE CONECTA</Text><Text style={styles.title}>Comunidade</Text>
     {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
     <View style={styles.card}><Text style={styles.heading}>Compartilhe sua trajetória</Text><Text style={styles.body}>Publique uma foto quadrada e uma legenda opcional.</Text><Button title={selectedImage ? 'Trocar foto' : 'Escolher foto'} onPress={() => void choosePhoto()} />
-      {selectedImage ? <><Image source={{ uri: selectedImage.uri }} accessibilityLabel="Prévia da foto recortada" style={{ width: '100%', aspectRatio: 1, marginTop: 12, borderRadius: 12 }} /><Field label="Legenda (opcional)" value={caption} onChangeText={setCaption} maxLength={2200} multiline /><Text style={styles.body}>{caption.length}/2.200</Text><Button title={busy ? 'Publicando…' : 'Publicar'} disabled={busy} onPress={() => void publish()} /><Button secondary title="Cancelar foto" disabled={busy} onPress={() => { setSelectedImage(null); setCaption('') }} /></> : null}
+      {selectedImage ? <><Image source={{ uri: selectedImage.uri }} accessibilityLabel="Prévia da foto recortada" style={{ width: '100%', aspectRatio: 1, marginTop: 12, borderRadius: 12 }} /><Field label="Legenda (opcional)" value={caption} onChangeText={setCaption} maxLength={CAPTION_MAX} multiline /><Text style={styles.body}>{caption.length}/2.200</Text><Button title={busy ? 'Publicando…' : 'Publicar'} disabled={busy} onPress={() => void publish()} /><Button secondary title="Cancelar foto" disabled={busy} onPress={() => { setSelectedImage(null); setCaption('') }} /></> : null}
     </View>
-    <View style={styles.card}><Text style={styles.heading}>Encontrar atletas</Text><Field label="Nome ou @" value={query} onChangeText={setQuery} maxLength={100} /><Button title="Buscar" onPress={() => void search()} />{people.map(person => <View key={person.id} style={[styles.row, { marginTop: 10 }]}>{avatar(person.avatar_url, person.name)}<View><Button secondary title={person.name} onPress={() => void openProfile(person.id)} /><Text style={{ color: '#606965', fontSize: 13 }}>@{person.username}</Text></View><Button title={person.follow_state === 'approved' ? 'Seguindo' : person.follow_state === 'pending' ? 'Solicitado' : 'Seguir'} onPress={() => void follow(person)} /></View>)}{peopleCursor ? <Button secondary title="Carregar mais atletas" disabled={busy} onPress={() => void loadSocialPage('people')} /> : null}</View>
+    <View style={styles.card}><Text style={styles.heading}>Encontrar atletas</Text><Field label="Nome ou @" value={query} onChangeText={setQuery} maxLength={100} /><Button title="Buscar" onPress={() => void search()} />{people.map(person => <View key={person.id} style={[styles.row, { marginTop: 10 }]}><Avatar path={person.avatar_url} name={person.name} token={token} /><View><Button secondary title={person.name} onPress={() => void openProfile(person.id)} /><Text style={{ color: '#606965', fontSize: 13 }}>@{person.username}</Text></View><Button title={person.follow_state === 'approved' ? 'Seguindo' : person.follow_state === 'pending' ? 'Solicitado' : 'Seguir'} onPress={() => void follow(person)} /></View>)}{peopleCursor ? <Button secondary title="Carregar mais atletas" disabled={busy} onPress={() => void morePeople()} /> : null}</View>
     <Text style={styles.heading}>Publicações recentes</Text>
+    {feed.error ? <><Text accessibilityRole="alert" style={styles.error}>{feed.error.message}</Text><Button secondary title="Tentar novamente" onPress={reloadFeed} /></> : null}
   </View>
 
-  const canView = Boolean(profile && (profile.social_public || profile.follow_state === 'approved' || profile.id === user.id))
+  const footer = <View>
+    {feed.moreError ? <Text accessibilityRole="alert" style={styles.error}>{feed.moreError}</Text> : null}
+    {feed.busy ? <ActivityIndicator accessibilityLabel="Carregando mais publicações" color="#005a36" /> : feed.hasMore ? <Button secondary title="Carregar mais publicações" onPress={() => void feed.loadMore()} /> : null}
+  </View>
+
   return <>
-    <FlatList data={items} keyExtractor={item => String(item.id)} renderItem={renderPost} ListHeaderComponent={header} ListEmptyComponent={loading ? <ActivityIndicator accessibilityLabel="Carregando publicações" color="#005a36" /> : <Text style={styles.body}>Seu feed está vazio. Encontre atletas e solicite acesso a contas privadas.</Text>} contentContainerStyle={{ padding: 22, paddingBottom: 30 }} refreshControl={<RefreshControl refreshing={loading} onRefresh={() => void load(true)} />} onEndReached={() => { if (cursor && !busy) void load() }} onEndReachedThreshold={0.6} />
-    <Modal visible={Boolean(profile)} animationType="slide" onRequestClose={() => setProfile(null)}><View style={[styles.screen, { padding: 22 }]}>
-      <Button secondary title="Fechar perfil" onPress={() => setProfile(null)} />{profile ? <><View style={[styles.card, { marginTop: 20, padding: 0, overflow: 'hidden' }]}><Cover path={profile.cover_url} token={token} /><View style={{ padding: 22 }}><View style={styles.row}>{avatar(profile.avatar_url, profile.name, 60)}<View style={{ flex: 1 }}><ProfileTitle name={profile.name} username={profile.username} /><Text style={styles.body}>{profile.social_public ? 'Perfil público' : 'Perfil privado'}</Text></View></View>
-        <Text accessibilityLabel="Contagens do perfil" style={styles.body}>{canView ? `${profile.post_count} publicações · ` : ''}{connectionsText(profile.follower_count, profile.following_count)}</Text>
-        {mutualText ? <Text style={styles.body}>{mutualText}</Text> : null}
-        {profile.id !== user.id ? <><Button title={profile.follow_state === 'approved' ? 'Deixar de seguir' : profile.follow_state === 'pending' ? 'Cancelar solicitação' : profile.social_public ? 'Seguir' : 'Solicitar acesso'} onPress={() => void follow(profile)} /><Button secondary title="Bloquear conta" onPress={() => void block(profile)} /><Button secondary title="Denunciar conta" onPress={() => void report('user', profile.id)} /></> : null}
-      </View></View>{canView ? <FlatList data={profilePosts} keyExtractor={post => String(post.id)} renderItem={renderPost} ListFooterComponent={profileCursor ? <Button secondary title="Carregar mais fotos" disabled={busy} onPress={() => void loadSocialPage('profile')} /> : null} /> : <Text style={styles.body}>Esta conta é privada. Solicite acesso para ver as publicações; as listas de seguidores também ficam fechadas até lá.</Text>}</> : null}
-    </View></Modal>
-    <Modal visible={Boolean(editingPost)} transparent animationType="fade" onRequestClose={() => setEditingPost(null)}><View style={{ flex: 1, justifyContent: 'center', padding: 22, backgroundColor: '#0008' }}><View style={styles.card}><Text style={styles.heading}>Editar legenda</Text><TextInput accessibilityLabel="Legenda da publicação" value={editingCaption} onChangeText={setEditingCaption} maxLength={2200} multiline style={[styles.input, { minHeight: 100, textAlignVertical: 'top' }]} /><Button title={busy ? 'Salvando…' : 'Salvar legenda'} disabled={busy} onPress={() => void saveCaption()} /><Button secondary title="Cancelar" disabled={busy} onPress={() => setEditingPost(null)} /></View></View></Modal>
+    <FlatList data={feed.items} keyExtractor={item => String(item.id)} keyboardShouldPersistTaps="handled"
+      renderItem={({ item }) => <PostItem post={item} viewerId={user.id} token={token} onUpdate={updatePost} onRemove={removePost} onOpenProfile={id => void openProfile(id)} onExpired={onExpired} />}
+      ListHeaderComponent={header} ListFooterComponent={footer}
+      ListEmptyComponent={feed.loading ? <ActivityIndicator accessibilityLabel="Carregando publicações" color="#005a36" /> : feed.error ? null : <Text style={styles.body}>Seu feed está vazio. Encontre atletas e solicite acesso a contas privadas.</Text>}
+      contentContainerStyle={{ padding: 22, paddingBottom: 30 }} refreshControl={<RefreshControl refreshing={feed.loading} onRefresh={reloadFeed} />}
+      onEndReached={() => { if (feed.hasMore && !feed.busy) void feed.loadMore() }} onEndReachedThreshold={0.6} />
+    {profile ? <VisitedProfile profile={profile} user={user} token={token} mutualText={mutualText} error={profileError} onClose={() => setProfile(null)} onFollow={person => void follow(person)}
+      onBlocked={blocked} onPostUpdate={updatePost} onPostRemove={removeProfilePost} onExpired={onExpired} /> : null}
   </>
 }
