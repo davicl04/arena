@@ -287,18 +287,22 @@ class Booking:
     starts_at: datetime
     court_id: int | None
     subjects: frozenset[tuple[str, int]]      # ('time', team id) or ('atleta', user id)
+    court_key: str | None = None              # normalized name of the court (same city and kind within an event)
 
 
 def find_conflict(starts_at: datetime, court_id: int | None, subjects: Iterable[tuple[str, int]],
-                  others: Iterable[Booking]) -> tuple[Literal['quadra', 'time'], Booking] | None:
+                  others: Iterable[Booking],
+                  court_key: str | None = None) -> tuple[Literal['quadra', 'time'], Booking] | None:
     """The match that clashes with the new start: the same court with another match of the event less than 2 h
     apart (decided on 12 Oct 2026), else a competitor of the match that plays another one less than 2 h apart.
-    Exactly 2 h apart is free."""
+    Exactly 2 h apart is free. The court is the same by id or, as every court of an event shares city and kind, by
+    the normalized name (`court_key`): a suggestion not yet created, or one repeated under review, is the same place."""
     near = sorted((other for other in others if abs(other.starts_at - starts_at) < CONFLICT_WINDOW),
                   key=lambda other: (abs(other.starts_at - starts_at), other.match_id))
     mine = frozenset(subjects)
-    if court_id is not None:
-        court = next((other for other in near if other.court_id == court_id), None)
+    if court_id is not None or court_key:
+        court = next((other for other in near if (court_id is not None and other.court_id == court_id)
+                      or (court_key and other.court_key == court_key)), None)
         if court is not None:
             return 'quadra', court
     team = next((other for other in near if mine & other.subjects), None)

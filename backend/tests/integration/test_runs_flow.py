@@ -402,6 +402,25 @@ def test_only_the_own_confirmed_entry_of_a_started_race_counts(setup):
     assert run_count(db) == 1
 
 
+def test_the_entry_is_checked_before_the_measure_of_a_race_mark(setup):
+    """0002, 18.4: an unconfirmed entry or a race that has not started answers 409 even with an implausible time."""
+    http, db = setup
+    owner, (athlete, headers) = make_user(db, 'dono'), runner(db, 'ana')
+    paid = race(db, owner, free=False, distance_km=10, name='Corrida paga')
+    reserved = enter(db, paid, athlete, state='reservada')
+    upcoming = race(db, owner, distance_km=10, starts_at=NOW + HOUR, name='Corrida de hoje')
+    waiting = enter(db, upcoming, athlete)
+    ready = enter(db, race(db, owner, distance_km=10, name='Corrida pronta'), athlete)
+    for entry, text in ((reserved, 'confirmadas'), (waiting, 'depois da largada')):
+        for path in ('/me/runs/preview', '/me/runs'):
+            response = http.post(f'{API}{path}', json=body(10000, 60, source='prova', entry_id=entry.id),
+                                 headers=headers)
+            assert response.status_code == 409 and text in response.json()['detail']
+    measure = http.post(f'{API}/me/runs', json=body(10000, 60, source='prova', entry_id=ready.id), headers=headers)
+    assert measure.status_code == 422 and measure.json()['fields'][0]['field'] == 'duration_s'
+    assert run_count(db) == 0
+
+
 def test_a_race_older_than_the_window_does_not_take_a_mark(setup):
     http, db = setup
     owner, (athlete, headers) = make_user(db, 'dono'), runner(db, 'ana')

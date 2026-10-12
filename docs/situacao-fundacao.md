@@ -1,5 +1,32 @@
 # Situação da fundação do Arena
 
+## Correções da revisão das etapas 4 e 5 — 12 de outubro de 2026
+
+Frente R45, sobre `3d3fa9f` (etapas 4 e 5): corrige os achados da revisão. Sem migração nova nem dependência nova; só o backend (serviços) e a web (telas e `useSubmit`) mudaram, mais os contratos [0003, seções 21.5, 21.6 e 21.11](decisoes/0003-times-campeonatos.md#21-etapa-4--chaveamento-agenda-e-decisão-do-organizador-fases-6-e-7) e [0002, 18.6](decisoes/0002-jogar.md#18-fase-6--corrida-marcas-e-elo-por-distância).
+
+**O que mudou:**
+- **Quadra sugerida na agenda (P2):** `championship._resolve_court` reaproveita a sugestão em revisão feita por **qualquer partida do mesmo evento** (antes só a da própria partida): a fila da administração recebe uma linha por lugar, em vez de uma por jogo. O conflito de 2 h passou a comparar também o **nome normalizado da quadra** (`Booking.court_key`, `find_conflict(..., court_key=)`), porque todas as quadras de um evento são da mesma cidade e do mesmo tipo: a sugestão que ainda não existe, ou uma publicada e outra em revisão com o mesmo nome, contam como o mesmo lugar. Duas partidas do mesmo evento com a mesma sugestão a menos de 2 h agora respondem `409` com o `conflict` certo.
+- **Mensagens de `409` (P3):** trocar e confirmar o chaveamento de um evento cancelado ou encerrado respondem "Este evento não aceita mais troca de posições no chaveamento." e "Este evento não aceita mais confirmação do chaveamento."; "O chaveamento já foi confirmado." fica para o evento em andamento.
+- **Ordem do registro de corrida (P3):** `check_run` valida a inscrição e o evento (inscrição não confirmada, prova cancelada, largada futura, evento que não é corrida) **antes** da medida (422), como o 0002 §18.4 manda; a marca já existente (`409`) passou para depois da data e da distância da prova.
+- **Aviso repetido (P3):** `divergencia_para_decidir` sai **uma vez por divergência**; as correções que continuam divergentes não avisam o organizador de novo (os elencos seguem avisados a cada correção).
+- **Web, estado obsoleto depois de erro (P3):** `useSubmit.run` ganhou o terceiro parâmetro `onFailure` e `isStale` (`404`/`409`). Um erro assim faz `BracketPage` (sortear, trocar, confirmar), `EventMatchesPage` (agendar, exceto o conflito de agenda), `ResultDecisionPage` (decidir) e `RunHistorySheet` (remover) **reler o recurso**, mantendo a mensagem do servidor na tela: a folha de agenda fecha se o jogo não aceita mais agendamento, o formulário de decisão cede ao estado atual quando a decisão não cabe mais, e a marca já removida some da lista. "Fechar" do `RunStopwatchDialog` fica desabilitado enquanto salva.
+- **Documentação:** 0002 §18.6 (`down_revision = '0010'`, como o arquivo da migração `0011`), 0003 (regras de 21.5 e 21.6, a linha "Estado velho depois de um erro" e as limitações abaixo na 21.11) e este registro.
+
+**Verificações executadas (backend, na worktree `3d3fa9f` + correções):**
+- `ruff check app migrations tests` sem apontamentos;
+- `pytest -q --cov=app --cov-branch` com `TEST_DATABASE_URL`: 1533 aprovados e 1 pulado (o round-trip S3 real), cobertura combinada de 98% (121 instruções não cobertas; 66 ramos parciais), acima do piso de 85% (uma execução anterior, feita com a suíte da web rodando ao mesmo tempo, mediu `services/courts.py` com 68% e 147 não cobertas; repetida sem a carga, voltou a 98%, e o arquivo só mudou na docstring); testes novos: 2 de integração da agenda (mesma sugestão em duas partidas, conflito por nome com a quadra publicada), 1 de integração das mensagens de `409`, 1 da ordem do registro de corrida, 1 do aviso único, mais os de unidade de `find_conflict`, das mensagens e da ordem de `check_run`;
+- não houve migração nova (`alembic check` não foi reexecutado).
+
+**Verificações executadas (web):**
+- `npm run lint` sem apontamentos e `npm run build` concluído (o aviso de pacote acima de 500 kB continua: 1.251,59 kB);
+- `npx vitest run --coverage --maxWorkers=4`: 72 arquivos e 908 testes aprovados (898 antes; 10 novos, um por caso do achado mais os casos de contraste, como o `422` que não relê); cobertura de 92,35% das instruções, 85,88% dos ramos, 91,94% das funções e 95,42% das linhas.
+
+**Limitações e pendências (registradas, não implementadas):**
+- A trava do conflito de agenda é **por evento**: não há verificação entre eventos do mesmo organizador nem contra amistosos na mesma quadra (0003, 21.11).
+- O evento cujas **duas últimas partidas fecham ao mesmo tempo** só é encerrado pela varredura (`campeonatos_encerrados`) (0003, 21.11).
+- A tela do chaveamento agora relê o sorteio depois de um `404`/`409`, mas continua sem reler sozinha quando as inscrições confirmadas mudam sem erro; o `409 As inscrições confirmadas mudaram desde o sorteio` segue pedindo "Sortear de novo".
+- As correções da web foram conferidas só pelos testes de interface com `fetch` simulado; não houve conferência no navegador contra a API real nem em aparelho, e o Expo não foi tocado por esta frente (as telas equivalentes do app já releem o estado depois de `404`/`409` desde a integração do Expo, registrada abaixo). O CI remoto não foi executado.
+
 ## Expo: times, organizador, eventos, comprovantes, administração, Jogar, corrida e campeonatos — 12 de outubro de 2026
 
 Última etapa da execução dos planos de [Times e campeonatos](plano-times-campeonatos.md) e do [Jogar](plano-jogar.md) (decidida em 12 de outubro de 2026: o Expo vem por último, com **todas** as telas, inclusive organizador e administração). O cliente Expo passa a consumir os contratos [0003](decisoes/0003-times-campeonatos.md) e [0002](decisoes/0002-jogar.md) das etapas 1 a 5, os mesmos que a web já consumia. **Só o cliente mudou:** nenhuma alteração de backend, migração ou contrato. O `mobile/` veio da branch `orq/expo` (HEAD `c11c883`), que reuniu as frentes do Expo, e esta entrega registra a verificação final e a documentação. **Não é o MVP completo, e não se declara paridade visual com a web nem funcionamento em aparelho** (veja "Não verificado").

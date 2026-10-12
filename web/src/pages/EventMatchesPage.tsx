@@ -14,7 +14,7 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { feedbackVariants } from '@/components/ui/feedback'
 import { whenText } from '@/data/match'
 import { useResource } from '@/hooks/useResource'
-import { useSubmit } from '@/hooks/useSubmit'
+import { isStale, useSubmit } from '@/hooks/useSubmit'
 import { cn } from '@/lib/utils'
 import { plural } from '@/utils/format'
 
@@ -84,6 +84,20 @@ export default function EventMatchesPage({ eventId, initialMatchId, onInitialSho
   }
   function close() { action.setError(''); setConflict(null); setSelected(null) }
 
+  /** Um `409`/`404` que não é conflito de agenda (resultado já definido, partida começada…) mostra uma lista velha: relê. */
+  async function reread(cause: unknown) {
+    if (!isStale(cause) || scheduleConflict(cause)) return
+    try {
+      const fresh = await listEventMatches(eventId)
+      setData(fresh)
+      // A folha só continua aberta se a partida ainda aceita o agendamento; a mensagem do servidor fica na tela.
+      setSelected(current => fresh.items.some(item => item.card.id === current && item.can_schedule) ? current : null)
+      setStatus('')
+    } catch (failure) {
+      if (failure instanceof ApiError && failure.status === 401) onExpired()
+    }
+  }
+
   async function save(input: ScheduleInput) {
     if (!row) return
     setConflict(null)
@@ -95,7 +109,7 @@ export default function EventMatchesPage({ eventId, initialMatchId, onInitialSho
         found = scheduleConflict(cause)
         throw cause
       }
-    }, 'Não foi possível agendar a partida.')
+    }, 'Não foi possível agendar a partida.', reread)
     if (!saved) { setConflict(found); return }
     setSelected(null)
     setStatus(`${saved.label} ${row.card.starts_at ? 'reagendado' : 'agendado'} para ${whenText(saved.card.starts_at)}${saved.card.court ? ` em ${saved.card.court.name}` : ''}. Os dois elencos foram avisados.`)

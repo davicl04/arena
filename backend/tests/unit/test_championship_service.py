@@ -138,6 +138,31 @@ def test_nothing_is_swapped_without_a_draw_or_after_the_confirmation(drawing):
     assert confirmed.value.detail == championship.BRACKET_CONFIRMED
 
 
+@pytest.mark.parametrize('state', ['cancelado', 'encerrado'])
+def test_a_cancelled_or_finished_event_refuses_the_swap_and_the_confirmation_with_its_own_message(drawing, state):
+    drawing.tournament = event(state=state)
+    drawing.db.on('event_brackets', EventBracket(event_id=1, state='sorteado', slots=[1, 2]))
+    with pytest.raises(HTTPException) as swap:
+        championship.swap_bracket(drawing.db, OWNER, 1, BracketSwapInput(a=0, b=1), now=NOW)
+    assert (swap.value.status_code, swap.value.detail) == (
+        409, 'Este evento não aceita mais troca de posições no chaveamento.')
+    with pytest.raises(HTTPException) as confirming:
+        championship.confirm_bracket(drawing.db, OWNER, 1, now=NOW)
+    assert (confirming.value.status_code, confirming.value.detail) == (
+        409, 'Este evento não aceita mais confirmação do chaveamento.')
+    assert drawing.db.commits == 0
+
+
+def test_an_event_under_way_or_with_a_confirmed_bracket_says_the_bracket_was_confirmed(drawing):
+    drawing.tournament = event(state='em_andamento')
+    drawing.db.on('event_brackets', EventBracket(event_id=1, state='sorteado', slots=[1, 2]))
+    for action in (lambda: championship.swap_bracket(drawing.db, OWNER, 1, BracketSwapInput(a=0, b=1), now=NOW),
+                   lambda: championship.confirm_bracket(drawing.db, OWNER, 1, now=NOW)):
+        with pytest.raises(HTTPException) as refused:
+            action()
+        assert (refused.value.status_code, refused.value.detail) == (409, championship.BRACKET_CONFIRMED)
+
+
 # ----- The list and the conflict ---------------------------------------------------------------------------------
 
 def test_matches_are_labelled_in_bracket_order_and_staged_by_the_competition():

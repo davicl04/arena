@@ -153,7 +153,7 @@ export function RunStopwatchDialog({ initialDistance, onClose, onSaved, onFindRa
       className="inset-0 h-full w-full max-w-none translate-none gap-0 overflow-x-hidden overflow-y-auto rounded-none bg-[radial-gradient(120%_60%_at_50%_0%,#163f2c_0%,var(--color-night)_65%)] p-0 text-white shadow-none sm:max-w-none">
       <div className="flex min-h-full flex-col">
         <header className="flex items-center justify-between px-2 pt-2">
-          <IconButton type="button" tone="glass" aria-label="Fechar" onClick={onClose}><X size={20} aria-hidden="true" /></IconButton>
+          <IconButton type="button" tone="glass" aria-label="Fechar" disabled={busy} onClick={onClose}><X size={20} aria-hidden="true" /></IconButton>
           <DialogTitle className="text-[15px] text-white">Registrar corrida</DialogTitle>
           <span aria-hidden="true" className="w-11" />
         </header>

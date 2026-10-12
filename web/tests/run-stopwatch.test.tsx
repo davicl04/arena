@@ -360,6 +360,29 @@ describe('K2: teclado e saída', () => {
     expect(onClose).toHaveBeenCalledTimes(2)
   })
 
+  it('durante o salvamento "Fechar" e Esc ficam parados, para não perder a resposta; depois voltam', async () => {
+    let release: (value: unknown) => void = () => {}
+    const { ui, onClose, onSaved } = setup({
+      [PREVIEW]: preview(),
+      [SAVE]: () => new Promise(resolve => { release = resolve }),
+    })
+    time(0, 24, 12)
+    await screen.findByText('Primeira marca nos 5 km')
+    expect((screen.getByRole('button', { name: 'Fechar' }) as HTMLButtonElement).disabled).toBe(false)
+    await ui.click(saveButton())
+    const close = screen.getByRole('button', { name: 'Fechar' }) as HTMLButtonElement
+    expect(close.disabled).toBe(true)
+    await ui.click(close)
+    await ui.keyboard('{Escape}')
+    expect(onClose).not.toHaveBeenCalled()
+    release(apiError(503, 'Serviço indisponível.'))
+    expect((await screen.findByRole('alert')).textContent).toBe('Serviço indisponível.')
+    expect(onSaved).not.toHaveBeenCalled()
+    await waitFor(() => expect((screen.getByRole('button', { name: 'Fechar' }) as HTMLButtonElement).disabled).toBe(false))
+    await ui.click(screen.getByRole('button', { name: 'Fechar' }))
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
   it('a régua anda com as setas do teclado e Enter escolhe a distância', async () => {
     const { ui } = setup()
     await settled()

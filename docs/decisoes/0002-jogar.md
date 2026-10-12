@@ -1281,7 +1281,7 @@ Validação na ordem em que o atleta a encontra (a prévia aplica as mesmas regr
 
 ### 18.6 Esquema (migração `0011`)
 
-`down_revision = '0009'` (o orquestrador encadeia depois da `0010`). Cria só `runs`; os cortes `corrida_*` (`calc_version = 1`) e as linhas de `standings` da corrida já existiam desde a `0005`. O `downgrade` apaga as linhas de `standings` da corrida (derivadas das marcas que saem) e remove a tabela.
+`down_revision = '0010'` (a migração encadeia depois da `0010` dos campeonatos). Cria só `runs`; os cortes `corrida_*` (`calc_version = 1`) e as linhas de `standings` da corrida já existiam desde a `0005`. O `downgrade` apaga as linhas de `standings` da corrida (derivadas das marcas que saem) e remove a tabela.
 
 | Coluna | Conteúdo e restrições |
 | --- | --- |

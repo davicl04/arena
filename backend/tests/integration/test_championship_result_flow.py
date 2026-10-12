@@ -196,6 +196,33 @@ def test_divergence_waits_for_the_organizer_and_is_decided_with_a_justification(
                     headers=rep['headers']).status_code == 409
 
 
+def test_the_organizer_is_told_once_while_a_correction_keeps_the_reports_apart(client, monkeypatch):
+    http, db = client
+    world = started_world(http, db, monkeypatch)
+    one = matches_of(db, world, 1)[0]
+    sides = sides_of(db, world, one.id)
+    put_result(http, reporter(world, sides['a']), one.id, 2, 1)
+    assert notes(db, world['owner_id'], 'divergencia_para_decidir') == []        # one report is no divergence
+    put_result(http, reporter(world, sides['b']), one.id, 1, 2)                   # now they differ: the organizer hears
+    assert len(notes(db, world['owner_id'], 'divergencia_para_decidir')) == 1
+    # Corrections that still differ do not warn the organizer again (the sides are told, as before).
+    put_result(http, reporter(world, sides['a']), one.id, 3, 1)
+    put_result(http, reporter(world, sides['b']), one.id, 0, 2)
+    put_result(http, reporter(world, sides['a']), one.id, 3, 1)                   # the same score again: no change
+    got = notes(db, world['owner_id'], 'divergencia_para_decidir')
+    assert len(got) == 1 and got[0].payload['match_id'] == one.id
+    assert len(notes(db, reps(world, db, one.id)['b']['user_id'], 'resultado_divergente')) == 3
+    # The other semifinal diverges on its own: one warning each.
+    two = matches_of(db, world, 1)[1]
+    diverge(http, db, world, two.id, (1, 0), (0, 1))
+    assert sorted(item.payload['match_id'] for item in notes(db, world['owner_id'], 'divergencia_para_decidir')) == (
+        sorted([one.id, two.id]))
+    # Agreeing ends the divergence.
+    put_result(http, reporter(world, sides['b']), one.id, 3, 1)
+    db.refresh(one)
+    assert one.state == 'realizada' and len(notes(db, world['owner_id'], 'divergencia_para_decidir')) == 2
+
+
 def test_the_organizer_decides_before_anything_is_reported_only_after_the_deadline_or_for_a_walkover(client, monkeypatch):
     http, db = client
     world = started_world(http, db, monkeypatch)

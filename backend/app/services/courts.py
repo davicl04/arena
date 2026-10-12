@@ -1,8 +1,9 @@
 """Quadras: catálogo por cidade, sugestão na partida e revisão da administração (Jogar, fase 3; RN07).
 
 Contrato: docs/decisoes/0002-jogar.md, seção 10.4. O catálogo começa vazio: uma quadra só entra por sugestão publicada
-pela administração. Uma sugestão `em_revisao` vale apenas na partida que a fez (`origin_match_id`). Ordem das travas:
-partida, depois quadra (as condições da partida referenciam a quadra por chave estrangeira).
+pela administração. Uma sugestão `em_revisao` vale apenas na partida que a fez (`origin_match_id`); na agenda de um
+campeonato, o organizador a reaproveita nas outras partidas do mesmo evento (`championship._resolve_court`). Ordem das
+travas: partida, depois quadra (as condições da partida referenciam a quadra por chave estrangeira).
 """
 from __future__ import annotations
 

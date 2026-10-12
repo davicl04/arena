@@ -96,6 +96,37 @@ def test_the_rules_of_the_race_mark(monkeypatch, values, error, field):
     assert getattr(refused.value, 'field', None) == field
 
 
+@pytest.mark.parametrize('values, error, message', [
+    (dict(event=dict(sport='tenis')), RuleError, 'Esta inscrição não é de uma prova de corrida.'),
+    (dict(entry=dict(state='em_analise')), TransitionError, 'Só inscrições confirmadas registram a marca da prova.'),
+    (dict(event=dict(state='cancelado')), TransitionError, 'Esta prova foi cancelada.'),
+    (dict(event=dict(starts_at=NOW + timedelta(hours=1))), TransitionError,
+     'A marca da prova é registrada depois da largada.'),
+])
+def test_the_entry_and_the_event_are_checked_before_the_measure(monkeypatch, values, error, message):
+    """0002, 18.4: the 409 and 422 of the entry (item 3) come before the measure (item 4)."""
+    monkeypatch.setattr(runs, 'load_entry_for', lambda _db, entry_id, who, *, for_update: (
+        entry(**values.get('entry', {})), race(**values.get('event', {})), 'atleta'))
+    for implausible in (prova(distance_m=10000, duration_s=60), prova(distance_m=500, duration_s=60)):
+        with pytest.raises(error) as refused:
+            runs.check_run(FakeDb().on('runs', False), ATHLETE, implausible, NOW, lock=False)
+        assert str(refused.value) == message
+    monkeypatch.setattr(runs, 'load_entry_for', lambda _db, entry_id, who, *, for_update: (
+        entry(), race(), 'atleta'))
+    with pytest.raises(RuleError) as measure:               # the same race, confirmed and started: the measure
+        runs.check_run(FakeDb().on('runs', False), ATHLETE, prova(distance_m=10000, duration_s=60), NOW, lock=False)
+    assert measure.value.field == 'duration_s'
+
+
+def test_the_window_of_the_race_comes_before_the_single_mark(monkeypatch):
+    """0002, 18.4: the date of the race (item 5) is checked before the mark that already exists (item 6)."""
+    monkeypatch.setattr(runs, 'load_entry_for', lambda _db, entry_id, who, *, for_update: (
+        entry(), race(starts_at=NOW - timedelta(days=400)), 'atleta'))
+    with pytest.raises(RuleError) as old:
+        runs.check_run(FakeDb().on('runs', True), ATHLETE, prova(), NOW, lock=True)
+    assert old.value.field == 'date'
+
+
 def test_a_race_gives_a_single_mark(monkeypatch):
     monkeypatch.setattr(runs, 'load_entry_for', lambda _db, entry_id, who, *, for_update: (
         entry(), race(), 'atleta'))

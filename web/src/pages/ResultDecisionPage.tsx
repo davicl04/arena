@@ -3,6 +3,7 @@ import { Flag, GitCompareArrows, Hourglass, MessagesSquare, Upload } from 'lucid
 import type { LucideIcon } from 'lucide-react'
 import { decideResult } from '@/api/brackets'
 import type { ResultDecisionInput } from '@/api/brackets'
+import { ApiError } from '@/api/client'
 import { getMatch, getMessages } from '@/api/matches'
 import type { MatchDetail, MatchMessageOut } from '@/api/matches'
 import { TeamMark } from '@/components/match/TeamMark'
@@ -13,7 +14,7 @@ import { Button } from '@/components/ui/button'
 import { feedbackVariants } from '@/components/ui/feedback'
 import { headerNames, orderedSides, sideName, sideOf, whenText } from '@/data/match'
 import { useResource } from '@/hooks/useResource'
-import { useSubmit } from '@/hooks/useSubmit'
+import { isStale, useSubmit } from '@/hooks/useSubmit'
 import { cn } from '@/lib/utils'
 import { formatClock, parseIso } from '@/utils/format'
 
@@ -80,8 +81,18 @@ export default function ResultDecisionPage({ matchId, onBack, onOpenChat, onDone
   const chat = useResource(loadChat, onExpired, { enabled: detail?.permissions.read_chat === true, fallback: 'Não foi possível carregar o chat.' })
   const action = useSubmit(onExpired)
 
+  /** Um `409`/`404` mostra que a partida mudou (já decidida, cancelada, placar acertado): relê o detalhe e mostra o estado atual. */
+  async function reread(cause: unknown) {
+    if (!isStale(cause)) return
+    try {
+      match.setData(await getMatch(matchId))
+    } catch (failure) {
+      if (failure instanceof ApiError && failure.status === 401) onExpired()
+    }
+  }
+
   async function decide(input: ResultDecisionInput) {
-    const done = await action.run(() => decideResult<MatchDetail>(matchId, input), 'Não foi possível registrar a decisão.')
+    const done = await action.run(() => decideResult<MatchDetail>(matchId, input), 'Não foi possível registrar a decisão.', reread)
     if (done) onDone()
   }
 
@@ -168,6 +179,9 @@ export default function ResultDecisionPage({ matchId, onBack, onOpenChat, onDone
       {decided && <DecidedCard match={detail} />}
 
       {canDecide && <DecisionForm key={detail.id} match={detail} busy={action.busy} error={action.error} onSubmit={input => void decide(input)} />}
+
+      {/* Sem o formulário (a decisão não cabe mais), a mensagem do servidor continua visível. */}
+      {!canDecide && action.error && <p className={cn(feedbackVariants(), 'my-0')} role="alert">{action.error}</p>}
 
       {!canDecide && !decided && (
         <p className="m-0 rounded-card bg-white p-3.5 text-[12px] leading-[1.5] text-ink-muted" role="note">

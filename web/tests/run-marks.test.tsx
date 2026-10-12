@@ -192,14 +192,35 @@ describe('RunHistorySheet: histórico paginado e remoção', () => {
   })
 
   it('a marca fora das 52 semanas avisa que não conta para o ranking; erro ao remover fica na confirmação', async () => {
-    const { ui, onChanged } = open('5', { [path('5')]: { items: rows, next_cursor: null }, 'DELETE /me/runs/1': apiError(404, 'Marca não encontrada.') })
+    const { api, ui, onChanged } = open('5', { [path('5')]: { items: rows, next_cursor: null }, 'DELETE /me/runs/1': apiError(503, 'Serviço indisponível.') })
     await screen.findByText('26:05')
     await ui.click(screen.getByRole('button', { name: 'Remover a marca de 26:05 em 1 out 2025' }))
     expect(screen.getByRole('group', { name: 'Confirmação' }).textContent).toContain('Não conta para o ranking.')
     await ui.click(within(screen.getByRole('group', { name: 'Confirmação' })).getByRole('button', { name: 'Remover marca' }))
-    expect((await screen.findByRole('alert')).textContent).toBe('Marca não encontrada.')
+    expect((await screen.findByRole('alert')).textContent).toBe('Serviço indisponível.')
     expect(onChanged).not.toHaveBeenCalled()
     expect(screen.getByText('26:05')).not.toBeNull()
+    // Uma falha de servidor não é estado velho: a lista não é relida e a confirmação continua aberta.
+    expect(api.find('GET', '/me/runs?distance=5&limit=20')).toHaveLength(1)
+    expect(screen.getByRole('group', { name: 'Confirmação' })).not.toBeNull()
+  })
+
+  it('404 ao remover (a marca já saiu em outra aba): relê a lista e os cartões, tira a marca e mantém a mensagem', async () => {
+    let reads = 0
+    const { api, ui, onChanged } = open('5', {
+      [path('5')]: () => ({ items: ++reads === 1 ? rows : [rows[0], rows[2]], next_cursor: null }),
+      'DELETE /me/runs/2': apiError(404, 'Marca não encontrada.'),
+    })
+    await screen.findByText('25:31')
+    await ui.click(screen.getByRole('button', { name: 'Remover a marca de 25:31 em 27 set' }))
+    await ui.click(within(screen.getByRole('group', { name: 'Confirmação' })).getByRole('button', { name: 'Remover marca' }))
+    await waitFor(() => expect(screen.queryByText('25:31')).toBeNull())
+    expect(api.find('GET', '/me/runs?distance=5&limit=20')).toHaveLength(2)
+    expect((await screen.findByRole('alert')).textContent).toBe('Marca não encontrada.')
+    expect(screen.queryByRole('group', { name: 'Confirmação' })).toBeNull()
+    expect(onChanged).toHaveBeenCalledTimes(1)
+    expect(within(sheet()).getAllByRole('listitem')).toHaveLength(2)
+    expect(screen.getByText('24:12')).not.toBeNull()
   })
 
   it('histórico vazio de uma distância oferece registrar; o de "Outra" explica que fica só ali', async () => {

@@ -106,3 +106,14 @@ Verificação local do Expo com as telas das etapas 1 a 5 (times, organizador, e
 `npm run lint`, `npm run typecheck` e `npm run export:android` aprovados; `npx expo install --check` aponta só `expo@57.0.27` contra `~57.0.28`, um desvio anterior e conhecido. O escopo da cobertura é `App.tsx` e todo `src/**/*.{ts,tsx}` (256 arquivos), sem exclusões. Os pisos não foram alterados, nenhum arquivo foi excluído e nenhum teste foi desativado. Os pisos globais (10/15/8/10) são os da fundação e ficam muito abaixo do resultado atual: subi-los é uma melhoria pendente, que depende de decisão.
 
 Os testes rodam em Node, com Vitest e `react-test-renderer` (descontinuado no React 19, o que gera um aviso em cada arquivo, sem falhas), simulam `fetch` e usam simulações de `nativewind`, `react-native-svg` e `react-native-safe-area-context` (`mobile/tests/support/`). Não renderizam componentes nativos reais: não provam Android/iOS, câmera, seletor de documento, SecureStore nem leitor de tela. Arquivos com cobertura baixa: `AuthScreen` e `SportCard` (0%), `UsernameForm` (72,41% das linhas) e `ProfileScreen` (77,1%). O CI remoto continua sem execução comprovada desta versão.
+
+## Correções da revisão das etapas 4 e 5: indicadores — 12 de outubro de 2026
+
+Verificação local das correções (backend e web; o Expo não foi tocado).
+
+| Escopo | Aprovados / executados | Cobertura | Piso |
+| --- | --- | --- | --- |
+| Backend suíte completa, com PostgreSQL (`pytest -q --cov=app --cov-branch`) | 1533 / 1534 (1 pulado: o round-trip S3 real) | 98% (121 instruções não cobertas; 66 ramos parciais) | 85% |
+| Web (`npx vitest run --coverage --maxWorkers=4`) | 908 / 908 em 72 arquivos | 92,35% instruções, 85,88% ramos, 91,94% funções, 95,42% linhas | 30% (instruções, linhas e ramos) e 20% (funções) |
+
+Ruff, ESLint e build da web (aviso de pacote acima de 500 kB: 1.251,59 kB minificado) aprovados; sem migração nova. Os 14 testes novos do backend e os 10 da web cobrem a sugestão de quadra repetida na agenda, as mensagens de `409`, a ordem do registro de corrida, o aviso único da divergência e a releitura depois de `404`/`409` nas telas. Os pisos não foram reduzidos, nem arquivos excluídos, nem testes desativados. Uma execução da cobertura do backend feita com a suíte da web rodando ao mesmo tempo mediu `services/courts.py` abaixo do normal (68%); repetida sem a carga, deu os números acima. Detalhes em [situação da fundação](situacao-fundacao.md).

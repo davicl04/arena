@@ -366,3 +366,29 @@ def test_an_event_without_a_bracket_has_an_empty_match_list_and_the_new_notifica
     assert len(published) == 1 and published[0]['payload'] == {
         'event_id': world['event_id'], 'event_name': 'Copa do Lago'}
     assert published[0]['actor']['id'] == world['owner_id']
+
+
+def test_a_cancelled_or_finished_event_refuses_the_swap_and_the_confirmation_with_its_own_message(client):
+    http, db = client
+    world = organizer_with_teams(http, db, 4)
+    draw(http, world)
+    url = f'{API}/organizer/events/{world["event_id"]}/bracket'
+    cancelled = http.post(f'{API}/organizer/events/{world["event_id"]}/cancel', json={'reason': 'Quadra interditada.'},
+                          headers=world['organizer'])
+    assert cancelled.status_code == 200 and cancelled.json()['state'] == 'cancelado'
+    # The draw was never confirmed: the answer must not say it was.
+    swapped = http.patch(url, json={'a': 0, 'b': 1}, headers=world['organizer'])
+    assert (swapped.status_code, swapped.json()['detail']) == (
+        409, 'Este evento não aceita mais troca de posições no chaveamento.')
+    confirmed = http.post(f'{url}/confirm', json={}, headers=world['organizer'])
+    assert (confirmed.status_code, confirmed.json()['detail']) == (
+        409, 'Este evento não aceita mais confirmação do chaveamento.')
+    # A finished event says the same; an event under way keeps the old message (the draw is confirmed).
+    event = db.get(Event, world['event_id'])
+    event.cancelled_at = event.cancel_reason = event.cancelled_by_id = None
+    for state, message in (('encerrado', 'Este evento não aceita mais troca de posições no chaveamento.'),
+                           ('em_andamento', 'O chaveamento já foi confirmado.')):
+        event.state = state
+        db.commit()
+        refused = http.patch(url, json={'a': 0, 'b': 1}, headers=world['organizer'])
+        assert (refused.status_code, refused.json()['detail']) == (409, message)

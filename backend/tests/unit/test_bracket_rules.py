@@ -252,6 +252,20 @@ def test_other_courts_do_not_conflict_and_the_nearest_match_is_reported():
     assert rules.find_conflict(NOW + 5 * H, None, [], others) is None
 
 
+def test_the_same_court_is_also_told_by_its_normalized_name():
+    """A suggestion not created yet, or one repeated under review, has another id but is the same place."""
+    others = [Booking(1, NOW + 5 * H, 7, frozenset(), 'quadra do ze'),
+              Booking(2, NOW + 5 * H, 8, frozenset(), 'quadra central'), Booking(3, NOW + 5 * H, None, frozenset())]
+    kind, clash = rules.find_conflict(NOW + 6 * H, None, [], others, court_key='quadra do ze')
+    assert (kind, clash.match_id) == ('quadra', 1)
+    kind, clash = rules.find_conflict(NOW + 6 * H, 9, [], others, court_key='quadra do ze')
+    assert (kind, clash.match_id) == ('quadra', 1)
+    assert rules.find_conflict(NOW + 7 * H, None, [], others, court_key='quadra do ze') is None     # 2 h apart
+    assert rules.find_conflict(NOW + 6 * H, None, [], others, court_key='outra quadra') is None
+    assert rules.find_conflict(NOW + 6 * H, None, [], others) is None                       # nothing to compare
+    assert rules.find_conflict(NOW + 6 * H, None, [], others, court_key='') is None
+
+
 def test_a_competitor_cannot_play_two_matches_less_than_two_hours_apart():
     others = [booking(1, NOW + 5 * H, 7, ('time', 10), ('time', 11)), booking(2, NOW + 5 * H, 8, ('time', 12))]
     kind, clash = rules.find_conflict(NOW + 6 * H, 9, [('time', 11), ('time', 20)], others)

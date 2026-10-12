@@ -158,7 +158,7 @@ def test_the_court_is_chosen_or_suggested_and_the_suggestion_stays_under_review(
     assert court.state == 'em_revisao' and court.name == 'Arena do Bosque' and court.kind == 'society'
     assert court.suggested_by_id == world['owner_id'] and court.address == 'SQN 100'
     assert row.json()['card']['court']['provisional'] is True
-    # The same suggestion in the same match is reused; the suggestion is valid only in the match that made it.
+    # The same suggestion in the same match is reused; the explicit `court_id` of a suggestion works only in its match.
     again = http.put(url, json={**body, 'court_suggestion': {'name': 'arena do bosque'}}, headers=world['organizer'])
     assert again.status_code == 200 and len(db.scalars(select(Court).where(Court.origin_match_id == first.id)).all()) == 1
     elsewhere = http.put(f'{API}/organizer/matches/{second.id}/schedule', json={
@@ -166,6 +166,57 @@ def test_the_court_is_chosen_or_suggested_and_the_suggestion_stays_under_review(
     assert elsewhere.status_code == 422
     assert db.scalar(select(AuditLog).where(AuditLog.action == 'quadra.sugerida')).data['event_id'] == world['event_id']
     assert db.get(City, court.city_id).name == 'Brasília'
+
+
+def test_the_same_suggestion_in_two_matches_of_the_event_is_one_court_and_keeps_the_two_hour_conflict(client):
+    http, db = client
+    world = confirmed_world(http, db, 4)
+    first, second = [match for match in matches_of(db, world) if match.round_number == 1]
+    admin_headers, admin_id = register(http, 'admin-quadras@example.com')
+    db.get(User, admin_id).is_admin = True
+    db.commit()
+    start = kickoff()
+
+    def put(match, starts_at, name):
+        return http.put(f'{API}/organizer/matches/{match.id}/schedule', headers=world['organizer'], json={
+            'starts_at': starts_at.isoformat(), 'court_suggestion': {'name': name, 'address': 'Rua 1'}})
+
+    assert put(first, start, 'Quadra do Zé').status_code == 200
+    clash = put(second, start + timedelta(minutes=30), '  quadra   do ZE ')
+    assert clash.status_code == 409, clash.text
+    assert clash.json()['conflict']['kind'] == 'quadra' and clash.json()['conflict']['match_id'] == first.id
+    assert clash.json()['conflict']['label'] == 'J1' and 'Quadra do Zé' in clash.json()['detail']
+    db.refresh(second)
+    assert second.state == 'combinando' and second.court_id is None
+    assert len(db.scalars(select(Court).where(Court.state == 'em_revisao')).all()) == 1     # the refusal wrote nothing
+    # Exactly 2 h apart is free, and the match shares the court of the first: still one suggestion to review.
+    assert put(second, start + 2 * H, 'Quadra do Zé').status_code == 200
+    db.refresh(first)
+    db.refresh(second)
+    assert first.court_id == second.court_id is not None
+    suggestions = db.scalars(select(Court).where(Court.state == 'em_revisao')).all()
+    assert [(court.id, court.origin_match_id) for court in suggestions] == [(first.court_id, first.id)]
+    assert http.get(f'{API}/admin/queue-counts', headers=admin_headers).json()['court_suggestions'] == 1
+    queue = http.get(f'{API}/admin/court-suggestions', headers=admin_headers).json()['items']
+    assert [item['court']['name'] for item in queue] == ['Quadra do Zé']
+
+
+def test_a_published_court_and_a_suggestion_with_the_same_name_are_the_same_place_for_the_conflict(client):
+    http, db = client
+    world = confirmed_world(http, db, 4)
+    first, second = [match for match in matches_of(db, world) if match.round_number == 1]
+    start = kickoff()
+    suggested = http.put(f'{API}/organizer/matches/{first.id}/schedule', headers=world['organizer'], json={
+        'starts_at': start.isoformat(), 'court_suggestion': {'name': 'Quadra do Zé'}})
+    assert suggested.status_code == 200
+    db.refresh(first)
+    published = make_court(db, 'Quadra do Zé')          # another suggestion, elsewhere, reached the catalog meanwhile
+    assert published.id != first.court_id
+    for court in ({'court_id': published.id}, {'court_suggestion': {'name': 'Quadra do Zé'}}):
+        clash = http.put(f'{API}/organizer/matches/{second.id}/schedule', headers=world['organizer'], json={
+            'starts_at': (start + H).isoformat(), **court})
+        assert clash.status_code == 409, clash.text
+        assert clash.json()['conflict']['kind'] == 'quadra' and clash.json()['conflict']['match_id'] == first.id
 
 
 def test_a_suggestion_limit_and_the_time_rules(client):

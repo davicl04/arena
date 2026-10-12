@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Sheet } from '@/components/ui/sheet'
 import { runDistances } from '@/data/arena'
 import { usePagedList } from '@/hooks/usePagedList'
-import { useSubmit } from '@/hooks/useSubmit'
+import { isStale, useSubmit } from '@/hooks/useSubmit'
 import { formatKm, formatPace, formatRunDate, originLabel } from './runView'
 import { formatDuration } from './tierLines'
 
@@ -31,8 +31,16 @@ export function RunHistorySheet({ filter, onClose, onAdd, onChanged, onExpired }
   const other = filter === 'outra'
   const label = other ? '' : runDistances.find(item => `${item.value}` === filter)?.label ?? `${filter} km`
 
+  /** `404`/`409` ao remover: a marca já não existe (ou mudou) no servidor. Relê a lista e os cartões; a mensagem fica no alto da folha. */
+  function reread(cause: unknown) {
+    if (!isStale(cause)) return
+    setConfirming(null)
+    list.reload()
+    onChanged()
+  }
+
   async function confirmRemove(run: Run) {
-    const done = await remove.run(async () => { await deleteRun(run.id); return true }, 'Não foi possível remover a marca.')
+    const done = await remove.run(async () => { await deleteRun(run.id); return true }, 'Não foi possível remover a marca.', reread)
     if (!done) return
     list.setItems(items => items.filter(item => item.id !== run.id))
     setConfirming(null)
@@ -44,6 +52,7 @@ export function RunHistorySheet({ filter, onClose, onAdd, onChanged, onExpired }
     description={other ? 'Marcas fora de 3, 5, 10, 21 e 42 km (com 2% de tolerância). Ficam só aqui, sem ranking.' : 'Da mais recente para a mais antiga.'}>
     <div className="mt-2" data-slot="run-history">
       <p role="status" className="m-0 text-[11.5px] leading-normal text-brand empty:hidden">{notice}</p>
+      {remove.error && confirming === null && <p role="alert" className="m-0 mt-2 text-[11.5px] leading-normal text-danger-ink">{remove.error}</p>}
       {list.loading && <p role="status" className="m-0 py-6 text-center text-[12px] text-ink-muted">Carregando o histórico…</p>}
       {list.error && <div role="alert" className="my-3 rounded-field bg-error-bg p-3 text-[12px] leading-[1.6] text-error">
         {list.error.message} <Button variant="text" className="inline min-h-0 py-0" onClick={list.reload}>Tentar novamente</Button>

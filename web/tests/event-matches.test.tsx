@@ -168,6 +168,8 @@ describe('agendar', () => {
     // O mesmo dia, horário e quadra não se enviam de novo: o botão espera uma mudança.
     expect((within(sheet).getByRole('button', { name: 'Agendar' }) as HTMLButtonElement).disabled).toBe(true)
     expect(find('PUT', '/organizer/matches/11/schedule')).toHaveLength(1)
+    // O conflito é a resposta esperada da agenda: a lista não é relida.
+    expect(find('GET', '/organizer/events/5/matches')).toHaveLength(1)
     fireEvent.change(within(sheet).getByLabelText('Horário'), { target: { value: '19:00' } })
     expect((within(sheet).getByRole('button', { name: 'Agendar' }) as HTMLButtonElement).disabled).toBe(false)
     await user.click(within(sheet).getByRole('button', { name: 'Agendar' }))
@@ -203,6 +205,27 @@ describe('agendar', () => {
     await user.click(within(sheet).getByRole('button', { name: 'Agendar' }))
     expect((await within(sheet).findByRole('alert')).textContent).toBe('A partida já começou: depois do início só o resultado pode mudar.')
     expect(within(sheet).queryByText(/Conflito/)).toBeNull()
+  })
+
+  it('409 que não é conflito (resultado já definido): relê a lista, fecha a folha e mantém a mensagem do servidor', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(2026, 9, 12, 10, 0))
+    let reads = 0
+    const decided = row('J1', 11, ['Bola Murcha FC', 'Atlético Guará'], { can_schedule: false }, { state: 'encerrada', phase: 'encerrada', score: score(2, 1), starts_at: fromNow(-60) })
+    const { user, find } = renderPage({
+      [COURTS]: catalog,
+      'PUT /organizer/matches/11/schedule': apiError(409, 'O resultado desta partida já foi definido.'),
+      'GET /organizer/events/5/matches': () => matchList(++reads === 1 ? [j1(), j2()] : [decided, j2()]),
+    })
+    await user.click(await screen.findByRole('button', { name: /^J1,/ }))
+    const sheet = await fill(user, '16:00')
+    await user.click(within(sheet).getByRole('button', { name: 'Agendar' }))
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Agendar J1' })).toBeNull())
+    expect(find('GET', '/organizer/events/5/matches')).toHaveLength(2)
+    expect((await screen.findByRole('alert')).textContent).toBe('O resultado desta partida já foi definido.')
+    // A lista mostra o estado atual: o jogo já não pede data.
+    expect(matchRow('J1').textContent).toContain('2 × 1')
+    expect(within(matchRow('J1')).queryByText('Agendar')).toBeNull()
   })
 
   it('"Sugerir outra quadra": a sugestão segue no corpo do agendamento, sem chamar as sugestões de quadra', async () => {

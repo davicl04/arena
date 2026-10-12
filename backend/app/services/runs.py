@@ -89,10 +89,9 @@ def _race_entry(db: Session, user: User, entry_id: int, *, lock: bool) -> tuple[
     return entry, event
 
 
-def _check_race(db: Session, data: RunInput, entry: EventEntry, event: Event, standard: int | None,
-                now: datetime) -> date:
-    """Rules of the "Prova do Arena": a running race of the athlete's confirmed entry, already started, with the
-    race distance (±2%) and one mark per entry. Returns the race day, which is the day of the mark."""
+def _check_race_entry(entry: EventEntry, event: Event, now: datetime) -> None:
+    """The entry and the event of a race mark (0002, 18.4, item 3, after the 404): a running race, a confirmed
+    entry, a race that was not cancelled and has started. They come before the measure of the mark."""
     if event.sport != 'corrida':
         raise RuleError('Esta inscrição não é de uma prova de corrida.', 'entry_id')
     if entry.state != 'confirmada':
@@ -101,22 +100,26 @@ def _check_race(db: Session, data: RunInput, entry: EventEntry, event: Event, st
         raise TransitionError('Esta prova foi cancelada.')
     if event.starts_at is None or event.starts_at > now:
         raise TransitionError('A marca da prova é registrada depois da largada.')
+
+
+def _check_race(data: RunInput, event: Event, standard: int | None) -> date:
+    """Date and distance of the race mark (item 5): the race distance (±2%) and the day of the event, which is the
+    day of the mark."""
     day = run_rules.local_date(event.starts_at)
     if data.date is not None and data.date != day:
         raise RuleError('A data da prova é a do evento.', 'date')
     if standard != event.distance_km:
         raise RuleError(f'A distância informada não corresponde aos {event.distance_km} km desta prova.',
                         'distance_m')
-    if db.scalar(select(exists().where(Run.event_entry_id == entry.id))):
-        raise TransitionError(ALREADY_REGISTERED)
     return day
 
 
 def check_run(db: Session, user: User, data: RunInput, now: datetime, *, lock: bool) -> Checked:
-    """Every rule of a mark, in the order the athlete meets them; `lock` takes the entry locks of a race mark.
+    """Every rule of a mark, in the order of 0002, 18.4 (the one the athlete meets them in); `lock` takes the entry
+    locks of a race mark.
 
-    Errors: 404 (entry not the athlete's), 422 with the field (measure, date, distance of the race) and 409 (entry
-    or event state, or the race already has its mark)."""
+    Errors: 404 (entry not the athlete's), 409 and 422 of the entry and the event (race), 422 with the field
+    (measure, date, distance of the race) and 409 (the race already has its mark)."""
     entry = event = None
     if data.source == 'treino':
         if data.entry_id is not None:
@@ -125,6 +128,7 @@ def check_run(db: Session, user: User, data: RunInput, now: datetime, *, lock: b
         if data.entry_id is None:
             raise RuleError('Escolha a prova do Arena.', 'entry_id')
         entry, event = _race_entry(db, user, data.entry_id, lock=lock)
+        _check_race_entry(entry, event, now)
     run_rules.validate_measure(data.distance_m, data.duration_s)
     standard = run_rules.resolve_standard_distance(data.distance_m)
     today = run_rules.local_date(now)
@@ -132,8 +136,10 @@ def check_run(db: Session, user: User, data: RunInput, now: datetime, *, lock: b
         day = data.date or today
         run_rules.validate_day(day, today)
     else:
-        day = _check_race(db, data, entry, event, standard, now)
+        day = _check_race(data, event, standard)
         run_rules.validate_day(day, today, race=True)
+        if db.scalar(select(exists().where(Run.event_entry_id == entry.id))):
+            raise TransitionError(ALREADY_REGISTERED)
     return Checked(data.distance_m, data.duration_s, day, data.source, standard, entry, event)
 
 

@@ -215,6 +215,10 @@ def _store_report(db: Session, match: Match, sides: Mapping[str, MatchSide], acc
                   score: Score, reports: dict[str, MatchResult], *, now: datetime) -> None:
     corrected = access.side in reports
     row = reports.get(access.side)
+    other = reports.get(other_side(access.side))
+    # The reports already differed before this one (a correction that still differs): the organizer was told.
+    was_divergent = (row is not None and other is not None
+                     and not scores_agree(score_of_report(row), score_of_report(other)))
     if row is None:
         row = reports[access.side] = MatchResult(match_id=match.id, side=access.side, created_at=now)
         db.add(row)
@@ -223,7 +227,6 @@ def _store_report(db: Session, match: Match, sides: Mapping[str, MatchSide], acc
     db.flush()
     names = subject_names(db, sides.values())
     mine_name = names[sides[access.side].id]
-    other = reports.get(other_side(access.side))
 
     if other is None:
         post_event(db, match.id, 'placar_enviado',
@@ -243,7 +246,7 @@ def _store_report(db: Session, match: Match, sides: Mapping[str, MatchSide], acc
                    'Os placares informados pelos dois lados não batem. Corrijam até o fim do prazo.', now=now)
         audit.record(db, actor_id=user.id, action='resultado.divergente', target_type='match', target_id=match.id,
                      data={'side': access.side, 'a': _report_data(reports['a']), 'b': _report_data(reports['b'])})
-        if match.origin == 'campeonato':
+        if match.origin == 'campeonato' and not was_divergent:
             championship_lifecycle.on_divergence(db, match, now=now)
 
 

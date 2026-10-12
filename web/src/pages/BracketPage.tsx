@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react'
 import { CalendarDays, Check, Hand, Info, Shuffle, TriangleAlert } from 'lucide-react'
 import { confirmBracket, drawBracket, getBracket, swapBracket } from '@/api/brackets'
 import type { Bracket } from '@/api/brackets'
+import { ApiError } from '@/api/client'
 import { BracketView } from '@/components/brackets/BracketView'
 import { planCompetitors, slotName } from '@/components/brackets/bracketText'
 import { teamButton } from '@/components/teams/styles'
@@ -10,7 +11,7 @@ import { Button } from '@/components/ui/button'
 import { feedbackVariants } from '@/components/ui/feedback'
 import { Sheet, SheetActions } from '@/components/ui/sheet'
 import { useResource } from '@/hooks/useResource'
-import { useSubmit } from '@/hooks/useSubmit'
+import { isStale, useSubmit } from '@/hooks/useSubmit'
 import { cn } from '@/lib/utils'
 import { formatDeadline } from '@/utils/format'
 
@@ -60,8 +61,22 @@ export default function BracketPage({ eventId, onBack, onMatches, onExpired }: {
   const current: Bracket = bracket
   const { permissions } = current
 
+  /** Um `404`/`409` mostra que o chaveamento mudou (confirmado em outra aba, evento cancelado): relê, sem perder a mensagem do servidor. */
+  async function reread(cause: unknown) {
+    if (!isStale(cause)) return
+    try {
+      const fresh = await getBracket(eventId)
+      resource.setData(fresh)
+      setPicked(null)
+      setStatus('')
+      if (!fresh.permissions.can_confirm) setConfirming(false)
+    } catch (failure) {
+      if (failure instanceof ApiError && failure.status === 401) onExpired()
+    }
+  }
+
   async function draw() {
-    const next = await action.run(() => drawBracket(eventId), 'Não foi possível sortear.')
+    const next = await action.run(() => drawBracket(eventId), 'Não foi possível sortear.', reread)
     if (!next) return
     resource.setData(next)
     setPicked(null)
@@ -72,14 +87,14 @@ export default function BracketPage({ eventId, onBack, onMatches, onExpired }: {
     if (picked === place) { setPicked(null); setStatus('Troca cancelada.'); return }
     const first = nameAtPlace(current, picked)
     const second = nameAtPlace(current, place)
-    const next = await action.run(() => swapBracket(eventId, picked, place), 'Não foi possível trocar os lugares.')
+    const next = await action.run(() => swapBracket(eventId, picked, place), 'Não foi possível trocar os lugares.', reread)
     setPicked(null)
     if (!next) { setStatus(''); return }
     resource.setData(next)
     setStatus(`${first} e ${second} trocaram de lugar.`)
   }
   async function confirm() {
-    const next = await action.run(() => confirmBracket(eventId), 'Não foi possível confirmar o chaveamento.')
+    const next = await action.run(() => confirmBracket(eventId), 'Não foi possível confirmar o chaveamento.', reread)
     if (!next) return
     resource.setData(next)
     setConfirming(false)

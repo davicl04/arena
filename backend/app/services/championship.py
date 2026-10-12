@@ -245,6 +245,15 @@ def draw_bracket(db: Session, user: User, event_id: int, *, now: datetime) -> Br
     return bracket_view(db, user, event, now=now)
 
 
+def _ensure_open_bracket(event: Event, bracket: EventBracket, action: str) -> None:
+    """The draw can still change (`409` otherwise, with the reason): a cancelled or finished event accepts nothing,
+    and a confirmed bracket (the event is under way) never changes."""
+    if event.state in ('encerrado', 'cancelado'):
+        raise HTTPException(409, f'Este evento não aceita mais {action}.')
+    if bracket.state == 'confirmado' or event.state != 'publicado':
+        raise HTTPException(409, BRACKET_CONFIRMED)
+
+
 def swap_bracket(db: Session, user: User, event_id: int, data: BracketSwapInput, *, now: datetime) -> BracketOut:
     """Two places swap their entries; only before the bracket is confirmed."""
     event = events.load_owned_event(db, event_id, user, for_update=True)
@@ -252,8 +261,7 @@ def swap_bracket(db: Session, user: User, event_id: int, data: BracketSwapInput,
     bracket = _bracket_of(db, event.id, for_update=True)
     if bracket is None:
         raise HTTPException(409, NO_BRACKET)
-    if bracket.state == 'confirmado' or event.state != 'publicado':
-        raise HTTPException(409, BRACKET_CONFIRMED)
+    _ensure_open_bracket(event, bracket, 'troca de posições no chaveamento')
     slots = bracket_rules.swap_slots(bracket.slots, data.a, data.b)
     if event.competition_type == 'eliminacao_simples':
         bracket_rules.validate_elimination_slots(slots)
@@ -272,8 +280,7 @@ def confirm_bracket(db: Session, user: User, event_id: int, *, now: datetime) ->
     bracket = _bracket_of(db, event.id, for_update=True)
     if bracket is None:
         raise HTTPException(409, NO_BRACKET)
-    if bracket.state == 'confirmado' or event.state != 'publicado':
-        raise HTTPException(409, BRACKET_CONFIRMED)
+    _ensure_open_bracket(event, bracket, 'confirmação do chaveamento')
     deadline = event_registration_deadline(event)
     if deadline is None or now < deadline:
         raise HTTPException(409, 'As inscrições ainda estão abertas. Confirme depois do fim das inscrições.')
@@ -613,8 +620,10 @@ def _lock_match(db: Session, match_id: int) -> Match:
 
 
 def _resolve_court(db: Session, match: Match, data: ScheduleInput) -> tuple[Court | None, tuple[str, str | None] | None]:
-    """The court of the schedule: from the catalog (`court_id`), or a suggestion (an equivalent published court or
-    a suggestion of this match is reused; otherwise a new one is created after the conflict check). Exactly one."""
+    """The court of the schedule: from the catalog (`court_id`), or a suggestion (an equivalent published court or a
+    suggestion under review made by any match of the same event is reused, so the review queue gets one row per
+    place and the 2 h court conflict sees it; otherwise a new one is created after the conflict check). Exactly
+    one."""
     if (data.court_id is None) == (data.court_suggestion is None):
         raise RuleError('Escolha uma quadra do catálogo ou sugira uma.', 'court_id')
     if data.court_id is not None:
@@ -622,9 +631,10 @@ def _resolve_court(db: Session, match: Match, data: ScheduleInput) -> tuple[Cour
     name = clean_court_name(data.court_suggestion.name)
     address = (data.court_suggestion.address or '').strip() or None
     needed, key = court_kind_for(match.sport, match.format), court_key(name)
+    of_event = select(Match.id).where(Match.event_id == match.event_id)
     existing = db.scalar(select(Court).where(
         Court.city_id == match.city_id, Court.kind == needed, Court.name_key == key,
-        or_(Court.state == 'publicada', and_(Court.state == 'em_revisao', Court.origin_match_id == match.id)))
+        or_(Court.state == 'publicada', and_(Court.state == 'em_revisao', Court.origin_match_id.in_(of_event))))
         .order_by(Court.state.desc(), Court.id).limit(1))
     if existing is not None:
         return existing, None
@@ -640,8 +650,11 @@ def _bookings(db: Session, event: Event, skip_match_id: int) -> tuple[list[brack
         Match.event_id == event.id, Match.id != skip_match_id, Match.starts_at.is_not(None),
         Match.state.in_(SCHEDULED_STATES))))
     sides = load_sides(db, [match.id for match in others])
+    court_ids = {match.court_id for match in others if match.court_id is not None}
+    keys = dict(db.execute(select(Court.id, Court.name_key).where(Court.id.in_(court_ids))).all()) if court_ids else {}
     return [bracket_rules.Booking(match.id, match.starts_at, match.court_id,
-                                  frozenset(subject_of(side) for side in sides[match.id].values()))
+                                  frozenset(subject_of(side) for side in sides[match.id].values()),
+                                  keys.get(match.court_id))
             for match in others], {match.id: match for match in others}
 
 
@@ -689,7 +702,8 @@ def schedule_match(db: Session, user: User, match_id: int, data: ScheduleInput, 
     court, suggestion = _resolve_court(db, match, data)
     subjects = [subject_of(side) for side in sides.values()]
     bookings, _ = _bookings(db, event, match.id)
-    clash = bracket_rules.find_conflict(starts_at, court.id if court is not None else None, subjects, bookings)
+    clash = bracket_rules.find_conflict(starts_at, court.id if court is not None else None, subjects, bookings,
+                                        court.name_key if court is not None else court_key(suggestion[0]))
     if clash is not None:
         raise _conflict_error(db, event, clash[0], clash[1], subjects, court)
     if court is None:

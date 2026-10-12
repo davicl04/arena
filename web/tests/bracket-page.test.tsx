@@ -233,6 +233,67 @@ describe('confirmar', () => {
   })
 })
 
+describe('estado obsoleto depois de um erro do servidor', () => {
+  it('troca recusada com 409 porque o chaveamento foi confirmado em outra aba: relê e some com as ações', async () => {
+    let reads = 0
+    const { user, find } = renderPage({
+      'GET /events/5/bracket': () => (++reads === 1 ? eliminationBracket(sixTeams) : confirmed(eliminationBracket(sixTeams, {}, true))),
+      'PATCH /organizer/events/5/bracket': apiError(409, 'O chaveamento já foi confirmado.'),
+    })
+    await screen.findByRole('img', { name: /8 lugares/ })
+    await user.click(swapButton('Novo Horizonte'))
+    await user.click(swapButton('Bola Murcha FC'))
+    expect((await screen.findByRole('alert')).textContent).toBe('O chaveamento já foi confirmado.')
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Sortear de novo' })).toBeNull())
+    expect(find('GET', '/events/5/bracket')).toHaveLength(2)
+    expect(screen.queryByRole('button', { name: 'Confirmar chaveamento' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Ver e agendar partidas' })).not.toBeNull()
+    expect(screen.getAllByRole('button').filter(item => item.getAttribute('aria-pressed') !== null)).toHaveLength(0)
+  })
+
+  it('confirmação recusada com 409 (já confirmado em outra aba): fecha a folha, relê e mantém a mensagem', async () => {
+    let reads = 0
+    const { user, find } = renderPage({
+      'GET /events/5/bracket': () => (++reads === 1 ? eliminationBracket(sixTeams) : confirmed(eliminationBracket(sixTeams, {}, true))),
+      'POST /organizer/events/5/bracket/confirm': apiError(409, 'O chaveamento já foi confirmado.'),
+    })
+    await screen.findByRole('img', { name: /8 lugares/ })
+    await user.click(button('Confirmar chaveamento'))
+    await user.click(within(screen.getByRole('dialog', { name: 'Confirmar chaveamento' })).getByRole('button', { name: 'Confirmar' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect((await screen.findByRole('alert')).textContent).toBe('O chaveamento já foi confirmado.')
+    expect(find('GET', '/events/5/bracket')).toHaveLength(2)
+    expect(screen.getByRole('button', { name: 'Ver e agendar partidas' })).not.toBeNull()
+    expect(screen.queryByRole('button', { name: 'Confirmar chaveamento' })).toBeNull()
+  })
+
+  it('evento cancelado (404/409 com a releitura sem permissões): os botões ficam desabilitados', async () => {
+    let reads = 0
+    const frozen = { permissions: { can_draw: false, can_swap: false, can_confirm: false, draw_blocker: null } }
+    const { user } = renderPage({
+      'GET /events/5/bracket': () => (++reads === 1 ? eliminationBracket(sixTeams) : eliminationBracket(sixTeams, frozen)),
+      'POST /organizer/events/5/bracket': apiError(409, 'Este evento não aceita mais sorteio.'),
+    })
+    await screen.findByRole('img', { name: /8 lugares/ })
+    await user.click(button('Sortear de novo'))
+    expect((await screen.findByRole('alert')).textContent).toBe('Este evento não aceita mais sorteio.')
+    await waitFor(() => expect(button('Sortear de novo').disabled).toBe(true))
+    expect(button('Confirmar chaveamento').disabled).toBe(true)
+  })
+
+  it('um erro que não é de estado (422) não relê o chaveamento', async () => {
+    const { user, find } = renderPage({
+      'GET /events/5/bracket': eliminationBracket(sixTeams),
+      'PATCH /organizer/events/5/bracket': apiError(422, 'Escolha pelo menos um time para trocar de lugar.'),
+    })
+    await screen.findByRole('img', { name: /8 lugares/ })
+    await user.click(swapButton('Folga, lugar 2'))
+    await user.click(swapButton('Folga, lugar 6'))
+    expect((await screen.findByRole('alert')).textContent).toBe('Escolha pelo menos um time para trocar de lugar.')
+    expect(find('GET', '/events/5/bracket')).toHaveLength(1)
+  })
+})
+
 describe('estados da tela', () => {
   it('erro de carregamento tem "Tentar novamente"; 401 chama onExpired', async () => {
     const { user } = renderPage({ 'GET /events/5/bracket': apiError(500, 'Falha no servidor.') })

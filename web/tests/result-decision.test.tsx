@@ -150,6 +150,55 @@ describe('decisão', () => {
     expect(radio(/Informado por Leões do Cerrado/).getAttribute('aria-checked')).toBe('true')
   })
 
+  it('409 porque a partida já foi decidida (outra aba): relê o detalhe, tira o formulário e mostra o estado atual com a mensagem', async () => {
+    const decided = divergent({
+      state: 'encerrada', phase: 'encerrada', permissions: { ...organizer, decide_result: false },
+      result: resultOf({ state: 'confirmado', final: { a: 2, b: 1, sets: null, winner: 'a' }, source: 'organizador', decision_reason: 'Vídeo confirma o gol.', reports: { a: report('a', 2, 1), b: report('b', 1, 1) } }),
+    })
+    let reads = 0
+    const { user, find, onDone } = renderPage(divergent(), {
+      'GET /matches/11': () => (++reads === 1 ? divergent() : decided),
+      'POST /organizer/matches/11/result-decision': apiError(409, 'O resultado desta partida já foi definido.'),
+    })
+    await user.click(await screen.findByRole('radio', { name: /Informado por Ferrugem FC/ }))
+    await user.type(note(), 'Usar o placar do Ferrugem.')
+    await user.click(screen.getByRole('button', { name: 'Registrar 2 × 1' }))
+    expect(await screen.findByRole('region', { name: 'Resultado registrado' })).not.toBeNull()
+    expect(screen.getByRole('alert').textContent).toBe('O resultado desta partida já foi definido.')
+    expect(find('GET', '/matches/11')).toHaveLength(2)
+    expect(screen.queryByRole('heading', { name: 'Sua decisão' })).toBeNull()
+    expect(screen.queryByRole('button', { name: /^Registrar/ })).toBeNull()
+    expect(screen.getByRole('heading', { level: 1, name: 'Resultado decidido' })).not.toBeNull()
+    expect(onDone).not.toHaveBeenCalled()
+  })
+
+  it('409 com a decisão ainda cabendo: relê, o formulário continua com a escolha e a mensagem do servidor', async () => {
+    let reads = 0
+    const { user, find } = renderPage(divergent(), {
+      'GET /matches/11': () => { reads++; return divergent() },
+      'POST /organizer/matches/11/result-decision': apiError(409, 'Esta partida ainda espera o resultado dos jogos anteriores.'),
+    })
+    await user.click(await screen.findByRole('radio', { name: /Informado por Leões do Cerrado/ }))
+    await user.type(note(), 'Usar o placar do Leões.')
+    await user.click(screen.getByRole('button', { name: 'Registrar 1 × 1' }))
+    await waitFor(() => expect(reads).toBe(2))
+    expect((await screen.findByRole('alert')).textContent).toBe('Esta partida ainda espera o resultado dos jogos anteriores.')
+    expect(find('GET', '/matches/11')).toHaveLength(2)
+    expect(note().value).toBe('Usar o placar do Leões.')
+    expect(radio(/Informado por Leões do Cerrado/).getAttribute('aria-checked')).toBe('true')
+  })
+
+  it('um erro de validação (422) não relê a partida', async () => {
+    const { user, find } = renderPage(divergent(), {
+      'POST /organizer/matches/11/result-decision': apiError(422, 'Na eliminação simples não há empate. Informe o placar final com o vencedor (some os pênaltis, se houver).'),
+    })
+    await user.click(await screen.findByRole('radio', { name: /Informado por Leões do Cerrado/ }))
+    await user.type(note(), 'Usar o placar do Leões.')
+    await user.click(screen.getByRole('button', { name: 'Registrar 1 × 1' }))
+    await screen.findByRole('alert')
+    expect(find('GET', '/matches/11')).toHaveLength(1)
+  })
+
   it('as opções são botões de opção: só a escolhida (ou a primeira) entra na ordem do Tab e as setas movem a escolha', async () => {
     const { user } = renderPage()
     await screen.findByRole('heading', { name: 'Sua decisão' })
