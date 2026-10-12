@@ -2,7 +2,7 @@
 
 Data: 12 de outubro de 2026. Contrato da **fase 1 do [plano do Jogar](../plano-jogar.md)** (elos: `rank_cuts` e `standings` vazios e a linha de classificação), executada na etapa 1 junto das fases 1 a 3 de [Times e campeonatos](0003-times-campeonatos.md). As fases 2 a 8 ficam **a definir na fase correspondente** (seção 6).
 
-> **Estado:** implementado no backend (migração `0005`, `app/services/rankings.py` e `GET /api/v1/me/standings`). Nenhuma partida, resultado ou marca é registrada nesta fase, então `standings` está vazio e toda linha sai em classificação. Convenções gerais (sessão, JSON, erros, paginação) estão na seção 1 de [0003](0003-times-campeonatos.md#1-convenções).
+> **Estado (fase 1 implementada e integrada em 12 de outubro de 2026):** backend (migração `0005`, `app/services/rankings.py` e `GET /api/v1/me/standings`) e web (placa do Jogar com a linha do elo, `web/src/pages/PlayPage.tsx` e `web/src/components/play/`; grade C5 das carteirinhas de Meus times). Nenhuma partida, resultado ou marca é registrada nesta fase, então `standings` está vazio e toda linha sai em classificação ("0/3", sem elo). O botão redondo nunca simula busca: prepara o perfil, leva a Meus times ou fica desabilitado com o aviso da próxima etapa. O Expo ainda não tem a placa (última etapa). Convenções gerais (sessão, JSON, erros, paginação) estão na seção 1 de [0003](0003-times-campeonatos.md#1-convenções).
 
 ## 1. Elos e rankings
 
@@ -103,6 +103,13 @@ A mesma `FormatStanding` alimenta a grade C5 da carteirinha (`rankings.team_form
 - **Avulso:** as três entradas de `futebol.individual` da posição escolhida. Recomendação (interpretação, já que o avulso aceita qualquer formato): sem nenhum formato ranqueado, "Em classificação como {posição}" com o maior `played` entre os formatos; com algum ranqueado, o maior elo, com o formato no texto ("Ouro no society como atacante").
 - **Tênis:** `tenis`. **Corrida:** `corrida` da distância do chip.
 - Em "Suas modalidades" (tela Ranking), o texto fixo "Sem classificação" pode passar a ler esta rota com as mesmas regras.
+
+**Implementação na web (fase 1):**
+- **Abas** Futebol | Tênis | Corrida (setas do teclado), a cidade do perfil da modalidade no topo e, no futebol, a chave "Com meu time | Avulso". O formato inicial é Society.
+- **Com meu time:** com mais de um time representado, chips para escolher o time; sem time representado, a linha "Você ainda não representa um time." e o botão "MEU TIME · crie ou represente", que abre Meus times. A linha "Meu time" de "Outras formas de jogar" também abre Meus times.
+- **Avulso "Qualquer posição":** sem formato ranqueado, "Em classificação" com o maior `played`; com algum, o maior elo entre as posições e os formatos.
+- **Botão:** sem perfil da modalidade, "PREPARAR seu perfil" leva a Suas modalidades; com perfil, "ENCONTRAR partida/vaga" ou "REGISTRAR treino ou prova" fica desabilitado, com o aviso de que a busca ou o registro chega numa próxima etapa.
+- **Elo:** só aparece em `ranqueado` com a classificação completa (`shownTier`); a corrida sem marca mostra "Sem marca nos N km".
 
 ## 4. Decisões de 12 de outubro de 2026 que afetam fases seguintes
 

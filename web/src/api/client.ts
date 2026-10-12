@@ -60,6 +60,13 @@ export interface City {
   name: string
   state: string
 }
+/** Pessoa resumida dos contratos de times, organizador e notificações; `avatar_url` é null se houver bloqueio. */
+export interface Person {
+  id: number
+  name: string
+  username: string
+  avatar_url: string | null
+}
 export interface ProfileInput {
   city_id: number
   position: Position | null

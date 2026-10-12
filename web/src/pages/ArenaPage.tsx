@@ -19,9 +19,17 @@ import BlockedAccountsPage from "./BlockedAccountsPage";
 import ConnectionsPage from "./ConnectionsPage";
 import UserProfilePage from "./UserProfilePage";
 import NotificationsPage from "./NotificationsPage";
+import PlayPage from "./PlayPage";
+import OrganizerRequestPage from "./OrganizerRequestPage";
+import AdminOrganizerRequests from "../components/admin/AdminOrganizerRequests";
 import SocialCommunity from "../components/SocialCommunity";
 import { activeNavFor, rankingTiers, sportIcons } from "../data/arena";
 import type { ConnectionsTab, Screen } from "../data/arena";
+// Meus times (frente C): carteirinhas, criar/editar, convidar e entrar pelo link.
+import TeamsPage from "./TeamsPage";
+import TeamFormPage from "./TeamFormPage";
+import JoinPage from "./JoinPage";
+import { InviteFlow } from "../components/teams/InviteFlow";
 
 /** Uma tela da pilha de navegação, com o contexto necessário para restaurá-la ao voltar. */
 interface Entry {
@@ -35,6 +43,12 @@ interface Entry {
   teamId?: number;
   /** Token do link do time (`join`), lido do endereço compartilhado. */
   token?: string;
+  /** Convidar (`team-invite`) aberto já na aba Link e QR (botão de QR da carteirinha). */
+  link?: boolean;
+  /** Meus times (`teams`) aberto já com a folha de convites recebidos (notificação de convite). */
+  invites?: boolean;
+  /** Meus times (`teams`) aberto já na lista "Pedidos para entrar" do time (notificação de pedido). */
+  requests?: boolean;
 }
 /** Subtítulo das telas Jogar e Ranking. */
 const subtitle = "mb-[25px] text-[12px] leading-[1.6] text-ink-muted";
@@ -66,11 +80,17 @@ export default function ArenaPage({
   onUser,
   onLogout,
   onExpired,
+  joinToken,
+  onJoinOpened,
 }: {
   user: User;
   onUser: (user: User) => void;
   onLogout: () => void;
   onExpired: () => void;
+  /** Token do link do time lido do endereço (`/entrar/{token}`): abre a tela `join` sobre o Início. */
+  joinToken?: string | null;
+  /** Consome o token, para um novo login na mesma aba não reabrir o link. */
+  onJoinOpened?: () => void;
 }) {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [cities, setCities] = useState<City[]>([]);
@@ -78,7 +98,12 @@ export default function ArenaPage({
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [attempt, setAttempt] = useState(0);
-  const [stack, setStack] = useState<Entry[]>([{ screen: "home" }]);
+  const [stack, setStack] = useState<Entry[]>(() =>
+    joinToken ? [{ screen: "home" }, { screen: "join", token: joinToken }] : [{ screen: "home" }],
+  );
+  useEffect(() => {
+    if (joinToken) onJoinOpened?.();
+  }, [joinToken, onJoinOpened]);
   const current = stack[stack.length - 1];
   const screen = current.screen;
   const viewedUserId = current.userId ?? 0;
@@ -146,6 +171,31 @@ export default function ArenaPage({
   function changeTab(tab: ConnectionsTab) {
     setStack((old) => [...old.slice(0, -1), { ...old[old.length - 1], tab }]);
   }
+  /* Meus times (frente C). */
+  /** Guarda na tela atual o time do cartão centralizado, para voltar ao mesmo cartão. */
+  const selectTeam = useCallback((teamId: number) => {
+    setStack((old) => [...old.slice(0, -1), { ...old[old.length - 1], teamId }]);
+  }, []);
+  /** A folha de convites abre uma vez; ao voltar a Meus times, não reabre. */
+  const consumeInvitesRequest = useCallback(() => {
+    setStack((old) => old.map((entry) => (entry.invites ? { ...entry, invites: false } : entry)));
+  }, []);
+  /** A rolagem até "Pedidos para entrar" acontece uma vez. */
+  const consumeRequestsRequest = useCallback(() => {
+    setStack((old) => old.map((entry) => (entry.requests ? { ...entry, requests: false } : entry)));
+  }, []);
+  /**
+   * Sai da tela atual para Meus times com `teamId` no carrossel: volta à Meus times logo abaixo na pilha ou a empilha
+   * (Criar time, encerrar, link do time).
+   */
+  function showTeams(teamId?: number, invites = false) {
+    show((old) => {
+      const rest = old.slice(0, -1);
+      const below = rest[rest.length - 1];
+      const entry: Entry = { screen: "teams", teamId, invites };
+      return below?.screen === "teams" ? [...rest.slice(0, -1), entry] : [...rest, entry];
+    });
+  }
 
   function handleError(err: unknown) {
     if (err instanceof ApiError && err.status === 401) onExpired();
@@ -184,8 +234,11 @@ export default function ArenaPage({
       : titles[screen];
   const activeNav = activeNavFor(screen, stack[0].screen);
   const profileLayout = screen === "profile" || screen === "user-profile";
-  // A Comunidade tem barra própria, de ponta a ponta, presa ao topo do `main`.
-  const communityLayout = screen === "community";
+  // A Comunidade e o Jogar têm barra (ou placa) própria, de ponta a ponta, presa ao topo do `main`.
+  const communityLayout = screen === "community" || screen === "play";
+  // Meus times: placa ou tela escura própria, de ponta a ponta, com o título e o voltar/fechar dentro dela.
+  const teamsLayout = (["teams", "team-form", "team-invite", "join"] as Screen[]).includes(screen);
+  const darkLayout = screen === "team-form" || screen === "team-invite";
 
   return (
     <div className="grid min-h-dvh place-items-center p-6 app-narrow:p-0">
@@ -198,10 +251,12 @@ export default function ArenaPage({
             "h-full overflow-x-hidden overflow-y-auto px-5 pt-[18px] pb-28 outline-none scrollbar-hidden app-narrow:pb-[calc(112px+env(safe-area-inset-bottom))]",
             profileLayout && "@container-size pt-0",
             communityLayout && "px-0 pt-0",
+            teamsLayout && "px-0 pt-0",
+            darkLayout && "bg-forest",
           )}
           aria-label={title}
         >
-          {screen !== "home" && !profileLayout && !communityLayout && (
+          {screen !== "home" && !profileLayout && !communityLayout && !teamsLayout && (
             <header className="-mx-2 -mt-2 mb-[18px] flex min-h-[54px] items-center justify-between">
               <IconButton aria-label="Voltar" onClick={back}>
                 <ArrowLeft size={21} />
@@ -231,6 +286,7 @@ export default function ArenaPage({
               profiles={profiles}
               loading={loading}
               go={go}
+              onExpired={onExpired}
             />
           )}
           {screen === "profile" && (
@@ -243,18 +299,17 @@ export default function ArenaPage({
               onExpired={onExpired}
             />
           )}
-          {(screen === "sports" || screen === "play") && (
+          {screen === "play" && (
+            <PlayPage
+              profiles={profiles}
+              cities={cities}
+              loading={loading}
+              go={go}
+              onExpired={onExpired}
+            />
+          )}
+          {screen === "sports" && (
             <>
-              {screen === "play" && (
-                <>
-                  <Eyebrow>ESCOLHA SEU ESPORTE</Eyebrow>
-                  <h2 className="mt-[5px] mb-1.5 text-[24px]">Qual é o jogo de hoje?</h2>
-                  <p className={subtitle}>
-                    Prepare seu perfil para encontrar sua próxima partida. O
-                    agendamento de partidas estará disponível em breve.
-                  </p>
-                </>
-              )}
               {loading ? (
                 <p role="status">Carregando modalidades…</p>
               ) : (
@@ -354,7 +409,11 @@ export default function ArenaPage({
             />
           )}
           {screen === "notifications" && (
-            <NotificationsPage onOpenUser={openUser} onExpired={onExpired} />
+            <NotificationsPage
+              onOpenUser={openUser}
+              onNavigate={({ screen: next, ...context }) => go(next, context)}
+              onExpired={onExpired}
+            />
           )}
           {screen === "edit-profile" && (
             <EditProfilePage
@@ -394,11 +453,76 @@ export default function ArenaPage({
               onEditProfile={() => go("edit-profile")}
               onSports={() => go("sports")}
               onModeration={() => go("moderation")}
+              onOrganizerRequest={() => go("organizer-request")}
+              onOrganizerRequests={() => go("admin-organizer-requests")}
+              onNotifications={() => go("notifications")}
               onLogout={logout}
+              onExpired={onExpired}
             />
           )}
           {screen === "moderation" && user.is_admin && (
             <AdminReports onExpired={onExpired} />
+          )}
+          {screen === "organizer-request" && (
+            <OrganizerRequestPage
+              cities={cities}
+              profiles={profiles}
+              onBack={back}
+              onExpired={onExpired}
+            />
+          )}
+          {screen === "admin-organizer-requests" && user.is_admin && (
+            <AdminOrganizerRequests onOpenUser={openUser} onExpired={onExpired} />
+          )}
+          {/* Meus times (frente C). */}
+          {screen === "teams" && (
+            <TeamsPage
+              viewerId={user.id}
+              selectedTeamId={current.teamId}
+              openInvites={Boolean(current.invites)}
+              onInvitesOpened={consumeInvitesRequest}
+              showRequests={Boolean(current.requests)}
+              onRequestsShown={consumeRequestsRequest}
+              onSelectTeam={selectTeam}
+              onBack={back}
+              onCreate={() => go("team-form")}
+              onEdit={(team) => go("team-form", { teamId: team.id })}
+              onInvite={(team) => go("team-invite", { teamId: team.id })}
+              onLink={(team) => go("team-invite", { teamId: team.id, link: true })}
+              onOpenUser={openUser}
+              onExpired={onExpired}
+            />
+          )}
+          {screen === "team-form" && (
+            <TeamFormPage
+              key={current.teamId ?? "novo"}
+              teamId={current.teamId}
+              user={user}
+              profiles={profiles}
+              cities={cities}
+              onDone={(team) => showTeams(team.id)}
+              onClosed={() => showTeams()}
+              onBack={back}
+              onExpired={onExpired}
+            />
+          )}
+          {screen === "team-invite" && current.teamId !== undefined && (
+            <InviteFlow
+              key={`${current.teamId}-${current.link ? "link" : "pessoa"}`}
+              teamId={current.teamId}
+              initialTab={current.link ? "link" : "pessoa"}
+              onClose={back}
+              onExpired={onExpired}
+            />
+          )}
+          {screen === "join" && current.token && (
+            <JoinPage
+              key={current.token}
+              token={current.token}
+              onClose={back}
+              onOpenTeams={(team, invites) => showTeams(team.id, invites)}
+              onExpired={onExpired}
+            />
           )}
         </main>
         <BottomNav active={activeNav} onGo={go} />

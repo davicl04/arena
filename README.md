@@ -1,6 +1,6 @@
 # Arena
 
-Plataforma web e mobile para futebol, tênis e corrida amadores. A fundação implementa cadastro de adultos, autenticação e perfis esportivos privados com PostgreSQL. Times, partidas, eventos e rankings pertencem às próximas entregas do MVP.
+Plataforma web e mobile para futebol, tênis e corrida amadores. A fundação implementa cadastro de adultos, autenticação e perfis esportivos privados com PostgreSQL. A etapa 1 de Times e campeonatos acrescentou, no backend e na web, Meus times (convites, link do time, papéis e encerramento), o pedido de organizador com a fila da administração, as notificações da conta e a linha do elo na placa do Jogar, ainda sem partidas. Partidas, eventos, resultados e rankings calculados pertencem às próximas entregas do MVP; o Expo ainda não tem as telas da etapa 1.
 
 Leia o [plano inicial](docs/plano-criacao-inicial.md), as [decisões adotadas](docs/decisoes/0001-fundacao.md) e a [situação verificada](docs/situacao-fundacao.md).
 
@@ -25,7 +25,7 @@ if (!(Test-Path .env)) { Copy-Item .env.example .env }
 .venv/Scripts/python.exe -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-Espere o banco aparecer como `healthy`. A API não cria tabelas automaticamente: aplique migrações antes de iniciar. A migração `0004` aplicada por `alembic upgrade head` cria o nome de usuário (@) e gera um @ para cada conta existente, a partir do nome; contas com nomes parecidos recebem número no final. Também adiciona a referência da capa de perfil. Não apaga contas nem volumes. Em Linux/macOS, substitua `.venv/Scripts/python.exe` por `.venv/bin/python` e use `cp` para copiar arquivos.
+Espere o banco aparecer como `healthy`. A API não cria tabelas automaticamente: aplique migrações antes de iniciar. A migração `0004` aplicada por `alembic upgrade head` cria o nome de usuário (@) e gera um @ para cada conta existente, a partir do nome; contas com nomes parecidos recebem número no final. Também adiciona a referência da capa de perfil. A `0005` cria as tabelas de times, convites, pedidos de entrada, organizador, notificações, auditoria e elos (cortes e classificação, vazia até as partidas existirem). Nenhuma das duas apaga contas nem volumes. Em Linux/macOS, substitua `.venv/Scripts/python.exe` por `.venv/bin/python` e use `cp` para copiar arquivos.
 
 API: [localhost:8000/docs](http://localhost:8000/docs). Saúde do processo: `/health/live`; prontidão do banco e esquema: `/health/ready`. O OpenAPI é gerado em `/openapi.json`.
 
@@ -44,7 +44,16 @@ cd backend
 .venv/Scripts/python.exe -m app.media_admin ensure-bucket
 ```
 
-O bucket não é criado no startup da API. Para remover objetos com mais de 24 horas que não estejam vinculados a avatar, capa ou post, execute `.venv/Scripts/python.exe -m app.media_admin reconcile`. O comando preserva as imagens em uso. As imagens passam pela API autenticada; não compartilhe credenciais ou links públicos. A implementação aceita JPEG, PNG e WebP estáticos até 5 MiB e 25 megapixels. Avatares são armazenados como WebP quadrado de até 512 px. A capa de perfil (`/api/v1/me/cover`) usa recorte 5:2 de no máximo 1500×600 px, com os mesmos formatos e limites; na web ela é ajustada em Editar perfil › Foto de capa. A configuração de produção, provedor, HTTPS, política de backup e suporte do storage ainda precisa ser decidida.
+O bucket não é criado no startup da API. Para remover objetos com mais de 24 horas que não estejam vinculados a avatar, capa, post ou brasão de time, execute `.venv/Scripts/python.exe -m app.media_admin reconcile`. O comando preserva as imagens em uso, inclusive os brasões (`crests/{id}.webp`) dos times. As imagens passam pela API autenticada; não compartilhe credenciais ou links públicos. A implementação aceita JPEG, PNG e WebP estáticos até 5 MiB e 25 megapixels. Avatares são armazenados como WebP quadrado de até 512 px. Brasões de time seguem as mesmas regras, mas preservam a transparência (WebP com alfa), e são lidos por `GET /api/v1/teams/{id}/crest` com sessão. A capa de perfil (`/api/v1/me/cover`) usa recorte 5:2 de no máximo 1500×600 px, com os mesmos formatos e limites; na web ela é ajustada em Editar perfil › Foto de capa. A configuração de produção, provedor, HTTPS, política de backup e suporte do storage ainda precisa ser decidida.
+
+### Link do time
+
+O link e o QR do time apontam para `{PUBLIC_WEB_URL}/entrar/{token}`. Configure no `backend/.env`:
+
+- `PUBLIC_WEB_URL`: endereço público da web, sem barra final (padrão `http://localhost:5173`). Fora de `ENVIRONMENT=development`, precisa usar `https`. Para abrir o link pelo celular na rede local, use o mesmo endereço da web aberto no aparelho.
+- `TEAM_LINK_SECRET`: chave que deriva os tokens dos links; o banco guarda só um nonce e o hash. Em desenvolvimento, vazio usa um valor fixo de desenvolvimento; fora dele, é obrigatório, com pelo menos 32 caracteres e exclusivo do ambiente. Trocar o segredo invalida todos os links existentes. Não registre o valor real em arquivos versionados.
+
+A web lê `/entrar/{token}` ao abrir, guarda o token em memória e limpa o endereço; quem não está logado entra (ou cria a conta) e segue para o pedido. Em desenvolvimento o Vite já serve o `index.html` nesse caminho; em produção, a hospedagem precisa devolver o `index.html` para `/entrar/*`, como em qualquer rota da aplicação de página única.
 
 Por padrão, banco `arena`, usuário/senha `arena` e porta `5432` são exclusivos de desenvolvimento. Para trocar, configure `POSTGRES_USER`, `POSTGRES_PASSWORD` e `POSTGRES_DB` no `.env` da raiz e ajuste `DATABASE_URL` no `.env` do backend. O driver da URL é explícito: `postgresql+psycopg2://`.
 
@@ -129,6 +138,19 @@ $env:ARENA_DEMO_PASSWORD='EscolhaUmaSenhaDeDemo'
 
 O seed cria `atleta@example.com` com três perfis privados em Brasília. É idempotente, não redefine senha de conta existente e só roda em desenvolvimento. A senha vem da variável, não fica gravada no código. Não exponha esse ambiente de demonstração à internet.
 
+## Demonstrar times e organizador (etapa 1, web)
+
+Use três contas adultas com perfil de futebol e cidade (A, B e C) e promova C a administradora com `promote-admin`. Para o brasão, rode o MinIO e o `ensure-bucket` antes.
+
+1. **Placa do Jogar:** com A, abra JOGAR. Em "Com meu time", sem time, a placa mostra "Você ainda não representa um time" e o botão "MEU TIME"; em "Avulso", a linha "Em classificação" com 0 de 3 partidas, sem elo, e o botão desabilitado com o aviso de que a busca chega numa próxima etapa.
+2. **Criar time:** pelo botão ou por "Meu time", crie o time com nome, cidade (sugerida do perfil de futebol) e brasão (recorte quadrado; PNG com transparência mantém o fundo transparente).
+3. **Convidar:** na carteirinha, "Convidar", busque B pelo nome ou @, escreva a mensagem e envie. Com B, o sino do Início mostra a não lida; em Notificações, tocar o convite abre Meus times com a folha do convite; aceite.
+4. **Papéis:** com A, toque B no elenco: "Tornar representante" e "Tirar a braçadeira". O último representante não perde a braçadeira nem sai do time (o servidor responde `409`). Depois, "Remover do time".
+5. **Link e QR:** na carteirinha, o ícone de QR mostra o link. Abra o link deslogado como C, entre e toque "Pedir para entrar"; A recebe a notificação, que leva a "Pedidos para entrar", e aprova. "Gerar outro link" invalida o anterior ("Este link não vale mais").
+6. **Encerrar:** em Editar time, "Encerrar time" com confirmação; o time some de Meus times, o link deixa de valer e os membros recebem o aviso.
+7. **Organizador:** com B, Perfil › Menu › "Quero organizar" e envie o pedido. Com C, Menu › Administração › "Pedidos de organizador" (com o contador): recuse com motivo. B vê a recusa nas notificações e no Menu, envia um novo pedido, e C aprova; o Menu de B passa a mostrar a seção Organizador, ainda sem eventos.
+8. **Persistência:** recarregue a página e confira times, elenco, pedidos e o estado do organizador.
+
 ## Validação
 
 No diretório `backend/`:
@@ -142,7 +164,7 @@ $env:TEST_DATABASE_URL='postgresql+psycopg2://arena:arena@localhost:5432/arena'
 
 Os testes criam e removem somente um schema aleatório próprio no PostgreSQL indicado. A credencial precisa de permissão para criar schemas. Sem `TEST_DATABASE_URL`, testes de integração ficam pulados; isso não comprova a entrega. Para executar só unidades, use `pytest tests/unit -q` pelo Python do ambiente.
 
-No diretório `web/`: `npm run lint`, `npm run typecheck` e `npm run build`. No diretório `mobile/`: `npm run lint`, `npm run typecheck`, `npx expo install --check` e `npm run export:android`. O workflow `.github/workflows/ci.yml` executa os checks com PostgreSQL e ambos os clientes. A geração do bundle não substitui validação Android/iOS em aparelho.
+No diretório `web/`: `npm run lint`, `npm run typecheck`, `npm run build` e `npm run test:coverage`. No diretório `mobile/`: `npm run lint`, `npm run typecheck`, `npx expo install --check` e `npm run export:android`. O workflow `.github/workflows/ci.yml` executa os checks com PostgreSQL e ambos os clientes. A geração do bundle não substitui validação Android/iOS em aparelho.
 
 Sessões expiram em 24 horas, não têm renovação automática e são revogadas no logout. Na web o token fica em cookie HttpOnly; no mobile, no SecureStore. Perfis sociais públicos são distintos dos perfis esportivos, que continuam privados. Para ambiente fora de desenvolvimento, configure `COOKIE_SECURE=true`, HTTPS, origens explícitas e infraestrutura conforme as decisões documentadas.
 

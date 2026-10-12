@@ -1,6 +1,8 @@
 import { Bell, CalendarDays, ChevronRight, Medal, Zap } from "lucide-react";
 import { sports } from "../api/client";
 import type { Profile } from "../api/client";
+import { getUnreadCount } from "../api/notifications";
+import { useResource } from "../hooks/useResource";
 import { Logo } from "../components/Brand";
 import { Badge } from "@/components/ui/badge";
 import { Button, IconButton } from "@/components/ui/button";
@@ -16,19 +18,37 @@ export default function HomePage({
   profiles,
   loading,
   go,
+  onExpired,
 }: {
   firstName: string;
   profiles: Profile[];
   loading: boolean;
   go: (screen: Screen) => void;
+  onExpired: () => void;
 }) {
+  // Indicador de não lidas no sino (os pedidos para seguir não entram nessa contagem).
+  const unread = useResource(getUnreadCount, onExpired);
+  const count = typeof unread.data?.unread_count === "number" ? unread.data.unread_count : 0;
   return (
     <>
       <header className="flex items-center justify-between">
         <Logo />
         <div className="flex items-center gap-0.5">
-          <IconButton aria-label="Notificações" onClick={() => go("notifications")}>
+          <IconButton
+            aria-label={count ? `Notificações, ${count} ${count === 1 ? "não lida" : "não lidas"}` : "Notificações"}
+            className="relative"
+            onClick={() => go("notifications")}
+          >
             <Bell size={21} />
+            {count > 0 && (
+              <span
+                aria-hidden="true"
+                data-testid="unread-indicator"
+                className="absolute top-1.5 right-1 grid h-4 min-w-4 place-items-center rounded-full bg-brand px-1 text-[9px] leading-none font-bold text-white ring-2 ring-app"
+              >
+                {count > 9 ? "9+" : count}
+              </span>
+            )}
           </IconButton>
         </div>
       </header>

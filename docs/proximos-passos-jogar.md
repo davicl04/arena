@@ -1,13 +1,13 @@
 # Próximos passos — tela Jogar
 
-> Estado em 12 de outubro de 2026: o [plano da tela Jogar](plano-jogar.md) e o [plano de Times e campeonatos](plano-times-campeonatos.md) estão fechados, mas **nada foi implementado**. Da etapa 1, o desenho e o plano estão concluídos; falta a implementação. Este arquivo define a ordem de trabalho até a implementação e o que ainda falta decidir. Atualize-o a cada etapa concluída, junto com a [situação da fundação](situacao-fundacao.md).
+> Estado em 12 de outubro de 2026: o [plano da tela Jogar](plano-jogar.md) e o [plano de Times e campeonatos](plano-times-campeonatos.md) estão fechados. **A etapa 1 da execução está implementada e integrada no backend e na web**: Times e campeonatos, fases 1 a 3 (times, convites, link do time, encerrar time, pedido de organizador e fila da administração), e Jogar, fase 1 (elos e linha de classificação na placa). Os contratos estão em [0003](decisoes/0003-times-campeonatos.md) e [0002](decisoes/0002-jogar.md); o registro, em [situação da fundação](situacao-fundacao.md). O Expo fica para a última etapa. Este arquivo define a ordem de trabalho e o que ainda falta decidir. Atualize-o a cada etapa concluída, junto com a situação da fundação.
 
 ## Ordem de implementação recomendada (12 de outubro de 2026)
 
 Os dois planos se cruzam: o Jogar precisa de times, e partes de Times e campeonatos precisam da inscrição e do resultado do Jogar. Por isso a execução **intercala** os dois, em vez de terminar um plano inteiro antes do outro:
 
-1. **Times e campeonatos, fases 1 a 3:** times, link do time e organizador (pedido e aprovação).
-2. **Jogar, fase 1:** elos e linha de classificação.
+1. **Times e campeonatos, fases 1 a 3:** times, link do time e organizador (pedido e aprovação). **Implementado no backend e na web em 12 de outubro de 2026 (etapa 1).**
+2. **Jogar, fase 1:** elos e linha de classificação. **Implementado no backend e na web em 12 de outubro de 2026 (etapa 1)**, com `standings` vazio até existirem partidas.
 3. **Times e campeonatos, fase 4:** criar evento, rascunho, aprovação de pagos e gestão.
 4. **Jogar, fase 7, junto com Times e campeonatos, fase 5:** inscrição do atleta, comprovante e análise pelo organizador.
 5. **Jogar, fases 2 a 5:** pareamento, partida e chat, avulso, resultado e ranking.
@@ -29,6 +29,8 @@ A implementação do Jogar **começa depois da tela "Times e campeonatos"**. O J
 ### Etapa 1 — Tela "Times e campeonatos"
 
 > **Desenho e plano concluídos em 12 de outubro de 2026**, em 19 rodadas de protótipos: veja o [plano de Times e campeonatos](plano-times-campeonatos.md). O escopo virou **duas áreas separadas**: Meus times, de todo atleta, e Organizador, só para quem tem a permissão concedida pela administração. A implementação segue as fases do plano. As fases 5 (comprovantes) e 7 (divergência) dependem de partes do Jogar (inscrição do atleta e cartão de resultado).
+>
+> **Progresso:** as fases 1 a 3 (times, papéis, convites, sair e remover, elenco, link e QR com pedido de entrada, encerrar time, pedido de organizador, fila e decisão da administração, revogação) estão implementadas no backend e na web, com notificações e auditoria. Faltam, da lista abaixo, os eventos do organizador (fase 4), a gestão de comprovantes e o chaveamento, e a aprovação de eventos pagos pela administração, além de todas as telas no Expo.
 
 Escopo mínimo para destravar o Jogar, como foi planejado em 11 de outubro:
 
@@ -63,7 +65,7 @@ Fazer uma rodada curta de protótipos para cada uma, no mesmo processo usado no 
 
 Seguir as fases do [plano](plano-jogar.md#fases-de-entrega), cada uma demonstrável de ponta a ponta, com persistência após recarregar:
 
-1. Elos e linha de classificação. A parte de times mínimos já estará pronta pela etapa 1.
+1. Elos e linha de classificação. **Concluída na etapa 1 da execução** (backend e web), junto com os times mínimos.
 2. Pareamento de amistosos (time e tênis), com a fila no PostgreSQL e a varredura periódica.
 3. Partida: condições, quadras, reserva, chat, cancelamento e W.O.
 4. Avulso: qualquer formato, posição específica ou qualquer posição, entrada direta.

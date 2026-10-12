@@ -2,7 +2,7 @@
 
 Data: 12 de outubro de 2026. Contrato da **etapa 1** da execução (fases 1 a 3 do [plano de Times e campeonatos](../plano-times-campeonatos.md)): times, papéis, convites, link do time com pedido de entrada, encerrar time, pedido de organizador com fila e decisão da administração, e revogação pela administração. As fases 4 a 7 ficam **a definir na etapa correspondente** (seção 10). O contrato da linha do elo e de `GET /me/standings` está em [0002-jogar.md](0002-jogar.md).
 
-> **Estado:** o esquema (migração `0005`), as notificações, a auditoria e a leitura dos elos estão implementados. As rotas de times (seções 3 a 5) e de organizador (seção 6) estão especificadas aqui e serão implementadas pelas frentes A e B; até lá, os routers `app/routers/teams.py` e `app/routers/organizers.py` existem vazios e já registrados em `app/main.py`.
+> **Estado (etapa 1 implementada e integrada em 12 de outubro de 2026):** as seções 1 a 9 estão implementadas no backend (migração `0005`, `app/routers/teams.py`, `app/routers/organizers.py`, `app/routers/notifications.py` e os serviços da seção 9) e na web (Meus times, convites, link do time, organizador, filas da administração e Notificações). O Expo ainda não consome este contrato (última etapa). Os desvios das frentes, já incorporados abaixo, estão resumidos na seção 9.1. As fases 4 a 7 seguem na seção 10.
 
 Este documento é a fonte da verdade entre o backend e os clientes. Desvios exigem atualizar este arquivo.
 
@@ -107,7 +107,7 @@ interface TeamMember {
 - **Iniciais:** primeira letra da primeira e da última palavra, ignorando `de`, `da`, `do`, `das`, `dos` e `e`; com uma palavra só, as duas primeiras letras; em maiúsculas (`Team.initials`).
 - **Grade de formatos:** `rankings.team_format_grid(db, team_ids)` monta a grade de vários times numa consulta. Sem partidas, as três células saem `sem_jogos`.
 - **Visibilidade de um time** (`GET /teams/{id}`, `GET /teams/{id}/members`): membro ativo, quem tem convite pendente do time e quem tem pedido de entrada pendente. Para os demais, `404 Time não encontrado.` Time encerrado responde `404` a todos. Quem escaneia o link vê o time por `GET /join/{token}`.
-- **Bloqueios:** o elenco aparece completo; o avatar de quem tem bloqueio com o visitante (em qualquer sentido) sai `null`.
+- **Bloqueios:** o elenco aparece completo; o avatar de quem tem bloqueio com o visitante (em qualquer sentido) ou de conta inativa sai `null`.
 - **Posição no elenco:** ao entrar no time (criar, aceitar convite ou ter o pedido aprovado), `position` recebe a posição preferida do **próprio** perfil de futebol naquele momento (ou `null`). O perfil esportivo continua privado; só essa cópia, criada por uma ação do próprio atleta, aparece a quem vê o time. O atleta troca a própria posição em `PATCH /teams/{id}/members/{user_id}`. Recomenda-se que a web informe "Sua posição preferida aparece no elenco" ao aceitar e ao pedir para entrar.
 
 ### Rotas
@@ -120,7 +120,7 @@ interface TeamMember {
 | `PATCH /teams/{id}` | representante | `{ name?: string; city_id?: number }` (ao menos um) | `TeamCard` |
 | `PUT /teams/{id}/crest` | representante | multipart `file` | `TeamCard` |
 | `DELETE /teams/{id}/crest` | representante | — | `204` (idempotente) |
-| `GET /teams/{id}/crest?v={media_id}` | qualquer atleta logado | — | imagem WebP, `Cache-Control: private, no-store` |
+| `GET /teams/{id}/crest?v={media_id}` | qualquer atleta logado | — | imagem WebP, `Cache-Control: no-store` (o middleware global vale para todas as respostas) |
 | `GET /teams/{id}/members` | visibilidade acima | — | `{ items: TeamMember[] }` |
 | `PATCH /teams/{id}/members/{user_id}` | ver abaixo | `{ role?: TeamRole; position?: Position \| null }` (ao menos um) | `TeamMember` |
 | `DELETE /teams/{id}/members/{user_id}` | ver abaixo | — | `204` |
@@ -132,11 +132,11 @@ interface TeamMember {
 
 **`PATCH /teams/{id}`:** `403 Só representantes podem editar o time.` para membros. Auditoria `time.editado` com os campos alterados.
 
-**Brasão:** mesma validação e normalização do avatar (JPEG, PNG ou WebP estático, até 5 MiB e 25 megapixels; WebP quadrado de até 512 px, sem metadados), objeto privado `crests/{media_id}.webp`, `media_objects.user_id` = quem enviou. O brasão anterior é removido depois do commit. A reconciliação de órfãos (`app.media_admin reconcile`) já preserva brasões vinculados. A leitura confere que `v` é o brasão atual do time ativo (`404 Brasão não encontrado.`). `403 Só representantes podem trocar o brasão.`
+**Brasão:** mesma validação e normalização do avatar (JPEG, PNG ou WebP estático, até 5 MiB e 25 megapixels; WebP quadrado de até 512 px, sem metadados), **preservando a transparência** (WebP com alfa; o avatar continua achatado em RGB), objeto privado `crests/{media_id}.webp`, `media_objects.user_id` = quem enviou. O brasão anterior é removido depois do commit. A reconciliação de órfãos (`app.media_admin reconcile`) já preserva brasões vinculados. A leitura confere que `v` é o brasão atual do time ativo (`404 Brasão não encontrado.`). `403 Só representantes podem trocar o brasão.`
 
 **`PATCH /teams/{id}/members/{user_id}`:**
-- `role` só por representante (`403 Só representantes podem mudar a braçadeira.`). Tirar a braçadeira do último representante: `409 O time precisa de pelo menos um representante. Passe a braçadeira a outro atleta antes.` Promover quem já é representante é idempotente. Auditoria `membro.papel_alterado` (`{ user_id, role }`).
-- `position` só pelo próprio atleta (`403 Cada atleta escolhe a própria posição no time.`). Sem auditoria.
+- `role` só por representante (`403 Só representantes podem mudar a braçadeira.`). Tirar a braçadeira do último representante: `409 O time precisa de pelo menos um representante. Passe a braçadeira a outro atleta antes.` Promover quem já é representante é idempotente. Auditoria `membro.papel_alterado` (`{ team_id, user_id, role }`).
+- `position` só pelo próprio atleta (`403 Cada atleta escolhe a própria posição no time.`). Sem auditoria. A web da etapa 1 ainda não tem tela para trocar a própria posição: o elenco mostra a cópia feita ao entrar.
 - Alvo que não está no elenco ativo: `404 Atleta não está no elenco.`
 
 **`DELETE /teams/{id}/members/{user_id}`:**
@@ -184,11 +184,11 @@ interface InviteDecisionResult { state: 'aceito' | 'recusado'; team: TeamCard | 
 | `GET /me/team-invites` | titular | — | `{ items: TeamInviteReceived[] }` (pendentes de times ativos, mais recentes primeiro) |
 | `PUT /team-invites/{id}` | convidado | `{ decision: 'aceitar' \| 'recusar' }` | `InviteDecisionResult` |
 
-**Candidatos (aba "Escolher atleta"):** sem `q`, as pessoas que o representante segue (seguimento aprovado), da mais recente para a mais antiga (cursor por data do seguimento). Com `q` (1 a 100 caracteres, `@` inicial ignorado), a mesma busca de `GET /users`: `people.user_search_statement(viewer_id, q)`, paginada por `(created_at, id)`. Excluem-se o titular, contas inativas e bloqueios nos dois sentidos. O `team_status` é calculado em lote para a página. `403 Só representantes podem convidar atletas.`
+**Candidatos (aba "Escolher atleta"):** a pessoa vem sem posição (o perfil esportivo é privado), então a web mostra nome e @. Sem `q`, as pessoas que o representante segue (seguimento aprovado), da mais recente para a mais antiga (cursor por data do seguimento). Com `q` (1 a 100 caracteres, `@` inicial ignorado), a mesma busca de `GET /users`: `people.user_search_statement(viewer_id, q)`, paginada por `(created_at, id)`. Excluem-se o titular, contas inativas e bloqueios nos dois sentidos. O `team_status` é calculado em lote para a página. `403 Só representantes podem convidar atletas.`
 
 **Criar convite:** mensagem aparada, vazia vira `null`, até 140 caracteres. Erros: convidado inexistente, inativo ou com bloqueio com quem convida: `404 Atleta não encontrado.`; já é membro: `409 Este atleta já está no elenco.`; tem pedido de entrada pendente: `409 Este atleta já pediu para entrar. Responda em Pedidos para entrar.`; convite pendente existente: `200` com ele, sem trocar a mensagem. Notificação `convite_time` ao convidado. Auditoria `convite.criado`.
 
-**Cancelar:** só pendente (`409 Este convite não está mais pendente.`); `state = 'cancelado'`, `decided_by_id` = representante. Auditoria `convite.cancelado`. Sem notificação.
+**Cancelar:** só representante do time (`403 Só representantes podem cancelar convites.`); só pendente (`409 Este convite não está mais pendente.`); `state = 'cancelado'`, `decided_by_id` = representante. Auditoria `convite.cancelado`. Sem notificação.
 
 **Decidir (convidado):** `404 Convite não encontrado.` para quem não é o convidado; `409 Este convite não está mais pendente.` fora de `pendente`.
 - **Aceitar:** cria o vínculo `membro` (`joined_via = 'convite'`, posição do perfil), `state = 'aceito'`, e cancela o pedido de entrada pendente da mesma pessoa no time. Se a pessoa já estiver no elenco (corrida), o convite fica `aceito` sem novo vínculo. Notificação `convite_aceito` aos representantes ativos. Auditoria `convite.aceito`. Resposta com `team` (agora `my_role: 'membro'`).
@@ -203,7 +203,7 @@ interface InviteDecisionResult { state: 'aceito' | 'recusado'; team: TeamCard | 
 - **"Gerar outro link"** troca o nonce: o token anterior deixa de valer na hora. O link **não expira**; também morre quando o time é encerrado.
 - A busca (`team_links.find_team`) recusa formatos inválidos sem consultar o banco, procura pelo hash num time `ativo` e confere o HMAC do nonce atual em tempo constante.
 - **Configuração:** `TEAM_LINK_SECRET` tem valor padrão só em `ENVIRONMENT=development`; fora dele é obrigatório, com pelo menos 32 caracteres e diferente do padrão de desenvolvimento. Trocar o segredo invalida todos os links; o próximo `GET /teams/{id}/invite-link` sincroniza o hash.
-- **URL:** `{PUBLIC_WEB_URL}/entrar/{token}`. `PUBLIC_WEB_URL` tem padrão `http://localhost:5173`, sem barra final, e exige `https` fora do desenvolvimento. A web lê `/entrar/{token}` de `window.location.pathname` ao abrir (não há roteador); a hospedagem de produção precisa servir o `index.html` nesse caminho. Quem não está logado entra primeiro e depois segue para o pedido.
+- **URL:** `{PUBLIC_WEB_URL}/entrar/{token}`. `PUBLIC_WEB_URL` tem padrão `http://localhost:5173`, sem barra final, e exige `https` fora do desenvolvimento. A web lê `/entrar/{token}` de `window.location.pathname` ao abrir (não há roteador), guarda o token só em memória e limpa o endereço na hora (`history.replaceState`); a hospedagem de produção precisa servir o `index.html` nesse caminho (o Vite já faz isso em desenvolvimento). Quem não está logado entra primeiro e depois segue para o pedido; o token também sobrevive ao cadastro seguido de login na mesma aba.
 - Implementado em `app/services/team_links.py` (`issue`, `current_token`, `find_team`, `join_url`).
 
 ```ts
@@ -236,7 +236,7 @@ interface JoinRequest {
 | `GET /teams/{id}/join-requests` | representante | — | `{ items: JoinRequest[] }` (pendentes, mais recentes primeiro) |
 | `PUT /team-join-requests/{id}` | representante do time | `{ decision: 'aprovar' \| 'recusar' }` | `JoinRequest` |
 
-- **Link:** `403 Só representantes podem ver ou gerar o link do time.` Gerar outro registra a auditoria `time.link_gerado` (sem o token).
+- **Link:** `403 Só representantes podem ver ou gerar o link do time.` Gerar outro registra a auditoria `time.link_gerado` (sem o token). Um time ativo sem link ganha um na primeira leitura de `GET /invite-link`, sem auditoria; com o segredo trocado, a mesma leitura sincroniza o hash.
 - **Token inválido, trocado ou de time encerrado:** `404 Este link não vale mais.` em `GET` e `POST /join/{token}`.
 - **Pedir para entrar:** já membro: `409 Você já está no elenco.`; com convite pendente do time: `409 Você já tem um convite deste time. Responda em Meus times.`; pedido pendente existente: `200` com ele. Quem foi recusado pode pedir de novo. Notificação `pedido_entrada` aos representantes ativos. Auditoria `pedido_entrada.criado`. Pedidos pendentes continuam válidos depois de "Gerar outro link".
 - **Cancelar o próprio pedido:** só pendente (`409 Este pedido não está mais pendente.`); `404 Pedido não encontrado.` para outra pessoa. Auditoria `pedido_entrada.cancelado`.
@@ -300,7 +300,7 @@ interface AdminOrganizer {
 | `GET /me/organizer-request` | titular | — | `OrganizerStatus` |
 | `POST /me/organizer-request` | titular | `OrganizerRequestInput` | `201 OrganizerRequest` |
 | `DELETE /me/organizer-request` | titular | — | `204` |
-| `GET /admin/queue-counts` | administração | — | `{ organizer_requests: number }` (pendentes) |
+| `GET /admin/queue-counts` | administração | — | `{ organizer_requests: number; reports: number }` (pedidos em análise e denúncias pendentes, a mesma contagem de `GET /admin/reports`) |
 | `GET /admin/organizer-requests?state=em_analise\|decididos&cursor=&limit=` | administração | — | `Page<AdminOrganizerRequest>` |
 | `POST /admin/organizer-requests/{id}/decision` | administração | `{ decision: 'aprovar' \| 'recusar'; reason_code?: OrganizerRefusalReason; reason_detail?: string }` | `AdminOrganizerRequest` |
 | `GET /admin/organizers?cursor=&limit=` | administração | — | `Page<AdminOrganizer>` (ativos) |
@@ -319,12 +319,12 @@ Em `recusado` e `revogado`, o cartão oferece "Enviar novo pedido".
 **Cancelar:** `404 Nenhum pedido em análise.` sem pendente. `state = 'cancelado'`, `decided_by_id` = titular. Auditoria `pedido_organizador.cancelado`.
 
 **Administração:** `403 Acesso administrativo necessário.` (dependência `current_admin` de `app/core/security.py`).
-- Fila `em_analise` ordenada por `created_at`; `decididos` (aprovado, recusado, cancelado) por `decided_at`, do mais recente para o mais antigo.
-- **Decidir:** `404 Pedido não encontrado.`; `409 Este pedido já foi decidido.` fora de `em_analise`. Recusar exige `reason_code` (`422 Escolha o motivo da recusa.`), e `outro` exige `reason_detail` com 5 a 500 caracteres (`422 Descreva o motivo da recusa.`). Aprovar cria `organizers` com o `display_name` do pedido; ignora `reason_*`. Notificação `pedido_organizador_decidido` e auditoria `pedido_organizador.aprovado` ou `pedido_organizador.recusado`. A administração pode decidir o próprio pedido; a decisão fica auditada.
+- Fila `em_analise` ordenada por `created_at` e `decididos` (aprovado, recusado, cancelado) por `decided_at`, as duas do mais recente para o mais antigo; os organizadores ativos também.
+- **Decidir:** `404 Pedido não encontrado.`; `409 Este pedido já foi decidido.` fora de `em_analise`. Recusar exige `reason_code` (`422 Escolha o motivo da recusa.`), e `outro` exige `reason_detail` com pelo menos 5 caracteres (`422 Descreva o motivo da recusa.`); qualquer detalhe acima de 500 caracteres recebe `422 Descreva o motivo da recusa em até 500 caracteres.` Aprovar cria `organizers` com o `display_name` do pedido; ignora `reason_*`. Aprovar quem já tem permissão ativa (concedida fora deste fluxo) responde `409 Este atleta já é organizador.` e mantém o pedido em análise. Notificação `pedido_organizador_decidido` e auditoria `pedido_organizador.aprovado` ou `pedido_organizador.recusado`. A administração pode decidir o próprio pedido; a decisão fica auditada.
 - **Revogar:** `404 Organizador não encontrado.` se não houver permissão ativa com esse id. Grava `revoked_at`, `revoked_by_id` e `revoke_reason`. Notificação `organizador_revogado` e auditoria `organizador.revogado`. O destino dos eventos abertos do organizador revogado (seguem ou são cancelados com devolução) entra na fase 4.
 - **Permissão para as fases seguintes:** `organizers.get_active_organizer(db, user_id) -> Organizer | None` e a dependência `current_organizer` (`403 Você precisa ser organizador para criar eventos.`), usadas a partir da fase 4.
 
-**Menu:** a seção "Organizador · Meus eventos" aparece com `state = 'aprovado'`; até a fase 4, mostra estado vazio, sem eventos fictícios. A seção Administração mostra "Pedidos de organizador" com o contador de `GET /admin/queue-counts`, ao lado de "Denúncias".
+**Menu:** a seção "Organizador · Meus eventos" aparece com `state = 'aprovado'`; até a fase 4, mostra estado vazio, sem eventos fictícios. A seção Administração mostra "Pedidos de organizador" com o contador de `GET /admin/queue-counts`, ao lado de "Denúncias". Na web, a ordem do Menu é Conta, Organizador (cartão P3 ou seção), Administração, App (Notificações e Sobre) e Sair.
 
 ## 7. Notificações
 
@@ -363,7 +363,17 @@ Os pedidos para seguir continuam em `GET /me/follow-requests` e **não** entram 
 | `pedido_organizador_decidido` | autor do pedido | `null` | `{ request_id, decision: 'aprovado' \| 'recusado', reason_code: OrganizerRefusalReason \| null, reason_detail: string \| null }` | "Seu pedido de organizador foi aprovado" / "…foi recusado: {motivo}" | Menu, cartão do organizador |
 | `organizador_revogado` | organizador | `null` | `{ reason }` | "Sua permissão de organizador foi revogada: {motivo}" | Menu |
 
-`team_name` é uma cópia do nome no momento do aviso; a navegação usa `team_id` e mostra os dados atuais. Sem `actor`, o texto usa "Um representante" ou "A administração". Notificações de times encerrados ou de convites já decididos continuam na lista; ao tocar, a web confere o estado atual.
+`team_name` é uma cópia do nome no momento do aviso; a navegação usa `team_id` e mostra os dados atuais. Sem `actor`, o texto usa "Um representante", "Um atleta" ou "A administração". Notificações de times encerrados ou de convites já decididos continuam na lista; ao tocar, a web confere o estado atual.
+
+**Na web (etapa 1):** tocar marca como lida (`PUT /me/notifications/{id}/read`) e navega pela pilha do `ArenaPage`:
+- `convite_time` → Meus times com a folha de convites recebidos (`{ teamId, invites: true }`); um convite já decidido mostra "Nenhum convite pendente".
+- `pedido_entrada` → Meus times no time, rolando até "Pedidos para entrar" (`{ teamId, requests: true }`).
+- `convite_aceito` e `pedido_entrada_decidido` aprovado → Meus times com o cartão do time centralizado (`{ teamId }`); sem esse time em Meus times, o primeiro cartão.
+- `removido_do_time`, `time_encerrado` e `pedido_entrada_decidido` recusado → só marcam como lida.
+- `pedido_organizador_decidido` e `organizador_revogado` → Menu, com o cartão do organizador.
+- Tipos desconhecidos (fases seguintes) → texto genérico, sem destino.
+
+A tela Notificações abre pelo sino do Início (com o contador de não lidas) e pela linha "Notificações" do Menu.
 
 ## 8. Auditoria
 
@@ -395,6 +405,23 @@ Cancelamentos automáticos (convite cancelado ao aprovar o pedido, pendências c
 | `schemas.common.EmptyInput`, `StrictInput`, `PersonOut` | corpos `{}`, entradas sem campos extras e pessoa resumida |
 
 Configurações novas: `PUBLIC_WEB_URL` e `TEAM_LINK_SECRET` (seção 5), validadas em `app/core/config.py`.
+
+### 9.1 Desvios registrados na integração da etapa 1
+
+Já incorporados às seções acima:
+
+| Seção | Desvio | Motivo |
+| --- | --- | --- |
+| 3 | Brasão com `Cache-Control: no-store`, e não `private, no-store`. | O middleware global define `no-store` em todas as respostas; o efeito é igual ou mais restritivo. |
+| 3 | Avatar `null` também para conta inativa. | Mesma regra de `PersonOut`. |
+| 3, 8 | `membro.papel_alterado` grava também `team_id`. | Permite consultar a auditoria por time. |
+| 4 | `403 Só representantes podem cancelar convites.` | A tabela só dizia "representante do time". |
+| 5 | Time sem link ganha um na primeira leitura de `GET /invite-link`, sem auditoria. | Times sem link (por exemplo, com o segredo trocado); a geração explícita continua auditada. |
+| 6 | `GET /admin/queue-counts` responde também `reports`. | O Menu da administração pode mostrar as duas filas com uma leitura. |
+| 6 | `422 Descreva o motivo da recusa em até 500 caracteres.` e `409 Este atleta já é organizador.` | Mensagens específicas para o limite do detalhe e para a permissão concedida fora do fluxo. |
+| 6 | Filas do mais recente para o mais antigo. | Convenção geral das listas (seção 1). |
+| 3, 4 (web) | Candidatos sem posição; o cartão do link mostra "cidade · N atletas"; o elenco em miniatura usa a inicial do primeiro nome; sem tela para trocar a própria posição. | O contrato não traz esses dados (perfil esportivo privado) ou a tela ficou para depois. |
+| 7 (web) | `pedido_entrada` rola até "Pedidos para entrar"; `removido_do_time`, `time_encerrado` e pedido recusado só marcam como lida. | Ligação entre as frentes de Meus times e de Notificações, feita na integração. |
 
 ## 10. Fases 4 a 7 (a definir na etapa correspondente)
 

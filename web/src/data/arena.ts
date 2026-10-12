@@ -53,7 +53,8 @@ const playScreens: Screen[] = ["teams", "team-form", "team-invite", "join"];
 
 /**
  * Aba acesa na navegação inferior para a tela atual. Perfis e conexões herdam a aba da raiz da pilha
- * (de onde foram abertos); as telas de Meus times acendem "JOGAR" e as de organizador, "Perfil".
+ * (de onde foram abertos); as telas de Meus times acendem "JOGAR" e as de organizador, "Perfil"; Notificações acendem
+ * "Início", ou "Perfil" quando abertas pelo Menu.
  */
 export function activeNavFor(screen: Screen, root: Screen): Screen {
   if (screen === "user-profile" || screen === "connections") {
@@ -63,7 +64,9 @@ export function activeNavFor(screen: Screen, root: Screen): Screen {
   }
   if (profileScreens.includes(screen) || screen === "sports") return "profile";
   if (playScreens.includes(screen)) return "play";
-  return screen === "notifications" ? "home" : screen;
+  // Notificações acendem "Início" (o sino) ou "Perfil", quando abertas pela linha do Menu.
+  if (screen === "notifications") return root === "profile" ? "profile" : "home";
+  return screen;
 }
 
 export const rankingTiers = [

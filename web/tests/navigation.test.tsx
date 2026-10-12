@@ -164,11 +164,24 @@ describe('navegação do ArenaPage', () => {
     await ui.click(nav('Perfil'))
     await ui.click(await screen.findByRole('button', { name: 'Menu' }))
     expect(screen.getByRole('heading', { name: 'Menu' })).not.toBeNull()
-    expect(screen.getByText('Em breve')).not.toBeNull()
+    expect(screen.queryByText('Em breve')).toBeNull()
     expect(screen.getByText(/^Versão \d/)).not.toBeNull()
     await ui.click(screen.getByRole('button', { name: 'Sair da conta' }))
     await waitFor(() => expect(onLogout).toHaveBeenCalled())
     expect(request).toHaveBeenCalledWith('/auth/logout', 'POST')
+  })
+
+  it('abre Notificações pela linha do Menu, com Perfil aceso, e volta ao Menu', async () => {
+    const ui = userEvent.setup()
+    renderArena()
+    await ui.click(nav('Perfil'))
+    await ui.click(await screen.findByRole('button', { name: 'Menu' }))
+    await ui.click(screen.getByRole('button', { name: 'Notificações' }))
+    expect(screen.getByRole('heading', { name: 'Notificações' })).not.toBeNull()
+    expect(current()).toBe('Perfil')
+    expect(await screen.findByRole('button', { name: 'Aprovar solicitação de Atleta Dois' })).not.toBeNull()
+    await ui.click(screen.getByRole('button', { name: 'Voltar' }))
+    expect(screen.getByRole('heading', { name: 'Menu' })).not.toBeNull()
   })
 
   it('mostra solicitações em Notificações, mantendo Início como aba ativa, e volta ao início', async () => {

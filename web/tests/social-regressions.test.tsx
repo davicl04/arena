@@ -33,10 +33,11 @@ it('mantém foco e todos os caracteres enquanto digita comentário', async () =>
 
 it('lista solicitações para seguir nas notificações e continua na segunda página', async () => {
   vi.mocked(request).mockImplementation(async path => {
+    if (path.startsWith('/me/notifications')) return { items: [], next_cursor: null, unread_count: 0 } as never
     if (path.includes('cursor=')) return { items: [{ user: { ...person, id: 3, name: 'Outra conta' }, state: 'pending' }], next_cursor: null } as never
     return { items: [{ user: person, state: 'pending' }], next_cursor: 'more-requests' } as never
   })
-  render(<NotificationsPage onOpenUser={vi.fn()} onExpired={vi.fn()} />)
+  render(<NotificationsPage onOpenUser={vi.fn()} onNavigate={vi.fn()} onExpired={vi.fn()} />)
   await screen.findByRole('button', { name: 'Aprovar solicitação de Atleta' })
   await userEvent.setup().click(screen.getByRole('button', { name: 'Carregar mais solicitações' }))
   await waitFor(() => expect(request).toHaveBeenCalledWith('/me/follow-requests?cursor=more-requests'))
@@ -49,9 +50,10 @@ it('aprova, recusa e aprova todas as solicitações', async () => {
   let items = [2, 3, 4].map(id => ({ user: { ...person, id, name: `Conta ${id}` }, state: 'pending' }))
   vi.mocked(request).mockImplementation(async (path, method) => {
     if (method === 'PUT') { items = items.filter(item => !path.includes(`/${item.user.id}?`)); return { state: 'approved' } as never }
+    if (path.startsWith('/me/notifications')) return { items: [], next_cursor: null, unread_count: 0 } as never
     return { items, next_cursor: null } as never
   })
-  render(<NotificationsPage onOpenUser={vi.fn()} onExpired={vi.fn()} />)
+  render(<NotificationsPage onOpenUser={vi.fn()} onNavigate={vi.fn()} onExpired={vi.fn()} />)
   await user.click(await screen.findByRole('button', { name: 'Recusar solicitação de Conta 2' }))
   expect(request).toHaveBeenCalledWith('/me/follow-requests/2?approve=false', 'PUT')
   await waitFor(() => expect(screen.queryByText('Conta 2')).toBeNull())
@@ -65,7 +67,7 @@ it('aprova, recusa e aprova todas as solicitações', async () => {
 
 it('mostra o estado vazio quando não há solicitações', async () => {
   vi.mocked(request).mockResolvedValue({ items: [], next_cursor: null } as never)
-  render(<NotificationsPage onOpenUser={vi.fn()} onExpired={vi.fn()} />)
+  render(<NotificationsPage onOpenUser={vi.fn()} onNavigate={vi.fn()} onExpired={vi.fn()} />)
   expect(await screen.findByText('Tudo em dia')).not.toBeNull()
 })
 

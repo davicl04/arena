@@ -37,8 +37,12 @@ def storage_client():
     )
 
 
-def _normalize_profile_image(raw: bytes, reshape) -> bytes:
-    """Validate an untrusted upload, apply EXIF orientation, reshape it and re-encode as WebP."""
+def _normalize_profile_image(raw: bytes, reshape, *, keep_alpha: bool = False) -> bytes:
+    """Validate an untrusted upload, apply EXIF orientation, reshape it and re-encode as WebP.
+
+    With `keep_alpha`, a source with transparency stays RGBA (WebP with alpha) instead of being
+    flattened to RGB, which would turn transparent areas black.
+    """
     try:
         with warnings.catch_warnings():
             warnings.simplefilter('error', Image.DecompressionBombWarning)
@@ -51,7 +55,9 @@ def _normalize_profile_image(raw: bytes, reshape) -> bytes:
                     raise HTTPException(413, 'A imagem excede o limite de 25 megapixels.')
                 probe.verify()
             with Image.open(io.BytesIO(raw)) as source:
-                image = reshape(ImageOps.exif_transpose(source).convert('RGB'))
+                oriented = ImageOps.exif_transpose(source)
+                mode = 'RGBA' if keep_alpha and oriented.has_transparency_data else 'RGB'
+                image = reshape(oriented.convert(mode))
                 output = io.BytesIO()
                 image.save(output, format='WEBP', quality=85, method=6)
                 return output.getvalue()
@@ -90,6 +96,11 @@ def normalize_avatar(raw: bytes) -> bytes:
 
 def normalize_cover(raw: bytes) -> bytes:
     return _normalize_profile_image(raw, _cover)
+
+
+def normalize_crest(raw: bytes) -> bytes:
+    """Team crest: same rules as the avatar (square WebP up to 512 px), keeping transparency."""
+    return _normalize_profile_image(raw, _square, keep_alpha=True)
 
 
 def normalize_post_image(raw: bytes) -> bytes:
@@ -198,6 +209,70 @@ def clear_user_image(db: Session, user: User, kind: str) -> None:
 
 def remove_object(media: MediaObject) -> None:
     require_storage(lambda: storage_client().delete_object(Bucket=media.bucket, Key=media.object_key))
+
+
+def read_object(media: MediaObject) -> bytes:
+    result = require_storage(lambda: storage_client().get_object(Bucket=media.bucket, Key=media.object_key))
+    try:
+        return result['Body'].read()
+    finally:
+        result['Body'].close()
+
+
+def _discard_media(db: Session, media_id: uuid.UUID | None, label: str) -> None:
+    """Removes an unlinked object and its metadata after the commit; failures are left for reconcile."""
+    if media_id is None:
+        return
+    media = db.get(MediaObject, media_id)
+    if media is None:
+        return
+    try:
+        remove_object(media)
+        db.delete(media)
+        db.commit()
+    except Exception as error:
+        db.rollback()
+        logger.error('Old %s cleanup deferred: %s', label, type(error).__name__)
+
+
+def store_team_crest(db: Session, team: Team, normalized: bytes, uploader_id: int) -> MediaObject:
+    """Uploads the crest, links it to the (locked) team in one commit and then removes the previous one."""
+    settings = get_settings()
+    media_id = uuid.uuid4()
+    key = f'crests/{media_id}.webp'
+    require_storage(lambda: storage_client().put_object(
+        Bucket=settings.media_s3_bucket, Key=key, Body=normalized,
+        ContentType='image/webp', CacheControl='private, no-store',
+    ))
+    with Image.open(io.BytesIO(normalized)) as image:
+        width, height = image.size
+    media = MediaObject(id=media_id, user_id=uploader_id, bucket=settings.media_s3_bucket, object_key=key,
+                        content_type='image/webp', size_bytes=len(normalized), width=width, height=height)
+    previous_id = team.crest_media_id
+    try:
+        db.add(media)
+        db.flush()
+        team.crest_media_id = media.id
+        db.commit()
+    except Exception:
+        db.rollback()
+        try:
+            remove_object(media)
+        except HTTPException:
+            logger.error('Uncommitted crest cleanup deferred')
+        raise
+    _discard_media(db, previous_id, 'crest')
+    return media
+
+
+def clear_team_crest(db: Session, team: Team) -> None:
+    """Unlinks the crest of the (locked) team, commits and then removes the object."""
+    previous_id = team.crest_media_id
+    if previous_id is None:
+        return
+    team.crest_media_id = None
+    db.commit()
+    _discard_media(db, previous_id, 'crest')
 
 
 def reconcile_orphans(db: Session, older_than_hours: int = 24) -> int:

@@ -34,6 +34,8 @@ export interface TeamCrestProps {
   initials?: string;
   /** Caminho do brasão enviado, como as fotos (resolvido por `apiUrl`). Sem ele, ou se falhar, usa o escudo neutro. */
   path?: string | null;
+  /** Prévia local de um recorte ainda não enviado (URL `blob:`), usada no lugar de `path` (Criar e Editar time). */
+  previewSrc?: string | null;
   size?: TeamCrestSize;
   /** Use quando o nome do time já aparece ao lado: o brasão fica oculto para leitores de tela. */
   decorative?: boolean;
@@ -48,13 +50,15 @@ export function TeamCrest({
   name,
   initials,
   path,
+  previewSrc,
   size,
   decorative = false,
   className,
 }: TeamCrestProps) {
   const clipId = `crest-${useId().replace(/[^\w-]/g, "")}`;
   const [failedPath, setFailedPath] = useState<string | null>(null);
-  const image = path && failedPath !== path ? path : null;
+  const source = previewSrc || path;
+  const image = source && failedPath !== source ? source : null;
   const a11y = decorative
     ? { "aria-hidden": true as const }
     : { role: "img", "aria-label": `Brasão de ${name}` };
@@ -74,7 +78,7 @@ export function TeamCrest({
           </defs>
           <path d={shield} className="fill-tile" />
           <image
-            href={apiUrl(image)}
+            href={image === previewSrc ? image : apiUrl(image)}
             width="40"
             height="44"
             preserveAspectRatio="xMidYMid slice"

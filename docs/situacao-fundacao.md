@@ -1,5 +1,95 @@
 # Situação da fundação do Arena
 
+## Etapa 1 — Times, link do time, organizador e elos (implementação) — 12 de outubro de 2026
+
+Primeira etapa da execução dos planos de [Times e campeonatos](plano-times-campeonatos.md) (fases 1 a 3) e do [Jogar](plano-jogar.md) (fase 1), no backend e na web. Contratos: [0003](decisoes/0003-times-campeonatos.md) e [0002](decisoes/0002-jogar.md). Foi feita em uma fundação comum, quatro frentes paralelas (A e B no backend, C e D na web) e a integração. **Não é o MVP completo:** não há partidas, eventos, resultados nem ranking calculado, e o Expo não foi tocado.
+
+**O que mudou:**
+- **Esquema (`0005`):** times, elenco com histórico, convites, pedidos de entrada, link do time (nonce e hash; o token é derivado por HMAC com `TEAM_LINK_SECRET`), pedidos de organizador, organizadores, notificações, auditoria e elos (`rank_cuts` com os cortes iniciais e `standings` vazio).
+- **Backend:**
+  - times: criar, editar, brasão (WebP com transparência), elenco, papéis, sair, remover e encerrar;
+  - convites com mensagem e candidatos (quem você segue ou busca);
+  - link e QR, pedido de entrada e "Gerar outro link";
+  - pedido de organizador, fila e decisão da administração, revogação e contadores das filas;
+  - notificações da conta (lista, não lidas, marcar lida), auditoria e `GET /me/standings`.
+- **Web:**
+  - **Meus times:** placa com carrossel de carteirinhas (C5) e grade de elos por formato, elenco em rostos, folha do atleta, pedidos para entrar e convites enviados;
+  - **Criar e editar time:** prévia ao vivo e recorte do brasão;
+  - **Convidar:** "Escolher atleta" ou "Link e QR";
+  - **Convite recebido:** faixa e folha;
+  - **Entrar pelo link:** `/entrar/{token}`, inclusive deslogado;
+  - **Organizador:** cartão P3 e "Seja organizador" no Menu, seção Organizador sem eventos, fila "Pedidos de organizador" da administração (com contador) e revogação;
+  - **Notificações:** atividades da conta junto dos pedidos para seguir, com o contador no sino do Início;
+  - **Placa do Jogar:** abas, "Com meu time | Avulso", chips e a linha do elo (H1), sempre em classificação nesta fase.
+- **Integração (este registro):**
+  - conflitos do cherry-pick da frente C resolvidos: `ArenaPage.tsx` com as telas das duas frentes; `utils/relativeTime.ts` unificado ("há 3 horas", texto vazio para data inválida, mais `shortDate` e `monthYear`);
+  - duplicações removidas: `Person` e `FormatStanding` passam a ter uma definição só (`api/client.ts` e `api/play.ts`); o link do time e o time do convite usam o `useResource` comum;
+  - ligações entre as frentes: o convite abre Meus times com a folha de convites; o pedido para entrar rola até "Pedidos para entrar"; o aceite e o pedido aprovado abrem o time certo no carrossel;
+  - a linha "Notificações" do Menu abre a tela (antes "Em breve"), com "Perfil" aceso;
+  - "Meu time" e "Com meu time" sem time levam a Meus times (já ligados pela frente D, conferidos no fluxo real);
+  - correção: um `409`/`404` na folha do atleta (elenco desatualizado) agora relê o time, e a braçadeira passa a aparecer desabilitada; antes a tela ficava com o dado antigo até recarregar;
+  - a célula de formato ausente na carteirinha sai com `faces_any_level: true`, como no contrato.
+- **Desvios das frentes**, registrados na seção 9.1 do [0003](decisoes/0003-times-campeonatos.md#91-desvios-registrados-na-integração-da-etapa-1):
+  - brasão com `Cache-Control: no-store`;
+  - avatar nulo para conta inativa;
+  - `team_id` na auditoria de papel;
+  - `403 Só representantes podem cancelar convites.`;
+  - link gerado na primeira leitura, sem auditoria;
+  - `queue-counts` com `reports`;
+  - novas mensagens `422` e `409` do organizador;
+  - filas do mais recente para o mais antigo.
+- **Documentação:**
+  - contratos [0003](decisoes/0003-times-campeonatos.md) (estado e seções 1 a 9) e [0002](decisoes/0002-jogar.md) (fase 1 implementada);
+  - [próximos passos](proximos-passos-jogar.md);
+  - README: link do time (`PUBLIC_WEB_URL`, `TEAM_LINK_SECRET`, rota `/entrar/{token}` com `index.html` em produção), brasões na reconciliação e demonstração de times e organizador.
+
+**Verificações executadas na integração (branch `orq/etapa1`):**
+- **Backend:**
+  - `ruff check app migrations tests` sem apontamentos;
+  - `pytest -q --cov=app --cov-branch` com `TEST_DATABASE_URL`: 390 aprovados e 1 pulado (o teste do bucket S3 real); cobertura total de 95%;
+  - o teste pulado, executado à parte com `MEDIA_TEST_S3=1` num bucket MinIO isolado: aprovado;
+  - só unidades: 326 aprovados, cobertura de 66%;
+  - `alembic upgrade head` e `alembic check` num banco próprio (`arena_orq_int1`): cabeça `0005`, sem diferenças.
+- **Web:**
+  - `npm run lint` sem apontamentos;
+  - `npm run build` concluído, com o aviso de pacote acima de 500 kB (613 kB minificado);
+  - `npm run test:coverage`: 32 arquivos e 267 testes aprovados; cobertura de 87,87% das instruções, 81,03% dos ramos, 87,68% das funções e 91,18% das linhas.
+  - Uma execução anterior da suíte, em paralelo com outros processos, terminou com um worker encerrado inesperadamente; a repetição passou inteira.
+- **Fluxo real no navegador** (Chrome headless contra a API real):
+  - **Ambiente:** banco `arena_orq_e2e1` com as migrações aplicadas, bucket MinIO próprio `arena-orq-e2e`, API na porta 8131 e Vite na 5231;
+  - **Contas:** três contas adultas, uma cadastrada pela web e duas pela API, todas com perfil de futebol em Brasília; uma promovida a administradora com `promote-admin`.
+  - **Conferido:**
+    - placa do Jogar em classificação 0/3, sem elo, com o botão desabilitado e honesto, e "MEU TIME" sem time;
+    - criar o time com brasão PNG transparente: lido pela API como WebP 400×400 RGBA, com o canto transparente;
+    - convite com mensagem; a notificação abre a folha, e o convite é aceito;
+    - tornar representante e tirar a braçadeira;
+    - último representante: botão desabilitado e, com dado desatualizado, o `409` do servidor na folha;
+    - remoção do atleta;
+    - link e QR aberto deslogado (endereço limpo após abrir), login e pedido; aprovação pela notificação;
+    - "Gerar outro link", com "Este link não vale mais" no antigo;
+    - organizador: pedido, recusa com motivo "Outro", notificação e cartão recusado no Menu, novo pedido, aprovação e seção Organizador no Menu;
+    - notificações: lista, marcar todas como lidas e navegação;
+    - encerrar o time: o aviso ao membro só marca como lida, e o link deixa de valer;
+    - persistência após recarregar (elenco, organizador e time encerrado);
+    - teclado no carrossel (setas, Home e End) e nas abas do Jogar e do convite, com foco visível;
+    - 320, 390 e 1440 px em Jogar, Meus times, Convidar, Link e QR, Editar time, Notificações e Menu, sem overflow horizontal;
+    - console sem erros além das respostas esperadas: `401` de `/me` antes do login, `404` do link inválido, `409` provocado e o `favicon.ico` ausente, que já faltava antes.
+  - As correções da integração foram conferidas de novo no navegador.
+  - Capturas em `artifacts/etapa1/integracao/` e scripts em `.local/orquestracao/integracao1/`, não versionados.
+
+**Limitações:**
+- O Expo não foi tocado: as telas da etapa 1 entram na última etapa.
+- O CI remoto não foi executado.
+- Copiar e compartilhar o link (`navigator.clipboard`, `navigator.share`) foram cobertos só pelos testes da web, e o QR não foi lido por câmera de aparelho.
+- A troca da própria posição no time não tem tela (a rota existe).
+- O pacote da web passou de 500 kB.
+
+**Pendências de integração:**
+- Fase 4 de Times e campeonatos (eventos): `handle_open_events` da revogação ainda vazio; `ensure_closable` sem as checagens de partidas e inscrições.
+- Calibragem dos cortes de elo com dados reais.
+- Divisão do pacote da web, se o tamanho virar problema.
+- A tela Ranking ainda mostra o estado vazio, sem ler `GET /me/standings`.
+
 ## Plano de Times e campeonatos (apenas planejamento) — 12 de outubro de 2026
 
 A etapa 1 dos [próximos passos do Jogar](proximos-passos-jogar.md) foi desenhada em 19 rodadas de protótipos, sem implementação. As decisões estão no [plano de Times e campeonatos](plano-times-campeonatos.md).

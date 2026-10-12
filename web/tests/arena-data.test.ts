@@ -59,6 +59,7 @@ describe('aba acesa na navegação', () => {
     ['ranking', 'ranking', 'ranking'],
     ['community', 'community', 'community'],
     ['notifications', 'home', 'home'],
+    ['notifications', 'profile', 'profile'],
     ['menu', 'profile', 'profile'],
     ['sports', 'profile', 'profile'],
     ['moderation', 'profile', 'profile'],

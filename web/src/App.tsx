@@ -3,12 +3,18 @@ import { ApiError, request } from './api/client'
 import type { User } from './api/client'
 import AuthPage from './pages/AuthPage'
 import ArenaPage from './pages/ArenaPage'
+import { clearJoinPath, joinTokenFrom } from './utils/joinLink'
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [attempt, setAttempt] = useState(0)
+  // Link do time (`/entrar/{token}`): o token fica só em memória até a pessoa entrar (inclusive depois do login ou do
+  // cadastro) e o endereço é limpo na hora.
+  const [joinToken, setJoinToken] = useState(() => joinTokenFrom(window.location.pathname))
+  useEffect(() => { clearJoinPath() }, [])
+  const joinOpened = useCallback(() => setJoinToken(null), [])
   useEffect(() => {
     let alive = true
     request<User>('/me')
@@ -48,6 +54,8 @@ export default function App() {
           onUser={setUser}
           onLogout={() => setUser(null)}
           onExpired={expired}
+          joinToken={joinToken}
+          onJoinOpened={joinOpened}
         />
       ) : (
         <AuthPage
