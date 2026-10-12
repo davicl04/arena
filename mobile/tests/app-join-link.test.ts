@@ -33,10 +33,11 @@ const me: User = { id: 1, name: 'Maria Souza', username: 'maria.s', email: 'mari
 const original = { ...screens }
 const joins: string[] = []
 let expire: () => void = () => undefined
+let goTo: (screen: 'teams') => void = () => undefined
 /** Sósia da tela de entrada: registra o token quando ela monta (não a cada renderização, que o shell refaz ao ler a placa do Jogar). */
-function JoinSpy(props: { params: { token: string }; navigation: { back: () => void }; onExpired: () => void }) {
+function JoinSpy(props: { params: { token: string }; navigation: { back: () => void; go: (screen: 'teams') => void }; onExpired: () => void }) {
   React.useEffect(() => { joins.push(props.params.token) }, [props.params.token])
-  React.useEffect(() => { expire = props.onExpired })
+  React.useEffect(() => { expire = props.onExpired; goTo = props.navigation.go })
   return h('JoinProbe', { token: props.params.token }, ownBar('Entrar no time', props.navigation.back))
 }
 
@@ -118,6 +119,22 @@ describe('App: link do time depois do login', () => {
     expect(joins).toEqual(['volta-123', 'volta-123'])
   })
 
+  it('sessão expirada com a entrada do time só mais abaixo na pilha não devolve o token: ela já ficou para trás', async () => {
+    linking.initial = 'arena://entrar/ficou-para-tras'
+    const tree = await mountApp()
+    await login(tree)
+    expect(joins).toEqual(['ficou-para-tras'])
+    // A pessoa segue da entrada para Meus times: a pilha fica Início > Entrar no time > Meus times.
+    await act(async () => { goTo('teams') })
+    expect(host(tree, 'JoinProbe')).toHaveLength(0)
+    expect(textOf(tree)).toContain('Meus times')
+    await act(async () => { expire() })
+    expect(host(tree, 'AuthScreen')).toHaveLength(1)
+    await login(tree)
+    expect(joins).toEqual(['ficou-para-tras'])
+    expect(host(tree, 'JoinProbe')).toHaveLength(0)
+  })
+
   it('401 em outra tela expira a sessão sem token pendente', async () => {
     const tree = await mountApp()
     await login(tree)
@@ -138,5 +155,24 @@ describe('App: link do time depois do login', () => {
     const retry = tree.root.findAllByType('Pressable' as never).find(entry => entry.props.accessibilityRole === 'button')
     await act(async () => { retry!.props.onPress() })
     expect(textOf(tree)).toContain('Bora jogar, Maria?')
+  })
+})
+
+describe('App: erro inesperado ao desenhar uma tela', () => {
+  it('mostra a placa de erro em português; "Tentar de novo" remonta a árvore e a pessoa segue conectada', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    let broken = true
+    screens.home = (() => { if (broken) throw new Error('TypeError: detalhe técnico'); return h('Text', null, 'Início restaurado') }) as unknown as ScreenComponent<'home'>
+    const tree = await mountApp()
+    await login(tree)
+    expect(textOf(tree)).toContain('Algo deu errado')
+    expect(textOf(tree)).not.toContain('TypeError')
+    expect(host(tree, 'AuthScreen')).toHaveLength(0)
+    broken = false
+    await press(tree, 'Tentar de novo')
+    expect(textOf(tree)).toContain('Início restaurado')
+    expect(textOf(tree)).not.toContain('Algo deu errado')
+    // A conta continua na memória: não voltou ao login.
+    expect(host(tree, 'AuthScreen')).toHaveLength(0)
   })
 })

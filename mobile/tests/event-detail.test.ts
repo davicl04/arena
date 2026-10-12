@@ -270,12 +270,14 @@ describe('Inscrição gratuita e escolha do time', () => {
 
   it('erros da API ficam na folha e a inscrição segue possível; 401 expira a sessão', async () => {
     const onExpired = vi.fn()
-    world(eventDetail({ price_cents: 0 }), null, { 'POST /events/5/entries': new ApiError('As vagas deste evento acabaram.', 409) })
+    world(eventDetail({ price_cents: 0 }), null, { 'POST /events/5/entries': new ApiError('Servidor sobrecarregado. Tente de novo.', 500) })
     const tree = await mountEvent({ eventId: 5 }, navigationMock(), onExpired)
     await pressButton(tree, 'Inscrever Ferrugem FC · Grátis')
     await pressButton(tree, 'Confirmar inscrição')
-    expect(text(tree)).toContain('As vagas deste evento acabaram.')
+    expect(text(tree)).toContain('Servidor sobrecarregado. Tente de novo.')
     expect(isDisabled(tree, 'Confirmar inscrição')).toBe(false)
+    // Erro que não é de estado (nem 404 nem 409): a folha segue aberta e a tela não relê o evento.
+    expect(callsTo('GET', '/events/5')).toHaveLength(1)
     world(eventDetail({ price_cents: 0 }), null, { 'POST /events/5/entries': new ApiError('Sessão expirada', 401) })
     const expired = await mountEvent({ eventId: 5 }, navigationMock(), onExpired)
     await pressButton(expired, 'Inscrever Ferrugem FC · Grátis')
@@ -437,7 +439,7 @@ describe('Inscrição paga: reservar, Pix, comprovante', () => {
   })
 
   it('falha do seletor e erro do servidor ficam na folha', async () => {
-    world(paid(), myEntry({ id: 9, state: 'reservada', price_cents: 12000, subject: athlete, my_role: 'atleta' }), { 'PUT /entries/9/receipt': new ApiError('O prazo da reserva acabou.', 409) })
+    world(paid(), myEntry({ id: 9, state: 'reservada', price_cents: 12000, subject: athlete, my_role: 'atleta' }), { 'PUT /entries/9/receipt': new ApiError('O servidor não recebeu o arquivo.', 500) })
     const tree = await mountEvent()
     await pressButton(tree, 'Enviar comprovante')
     vi.mocked(DocumentPicker.getDocumentAsync).mockRejectedValueOnce(new Error('indisponível'))
@@ -446,8 +448,9 @@ describe('Inscrição paga: reservar, Pix, comprovante', () => {
     pickDocument({ name: 'ok.jpg', mimeType: 'image/jpeg', size: 1000 })
     await pressButton(tree, 'Escolher arquivo (imagem ou PDF)')
     await pressButton(tree, 'Enviar para análise')
-    expect(text(tree)).toContain('O prazo da reserva acabou.')
+    expect(text(tree)).toContain('O servidor não recebeu o arquivo.')
     expect(isDisabled(tree, 'Enviar para análise')).toBe(false)
+    expect(callsTo('GET', '/events/5')).toHaveLength(1)
   })
 
   it('comprovante recusado: mostra o motivo e "Enviar outro" reabre o envio', async () => {
@@ -604,11 +607,12 @@ describe('Devolução do evento cancelado', () => {
   })
 
   it('erro ao responder fica na folha', async () => {
-    world(cancelled(), sent(), { 'POST /entries/9/refund-response': new ApiError('Nenhuma devolução aguarda a sua resposta.', 409) })
+    world(cancelled(), sent(), { 'POST /entries/9/refund-response': new ApiError('Não foi possível registrar a resposta.', 500) })
     const tree = await mountEvent()
     await pressButton(tree, 'Confirmar recebimento')
     await pressButton(tree, 'Confirmar recebimento')
-    expect(text(tree)).toContain('Nenhuma devolução aguarda a sua resposta.')
+    expect(text(tree)).toContain('Não foi possível registrar a resposta.')
+    expect(callsTo('GET', '/events/5')).toHaveLength(1)
   })
 
   it('a leitura da inscrição falha: mostra o erro e permite tentar de novo', async () => {
@@ -620,5 +624,107 @@ describe('Devolução do evento cancelado', () => {
     await pressButton(tree, 'Tentar novamente')
     expect(byId(tree, 'entry-confirmada')).toHaveLength(1)
     expect(vi.mocked(request)).toHaveBeenCalledWith('/entries/9')
+  })
+})
+
+describe('Situação que mudou no servidor (404 ou 409) e sessão que expira na releitura', () => {
+  const paid = () => eventDetail({ id: 5, price_cents: 12000, sport: 'tenis', eligibility: { eligible: true, reason: null, message: null, tier: 'prata', teams: null } })
+  const athlete = { kind: 'atleta' as const, team: null, athlete: { id: 1, name: 'Maria', username: 'maria.s', avatar_url: null } }
+  const reserved = () => myEntry({ id: 9, state: 'reservada', price_cents: 12000, subject: athlete, my_role: 'atleta' })
+  const expired = () => myEntry({ id: 9, state: 'expirada', price_cents: 12000, can_send_receipt: false, can_cancel: false, subject: athlete, my_role: 'atleta' })
+  const toast = (tree: Tree) => byId(tree, 'toast')[0]?.props.children
+
+  it('inscrição: 409 fecha a folha, mostra a mensagem do servidor e relê o evento (o botão vira "Vagas esgotadas")', async () => {
+    const state = world(eventDetail({ price_cents: 0 }), null, {
+      'POST /events/5/entries': () => { state.detail = { ...state.detail, spots_left: 0 }; return new ApiError('As vagas deste evento acabaram.', 409) },
+    })
+    const tree = await mountEvent()
+    await pressButton(tree, 'Inscrever Ferrugem FC · Grátis')
+    await pressButton(tree, 'Confirmar inscrição')
+    expect(toast(tree)).toBe('As vagas deste evento acabaram.')
+    expect(findButton(tree, 'Confirmar inscrição')).toBeUndefined()
+    expect(callsTo('GET', '/events/5')).toHaveLength(2)
+    expect(isDisabled(tree, 'Vagas esgotadas')).toBe(true)
+  })
+
+  it('comprovante: 409 (prazo da reserva) fecha a folha, mostra a mensagem e relê o evento e a inscrição', async () => {
+    const state = world(paid(), reserved(), {
+      'PUT /entries/9/receipt': () => { state.entry = expired(); return new ApiError('O prazo da reserva acabou.', 409) },
+    })
+    const tree = await mountEvent()
+    await pressButton(tree, 'Enviar comprovante')
+    pickDocument({ name: 'ok.jpg', mimeType: 'image/jpeg', size: 1000 })
+    await pressButton(tree, 'Escolher arquivo (imagem ou PDF)')
+    await pressButton(tree, 'Enviar para análise')
+    expect(toast(tree)).toBe('O prazo da reserva acabou.')
+    expect(findButton(tree, 'Enviar para análise')).toBeUndefined()
+    expect(callsTo('GET', '/events/5')).toHaveLength(2)
+    expect(callsTo('GET', '/entries/9')).toHaveLength(2)
+    expect(byId(tree, 'entry-expirada')).toHaveLength(1)
+    expect(text(tree)).toContain('A vaga foi liberada')
+  })
+
+  it('devolução: 409 ao confirmar o recebimento fecha a folha, mostra a mensagem e relê a inscrição', async () => {
+    const detail = eventDetail({ state: 'cancelado', phase: 'cancelado', cancel_reason: 'Chuva forte', price_cents: 24000 })
+    const sent = myEntry({ id: 9, state: 'devolucao_pendente', price_cents: 24000, can_send_receipt: false, can_cancel: false, can_respond_refund: true, refund: receipt({ id: 80, kind: 'devolucao', auto_confirm_at: inDays(6) }) })
+    const state = world(detail, sent, {
+      'POST /entries/9/refund-response': () => {
+        state.entry = myEntry({ id: 9, state: 'devolvida', price_cents: 24000, can_send_receipt: false, can_cancel: false, refund: receipt({ kind: 'devolucao', participant_response: 'automatica' }) })
+        return new ApiError('Nenhuma devolução aguarda a sua resposta.', 409)
+      },
+    })
+    const tree = await mountEvent()
+    await pressButton(tree, 'Confirmar recebimento')
+    await pressButton(tree, 'Confirmar recebimento')
+    expect(toast(tree)).toBe('Nenhuma devolução aguarda a sua resposta.')
+    expect(callsTo('GET', '/entries/9')).toHaveLength(2)
+    expect(byId(tree, 'entry-devolvida')).toHaveLength(1)
+    expect(text(tree)).toContain('Sem resposta em 7 dias, a devolução foi considerada recebida.')
+  })
+
+  it('desistir: 404 fecha a folha, mostra a mensagem e relê a tela (a inscrição já não existe)', async () => {
+    const state = world(paid(), reserved(), {
+      'DELETE /entries/9': () => { state.entry = null; return new ApiError('Inscrição não encontrada.', 404) },
+    })
+    const tree = await mountEvent()
+    await pressButton(tree, 'Desistir da inscrição')
+    await pressButton(tree, 'Desistir')
+    expect(toast(tree)).toBe('Inscrição não encontrada.')
+    expect(callsTo('GET', '/events/5')).toHaveLength(2)
+    expect(byId(tree, 'entry-reservada')).toHaveLength(0)
+    expect(findButton(tree, `Inscrever-se · ${brl(12000)}`)).toBeTruthy()
+  })
+
+  it('sessão expirada (401) na releitura depois de uma ação volta ao login', async () => {
+    const onExpired = vi.fn()
+    let reading = false
+    const state = world(eventDetail({ price_cents: 0 }), null, {
+      '/events/5': () => { if (reading) return new ApiError('Sessão expirada', 401); return state.detail },
+      'POST /events/5/entries': () => {
+        reading = true
+        return myEntry({ id: 9, state: 'confirmada', price_cents: 0, can_cancel: true, can_send_receipt: false, confirmed_at: inDays(0), reserved_until: null })
+      },
+    })
+    const tree = await mountEvent({ eventId: 5 }, navigationMock(), onExpired)
+    await pressButton(tree, 'Inscrever Ferrugem FC · Grátis')
+    await pressButton(tree, 'Confirmar inscrição')
+    expect(toast(tree)).toBe('Inscrição confirmada em Copa Sudoeste.')
+    expect(onExpired).toHaveBeenCalledTimes(1)
+  })
+
+  it('outro erro na releitura (queda de rede) segue como antes: a tela mantém os dados e não expira a sessão', async () => {
+    const onExpired = vi.fn()
+    let reading = false
+    const state = world(eventDetail({ price_cents: 0 }), null, {
+      '/events/5': () => { if (reading) return new ApiError('Servidor fora do ar', 500); return state.detail },
+    })
+    const tree = await mountEvent({ eventId: 5 }, navigationMock(), onExpired)
+    reading = true
+    const scroll = tree.root.findAllByType('ScrollView' as never)[0]
+    await act(async () => { scroll.props.refreshControl.props.onRefresh() })
+    await flush()
+    expect(callsTo('GET', '/events/5')).toHaveLength(2)
+    expect(text(tree)).toContain('Copa Sudoeste')
+    expect(onExpired).not.toHaveBeenCalled()
   })
 })

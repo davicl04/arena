@@ -117,3 +117,14 @@ Verificação local das correções (backend e web; o Expo não foi tocado).
 | Web (`npx vitest run --coverage --maxWorkers=4`) | 908 / 908 em 72 arquivos | 92,35% instruções, 85,88% ramos, 91,94% funções, 95,42% linhas | 30% (instruções, linhas e ramos) e 20% (funções) |
 
 Ruff, ESLint e build da web (aviso de pacote acima de 500 kB: 1.251,59 kB minificado) aprovados; sem migração nova. Os 14 testes novos do backend e os 10 da web cobrem a sugestão de quadra repetida na agenda, as mensagens de `409`, a ordem do registro de corrida, o aviso único da divergência e a releitura depois de `404`/`409` nas telas. Os pisos não foram reduzidos, nem arquivos excluídos, nem testes desativados. Uma execução da cobertura do backend feita com a suíte da web rodando ao mesmo tempo mediu `services/courts.py` abaixo do normal (68%); repetida sem a carga, deu os números acima. Detalhes em [situação da fundação](situacao-fundacao.md).
+
+## Correções da revisão do Expo: indicadores — 12 de outubro de 2026
+
+Verificação local das correções, em `mobile/` (Windows, Node 25.9.0, npm 11.12.1). O backend e a web não foram tocados nem reexecutados; os números deles são os das seções anteriores.
+
+| Escopo | Aprovados / executados | Cobertura | Piso (`mobile/vitest.config.mts`) |
+| --- | --- | --- | --- |
+| Mobile (`npm run test:coverage`) | 1280 / 1280 em 78 arquivos (1233 antes) | 94,86% instruções, 90,03% ramos, 94,43% funções, 97,31% linhas | 10% instruções e funções, 15% linhas, 8% ramos |
+| Mobile, clientes da API (`src/api/**/*.ts`) | incluídos acima | 100% instruções, linhas e funções; 99,34% ramos (agregado) | por arquivo: 100% instruções, linhas e funções e 90% ramos |
+
+`npm run lint`, `npm run typecheck` e `npm run export:android` aprovados; `npx expo install --check` não foi reexecutado (sem dependência nova). Os 47 testes a mais (além de alguns ajustados à nova regra de `404`/`409` e de saída) cobrem o desvio de host do Bearer (`apiUrl`, `authSource`, `receiptImageSource` e os cinco componentes de imagem), o estado preso do `ReceiptImage`, o voltar durante o envio do assistente, a releitura depois de `404`/`409` (evento, proposta e oferta), o `401` na releitura, o teto do upload, o laço do "Aprovar todas", o token do link na expiração, a saída sem rede, o voltar do Android com o vidro aberto e o `ErrorBoundary`. Dois testes do assistente foram conferidos desfazendo a correção (falham sem ela). Os pisos não foram alterados, nenhum arquivo foi excluído e nenhum teste foi desativado; os dois arquivos novos (`api/path.ts` e `components/ErrorBoundary.tsx`) entram no escopo da cobertura. `ProfileScreen` ficou em 76,7% das linhas (77,1% antes: a saída ganhou ramos de erro testados, mas o restante da tela segue sem testes), e `AuthScreen` e `SportCard` continuam em 0%. Os testes não provam Android/iOS, SecureStore, o `BackHandler` real nem leitor de tela; o CI remoto continua sem execução comprovada desta versão.

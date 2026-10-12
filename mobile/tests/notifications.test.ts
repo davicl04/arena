@@ -311,6 +311,20 @@ describe('Notificações: solicitações para seguir', () => {
     expect(byId(tree, 'notifications-empty')).toHaveLength(1)
   })
 
+  it('"Aprovar todas" para quando a fila não anda (os mesmos pedidos de novo) e avisa, sem rodar sem fim', async () => {
+    const queue = [asker(10, 'Ana Prado'), asker(11, 'Beto Dias')]
+    serve({
+      '/me/follow-requests': () => page(queue), '/me/notifications/unread-count': unreadBadge(0), '/me/notifications': page([]),
+      [request(10, true)]: undefined, [request(11, true)]: undefined,
+    })
+    const tree = await mountNotifications()
+    await pressButton(tree, 'Aprovar todas as solicitações')
+    expect(callsTo('PUT', '/me/follow-requests/10?approve=true')).toHaveLength(1)
+    expect(callsTo('PUT', '/me/follow-requests/11?approve=true')).toHaveLength(1)
+    expect(allText(tree)).toContain('Nem todas as solicitações foram aprovadas.')
+    expect(allText(tree)).not.toContain('Solicitações aprovadas.')
+  })
+
   it('erros: a resposta falha com mensagem; a seção com erro não esconde as atividades', async () => {
     serve({
       '/me/follow-requests': page([asker(10, 'Ana Prado')]), '/me/notifications/unread-count': unreadBadge(0), '/me/notifications': page([note('aviso_evento', event, null, { read_at: 'x' })]),

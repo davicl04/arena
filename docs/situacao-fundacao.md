@@ -1,5 +1,31 @@
 # Situação da fundação do Arena
 
+## Correções da revisão do Expo — 12 de outubro de 2026
+
+Frente RX, sobre `f2b9cf9`: corrige os achados da revisão do Expo. **Só `mobile/` mudou** (mais README e documentação): sem alteração de backend, de contrato, de migração nem de dependência.
+
+**O que mudou:**
+- **Origem do Bearer:** `apiUrl` (`api/client.ts`) só aceita caminho que comece com `/` e não com `//` (`isApiPath`, em `api/path.ts`); `@host/x`, `.host/x`, `//host/x` e URL absoluta lançam erro, porque anexados à base trocariam o servidor que recebe o token. `authSource` (`components/media.tsx`) e `receiptImageSource` devolvem `null` nesses casos: `Avatar`, `Cover`, `PostImage`, `TeamCrest`, `ReportSheet` e `ReceiptImage` mostram o substituto, sem imagem e sem cabeçalho. Os caminhos válidos (`/api/v1/...`) não mudaram. O HTTPS **não** é imposto em código; o README (seção Mobile) diz que `EXPO_PUBLIC_API_URL` precisa ser `https://` fora do desenvolvimento.
+- **`ReceiptImage` presa em "falhou":** o resultado da carga vale só para o par `file_url` + token em que ocorreu; outro arquivo ou outra sessão recomeça em "carregando".
+- **Voltar durante o envio do assistente de evento:** o X e o voltar do Android não saem enquanto grava ou envia (`busy`), e "Sair sem salvar" também espera; depois de desmontado, a resposta tardia do envio não chama `navigation.replace` (substituiria outra tela) nem `back`.
+- **Releitura depois de `404`/`409`:** em `EventScreen` (`enter`, `upload`, `answerRefund`, `giveUp`) a folha fecha, a mensagem do servidor vira o aviso (toast anunciado) e a tela relê o evento e a inscrição; `ProposalSheet` (aceitar e recusar) e `SlotOfferSheet` (aceitar e recusar, que a revisão não citava) avisam `PlayScreen` por `onStale(mensagem)`, que fecha a folha (a proposta não reabre sozinha: vai para "Responder depois"), mostra a mensagem na placa e relê `refreshPlayBoard`. Os demais erros ficam na folha, como antes.
+- **`401` engolido:** a releitura de `EventScreen.refresh` e de `ReceiptsScreen.refresh` chama `onExpired` no `401`; os outros erros seguem silenciosos.
+- **Timeout do upload:** `request` usa `UPLOAD_TIMEOUT_MS` (120 s) quando o corpo é `FormData` e `REQUEST_TIMEOUT_MS` (15 s) nos demais (5 MiB a 1 Mbps levam cerca de 40 s).
+- **"Aprovar todas" sem teto:** `approveAllFollowRequests` (`api/social.ts`), usada em Notificações e no Perfil, para quando uma rodada traz os mesmos pedidos da anterior (a aprovação não os tirou da fila) ou no teto de 500 rodadas, e avisa "Nem todas as solicitações foram aprovadas." em vez de rodar sem fim; a fila de centenas de pedidos continua sendo esvaziada em lotes.
+- **Menores:** (a) no `401`, `ArenaShell` só devolve à memória o token do link do time se a tela `join` for a **atual** (topo da pilha); (b) **Sair da conta** apaga o token do SecureStore e a conta da memória mesmo se `/auth/logout` falhar (sem rede ou `401`); só um erro ao apagar o token mantém a pessoa na tela, com a mensagem; (c) o voltar do Android fecha o `GlassOverlay` (ou volta um passo, quando há `onBack`) em vez de sair da tela de baixo — vale para "Denunciar mensagem" na partida e, pelo componente comum, para as ações de post, os comentários e as ações de conta; (d) `ErrorBoundary` (novo, em `App.tsx`) mostra a placa `forest` com o cartão "Algo deu errado" e "Tentar de novo", que remonta a árvore; sem detalhes técnicos na tela.
+
+**Verificações executadas** (em `mobile/`, Windows):
+- `npm run lint` e `npm run typecheck` sem apontamentos;
+- `npm run test:coverage`: 78 arquivos e **1280 testes aprovados** (1233 antes; 47 a mais, entre novos e ajustados), cobertura de 94,86% das instruções, 90,03% dos ramos, 94,43% das funções e 97,31% das linhas; `src/api/**` com 100% de instruções, linhas e funções e 99,34% dos ramos; pisos atendidos, sem exclusões;
+- `npm run export:android` concluído (bundle de 1726 módulos);
+- testes ajustados por mudança de comportamento: o `409`/`404` ao responder proposta, oferta e as ações do evento agora fecha a folha e relê; sair sem rede agora sai. `npx expo install --check` não foi reexecutado (sem dependências novas).
+
+**Limitações e pendências:**
+- **Não verificado em aparelho, em leitor de tela nem contra a API real:** só testes com `fetch` simulado e o bundle. O voltar do Android e o `BackHandler` foram exercitados apenas pela simulação dos testes.
+- **Sair da conta sem rede** apaga só o lado do aparelho: o servidor mantém a sessão até ela vencer, porque `/auth/logout` não chegou.
+- **Registradas, não corrigidas:** a regex de `utils/joinLink.ts` aceita qualquer host (intencional); o `copyToCacheDirectory: true` do `pickReceiptFile` (`utils/receiptFile.ts`; plausível, não testado em aparelho).
+- O HTTPS depende da configuração de `EXPO_PUBLIC_API_URL` (README); o app não o verifica.
+
 ## Correções da revisão das etapas 4 e 5 — 12 de outubro de 2026
 
 Frente R45, sobre `3d3fa9f` (etapas 4 e 5): corrige os achados da revisão. Sem migração nova nem dependência nova; só o backend (serviços) e a web (telas e `useSubmit`) mudaram, mais os contratos [0003, seções 21.5, 21.6 e 21.11](decisoes/0003-times-campeonatos.md#21-etapa-4--chaveamento-agenda-e-decisão-do-organizador-fases-6-e-7) e [0002, 18.6](decisoes/0002-jogar.md#18-fase-6--corrida-marcas-e-elo-por-distância).

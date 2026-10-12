@@ -204,6 +204,75 @@ describe('Criar evento (V4): uma pergunta por vez', () => {
     expect(navigation.back).toHaveBeenCalledTimes(4)
   })
 
+  describe('durante o envio', () => {
+    /** Servidor em que o rascunho completo salva na hora, mas o envio (`submit`) só responde quando o teste liberar. */
+    function holdSubmit() {
+      let finish: (value: unknown) => void = () => undefined
+      routeRequest(baseRoutes({
+        [EVENT]: fullDraft({ price_cents: 0 }),
+        [`PATCH ${EVENT}`]: fullDraft({ price_cents: 0 }),
+        [`POST ${EVENT}/submit`]: () => new Promise(resolve => { finish = resolve }),
+      }))
+      return (value: unknown) => finish(value)
+    }
+    const closed = (tree: ReactTestRenderer) => tree.root.findAllByType('Pressable' as never).find(entry => entry.props.accessibilityLabel === 'Fechar')!
+
+    it('o X e o voltar do Android não saem enquanto envia; a resposta leva à gestão do evento', async () => {
+      const release = holdSubmit()
+      const tree = await wizard({ eventId: 5 })
+      await press(tree, 'Publicar')
+      expect(textOf(tree)).toContain('Publicando…')
+      expect(closed(tree).props.disabled).toBe(true)
+      expect(closed(tree).props.accessibilityState).toMatchObject({ disabled: true })
+      await press(tree, 'Fechar')
+      await act(async () => { tree.root.findAllByType('Modal' as never)[0].props.onRequestClose() })
+      expect(navigation.back).not.toHaveBeenCalled()
+      expect(textOf(tree)).not.toContain('Sair sem salvar?')
+      await act(async () => { release(detail({ id: 5 })) })
+      expect(navigation.replace).toHaveBeenCalledTimes(1)
+      expect(navigation.replace.mock.calls[0][0]).toEqual({ screen: 'event-manage', params: { eventId: 5 } })
+      expect(navigation.back).not.toHaveBeenCalled()
+    })
+
+    it('com o assistente já desmontado, a resposta tardia do envio não navega (substituiria outra tela)', async () => {
+      const release = holdSubmit()
+      const tree = await wizard({ eventId: 5 })
+      await press(tree, 'Publicar')
+      await act(async () => { tree.unmount() })
+      await act(async () => { release(detail({ id: 5 })) })
+      expect(calls('POST', `${EVENT}/submit`)).toHaveLength(1)
+      expect(navigation.replace).not.toHaveBeenCalled()
+      expect(navigation.back).not.toHaveBeenCalled()
+    })
+
+    it('"Sair sem salvar" não sai enquanto "Salvar rascunho e sair" grava; a gravação termina e sai uma vez só', async () => {
+      let finish: (value: unknown) => void = () => undefined
+      routeRequest(baseRoutes({ [`POST ${EVENTS}`]: () => new Promise(resolve => { finish = resolve }) }))
+      const tree = await wizard()
+      await type(tree, 'Nome do evento', 'Copa Sudoeste')
+      await press(tree, 'Fechar')
+      await press(tree, 'Salvar rascunho e sair')
+      const leave = tree.root.findAllByType('Pressable' as never).find(entry => entry.props.accessibilityLabel === 'Sair sem salvar')!
+      expect(leave.props.disabled).toBe(true)
+      await press(tree, 'Sair sem salvar')
+      expect(navigation.back).not.toHaveBeenCalled()
+      await act(async () => { finish(draftDetail({ id: 5 })) })
+      expect(navigation.back).toHaveBeenCalledTimes(1)
+    })
+
+    it('"Salvar rascunho e sair" com o assistente desmontado antes da resposta não volta de outra tela', async () => {
+      let finish: (value: unknown) => void = () => undefined
+      routeRequest(baseRoutes({ [`POST ${EVENTS}`]: () => new Promise(resolve => { finish = resolve }) }))
+      const tree = await wizard()
+      await type(tree, 'Nome do evento', 'Copa Sudoeste')
+      await press(tree, 'Fechar')
+      await press(tree, 'Salvar rascunho e sair')
+      await act(async () => { tree.unmount() })
+      await act(async () => { finish(draftDetail({ id: 5 })) })
+      expect(navigation.back).not.toHaveBeenCalled()
+    })
+  })
+
   it('salvar e sair com erro de validação continua no assistente', async () => {
     routeRequest(baseRoutes())
     const tree = await wizard()

@@ -191,6 +191,16 @@ export default function PlayScreen({ navigation, onExpired, playBoard: board, re
     if (heldProposal) pick({ kind: 'proposta', id: heldProposal.match_id })
     else if (heldOffer) pick({ kind: 'oferta', id: heldOffer.slot_id })
   }
+  /**
+   * O servidor recusou a resposta da folha porque a proposta ou a oferta mudou (404 ou 409): fecha a folha (uma proposta não
+   * reabre sozinha), mostra a mensagem dele na placa e lê a placa de novo.
+   */
+  function staleSheet(message: string, proposalId?: number) {
+    if (proposalId !== undefined) board.defer(proposalId)
+    pick(null)
+    setNotice(message)
+    void refreshPlayBoard()
+  }
   function later(proposal: Proposal) {
     board.defer(proposal.match_id)
     pick(null)
@@ -283,6 +293,7 @@ export default function PlayScreen({ navigation, onExpired, playBoard: board, re
     {showConfirm ? <CancelSearchSheet busy={cancel.busy} error={cancel.error} onKeep={() => { setConfirming(false); cancel.setError('') }} onConfirm={() => void endSearch()} /> : null}
     {openProposal ? <ProposalSheet key={openProposal.match_id} proposal={openProposal} onLater={() => later(openProposal)}
       onOpenMatch={matchId => { pick(null); navigation.go('match', { matchId }) }} onElapsed={() => void refreshPlayBoard()} onExpired={onExpired}
+      onStale={message => staleSheet(message, openProposal.match_id)}
       onAnswer={async (updated, answer) => {
         setNotice('')
         if (answer === 'recusar') { pick(null); setNotice('Proposta recusada.'); await refreshPlayBoard(); return }
@@ -292,6 +303,7 @@ export default function PlayScreen({ navigation, onExpired, playBoard: board, re
         await refreshPlayBoard()
       }} /> : null}
     {openOffer ? <SlotOfferSheet key={openOffer.slot_id} offer={openOffer} onLater={() => pick(null)} onElapsed={() => void refreshPlayBoard()} onExpired={onExpired}
+      onStale={message => staleSheet(message)}
       onAccepted={matchId => { pick(null); void refreshPlayBoard(); navigation.go('match', { matchId }) }}
       onDeclined={() => { pick(null); setNotice('Vaga recusada. Sua busca terminou.'); void refreshPlayBoard() }} /> : null}
   </View>

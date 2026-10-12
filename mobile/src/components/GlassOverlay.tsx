@@ -1,5 +1,6 @@
+import { useEffect } from 'react'
 import type { ReactNode } from 'react'
-import { Pressable, ScrollView, Text, View } from 'react-native'
+import { BackHandler, Pressable, ScrollView, Text, View } from 'react-native'
 import { cx } from '../styles'
 export function GlassButton({ label, glyph, onPress, disabled }: { label: string; glyph: string; onPress: () => void; disabled?: boolean }) {
   return <Pressable accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ disabled: Boolean(disabled) }} disabled={disabled} onPress={onPress} hitSlop={4}
@@ -17,10 +18,18 @@ export function GlassRow({ label, onPress, danger, disabled }: { label: string; 
 /**
  * Vidro escuro absoluto: sobre a foto (`media`) ou sobre a tela inteira (`screen`).
  * Sem `expo-blur`: o efeito é uma View translúcida. O conteúdo rola dentro do vidro.
+ * Enquanto está aberto, o botão voltar do Android o fecha (ou volta um passo, se houver `onBack`) em vez de sair da tela de baixo.
  */
 export default function GlassOverlay({ title, onClose, onBack, backLabel = 'Voltar', closeLabel = 'Fechar', variant = 'media', footer, children }: {
   title: string; onClose: () => void; onBack?: () => void; backLabel?: string; closeLabel?: string; variant?: 'media' | 'screen'; footer?: ReactNode; children: ReactNode
 }) {
+  useEffect(() => {
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      ;(onBack ?? onClose)()
+      return true
+    })
+    return () => subscription.remove()
+  }, [onBack, onClose])
   const screen = variant === 'screen'
   return <View accessibilityViewIsModal accessibilityLabel={title}
     className={cx('absolute top-0 right-0 bottom-0 left-0 z-20 bg-glass elevation-overlay', screen ? 'px-5.5 pt-4 pb-5.5' : 'px-3.5 pt-1.5 pb-2.5')}>

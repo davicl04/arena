@@ -5,7 +5,7 @@ import { ApiError, request } from '../src/api/client'
 import type { Post, SocialComment } from '../src/api/client'
 import PostImage from '../src/components/PostImage'
 import PostItem, { postDate } from '../src/components/PostItem'
-import { button, byLabel, click, enableAct, press, textOf, type } from './support/native'
+import { button, byLabel, click, enableAct, hardwareBack, press, textOf, type } from './support/native'
 
 vi.mock('react-native', async () => (await import('./support/native')).reactNativeMock())
 vi.mock('../src/components/ui', async () => (await import('./support/native')).uiMock())
@@ -134,6 +134,22 @@ describe('PostItem, PostActions, ReportForm e PostComments', () => {
     expect(textOf(tree)).toContain('Denúncia enviada para análise.')
     await click(tree, 'Concluir')
     expect(byLabel(tree, 'Ações da publicação')[0].props.accessibilityState.expanded).toBe(false)
+    await act(async () => { tree.unmount() })
+  })
+
+  it('o voltar do Android volta um passo (denúncia para o menu) e depois fecha as ações, sem sair da tela', async () => {
+    hardwareBack.handlers.length = 0
+    const tree = await mount()
+    expect(hardwareBack.press()).toBe(false)
+    await press(tree, 'Ações da publicação')
+    await press(tree, 'Denunciar publicação')
+    expect(button(tree, 'Enviar denúncia')).toBeTruthy()
+    await act(async () => { expect(hardwareBack.press()).toBe(true) })
+    expect(button(tree, 'Enviar denúncia')).toBeUndefined()
+    expect(byLabel(tree, 'Denunciar publicação')).toHaveLength(1)
+    await act(async () => { expect(hardwareBack.press()).toBe(true) })
+    expect(byLabel(tree, 'Ações da publicação')[0].props.accessibilityState.expanded).toBe(false)
+    expect(hardwareBack.handlers).toHaveLength(0)
     await act(async () => { tree.unmount() })
   })
 

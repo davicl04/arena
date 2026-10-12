@@ -8,6 +8,7 @@ import { screens } from '../navigation/screens'
 import type { ScreenComponent } from '../navigation/screens'
 import { activeNavFor, hasOwnHeader, isRootScreen, titleFor } from '../navigation/routes'
 import type { ScreenName } from '../navigation/routes'
+import { currentOf } from '../navigation/stack'
 import { useNavigation } from '../navigation/useNavigation'
 import { cx, tw } from '../styles'
 
@@ -37,8 +38,9 @@ export default function ArenaShell({ user, onUser, onLogout, onExpired: expireSe
   const stackRef = useRef(stack)
   useEffect(() => { stackRef.current = stack }, [stack])
   const onExpired = useCallback(() => {
-    const open = [...stackRef.current].reverse().find(entry => entry.screen === 'join')
-    expireSession(open?.screen === 'join' ? open.params.token : undefined)
+    // Só o link do time que está aberto agora volta à memória; um `join` mais abaixo na pilha já ficou para trás.
+    const top = currentOf(stackRef.current)
+    expireSession(top.screen === 'join' ? top.params.token : undefined)
   }, [expireSession])
   // Placa do Jogar (GET /me/play): alimenta as telas do Jogar e o ponto do JOGAR; relida ao abrir o Jogar ou o Início.
   const playBoard = usePlayBoard(onExpired, current.screen === 'play' || current.screen === 'home')

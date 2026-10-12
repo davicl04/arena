@@ -1,4 +1,5 @@
 import { Text, View } from 'react-native'
+import { ApiError } from '../../api/client'
 import { acceptSlotOffer, declineSlotOffer } from '../../api/matchmaking'
 import type { SlotOffer } from '../../api/matchmaking'
 import { footballFormat } from '../../data/arena'
@@ -18,13 +19,15 @@ import { SideBadge } from './SideBadge'
  * posição da vaga e as 2 h para responder. "Quero jogar" preenche a vaga e leva à partida; "Agora não" recusa (a vaga vai
  * ao próximo avulso e a busca termina); fechar a folha responde depois, e a oferta continua na placa até o prazo.
  */
-export function SlotOfferSheet({ offer, onLater, onAccepted, onDeclined, onElapsed, onExpired }: {
+export function SlotOfferSheet({ offer, onLater, onAccepted, onDeclined, onElapsed, onStale, onExpired }: {
   offer: SlotOffer
   onLater: () => void
   /** Vaga preenchida: `matchId` abre a partida. */
   onAccepted: (matchId: number) => void
   onDeclined: () => void
   onElapsed: () => void
+  /** O servidor recusou a resposta porque a oferta mudou (404 ou 409): recebe a mensagem dele; a tela fecha a folha e lê a placa de novo. */
+  onStale: (message: string) => void
   onExpired: () => void
 }) {
   const { busy, error, run } = useSubmit(onExpired)
@@ -36,12 +39,24 @@ export function SlotOfferSheet({ offer, onLater, onAccepted, onDeclined, onElaps
   const format = match.format ? footballFormat[match.format]?.label : null
   const position = positionLabel(offer.position).toLocaleLowerCase('pt-BR')
 
+  /** Roda a resposta; se a oferta já não vale (404 ou 409: a vaga foi preenchida, o prazo passou), avisa a tela com a mensagem do servidor. */
+  async function respond<T>(task: () => Promise<T>, fallback: string): Promise<T | undefined> {
+    let stale = ''
+    const result = await run(async () => {
+      try { return await task() } catch (cause) {
+        if (cause instanceof ApiError && (cause.status === 404 || cause.status === 409)) stale = cause.message
+        throw cause
+      }
+    }, fallback)
+    if (stale) onStale(stale)
+    return result
+  }
   async function accept() {
-    const accepted = await run(() => acceptSlotOffer(offer.slot_id), 'Não foi possível aceitar a vaga.')
+    const accepted = await respond(() => acceptSlotOffer(offer.slot_id), 'Não foi possível aceitar a vaga.')
     if (accepted) onAccepted(accepted.id)
   }
   async function decline() {
-    const done = await run(async () => { await declineSlotOffer(offer.slot_id); return true }, 'Não foi possível recusar a vaga.')
+    const done = await respond(async () => { await declineSlotOffer(offer.slot_id); return true }, 'Não foi possível recusar a vaga.')
     if (done) onDeclined()
   }
 

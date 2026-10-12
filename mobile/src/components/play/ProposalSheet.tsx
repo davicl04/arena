@@ -1,4 +1,5 @@
 import { Text, View } from 'react-native'
+import { ApiError } from '../../api/client'
 import { acceptProposal, declineProposal } from '../../api/matchmaking'
 import type { Proposal } from '../../api/matchmaking'
 import { footballFormat } from '../../data/arena'
@@ -22,7 +23,7 @@ export type ProposalAnswer = 'aceitar' | 'recusar'
  * `onAnswer` recebe a proposta devolvida pelo servidor, com a resposta dada; quem chama decide o que vem depois (ir à
  * partida quando os dois aceitam, reler a placa). Os botões ficam ocupados até a tela refletir a resposta.
  */
-export function ProposalSheet({ proposal, onLater, onAnswer, onOpenMatch, onElapsed, onExpired }: {
+export function ProposalSheet({ proposal, onLater, onAnswer, onOpenMatch, onElapsed, onStale, onExpired }: {
   proposal: Proposal
   onLater: () => void
   onAnswer: (updated: Proposal, answer: ProposalAnswer) => void | Promise<void>
@@ -30,6 +31,8 @@ export function ProposalSheet({ proposal, onLater, onAnswer, onOpenMatch, onElap
   onOpenMatch: (matchId: number) => void
   /** O prazo de 2 h passou: a placa lê de novo. */
   onElapsed: () => void
+  /** O servidor recusou a resposta porque a proposta mudou (404 ou 409): recebe a mensagem dele; a tela fecha a folha e lê a placa de novo. */
+  onStale: (message: string) => void
   onExpired: () => void
 }) {
   const { busy, error, run } = useSubmit(onExpired)
@@ -43,10 +46,17 @@ export function ProposalSheet({ proposal, onLater, onAnswer, onOpenMatch, onElap
   const heading = open ? 'Adversário encontrado' : proposal.state === 'combinando' ? 'Partida confirmada' : 'Proposta encerrada'
 
   async function answer(kind: ProposalAnswer) {
+    let stale = ''
     await run(async () => {
-      const updated = await (kind === 'aceitar' ? acceptProposal : declineProposal)(proposal.match_id)
+      let updated: Proposal
+      try { updated = await (kind === 'aceitar' ? acceptProposal : declineProposal)(proposal.match_id) } catch (cause) {
+        // Proposta que já não está pendente (404 ou 409: o outro lado recusou, o prazo passou): a placa lê de novo.
+        if (cause instanceof ApiError && (cause.status === 404 || cause.status === 409)) stale = cause.message
+        throw cause
+      }
       await onAnswer(updated, kind)
     }, kind === 'aceitar' ? 'Não foi possível aceitar a proposta.' : 'Não foi possível recusar a proposta.')
+    if (stale) onStale(stale)
   }
 
   return <ActionSheet title={`${heading} · ${format}`} dark locked={busy} onClose={onLater}>

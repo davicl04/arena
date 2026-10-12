@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Pressable, RefreshControl, ScrollView, Text, View } from 'react-native'
 import { cancelEntry, confirmRefund, contestRefund, createEntry, getEntry, getEvent, pixInfo, sendReceipt } from '../api/entries'
 import type { EventDetail, MyEntry } from '../api/entries'
+import { ApiError } from '../api/client'
 import type { UploadFile } from '../api/client'
 import { TextAction } from '../components/arena/controls'
 import { EventPoster } from '../components/arena/EventPoster'
@@ -85,10 +86,11 @@ export default function EventScreen({ params, navigation, onExpired }: ScreenPro
     try {
       setEvent(await getEvent(eventId))
       if (!next && summaryId !== null) setEntry(await getEntry(summaryId))
-    } catch {
-      /* a tela segue com os dados anteriores; a próxima leitura corrige */
+    } catch (cause) {
+      // Sessão expirada volta ao login; nos outros erros a tela segue com os dados anteriores e a próxima leitura corrige.
+      if (cause instanceof ApiError && cause.status === 401) onExpired()
     }
-  }, [eventId, setEntry, setEvent, summaryId])
+  }, [eventId, onExpired, setEntry, setEvent, summaryId])
   async function pullToRefresh() {
     setRefreshing(true)
     await refresh()
@@ -157,8 +159,28 @@ export default function EventScreen({ params, navigation, onExpired }: ScreenPro
   // Provas de corrida não têm Tabela: o pedido da aba (notificações) cai nas informações.
   const shown: Section = run && section === 'tabela' ? 'info' : section
 
+  /**
+   * Roda a ação de uma folha. Se o servidor recusar porque a situação mudou (404 ou 409: vaga liberada, inscrição já decidida
+   * ou cancelada), a folha fecha, a mensagem do servidor vira o aviso e a tela relê o evento e a inscrição, em vez de
+   * seguir com dados velhos. Os outros erros ficam na folha, como antes.
+   */
+  async function guarded<T>(task: () => Promise<T>, fallback: string): Promise<T | undefined> {
+    let stale = ''
+    const result = await action.run(async () => {
+      try { return await task() } catch (cause) {
+        if (cause instanceof ApiError && (cause.status === 404 || cause.status === 409)) stale = cause.message
+        throw cause
+      }
+    }, fallback)
+    if (result === undefined && stale) {
+      closeSheet()
+      notify(stale)
+      await refresh()
+    }
+    return result
+  }
   async function enter(teamId: number | null) {
-    const created = await action.run(() => createEntry(current.id, teamId), 'Não foi possível concluir a inscrição.')
+    const created = await guarded(() => createEntry(current.id, teamId), 'Não foi possível concluir a inscrição.')
     if (!created) return
     setSheet(null)
     notify(created.state === 'confirmada' ? `Inscrição confirmada em ${current.name}.` : `Vaga reservada. Envie o comprovante até ${formatDeadline(created.reserved_until)}.`)
@@ -166,7 +188,7 @@ export default function EventScreen({ params, navigation, onExpired }: ScreenPro
   }
   async function upload(file: UploadFile) {
     if (!entry) return
-    const updated = await action.run(() => sendReceipt(entry.id, file), 'Não foi possível enviar o comprovante.')
+    const updated = await guarded(() => sendReceipt(entry.id, file), 'Não foi possível enviar o comprovante.')
     if (!updated) return
     setSheet(null)
     notify(`Comprovante enviado. ${current.organizer.display_name} vai analisar o pagamento.`)
@@ -174,7 +196,7 @@ export default function EventScreen({ params, navigation, onExpired }: ScreenPro
   }
   async function answerRefund(reason?: string) {
     if (!entry) return
-    const updated = await action.run(() => (reason === undefined ? confirmRefund(entry.id) : contestRefund(entry.id, reason)), 'Não foi possível responder à devolução.')
+    const updated = await guarded(() => (reason === undefined ? confirmRefund(entry.id) : contestRefund(entry.id, reason)), 'Não foi possível responder à devolução.')
     if (!updated) return
     setSheet(null)
     notify(reason === undefined ? 'Recebimento da devolução confirmado.' : 'Contestação enviada à administração.')
@@ -182,7 +204,7 @@ export default function EventScreen({ params, navigation, onExpired }: ScreenPro
   }
   async function giveUp() {
     if (!entry) return
-    const done = await action.run(async () => { await cancelEntry(entry.id); return true }, 'Não foi possível cancelar a inscrição.')
+    const done = await guarded(async () => { await cancelEntry(entry.id); return true }, 'Não foi possível cancelar a inscrição.')
     if (!done) return
     setSheet(null)
     notify('Inscrição cancelada. A vaga ficou livre.')

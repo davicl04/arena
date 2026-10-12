@@ -1,4 +1,5 @@
 import { apiUrl, fileForm, request } from './client'
+import { isApiPath } from './path'
 import type { UploadFile } from './client'
 import { receiptRefusalReason } from '../data/arena'
 import type { ReceiptRefusalReason } from '../data/arena'
@@ -113,6 +114,7 @@ export const receiptFileHref = (receipt: Pick<Receipt, 'file_url'>) => apiUrl(re
 /**
  * Fonte da imagem do comprovante para o `Image` do React Native: a rota autorizada, com o Bearer da sessão no header.
  * PDFs não abrem no aparelho (sem `expo-file-system` nem `expo-sharing`): o app avisa para abri-los pela web.
+ * O Bearer só vai para caminho da API (`/api/v1/...`); outra forma de `file_url` devolve `null` (sem imagem).
  */
 export const receiptImageSource = (receipt: Pick<Receipt, 'file_url'>, token: string) =>
-  ({ uri: receiptFileHref(receipt), headers: { Authorization: `Bearer ${token}` } })
+  isApiPath(receipt.file_url) ? { uri: receiptFileHref(receipt), headers: { Authorization: `Bearer ${token}` } } : null

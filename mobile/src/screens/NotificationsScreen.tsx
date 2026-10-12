@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { Pressable, ScrollView, Text, View } from 'react-native'
 import { ApiError, request } from '../api/client'
-import type { Page, SocialUser } from '../api/client'
+import type { SocialUser } from '../api/client'
 import { NOTIFICATIONS_PATH, getUnreadCount, markAllNotificationsRead, markNotificationRead } from '../api/notifications'
 import type { ArenaNotification } from '../api/notifications'
+import { approveAllFollowRequests } from '../api/social'
 import { TextAction } from '../components/arena/controls'
 import { Icon } from '../components/Icon'
 import { Avatar } from '../components/media'
@@ -104,16 +105,10 @@ export default function NotificationsScreen({ user, navigation, onExpired }: Scr
   async function approveAll() {
     setBusy(true); setError(''); setNotice('')
     try {
-      // Aprovar tira itens da fila: cada lote recomeça na primeira página.
-      while (true) {
-        const page = await request<Page<FollowRequest>>('/me/follow-requests')
-        if (page.items.length === 0) break
-        for (const item of page.items) {
-          await request(`/me/follow-requests/${item.user.id}?approve=true`, 'PUT')
-          requests.setItems(old => old.filter(entry => entry.user.id !== item.user.id))
-        }
-      }
-      setNotice('Solicitações aprovadas.')
+      // Aprovar tira itens da fila: cada lote recomeça na primeira página, com teto de rodadas e parada se a fila não andar.
+      const done = await approveAllFollowRequests(userId => requests.setItems(old => old.filter(entry => entry.user.id !== userId)))
+      if (done) setNotice('Solicitações aprovadas.')
+      else setError('Nem todas as solicitações foram aprovadas. Tente de novo em instantes.')
     } catch (cause) {
       failed(cause, 'Não foi possível aprovar todas as solicitações.')
     } finally { requests.reload(); setBusy(false) }

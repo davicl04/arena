@@ -4,6 +4,7 @@ import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-nati
 import * as ImagePicker from 'expo-image-picker'
 import { ApiError, clearToken, getToken, request, sports } from '../api/client'
 import type { City, Page, Profile, ProfileInput, SocialUser, Sport, User } from '../api/client'
+import { approveAllFollowRequests } from '../api/social'
 import { Button, Field } from '../components/ui'
 import { cx, tw } from '../styles'
 import { Avatar, Cover } from '../components/media'
@@ -119,7 +120,10 @@ export default function ProfileScreen({ user, onUser, onLogout, onExpired, onNew
   }
   async function logout() {
     setBusy(true); setError('')
-    try { await request('/auth/logout', 'POST'); await clearToken(); onLogout() }
+    // Avisar o servidor é o melhor esforço: sem rede (ou com a sessão já inválida) a pessoa sai mesmo assim, apagando o token
+    // do aparelho e a conta da memória; do contrário ficaria presa na sessão.
+    try { await request('/auth/logout', 'POST') } catch { /* a saída local vale mesmo sem a resposta do servidor */ }
+    try { await clearToken(); onLogout() }
     catch (err) { fail(err) } finally { setBusy(false) }
   }
   async function rename() {
@@ -166,16 +170,11 @@ export default function ProfileScreen({ user, onUser, onLogout, onExpired, onNew
   async function approveAll() {
     if (!startFollowAction()) return
     try {
-      // Cada aprovação tira o item da fila; por isso a primeira página é consultada de novo até esvaziar.
-      while (true) {
-        const page: Page<{ user: SocialUser }> = await request<Page<{ user: SocialUser }>>('/me/follow-requests')
-        if (!page.items.length) break
-        for (const item of page.items) {
-          await request(`/me/follow-requests/${item.user.id}?approve=true`, 'PUT')
-          resolveLocalRequest(item.user.id, true)
-        }
-      }
-      setMessage('Solicitações aprovadas.')
+      // Cada aprovação tira o item da fila; por isso a primeira página é consultada de novo até esvaziar (com teto de rodadas
+      // e parada se a fila não andar).
+      const done = await approveAllFollowRequests(id => resolveLocalRequest(id, true))
+      if (done) setMessage('Solicitações aprovadas.')
+      else setError('Nem todas as solicitações foram aprovadas. Tente de novo em instantes.')
     } catch (err) { fail(err) } finally { await finishFollowAction() }
   }
   async function unblock(id: number) {

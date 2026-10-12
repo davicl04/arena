@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react'
 import { ScrollView, Text, View } from 'react-native'
+import { ApiError } from '../api/client'
 import type { ReceiptReview } from '../api/events'
 import { eventReceiptsPath, getReceiptsEvent, subjectName } from '../api/receipts'
 import type { ReceiptTab, ReceiptsEvent } from '../api/receipts'
@@ -79,8 +80,9 @@ export default function ReceiptsScreen({ params, navigation, onExpired }: Screen
   const say = useCallback((message: string) => { setNotice(message); announce(message) }, [])
   /** Atualiza os contadores da placa e das abas depois de uma decisão ou envio, sem recarregar a tela. */
   const refresh = useCallback(() => {
-    getReceiptsEvent(eventId).then(fresh => setData(fresh)).catch(() => undefined)
-  }, [eventId, setData])
+    // Falha de rede ou do servidor: os contadores seguem como estavam. Sessão expirada (401) volta ao login.
+    getReceiptsEvent(eventId).then(fresh => setData(fresh)).catch((cause: unknown) => { if (cause instanceof ApiError && cause.status === 401) onExpired() })
+  }, [eventId, onExpired, setData])
 
   const tabs: { value: PageTab; label: string }[] = data ? [
     cancelled

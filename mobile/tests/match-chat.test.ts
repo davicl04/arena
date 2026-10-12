@@ -7,7 +7,7 @@ import { MESSAGE_MAX } from '../src/api/matches'
 import { COUNTER_FROM } from '../src/components/match/MatchChat'
 import { mergeMessages } from '../src/hooks/useMatchChat'
 import { colors } from '../src/theme'
-import { appState, enableAct } from './support/native'
+import { appState, enableAct, hardwareBack } from './support/native'
 import { matchRoutes, mountMatch, pressFake, tick, unmountAll } from './support/match'
 import {
   arranging, caio, marcos, matchDetail, matchEvent, message, messagePage, mine, noPermissions, person, scheduled, sides, tiago,
@@ -489,6 +489,27 @@ describe('denúncia de mensagem', () => {
     expect(onExpired).toHaveBeenCalled()
     expect(allText(tree)).toContain('Sessão expirada.')
     expect(allText(tree)).toContain('A administração vê a mensagem, a partida e o autor.')
+  })
+
+  it('o voltar do Android fecha o formulário em vez de sair da partida; sem ele aberto, o voltar segue para a navegação', async () => {
+    // O voltar da navegação (que sairia da partida) é registrado antes da tela, como o `useAndroidBack` do shell.
+    hardwareBack.handlers.length = 0
+    const leaveMatch = vi.fn(() => true)
+    hardwareBack.handlers.push(leaveMatch)
+    const { tree } = await mountMatch(matchRoutes(matchDetail(), { [MESSAGES]: messagePage([offensive]) }))
+    await act(async () => { expect(hardwareBack.press()).toBe(true) })
+    expect(leaveMatch).toHaveBeenCalledTimes(1)
+    await pressButton(tree, 'Denunciar mensagem de Caio Ramos')
+    expect(allText(tree)).toContain('A administração vê a mensagem, a partida e o autor.')
+    leaveMatch.mockClear()
+    await act(async () => { expect(hardwareBack.press()).toBe(true) })
+    expect(leaveMatch).not.toHaveBeenCalled()
+    expect(allText(tree)).not.toContain('A administração vê a mensagem, a partida e o autor.')
+    expect(callsTo('POST', '/reports')).toHaveLength(0)
+    // Fechado o formulário, o ouvinte do vidro sai e o voltar volta a sair da partida.
+    await act(async () => { expect(hardwareBack.press()).toBe(true) })
+    expect(leaveMatch).toHaveBeenCalledTimes(1)
+    hardwareBack.handlers.length = 0
   })
 
   it('fechar o formulário não envia nada', async () => {

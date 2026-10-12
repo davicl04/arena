@@ -1,7 +1,8 @@
 import React from 'react'
 import { act, create } from 'react-test-renderer'
 import { expect, it, vi } from 'vitest'
-import { Avatar, Cover } from '../src/components/media'
+import { Avatar, Cover, authSource } from '../src/components/media'
+import PostImage from '../src/components/PostImage'
 
 vi.mock('react-native', async () => {
   const react = await import('react')
@@ -22,6 +23,25 @@ it.each(['avatar', 'capa'] as const)('%s tenta carregar a nova URL após falha d
   expect(tree.root.findAllByType('Image' as never)).toHaveLength(1)
   expect(tree.root.findByType('Image' as never).props.source.uri).toBe('/new.webp')
   await act(async () => { tree.unmount() })
+})
+
+it('authSource só devolve fonte (com o Bearer) para caminhos da API; qualquer outra forma não vira imagem nem cabeçalho', () => {
+  expect(authSource('/api/v1/me/avatar?v=1', 'session-a')).toEqual({ uri: '/api/v1/me/avatar?v=1', headers: { Authorization: 'Bearer session-a' } })
+  for (const path of ['@evil.example/x', '.evil.example/x', '//evil.example/x', 'https://evil.example/x', 'api/v1/x', '']) expect(authSource(path, 'session-a'), path).toBeNull()
+})
+
+it.each(['@evil.example/x', '.evil.example/x', '//evil.example/x', 'https://evil.example/x'])('avatar, capa e foto de publicação com o caminho %s mostram o substituto, sem imagem', async path => {
+  ;(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true
+  const trees: ReturnType<typeof create>[] = []
+  await act(async () => {
+    trees.push(create(React.createElement(Avatar, { path, name: 'Atleta Um', token: 'session-a' })))
+    trees.push(create(React.createElement(Cover, { path, token: 'session-a' })))
+    trees.push(create(React.createElement(PostImage, { path, token: 'session-a', label: 'Foto' })))
+  })
+  for (const tree of trees) expect(tree.root.findAllByType('Image' as never)).toHaveLength(0)
+  expect(trees[0].root.findAllByType('Text' as never)[0].props.children).toBe('AU')
+  expect(trees[2].root.findAllByType('Text' as never)[0].props.children).toBe('Imagem indisponível')
+  await act(async () => { trees.forEach(tree => tree.unmount()) })
 })
 
 it('tenta novamente a mesma URL quando uma nova sessão é iniciada', async () => {

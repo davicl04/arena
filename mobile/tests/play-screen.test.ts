@@ -611,17 +611,36 @@ describe('Jogar: proposta', () => {
     expect(has(tennisTree, 'Ricardo Moura')).toBe(true)
   })
 
-  it('erro ao aceitar mostra a mensagem e deixa responder de novo', async () => {
+  it('erro comum ao aceitar mostra a mensagem na folha e deixa responder de novo, sem reler a placa', async () => {
     serve((path, method) => {
-      if (path === '/matches/50/accept' && method === 'PUT') throw new ApiError('Esta proposta não está mais aberta.', 409)
+      if (path === '/matches/50/accept' && method === 'PUT') throw new ApiError('Falha momentânea no servidor.', 500)
       return undefined
     })
     const tree = await mount(playBoard({ proposals: [proposal()] }))
     await press(tree, 'Aceitar partida')
-    expect(has(tree, 'Esta proposta não está mais aberta.')).toBe(true)
+    expect(has(tree, 'Falha momentânea no servidor.')).toBe(true)
     expect(byLabel(tree, 'Aceitar partida')[0].props.accessibilityState).toMatchObject({ disabled: false })
     expect(deferSpy).not.toHaveBeenCalled()
+    expect(reloadSpy).not.toHaveBeenCalled()
   })
+
+  it.each([['Aceitar partida', 'accept', 409], ['Recusar', 'decline', 404]] as const)(
+    'proposta que mudou ao responder (%s, %s): fecha a folha, mostra a mensagem do servidor na placa e relê a placa',
+    async (label, route, status) => {
+      serve((path, method) => {
+        if (path === `/matches/50/${route}` && method === 'PUT') throw new ApiError('Esta proposta não está mais aberta.', status)
+        return undefined
+      })
+      const tree = await mount(playBoard({ proposals: [proposal()] }))
+      expect(has(tree, 'Adversário encontrado · Society')).toBe(true)
+      server.board = playBoard()
+      await press(tree, label)
+      expect(reloadSpy).toHaveBeenCalledOnce()
+      expect(has(tree, 'Adversário encontrado · Society')).toBe(false)
+      expect(has(tree, 'Esta proposta não está mais aberta.')).toBe(true)
+      expect(deferSpy).toHaveBeenCalledWith(50)
+      expect(host(tree, 'proposal-card')).toHaveLength(0)
+    })
 
   it('401 ao responder expira a sessão', async () => {
     serve((path, method) => {
@@ -696,8 +715,25 @@ describe('Jogar: oferta de vaga', () => {
     expect(navigation.go).not.toHaveBeenCalled()
   })
 
-  it('"Responder depois" fecha sem chamar a API; erro e 401 ao responder', async () => {
-    let failure: Error | null = new ApiError('Esta vaga não está mais reservada para você.', 409)
+  it.each([['Quero jogar', 409, 'Esta vaga não está mais reservada para você.'], ['Agora não', 404, 'O prazo para aceitar esta vaga acabou.']] as const)(
+    'oferta que mudou ao responder (%s, %s): fecha a folha, mostra a mensagem do servidor na placa e relê a placa',
+    async (label, status, message) => {
+      serve((path, method) => {
+        if (path.startsWith('/match-slots/9') && method === 'PUT') throw new ApiError(message, status)
+        return undefined
+      })
+      const tree = await mount(playBoard({ offers: [slotOffer()] }))
+      await press(tree, 'Ver vaga')
+      server.board = playBoard()
+      await press(tree, label)
+      expect(reloadSpy).toHaveBeenCalledOnce()
+      expect(has(tree, 'Vaga encontrada · Society')).toBe(false)
+      expect(has(tree, message)).toBe(true)
+      expect(host(tree, 'slot-offer-card')).toHaveLength(0)
+    })
+
+  it('"Responder depois" fecha sem chamar a API; erro comum fica na folha e 401 expira a sessão', async () => {
+    let failure: Error | null = new ApiError('Falha momentânea no servidor.', 500)
     serve((path, method) => {
       if (path.startsWith('/match-slots/9') && method === 'PUT' && failure) throw failure
       return undefined
@@ -705,10 +741,11 @@ describe('Jogar: oferta de vaga', () => {
     const tree = await mount(playBoard({ offers: [slotOffer()] }))
     await press(tree, 'Ver vaga')
     await press(tree, 'Quero jogar')
-    expect(has(tree, 'Esta vaga não está mais reservada para você.')).toBe(true)
-    failure = new ApiError('O prazo para aceitar esta vaga acabou.', 409)
+    expect(has(tree, 'Falha momentânea no servidor.')).toBe(true)
+    failure = new ApiError('Não foi possível recusar agora.', 500)
     await press(tree, 'Agora não')
-    expect(has(tree, 'O prazo para aceitar esta vaga acabou.')).toBe(true)
+    expect(has(tree, 'Não foi possível recusar agora.')).toBe(true)
+    expect(reloadSpy).not.toHaveBeenCalled()
     failure = new ApiError('Sessão expirada', 401)
     await press(tree, 'Quero jogar')
     expect(onExpired).toHaveBeenCalledOnce()

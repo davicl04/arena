@@ -5,6 +5,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { StatusBar } from 'expo-status-bar'
 import { ApiError, clearToken, request } from './src/api/client'
 import type { User } from './src/api/client'
+import { ErrorBoundary } from './src/components/ErrorBoundary'
 import { Button } from './src/components/ui'
 import { Screen } from './src/components/Screen'
 import { useJoinLink } from './src/navigation/useJoinLink'
@@ -33,9 +34,9 @@ export default function App() {
     if (pendingJoinToken) restoreJoinToken(pendingJoinToken)
     setUser(null); setError('Sua sessão expirou. Entre novamente.'); void clearToken()
   }, [restoreJoinToken])
-  return <SafeAreaProvider><Screen className={tw.screen}><StatusBar style="dark" /><KeyboardAvoidingView className="grow basis-0" behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+  return <SafeAreaProvider><Screen className={tw.screen}><StatusBar style="dark" /><KeyboardAvoidingView className="grow basis-0" behavior={Platform.OS === 'ios' ? 'padding' : 'height'}><ErrorBoundary>
     {loading ? <ScrollView contentContainerClassName={tw.content}><Text className={cx(tw.brand, 'mb-7.5')}>arena.</Text><ActivityIndicator accessibilityLabel="Carregando Arena" color={colors.brand} /></ScrollView> : user
       ? <ArenaShell user={user} onUser={setUser} onLogout={() => setUser(null)} onExpired={expired} joinToken={joinToken} onJoinOpened={joinOpened} />
       : <ScrollView contentContainerClassName={tw.content} keyboardShouldPersistTaps="handled"><Text className={cx(tw.brand, 'mb-7.5')}>arena.</Text>{error ? <><Text className={tw.error} accessibilityRole="alert">{error}</Text><Button secondary title="Tentar conexão novamente" onPress={() => { setError(''); setLoading(true); setAttempt(v => v + 1) }} /></> : null}<AuthScreen onLogin={value => { setUser(value); setError('') }} /></ScrollView>}
-  </KeyboardAvoidingView></Screen></SafeAreaProvider>
+  </ErrorBoundary></KeyboardAvoidingView></Screen></SafeAreaProvider>
 }

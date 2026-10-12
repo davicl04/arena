@@ -177,6 +177,14 @@ describe('TeamCrest: brasão com Bearer ou escudo com iniciais', () => {
     expect(all(tree, 'SvgText')[0].props.children).toBe('LE')
   })
 
+  it('caminho fora da API não é pedido nem leva o Bearer: fica o escudo neutro', async () => {
+    for (const path of ['@evil.example/crest', '.evil.example/crest', '//evil.example/crest']) {
+      const tree = await render(h(TeamCrest, { name: 'Leões', path, token: TOKEN }))
+      expect(all(tree, 'Image'), path).toHaveLength(0)
+      expect(all(tree, 'SvgText')[0].props.children).toBe('LE')
+    }
+  })
+
   it('a prévia local não usa o Bearer e o modo decorativo oculta o brasão', async () => {
     const preview = await render(h(TeamCrest, { name: 'Leões', previewUri: 'file:///cache/recorte.jpg', decorative: true, token: TOKEN }))
     expect(all(preview, 'Image')[0].props.source).toEqual({ uri: 'file:///cache/recorte.jpg' })
@@ -352,6 +360,43 @@ describe('ReceiptImage: imagem autorizada e aviso do PDF', () => {
   it('espera o token da sessão antes de pedir a imagem', async () => {
     const tree = await render(h(ReceiptImage, { receipt, title: 'Comprovante', token: null }))
     expect(all(tree, 'Image')).toHaveLength(0)
+  })
+
+  it('a falha de um arquivo não prende o componente: outro file_url recomeça carregando', async () => {
+    const other = { ...receipt, file_url: '/api/v1/receipts/10/file' }
+    const tree = await render(h(ReceiptImage, { receipt, title: 'Comprovante', token: TOKEN }))
+    await act(async () => { all(tree, 'Image')[0].props.onError() })
+    expect(textOf(tree)).toContain('Não foi possível carregar o comprovante.')
+    await act(async () => { tree.update(h(ReceiptImage, { receipt: other, title: 'Comprovante', token: TOKEN })) })
+    expect(textOf(tree)).not.toContain('Não foi possível carregar')
+    expect(all(tree, 'Image')).toHaveLength(1)
+    expect(all(tree, 'Image')[0].props.source.uri).toBe('http://10.0.2.2:8000/api/v1/receipts/10/file')
+    expect(all(tree, 'ActivityIndicator')).toHaveLength(1)
+    // O novo arquivo carrega; voltar ao anterior (que falhou) é outra tentativa, e a nova falha vale só para ele.
+    await act(async () => { all(tree, 'Image')[0].props.onLoad() })
+    expect(all(tree, 'ActivityIndicator')).toHaveLength(0)
+    await act(async () => { all(tree, 'Image')[0].props.onError() })
+    expect(textOf(tree)).toContain('Não foi possível carregar')
+    await act(async () => { tree.update(h(ReceiptImage, { receipt, title: 'Comprovante', token: TOKEN })) })
+    expect(all(tree, 'Image')).toHaveLength(1)
+  })
+
+  it('a falha também recomeça quando a sessão (o token) é outra', async () => {
+    const tree = await render(h(ReceiptImage, { receipt, title: 'Comprovante', token: TOKEN }))
+    await act(async () => { all(tree, 'Image')[0].props.onError() })
+    expect(all(tree, 'Image')).toHaveLength(0)
+    await act(async () => { tree.update(h(ReceiptImage, { receipt, title: 'Comprovante', token: 'test-only-token-2' })) })
+    expect(all(tree, 'Image')).toHaveLength(1)
+    expect(all(tree, 'Image')[0].props.source.headers).toEqual({ Authorization: 'Bearer test-only-token-2' })
+  })
+
+  it('file_url fora da API não é pedido nem leva o Bearer: aparece como indisponível', async () => {
+    for (const file_url of ['@evil.example/x', '//evil.example/x', 'https://evil.example/x']) {
+      const tree = await render(h(ReceiptImage, { receipt: { ...receipt, file_url }, title: 'Comprovante', token: TOKEN }))
+      expect(all(tree, 'Image'), file_url).toHaveLength(0)
+      expect(textOf(tree)).toContain('Não foi possível carregar o comprovante.')
+      expect(all(tree, 'ActivityIndicator')).toHaveLength(0)
+    }
   })
 })
 

@@ -32,12 +32,13 @@ function Preview({ report, token }: { report: AdminReport; token: string | null 
   const text = previewText(preview)
   const context = previewContext(preview)
   const image = report.status === 'pending' ? preview.image_url : null
+  const source = image && token ? authSource(image, token) : null
   return <View testID="report-preview" accessible accessibilityLabel={`${context ? `${context}. ` : ''}Conteúdo denunciado de ${who}${text ? `: ${text}` : ''}`} style={{ borderRadius: 12, backgroundColor: colors.subtle, padding: 12 }}>
     {context ? <Text style={{ marginBottom: 4, color: colors['ink-muted'], fontSize: 10.5 }}>{context}</Text> : null}
     <Text style={{ color: colors.ink, fontSize: 13, fontWeight: '700' }}>{who}</Text>
     {text ? <Text selectable style={{ marginTop: 4, color: preview.removed ? colors['ink-muted'] : colors.ink, fontSize: 12.5, lineHeight: 19, fontStyle: preview.removed ? 'italic' : 'normal' }}>{text}</Text> : null}
-    {image && token && !failed
-      ? <Image accessibilityLabel="Imagem da publicação denunciada" source={authSource(image, token)} resizeMode="cover" onError={() => setFailed(true)}
+    {source && !failed
+      ? <Image accessibilityLabel="Imagem da publicação denunciada" source={source} resizeMode="cover" onError={() => setFailed(true)}
         style={{ marginTop: 8, width: 220, maxWidth: '100%', aspectRatio: 1, borderRadius: 8, backgroundColor: colors.line }} />
       : image ? <Text accessibilityRole="alert" style={{ marginTop: 8, color: colors['ink-muted'], fontSize: 11.5 }}>Imagem indisponível.</Text> : null}
   </View>

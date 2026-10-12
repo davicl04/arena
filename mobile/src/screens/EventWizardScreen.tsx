@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, View } from 'react-native'
 import { ApiError } from '../api/client'
 import { createEvent, getOrganizerEvent, submitEvent, updateEvent } from '../api/events'
@@ -46,6 +46,12 @@ export default function EventWizardScreen({ params, navigation, onExpired }: Scr
   const [busy, setBusy] = useState<Busy>(null)
   const [dirty, setDirty] = useState(false)
   const [leaving, setLeaving] = useState(false)
+  // Só o assistente no topo da pilha está montado: depois de desmontado, uma resposta tardia não navega (substituiria outra tela).
+  const mounted = useRef(true)
+  useEffect(() => {
+    mounted.current = true
+    return () => { mounted.current = false }
+  }, [])
 
   useEffect(() => {
     if (!eventId) return
@@ -151,6 +157,7 @@ export default function EventWizardScreen({ params, navigation, onExpired }: Scr
     if (!saved) { setBusy(null); return }
     try {
       const sent = await submitEvent(saved.id)
+      if (!mounted.current) return
       // Sai do assistente para a gestão do evento: se ela já está logo abaixo na pilha (veio dela), a substitui.
       navigation.replace(makeEntry('event-manage', { eventId: sent.id }), below => below.screen === 'event-manage' && below.params.eventId === sent.id)
     } catch (cause) {
@@ -162,13 +169,20 @@ export default function EventWizardScreen({ params, navigation, onExpired }: Scr
     }
   }
 
+  /** Fechar (X ou voltar do Android): enquanto grava ou envia, não sai; a resposta ainda precisa levar a pessoa adiante. */
   function requestClose() {
-    if (dirty && !busy) setLeaving(true)
+    if (busy) return
+    if (dirty) setLeaving(true)
     else navigation.back()
+  }
+  /** Sai sem salvar (da folha de confirmação); só quando nada está sendo enviado. */
+  function leaveWithoutSaving() {
+    if (!busy) navigation.back()
   }
 
   const header = <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingTop: 10 }}>
-    <Pressable accessibilityRole="button" accessibilityLabel="Fechar" onPress={requestClose} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
+    <Pressable accessibilityRole="button" accessibilityLabel="Fechar" accessibilityState={{ disabled: Boolean(busy) }} disabled={Boolean(busy)} onPress={requestClose}
+      style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center', opacity: busy ? 0.5 : 1 }}>
       <Icon name="x" size={21} color="#ffffff" />
     </Pressable>
     <View style={{ flex: 1, minWidth: 0 }}>
@@ -238,8 +252,8 @@ export default function EventWizardScreen({ params, navigation, onExpired }: Scr
         {leaving ? <Sheet title="Sair sem salvar?" onClose={() => setLeaving(false)}>
           <Text style={{ color: colors['ink-muted'], fontSize: 12, lineHeight: 18 }}>As mudanças desde o último rascunho salvo se perdem.</Text>
           <View style={{ marginTop: 12, gap: 8 }}>
-            <ActionButton block tone="brand" icon="save" title="Salvar rascunho e sair" disabled={Boolean(busy)} onPress={() => void saveDraft().then(saved => { setLeaving(false); if (saved) navigation.back() })} />
-            <ActionButton block tone="outline" title="Sair sem salvar" onPress={navigation.back} />
+            <ActionButton block tone="brand" icon="save" title="Salvar rascunho e sair" disabled={Boolean(busy)} onPress={() => void saveDraft().then(saved => { setLeaving(false); if (saved && mounted.current) navigation.back() })} />
+            <ActionButton block tone="outline" title="Sair sem salvar" disabled={Boolean(busy)} onPress={leaveWithoutSaving} />
             <ActionButton block tone="outline" title="Continuar editando" onPress={() => setLeaving(false)} />
           </View>
         </Sheet> : null}

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as SecureStore from 'expo-secure-store'
-import { ApiError, apiUrl, clearToken, fileForm, getToken, request, saveToken } from '../src/api/client'
+import { ApiError, apiUrl, clearToken, fileForm, getToken, request, REQUEST_TIMEOUT_MS, saveToken, UPLOAD_TIMEOUT_MS } from '../src/api/client'
+import { isApiPath } from '../src/api/path'
 
 vi.mock('expo-secure-store', () => ({
   getItemAsync: vi.fn(), setItemAsync: vi.fn(), deleteItemAsync: vi.fn(),
@@ -133,8 +134,57 @@ describe('sessão e transporte mobile', () => {
       options.signal.addEventListener('abort', () => reject(new DOMException('timeout', 'AbortError')))
     })))
     const result = expect(request('/me')).rejects.toMatchObject({ status: 0 })
-    await vi.advanceTimersByTimeAsync(15000)
+    await vi.advanceTimersByTimeAsync(REQUEST_TIMEOUT_MS)
     await result
+    expect(REQUEST_TIMEOUT_MS).toBe(15000)
     expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('o envio de arquivo (multipart) tem um teto bem maior: 5 MiB a 1 Mbps passam dos 15 s sem abortar', async () => {
+    vi.useFakeTimers()
+    let aborted = false
+    vi.stubGlobal('fetch', vi.fn((_url, options) => new Promise((resolve, reject) => {
+      options.signal.addEventListener('abort', () => { aborted = true; reject(new DOMException('timeout', 'AbortError')) })
+      // 5 MiB a 1 Mbps levam cerca de 42 s para subir.
+      setTimeout(() => resolve(new Response('{"id":1}')), 42_000)
+    })))
+    const form = new FormData()
+    form.append('file', new Blob(['avatar']), 'avatar.webp')
+    const result = request('/me/avatar', 'PUT', form)
+    await vi.advanceTimersByTimeAsync(REQUEST_TIMEOUT_MS + 1)
+    expect(aborted).toBe(false)
+    await vi.advanceTimersByTimeAsync(42_000)
+    await expect(result).resolves.toEqual({ id: 1 })
+    expect(aborted).toBe(false)
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('o envio de arquivo que passa do teto do upload é abortado e libera o timer', async () => {
+    vi.useFakeTimers()
+    vi.stubGlobal('fetch', vi.fn((_url, options) => new Promise((_resolve, reject) => {
+      options.signal.addEventListener('abort', () => reject(new DOMException('timeout', 'AbortError')))
+    })))
+    const form = new FormData()
+    form.append('file', new Blob(['capa']), 'capa.jpg')
+    const result = expect(request('/me/cover', 'PUT', form)).rejects.toMatchObject({ status: 0 })
+    await vi.advanceTimersByTimeAsync(UPLOAD_TIMEOUT_MS)
+    await result
+    expect(UPLOAD_TIMEOUT_MS).toBe(120_000)
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('isApiPath aceita só o que começa com uma barra e não com duas', () => {
+    expect(['/api/v1/me/avatar?v=uuid', '/x', '/'].map(isApiPath)).toEqual([true, true, true])
+    expect(['@evil.example/x', '.evil.example/x', '//evil.example/x', 'https://evil.example/x', 'api/v1/x', ''].map(isApiPath)).toEqual([false, false, false, false, false, false])
+    // Os exemplos do revisor: concatenados à base, desviariam o host.
+    expect(new URL('http://10.0.2.2:8000@evil.example/x').host).toBe('evil.example')
+  })
+
+  it('só anexa a base a caminhos da API: o que poderia desviar o host é recusado', () => {
+    expect(apiUrl('/api/v1/ok')).toBe('http://10.0.2.2:8000/api/v1/ok')
+    // `base + path` com `@host/x` ou `.host/x` trocaria o servidor que recebe o Bearer.
+    for (const path of ['@evil.example/x', '.evil.example/x', '//evil.example/x', 'https://evil.example/x', 'api/v1/x', '']) {
+      expect(() => apiUrl(path), path).toThrow('Caminho fora da API.')
+    }
   })
 })

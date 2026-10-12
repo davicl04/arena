@@ -205,6 +205,24 @@ describe('CommunityScreen', () => {
     await act(async () => { tree.unmount() })
   })
 
+  it('se a aprovação não tira os pedidos da fila, o laço para depois da primeira rodada e avisa em vez de rodar sem fim', async () => {
+    const { tree } = await mountFollowRequests(2)
+    let reads = 0
+    vi.mocked(request).mockImplementation(async (path, method) => {
+      if (path === '/me/follow-requests') { reads += 1; return { items: [2, 3].map(id => ({ user: { ...athlete, id } })), next_cursor: null } as never }
+      if (path.startsWith('/me/follow-requests/') && method === 'PUT') return { state: 'approved' } as never
+      if (path === '/users/1') return { ...athlete, id: 1, follower_count: 0, following_count: 0 } as never
+      return { items: [], next_cursor: null } as never
+    })
+    await press(tree, 'Button', props => props.title === 'Aprovar todas')
+    expect(approveCalls().map(([path]) => path)).toEqual(['/me/follow-requests/2?approve=true', '/me/follow-requests/3?approve=true'])
+    // Duas leituras do laço (a segunda trouxe os mesmos pedidos) e uma da atualização final.
+    expect(reads).toBe(3)
+    expect(textOf(tree)).toContain('Nem todas as solicitações foram aprovadas.')
+    expect(textOf(tree)).not.toContain('Solicitações aprovadas.')
+    await act(async () => { tree.unmount() })
+  })
+
   it('mantém só os pendentes após falha parcial e retoma sem reaprovar nem contar duas vezes', async () => {
     const options = { failId: 3 }
     const { tree, pending } = await mountFollowRequests(2, options)

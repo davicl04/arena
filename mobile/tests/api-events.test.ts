@@ -180,4 +180,10 @@ describe('comprovantes e devoluções (contrato 0003, seções 14 a 16)', () => 
       uri: 'http://10.0.2.2:8000/api/v1/receipts/9/file', headers: { Authorization: 'Bearer test-only-token' },
     })
   })
+
+  it('não monta fonte nem Bearer para um file_url que não é caminho da API', () => {
+    for (const file_url of ['@evil.example/x', '.evil.example/x', '//evil.example/x', 'https://evil.example/receipts/9/file']) {
+      expect(receipts.receiptImageSource({ file_url }, 'test-only-token'), file_url).toBeNull()
+    }
+  })
 })

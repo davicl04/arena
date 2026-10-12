@@ -42,13 +42,18 @@ export function ReceiptPdfNotice({ receipt, variant = 'full' }: { receipt: Pick<
  */
 export function ReceiptImage({ receipt, title, variant = 'full', token: provided }: ReceiptImageProps) {
   const token = useSessionToken(provided)
-  const [state, setState] = useState<'loading' | 'ready' | 'failed'>('loading')
+  // O resultado da carga vale só para o arquivo (e a sessão) em que ocorreu: outro `file_url` recomeça em "carregando".
+  const attempt = `${receipt.file_url}|${token ?? ''}`
+  const [outcome, setOutcome] = useState<{ attempt: string; value: 'ready' | 'failed' } | null>(null)
   if (receipt.file_type === 'pdf') return <ReceiptPdfNotice receipt={receipt} variant={variant} />
+  const source = token ? receiptImageSource(receipt, token) : null
+  // Sem fonte (caminho fora da API), não há o que carregar: o comprovante aparece como indisponível.
+  const state = outcome?.attempt === attempt ? outcome.value : token && !source ? 'failed' : 'loading'
   const thumb = variant === 'thumb'
   const box = thumb ? { width: 48, height: 60, borderRadius: 10 } : { minHeight: 180, width: '100%' as const, borderRadius: 12 }
   return <View testID="receipt-image" style={[{ overflow: 'hidden', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.line, backgroundColor: colors.subtle }, box]}>
-    {token && state !== 'failed' ? <Image accessibilityLabel={title} source={receiptImageSource(receipt, token)} resizeMode={thumb ? 'cover' : 'contain'}
-      onLoad={() => setState('ready')} onError={() => setState('failed')} style={thumb ? { width: '100%', height: '100%' } : { width: '100%', height: 360 }} /> : null}
+    {source && state !== 'failed' ? <Image key={receipt.file_url} accessibilityLabel={title} source={source} resizeMode={thumb ? 'cover' : 'contain'}
+      onLoad={() => setOutcome({ attempt, value: 'ready' })} onError={() => setOutcome({ attempt, value: 'failed' })} style={thumb ? { width: '100%', height: '100%' } : { width: '100%', height: 360 }} /> : null}
     {state === 'failed' ? <Text accessibilityRole="alert" style={{ color: colors.error, fontSize: thumb ? 9 : 12, textAlign: 'center', paddingHorizontal: 6 }}>{thumb ? 'Indisponível' : 'Não foi possível carregar o comprovante.'}</Text> : null}
     {state === 'loading' ? <View style={{ position: 'absolute' }}><ActivityIndicator accessibilityLabel="Carregando o comprovante" color={colors.brand} /></View> : null}
   </View>

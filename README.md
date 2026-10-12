@@ -145,6 +145,8 @@ Abra pelo Expo Go ou use `npm run android` com emulador configurado. Defina `EXP
 
 O backend deve escutar em `0.0.0.0`; aparelho e computador precisam alcançar a mesma rede e porta. `localhost` no aparelho aponta para o próprio aparelho. Mudanças na variável exigem reiniciar o Expo. Não coloque segredos em `EXPO_PUBLIC_*`.
 
+**Use `https://` fora do desenvolvimento.** O app envia o token da sessão no cabeçalho `Authorization: Bearer` em toda chamada e ao carregar fotos, brasões e comprovantes. Por isso, em builds de teste compartilhados ou de produção, `EXPO_PUBLIC_API_URL` precisa ser `https://…`: com `http://` o token trafega em texto claro. O `http://` da tabela acima serve só para o emulador, o simulador e a rede local de desenvolvimento. O app não impõe o HTTPS por código (isso quebraria o desenvolvimento local): a escolha é da configuração. Por segurança, o app só anexa o token a caminhos da própria API (`/api/v1/...`); qualquer outro endereço de mídia recebido é ignorado.
+
 ### Telas e recursos do Expo (etapa 6)
 
 O Expo tem as telas das etapas 1 a 5: Meus times, Convidar e Entrar pelo link, organizador, eventos e inscrições, comprovantes, administração, Jogar (placa, partida, resultado e Ranking), corrida e campeonatos (chaveamento, agenda e decisão). Elas consomem a mesma API e os mesmos contratos da web, então os roteiros "Demonstrar …" abaixo valem no Expo com as diferenças desta seção. **Nada disso foi verificado em aparelho, com leitor de tela ou contra a API real**, e a paridade visual com a web não foi verificada: os testes e a exportação do bundle não substituem esses ensaios.

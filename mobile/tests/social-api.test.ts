@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { request } from '../src/api/client'
-import { CAPTION_MAX, COMMENT_MAX, REPORT_DETAILS_MAX, REPORT_REASONS, blockUser, createComment, deleteComment, deletePost, sendReport, setLike, toggleFollow, updateCaption } from '../src/api/social'
+import { APPROVE_ALL_MAX_ROUNDS, CAPTION_MAX, COMMENT_MAX, REPORT_DETAILS_MAX, REPORT_REASONS, approveAllFollowRequests, blockUser, createComment, deleteComment, deletePost, sendReport, setLike, toggleFollow, updateCaption } from '../src/api/social'
 
 vi.mock('../src/api/client', () => ({ request: vi.fn() }))
 
@@ -45,5 +45,57 @@ describe('api/social (mobile)', () => {
   it('sem resposta do PUT, o estado vem da visibilidade da conta', async () => {
     await expect(toggleFollow({ id: 2, social_public: true, follow_state: 'none' })).resolves.toBe('approved')
     await expect(toggleFollow({ id: 3, social_public: false, follow_state: 'none' })).resolves.toBe('pending')
+  })
+
+  describe('approveAllFollowRequests: aprova a fila em rodadas, sem laço infinito', () => {
+    const who = (id: number) => ({ user: { id } })
+    const approvals = () => vi.mocked(request).mock.calls.filter(([path]) => String(path).includes('approve=true')).map(([path]) => path)
+
+    it('lê a primeira página de novo a cada rodada até a fila esvaziar e devolve true', async () => {
+      let queue = [1, 2, 3]
+      vi.mocked(request).mockImplementation(async (path: string) => {
+        if (path === '/me/follow-requests') return { items: queue.slice(0, 2).map(who), next_cursor: null } as never
+        queue = queue.filter(id => `/me/follow-requests/${id}?approve=true` !== path)
+        return undefined as never
+      })
+      const approved: number[] = []
+      await expect(approveAllFollowRequests(id => approved.push(id))).resolves.toBe(true)
+      expect(approved).toEqual([1, 2, 3])
+      expect(approvals()).toEqual(['/me/follow-requests/1?approve=true', '/me/follow-requests/2?approve=true', '/me/follow-requests/3?approve=true'])
+    })
+
+    it('fila vazia de saída: não aprova ninguém e devolve true', async () => {
+      vi.mocked(request).mockResolvedValue({ items: [], next_cursor: null } as never)
+      await expect(approveAllFollowRequests(() => { throw new Error('ninguém a aprovar') })).resolves.toBe(true)
+      expect(request).toHaveBeenCalledTimes(1)
+    })
+
+    it('para quando a rodada traz os mesmos pedidos da anterior (a aprovação não os tirou da fila) e devolve false', async () => {
+      vi.mocked(request).mockImplementation(async (path: string) => (path === '/me/follow-requests' ? { items: [who(1), who(2)], next_cursor: null } : undefined) as never)
+      const approved: number[] = []
+      await expect(approveAllFollowRequests(id => approved.push(id))).resolves.toBe(false)
+      // Uma rodada aprovou os dois; a segunda leu os mesmos e parou, sem repetir as aprovações.
+      expect(approved).toEqual([1, 2])
+      expect(vi.mocked(request).mock.calls.filter(([path]) => path === '/me/follow-requests')).toHaveLength(2)
+    })
+
+    it('para no teto de rodadas quando a fila não para de crescer e devolve false', async () => {
+      let next = 0
+      vi.mocked(request).mockImplementation(async (path: string) => (path === '/me/follow-requests' ? { items: [who(++next)], next_cursor: null } : undefined) as never)
+      await expect(approveAllFollowRequests(() => undefined)).resolves.toBe(false)
+      expect(approvals()).toHaveLength(APPROVE_ALL_MAX_ROUNDS)
+      expect(APPROVE_ALL_MAX_ROUNDS).toBe(500)
+    })
+
+    it('uma falha da API sobe para quem chamou, com o que já foi aprovado informado', async () => {
+      vi.mocked(request).mockImplementation(async (path: string) => {
+        if (path === '/me/follow-requests') return { items: [who(1), who(2)], next_cursor: null } as never
+        if (path.startsWith('/me/follow-requests/2')) throw new Error('Falha na aprovação')
+        return undefined as never
+      })
+      const approved: number[] = []
+      await expect(approveAllFollowRequests(id => approved.push(id))).rejects.toThrow('Falha na aprovação')
+      expect(approved).toEqual([1])
+    })
   })
 })

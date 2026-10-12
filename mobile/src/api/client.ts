@@ -1,4 +1,5 @@
 import * as SecureStore from 'expo-secure-store'
+import { isApiPath } from './path'
 
 export type Sport = 'futebol' | 'tenis' | 'corrida'
 export type Position = 'goleiro' | 'defesa' | 'meio_campo' | 'atacante'
@@ -42,11 +43,19 @@ const key = 'arena.session.v1'
 export const saveToken = (token: string) => SecureStore.setItemAsync(key, token)
 export const clearToken = () => SecureStore.deleteItemAsync(key)
 export const getToken = () => SecureStore.getItemAsync(key)
-export const apiUrl = (path: string) => `${base}${path}`
+/** Endereço absoluto de um caminho da API (`/api/v1/...`); recusa o que possa desviar o host (ver `isApiPath`). */
+export function apiUrl(path: string): string {
+  if (!isApiPath(path)) throw new TypeError('Caminho fora da API.')
+  return `${base}${path}`
+}
+/** Teto de uma chamada comum: passado ele, a chamada é abortada. */
+export const REQUEST_TIMEOUT_MS = 15_000
+/** Teto do envio de arquivo (multipart): 5 MiB a 1 Mbps levam cerca de 40 s, e o teto comum abortaria o envio no meio. */
+export const UPLOAD_TIMEOUT_MS = 120_000
 export async function request<T>(path: string, method = 'GET', body?: unknown): Promise<T> {
   const token = await SecureStore.getItemAsync(key)
   const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), 15000)
+  const timer = setTimeout(() => controller.abort(), body instanceof FormData ? UPLOAD_TIMEOUT_MS : REQUEST_TIMEOUT_MS)
   let response: Response
   try {
     response = await fetch(`${base}/api/v1${path}`, { method,

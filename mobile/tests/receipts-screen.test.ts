@@ -209,6 +209,31 @@ describe('Comprovantes (A2): fila Para analisar', () => {
     expect(expired).toHaveBeenCalled()
   })
 
+  it('a releitura dos contadores depois de aprovar: 401 volta ao login; outro erro mantém a tela como estava', async () => {
+    const expired = vi.fn()
+    let reads = 0
+    let failure: ApiError = new ApiError('Sessão expirada.', 401)
+    const state = world({}, { [EVENT]: () => { reads += 1; return reads === 1 ? state.event : failure } })
+    const tree = await mount({ eventId: 5 }, expired)
+    await pressPrefix(tree, 'Ferrugem FC:')
+    await pressButton(tree, 'Aprovar')
+    expect(reads).toBe(2)
+    expect(allText(tree)).toContain('Inscrição de Ferrugem FC confirmada.')
+    expect(expired).toHaveBeenCalledTimes(1)
+
+    reads = 0
+    failure = new ApiError('Servidor fora do ar.', 500)
+    const quiet = vi.fn()
+    const other = world({}, { [EVENT]: () => { reads += 1; return reads === 1 ? other.event : failure } })
+    const again = await mount({ eventId: 5 }, quiet)
+    await pressPrefix(again, 'Ferrugem FC:')
+    await pressButton(again, 'Aprovar')
+    expect(reads).toBe(2)
+    expect(allText(again)).toContain('Inscrição de Ferrugem FC confirmada.')
+    expect(allText(again)).toContain('Para analisar (2)')
+    expect(quiet).not.toHaveBeenCalled()
+  })
+
   it('carrega mais comprovantes pelo cursor da API', async () => {
     world({}, { [QUEUE]: () => page([first], 'c2'), [`${QUEUE}&cursor=c2`]: page([second]) })
     const tree = await mount()
