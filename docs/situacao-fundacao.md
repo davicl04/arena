@@ -1,5 +1,112 @@
 # Situação da fundação do Arena
 
+## Plano de Times e campeonatos (apenas planejamento) — 12 de outubro de 2026
+
+A etapa 1 dos [próximos passos do Jogar](proximos-passos-jogar.md) foi desenhada em 19 rodadas de protótipos, sem implementação. As decisões estão no [plano de Times e campeonatos](plano-times-campeonatos.md).
+
+**Decisões principais:**
+- **Duas áreas separadas:** **Meus times**, de todo atleta, e **Organizador**, para quem tem a permissão.
+- **Organizador passa a ser uma permissão.** O atleta pede pelo Menu (cartão com etapas e página "Seja organizador"), e a administração aprova ou recusa com motivo.
+- **Meus times:**
+  - carrossel de carteirinhas com a grade de elos por formato;
+  - elenco em grade de rostos;
+  - sempre pelo menos um representante;
+  - convite com prévia e mensagem;
+  - link e QR do time, sem validade, com pedido de entrada aprovado por um representante;
+  - convite recebido numa faixa que abre uma folha;
+  - criar e editar o time com prévia ao vivo.
+- **Organizador:**
+  - eventos em cartazes;
+  - gestão com o cartão "Agora" e seções;
+  - criar evento com uma pergunta por vez e Pix para eventos pagos;
+  - análise de comprovantes em lista e folha, com recusa motivada e reenvio;
+  - chaveamento em árvore espelhada e tabela cruzada no todos contra todos;
+  - agendamento com horário livre e bloqueio de conflito de quadra;
+  - placar divergente decidido com histórico, chat e justificativa.
+- **Partidas de campeonato:** têm chat com o organizador e usam o mesmo cartão de resultado dos amistosos. Isso fecha uma pendência do plano do Jogar.
+- **Administração:** filas "Pedidos de organizador" e "Eventos pagos" no Menu, ao lado de Denúncias.
+
+**Protótipo:** a versão consolidada é um artefato privado do usuário (https://claude.ai/artifact/G3xgALgdMGPsQ4YneJPGv7). A fonte local fica em `artifacts/prototipos/times.src.html`, com as rodadas em `times-r1.src.html` a `times-r19.src.html`, todas não versionadas. Times, pessoas, eventos, Pix e comprovantes do protótipo são exemplos.
+
+**Documentos atualizados:**
+- novo [plano de Times e campeonatos](plano-times-campeonatos.md);
+- [próximos passos](proximos-passos-jogar.md): etapa 1 com desenho e plano concluídos, decisões de 12 de outubro e novas pendências;
+- [plano do Jogar](plano-jogar.md): referências cruzadas, fase 1 sem os times mínimos e pendência das partidas de campeonato resolvida.
+
+**Pendências:**
+- **Perguntas em aberto do plano:** o desenho do chat do campeonato (canal do evento) e a devolução que o participante não confirma.
+- **Dependências do Jogar:** a análise de comprovantes depende da inscrição do atleta (fase 7 do Jogar), e a divergência em campeonato depende do cartão de resultado (fase 5).
+
+**Decisões complementares do mesmo dia:**
+- **Chaveamento:** com menos confirmados, o campeonato segue com folgas.
+- **Conflito de quadra:** 2 h.
+- **Encerrar time:** um representante pode encerrar o time, sem partida agendada nem inscrição ativa, preservando o histórico.
+- **Cancelar evento com inscritos:** devolução por Pix, com comprovante por inscrição, confirmação do participante e aviso no chat do campeonato.
+- **Revogar organizador:** cabe à administração.
+- **QR:** `qrcode.react` na web e `react-native-qrcode-svg` no Expo.
+- **Ordem de implementação recomendada:** intercala os dois planos, registrada nos [próximos passos](proximos-passos-jogar.md).
+
+**Roteiro atualizado:** `docs/roteiro-projeto.docx` recebeu, como requisitos planejados:
+- estado do projeto e público e papéis (organizador por permissão);
+- HU08–HU10, RN01, RN02, RN09, RN19, RN20 e RN21;
+- Tela 3, permissões, a linha de contas e papéis e as limitações.
+
+A edição foi feita no XML, só no texto de 18 parágrafos. O arquivo passou na validação de esquema da skill `docx` (848 parágrafos antes e depois) e abriu no Word com as mesmas 21 páginas, exportado para PDF. A conferência visual página a página não foi possível, por falta de renderizador de PDF no ambiente. A cópia anterior fica em `artifacts/roteiro-projeto-antes-times.docx`, não versionada.
+
+**Estado do código:** backend, web, mobile, esquema e contratos não foram alterados.
+
+**Verificações:** por ser apenas documentação e protótipo, nenhum teste de código foi executado. As 15 telas do protótipo consolidado e cada rodada foram conferidas em Chrome headless a 320 e 390 px, sem overflow horizontal da tela. Os ajustes foram feitos no próprio protótipo: contraste, colisão de classe, quebras de botões e posição do calendário. Sem commit, push ou publicação no repositório.
+
+## Plano da tela Jogar (apenas planejamento) — 11 de outubro de 2026
+
+A pedido do usuário, a tela Jogar foi desenhada em dez rodadas de protótipos, sem implementação. As decisões estão consolidadas no [plano da tela Jogar](plano-jogar.md).
+
+O plano trata de:
+- pareamento por elo igual ou vizinho e formato;
+- atleta avulso;
+- proposta, condições e chat da partida;
+- resultado e contestação;
+- elos com cortes fixos e Lendário no top 15%;
+- corrida por distância;
+- campeonatos e provas com inscrição paga.
+
+O protótipo consolidado é um artefato privado do usuário (https://claude.ai/artifact/U6RqvawwGLiUSPMst8haN4). A fonte local fica em `artifacts/prototipos/jogar.src.html`, não versionada. Os times, pessoas, elos, cortes e eventos do protótipo são exemplos e não entram no produto.
+
+**Decisões posteriores do mesmo dia:**
+- **Rankings, elos e Lendário são gerais.** A cidade serve apenas para o pareamento, e a tela Ranking perde a linha de cidade.
+- **Seções do detalhe do evento usam `Tabs`** em vez do Navigation Menu, com o mesmo visual.
+- **`react-day-picker` aprovado**, para instalar só na implementação.
+- **Pix na inscrição paga:** bloco "Pix do organizador" com chave e botão de copiar só com ícone; "Copiar Pix Copia e Cola"; ícone ⓘ com a folha "Pagamento e informações".
+
+**Fila de pareamento:** o plano passou a detalhar a fila no PostgreSQL. A tabela `match_searches` é a fila; o pareamento roda por evento, com trava `pg_advisory_xact_lock` por balde (modalidade + cidade + formato), e uma varredura periódica pareia o que ficou esperando e expira os prazos. Isso corrige a brecha do `SKIP LOCKED`, em que buscas simultâneas não se enxergavam. A migração para Redis ficou registrada como pergunta em aberto, com os sinais que a justificariam e uma interface de serviço para não travar a troca.
+
+**Decisões de esquema e próximos passos:**
+- **Cancelamento:** qualquer representante cancela a partida agendada até 24 h antes; depois, quem não comparece perde por W.O.
+- **Tênis:** melhor de 3 sets, com tie-break em 6-6 e super tie-break opcional.
+- **Avulso:** aceita qualquer formato e busca por uma posição específica ou por qualquer posição.
+
+O plano e o roteiro (RN05, RN06, RN15, HU07 e o parágrafo de estado) foram ajustados. O roteiro foi validado de novo e conferido renderizado pelo Word.
+
+A ordem de trabalho ficou em [próximos passos da tela Jogar](proximos-passos-jogar.md): primeiro a tela "Times e campeonatos"; depois o desenho de Ranking real, Notificações e revisão de quadras; só então a implementação do Jogar.
+
+**Roteiro atualizado:** `docs/roteiro-projeto.docx` recebeu as regras revistas como requisitos **planejados**:
+- estado do projeto, visão, escopo e Tela 1;
+- HU03, HU06 e HU07;
+- RN04–RN06, RN09–RN11, RN14, RN15, RN17, RN18 e a nova **RN23** (elos);
+- componente de pareamento e tabela de vagas;
+- TU01, TU05, TF01 e TF03;
+- limitações conhecidas.
+
+A edição foi feita no XML, preservando a formatação. O arquivo passou na validação de esquema do pacote `docx` e foi conferido renderizado pelo Word (21 páginas, tabelas de regras intactas).
+
+**Pendências:**
+- As perguntas em aberto do plano: cancelamento e W.O., placar do tênis, chat em partidas de campeonato, moderação do chat e momento do Expo.
+- Os eventos dependem da criação pelo organizador em "Times e campeonatos".
+
+**Estado do código:** backend, web, mobile, esquema e contratos não foram alterados. A tela Jogar continua só preparando os perfis esportivos.
+
+**Verificações:** por ser apenas documentação e protótipo, nenhum teste de código foi executado. As capturas do protótipo foram conferidas no Chrome headless a 430 px; durante as rodadas, foram corrigidos overflows e problemas de contraste do próprio protótipo. Sem commit, push ou publicação no repositório.
+
 ## Correções da revisão da branch — 11 de outubro de 2026
 
 Corrigidos os dois achados da revisão de `feat/tailwind-migrate`, com subagentes em paralelo autorizados pelo usuário:

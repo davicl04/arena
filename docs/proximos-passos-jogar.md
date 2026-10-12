@@ -1,0 +1,125 @@
+# Próximos passos — tela Jogar
+
+> Estado em 12 de outubro de 2026: o [plano da tela Jogar](plano-jogar.md) e o [plano de Times e campeonatos](plano-times-campeonatos.md) estão fechados, mas **nada foi implementado**. Da etapa 1, o desenho e o plano estão concluídos; falta a implementação. Este arquivo define a ordem de trabalho até a implementação e o que ainda falta decidir. Atualize-o a cada etapa concluída, junto com a [situação da fundação](situacao-fundacao.md).
+
+## Ordem de implementação recomendada (12 de outubro de 2026)
+
+Os dois planos se cruzam: o Jogar precisa de times, e partes de Times e campeonatos precisam da inscrição e do resultado do Jogar. Por isso a execução **intercala** os dois, em vez de terminar um plano inteiro antes do outro:
+
+1. **Times e campeonatos, fases 1 a 3:** times, link do time e organizador (pedido e aprovação).
+2. **Jogar, fase 1:** elos e linha de classificação.
+3. **Times e campeonatos, fase 4:** criar evento, rascunho, aprovação de pagos e gestão.
+4. **Jogar, fase 7, junto com Times e campeonatos, fase 5:** inscrição do atleta, comprovante e análise pelo organizador.
+5. **Jogar, fases 2 a 5:** pareamento, partida e chat, avulso, resultado e ranking.
+6. **Times e campeonatos, fases 6 e 7:** chaveamento, agenda das partidas de campeonato (usando a partida e o chat do Jogar) e divergência decidida pelo organizador.
+7. **Jogar, fase 6:** corrida.
+8. **Expo**, no momento a decidir.
+
+## Ordem combinada (11 de outubro de 2026)
+
+A implementação do Jogar **começa depois da tela "Times e campeonatos"**. O Jogar depende de times com elenco e representantes, e os campeonatos dependem de eventos criados por organizadores. As telas que o plano exige e que ainda não têm desenho também entram depois dela.
+
+| Etapa | O que é | Depende de |
+| --- | --- | --- |
+| 1 | **Tela "Times e campeonatos"**: desenho (rodadas de protótipo), plano e implementação. | — |
+| 2 | **Telas complementares**: desenho e plano. | Etapa 1 |
+| 3 | **Jogar, fases 1 a 7** do plano. | Etapas 1 e 2 |
+| 4 | **Jogar no Expo** (fase 8). | Etapa 3; momento a decidir |
+
+### Etapa 1 — Tela "Times e campeonatos"
+
+> **Desenho e plano concluídos em 12 de outubro de 2026**, em 19 rodadas de protótipos: veja o [plano de Times e campeonatos](plano-times-campeonatos.md). O escopo virou **duas áreas separadas**: Meus times, de todo atleta, e Organizador, só para quem tem a permissão concedida pela administração. A implementação segue as fases do plano. As fases 5 (comprovantes) e 7 (divergência) dependem de partes do Jogar (inscrição do atleta e cartão de resultado).
+
+Escopo mínimo para destravar o Jogar, como foi planejado em 11 de outubro:
+
+- **Times:**
+  - criar time com nome, cidade e brasão opcional (upload no MinIO);
+  - convidar membros e aceitar convites;
+  - papéis de representante e membro;
+  - sair do time e remover membros;
+  - ver o elenco.
+
+  Um atleta pode estar em vários times (RN02).
+- **Campeonatos e provas, como organizador:**
+  - criar evento com modalidade, formato, tipo (todos contra todos ou eliminação simples), capacidade, elos aceitos, datas e local;
+  - preço e **dados de pagamento** (favorecido, chave Pix, código Copia e Cola, instruções e contato), usados na folha "Pagamento e informações" do Jogar.
+- **Gestão do organizador:** aprovar ou recusar comprovantes com motivo, montar a tabela ou o chaveamento e agendar as partidas do campeonato (RN19).
+- **Administração:** aprovar eventos pagos antes da publicação (RN20).
+
+Com isso, a fase 7 do Jogar (inscrição em campeonatos e provas) passa a ter eventos reais.
+
+### Etapa 2 — Telas complementares (sem desenho até agora)
+
+Fazer uma rodada curta de protótipos para cada uma, no mesmo processo usado no Jogar:
+
+- **Tela Ranking real:**
+  - filtros Times | Individual, formato, posição (futebol) e distância (corrida);
+  - ranking **geral**, sem a linha de cidade;
+  - posição de quem está vendo e brasão do elo em cada linha.
+- **Notificações com os tipos novos:** proposta, aceite, condições, partida agendada, cancelamento, W.O., resultado, divergência, contestação, vaga preenchida, reserva expirando e comprovante decidido. Elas convivem com os pedidos para seguir que já existem.
+- **Revisão de quadras pela administração:** fila de sugestões, detecção de duplicidade, publicar ou rejeitar com motivo (RN07). Fica junto da moderação atual.
+
+### Etapa 3 — Implementação do Jogar
+
+Seguir as fases do [plano](plano-jogar.md#fases-de-entrega), cada uma demonstrável de ponta a ponta, com persistência após recarregar:
+
+1. Elos e linha de classificação. A parte de times mínimos já estará pronta pela etapa 1.
+2. Pareamento de amistosos (time e tênis), com a fila no PostgreSQL e a varredura periódica.
+3. Partida: condições, quadras, reserva, chat, cancelamento e W.O.
+4. Avulso: qualquer formato, posição específica ou qualquer posição, entrada direta.
+5. Resultado, estatísticas, contestação e ranking.
+6. Corrida.
+7. Campeonatos e provas (inscrição e comprovante).
+
+Em cada fase:
+- migração Alembic e `alembic check`;
+- contratos documentados em `docs/decisoes/0002-jogar.md`;
+- testes de unidade e de integração;
+- checks da web (lint, build, cobertura) e conferência no navegador a 320, 390 e 1440 px;
+- registro em `situacao-fundacao.md`.
+
+## Decisões fechadas em 11 de outubro de 2026
+
+Já incorporadas ao plano. As que mudam regras de negócio também foram aplicadas ao roteiro.
+
+- **Ranking:** rankings, elos e Lendário são gerais; a cidade serve só para o pareamento.
+- **Componentes:** `Tabs` nas seções do detalhe do evento; `react-day-picker` aprovado para o Calendar.
+- **Fila de pareamento:** PostgreSQL, com trava por balde e varredura a cada minuto. Redis fica como possibilidade futura.
+- **Cancelamento e W.O.:** qualquer representante cancela a partida agendada até 24 h antes. Depois disso, quem não comparece perde por W.O., e os avulsos escalados são avisados.
+- **Placar do tênis:** melhor de 3 sets, tie-break em 6-6 e super tie-break opcional no terceiro set, com validação no servidor.
+- **Avulso:** aceita qualquer formato e escolhe entre uma posição específica e **qualquer posição** (preenchimento automático). O elo é comparado na posição e no formato da vaga.
+- **Pix na inscrição paga:** bloco com a chave e botão de copiar só com ícone, "Copiar Pix Copia e Cola" e ícone ⓘ com "Pagamento e informações".
+
+## Decisões fechadas em 12 de outubro de 2026 (etapa 1)
+
+Detalhadas no [plano de Times e campeonatos](plano-times-campeonatos.md#decisões-de-produto):
+
+- **Organizador é uma permissão.** O atleta pede no Menu e a administração aprova ou recusa com motivo.
+- **Times:**
+  - sempre há pelo menos um representante;
+  - o convite tem mensagem opcional;
+  - o **link do time** não expira (vale até gerar outro), e quem entra por ele pede e aguarda um representante.
+- **Partidas de campeonato:** têm chat, **com o organizador participando**. Usam o **mesmo cartão de resultado** dos amistosos, e a **divergência vai ao organizador**, que decide com justificativa registrada.
+- **Agendamento:** o organizador informa data, **horário livre** e quadra. Há bloqueio quando a mesma quadra tem jogo a menos de **2 h**.
+- **Chaveamento** com menos confirmados segue com **folgas**. Um representante pode **encerrar o time**. **Evento cancelado** exige a devolução por Pix, com comprovante por inscrição e aviso no chat do campeonato. **Revogar organizador** é com a administração. **QR:** `qrcode.react` (web) e `react-native-qrcode-svg` (Expo).
+- **Comprovante recusado:** o time pode reenviar até o fim da reserva, com os envios anteriores preservados.
+- **Evento pago recusado** pela administração volta a rascunho com o motivo.
+
+## Ainda a decidir
+
+| Tema | Quando decidir |
+| --- | --- |
+| Placar registrado no W.O. e restrição por W.O. repetido | Antes da fase 3 do Jogar |
+| Desenho do chat do campeonato (canal do evento) e devolução não confirmada | Antes da fase 4 de Times e campeonatos |
+| Moderação do chat (denúncia de mensagem com `ContentReport`) | Antes da fase 3 do Jogar |
+| Onde roda a varredura de cada minuto, em desenvolvimento (Docker Compose ou tarefa local) e em produção | Antes da fase 2 do Jogar |
+| Calibragem dos cortes de elo com dados reais | Depois das primeiras partidas confirmadas |
+| Momento do Expo: acompanha cada fase ou vem no fim | Antes da etapa 3 |
+| Migração da fila para Redis | Só se aparecerem os sinais listados no plano |
+
+## Referências
+
+- [Plano da tela Jogar](plano-jogar.md)
+- [Plano de Times e campeonatos](plano-times-campeonatos.md), com o protótipo consolidado (artefato privado do usuário): https://claude.ai/artifact/G3xgALgdMGPsQ4YneJPGv7. A fonte local, não versionada, fica em `artifacts/prototipos/times.src.html`.
+- Protótipo consolidado (artefato privado do usuário): https://claude.ai/artifact/U6RqvawwGLiUSPMst8haN4. A fonte local, não versionada, fica em `artifacts/prototipos/jogar.src.html`.
+- [Roteiro do projeto](roteiro-projeto.docx), com as regras revistas como requisitos planejados.
