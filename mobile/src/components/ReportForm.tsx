@@ -11,6 +11,7 @@ const SENT: Record<ReportTarget, string> = {
   post: 'Denúncia enviada para análise.',
   comment: 'Denúncia do comentário enviada.',
   user: 'Denúncia da conta enviada.',
+  match_message: 'Denúncia da mensagem enviada.',
 }
 
 /** Formulário de denúncia (post, comentário ou conta) para uso dentro do vidro. */

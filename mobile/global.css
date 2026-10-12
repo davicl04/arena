@@ -39,6 +39,16 @@
   --color-forest-line: #ffffff2e;
   --color-glass-tag: rgba(12, 22, 17, 0.6);
   --color-mint-track: #8fe0b44d;
+  --color-mint: #8fe0b4;
+  --color-night: #08140e;
+  --color-subtle: #f1f2f5;
+  --color-tile: #dfe3e0;
+  --color-line-strong: #a3aaa7;
+  --color-success-bg: #eaf5ed;
+  --color-warning-bg: #fdf3e2;
+  --color-warning: #6f4305;
+  --color-amber: #f6c26b;
+  --color-danger-soft: #ff8a9a;
 
   --radius-control: 8px;
   --radius-lg: 12px;

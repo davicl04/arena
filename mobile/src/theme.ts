@@ -34,6 +34,17 @@ export const colors = {
   'forest-line': '#ffffff2e',
   'glass-tag': 'rgba(12,22,17,0.6)',
   'mint-track': '#8fe0b44d',
+  /** Cartazes, cartões S1 e blocos de times e eventos (mesmos nomes da web). */
+  mint: '#8fe0b4',
+  night: '#08140e',
+  subtle: '#f1f2f5',
+  tile: '#dfe3e0',
+  'line-strong': '#a3aaa7',
+  'success-bg': '#eaf5ed',
+  'warning-bg': '#fdf3e2',
+  warning: '#6f4305',
+  amber: '#f6c26b',
+  'danger-soft': '#ff8a9a',
 } as const
 
 /** Raios em pontos (dp). Classes: rounded-control, rounded-lg, rounded-card, rounded-sheet. */

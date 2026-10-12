@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { request } from '../src/api/client'
-import { CAPTION_MAX, COMMENT_MAX, REPORT_DETAILS_MAX, REPORT_REASONS, blockUser, createComment, deleteComment, deletePost, sendReport, setLike, updateCaption } from '../src/api/social'
+import { CAPTION_MAX, COMMENT_MAX, REPORT_DETAILS_MAX, REPORT_REASONS, blockUser, createComment, deleteComment, deletePost, sendReport, setLike, toggleFollow, updateCaption } from '../src/api/social'
 
 vi.mock('../src/api/client', () => ({ request: vi.fn() }))
 
@@ -30,5 +30,20 @@ describe('api/social (mobile)', () => {
     await sendReport({ target_type: 'user', target_id: 2, reason: 'spam', description: '   ' })
     expect(request).toHaveBeenNthCalledWith(1, '/reports', 'POST', { target_type: 'comment', target_id: 3, reason: 'assedio', description: 'ofensa' })
     expect(request).toHaveBeenNthCalledWith(2, '/reports', 'POST', { target_type: 'user', target_id: 2, reason: 'spam' })
+  })
+
+  it('alterna o vínculo: aprovado ou pendente deixa de seguir (DELETE); sem vínculo segue (PUT) com o estado devolvido', async () => {
+    const person = { id: 2, social_public: true }
+    await expect(toggleFollow({ ...person, follow_state: 'approved' })).resolves.toBe('none')
+    await expect(toggleFollow({ ...person, follow_state: 'pending' })).resolves.toBe('none')
+    expect(vi.mocked(request).mock.calls).toEqual([['/users/2/follow', 'DELETE'], ['/users/2/follow', 'DELETE']])
+    vi.mocked(request).mockReset().mockResolvedValueOnce({ state: 'pending' } as never)
+    await expect(toggleFollow({ ...person, follow_state: 'none' })).resolves.toBe('pending')
+    expect(request).toHaveBeenLastCalledWith('/users/2/follow', 'PUT')
+  })
+
+  it('sem resposta do PUT, o estado vem da visibilidade da conta', async () => {
+    await expect(toggleFollow({ id: 2, social_public: true, follow_state: 'none' })).resolves.toBe('approved')
+    await expect(toggleFollow({ id: 3, social_public: false, follow_state: 'none' })).resolves.toBe('pending')
   })
 })

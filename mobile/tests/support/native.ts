@@ -19,6 +19,31 @@ class AnimatedValue {
 }
 const animation = () => ({ start: () => undefined, stop: () => undefined })
 
+// Botão voltar do Android e links do sistema: os testes os acionam por `hardwareBack.press()` e `linking.emit(url)`.
+export const hardwareBack = {
+  handlers: [] as (() => boolean | null | undefined)[],
+  /** Dispara o botão voltar como o Android: o último ouvinte registrado que devolve `true` consome o toque. */
+  press() { for (const handler of [...this.handlers].reverse()) if (handler()) return true; return false },
+}
+export const linking = {
+  initial: null as string | null,
+  listeners: [] as ((event: { url: string }) => void)[],
+  emit(url: string) { for (const listener of [...this.listeners]) listener({ url }) },
+}
+
+// Estado do app (primeiro plano ou segundo plano): os testes mudam o estado por `appState.set('background')`, que avisa os ouvintes.
+export const appState = {
+  current: 'active' as string,
+  listeners: [] as ((state: string) => void)[],
+  /** Muda o estado do app e avisa quem ouve, como o sistema ao ir para o segundo plano e voltar. */
+  set(state: string) { this.current = state; for (const listener of [...this.listeners]) listener(state) },
+  reset() { this.current = 'active'; this.listeners.length = 0 },
+}
+// Leitor de tela: os anúncios ficam em `accessibility.announcements`.
+export const accessibility = {
+  announcements: [] as string[],
+}
+
 export function reactNativeMock() {
   const FlatList = ({ data = [], renderItem, ListHeaderComponent, ListEmptyComponent, ListFooterComponent, ...props }: Record<string, any>) => React.createElement('FlatList', props,
     renderComponent(ListHeaderComponent),
@@ -29,9 +54,39 @@ export function reactNativeMock() {
     timing: animation, loop: animation,
   }
   return {
+    AccessibilityInfo: { announceForAccessibility: (message: string) => { accessibility.announcements.push(message) } },
+    AppState: {
+      get currentState() { return appState.current },
+      addEventListener: (_event: string, listener: (state: string) => void) => {
+        appState.listeners.push(listener)
+        return { remove: () => { appState.listeners.splice(appState.listeners.indexOf(listener), 1) } }
+      },
+    },
     ActivityIndicator: element('ActivityIndicator'), Alert: { alert: vi.fn() }, Animated, FlatList, Image: element('Image'), KeyboardAvoidingView: element('KeyboardAvoidingView'),
+    BackHandler: {
+      addEventListener: (_event: string, handler: () => boolean | null | undefined) => {
+        hardwareBack.handlers.push(handler)
+        return { remove: () => { hardwareBack.handlers.splice(hardwareBack.handlers.indexOf(handler), 1) } }
+      },
+    },
+    Linking: {
+      getInitialURL: async () => linking.initial,
+      addEventListener: (_event: string, listener: (event: { url: string }) => void) => {
+        linking.listeners.push(listener)
+        return { remove: () => { linking.listeners.splice(linking.listeners.indexOf(listener), 1) } }
+      },
+    },
+    Share: { share: vi.fn(), sharedAction: 'sharedAction', dismissedAction: 'dismissedAction' },
     Modal: element('Modal'), Platform: { OS: 'android' }, Pressable: element('Pressable'), RefreshControl: element('RefreshControl'), ScrollView: element('ScrollView'),
     Text: element('Text'), TextInput: element('TextInput'), View: element('View'), useWindowDimensions: () => ({ width: 390, height: 844, scale: 2, fontScale: 1 }),
+  }
+}
+
+/** react-native-svg: cada forma vira um elemento com o mesmo nome (o `Text` do SVG é `SvgText`, para não colidir com o do RN). */
+export const svgMock = () => {
+  const Svg = element('Svg')
+  return {
+    __esModule: true, default: Svg, Svg, SvgXml: element('SvgXml'), Circle: element('Circle'), Path: element('Path'), Rect: element('Rect'), Text: element('SvgText'),
   }
 }
 
@@ -47,6 +102,10 @@ export const enableAct = () => { (globalThis as typeof globalThis & { IS_REACT_A
 // Junta só os textos primitivos de cada <Text>; textos aninhados são encontrados por conta própria.
 const strings = (value: unknown): string[] => Array.isArray(value) ? value.flatMap(strings) : typeof value === 'string' || typeof value === 'number' ? [String(value)] : []
 export const textOf = (tree: ReactTestRenderer) => tree.root.findAllByType('Text' as never).map(entry => strings(entry.props.children).join('')).join(' | ')
+/** Barra de uma tela que desenha a própria (placa escura): o Voltar e o título que o shell não mostra para ela. */
+export const ownBar = (title: string, onBack: () => void) => React.createElement('View', null,
+  React.createElement('Pressable', { accessibilityRole: 'button', accessibilityLabel: 'Voltar', onPress: onBack }),
+  React.createElement('Text', null, title))
 export const byLabel = (tree: ReactTestRenderer, label: string) => tree.root.findAll(node => typeof node.type === 'string' && node.props.accessibilityLabel === label)
 export const button = (tree: ReactTestRenderer, title: string) => tree.root.findAllByType('Button' as never).find(entry => entry.props.title === title)
 

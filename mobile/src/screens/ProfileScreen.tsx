@@ -44,7 +44,7 @@ function VisibilityOption({ selected, title, facts, onPress }: { selected: boole
   </Pressable>
 }
 
-export default function ProfileScreen({ user, onUser, onLogout, onExpired, onNewPhoto }: { user: User; onUser: (user: User) => void; onLogout: () => void; onExpired: () => void; onNewPhoto?: () => void }) {
+export default function ProfileScreen({ user, onUser, onLogout, onExpired, onNewPhoto, menuSections }: { user: User; onUser: (user: User) => void; onLogout: () => void; onExpired: () => void; onNewPhoto?: () => void; menuSections?: (close: () => void) => ReactNode }) {
   const [contentTab, setContentTab] = useState<ProfileTab>('Fotos')
   const { condensed, onScroll } = useCondensedTopBar(COVER_HEIGHT)
   const [profiles, setProfiles] = useState<Profile[]>([])
@@ -316,6 +316,7 @@ export default function ProfileScreen({ user, onUser, onLogout, onExpired, onNew
       <Text className={tw.eyebrow}>CONTA</Text>
       <ListRow label="Editar perfil" onPress={editFromMenu} />
       <ListRow label="Minhas modalidades" onPress={() => open(null)} />
+      {menuSections?.(() => open(null))}
       <Text className={cx(tw.eyebrow, 'mt-5')}>APP</Text>
       <ListRow label="Notificações" value="Em breve" />
       <ListRow label="Sobre o ARENA" value={`Versão ${appVersion}`} />

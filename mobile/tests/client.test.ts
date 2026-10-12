@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as SecureStore from 'expo-secure-store'
-import { ApiError, apiUrl, clearToken, getToken, request, saveToken } from '../src/api/client'
+import { ApiError, apiUrl, clearToken, fileForm, getToken, request, saveToken } from '../src/api/client'
 
 vi.mock('expo-secure-store', () => ({
   getItemAsync: vi.fn(), setItemAsync: vi.fn(), deleteItemAsync: vi.fn(),
@@ -89,6 +89,42 @@ describe('sessão e transporte mobile', () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('network')))
     await expect(request('/me')).rejects.toBeInstanceOf(ApiError)
     expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('expõe os campos recusados num 422, ignorando itens malformados', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      detail: 'Revise os campos.', fields: [{ field: 'name', message: 'Nome curto demais.' }, { field: 'city_id' }, 'x', null],
+    }), { status: 422 })))
+    const error = await request('/teams', 'POST', { name: 'A' }).catch(cause => cause)
+    expect(error).toBeInstanceOf(ApiError)
+    expect(error).toMatchObject({ status: 422, message: 'Revise os campos.', fields: [{ field: 'name', message: 'Nome curto demais.' }] })
+  })
+
+  it('expõe o corpo JSON do erro (o conflict do 409 da agenda) e devolve null quando não é um objeto', async () => {
+    const conflict = { kind: 'quadra', match_id: 12, label: 'J2', stage: 'Quartas de final', starts_at: '2026-10-20T19:00:00Z', court_name: 'Quadra Central' }
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({ detail: 'A quadra já tem o J2.', conflict }), { status: 409 })))
+    const error = await request('/organizer/matches/11/schedule', 'PUT', { starts_at: '2026-10-20T19:30:00.000Z', court_id: 7 }).catch(cause => cause)
+    expect(error).toBeInstanceOf(ApiError)
+    expect(error).toMatchObject({ status: 409, message: 'A quadra já tem o J2.', body: { detail: 'A quadra já tem o J2.', conflict } })
+    for (const body of ['[1,2]', 'null', '"texto"', 'not-json']) {
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(body, { status: 409 })))
+      await expect(request('/me')).rejects.toMatchObject({ status: 409, body: null })
+    }
+    expect(new ApiError('Falha', 500).body).toBeNull()
+  })
+
+  it('devolve fields vazio quando o corpo de erro não os traz', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(new Response('{"detail":"Ação recusada","fields":"x"}', { status: 409 })))
+    await expect(request('/me')).rejects.toMatchObject({ status: 409, fields: [] })
+    expect(new ApiError('Falha', 500).fields).toEqual([])
+  })
+
+  it('monta o multipart do arquivo local como parte { uri, name, type }, que o fetch do React Native lê', () => {
+    const parts: unknown[][] = []
+    vi.stubGlobal('FormData', class { append(...args: unknown[]) { parts.push(args) } })
+    const form = fileForm({ uri: 'file:///cache/foto.jpg', name: 'foto.jpg', type: 'image/jpeg', size: 10 })
+    expect(form).toBeInstanceOf(FormData)
+    expect(parts).toEqual([['file', { uri: 'file:///cache/foto.jpg', name: 'foto.jpg', type: 'image/jpeg' }]])
   })
 
   it('aborta uma chamada após 15 segundos e libera o timer', async () => {

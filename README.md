@@ -1,6 +1,6 @@
 # Arena
 
-Plataforma web e mobile para futebol, tênis e corrida amadores. A fundação implementa cadastro de adultos, autenticação e perfis esportivos privados com PostgreSQL. A etapa 1 de Times e campeonatos acrescentou, no backend e na web, Meus times (convites, link do time, papéis e encerramento), o pedido de organizador com a fila da administração, as notificações da conta e a linha do elo na placa do Jogar, ainda sem partidas. A etapa 2 acrescentou, no backend e na web, os eventos: o organizador cria campeonatos e provas (rascunho, checklist, publicação direta do gratuito e aprovação da administração para o pago), gerencia inscrições, comprovantes de Pix, avisos, cancelamento com devolução e a revogação do organizador, e o atleta lista os eventos, se inscreve (com reserva, Pix e comprovante nos pagos) e responde à devolução. A etapa 3 acrescentou o Jogar no backend e na web: a placa busca adversário de verdade (times e tênis, e o avulso por posição), mostra a proposta e a oferta de vaga em tela cheia, e leva à tela da partida (condições com quadra, reserva, chat, cancelamento e W.O.) e ao cartão de resultado (placar, presença, estatísticas, contestação), com o Ranking e as modalidades do Início calculados de verdade e as filas de quadras e de W.O. da administração. Chaveamento de campeonatos, partidas de campeonato e corrida pertencem às próximas entregas do MVP; o Expo ainda não tem as telas das etapas 1 a 3.
+Plataforma web e mobile para futebol, tênis e corrida amadores. A fundação implementa cadastro de adultos, autenticação e perfis esportivos privados com PostgreSQL. A etapa 1 de Times e campeonatos acrescentou, no backend e na web, Meus times (convites, link do time, papéis e encerramento), o pedido de organizador com a fila da administração, as notificações da conta e a linha do elo na placa do Jogar, ainda sem partidas. A etapa 2 acrescentou, no backend e na web, os eventos: o organizador cria campeonatos e provas (rascunho, checklist, publicação direta do gratuito e aprovação da administração para o pago), gerencia inscrições, comprovantes de Pix, avisos, cancelamento com devolução e a revogação do organizador, e o atleta lista os eventos, se inscreve (com reserva, Pix e comprovante nos pagos) e responde à devolução. A etapa 3 acrescentou o Jogar no backend e na web: a placa busca adversário de verdade (times e tênis, e o avulso por posição), mostra a proposta e a oferta de vaga em tela cheia, e leva à tela da partida (condições com quadra, reserva, chat, cancelamento e W.O.) e ao cartão de resultado (placar, presença, estatísticas, contestação), com o Ranking e as modalidades do Início calculados de verdade e as filas de quadras e de W.O. da administração. As etapas 4 e 5 acrescentaram, no backend e na web, o chaveamento, a agenda e a decisão do organizador nos campeonatos e a corrida (marcas e elo por distância). A etapa 6 levou ao Expo as telas das etapas 1 a 5 (times, organizador, eventos, comprovantes, administração, Jogar, corrida e campeonatos), ainda sem validação em aparelho nem comparação visual com a web; o MVP completo não está declarado.
 
 Leia o [plano inicial](docs/plano-criacao-inicial.md), as [decisões adotadas](docs/decisoes/0001-fundacao.md) e a [situação verificada](docs/situacao-fundacao.md).
 
@@ -145,6 +145,18 @@ Abra pelo Expo Go ou use `npm run android` com emulador configurado. Defina `EXP
 
 O backend deve escutar em `0.0.0.0`; aparelho e computador precisam alcançar a mesma rede e porta. `localhost` no aparelho aponta para o próprio aparelho. Mudanças na variável exigem reiniciar o Expo. Não coloque segredos em `EXPO_PUBLIC_*`.
 
+### Telas e recursos do Expo (etapa 6)
+
+O Expo tem as telas das etapas 1 a 5: Meus times, Convidar e Entrar pelo link, organizador, eventos e inscrições, comprovantes, administração, Jogar (placa, partida, resultado e Ranking), corrida e campeonatos (chaveamento, agenda e decisão). Elas consomem a mesma API e os mesmos contratos da web, então os roteiros "Demonstrar …" abaixo valem no Expo com as diferenças desta seção. **Nada disso foi verificado em aparelho, com leitor de tela ou contra a API real**, e a paridade visual com a web não foi verificada: os testes e a exportação do bundle não substituem esses ensaios.
+
+- **Link do time:** o app entende `arena://entrar/{token}` (esquema `arena`, do `app.json`) e o endereço `http(s)://…/entrar/{token}` quando ele chega ao app; o token fica só em memória, até a pessoa entrar. O Expo Go não registra o esquema `arena` (usa `exp://`), então o `arena://` exige um build próprio, de desenvolvimento ou de produção. Em qualquer caso, "Entrar com QR" lê o QR do time dentro do app.
+- **Câmera para o QR:** `expo-camera`, aberta só quando a pessoa toca em "Entrar com QR". A permissão é pedida nesse momento, com o texto configurado no `app.json` (o microfone fica desligado); sem a permissão, a tela diz o que fazer.
+- **Comprovantes:** o envio aceita foto da galeria (`expo-image-picker`) ou documento (`expo-document-picker`). PDF só se abre e se salva pela web: o app mostra "Abra este comprovante pela web.".
+- **Copiar Pix e link:** sem `expo-clipboard`, a chave Pix, o Copia e Cola e o link do time aparecem como texto selecionável, com o botão de compartilhar do sistema (`Share`).
+- **Dependências acrescentadas no Expo**, todas aprovadas pelo usuário: `react-native-svg` (chaveamento e marca), `react-native-qrcode-svg` (QR do time), `expo-camera` (ler o QR) e `expo-document-picker` (comprovantes). `expo-clipboard`, `expo-file-system` e `expo-sharing` foram recusadas.
+- **Marca:** `npm run generate:brand` (em `mobile/`) regenera `src/assets/brand-svgs.ts` a partir de `web/public/images/brand/*.svg`; rode depois de alterar esses SVGs. O arquivo gerado é versionado.
+- **Verificação:** em `mobile/`, `npm run lint`, `npm run typecheck`, `npm run test:coverage`, `npm run export:android` e `npx expo install --check` (que hoje só aponta `expo@57.0.27` contra `~57.0.28`, um desvio conhecido). Os números e os pisos estão em [qualidade do código](docs/qualidade-codigo.md).
+
 ## Demonstrar a primeira entrega
 
 1. Crie conta com nome, e-mail, nascimento elegível e senha de pelo menos 10 caracteres.
@@ -192,7 +204,7 @@ Rode o MinIO e o `ensure-bucket` (comprovantes são arquivos privados) e deixe a
 11. **Notificações:** em cada papel, o sino do Início mostra a não lida, e tocar abre a tela do assunto (detalhe do evento, gestão, comprovantes ou a fila da administração); "Voltar" retorna às Notificações.
 12. **Link do time com a sessão expirada:** abra `/entrar/{token}` de um time com MEM logado, apague o cookie de sessão e toque "Pedir para entrar": a web volta ao login com o aviso de sessão expirada, e o mesmo link reabre depois de entrar.
 
-Telas e dados vêm todos da API; sem evento ou inscrição, as telas mostram o estado vazio. O chaveamento e a tabela dos campeonatos ainda não existem (as partidas dos amistosos estão em [Demonstrar o Jogar pela web](#demonstrar-o-jogar-pela-web-etapa-3-web)).
+Telas e dados vêm todos da API; sem evento ou inscrição, as telas mostram o estado vazio. O chaveamento e a tabela dos campeonatos estão em [Demonstrar o campeonato pela API](#demonstrar-o-campeonato-pela-api-etapa-4-backend) e as partidas dos amistosos, em [Demonstrar o Jogar pela web](#demonstrar-o-jogar-pela-web-etapa-3-web).
 
 ## Demonstrar o Jogar pela web (etapa 3, web)
 
@@ -207,7 +219,7 @@ Rode a API com as migrações até a `0009` (a seção "Banco e API"), a [varred
 7. **Tênis:** TEN-A e TEN-B buscam pela aba Tênis; ao propor condições, ligue "Super tie-break" para o desempate do 3º set; o placar é informado em sets (o 3º set vira os pontos do super tie-break).
 8. **Início e notificações:** o cartão "Próxima partida" do Início mostra a partida agendada mais próxima e abre a tela dela; cada notificação do Jogar abre a placa (proposta ou oferta daquela partida), a tela da partida ou a fila da administração, com a aba JOGAR (ou Perfil, nas filas) acesa.
 
-Tudo vem da API; sem busca, partida ou ranking, as telas mostram o estado vazio. O Expo ainda não tem estas telas, e os campeonatos (chaveamento e partidas de campeonato) e a corrida ainda não têm tela de partida.
+Tudo vem da API; sem busca, partida ou ranking, as telas mostram o estado vazio. Os campeonatos (chaveamento e partidas de campeonato) e a corrida têm roteiros próprios mais abaixo, e o Expo tem estas telas desde a etapa 6 (veja [Mobile](#telas-e-recursos-do-expo-etapa-6)), ainda sem validação em aparelho.
 
 ## Demonstrar o Jogar pela API (etapa 3, backend)
 
@@ -299,7 +311,7 @@ $env:TEST_DATABASE_URL='postgresql+psycopg2://arena:arena@localhost:5432/arena'
 
 Os testes criam e removem somente um schema aleatório próprio no PostgreSQL indicado. A credencial precisa de permissão para criar schemas. Sem `TEST_DATABASE_URL`, testes de integração ficam pulados; isso não comprova a entrega. Para executar só unidades, use `pytest tests/unit -q` pelo Python do ambiente.
 
-No diretório `web/`: `npm run lint`, `npm run typecheck`, `npm run build` e `npm run test:coverage`. No diretório `mobile/`: `npm run lint`, `npm run typecheck`, `npx expo install --check` e `npm run export:android`. O workflow `.github/workflows/ci.yml` executa os checks com PostgreSQL e ambos os clientes. A geração do bundle não substitui validação Android/iOS em aparelho.
+No diretório `web/`: `npm run lint`, `npm run typecheck`, `npm run build` e `npm run test:coverage`. No diretório `mobile/`: `npm run lint`, `npm run typecheck`, `npm run test:coverage`, `npm run export:android` e `npx expo install --check` (que hoje só aponta `expo@57.0.27` contra `~57.0.28`, um desvio conhecido). O workflow `.github/workflows/ci.yml` executa os checks com PostgreSQL e ambos os clientes. A geração do bundle não substitui validação Android/iOS em aparelho.
 
 Sessões expiram em 24 horas, não têm renovação automática e são revogadas no logout. Na web o token fica em cookie HttpOnly; no mobile, no SecureStore. Perfis sociais públicos são distintos dos perfis esportivos, que continuam privados. Para ambiente fora de desenvolvimento, configure `COOKIE_SECURE=true`, HTTPS, origens explícitas e infraestrutura conforme as decisões documentadas.
 

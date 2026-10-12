@@ -10,7 +10,7 @@ A imagem usada pelo protótipo foi armazenada em `web/public/images/arena-cover.
 
 Cadastro, login, sessão, edição de nome, cidade, posição e disponibilidade continuam usando a API. A saudação, avatar e modalidades usam os dados da conta. As informações demonstrativas do Figma (pontuação, vitórias, partidas, seguidores, saldo, campeonatos e publicações) não são registros reais e não foram importadas. Essas áreas apresentam estados vazios ou indicação de disponibilidade futura. O botão Jogar leva à preparação dos perfis esportivos enquanto o agendamento de partidas não existe na API.
 
-Esta revisão modifica o frontend web. O cliente Expo mantém a implementação anterior.
+Esta revisão modifica o frontend web. O cliente Expo mantém a implementação anterior. Em 12 de outubro de 2026 o Expo ganhou as telas das etapas 1 a 5 (veja a [situação da fundação](situacao-fundacao.md)), mas a paridade visual do Expo com a web ou com esta revisão **não foi verificada**, nem o funcionamento em aparelho.
 
 O usuário aprovou a interface atual em 9 de outubro de 2026 e esclareceu que não é necessário acrescentar mocks. Manter os dados reais e os estados vazios descritos acima. As próximas entregas devem atualizar a [situação da fundação](situacao-fundacao.md) com as alterações e integrações pendentes.
 
@@ -87,6 +87,6 @@ Uma revisão posterior mudou o post. As regras abaixo **substituem o post A3** d
 O protótipo foi rejeitado na versão de barra clara mínima, considerada "muito Instagram". A fonte do protótipo final está em `artifacts/prototipos/comunidade.src.html`, que não é versionada.
 
 **Expo:**
-- Sem marca do Coliseu nos assets do mobile: a barra mostra só o título, e o estado vazio usa um glifo.
+- (Estado de 11 de outubro) Sem marca do Coliseu nos assets do mobile: a barra mostra só o título, e o estado vazio usa um glifo. Desde 12 de outubro o Expo tem os SVGs da marca e dos elos (`npm run generate:brand`); a conferência visual da Comunidade com eles não foi feita.
 - O recorte é o editor nativo do seletor de fotos, sem os controles de zoom, giro e centralização da web.
 - Não há declaração de paridade visual nem validação em aparelho.

@@ -1,5 +1,73 @@
 # Situação da fundação do Arena
 
+## Expo: times, organizador, eventos, comprovantes, administração, Jogar, corrida e campeonatos — 12 de outubro de 2026
+
+Última etapa da execução dos planos de [Times e campeonatos](plano-times-campeonatos.md) e do [Jogar](plano-jogar.md) (decidida em 12 de outubro de 2026: o Expo vem por último, com **todas** as telas, inclusive organizador e administração). O cliente Expo passa a consumir os contratos [0003](decisoes/0003-times-campeonatos.md) e [0002](decisoes/0002-jogar.md) das etapas 1 a 5, os mesmos que a web já consumia. **Só o cliente mudou:** nenhuma alteração de backend, migração ou contrato. O `mobile/` veio da branch `orq/expo` (HEAD `c11c883`), que reuniu as frentes do Expo, e esta entrega registra a verificação final e a documentação. **Não é o MVP completo, e não se declara paridade visual com a web nem funcionamento em aparelho** (veja "Não verificado").
+
+**O que mudou, por área** (`mobile/src/`):
+- **Navegação:** não há mais tela "em breve" (o `ComingSoon` foi removido); todas as rotas de `navigation/routes.ts` têm tela em `navigation/screens.tsx`. A pilha continua por estado, sem biblioteca de navegação (`navigation/`), com `hasOwnHeader` (telas que desenham o próprio cabeçalho, como Meus times e o organizador) e o perfil de outro atleta como rota `user-profile`.
+- **Times:**
+  - **Meus times:** placa, carrossel de carteirinhas, elenco, convites recebidos e pedidos para entrar; criar, editar e encerrar time (com brasão);
+  - **Convidar:** busca de atletas e, na aba Link e QR, o link e o QR do time (`react-native-qrcode-svg`);
+  - **Entrar pelo link:** o app recebe `arena://entrar/{token}` (esquema `arena` do `app.json`, `useJoinLink`) ou o endereço `http(s)://…/entrar/{token}`, ou lê o QR do time com a câmera (`expo-camera`, `QrScanner`), que só é aberta quando necessário (a permissão é pedida no momento do uso). O token fica só em memória e nunca vai a log ou armazenamento;
+  - **Folha do atleta** (elenco e filas) e perfil de outro atleta.
+- **Organizador:** "Seja organizador" (pedido e acompanhamento), Meus eventos, assistente **Criar evento** em `Modal` de tela cheia (uma pergunta por vez, com `DateField` e `TimeField` próprios, sem biblioteca de calendário) e a **gestão do evento (G3)**, com inscritos, avisos, Pix, cancelamento e as seções do campeonato. As entradas ficam no Menu do Perfil (`OrganizerMenu`).
+- **Eventos do atleta:** lista e detalhe de campeonatos e provas (E2 e D2), inscrição, reserva e Pix, envio de comprovante (documento por `expo-document-picker` ou foto da galeria), devolução (confirmar ou contestar) e a aba **Tabela**.
+- **Comprovantes e administração:** comprovantes e devoluções do organizador (A2) e, para a administração, pedidos de organizador, eventos pagos, organizador revogado, devoluções contestadas, sugestões de quadra, W.O. contestados e a moderação (que inclui a denúncia de mensagem de partida, `match_message`).
+- **Jogar:**
+  - **Placa:** busca de time, avulso e tênis, proposta e oferta de vaga;
+  - **Partida:** condições, termos, W.O. e vagas, e chat com leitura periódica que **pausa em segundo plano** (`AppState`) e lê na hora ao voltar;
+  - **Resultado:** placar (futebol e tênis em sets), relato cego, divergência, presença e estatísticas;
+  - **Ranking** real (por modalidade, com "Carregar mais");
+  - **Início:** "Seu elo" por modalidade, "Próxima partida" e "Encontrar partida";
+  - **Notificações** com os destinos novos (partida, placa, tabela, decisão do organizador e filas da administração) e o **ponto menta de atenção** no JOGAR.
+- **Corrida:** registro de marca (K2, com a prévia do efeito), "Suas marcas" (K4), histórico, remoção e "Ver ranking" na corrida e na distância escolhida.
+- **Campeonatos:**
+  - **Chaveamento** desenhado com `react-native-svg` (sorteio, troca de dois lugares, confirmação; no todos contra todos, a tabela cruzada);
+  - **Agenda das partidas** com o conflito de quadra e de horário (`409`) mostrado na folha;
+  - **Decisão do organizador (D3)**;
+  - a tela relê o estado do servidor depois de um `404` ou `409`.
+- **Marca:** `npm run generate:brand` gera `src/assets/brand-svgs.ts` a partir de `web/public/images/brand/*.svg` (o Metro não importa SVG); os ícones das modalidades vêm de `mobile/assets/sports/`.
+- **Unificações** (um dono para cada peça): um só `components/Icon.tsx`; controles compartilhados em `components/arena/controls.tsx`; `ActionSheet` (a folha escura que os fluxos reutilizam); o hook `useSubmit` (estado de ocupado, mensagem de erro e tratamento do `401` de todo envio).
+
+**Desvios em relação à web** (o contrato é o mesmo; muda a apresentação):
+- **Folhas no lugar de diálogos**, no padrão do Expo.
+- **PDF e "salvar arquivo" só na web:** `expo-file-system` e `expo-sharing` foram recusadas pelo usuário. Comprovante em PDF mostra "Abra este comprovante pela web."; imagens aparecem no app.
+- **Copiar Pix ou link viram texto selecionável mais o `Share` do React Native**, porque `expo-clipboard` foi recusada.
+- **Câmera para ler o QR** (a web não lê QR).
+- **Sem as rotas `connections`, `blocked`, `edit-profile`, `menu` e `sports`** que a web tem na pilha: o Perfil do Expo faz esse papel.
+- **Atualização dos dados:** como na web, não há tempo real nem notificação push; o chat e a placa do Jogar releem periodicamente e, no app, a leitura pausa em segundo plano (`AppState`).
+
+**Dependências novas, aprovadas pelo usuário em 12 de outubro de 2026** (`mobile/package.json` e `package-lock.json`): `react-native-svg` 15.15.4, `react-native-qrcode-svg` ^6.3.26, `expo-camera` ~57.0.6 (plugin no `app.json` com o texto da permissão; microfone desligado) e `expo-document-picker` ~57.0.3, além do esquema `arena` e do script `generate:brand`. Recusadas: `expo-clipboard`, `expo-file-system` e `expo-sharing`. Nenhuma outra dependência foi instalada.
+
+**Documentação:** [README](../README.md) (seção Mobile: link `arena://entrar/{token}`, câmera para o QR, dependências novas, `generate:brand` e comandos de verificação), [qualidade do código](qualidade-codigo.md) (números e pisos do Expo), [próximos passos](proximos-passos-jogar.md) (Expo concluído e pendências reais), os avisos de "Expo pendente" de [0002](decisoes/0002-jogar.md) e [0003](decisoes/0003-times-campeonatos.md) (só o estado; o contrato não mudou) e a ressalva de [fidelidade ao Figma](fidelidade-figma.md). Divergência corrigida: o "Estado atual das áreas" (abaixo) e o README ainda diziam que partidas, Ranking, Jogar, chaveamento e corrida não tinham tela, o que já era falso na web desde as etapas 3 a 5.
+
+**Verificações executadas nesta entrega** (Windows, Node 25.9.0 e npm 11.12.1, em `mobile/`, na árvore principal, branch `feat/play-page`):
+- `npm ci`: concluído com o lock novo; o `npm audit` do `npm ci` aponta 27 alertas (7 moderados, 20 altos), todos transitivos de ferramentas Expo/Metro, como já registrado na fundação (eram 22), e o aviso de `text-encoding@0.7.0` descontinuado, trazido por `react-native-qrcode-svg`;
+- `npm run lint`: sem apontamentos;
+- `npm run typecheck`: sem erros;
+- `npm run test:coverage`: **77 arquivos e 1233 testes aprovados**, zero falhas e zero pulados; cobertura de **94,77% das instruções, 89,81% dos ramos, 94,31% das funções e 97,29% das linhas**; em `src/api`, 100% das instruções, das linhas e das funções e 99,32% dos ramos (pisos por arquivo de 100/100/100/90 e pisos gerais atendidos, em [qualidade do código](qualidade-codigo.md));
+- `npm run export:android`: concluído (bundle Hermes de cerca de 5 MB e os três ícones de modalidade);
+- `npx expo install --check`: o único apontamento é `expo@57.0.27` contra `~57.0.28`, um desvio já conhecido e anterior a esta entrega, que não foi alterado;
+- lint e typecheck foram reexecutados depois da única edição feita na verificação: dois comentários desatualizados em `navigation/routes.ts` e `navigation/screens.tsx` (diziam que havia telas por implementar), sem mudança de comportamento.
+
+**Não verificado:**
+- **Aparelho ou emulador Android/iOS:** o app não foi aberto em nenhum; o bundle gerado não comprova usabilidade, SecureStore, câmera, seletor de documento e galeria, `Share`, teclado do sistema, rolagem, nem o deep link `arena://entrar/{token}` e a permissão da câmera;
+- **Leitor de tela (TalkBack e VoiceOver):** rótulos, papéis e anúncios existem no código e em testes de árvore, mas não foram ouvidos com um leitor de tela;
+- **API real:** os testes do Expo simulam o `fetch`; nenhum fluxo (inscrição, comprovante, chaveamento, resultado, corrida) foi percorrido do app até o PostgreSQL e conferido depois de reabrir o app;
+- **Paridade visual** com a web ou com os protótipos: não foi comparada; as telas em 320 e 390 px não foram vistas;
+- **CI remoto** desta versão.
+
+**Pendências:**
+- A rolagem de "Ver inscritos", na gestão do evento, usa o `y` relativo ao contêiner pai, e não o absoluto, então o ponto onde a rolagem para pode não ser o exato; não foi conferido em aparelho.
+- O Ranking carrega mais linhas só pelo botão "Carregar mais" (sem rolagem infinita).
+- Pequenas diferenças visuais vindas das unificações (fontes ±0,5 pt) ainda não foram revistas; **a paridade visual do Expo continua não verificada**.
+- Cobertura baixa fora do que esta entrega tocou: `AuthScreen` e `SportCard` sem teste (0%), `UsernameForm` (63,41% das instruções) e `ProfileScreen` (67,89%). Os testes imprimem o aviso de que `react-test-renderer` está descontinuado no React 19 (não falha nada).
+- Reavaliar com o usuário `expo-clipboard` (copiar de verdade) e `expo-file-system`/`expo-sharing` (abrir e salvar PDF de comprovante no app); hoje o app orienta a abrir pela web.
+- Atualizar o `expo` para `~57.0.28` e rever os alertas do `npm audit` antes de publicar ou assinar builds (decisão do usuário).
+- As pendências do backend e da web seguem as das etapas 1 a 5 (rótulo do jogo no aviso `divergencia_para_decidir`, calibragem dos cortes de elo, agendamento da varredura em produção, prova de corrida paga, entre outras), em [próximos passos](proximos-passos-jogar.md).
+- Execução do CI remoto e validação em aparelhos ficam como o próximo passo natural.
+
 ## Etapas 4 e 5 — Campeonatos (chaveamento, agenda e divergência) e corrida: backend e web integrados — 12 de outubro de 2026
 
 Quarta e quinta etapas da execução do [plano de Times e campeonatos](plano-times-campeonatos.md) (fases 6 e 7) e do [plano do Jogar](plano-jogar.md) (fase 6, corrida). Contratos: [0003, seção 21](decisoes/0003-times-campeonatos.md#21-etapa-4--chaveamento-agenda-e-decisão-do-organizador-fases-6-e-7) (campeonatos, com os desvios da web na 21.11), [0002, seção 17](decisoes/0002-jogar.md#17-uso-nas-partidas-de-campeonato-etapa-4) (uso nas partidas de campeonato) e [0002, seção 18](decisoes/0002-jogar.md#18-fase-6--corrida-marcas-e-elo-por-distância) (corrida, com os desvios da web na 18.9). O backend das duas etapas já estava integrado (migrações `0010` e `0011`, conciliado com o da etapa 3); esta entrega integra a **web** das duas frentes (W4, campeonatos; W5, corrida) na branch `orq/etapa4` e confere tudo no navegador contra a API real. O Expo está em andamento e não foi tocado aqui.
@@ -898,10 +966,10 @@ Atualizar este Markdown a cada entrega ou alteração no projeto, registrando im
 | Edição de perfil e @ | Integradas à API: lista agrupada com folhas, @ único com verificação de disponibilidade, visibilidade, contas bloqueadas e conexões. |
 | Posts, comunidade e perfis sociais | Integrados à API: feed cronológico, foto/legenda, curtidas, comentários, busca, privacidade social, seguidores, bloqueios e denúncias. Painel administrativo web e histórico de decisões implementados. |
 | Conteúdo do perfil | Abas Fotos \| Partidas na web e no Expo: grade com visualizador "Publicações", post 4:5, comentários e ações em vidro, denúncias de post/comentário/conta com motivo e detalhes e topo fixo condensado. Partidas (P2) aguarda domínio e mostra estado vazio; Atividades sairá para Notificações em entrega futura. |
-| Partidas, ranking, estatísticas e notificações | Estrutura visual e estados vazios ou indicação de disponibilidade futura; sem dados demonstrativos ou integração de domínio. Notificações exibe, provisoriamente, as solicitações para seguir. |
+| Partidas, ranking, estatísticas e notificações | Integrados à API na web (etapas 3 e 4) e no Expo (etapa 6): partidas, resultado, estatísticas, Ranking e Notificações com os tipos de times, eventos, partidas e campeonatos, além das solicitações para seguir. Sem partida, evento ou marca, as telas mostram o estado vazio; não há dados demonstrativos. |
 | Moedas e carteira | Removidas da interface web e fora da direção atual do produto; não implementar sem nova solicitação. |
-| Botão Jogar | Abre a preparação dos perfis esportivos; busca e agendamento ainda pendentes. |
-| Cliente Expo | Comunidade e recursos sociais implementados; título @, hambúrguer e folha Menu aplicados; a revisão visual do Figma foi aplicada somente à web. |
+| Botão Jogar | Busca adversário de verdade (times, tênis e avulso), com proposta, partida e agendamento, na web e no Expo; sem perfil esportivo, prepara o perfil. Nunca simula uma partida encontrada. |
+| Cliente Expo | Comunidade e recursos sociais; título @, hambúrguer e folha Menu. Desde a etapa 6, também times, organizador, eventos e inscrições, comprovantes, administração, Jogar (placa, partida, resultado e Ranking), corrida e campeonatos (chaveamento, agenda e decisão), sem tela "em breve". A revisão visual do Figma foi aplicada somente à web; paridade visual do Expo, funcionamento em aparelho, leitor de tela e API real não foram verificados. |
 
 ## Evidências e limites
 
@@ -947,7 +1015,7 @@ HU01, RN01 e a seleção de modalidades em RN02 possuem implementação. RN22 é
 
 O roteiro original contém propostas e diagramas para o MVP completo. Na entrega inicial, a modelagem se limitava a cidades, usuários, sessões e perfis. A entrega de 10 de outubro também implementou as tabelas sociais descritas nesta página e no [diagrama da fundação](diagramas/fundacao.md); as demais propostas do MVP continuam como desenho futuro.
 
-A implementação social ainda exige validação visual em navegador e demonstração em aparelho mobile. Times, vagas, partidas, chat, resultados, rankings, corrida e eventos permanecem fora das entregas realizadas até aqui.
+A implementação social ainda exige validação visual em navegador e demonstração em aparelho mobile. Times, eventos, partidas, chat, resultados, rankings, corrida e campeonatos foram entregues depois, nas etapas 1 a 5 (backend e web) e no Expo (registros no topo desta página); o MVP completo não está declarado, e o Expo segue sem validação em aparelho.
 
 A revisão do arquivo Word ficou pendente: o renderizador da skill de documentos não encontrou o LibreOffice necessário à inspeção visual. O arquivo original foi preservado; este registro e o README descrevem o estado atual e devem orientar a atualização do roteiro quando houver renderização disponível.
 
