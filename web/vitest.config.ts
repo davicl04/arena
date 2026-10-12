@@ -9,6 +9,10 @@ export default defineConfig({
     environment: 'jsdom',
     env: { VITE_API_URL: 'http://localhost:8000' },
     include: ['tests/**/*.test.{ts,tsx}'],
+    setupFiles: ['tests/setup.ts'],
+    // Os fluxos longos (assistentes, ArenaPage inteira) levam de 1 a 4 s com a máquina ocupada; 5 s era o limite padrão.
+    testTimeout: 20000,
+    hookTimeout: 20000,
     reporters: ['default', 'junit'],
     outputFile: { junit: '../artifacts/coverage/web/tests.xml' },
     restoreMocks: true,

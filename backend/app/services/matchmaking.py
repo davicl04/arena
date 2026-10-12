@@ -491,7 +491,9 @@ def play_board(db: Session, user: User, *, now: datetime) -> PlayBoardOut:
     proposals = my_proposals(db, user, now=now)
     offers = slot_offers(db, user, now=now)
     matches = match_cards(db, user, _upcoming_matches(db, user), now=now)
-    attention = bool(searches or proposals or offers or any(card.state == 'combinando' for card in matches))
+    # A championship match waiting for the organizer's schedule is not something the player has to arrange.
+    attention = bool(searches or proposals or offers
+                     or any(card.state == 'combinando' and card.origin == 'amistoso' for card in matches))
     return PlayBoardOut(attention=attention, searches=searches, proposals=proposals, offers=offers, matches=matches)
 
 

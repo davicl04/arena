@@ -84,10 +84,13 @@ export class ApiError extends Error {
   status: number
   /** Campos recusados pela validação do servidor (vazio nos demais erros). */
   fields: FieldError[]
-  constructor(message: string, status: number, fields: FieldError[] = []) {
+  /** Corpo do erro quando é um objeto JSON (o `conflict` do `409` da agenda do campeonato); `null` nos demais. */
+  body: Record<string, unknown> | null
+  constructor(message: string, status: number, fields: FieldError[] = [], body: Record<string, unknown> | null = null) {
     super(message)
     this.status = status
     this.fields = fields
+    this.body = body
   }
 }
 /** Lista `fields` de um corpo de erro, só com itens bem formados. */
@@ -129,6 +132,7 @@ export async function request<T>(
         : 'Não foi possível concluir a ação.',
       response.status,
       fieldErrors(data.fields),
+      data && typeof data === 'object' && !Array.isArray(data) ? data : null,
     )
   }
   return response.status === 204 ? (undefined as T) : response.json()

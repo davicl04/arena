@@ -34,9 +34,12 @@ STAGE_THREE_TYPES = {'proposta_partida', 'proposta_aceita', 'proposta_encerrada'
                      'wo_decidido', 'resultado_partida', 'resultado_divergente', 'estatistica_contestada',
                      'vaga_preenchida', 'removido_da_partida', 'oferta_retirada', 'quadra_decidida'}
 
+STAGE_FOUR_TYPES = {'tabela_publicada', 'adversario_definido', 'divergencia_para_decidir', 'decisao_registrada',
+                    'evento_encerrado'}
+
 
 def test_stage_one_types_are_registered_with_navigation_fields():
-    assert set(NOTIFICATION_TYPES) == STAGE_ONE_TYPES | STAGE_TWO_TYPES | STAGE_THREE_TYPES
+    assert set(NOTIFICATION_TYPES) == STAGE_ONE_TYPES | STAGE_TWO_TYPES | STAGE_THREE_TYPES | STAGE_FOUR_TYPES
     assert all({'team_id', 'team_name'} <= NOTIFICATION_TYPES[name] for name in STAGE_ONE_TYPES
                if 'organizador' not in name)
 
@@ -48,6 +51,14 @@ def test_stage_two_types_navigate_by_event_and_entry():
     assert all('entry_id' in NOTIFICATION_TYPES[name] for name in per_entry)
     assert all('receipt_id' in NOTIFICATION_TYPES[name] for name in STAGE_TWO_TYPES
                if name.startswith(('comprovante', 'devolucao')))
+
+
+def test_stage_four_types_navigate_by_event_and_match():
+    # The table opens from the event; the others open the championship match, the web also names the event.
+    assert all({'event_id', 'event_name'} <= NOTIFICATION_TYPES[name] for name in STAGE_FOUR_TYPES)
+    assert all('match_id' in NOTIFICATION_TYPES[name]
+               for name in STAGE_FOUR_TYPES - {'tabela_publicada', 'evento_encerrado'})
+    assert {'kind'} <= NOTIFICATION_TYPES['decisao_registrada']
 
 
 def test_stage_three_types_navigate_by_match_or_court():

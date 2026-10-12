@@ -88,6 +88,10 @@ function slotsSummary(detail: MatchDetail): string {
 
 export interface ConditionsCardProps {
   detail: MatchDetail;
+  /** Campeonato: "Agendar" ou "Reagendar" (o organizador), que abre a lista de partidas com a folha de agendamento. */
+  onSchedule?: () => void;
+  /** Campeonato: "Decidir resultado" (o organizador), que abre a decisão (D3). */
+  onDecide?: () => void;
   busy: boolean;
   error: string;
   onPropose: () => void;
@@ -100,7 +104,102 @@ export interface ConditionsCardProps {
   onContestWalkover: () => void;
 }
 
-export function ConditionsCard({
+/**
+ * Partida de campeonato: a data e a quadra são do organizador (`PUT /organizer/matches/{id}/schedule`), então o cartão não tem
+ * "Propor outra", aceite nem reserva; `terms` e `booking` vêm nulos e a data e a quadra estão em `starts_at` e `court`.
+ * O organizador ganha "Agendar" e "Decidir resultado", conforme `permissions`.
+ */
+function ChampionshipConditions({ detail, busy, error, onSchedule, onDecide }: Pick<ConditionsCardProps, "detail" | "busy" | "error" | "onSchedule" | "onDecide">) {
+  const { permissions, cancellation, court } = detail;
+  const scheduled = detail.state === "agendada";
+  const [open, setOpen] = useState(() => detail.state === "combinando" || Boolean(cancellation) || permissions.decide_result === true);
+  const hasDate = detail.starts_at !== null;
+  const closed = detail.state === "cancelada";
+  const summary = hasDate ? `${whenText(detail.starts_at)}${court ? ` · ${court.name}` : ""}` : "Data e quadra a definir";
+  const waiting = detail.sides.length < 2;
+
+  return (
+    <Collapsible open={open} onOpenChange={setOpen} data-slot="conditions-card" data-origin="campeonato" className="mx-3 mt-2.5 rounded-card bg-white shadow-card">
+      <CollapsibleTrigger className="flex min-h-12 w-full items-center gap-2 border-0 bg-transparent px-3.5 py-2.5 text-left text-ink">
+        {scheduled ? <CalendarCheck size={16} className="flex-none text-brand" aria-hidden="true" /> : <Pin size={16} className="flex-none text-brand" aria-hidden="true" />}
+        <b className="text-[13px]">{scheduled ? "Partida agendada" : "Data e quadra"}</b>
+        {!open && <span className="min-w-0 flex-1 truncate text-[11px] text-ink-muted">{summary}</span>}
+        <ChevronDown size={16} aria-hidden="true" className={cn("ml-auto flex-none text-ink-muted motion-safe:transition-transform", open && "rotate-180")} />
+      </CollapsibleTrigger>
+      <CollapsibleContent className="grid gap-3 px-3.5 pb-3.5">
+        {cancellation && (
+          <div role="note" className="flex gap-2.5 rounded-[14px] bg-error-bg p-3">
+            <OctagonX size={20} className="flex-none text-error" aria-hidden="true" />
+            <p className="m-0 min-w-0 flex-1 text-[11.5px] leading-normal wrap-anywhere text-ink">
+              <b className="block text-[12.5px] text-error">Partida cancelada</b>
+              {cancellation.reason ? `Motivo: ${cancellation.reason}` : "O campeonato foi cancelado."}
+            </p>
+          </div>
+        )}
+        {detail.event && (
+          <div className="text-[10.5px] font-bold tracking-wide text-ink-muted uppercase">
+            {detail.event.name}{detail.round_number ? ` · fase ${detail.round_number}` : ""}
+          </div>
+        )}
+        {hasDate ? (
+          <div className="grid gap-2">
+            <Row Icon={CalendarDays}>
+              <b>{whenText(detail.starts_at)}</b>
+            </Row>
+            <Row Icon={MapPin}>
+              {court?.name ?? "Quadra a definir"}
+              {court?.provisional && <Badge className="ml-1.5 bg-warning-bg py-[3px] text-warning">Sugestão em revisão</Badge>}
+              {court && (court.provisional ? <small className="block text-[10.5px] text-ink-muted">vale só para esta partida</small> : court.address && <small className="block text-[10.5px] text-ink-muted">{court.address}</small>)}
+            </Row>
+          </div>
+        ) : (
+          !closed && (
+            <p className="m-0 text-[12px] leading-normal text-ink-muted">
+              {waiting
+                ? "Esta partida espera o resultado dos jogos anteriores. O organizador agenda quando os dois lados estiverem definidos."
+                : "O organizador ainda vai definir data, horário e quadra. Você é avisado quando estiver agendada."}
+            </p>
+          )
+        )}
+        {!closed && (
+          <p className="m-0 flex items-start gap-2 text-[11px] leading-normal text-ink-muted" data-slot="organizer-note">
+            <Info size={15} className="mt-px flex-none" aria-hidden="true" />
+            Data, horário e quadra são do organizador. A reserva é com o local; o Arena só registra.
+          </p>
+        )}
+        {(permissions.schedule_match || permissions.decide_result) && (
+          <div className="flex flex-wrap gap-2">
+            {permissions.schedule_match && onSchedule && (
+              <Button variant={hasDate ? "secondary" : "primary"} className="min-w-0 flex-1" disabled={busy} onClick={onSchedule}>
+                {hasDate ? "Reagendar" : "Agendar"}
+              </Button>
+            )}
+            {permissions.decide_result && onDecide && (
+              <Button className="min-w-0 flex-1" disabled={busy} onClick={onDecide}>
+                Decidir resultado
+              </Button>
+            )}
+          </div>
+        )}
+        {error && (
+          <p className={cn(feedbackVariants(), "my-0")} role="alert">
+            {error}
+          </p>
+        )}
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
+export function ConditionsCard(props: ConditionsCardProps) {
+  return props.detail.origin === "campeonato" ? (
+    <ChampionshipConditions detail={props.detail} busy={props.busy} error={props.error} onSchedule={props.onSchedule} onDecide={props.onDecide} />
+  ) : (
+    <FriendlyConditions {...props} />
+  );
+}
+
+function FriendlyConditions({
   detail,
   busy,
   error,

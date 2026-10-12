@@ -36,6 +36,7 @@ MATCH_EVENT_TYPES = frozenset({
     'estatisticas_enviadas',
     'estatistica_revisada',
     'estatistica_contestada',
+    'resultado_decidido',       # championship: the organizer decided the result (divergence, deadline or W.O.)
 })
 
 

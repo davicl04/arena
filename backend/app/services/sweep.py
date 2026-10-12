@@ -26,6 +26,7 @@ from sqlalchemy.orm import Session
 from app.models.events import EntryReceipt, Event, EventEntry
 from app.models.identity import utcnow
 from app.services import audit, notifications
+from app.services.championship_lifecycle import finish_due_events
 from app.services.event_rules import REFUND_AUTO_CONFIRM_AFTER, next_entry_state
 from app.services.match_lifecycle import close_due_results
 from app.services.matchmaking_queue import queue
@@ -130,6 +131,7 @@ TASKS: tuple[SweepTask, ...] = (
     SweepTask('ofertas_expiradas', expire_offers),
     SweepTask('pareamento', rematch_waiting),
     SweepTask('resultados_vencidos', close_due_results),
+    SweepTask('campeonatos_encerrados', finish_due_events),
     SweepTask('rankings_janela', rankings_outside_window),
 )
 

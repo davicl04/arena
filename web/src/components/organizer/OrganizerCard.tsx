@@ -11,7 +11,7 @@ import { feedbackVariants } from '@/components/ui/feedback'
 import { glassMessageVariants } from '@/components/ui/glass-variants'
 import { ListGroup, ListHeading } from '@/components/ui/list-row'
 import { cn } from '@/lib/utils'
-import { posterProps } from './eventView'
+import { alertCount, posterProps } from './eventView'
 import { shortDate } from '@/utils/relativeTime'
 
 type Stage = 'done' | 'current' | 'bad' | 'todo'
@@ -156,14 +156,14 @@ export function OrganizerEvents({ status, events, loading, error, onReload, onOp
 }) {
   const approved = status?.state === 'aprovado'
   const preview = events.slice(0, 2)
-  const pending = events.reduce((total, event) => total + event.pending.total, 0)
+  const pending = events.reduce((total, event) => total + alertCount(event), 0)
   return <section aria-labelledby="organizer-events-title">
     <ListHeading id="organizer-events-title">Organizador</ListHeading>
     {loading && <p role="status" className="mx-1 mb-2 text-[11px] text-ink-muted">Carregando os seus eventos…</p>}
     {error && <div className={cn(feedbackVariants(), 'mt-0')} role="alert">{error} <Button variant="text" onClick={onReload}>Tentar novamente</Button></div>}
     {preview.length > 0 && <ul className="m-0 mb-2.5 grid list-none grid-cols-2 gap-2.5 p-0" aria-label="Próximos eventos">
       {preview.map(event => <li key={event.id} className="grid min-w-0">
-        <EventPoster {...posterProps(event)} pendingCount={event.pending.total} showSport className="min-h-[170px] pt-[56px]" onClick={() => onOpenEvent(event.id)} />
+        <EventPoster {...posterProps(event)} pendingCount={alertCount(event)} showSport className="min-h-[170px] pt-[56px]" onClick={() => onOpenEvent(event.id)} />
       </li>)}
     </ul>}
     <ListGroup>

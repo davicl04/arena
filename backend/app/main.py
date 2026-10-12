@@ -12,6 +12,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from app.core.access_log import install_access_log_filter
 from app.core.config import get_settings
 from app.core.database import engine
+from app.routers.brackets import router as brackets_router
 from app.routers.courts import router as courts_router
 from app.routers.entries import router as entries_router
 from app.routers.events import router as events_router
@@ -22,6 +23,7 @@ from app.routers.notifications import router as notifications_router
 from app.routers.organizers import router as organizers_router
 from app.routers.rankings import router as rankings_router
 from app.routers.results import router as results_router
+from app.routers.runs import router as runs_router
 from app.routers.slots import router as slots_router
 from app.routers.social import router as social_router
 from app.routers.teams import router as teams_router
@@ -201,3 +203,5 @@ app.include_router(matches_router)
 app.include_router(courts_router)
 app.include_router(slots_router)
 app.include_router(results_router)
+app.include_router(brackets_router)
+app.include_router(runs_router)

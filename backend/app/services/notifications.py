@@ -55,6 +55,12 @@ NOTIFICATION_TYPES: dict[str, frozenset[str]] = {
     'removido_da_partida': frozenset({'match_id', 'team_name'}),
     'oferta_retirada': frozenset({'match_id', 'slot_id', 'position', 'team_name', 'reason', 'requeued'}),
     'quadra_decidida': frozenset({'court_id', 'court_name', 'decision'}),
+    # Stage 4: brackets, schedule and decisions of the organizer (docs/decisoes/0003, section 21).
+    'tabela_publicada': frozenset({'event_id', 'event_name'}),
+    'adversario_definido': frozenset({'match_id', 'event_id', 'event_name', 'opponent_name'}),
+    'divergencia_para_decidir': frozenset({'match_id', 'event_id', 'event_name', 'deadline'}),
+    'decisao_registrada': frozenset({'match_id', 'event_id', 'event_name', 'kind'}),
+    'evento_encerrado': frozenset({'event_id', 'event_name'}),
 }
 
 

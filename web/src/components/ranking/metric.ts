@@ -1,10 +1,24 @@
 import type { RankingKey } from '@/api/results'
+import { formatDuration } from '@/components/play/tierLines'
 
 const number1 = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 1 })
 const number2 = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 2 })
 
-/** Pontos (time e tênis) ou média por partida (individual, com duas casas: os cortes são 2,5, 4,0 e 5,5). */
-export const formatMetric = (value: number, ranking: RankingKey) => (ranking === 'futebol_individual' ? number2 : number1).format(value)
+/** Ranking da corrida: a métrica é o melhor tempo (em segundos) e quem tem o menor tempo vence. */
+export const isRunRanking = (ranking: RankingKey) => ranking.startsWith('corrida_')
 
-/** Nome da métrica sob o número: "pontos" (time e tênis) ou "média" (individual). */
-export const metricUnit = (ranking: RankingKey) => (ranking === 'futebol_individual' ? 'média' : 'pontos')
+/**
+ * Pontos (time e tênis), média por partida (individual, com duas casas: os cortes são 2,5, 4,0 e 5,5) ou, na corrida, o
+ * melhor tempo ("24:12", "1:02:30") a partir dos segundos.
+ */
+export function formatMetric(value: number, ranking: RankingKey): string {
+  if (isRunRanking(ranking)) return formatDuration(value)
+  return (ranking === 'futebol_individual' ? number2 : number1).format(value)
+}
+
+/** Nome da métrica sob o número: "pontos" (time e tênis), "média" (individual) ou "tempo" (corrida). */
+export const metricUnit = (ranking: RankingKey) => (isRunRanking(ranking) ? 'tempo' : ranking === 'futebol_individual' ? 'média' : 'pontos')
+
+/** Métrica no meio da frase: "38 pontos", "4,26 média" ou só o tempo ("24:12"). */
+export const metricText = (value: number, ranking: RankingKey) =>
+  isRunRanking(ranking) ? formatMetric(value, ranking) : `${formatMetric(value, ranking)} ${metricUnit(ranking)}`

@@ -5,6 +5,7 @@ import type { City, Profile, Sport } from '../api/client'
 import { cancelSearch, createSearch } from '../api/matchmaking'
 import type { MatchSearch, PlayBoard, SearchCreated } from '../api/matchmaking'
 import { getMyStandings } from '../api/play'
+import type { RunCreated, RunFilter } from '../api/runs'
 import { ArenaMark } from '../components/Brand'
 import SportIcon from '../components/SportIcon'
 import { TeamCrest } from '../components/arena/TeamCrest'
@@ -18,14 +19,19 @@ import { PlayButton } from '../components/play/PlayButton'
 import { ProposalCard, SlotOfferCard } from '../components/play/PlateCards'
 import { PrepareSearchSheet } from '../components/play/PrepareSearchSheet'
 import { ProposalDialog } from '../components/play/ProposalDialog'
+import { RunHistorySheet } from '../components/play/RunHistorySheet'
+import { RunMarks } from '../components/play/RunMarks'
+import { RunSavedCard } from '../components/play/RunSavedCard'
+import { RunStopwatchDialog } from '../components/play/RunStopwatchDialog'
 import { SlotOfferDialog } from '../components/play/SlotOfferDialog'
 import { TierLine } from '../components/play/TierLine'
 import { slotsSummary } from '../components/play/slots'
-import { avulsoLine, lineView, normalizeStandings, runLine, teamLine } from '../components/play/tierLines'
+import { avulsoLine, lineView, normalizeStandings, runBestLine, teamLine } from '../components/play/tierLines'
 import type { AvulsoPosition, TierLineView } from '../components/play/tierLines'
 import { footballFormat, positionOptions, runDistances } from '../data/arena'
 import type { FootballFormat, RunDistance, Screen } from '../data/arena'
 import { useResource } from '../hooks/useResource'
+import { useRunBests } from '../hooks/useRunBests'
 import { useSubmit } from '../hooks/useSubmit'
 import type { PlayBoardState } from '../hooks/usePlayBoard'
 import { Button } from '@/components/ui/button'
@@ -66,7 +72,8 @@ function searchHint(sport: Sport, mode: Mode, city: string, position: AvulsoPosi
  * O botão busca de verdade (etapa 3): "Com meu time" abre a folha Preparar busca (V2); Avulso e Tênis buscam direto.
  * Durante a busca ele pulsa, conta o tempo e, tocado, pede a confirmação para cancelar. A placa (`GET /me/play`, lida
  * pelo ArenaPage) mostra a proposta (P2, em tela cheia), a oferta de vaga ao avulso e as partidas do titular, que levam
- * à tela da partida. A corrida segue honesta: o registro chega na etapa 5.
+ * à tela da partida. Na Corrida (K2 + K4, etapa 5), o botão REGISTRAR abre o cronômetro em tela cheia; a placa mostra o elo e
+ * o melhor tempo da distância escolhida (`GET /me/run-bests`) e, abaixo, "Suas marcas" com o histórico de cada distância.
  */
 export default function PlayPage({ profiles, cities, loading, board, openMatch, go, onExpired }: {
   profiles: Profile[]
@@ -77,7 +84,7 @@ export default function PlayPage({ profiles, cities, loading, board, openMatch, 
   board: PlayBoardState
   /** Partida cuja proposta (ou oferta de vaga) abre em tela cheia ao entrar: as notificações "Partida encontrada" e "Vaga encontrada". */
   openMatch?: number
-  go: (screen: Screen, context?: { teamId?: number; sport?: Sport; matchId?: number }) => void
+  go: (screen: Screen, context?: { teamId?: number; sport?: Sport; matchId?: number; distance?: RunDistance }) => void
   onExpired: () => void
 }) {
   const ids = useId()
@@ -91,6 +98,10 @@ export default function PlayPage({ profiles, cities, loading, board, openMatch, 
   const [sheet, setSheet] = useState(false)
   const [confirming, setConfirming] = useState(false)
   const [notice, setNotice] = useState('')
+  /** Corrida: distância com que o cronômetro (K2) abre, o histórico aberto (K4) e a última marca salva (cartão sobre a placa). */
+  const [registering, setRegistering] = useState<RunDistance | null>(null)
+  const [history, setHistory] = useState<RunFilter | null>(null)
+  const [savedRun, setSavedRun] = useState<RunCreated | null>(null)
   /** Diálogo aberto pela pessoa; sem ele, a primeira proposta pendente que ela pode responder abre sozinha. */
   const [picked, setPicked] = useState<{ kind: 'proposta' | 'oferta' | 'partida'; id: number } | null>(
     openMatch === undefined ? null : { kind: 'partida', id: openMatch })
@@ -99,6 +110,7 @@ export default function PlayPage({ profiles, cities, loading, board, openMatch, 
   const start = useSubmit(onExpired)
   const cancel = useSubmit(onExpired)
   const standings = useResource(getMyStandings, onExpired, { fallback: 'Não foi possível carregar seu elo.' })
+  const bests = useRunBests(onExpired, sport === 'corrida')
   const data = standings.data ? normalizeStandings(standings.data) : normalizeStandings(null)
   const represented = data.teams.filter(entry => entry.my_role === 'representante')
   const team = represented.find(entry => entry.team.id === teamChoice) ?? represented[0]
@@ -125,10 +137,15 @@ export default function PlayPage({ profiles, cities, loading, board, openMatch, 
   const locked = Boolean(search)
   const otherTeamSearches = plate.searches.filter(item => item.kind === 'time' && item.team && !represented.some(entry => entry.team.id === item.team?.id))
 
+  /* A corrida lê o elo e o melhor tempo de `run-bests`; as outras modalidades, de `standings`. */
+  const elo = sport === 'corrida'
+    ? { loading: bests.loading && !bests.loaded, error: bests.loaded ? '' : bests.error, reload: bests.reload }
+    : { loading: standings.loading, error: standings.error, reload: standings.reload }
   let view: TierLineView | null = null
-  if (standings.data) {
+  if (sport === 'corrida') {
+    if (bests.loaded) view = runBestLine(bests.items, distance)
+  } else if (standings.data) {
     if (sport === 'tenis') view = lineView(data.tenis)
-    else if (sport === 'corrida') view = runLine(data.corrida, distance)
     else if (mode === 'avulso') view = avulsoLine(data.individual, shownPosition)
     else if (team) view = teamLine(team, shownFormat)
   }
@@ -181,6 +198,17 @@ export default function PlayPage({ profiles, cities, loading, board, openMatch, 
     }
     void reload()
   }
+  /** Abre o cronômetro (K2) na distância dada (REGISTRAR ou o "+" do cartão). */
+  function register(km: RunDistance) {
+    setSavedRun(null)
+    setRegistering(km)
+  }
+  function registered(created: RunCreated) {
+    setRegistering(null)
+    setSavedRun(created)
+    if (created.run.standard_distance_km) setDistance(created.run.standard_distance_km)
+    void bests.refresh()
+  }
   function openHeld() {
     if (heldProposal) setPicked({ kind: 'proposta', id: heldProposal.match_id })
     else if (heldOffer) setPicked({ kind: 'oferta', id: heldOffer.slot_id })
@@ -209,8 +237,8 @@ export default function PlayPage({ profiles, cities, loading, board, openMatch, 
     button = { verb: 'MEU TIME', caption: 'crie ou represente', label: 'Crie ou represente um time', onClick: () => go('teams') }
     note = 'Só quem representa um time busca amistosos entre times. Sem time, você ainda pode jogar avulso.'
   } else if (sport === 'corrida') {
-    button = { verb, caption, label: idleLabel }
-    note = 'O registro de treinos e provas chega numa próxima etapa do Arena.'
+    button = { verb, caption, label: idleLabel, onClick: () => register(distance) }
+    note = 'Registre o tempo de um treino ou de uma prova do Arena. O ranking usa o melhor tempo das últimas 52 semanas.'
   } else if (searching && search) {
     button = { verb: 'BUSCANDO', caption: '', label: 'Buscando, toque para cancelar a busca', onClick: search.can_cancel ? () => setConfirming(true) : undefined, since: search.started_at }
     note = `${hint}${search.format ? ` · ${footballFormat[search.format]?.label ?? ''}` : ''}.${search.kind === 'time' ? ` ${slotsSummary(search.open_slots)}.` : ''}`
@@ -245,7 +273,7 @@ export default function PlayPage({ profiles, cities, loading, board, openMatch, 
           <span className="truncate">{city ? city.name : 'Definir cidade'}</span>
         </button>
       </div>
-      <Tabs variant="dark" items={sportTabs} value={sport} onChange={setSport} label="Modalidade" idPrefix={`${ids}-tab-`} controls={`${ids}-panel`}
+      <Tabs variant="dark" items={sportTabs} value={sport} onChange={next => { setSport(next); setSavedRun(null) }} label="Modalidade" idPrefix={`${ids}-tab-`} controls={`${ids}-panel`}
         className="relative border-b border-solid border-white/7" />
       <div id={`${ids}-panel`} role="tabpanel" aria-labelledby={`${ids}-tab-${sport}`} className="relative grid justify-items-center gap-3.5 px-5 pt-4 text-center">
         {sport === 'futebol' && <PlateChips variant="segmented" label="Jogar como" options={modeOptions} value={mode} onChange={setMode} />}
@@ -260,9 +288,9 @@ export default function PlayPage({ profiles, cities, loading, board, openMatch, 
         {sport === 'futebol' && mode === 'avulso' && <PlateChips label="Posição" options={positionChips} value={shownPosition} onChange={setPosition} disabled={locked} />}
         {sport === 'corrida' && <PlateChips label="Distância" options={distanceChips} value={`${distance}`} onChange={value => setDistance(Number(value) as RunDistance)} />}
         <div className="flex min-h-11 items-center justify-center" aria-live="polite">
-          {standings.loading && <p role="status" className="text-[11px] text-white/65">Carregando seu elo…</p>}
-          {standings.error && <p role="alert" className="text-[11px] leading-[1.5] text-[#ffd0d7]">
-            {standings.error} <Button variant="glass-link" className="inline min-h-0 p-0 align-baseline" onClick={standings.reload}>Tentar novamente</Button>
+          {elo.loading && <p role="status" className="text-[11px] text-white/65">Carregando seu elo…</p>}
+          {elo.error && <p role="alert" className="text-[11px] leading-[1.5] text-[#ffd0d7]">
+            {elo.error} <Button variant="glass-link" className="inline min-h-0 p-0 align-baseline" onClick={elo.reload}>Tentar novamente</Button>
           </p>}
           {view && <TierLine view={view} />}
           {standings.data && timeMode && !team && <p className="max-w-[280px] text-[11.5px] leading-[1.5] text-white/75">Você ainda não representa um time.</p>}
@@ -280,6 +308,7 @@ export default function PlayPage({ profiles, cities, loading, board, openMatch, 
         <p role="status" className="max-w-[290px] text-[11px] leading-[1.5] text-mint empty:hidden">
           {notice || (waitingOver && confirmedId === null ? 'A proposta foi encerrada. Veja a situação da busca na placa.' : '')}
         </p>
+        {sport === 'corrida' && savedRun && <RunSavedCard created={savedRun} onDismiss={() => setSavedRun(null)} />}
         {(proposalsHere.length > 0 || offersHere.length > 0) && <div className="grid w-full gap-3 text-left">
           {proposalsHere.map(item => <ProposalCard key={item.match_id} proposal={item} onElapsed={() => void reload()}
             onOpen={() => setPicked({ kind: 'proposta', id: item.match_id })} />)}
@@ -288,11 +317,18 @@ export default function PlayPage({ profiles, cities, loading, board, openMatch, 
         </div>}
       </div>
     </section>
+    {sport === 'corrida' && profile && !loading && <RunMarks items={bests.items} loading={bests.loading} error={bests.error} selected={distance}
+      onAdd={register} onOpen={setHistory} onRetry={bests.reload}
+      onOpenRanking={km => go('ranking', { sport: 'corrida', distance: km })} />}
     {sport !== 'corrida' && <MyMatches sport={sport} upcoming={plate.matches} onOpen={matchId => go('match', { matchId })} onExpired={onExpired} />}
     <OtherWays sport={sport} onTeams={() => go('teams')} onEvents={() => go('events', { sport })} />
 
     {sheet && team && <PrepareSearchSheet team={team.team} eyebrow={`${team.team.name} · ${view?.kind === 'ranked' ? view.title : 'Em classificação'}`}
       format={format} onFormat={setFormat} hint={hint} onCreated={created} onClose={() => setSheet(false)} onExpired={onExpired} />}
+    {registering !== null && <RunStopwatchDialog initialDistance={registering} onClose={() => setRegistering(null)}
+      onSaved={registered} onFindRaces={() => { setRegistering(null); go('events', { sport: 'corrida' }) }} onExpired={onExpired} />}
+    {history !== null && <RunHistorySheet filter={history} onClose={() => setHistory(null)} onChanged={() => void bests.refresh()} onExpired={onExpired}
+      onAdd={history === 'outra' ? undefined : () => { const km = Number(history) as RunDistance; setHistory(null); register(km) }} />}
     {showConfirm && <CancelSearchDialog returnFocus={playButton} busy={cancel.busy} error={cancel.error} onKeep={() => { setConfirming(false); cancel.setError('') }} onConfirm={() => void endSearch()} />}
     {openProposal && <ProposalDialog key={openProposal.match_id} returnFocus={playButton} proposal={openProposal} onLater={() => later(openProposal.match_id)}
       onOpenMatch={matchId => { setPicked(null); go('match', { matchId }) }} onElapsed={() => void reload()} onExpired={onExpired}

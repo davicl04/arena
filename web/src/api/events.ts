@@ -26,6 +26,7 @@ export type CompetitionType = EventType
 export type ChecklistKey = 'nome_modalidade' | 'formato_tipo' | 'vagas_elos' | 'datas' | 'local' | 'inscricao'
 export type NextActionKind = 'aguardar_revogacao' | 'corrigir_recusa' | 'completar_rascunho' | 'publicar'
   | 'aguardar_aprovacao' | 'analisar_comprovantes' | 'enviar_devolucoes' | 'aguardar_devolucoes'
+  | 'sortear_chaveamento' | 'confirmar_chaveamento' | 'decidir_divergencias' | 'agendar_partidas' | 'acompanhar_partidas'
   | 'acompanhar_inscricoes' | 'aguardar_inicio' | 'nenhuma'
 export type RevocationDecision = 'pendente' | 'seguir' | 'cancelado'
 
@@ -147,8 +148,27 @@ export interface EventDraftInput {
 }
 export type EventDraftField = keyof EventDraftInput
 
-/** Cartaz do O3. */
-export interface OrganizerEventCard extends EventPoster { pending: PendingCounts; next_action: NextAction }
+/** Chaveamento e partidas (0003, seção 21.3): os contadores do cartaz e das seções da gestão. */
+export interface Championship {
+  bracket: 'sem_chaveamento' | 'sorteado' | 'confirmado'
+  /** Inscrições confirmadas (o que o sorteio usa). */
+  confirmed: number
+  matches_total: number
+  /** Dois lados definidos e sem data. */
+  to_schedule: number
+  /** Um lado ainda espera o vencedor de um jogo anterior. */
+  waiting: number
+  /** Agendadas e sem resultado final. */
+  scheduled: number
+  /** Divergentes ou com 48 h sem resultado. */
+  to_decide: number
+  finished: number
+  /** to_schedule + to_decide: o alerta do cartaz. */
+  attention: number
+}
+
+/** Cartaz do O3. `championship` é nulo na corrida e no rascunho sem tipo. */
+export interface OrganizerEventCard extends EventPoster { pending: PendingCounts; next_action: NextAction; championship: Championship | null }
 
 /** Gestão G3 (e a base das telas de seção). */
 export interface OrganizerEventDetail extends OrganizerEventCard {

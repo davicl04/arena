@@ -32,6 +32,12 @@ export function posterProps(event: EventPosterData): Omit<EventPosterProps, 'siz
 }
 
 /** "Times inscritos" no futebol e "Inscritos" no tênis e na corrida. */
+/**
+ * Alerta do cartaz do organizador: o que ele precisa fazer agora — comprovantes e devoluções (`pending.total`) e, no
+ * campeonato, os jogos para agendar e para decidir (`championship.attention`).
+ */
+export const alertCount = (event: { pending: { total: number }; championship?: { attention: number } | null }) =>
+  event.pending.total + (event.championship?.attention ?? 0)
 export const entriesTitle = (sport: Sport | null) => (sport === 'futebol' ? 'Times inscritos' : 'Inscritos')
 /** Unidade das vagas: "times", "atletas", "corredores" (ou "vagas" sem modalidade). */
 export const entrantsUnit = (sport: Sport | null) => (sport ? eventNoun[sport].entrants : 'vagas')

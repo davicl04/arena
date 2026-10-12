@@ -438,18 +438,33 @@ class PendingCounts:
 
 
 @dataclass(frozen=True)
+class ChampionshipCounts:
+    """Bracket and matches of a championship (fase 6) for the "Agora" card and the poster of the organizer."""
+    bracket: str = 'sem_chaveamento'   # 'sem_chaveamento' | 'sorteado' | 'confirmado'
+    confirmed: int = 0                 # confirmed entries (what the draw uses)
+    matches_total: int = 0
+    to_schedule: int = 0               # both sides known and no date yet
+    waiting: int = 0                   # a side still waits for the winner of a previous match
+    scheduled: int = 0                 # scheduled and without a final result
+    to_decide: int = 0                 # divergent score, or 48 h passed without a result: the organizer decides
+    finished: int = 0                  # with a final result
+
+
+@dataclass(frozen=True)
 class NextAction:
     kind: str
     count: int | None = None
     deadline: datetime | None = None
 
 
-def next_action(event: Any, *, pending: PendingCounts, checklist_done: bool, now: datetime) -> NextAction:
+def next_action(event: Any, *, pending: PendingCounts, checklist_done: bool, now: datetime,
+                championship: ChampionshipCounts | None = None) -> NextAction:
     """The "Agora" card: the most urgent thing for the organizer, in a fixed priority.
 
     Kinds: aguardar_revogacao, corrigir_recusa, completar_rascunho, publicar, aguardar_aprovacao,
-    analisar_comprovantes, enviar_devolucoes, aguardar_devolucoes, acompanhar_inscricoes, aguardar_inicio,
-    nenhuma. The bracket phase (fase 6) adds its own kinds before 'aguardar_inicio'.
+    analisar_comprovantes, enviar_devolucoes, aguardar_devolucoes, sortear_chaveamento, confirmar_chaveamento,
+    decidir_divergencias, agendar_partidas, acompanhar_partidas, acompanhar_inscricoes, aguardar_inicio, nenhuma.
+    The bracket kinds (fase 6) need the `championship` counts and come after the receipts and refunds.
     """
     if event.revocation_decision == 'pendente':
         return NextAction('aguardar_revogacao')
@@ -470,7 +485,19 @@ def next_action(event: Any, *, pending: PendingCounts, checklist_done: bool, now
         deadline = event_registration_deadline(event)
         if deadline is not None and now < deadline:
             return NextAction('acompanhar_inscricoes', deadline=deadline)
+        if championship is not None:
+            if championship.bracket == 'sorteado':
+                return NextAction('confirmar_chaveamento', championship.confirmed)
+            if championship.bracket == 'sem_chaveamento' and championship.confirmed >= 2:
+                return NextAction('sortear_chaveamento', championship.confirmed)
         return NextAction('aguardar_inicio', deadline=event.starts_at)
+    if event.state == 'em_andamento' and championship is not None:
+        if championship.to_decide:
+            return NextAction('decidir_divergencias', championship.to_decide)
+        if championship.to_schedule:
+            return NextAction('agendar_partidas', championship.to_schedule)
+        if championship.scheduled or championship.waiting:
+            return NextAction('acompanhar_partidas', championship.scheduled)
     return NextAction('nenhuma')
 
 

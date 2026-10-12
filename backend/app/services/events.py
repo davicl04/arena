@@ -54,6 +54,7 @@ from app.schemas.events import (
     OrganizerEntryOut,
     ReceiptOut,
     TennisBonusOut,
+    championship_out,
     checklist_out,
     next_action_out,
     pending_out,
@@ -74,7 +75,7 @@ from app.schemas.organizer_events import (
     ReceiptReviewOut,
 )
 from app.schemas.rankings import TeamRefOut
-from app.services import audit, notifications
+from app.services import audit, championship_lifecycle, notifications
 from app.services.event_rules import (
     DRAFT_FIELDS,
     VENUE_LENGTH,
@@ -393,12 +394,15 @@ def _checklist(event: Event, now: datetime):
 def _cards(db: Session, events: Sequence[Event], now: datetime) -> list[OrganizerEventCardOut]:
     posters = posters_out(db, events, now)
     pending = pending_counts(db, (event.id for event in events))
+    championships = championship_lifecycle.status_for(db, events, now)
     cards = []
     for event in events:
         done = checklist_complete(_checklist(event, now))
-        action = next_action(event, pending=pending[event.id], checklist_done=done, now=now)
+        counts = championships.get(event.id)
+        action = next_action(event, pending=pending[event.id], checklist_done=done, now=now, championship=counts)
         cards.append(OrganizerEventCardOut(**posters[event.id].model_dump(), pending=pending_out(pending[event.id]),
-                                           next_action=next_action_out(action)))
+                                           next_action=next_action_out(action),
+                                           championship=championship_out(counts) if counts is not None else None))
     return cards
 
 
@@ -686,6 +690,8 @@ def cancel_event(db: Session, event: Event, *, actor_id: int, reason: str, now: 
             refunds.append(entry)
     event.state = target
     event.cancelled_at, event.cancelled_by_id, event.cancel_reason = now, actor_id, reason
+    # Championship matches still being arranged or scheduled are cancelled with the event (fase 6).
+    championship_lifecycle.cancel_event_matches(db, event, actor_id=actor_id, now=now)
     shown_actor = None if by_admin else actor_id
     message = EventMessage(event_id=event.id, author_id=shown_actor, kind='evento_cancelado', body=reason,
                            created_at=now)

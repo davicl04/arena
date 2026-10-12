@@ -24,7 +24,7 @@ import OrganizerRequestPage from "./OrganizerRequestPage";
 import AdminOrganizerRequests from "../components/admin/AdminOrganizerRequests";
 import SocialCommunity from "../components/SocialCommunity";
 import { activeNavFor, eventNoun } from "../data/arena";
-import type { ConnectionsTab, Screen } from "../data/arena";
+import type { ConnectionsTab, RunDistance, Screen } from "../data/arena";
 // Meus times (frente C): carteirinhas, criar/editar, convidar e entrar pelo link.
 import TeamsPage from "./TeamsPage";
 import TeamFormPage from "./TeamFormPage";
@@ -47,6 +47,10 @@ import EventsPage from "./EventsPage";
 import EventPage from "./EventPage";
 // Partida do Jogar (etapa 3): condições, quadras, reserva, chat, cancelamento e W.O.
 import MatchPage from "./MatchPage";
+// Campeonatos (etapa 4): chaveamento e tabela, agenda das partidas e decisão do resultado pelo organizador.
+import BracketPage from "./BracketPage";
+import EventMatchesPage from "./EventMatchesPage";
+import ResultDecisionPage from "./ResultDecisionPage";
 
 /** Uma tela da pilha de navegação, com o contexto necessário para restaurá-la ao voltar. */
 interface Entry {
@@ -72,8 +76,15 @@ interface Entry {
   sport?: Sport;
   /** Passo do Criar evento (`event-wizard`) ao abrir um rascunho ("Preencher" do checklist). */
   step?: number;
-  /** Partida da tela `match` (e, em `play`, a proposta ou a oferta de vaga dessa partida a abrir em tela cheia). */
+  /**
+   * Partida da tela `match` (e, em `play`, a proposta ou a oferta de vaga dessa partida a abrir em tela cheia); em
+   * `event-matches`, a partida cuja folha de agendamento abre junto; em `result-decision`, a partida a decidir.
+   */
   matchId?: number;
+  /** Distância da corrida escolhida ao abrir o Ranking pelo "Ver ranking" de "Suas marcas" (com `sport: "corrida"`). */
+  distance?: RunDistance;
+  /** Aba do detalhe do evento (`event`) a abrir: a Tabela (notificações da tabela e do encerramento). */
+  section?: "tabela";
 }
 const rootScreens: Screen[] = ["home", "ranking", "play", "community", "profile"];
 const titles: Record<Screen, string> = {
@@ -108,6 +119,9 @@ const titles: Record<Screen, string> = {
   events: eventNoun.futebol.many,
   event: eventNoun.futebol.one,
   match: "Partida",
+  "event-bracket": "Chaveamento",
+  "event-matches": "Partidas",
+  "result-decision": "Decidir resultado",
 };
 /** Título da barra conforme o contexto: edição de time ou de rascunho e eventos da corrida ("Provas"). */
 function titleFor(entry: Entry): string {
@@ -241,6 +255,10 @@ export default function ArenaPage({
   const consumeRequestsRequest = useCallback(() => {
     setStack((old) => old.map((entry) => (entry.requests ? { ...entry, requests: false } : entry)));
   }, []);
+  /** A folha de agendamento da partida abre uma vez; ao voltar das partidas, não reabre. */
+  const consumeScheduleRequest = useCallback(() => {
+    setStack((old) => old.map((entry) => (entry.screen === "event-matches" && entry.matchId !== undefined ? { ...entry, matchId: undefined } : entry)));
+  }, []);
   /** Modalidade da lista ou do detalhe do evento na tela atual: título ("Provas") e a volta ao mesmo filtro. */
   const setScreenSport = useCallback((sport: Sport) => {
     setStack((old) => {
@@ -313,7 +331,7 @@ export default function ArenaPage({
   // Comprovantes (A2): placa `forest` própria, com o voltar e o nome do evento dentro dela.
   const plateLayout = screen === "event-receipts";
   // Eventos do organizador: placa ou tela escura própria (o Criar evento é escuro de ponta a ponta).
-  const eventsLayout = (["organizer-events", "event-wizard", "event-manage"] as Screen[]).includes(screen);
+  const eventsLayout = (["organizer-events", "event-wizard", "event-manage", "event-bracket", "event-matches", "result-decision"] as Screen[]).includes(screen);
   // Partida (P2 + C1): cabeçalho próprio e chat que rola por dentro, acima da navegação inferior.
   const matchLayout = screen === "match";
 
@@ -418,7 +436,14 @@ export default function ArenaPage({
             </>
           )}
           {screen === "ranking" && (
-            <RankingPage profiles={profiles} go={go} onOpenUser={openUser} onExpired={onExpired} />
+            <RankingPage
+              profiles={profiles}
+              initialSport={current.sport}
+              initialDistance={current.distance}
+              go={go}
+              onOpenUser={openUser}
+              onExpired={onExpired}
+            />
           )}
           {screen === "community" && (
             <SocialCommunity
@@ -589,7 +614,41 @@ export default function ArenaPage({
               onBack={back}
               onEdit={(step) => go("event-wizard", { eventId: current.eventId, step })}
               onReceipts={() => go("event-receipts", { eventId: current.eventId })}
+              onBracket={() => go("event-bracket", { eventId: current.eventId })}
+              onMatches={() => go("event-matches", { eventId: current.eventId })}
               onDeleted={back}
+              onExpired={onExpired}
+            />
+          )}
+          {/* Campeonatos (etapa 4): chaveamento, partidas e decisão, do organizador. */}
+          {screen === "event-bracket" && current.eventId !== undefined && (
+            <BracketPage
+              key={current.eventId}
+              eventId={current.eventId}
+              onBack={back}
+              onMatches={() => go("event-matches", { eventId: current.eventId })}
+              onExpired={onExpired}
+            />
+          )}
+          {screen === "event-matches" && current.eventId !== undefined && (
+            <EventMatchesPage
+              key={current.eventId}
+              eventId={current.eventId}
+              initialMatchId={current.matchId}
+              onInitialShown={consumeScheduleRequest}
+              onBack={back}
+              onOpenMatch={(matchId) => go("match", { matchId })}
+              onDecide={(matchId) => go("result-decision", { matchId })}
+              onExpired={onExpired}
+            />
+          )}
+          {screen === "result-decision" && current.matchId !== undefined && (
+            <ResultDecisionPage
+              key={current.matchId}
+              matchId={current.matchId}
+              onBack={back}
+              onOpenChat={() => go("match", { matchId: current.matchId })}
+              onDone={back}
               onExpired={onExpired}
             />
           )}
@@ -610,6 +669,7 @@ export default function ArenaPage({
             <EventPage
               key={current.eventId}
               eventId={current.eventId}
+              initialSection={current.section}
               onSport={setScreenSport}
               onTeams={() => go("teams")}
               onManage={(eventId) => go("event-manage", { eventId })}
@@ -619,7 +679,15 @@ export default function ArenaPage({
           )}
           {/* Partida do Jogar (etapa 3). */}
           {screen === "match" && current.matchId !== undefined && (
-            <MatchPage key={current.matchId} matchId={current.matchId} viewerId={user.id} onBack={back} onExpired={onExpired} />
+            <MatchPage
+              key={current.matchId}
+              matchId={current.matchId}
+              viewerId={user.id}
+              onBack={back}
+              onSchedule={(eventId) => go("event-matches", { eventId, matchId: current.matchId })}
+              onDecide={() => go("result-decision", { matchId: current.matchId })}
+              onExpired={onExpired}
+            />
           )}
         </main>
         <BottomNav active={activeNav} onGo={go} playAttention={playBoard.board?.attention} />

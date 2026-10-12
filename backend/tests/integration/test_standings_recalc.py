@@ -9,6 +9,8 @@ import pytest
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
+from app.models.brackets import EventPlacement
+from app.models.events import EventEntry
 from app.models.matches import FootballStat, Match, MatchSide, MatchSlot
 from app.models.rankings import RankCut, Standing
 from app.services import sweep
@@ -24,6 +26,7 @@ from app.services.standings import (
     recalculate_rankings,
 )
 from app.services.sweep import run_sweep
+from tests.integration.entry_helpers import tennis_event
 from tests.integration.match_helpers import (
     NOW,
     add,
@@ -111,9 +114,13 @@ def test_a_ranking_without_cuts_is_refused_and_keys_are_validated(db):
         recalculate_rankings(db, [RankingKey('tenis')], now=NOW)
     for args in (('futebol_time',), ('futebol_time', 'basquete'), ('futebol_time', 'society', 'goleiro'),
                  ('futebol_individual', 'society'), ('futebol_individual', 'society', 'lateral'), ('tenis', 'society'),
-                 ('corrida_5',)):
+                 ('corrida_7',), ('corrida_5', 'society'), ('corrida_5', None, 'goleiro'), ('corrida',)):
         with pytest.raises(ValueError):
             RankingKey(*args)
+    assert (RankingKey.run(5).label, RankingKey.run(5).sport, RankingKey.run(5).distance_km) == (
+        'corrida_5', 'corrida', 5)
+    assert RankingKey('tenis').distance_km is None and RankingKey('corrida_42') == RankingKey.run(42)
+    assert ranking_lock_id(RankingKey.run(5)) != ranking_lock_id(RankingKey.run(10))
     assert RankingKey('futebol_individual', 'campo', 'goleiro').label == 'futebol_individual:campo:goleiro'
     assert ranking_lock_id(SOCIETY) == ranking_lock_id(RankingKey('futebol_time', 'society'))
     assert ranking_lock_id(SOCIETY) != ranking_lock_id(RankingKey('futebol_time', 'futsal'))
@@ -235,6 +242,32 @@ def test_tennis_rows_leave_with_their_matches_and_a_tennis_search_follows_the_ti
 
     assert recalculate_outside_window(db, NOW + 2 * WEEK) == 2
     assert not rows(db)
+
+
+def test_a_championship_bonus_leaves_the_tennis_points_when_its_event_leaves_the_window(db):
+    # The bonus counts while its event ended inside the 52 weeks (contract 0003, 21). It leaves after the matches of the
+    # same athlete do, so the sweep must look at the bonuses too: no match departs on that day, and the stored
+    # points would keep the bonus for as long as nobody else played.
+    ana, bia = make_user(db, 'ana'), make_user(db, 'bia')
+    event = tennis_event(db, bia.id, state='encerrado', competition_type='todos_contra_todos')
+    entry = add(db, EventEntry(event_id=event.id, user_id=ana.id, registered_by_id=ana.id, state='confirmada',
+                               price_cents=0, confirmed_at=NOW - 52 * WEEK))
+    awarded = NOW - 51 * WEEK
+    add(db, EventPlacement(event_id=event.id, entry_id=entry.id, user_id=ana.id, placement=1, bonus_points=40,
+                           awarded_at=awarded))
+    for number in range(3):
+        match = played_tennis(db, ana, bia, [{'a': 6, 'b': 1}, {'a': 6, 'b': 2}],
+                              starts_at=NOW - 30 * WEEK + number * DAY)
+    recalculate_for_match(db, match, now=NOW)
+    assert rows(db)[ana.id].metric_value == 70 and rows(db)[ana.id].tier == 'prata'      # 3 wins (30) + 40
+    assert recalculate_outside_window(db, NOW) == 0
+
+    # Two weeks later the event is 53 weeks old; every match is still inside the window (30 weeks).
+    later = NOW + 2 * WEEK
+    assert recalculate_outside_window(db, later) == 1
+    assert (rows(db)[ana.id].metric_value, rows(db)[ana.id].wins, rows(db)[ana.id].tier) == (30, 3, 'prata')
+    assert rows(db)[ana.id].updated_at == later
+    assert recalculate_outside_window(db, later) == 0                                       # idempotent
 
 
 # ----- Walkovers --------------------------------------------------------------------------------------------

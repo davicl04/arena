@@ -92,17 +92,21 @@ const reducedMotion = () => typeof window.matchMedia === 'function' && window.ma
 
 /**
  * Gestão do evento (G3): o cartaz no topo, o cartão "Agora" com a próxima ação da API e as seções — inscritos (lista
- * da API), comprovantes e devoluções (tela própria), chaveamento e partidas (ainda não existem: apagadas), dados do
- * evento (editáveis conforme `editable_fields`) e pagamento/Pix —, o canal de avisos e as ações de excluir rascunho,
+ * da API), comprovantes e devoluções (tela própria), chaveamento ou tabela e partidas (telas próprias, com os contadores
+ * do cartaz; antes do sorteio ficam apagadas), dados do evento (editáveis conforme `editable_fields`) e pagamento/Pix —, o canal de avisos e as ações de excluir rascunho,
  * retirar da aprovação e cancelar.
  */
-export default function EventManagePage({ eventId, onBack, onEdit, onReceipts, onDeleted, onExpired }: {
+export default function EventManagePage({ eventId, onBack, onEdit, onReceipts, onBracket, onMatches, onDeleted, onExpired }: {
   eventId: number
   onBack: () => void
   /** Abre o assistente do rascunho no passo indicado (ou no primeiro incompleto). */
   onEdit: (step?: number) => void
   /** Comprovantes e devoluções (tela `event-receipts`). */
   onReceipts: () => void
+  /** Chaveamento ou tabela do campeonato (tela `event-bracket`). */
+  onBracket: () => void
+  /** Partidas do campeonato: agenda e decisões (tela `event-matches`). */
+  onMatches: () => void
   /** Rascunho excluído. */
   onDeleted: () => void
   onExpired: () => void
@@ -166,6 +170,27 @@ export default function EventManagePage({ eventId, onBack, onEdit, onReceipts, o
     })
   }
 
+  /* Chaveamento (ou Tabela) e Partidas: ficam apagadas até haver o que fazer; depois abrem as telas do campeonato. */
+  const champ = detail.championship ?? null
+  const treeTitle = detail.competition_type === 'todos_contra_todos' ? 'Tabela' : 'Chaveamento'
+  const drawable = detail.state === 'publicado' && !phaseOpen && champ !== null && champ.confirmed >= 2
+  const bracketReady = champ !== null && (champ.bracket === 'confirmado' || (detail.state === 'publicado' && (champ.bracket === 'sorteado' || drawable)))
+  const bracketValue = champ === null ? (phaseOpen ? 'Depois das inscrições' : 'Em breve no Arena')
+    : champ.bracket === 'confirmado' ? `Confirmado · ${plural(champ.matches_total, 'jogo', 'jogos')}`
+    : champ.bracket === 'sorteado' ? 'Sorteio feito · falta confirmar'
+    : phaseOpen ? 'Depois das inscrições'
+    : drawable ? `Pronto para sortear · ${plural(champ.confirmed, 'confirmado', 'confirmados')}` : detail.state === 'publicado' ? 'Confirme pelo menos 2 inscrições' : 'Sem chaveamento'
+  const bracketSection = bracketReady
+    ? <SectionLink Icon={GitFork} title={treeTitle} value={bracketValue} hot={champ?.bracket === 'sorteado'} onClick={onBracket} />
+    : <SectionLater Icon={GitFork} title={treeTitle} value={bracketValue} />
+  const matchesReady = champ !== null && champ.bracket === 'confirmado'
+  const matchesValue = !matchesReady ? (champ?.bracket === 'sorteado' ? 'Depois de confirmar o chaveamento' : phaseOpen ? 'Depois das inscrições' : 'Depois do sorteio')
+    : [champ.to_decide && `${champ.to_decide} para decidir`, champ.to_schedule && `${champ.to_schedule} para agendar`, champ.scheduled && `${plural(champ.scheduled, 'agendada', 'agendadas')}`,
+      champ.waiting && `${champ.waiting} esperando`, champ.finished && `${champ.finished} de ${champ.matches_total} encerradas`].filter(Boolean).join(' · ') || `${plural(champ.matches_total, 'jogo', 'jogos')}`
+  const matchesSection = matchesReady
+    ? <SectionLink Icon={CalendarDays} title="Partidas" value={matchesValue} hot={champ.attention > 0} onClick={onMatches} />
+    : <SectionLater Icon={CalendarDays} title="Partidas" value={matchesValue} />
+
   const dataRows: [string, ReactNode][] = [
     ['Nome', detail.name],
     ['Modalidade', sportLabel ? [sportLabel, ...format].join(' · ') : null],
@@ -205,7 +230,7 @@ export default function EventManagePage({ eventId, onBack, onEdit, onReceipts, o
       </div>
 
       <NextActionCard detail={detail} busy={action.busy} onSubmit={() => void submit()} onWithdraw={() => void withdraw()}
-        onFill={step => onEdit(step)} onReceipts={onReceipts} onShowEntries={showEntries} />
+        onFill={step => onEdit(step)} onReceipts={onReceipts} onShowEntries={showEntries} onBracket={onBracket} onMatches={onMatches} />
 
       <h2 className="mt-5 mb-2 text-[16px]">Seções</h2>
       <div className="rounded-card bg-white px-3.5">
@@ -223,8 +248,8 @@ export default function EventManagePage({ eventId, onBack, onEdit, onReceipts, o
         {detail.sport === 'corrida'
           ? <SectionLater Icon={Flag} title="Resultados" value={phaseOpen ? 'Depois da prova' : 'Em breve no Arena'} />
           : <>
-            <SectionLater Icon={GitFork} title={detail.competition_type === 'todos_contra_todos' ? 'Tabela' : 'Chaveamento'} value={phaseOpen ? 'Depois das inscrições' : 'Em breve no Arena'} />
-            <SectionLater Icon={CalendarDays} title="Partidas" value={phaseOpen ? 'Depois das inscrições' : 'Em breve no Arena'} />
+            {bracketSection}
+            {matchesSection}
           </>}
         <SectionPanel id="section-data" Icon={FileText} title="Dados do evento" open={open.data} onOpenChange={toggle('data')} hot={draft && missing > 0}
           value={draft ? (missing ? `${missing === 1 ? 'Falta 1 item' : `Faltam ${missing} itens`} do checklist` : 'Rascunho completo') : 'Modalidade, datas, local e elos'}>

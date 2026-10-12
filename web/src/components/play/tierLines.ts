@@ -1,5 +1,6 @@
 import type { Position } from '@/api/client'
-import type { MeStandings, PositionStanding, RunStanding, StandingLine, TeamStandings } from '@/api/play'
+import type { MeStandings, PositionStanding, StandingLine, TeamStandings } from '@/api/play'
+import type { RunBest } from '@/api/runs'
 import { footballFormat, placementRequired, positionOptions, rankingTiers, runDistances, shownTier, tiers } from '@/data/arena'
 import type { FootballFormat, RunDistance, TierKey } from '@/data/arena'
 
@@ -83,18 +84,22 @@ export function avulsoLine(individual: PositionStanding[], position: AvulsoPosit
   return placement(lines, label ? `Em classificação como ${lower(label)}` : 'Em classificação')
 }
 
-/** Corrida: o elo da distância ("Ouro nos 5 km · Melhor 24:12") ou "Sem marca nos 5 km". */
-export function runLine(corrida: RunStanding[], distance: RunDistance): TierLineView {
+/**
+ * Corrida: o elo da distância e o melhor tempo com a origem, a partir dos cartões de `GET /me/run-bests` ("Ouro nos
+ * 5 km" · "Melhor 24:12 · treino"). Sem marca, o texto do contrato; o elo nunca vai a quem está sem marca.
+ */
+export function runBestLine(bests: readonly RunBest[], distance: RunDistance): TierLineView {
   const label = runDistances.find(item => item.value === distance)?.label ?? `${distance} km`
-  const line = corrida.find(item => item.distance_km === distance)
-  const tier = rankedTier(line)
-  if (line && tier) {
-    const detail = line.metric_value != null ? `Melhor ${formatDuration(line.metric_value)}` : facesText(line)
-    return { kind: 'ranked', tier, title: `${tiers[tier].name} nos ${label}`, detail, levels: levelsText(line) }
+  const card = bests.find(item => item.distance_km === distance)
+  const tier = card ? shownTier(card.tier, card.marks, 1) : null
+  if (card?.best && tier) {
+    const origin = card.best.origin
+    return {
+      kind: 'ranked', tier, title: `${tiers[tier].name} nos ${label}`, levels: 'qualquer nível',
+      detail: `Melhor ${formatDuration(card.best.duration_s)} · ${origin.source === 'treino' ? lower(origin.label) : origin.label}`,
+    }
   }
-  if (!line || line.state === 'sem_marca' || !line.played)
-    return { kind: 'no-mark', title: `Sem marca nos ${label}`, detail: 'Registre um treino ou prova para entrar no ranking' }
-  return placement([line], `Em classificação nos ${label}`)
+  return { kind: 'no-mark', title: `Sem marca nos ${label}`, detail: 'Registre um treino ou prova para entrar no ranking' }
 }
 
 /** Resposta com as listas sempre presentes (a leitura não quebra com um campo ausente). */

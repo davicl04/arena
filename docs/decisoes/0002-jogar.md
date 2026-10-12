@@ -1,12 +1,14 @@
 # Decisões e contratos — Jogar
 
-Data: 12 de outubro de 2026. Contrato da **fase 1 do [plano do Jogar](../plano-jogar.md)** (elos: `rank_cuts` e `standings` vazios e a linha de classificação), executada na etapa 1 junto das fases 1 a 3 de [Times e campeonatos](0003-times-campeonatos.md). A **fase 7** (campeonatos e provas: lista, detalhe, inscrição, reserva, comprovante e devolução, lado do atleta) entra na etapa 2 e está na seção 6. As **fases 2 a 5** (pareamento, partida e chat, avulso, resultado e ranking) formam a etapa 3 e estão nas seções 7 a 17. As fases 6 (corrida) e 8 (Expo) ficam **a definir na fase correspondente** (seção 18).
+Data: 12 de outubro de 2026. Contrato da **fase 1 do [plano do Jogar](../plano-jogar.md)** (elos: `rank_cuts` e `standings` vazios e a linha de classificação), executada na etapa 1 junto das fases 1 a 3 de [Times e campeonatos](0003-times-campeonatos.md). A **fase 7** (campeonatos e provas: lista, detalhe, inscrição, reserva, comprovante e devolução, lado do atleta) entra na etapa 2 e está na seção 6. As **fases 2 a 5** (pareamento, partida e chat, avulso, resultado e ranking) formam a etapa 3 e estão nas seções 7 a 17. A **fase 6** (corrida: registro, marcas e elo por distância) está na seção 18. A fase 8 (Expo) fica **a definir na fase correspondente**.
 
 > **Estado (fase 1 implementada e integrada em 12 de outubro de 2026):** backend (migração `0005`, `app/services/rankings.py` e `GET /api/v1/me/standings`) e web (placa do Jogar com a linha do elo, `web/src/pages/PlayPage.tsx` e `web/src/components/play/`; grade C5 das carteirinhas de Meus times). Nenhuma partida, resultado ou marca é registrada nesta fase, então `standings` está vazio e toda linha sai em classificação ("0/3", sem elo). O botão redondo nunca simula busca: prepara o perfil, leva a Meus times ou fica desabilitado com o aviso da próxima etapa. O Expo ainda não tem a placa (última etapa). Convenções gerais (sessão, JSON, erros, paginação) estão na seção 1 de [0003](0003-times-campeonatos.md#1-convenções).
 >
-> **Estado (etapa 3: backend implementado e integrado em 12 de outubro de 2026):** as seções 9 a 16 estão implementadas e conciliadas no backend. A fundação (esquema `0009`, regras puras `app/services/match_rules.py` e `app/services/scoring.py`, fila `app/services/matchmaking_queue.py`, acessos e transições compartilhadas, varredura, notificações e `app/schemas/matches.py`) recebeu as quatro frentes: pareamento e propostas (`routers/matchmaking.py`, `services/matchmaking.py`), partida, condições, quadras, chat e W.O. (`routers/matches.py`, `routers/courts.py`, `services/matches.py`, `services/courts.py`, `services/match_views.py`), avulso e vagas (`routers/slots.py`, `services/slots.py`) e resultado, estatísticas, contestação e ranking (`routers/results.py`, `services/results.py`, `services/standings.py`). A integração unificou o tratamento dos erros de regra num handler global, fixou a **ordem global de travas** (seção 15.5, com testes de concorrência real), fez o aceite das condições oferecer as vagas aos avulsos que esperam, trocou as ofertas da placa pela implementação única de `slots.slot_offers`, alinhou `permissions.send_stats` à rota, criou o aviso `oferta_retirada` e conferiu o fluxo inteiro só pela API (busca, proposta, condições com quadra sugerida e publicada, avulso, chat e denúncia, placar, presença e estatísticas com contestação, ranking, divergência e varredura, tênis com super tie-break, cancelamento e W.O. decidido). Os desvios das frentes e da integração, já incorporados abaixo, estão na seção 16.1. A web da etapa 3 consome este contrato; o Expo fica para a última etapa; campeonatos (seção 17) e corrida (seção 18) continuam a definir.
+> **Estado (etapa 3: backend implementado e integrado em 12 de outubro de 2026):** as seções 9 a 16 estão implementadas e conciliadas no backend. A fundação (esquema `0009`, regras puras `app/services/match_rules.py` e `app/services/scoring.py`, fila `app/services/matchmaking_queue.py`, acessos e transições compartilhadas, varredura, notificações e `app/schemas/matches.py`) recebeu as quatro frentes: pareamento e propostas (`routers/matchmaking.py`, `services/matchmaking.py`), partida, condições, quadras, chat e W.O. (`routers/matches.py`, `routers/courts.py`, `services/matches.py`, `services/courts.py`, `services/match_views.py`), avulso e vagas (`routers/slots.py`, `services/slots.py`) e resultado, estatísticas, contestação e ranking (`routers/results.py`, `services/results.py`, `services/standings.py`). A integração unificou o tratamento dos erros de regra num handler global, fixou a **ordem global de travas** (seção 15.5, com testes de concorrência real), fez o aceite das condições oferecer as vagas aos avulsos que esperam, trocou as ofertas da placa pela implementação única de `slots.slot_offers`, alinhou `permissions.send_stats` à rota, criou o aviso `oferta_retirada` e conferiu o fluxo inteiro só pela API (busca, proposta, condições com quadra sugerida e publicada, avulso, chat e denúncia, placar, presença e estatísticas com contestação, ranking, divergência e varredura, tênis com super tie-break, cancelamento e W.O. decidido). Os desvios das frentes e da integração, já incorporados abaixo, estão na seção 16.1. A web da etapa 3 consome este contrato; o Expo fica para a última etapa. Os campeonatos (seção 17) e a corrida (seção 18) foram acrescentados depois, no backend, e estão no bloco seguinte.
 >
 > **Estado (etapa 3: fases 2 a 5 implementadas e integradas na web em 12 de outubro de 2026):** a web consome as seções 7 a 16 com quatro frentes conciliadas: a **placa** (busca de time, avulso e tênis, folha "Preparar busca" com vagas, proposta e oferta de vaga em tela cheia, "Minhas partidas" e o ponto menta do JOGAR; `PlayPage`, `components/play/`, `hooks/usePlayBoard.ts`), a **tela da partida** (cabeçalho, condições com quadra, reserva, vagas, cancelamento, W.O. e chat; `MatchPage`, `components/match/`), o **resultado e o Ranking** (cartão de resultado, presença, estatísticas, contestação e revisão, Ranking real e "Seu elo" do Início; `components/results/`, `components/ranking/`, `RankingPage`) e as **notificações e filas** (os 17 tipos da seção 13 com destino, "Sugestões de quadra" e "W.O. contestados" na administração, denúncia de mensagem na moderação). Os tipos comuns da partida têm um dono só, `web/src/api/matches.ts`. A integração também **revisou o relato do placar** (cego até o meu lado informar o meu, seção 12.3), expôs as **vagas declaradas** em `MatchSideOut.declared_slots` e fechou `permissions.suggest_court` depois do início (seção 16.1). Os desvios da web estão na seção 16.2. O Expo, o chaveamento e as partidas de campeonato (seção 17) e a corrida (seção 18) seguem a definir.
+>
+> **Etapas 4 e 5 (backend e web implementados e integrados em 12 de outubro de 2026; Expo em andamento):** os campeonatos (seção 17, com o chaveamento, a agenda e a decisão do organizador de [0003, seção 21](0003-times-campeonatos.md#21-etapa-4--chaveamento-agenda-e-decisão-do-organizador-fases-6-e-7); migração `0010`) e a corrida (seção 18: migração `0011` `runs`, `app/services/run_rules.py`, `app/services/runs.py`, as rotas `/me/runs`, `/me/runs/preview`, `/me/run-bests` e `/me/run-races` e o ranking por distância em `GET /rankings?sport=corrida`) estão implementados no backend e conciliados com o backend integrado da etapa 3: os erros de regra usam os handlers globais, a ordem global de travas da seção 15.5 vale também para o avanço do vencedor e para as marcas (seção 15.5, extensão das etapas 4 e 5), e a janela de 52 semanas olha partidas, marcas e o bônus do tênis. A web consome os dois contratos (campeonatos: [0003, seção 21.11](0003-times-campeonatos.md#2111-desvios-registrados-na-integração-da-web-etapa-4); corrida: seção 18.9). O Expo ainda está em andamento.
 
 ## 1. Elos e rankings
 
@@ -100,7 +102,7 @@ A mesma `FormatStanding` alimenta a grade C5 da carteirinha (`rankings.team_form
 | --- | --- | --- | --- |
 | `ranqueado` | imagem do elo | nome do elo ("Prata") | "Enfrenta Bronze, Prata ou Ouro" (de `faces`) |
 | `sem_jogos` ou `classificacao` | "n/3" em círculo tracejado e três barrinhas | "Em classificação" | "n de 3 partidas · enfrenta qualquer nível" (com `played`, inclusive 0) |
-| corrida `ranqueado` | imagem do elo | "Ouro nos 5 km" | "Melhor 24:12 · treino" (origem da marca: fase 6) |
+| corrida `ranqueado` | imagem do elo | "Ouro nos 5 km" | "Melhor 24:12 · treino" (origem e tempo: `GET /me/run-bests`, seção 18) |
 | corrida `sem_marca` | Coliseu sem elo | "Sem marca nos 5 km" | "Registre um treino ou prova para entrar no ranking" |
 
 - **Com meu time:** a linha do formato escolhido no time que o titular representa (`futebol.teams` com `my_role = 'representante'`). Sem time representado, a placa mostra o caminho para criar um time.
@@ -519,7 +521,7 @@ interface SearchCreated { search: MatchSearchOut; proposal: ProposalOut | null; 
 
 /** Placa do Jogar e ponto menta da navegação. */
 interface PlayBoard {
-  attention: boolean                 // busca aberta, proposta ou oferta pendente, ou partida 'combinando'
+  attention: boolean                 // busca aberta, proposta ou oferta pendente, ou amistoso 'combinando' (campeonato não: 17.3)
   searches: MatchSearchOut[]
   proposals: ProposalOut[]
   offers: SlotOfferOut[]
@@ -806,7 +808,7 @@ interface LineupOut {
 
 - Quem age pelo lado, com a partida `agendada` e a janela aberta (`match_rules.result_window_open`; senão `409 O placar é informado depois do horário da partida e até 48 h depois.`); já confirmado: `409 O placar já foi confirmado pelos dois lados.`; W.O. registrado: `409 Há um W.O. registrado nesta partida.`
 - Futebol: `validate_football_score` (`422 Informe números inteiros de 0 a 99.`). Tênis: `validate_tennis_sets(sets, super_tiebreak=match.super_tiebreak)`: sets de 6-0 a 6-4, 7-5 ou 7-6 com o tie-break (a 7, com 2 de vantagem, de quem venceu o set); super tie-break a 10 com 2 de vantagem no lugar do 3º set quando combinado; vencedor com 2 sets; 3º set só com os dois primeiros divididos. As mensagens apontam o set (`sets.2`).
-- Trava a partida e grava ou substitui a linha do meu lado (`match_results`). Se os dois placares forem iguais (`scores_agree`): `match_lifecycle.apply_final_score(…, source='confirmacao')`, `realizada`, `standings.recalculate_for_match`, notificação `resultado_partida` (`outcome: 'confirmado'`, `score_a`, `score_b`) aos membros e avulsos, faixa `resultado_confirmado`, auditoria `resultado.confirmado`. Se forem diferentes: notificação `resultado_divergente` (`deadline`) a quem age pelos dois lados, faixa `resultado_divergente`, auditoria `resultado.divergente`. Primeiro envio: faixa `placar_enviado`, auditoria `resultado.informado`. Em campeonato, a divergência vai ao organizador (etapa 4).
+- Trava a partida e grava ou substitui a linha do meu lado (`match_results`). Se os dois placares forem iguais (`scores_agree`): `match_lifecycle.apply_final_score(…, source='confirmacao')`, `realizada`, `standings.recalculate_for_match`, notificação `resultado_partida` (`outcome: 'confirmado'`, `score_a`, `score_b`) aos membros e avulsos, faixa `resultado_confirmado`, auditoria `resultado.confirmado`. Se forem diferentes: notificação `resultado_divergente` (`deadline`) a quem age pelos dois lados, faixa `resultado_divergente`, auditoria `resultado.divergente`. Primeiro envio: faixa `placar_enviado`, auditoria `resultado.informado`. Em campeonato, a divergência vai ao organizador ([seção 17](#17-uso-nas-partidas-de-campeonato-etapa-4)).
 - **Relato cego (decisão do orquestrador de 12/10, que revê a anterior):** `result.reports` mostra o **meu** relato sempre. O do outro lado só traz o `score` depois que o **meu lado já informou o meu** (o que inclui a divergência, em que os dois informaram) ou quando o resultado já está decidido (partida que deixou de ser `agendada`: `realizada`, `encerrada` ou `sem_resultado`). Antes disso o relato do outro lado existe, com `side`, `reported_by` e `updated_at`, mas com `score: null`: a tela diz que o outro lado já informou, sem o placar. Quem não age por lado (administração e organizador) vê os dois. Vale para todo o meu lado (representantes, membros e avulso). Motivo: copiar o placar do adversário não é conferir o resultado; a confirmação precisa de dois relatos independentes. A faixa `placar_enviado` do chat também não traz o placar.
 
 ### 12.4 Presença e estatísticas (RN03, RN10, RN12, RN13)
@@ -820,7 +822,7 @@ interface LineupOut {
 
 ### 12.5 Prazo de 48 h (varredura)
 
-`match_lifecycle.close_due_results`: amistoso `agendada` vencido sem W.O. → `sem_resultado` (notificação `resultado_partida` com `outcome: 'sem_resultado'`, faixa, auditoria `partida.sem_resultado`); com W.O. não contestado → W.O. (seção 10.7); `realizada` vencida → `encerrada` (auditoria `partida.encerrada`, recálculo). W.O. contestado e campeonato sem confirmação ficam como estão.
+`match_lifecycle.close_due_results`: amistoso `agendada` vencido sem W.O. → `sem_resultado` (notificação `resultado_partida` com `outcome: 'sem_resultado'`, faixa, auditoria `partida.sem_resultado`); com W.O. não contestado → W.O. (seção 10.7); `realizada` vencida → `encerrada` (auditoria `partida.encerrada`, recálculo). W.O. contestado e campeonato sem confirmação ficam como estão (o organizador decide, [seção 17](#17-uso-nas-partidas-de-campeonato-etapa-4)).
 
 ### 12.6 Rankings (RN11, RN14, RN16, RN23)
 
@@ -828,7 +830,7 @@ interface LineupOut {
 interface RankingRow {
   rank_position: number
   tier: Tier                     // só classificados aparecem na lista
-  metric_value: number           // pontos (time, tênis) ou média por partida (individual)
+  metric_value: number           // pontos (time, tênis), média por partida (individual) ou segundos (corrida)
   matches_played: number
   wins: number; draws: number; losses: number
   goals_for: number | null       // time: gols; tênis: sets; individual: null
@@ -854,7 +856,7 @@ interface RankingPage {
 }
 ```
 
-- **Parâmetros:** `sport=futebol&kind=time&format=` (times por formato), `sport=futebol&kind=individual&format=&position=` (12 rankings), `sport=tenis`; `sport=corrida&distance_km=` fica para a fase 6 (até lá, lista vazia). Faltando categoria: `422 Escolha o formato.`, `422 Escolha a posição.` ou `422 Escolha a distância.` Rankings **gerais** (sem cidade); quem tem bloqueio com o titular continua na lista, sem avatar. Ordem por `rank_position` crescente; cursor opaco com a última posição; `limit` padrão 20, máximo 50.
+- **Parâmetros:** `sport=futebol&kind=time&format=` (times por formato), `sport=futebol&kind=individual&format=&position=` (12 rankings), `sport=tenis`; `sport=corrida&distance_km=3|5|10|21|42` (seção 18.5: `metric_value` em segundos, o menor tempo vence, `matches_played` conta as marcas da janela, `wins`/`draws`/`losses` são 0 e `goals_for`/`goals_against` são `null`). Faltando categoria: `422 Escolha o formato.`, `422 Escolha a posição.` ou `422 Escolha a distância.` Rankings **gerais** (sem cidade). Ordem por `rank_position` crescente; cursor opaco com a última posição; `limit` padrão 20, máximo 50. Quem tem bloqueio com o titular continua na lista, sem avatar.
 - **Recálculo** (`services/standings.recalculate_for_match(db, match, *, now, positions=())`, seção 15.4): na confirmação, na decisão ou no fim do prazo, recalcula os rankings que a partida toca, na mesma transação: os dois times no formato (`futebol_time`), cada atuação presente na posição e no formato (`futebol_individual`) ou os dois tenistas (`tenis`), com:
   - janela de 52 semanas pelo `starts_at` (`scoring.in_window`);
   - partidas `realizada` ou `encerrada` com placar final;
@@ -984,6 +986,25 @@ Toda transição da etapa 3 pede as travas nesta ordem, e nenhuma pede uma de n�
 - **Dentro do balde**, a busca que chega é travada antes das vagas candidatas (`_offer_to_walkin`) e `offer_slots` trava as vagas antes das buscas: sem ciclo, porque quem trava vaga `aberta` ou busca `ativa` fora do balde não existe (o cancelamento da partida trava só vagas e as buscas `pareada` das ofertas).
 - **Testes com conexões reais** (`tests/integration/test_lock_order_stage3_concurrency.py`; os três primeiros reproduzem o `DeadlockDetected` da ordem antiga): a varredura de ofertas vencidas contra o representante que fecha a vaga; o cancelamento de uma busca com oferta vencida contra o mesmo fechamento; o segundo aceite das condições (que abre e oferece as vagas) contra o ajuste de vagas da mesma partida; e a varredura que confirma proposta por proposta. Os demais testes de concorrência da etapa (`test_matchmaking_concurrency.py`, `test_matchmaking_routes_concurrency.py`, `test_slots_concurrency.py`, `test_results_concurrency.py`, `tests/integration/partida/test_concurrency.py`) continuam valendo.
 
+#### Extensão das etapas 4 e 5 (campeonatos e corrida)
+
+A ordem completa, juntando a de eventos ([0003, 19.1](0003-times-campeonatos.md#191-ordem-global-das-travas)) e a desta seção, é: conta do organizador → permissão → **evento** → time → inscrições → comprovantes → **partida** (a partida e a que ela alimenta, por `id` crescente) → ranking → balde → vaga → busca. O organizador sempre começa pelo evento, e o time já vinha depois dele em 19.1 (nível 4), então os dois quadros concordam e nenhuma rota pede um nível acima do que já segura.
+
+| Rota ou tarefa | Travas, na ordem |
+| --- | --- |
+| Sortear e trocar lugares (`POST` e `PATCH …/bracket`) | evento `FOR UPDATE` → chaveamento |
+| Confirmar o chaveamento (`POST …/bracket/confirm`) | evento `FOR UPDATE` → chaveamento → inscrições do evento `FOR UPDATE` (por `id`) → partidas novas (linhas inseridas, ninguém as trava ainda) |
+| Agendar (`PUT /organizer/matches/{id}/schedule`) | evento `FOR UPDATE` → partida `FOR UPDATE` (lê as outras sem travar; o evento serializa o conflito de agenda) |
+| Decidir (`POST …/result-decision`) | evento `FOR UPDATE` → partida → **partida seguinte** (`championship_lifecycle.lock_following`) → ranking → balde → busca |
+| Informar o placar que confirma (`PUT /matches/{id}/result`) | partida → partida seguinte (`lock_following`, só quando os placares batem) → ranking → balde → busca; depois **tenta** o evento com `SKIP LOCKED` para encerrá-lo (nunca espera) |
+| Encerrar o campeonato (`finish_event`) | o evento `FOR UPDATE` já segurado (pelo organizador, pela tentativa acima ou pela varredura com `SKIP LOCKED`); lê as partidas sem travar; ranking do tênis, se o bônus vale |
+| Cancelar o evento | evento `FOR UPDATE` → inscrições → partidas abertas, por `id` |
+| Registrar a marca (`POST /me/runs`) | evento `FOR SHARE` → inscrição `FOR UPDATE` (só na prova) → ranking `corrida_<km>` (trava consultiva) |
+| Remover a marca (`DELETE /me/runs/{id}`) | a linha da marca `FOR UPDATE` → ranking `corrida_<km>` (a marca é folha: quem a segura nunca espera por evento, partida ou inscrição) |
+| Varredura `campeonatos_encerrados` / `rankings_janela` | evento com `SKIP LOCKED`, sem esperar / só os rankings, na ordem de `RankingKey.sort_key` |
+
+**Ajuste da conciliação.** O avanço do vencedor travava a partida seguinte *depois* do ranking, do balde e da busca (`results._confirm` e `championship.decide_result` recalculavam o ranking antes de `after_score`), isto é, pedia uma trava de partida segurando níveis mais baixos. Não havia ciclo alcançável (quem segura essa partida e espera o ranking não existe: ela só recebe resultado depois de agendada, e agendar exige os dois lados), mas a ordem estava fora do contrato. Agora `championship_lifecycle.lock_following` trava a partida seguinte antes de `recalculate_for_match`; `advance_winner` a trava de novo na mesma transação, sem custo. Provado pela **ordem do SQL** (`tests/integration/sql_trace.py`): `test_a_score_locks_the_match_it_feeds_before_it_locks_the_rankings` (placar confirmado e decisão do organizador, em `test_championship_concurrency.py`) e `test_a_mark_takes_its_locks_in_the_global_order_and_the_ranking_last` (corrida, em `test_runs_concurrency.py`). Os testes de concorrência real de campeonato e de corrida continuam valendo.
+
 ## 16. Divisão por frente na etapa 3 (executada)
 
 **Backend** (quatro frentes paralelas, sem editar os mesmos arquivos; integradas num único passo, seção 16.1):
@@ -1048,12 +1069,260 @@ Os tipos comuns da partida (`MatchCard`, `MatchDetail`, `MatchSideOut`, `ScoreOu
 | 12.4 | Divergência: "Vocês informaram 2 × 0; Tigres do Lago informou 1 × 1" (no tênis, "Você informou…"), em vez de "2 × 0 contra 1 × 1 dos Tigres". | O "dos" não combina com nomes de time no singular (achado no navegador). |
 | 12.3 | O cartão de resultado nunca mostra o placar do outro lado antes do meu: "Ferrugem FC já informou o placar. Informe o seu: se os dois baterem, o resultado é confirmado." | Relato cego (seção 12.3). |
 
-## 17. Uso nas partidas de campeonato (etapa 4) — a definir
+## 17. Uso nas partidas de campeonato (etapa 4)
 
-As partidas de campeonato reaproveitam a partida, o chat e o cartão de resultado; o organizador agenda, participa do chat e decide a divergência. O esquema já comporta: `origin = 'campeonato'`, `event_id`, `round_number` (fase ou rodada), `bracket_position`, `next_match_id`/`next_match_side`, de 0 a 2 lados, condições com `proposed_by_side` nulo (organizador), `result_source = 'organizador'` com motivo, o papel `organizador` no acesso e a exclusão das partidas de campeonato do fechamento automático por divergência. Rotas, estados de chaveamento (folga, "Vencedor J1"), conflito de quadra de 2 h (índice `ix_matches_court_start`) e o bônus do tênis ficam **a definir na etapa 4**.
+> **Estado (backend e web implementados e integrados em 12 de outubro de 2026; Expo em andamento):** as partidas de campeonato reaproveitam a partida, o chat e o cartão de resultado das seções 7 a 15. O chaveamento que as cria, o agendamento do organizador e a decisão da divergência estão em [0003, seção 21](0003-times-campeonatos.md#21-etapa-4--chaveamento-agenda-e-decisão-do-organizador-fases-6-e-7); aqui fica o que muda na partida. A web consome este contrato: na `MatchPage` de campeonato não há "Propor outra" nem aceite, o organizador escreve no chat com a etiqueta "Organizador" e "Agendar", "Reagendar" e "Decidir resultado" seguem `permissions.schedule_match` e `permissions.decide_result`. O Expo ainda está em andamento.
 
-## 18. Fases 6 e 8 (a definir na fase correspondente)
+### 17.1 O que a partida de campeonato é
 
-- **Fase 6 — Corrida:** registro, tolerância de ±2%, marcas e o ranking por distância (`GET /rankings?sport=corrida`). A definir.
-- **Fase 7 — Campeonatos e provas:** seção 6.
-- **Fase 8 — Expo.** A definir.
+Uma linha de `matches` com `origin = 'campeonato'`, `event_id`, `round_number` (fase ou rodada), `bracket_position`, `next_match_id` e `next_match_side`. Nasce **`combinando`**, sem proposta, quando o organizador confirma o chaveamento, com **0, 1 ou 2 lados** (`match_sides`): a eliminação cria todas as fases de uma vez e os lados das fases seguintes são preenchidos pelo vencedor de cada jogo (0003, 21.5). Sem lados definidos, só o organizador e a administração enxergam a partida.
+
+| Tema | Amistoso | Campeonato |
+| --- | --- | --- |
+| Criação | busca e proposta de 2 h | confirmação do chaveamento |
+| Data, hora e quadra | condições propostas e aceitas pelos dois lados | **só o organizador** (`PUT /organizer/matches/{id}/schedule`, horário livre, conflito de 2 h) |
+| `terms.current`, `terms.pending`, `booking` | condições aceitas e reserva | **sempre `null`**: a data e a quadra estão em `starts_at` e `court` |
+| Cancelar | os elencos, até 24 h antes | **só o evento** (cancelar o evento cancela as partidas abertas); `409 Partidas de campeonato são canceladas pelo organizador.` |
+| W.O. | o lado presente registra; o ausente contesta; a administração decide | **o organizador decide** (`POST /organizer/matches/{id}/result-decision`) |
+| Placar | cartão R4: cada lado informa; iguais confirmam | o **mesmo cartão**; **divergente ou sem placar depois de 48 h, o organizador decide**; na eliminação, sem empate |
+| Prazo de 48 h sem resultado | `sem_resultado` | **continua `agendada`** até o organizador decidir (`close_due_results` só fecha amistosos) |
+| Chat | os dois elencos e os avulsos | os dois elencos **e o organizador** |
+| Vagas e avulsos | sim | não |
+
+### 17.2 Papéis, permissões e chat
+
+- **`organizador`** é o dono do evento (`events.organizer_user_id`), reconhecido por `match_access` quando não é do elenco de um dos lados. `side` é `null` e ele **não age pelo lado** (`acts_for_side` falso): não aceita nem propõe condições, não informa placar, não registra presença nem estatísticas. Quem é, ao mesmo tempo, membro de um time da partida mantém o papel de membro na leitura; as rotas do organizador (agendar e decidir) conferem o **dono do evento**, não o papel.
+- **Chat.** O organizador lê e escreve desde `combinando` (até o fim da partida, depois só lê), como `author_role: 'organizador'` e `side: null`. A administração só lê. Estranhos recebem `404`. A denúncia de mensagem (`match_message`) vale para ele como para os demais leitores.
+- **`MatchPermissions`** ganha dois campos:
+
+```ts
+interface MatchPermissions {
+  // …os da seção 10.1…
+  schedule_match: boolean   // organizador: os dois lados definidos e (combinando, ou agendada antes do início)
+  decide_result: boolean    // organizador: agendada e já iniciada (a decisão pode ser recusada com 409 pela regra de 0003, 21.5)
+}
+```
+
+  Para os elencos de uma partida de campeonato, `propose_terms`, `accept_terms`, `suggest_court`, `confirm_booking`, `cancel`, `register_walkover`, `withdraw_walkover` e `contest_walkover` são sempre falsos; `report_result`, `attendance` e `send_stats` seguem as regras do amistoso. As rotas respondem `409` com as mensagens do campeonato: `Num campeonato, o organizador define data, horário e quadra.` (propor condições e sugerir quadra), `Partidas de campeonato são canceladas pelo organizador.` e `Num campeonato, o W.O. é decidido pelo organizador.`
+- **`needs_my_action`** do organizador: a partida está sem data com os dois lados definidos, ou tem placar divergente, ou passou das 48 h sem resultado. Dos elencos: as regras de sempre (informar o placar, enviar estatísticas…).
+
+### 17.3 Estados e fases
+
+As transições da seção 7.3 valem. Em campeonato: `combinando` significa "aguardando a agenda do organizador" (ou o adversário); `combinando → agendada` é o primeiro `schedule`; `agendada → realizada` por placares iguais; **`agendada → encerrada` por decisão do organizador** (divergência, prazo ou W.O.); `realizada → encerrada` pela varredura, 48 h depois do início. `sem_resultado` não existe em campeonato. Cancelar o evento leva `combinando` e `agendada` a `cancelada`. A fase `divergente` do cartão S1 espera a decisão do organizador, sem prazo.
+
+Placa do Jogar (`GET /me/play`): a partida de campeonato em `combinando` **não** acende o ponto menta (`attention`), porque não há nada para os elencos combinarem.
+
+### 17.4 Resultado e divergência
+
+- Os elencos informam o placar pelas rotas de [12.2](#122-rotas) (`PUT /matches/{id}/result`) como num amistoso. **Placares iguais** confirmam na hora (`realizada`), recalculam os rankings e, na eliminação, **levam o vencedor** à partida seguinte (0003, 21.5).
+- **Eliminação simples não tem empate:** `422 Na eliminação simples não há empate. Informe o placar final com o vencedor (some os pênaltis, se houver).` (campo `goals_a`). O todos contra todos aceita empate.
+- **Placares diferentes:** os elencos recebem `resultado_divergente` e o organizador, `divergencia_para_decidir` (0003, 21.6). A partida **fica `agendada`** com a fase `divergente`; os lados podem corrigir o próprio placar até o fim das 48 h, e o organizador decide a qualquer momento (sem prazo para ele).
+- **Decisão** (`POST /organizer/matches/{id}/result-decision`, `{ score, justification }`): placar final com `result_source = 'organizador'`, `result_decided_by_id`, `result_decided_at` e `result_decision_reason` (a **justificativa**, de 5 a 500 caracteres, visível aos dois times em `MatchDetail.result.decision_reason`), partida `encerrada`, `result_decisions`, `audit_log` (`resultado.decidido`), recálculo dos rankings, avanço do vencedor, faixa `resultado_decidido` no chat e `decisao_registrada` aos dois elencos. Depois dela, os lados não informam mais placar (`409`).
+- **Prazo vencido:** depois de 48 h do início sem placar confirmado (nenhum placar, ou só um), o organizador decide da mesma forma (`kind: 'prazo'`). Antes disso, sem divergência: `409 Os times ainda podem informar o placar…`.
+
+### 17.5 W.O. no campeonato
+
+Os elencos não registram W.O. O organizador decide depois do início com `walkover_absent_side` (e a justificativa), sem `score`: o lado presente vence por 3 × 0 (futebol) ou 6-0 6-0 (tênis), a partida vai a `encerrada` e a linha de `result_decisions` tem `kind = 'wo'`. A partida guarda `walkover_absent_side`, `walkover_registered_by_id` e `walkover_registered_at` (o organizador), sem contestação nem decisão da administração (`walkover_decision` fica nulo): na classificação individual, quem estava no lado ausente não pontua e o lado presente ganha a vitória, como no amistoso. Sem restrição automática no MVP (decisão de 12 de outubro).
+
+### 17.6 Ranking e bônus do tênis (RN16)
+
+Uma partida de campeonato conta no ranking como qualquer outra (`realizada` ou `encerrada`, janela de 52 semanas pelo `starts_at`). O **bônus** (campeão +40, vice +20, semifinalistas ou 3º e 4º +10, só com 4 ou mais inscrições confirmadas) é gravado em `event_placements.bonus_points` quando o evento encerra; `standings._tennis_records` soma o bônus dos eventos encerrados dentro da janela (`TennisRecord.bonus`) e a pontuação do tênis passa a ser `10 × vitórias + bônus`. O gancho comentado da M4 foi preenchido. O bônus conta enquanto o `awarded_at` do evento está dentro das 52 semanas e **sai da janela por conta própria**, depois das partidas do mesmo atleta: por isso `standings.recalculate_outside_window` (`rankings_janela`) também recalcula o ranking do tênis quando há um bônus (`bonus_points > 0`) que saiu da janela desde a última gravação, mesmo que nenhuma partida tenha saído (conciliação da etapa 4 com a etapa 3; teste `test_a_championship_bonus_leaves_the_tennis_points_when_its_event_leaves_the_window`). Um atleta com bônus e sem partida confirmada na janela não tem linha: o bônus acompanha as partidas, não classifica ninguém.
+
+### 17.7 Faixas do chat e varredura
+
+`MatchEventType` ganha `resultado_decidido` (`payload: { kind, score_a, score_b, absent_side }`; `side` é o lado vencedor). `partida_combinando` também anuncia que os dois adversários da fase seguinte estão definidos, e `partida_agendada` (com o organizador como autor) anuncia o agendamento e o reagendamento (`payload.changed`). A varredura da seção 15.2 ganha a tarefa `campeonatos_encerrados` (antes de `rankings_janela`), que encerra o evento em andamento cujas partidas todas têm resultado final.
+
+## 18. Fase 6 — Corrida (registro, marcas e elo por distância)
+
+Etapa 5 (backend implementado e conciliado com o backend integrado da etapa 3 em 12 de outubro de 2026; a web consome estas rotas na tela K2 + K4 do [plano](../plano-jogar.md#corrida-k2--k4), com os desvios na seção 18.9; o Expo fica para a última etapa). Convenções da [seção 1 de 0003](0003-times-campeonatos.md#1-convenções): prefixo `/api/v1`, sessão obrigatória, ações com JSON, `DELETE` sem corpo, `{ detail }` em português, `404` para o que não é do titular, `409` para conflito de estado e `422` com `fields` (`[{ field, message }]`) para a regra de produto violada. Código: `app/models/runs.py`, `app/schemas/runs.py`, `app/routers/runs.py`, `app/services/run_rules.py` (regras puras), `app/services/runs.py` (banco), o recálculo em `app/services/standings.py` e as peças puras de `app/services/scoring.py` (`RunRecord`, `run_order`). Esquema na migração `0011`.
+
+### 18.1 Regras do produto
+
+- **Marca autodeclarada (RN17):** treino e prova valem pelo que o atleta informa; **nenhum comprovante** é pedido e `runs.verified` fica `false`. A API não expõe `verified`. A origem que o atleta vê é **"Treino"** ou **o nome da prova**; a palavra "autodeclarado" nunca aparece nas respostas nem deve aparecer nas telas.
+- **Distância padrão (tolerância de ±2%):** o atleta informa a distância em metros e o servidor resolve a **distância padrão** (`standard_distance_km`) quando `|distância − padrão| × 50 ≤ padrão`. As faixas não se sobrepõem. Fora de todas elas a marca fica só no histórico (`standard_distance_km: null`) e não toca ranking algum. **Não se converte tempo de outra distância pelo ritmo.**
+
+| Padrão | Faixa aceita (m) | Exemplos |
+| --- | --- | --- |
+| 3 km | 2 940 a 3 060 | |
+| 5 km | 4 900 a 5 100 | |
+| 10 km | 9 800 a 10 200 | 9 800 conta como 10 km; 9 790 e 10 201 não |
+| 21 km | 20 580 a 21 420 | meia maratona (21 097 m) conta como 21 km |
+| 42 km | 41 160 a 42 840 | maratona (42 195 m) conta como 42 km |
+
+- **Limites e plausibilidade (`run_rules`):**
+  - distância entre **1 000 m e 100 000 m**;
+  - ritmo entre **2:00 e 15:00 por km** (120 a 900 s/km) e duração de no máximo 24 h (86 400 s). Exemplos: 5 km aceita 10:00 a 1:15:00; 10 km, 20:00 a 2:30:00; 42 195 m, 1:24:24 a 10:32:55; 100 km, 3:20:00 a 24:00:00;
+  - a mensagem diz se o tempo é "rápido demais" ou "longo demais" para a distância e aponta o campo `duration_s`.
+- **Dia da marca:** `date` (`AAAA-MM-DD`) é o dia do calendário de **Brasília (UTC−3)**; sem `date`, o treino vale hoje. O treino **não aceita data futura** nem **anterior à janela de 52 semanas** (de hoje − 364 dias até hoje). Marcas mais velhas que a janela nunca contariam no ranking, então são **recusadas** em vez de entrarem como histórico (decisão).
+- **Prova do Arena (`source = 'prova'`):**
+  - exige a **inscrição confirmada do próprio atleta** (`entry_id`) numa prova de corrida (`events.sport = 'corrida'`) **cuja largada já passou** (`starts_at ≤ agora`) e que não foi cancelada;
+  - a distância declarada precisa bater com a da prova **dentro dos ±2%** (a marca guarda o que o atleta informou, ex.: 10 150 m numa prova de 10 km);
+  - o dia da marca é o **dia da prova** (`date` pode ser omitida; se vier outra, `422`) e também precisa estar na janela de 52 semanas;
+  - é **uma marca por inscrição** (índice único parcial em `runs.event_entry_id`). Quem remove a marca (`DELETE`) pode registrar outra para a mesma inscrição;
+  - o rótulo da origem é o **nome da prova**.
+- **Ranking de uma distância:** métrica = **melhor tempo** (segundos) das marcas da janela com aquela distância padrão; **o menor vence**; **a primeira marca já classifica** (`placement_matches = 1`) e já recebe elo. Elo por tempo nos cortes `calc_version = 1` de cada distância (`menor`: tempo ≤ corte) e **Lendário** = tempo de Diamante e posição ≤ ⌊classificados × 15%⌋ (com menos de 7 classificados na distância, ninguém). Empate de tempo: quem correu primeiro (menor `date`), depois o menor id do atleta. Rankings **gerais**, sem cidade.
+- **Recálculo na mesma transação:** registrar ou remover uma marca com distância padrão recalcula inteiro o ranking daquela distância (`standings.recalculate_rankings`, com a trava consultiva do ranking `corrida_<km>`), na mesma transação da marca e da auditoria. Uma marca fora das faixas não recalcula nada. A corrida **não tem busca**: o recálculo não toca o pareamento (as buscas e as vagas ignoram `corrida_*`).
+- **Saída da janela:** a tarefa diária `rankings_janela` (`standings.recalculate_outside_window`) passa a cobrir também a corrida: marcas que saíram das 52 semanas deixam de contar e quem ficou sem marca volta a `sem_marca`. Até a varredura, o ranking materializado (`/rankings`, `/me/standings`, elo e posição do cartão) pode guardar uma marca que acabou de sair; "Suas marcas" (melhor tempo, origem e série) lê as marcas direto e já respeita a janela.
+- **Elegibilidade de provas (RN18):** `rankings.subject_tier(…, 'corrida', distance_km=)` passa a devolver o elo da distância assim que há marca; quem ainda está sem marca continua sem elo.
+- **Sem notificações:** registrar uma marca não notifica ninguém.
+
+### 18.2 Objetos
+
+Espelho de `app/schemas/runs.py`. `Tier`, `Page` e `StandingLine` estão na [seção 1 de 0003](0003-times-campeonatos.md#tipos-comuns-typescript) e na seção 2 deste documento. Datas (`date`) são `AAAA-MM-DD`; instantes, ISO 8601 em UTC.
+
+```ts
+type RunSource = 'treino' | 'prova'
+type RunDistanceKm = 3 | 5 | 10 | 21 | 42
+type RunKind = 'primeira_marca' | 'novo_melhor' | 'sem_melhora' | 'fora_do_ranking'
+type RunFilter = '3' | '5' | '10' | '21' | '42' | 'outra'   // filtro do histórico
+
+interface RunInput {
+  distance_m: number               // inteiro (JSON), 1000 a 100000
+  duration_s: number               // inteiro (JSON), plausível para a distância (18.1)
+  source: RunSource
+  date?: string | null             // treino: padrão hoje; prova: o dia da prova (outra data é recusada)
+  entry_id?: number | null         // só em 'prova': a inscrição confirmada do titular
+}                                  // campos desconhecidos (user_id, verified, standard_distance_km…) são recusados
+
+/** O que o atleta vê como origem: "Treino" ou o nome da prova. */
+interface RunOrigin { source: RunSource; label: string; event_id: number | null }
+
+/** Linha do histórico e marca salva. */
+interface Run {
+  id: number
+  distance_m: number
+  standard_distance_km: RunDistanceKm | null   // null: fora das faixas, só histórico
+  duration_s: number
+  pace_s_per_km: number                        // segundos por km, arredondado; "5:02/km" = 302
+  date: string
+  origin: RunOrigin
+  counts_for_ranking: boolean                  // distância padrão e dentro das 52 semanas
+  created_at: string
+}
+
+/** O que a marca faz (prévia) ou fez (salva) com o ranking da distância. */
+interface RunImpact {
+  kind: RunKind
+  previous_best_s: number | null    // melhor da janela antes desta marca
+  delta_s: number | null            // duration_s − previous_best_s (negativo: mais rápido); null sem melhor anterior
+  tier_before: Tier | null          // elo antes (null sem marca anterior)
+  tier_after: Tier | null           // elo depois (null fora do ranking); na prévia é uma estimativa
+  tier_up: boolean                  // tinha elo e o novo é maior ("Sobe para Ouro")
+}
+
+interface RunPreview {
+  distance_m: number; duration_s: number; pace_s_per_km: number
+  date: string
+  standard_distance_km: RunDistanceKm | null
+  origin: RunOrigin
+  impact: RunImpact
+}
+
+interface RunCreated { run: Run; impact: RunImpact; best: RunBest | null }   // best: cartão da distância, null no histórico
+
+/** Cartão "Suas marcas" (K4). */
+interface RunBest {
+  distance_km: RunDistanceKm
+  state: 'sem_marca' | 'ranqueado'
+  tier: Tier | null                 // nunca atribuído a quem está sem marca
+  rank_position: number | null
+  best: { id: number; distance_m: number; duration_s: number; pace_s_per_km: number; date: string; origin: RunOrigin } | null
+  marks: number                     // marcas da janela nesta distância
+  series: { id: number; date: string; duration_s: number }[]   // minigráfico: marcas da janela, da mais antiga à mais nova, até 60 (as últimas)
+}
+
+/** Prova em que o atleta pode registrar a marca ("Prova do Arena"). */
+interface RunRace { entry_id: number; event_id: number; event_name: string; distance_km: RunDistanceKm; starts_at: string; date: string }
+```
+
+**Textos da web (sugestão):** `kind = 'novo_melhor'` → "Novo melhor tempo · −0:24" (`delta_s`); `tier_up` → "Sobe para Ouro" (`tier_after`); `primeira_marca` → "Primeira marca · Ouro nos 5 km" (nada para subir); `sem_melhora` → "Seu melhor continua 24:12"; `fora_do_ranking` → "Fica só no histórico" (a distância não é de 3, 5, 10, 21 ou 42 km, com a tolerância de ±2%). O ritmo da tela do cronômetro vem de `pace_s_per_km` (a prévia confirma o valor do servidor).
+
+### 18.3 Rotas
+
+| Rota | Quem | Corpo | Resposta |
+| --- | --- | --- | --- |
+| `POST /me/runs/preview` | titular | `RunInput` | `200 RunPreview` (não grava nem trava) |
+| `POST /me/runs` | titular | `RunInput` | `201 RunCreated` |
+| `GET /me/runs?distance=&cursor=&limit=` | titular | — | `Page<Run>`: histórico completo (inclui as fora das faixas), do dia mais recente para o mais antigo; `distance` = `3`, `5`, `10`, `21`, `42` (distância padrão) ou `outra` (fora das faixas); `limit` padrão 20, máximo 50 |
+| `DELETE /me/runs/{id}` | titular | — | `204`; recalcula a distância; `404 Marca não encontrada.` para a marca de outra pessoa |
+| `GET /me/run-bests` | titular | — | `{ items: RunBest[] }`: sempre os cinco cartões (3, 5, 10, 21, 42), mesmo sem marca |
+| `GET /me/run-races` | titular | — | `{ items: RunRace[] }`: provas com inscrição confirmada, largada passada, dentro das 52 semanas e sem marca; da mais recente para a mais antiga, até 50 |
+| `GET /rankings?sport=corrida&distance_km=` | qualquer atleta logado | — | `RankingPage` (18.5) |
+| `GET /me/standings` | titular | — | `MeStandings`: `corrida` reflete as marcas (18.5) |
+
+Sem sessão, `401`. O titular é sempre a sessão: `user_id` no corpo é recusado.
+
+### 18.4 Regras das rotas e erros
+
+Validação na ordem em que o atleta a encontra (a prévia aplica as mesmas regras do registro):
+
+1. Forma do corpo (`422 Revise os campos informados.` com `fields`): campo desconhecido, número que não é inteiro, `source` inválido, `date` que não é `AAAA-MM-DD`.
+2. Treino: `entry_id` presente → `422 O treino não tem prova.` (`entry_id`). Prova: sem `entry_id` → `422 Escolha a prova do Arena.` (`entry_id`).
+3. Prova, a inscrição: inexistente ou de outra pessoa (inclusive o organizador e a administração) → `404 Inscrição não encontrada.`; evento que não é de corrida → `422 Esta inscrição não é de uma prova de corrida.` (`entry_id`); inscrição fora de `confirmada` → `409 Só inscrições confirmadas registram a marca da prova.`; evento cancelado → `409 Esta prova foi cancelada.`; largada no futuro → `409 A marca da prova é registrada depois da largada.`
+4. Medida (`422` com o campo):
+   - `distance_m`: `A distância deve ficar entre 1 km e 100 km.`
+   - `duration_s`: `Informe o tempo da corrida.`, `Esse tempo é rápido demais para 5 km (ritmo abaixo de 2:00 por km). Confira o tempo e a distância.` ou `Esse tempo é longo demais para 5 km (ritmo acima de 15:00 por km). Confira o tempo e a distância.`
+5. Data e distância da prova (`422`):
+   - `date`: `A data do treino não pode ser no futuro.`, `Só entram marcas das últimas 52 semanas.` (treino), `Esta prova saiu das últimas 52 semanas e não entra mais no ranking.` ou `A data da prova é a do evento.`
+   - `distance_m`: `A distância informada não corresponde aos 10 km desta prova.`
+6. Prova com marca: `409 Você já registrou a marca desta prova.`
+
+**Registrar:** trava, na [ordem global](0003-times-campeonatos.md#191-ordem-global-das-travas), o evento `FOR SHARE` e a inscrição `FOR UPDATE` (só na prova), grava a marca (`verified = false`) e a auditoria, recalcula o ranking da distância (trava consultiva `corrida_<km>`) e faz um commit. A resposta traz o `impact` **exato** (o elo vem do ranking recalculado, Lendário incluído). Dois toques seguidos na mesma prova deixam uma só marca (`409` no outro); marcas de vários atletas na mesma distância ao mesmo tempo deixam as posições 1..N sem repetição.
+
+**Prévia:** o `impact` é uma **estimativa**: o elo novo conta os outros atletas com o mesmo tempo ou melhor na janela (a hipótese cautelosa para o Lendário) e o atleta entre os classificados; sem melhora, `tier_after = tier_before`. Não grava e não trava.
+
+### 18.5 Ranking e elo por distância
+
+- **`GET /rankings?sport=corrida&distance_km=`** (`distance_km` ausente → `422 Escolha a distância.`; fora de 3, 5, 10, 21 e 42 → `422 Distância inválida.`): o mesmo `RankingPage` da seção 12.6, geral e paginado por posição (cursor opaco; `limit` padrão 20, máximo 50), com `ranking: 'corrida_<km>'`, `required: 1`, `classified_count`, `legend_slots` e `mine` (a linha do titular, `sem_marca` quando não tem marca). Cada `RankingRow`: `metric_value` = melhor tempo em segundos; `tier` e `rank_position` da distância; `matches_played` = marcas da janela; `wins`, `draws` e `losses` = 0; `goals_for` e `goals_against` = `null`; `athlete` = a pessoa; `team` = `null`; `is_mine`. Os parâmetros `kind`, `format` e `position` são ignorados.
+- **`GET /me/standings`:** `corrida[]` (uma linha por distância, a seção 2 não muda): `state = 'ranqueado'` depois da primeira marca (`played` = marcas da janela, `required: 1`, `tier`, `rank_position`, `metric_value` = melhor tempo em segundos, `faces` = o mesmo elo e os vizinhos), `sem_marca` sem marca. Nunca há elo sem marca.
+- **Cartão de "Suas marcas":** `GET /me/run-bests` dá o melhor tempo da janela e a origem (de onde vêm o rótulo "Treino" ou o nome da prova e a série do minigráfico); o elo e a posição vêm do ranking materializado.
+
+### 18.6 Esquema (migração `0011`)
+
+`down_revision = '0009'` (o orquestrador encadeia depois da `0010`). Cria só `runs`; os cortes `corrida_*` (`calc_version = 1`) e as linhas de `standings` da corrida já existiam desde a `0005`. O `downgrade` apaga as linhas de `standings` da corrida (derivadas das marcas que saem) e remove a tabela.
+
+| Coluna | Conteúdo e restrições |
+| --- | --- |
+| `id`, `created_at` | chave e instante do registro |
+| `user_id` | o atleta (`users`, `ON DELETE CASCADE`) |
+| `distance_m`, `duration_s` | `ck_runs_distance` (1 000 a 100 000 m) e `ck_runs_duration` (1 a 86 400 s); a plausibilidade por ritmo fica no serviço, para poder ser ajustada sem migração |
+| `ran_on` | o dia (`DATE`, Brasília) |
+| `source` | `treino` \| `prova` (`ck_runs_source`) |
+| `event_entry_id` | a inscrição da prova (`event_entries`, sem `CASCADE`); `ck_runs_origin`: `prova` ⇔ há inscrição, e a prova sempre tem distância padrão; único parcial `uq_runs_entry` (uma marca por inscrição) |
+| `standard_distance_km` | 3, 5, 10, 21, 42 ou nulo (`ck_runs_standard`) |
+| `verified` | `false` por padrão; `ck_runs_verified`: o treino nunca é verificado |
+
+Índices: `ix_runs_user_history (user_id, ran_on, id)` (histórico e cartões) e `ix_runs_ranking (standard_distance_km, ran_on, user_id)` (recálculo da distância).
+
+### 18.7 Auditoria
+
+| Ação | `target_type` | `data` |
+| --- | --- | --- |
+| `corrida.registrada` | `run` | `distance_m`, `duration_s`, `date`, `source`, `standard_distance_km`, `entry_id`, `kind` |
+| `corrida.removida` | `run` | `distance_m`, `duration_s`, `date`, `source`, `standard_distance_km`, `entry_id` |
+
+### 18.8 Desvios do pedido e decisões
+
+| Item | Decisão | Motivo |
+| --- | --- | --- |
+| Parâmetro de distância | `GET /me/runs?distance=` (com `outra`) e `GET /rankings?…&distance_km=` | O plano escreve `distance=` nas duas rotas, mas `GET /rankings` já usa `distance_km` (seção 12.2, implementado e testado); o histórico precisa do valor `outra`, que não é um número. |
+| Rotas além do plano | `DELETE /me/runs/{id}` e `GET /me/run-races` | Sem remover, um tempo digitado errado (ex.: 20:00 em vez de 2:00:00) ficaria 52 semanas no topo do ranking; sem a lista de provas, a tela não saberia o que oferecer em "Prova do Arena". São isoladas e podem sair sem afetar as outras. |
+| Corpo da prova | `entry_id` (não `event_entry_id`) | Segue `/entries/{id}`; a coluna se chama `event_entry_id`. |
+| Treino antigo | Recusado (`422`), não aceito como histórico | Uma marca fora da janela nunca contaria; manter o histórico "dentro das 52 semanas" evita dado que não aparece em lugar nenhum. |
+| Empate de tempo | Quem correu primeiro | O contrato não dizia; é a regra mais comum em marcas. |
+| Varredura | `rankings_janela` cobre a corrida | Era `TODO(etapa3)` só para futebol e tênis. |
+| Fases 7 e 8 | Fase 7 (campeonatos e provas, lado do atleta): seção 6. Fase 8 (Expo): a definir. | |
+
+### 18.9 Desvios da web (etapa 5)
+
+A corrida na web (frente W5: `web/src/api/runs.ts`, `RunStopwatchDialog` (K2), `RunMarks`, `RunHistorySheet`, `RunSpark` e `RunSavedCard` (K4), `hooks/useRunBests.ts`) foi integrada em 12 de outubro de 2026 e conferida no navegador contra a API real (treino, prova, "Ver ranking", Ranking com 11 classificados e o Lendário, e a saída da janela de 52 semanas pela varredura). Desvios e escolhas:
+
+| Item | Decisão | Motivo |
+| --- | --- | --- |
+| Linha do elo da placa | A `TierLine` da corrida lê `GET /me/run-bests` (`runBestLine`, no lugar de `runLine`), não `GET /me/standings`. | O cartão de "Suas marcas" já traz o elo, o melhor tempo e a origem da distância escolhida; evita uma leitura a mais e mantém a placa e os cartões iguais depois de salvar ou remover uma marca. |
+| Datas | O formulário usa o dia do **aparelho** (o Date Picker limita a "hoje" e às 52 semanas pelo calendário local), e o servidor decide pelo dia de **Brasília**. | O servidor é quem valida (a mensagem do `422` aparece no campo); perto da meia-noite, fora de Brasília, o limite do aparelho e o do servidor podem diferir em um dia. |
+| Prova do Arena | Sem seleção automática: com uma só prova, a pessoa também escolhe (`Escolha a prova para ver o efeito no seu ranking.`). | Evita registrar a marca na prova errada; a prévia só vem depois da escolha. |
+| Ranking da corrida | A lista mostra o **tempo** (`mm:ss` ou `h:mm:ss`, com "tempo" sob o número) e "menor tempo vence"; o Início mostra a distância de maior elo. | O `metric_value` da corrida é em segundos; pontos e campanha de partidas não se aplicam. |
+| "Ver ranking" | O link no título de "Suas marcas" abre o Ranking (aba raiz) já na **corrida** e na **distância escolhida na placa** (a do contorno verde): `Entry.sport = 'corrida'` e `Entry.distance` na pilha de `ArenaPage`, lidos por `RankingPage` (`initialSport` e `initialDistance`). | Está no protótipo K4; sem o contexto, o Ranking abriria no futebol. A volta é pela navegação inferior, como em qualquer aba. |
+
+**Conferido no navegador nesta integração (antes pendente):** o **Lendário** com 11 classificados (1 vaga, ⌊11 × 15%⌋; o primeiro, com tempo de Diamante) e a **saída da janela de 52 semanas** (uma marca saiu da janela, `rankings_janela=1` na varredura e o ranking foi de 11 para 10 classificados; a data da marca e o carimbo do ranking foram ajustados no banco de verificação para simular a passagem do tempo). **Não conferido:** prova **paga** (a prova da verificação foi gratuita) e a passagem do dia em Brasília.

@@ -3,7 +3,7 @@ import { listOpenOrganizerEvents, organizerEventsPath } from '@/api/events'
 import type { OrganizerEventCard } from '@/api/events'
 import { getOrganizerStatus } from '@/api/organizer'
 import { EventPoster, NewEventPoster } from '@/components/events/EventPoster'
-import { posterProps } from '@/components/organizer/eventView'
+import { alertCount, posterProps } from '@/components/organizer/eventView'
 import { teamButton } from '@/components/teams/styles'
 import { DarkTopBar, TeamsPlate } from '@/components/teams/TeamsPlate'
 import { Button, IconButton } from '@/components/ui/button'
@@ -59,7 +59,7 @@ export default function OrganizerEventsPage({ onBack, onOpen, onCreate, onExpire
         <h2 id="open-events-title" className="sr-only">Eventos em aberto</h2>
         <ul className="m-0 grid list-none grid-cols-2 gap-2.5 p-0">
           {openItems.map(event => <li key={event.id} className="grid min-w-0">
-            <EventPoster {...posterProps(event)} pendingCount={event.pending.total} showSport onClick={() => onOpen(event.id)} />
+            <EventPoster {...posterProps(event)} pendingCount={alertCount(event)} showSport onClick={() => onOpen(event.id)} />
           </li>)}
           {canCreate && <li className="grid min-w-0"><NewEventPoster onClick={onCreate} /></li>}
         </ul>
@@ -69,7 +69,7 @@ export default function OrganizerEventsPage({ onBack, onOpen, onCreate, onExpire
         <h2 id="closed-events-title" className="mb-2 text-[16px]">Encerrados e cancelados</h2>
         <ul className="m-0 grid list-none grid-cols-2 gap-2.5 p-0">
           {closed.items.map(event => <li key={event.id} className="grid min-w-0">
-            <EventPoster {...posterProps(event)} pendingCount={event.pending.total} showSport onClick={() => onOpen(event.id)} />
+            <EventPoster {...posterProps(event)} pendingCount={alertCount(event)} showSport onClick={() => onOpen(event.id)} />
           </li>)}
         </ul>
         {closed.moreError && <p className="mt-2 text-[11px] text-error" role="alert">{closed.moreError}</p>}

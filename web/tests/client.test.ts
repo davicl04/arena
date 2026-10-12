@@ -64,6 +64,14 @@ describe('transporte da API web', () => {
     await expect(request('/me')).rejects.toMatchObject({ status: 409, fields: [] })
   })
 
+  it('guarda o corpo do erro (o conflict do 409 da agenda) e não inventa corpo para lista', async () => {
+    const body = { detail: 'A quadra já tem o J3.', conflict: { kind: 'quadra', label: 'J3' } }
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify(body), { status: 409 })))
+    await expect(request('/organizer/matches/7/schedule', 'PUT', {})).rejects.toMatchObject({ status: 409, body })
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('[1,2]', { status: 500 })))
+    await expect(request('/me')).rejects.toMatchObject({ status: 500, body: null })
+  })
+
   it.each(['not-json', '{"detail":[{"msg":"invalid"}]}'])('usa mensagem segura para erro sem detalhe textual: %s', async (body) => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(body, { status: 500 })))
     await expect(request('/me')).rejects.toMatchObject({ status: 500, message: 'Não foi possível concluir a ação.' })

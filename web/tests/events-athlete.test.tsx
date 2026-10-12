@@ -169,6 +169,8 @@ describe('detalhe do evento (D2)', () => {
       'GET /events/1': base,
       'GET /entries/5': mine,
       'GET /events/1/entries': page([confirmedEntry(5, 'Ricardo Moura'), confirmedEntry(6, 'Beatriz Lima')]),
+      // Inscrito antes de o organizador confirmar o chaveamento: a API devolve `sem_chaveamento`, sem rodadas.
+      'GET /events/1/bracket': { event_id: 1, state: 'sem_chaveamento', rounds: [], is_organizer: false },
     })
     const ui = userEvent.setup()
     renderEvent()
@@ -190,7 +192,8 @@ describe('detalhe do evento (D2)', () => {
     within(tabs).getByRole('tab', { name: 'Informações' }).focus()
     await ui.keyboard('{ArrowRight}')
     expect(within(tabs).getByRole('tab', { name: 'Tabela' }).getAttribute('aria-selected')).toBe('true')
-    expect(screen.getByText('A tabela aparece quando o organizador confirmar o chaveamento.')).not.toBeNull()
+    expect(await screen.findByText('A tabela aparece quando o organizador confirmar o chaveamento.')).not.toBeNull()
+    expect(screen.getByText(/Bônus no ranking do tênis/)).not.toBeNull()
     await ui.keyboard('{ArrowRight}')
     const entrants = await screen.findByRole('list', { name: 'Atletas confirmados' })
     expect(within(entrants).getAllByRole('listitem').map(item => item.textContent?.includes('Você'))).toEqual([true, false])

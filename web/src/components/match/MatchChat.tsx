@@ -86,8 +86,9 @@ function Group({ detail, messages, onReport }: { detail: MatchDetail; messages: 
   const first = messages[0];
   const last = messages[messages.length - 1];
   const side = sideOf(detail, first.side);
-  // O meu time (eu e os colegas) fala à direita; o adversário, à esquerda.
-  const own = detail.my_side !== null && first.side === detail.my_side;
+  // O meu time (eu e os colegas) fala à direita; o adversário, à esquerda. O organizador (sem lado) fala à direita só para ele.
+  const own = first.is_mine || (detail.my_side !== null && first.side === detail.my_side);
+  const organizer = first.author_role === "organizador";
   const name = first.is_mine ? "Você" : (first.author?.name ?? "Participante");
   return (
     <div data-slot="chat-group" data-mine={first.is_mine || undefined} data-side={first.side ?? undefined} className={cn("flex max-w-[88%] items-end gap-2", own ? "flex-row-reverse self-end" : "self-start")}>
@@ -101,7 +102,11 @@ function Group({ detail, messages, onReport }: { detail: MatchDetail; messages: 
         <div className={cn("flex min-w-0 items-center gap-1.5 px-1 text-[10.5px]", own && "flex-row-reverse")}>
           <b className="truncate text-ink">{name}</b>
           {first.author_role === "representante" && <Armband variant="inline" />}
-          <span className="truncate text-ink-muted">{shortName(side)}</span>
+          {organizer ? (
+            <span data-slot="organizer-tag" className="flex-none rounded-md bg-forest px-1.5 py-px text-[9px] font-extrabold text-mint">Organizador</span>
+          ) : (
+            <span className="truncate text-ink-muted">{shortName(side)}</span>
+          )}
           <time dateTime={last.created_at} className="flex-none text-[9.5px] text-ink-muted tabular-nums">
             {clock(last.created_at)}
           </time>

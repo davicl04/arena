@@ -66,7 +66,7 @@ def test_migration_0009_downgrades_to_0008_and_upgrades_again():
             assert connection.scalar(text('SELECT version_num FROM alembic_version')) == '0008'
             command.upgrade(config, 'head')
             head = ScriptDirectory.from_config(config).get_current_head()
-            assert head == '0009'
+            assert STAGE_THREE_TABLES <= set(inspect(connection).get_table_names())
             assert connection.scalar(text('SELECT version_num FROM alembic_version')) == head
     finally:
         engine.dispose()

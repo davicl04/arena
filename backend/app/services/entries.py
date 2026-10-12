@@ -174,6 +174,12 @@ def cancel_error(state: str, *, paid: bool, starts_at: datetime | None, now: dat
     return None
 
 
+def start_for_cancel(event: Event, now: datetime) -> datetime | None:
+    """When the event counts as started for giving up: its start, or already when the organizer confirmed the bracket
+    (`em_andamento`): the draw was made with the confirmed entries, so nobody leaves afterwards."""
+    return now if event.state in ('em_andamento', 'encerrado') else event.starts_at
+
+
 def entry_flags(*, role: str, state: str, paid: bool, starts_at: datetime | None, reserved_until: datetime | None,
                 refund: EntryReceipt | None, now: datetime) -> tuple[bool, bool, bool]:
     """(can_send_receipt, can_cancel, can_respond_refund) for the viewer of an entry."""
@@ -476,7 +482,7 @@ def build_my_entries(db: Session, user: User, pairs: Sequence[tuple[EventEntry, 
         state = effective_entry_state(entry.state, entry.reserved_until, now)
         history = receipts.get(entry.id, EntryReceipts())
         can_send, can_cancel, can_respond = entry_flags(
-            role=role, state=state, paid=entry.price_cents > 0, starts_at=event.starts_at,
+            role=role, state=state, paid=entry.price_cents > 0, starts_at=start_for_cancel(event, now),
             reserved_until=entry.reserved_until, refund=history.refund_row(), now=now)
         views.append(MyEntryOut(
             id=entry.id, event=posters[event.id], subject=subjects[entry.id], my_role=role, state=state,
@@ -604,7 +610,7 @@ def cancel_entry(db: Session, user: User, entry_id: int) -> None:
     _require_acting(entry, role, 'cancel')
     now = utcnow()
     state = effective_entry_state(entry.state, entry.reserved_until, now)
-    error = cancel_error(state, paid=entry.price_cents > 0, starts_at=event.starts_at, now=now)
+    error = cancel_error(state, paid=entry.price_cents > 0, starts_at=start_for_cancel(event, now), now=now)
     if error is not None:
         raise HTTPException(409, error)
     previous = entry.state

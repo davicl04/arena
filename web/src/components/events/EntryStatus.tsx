@@ -154,7 +154,11 @@ export function EntryStatus({ entry, detail, pix, busy = false, onPayment, onCon
       card = (
         <StatusCard tone="confirmado" title="Inscrição confirmada" pill={team ? team.name : "Você"}>
           {entry.price_cents > 0 ? "Pagamento aprovado pelo organizador. " : ""}
-          {detail.sport === "corrida" ? "Seu nome está na lista de inscritos da prova." : "A tabela sai quando o organizador confirmar o chaveamento."}
+          {detail.sport === "corrida"
+            ? "Seu nome está na lista de inscritos da prova."
+            : detail.state === "em_andamento" || detail.state === "encerrado"
+              ? "A tabela e os resultados estão na aba Tabela."
+              : "A tabela sai quando o organizador confirmar o chaveamento."}
         </StatusCard>
       );
       break;

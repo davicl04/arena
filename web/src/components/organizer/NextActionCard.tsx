@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import type { LucideIcon } from 'lucide-react'
-import { CircleCheck, CircleDashed, CircleX, FilePenLine, Flag, Hourglass, Receipt, Send, ShieldAlert, Undo2, Users } from 'lucide-react'
+import { CalendarDays, CircleCheck, CircleDashed, CircleX, FilePenLine, Flag, Gavel, GitFork, Hourglass, Receipt, Send, Shuffle, ShieldAlert, Undo2, Users } from 'lucide-react'
 import type { OrganizerEventDetail } from '@/api/events'
 import { sentence } from '@/api/organizer'
 import { teamButton } from '@/components/teams/styles'
@@ -59,9 +59,10 @@ function Checklist({ detail, onFill }: { detail: OrganizerEventDetail; onFill: (
 /**
  * Próxima ação do organizador (G3), vinda de `next_action` da API: completar o rascunho (checklist e "Publicar"
  * desabilitado até completar), publicar ou enviar à aprovação, aguardar a administração (com "Retirar da aprovação"),
- * corrigir a recusa, analisar comprovantes, enviar devoluções, acompanhar as inscrições e assim por diante.
+ * corrigir a recusa, analisar comprovantes, enviar devoluções, acompanhar as inscrições e, no campeonato, sortear e confirmar
+ * o chaveamento, decidir divergências, agendar e acompanhar as partidas.
  */
-export function NextActionCard({ detail, busy, onSubmit, onWithdraw, onFill, onReceipts, onShowEntries }: {
+export function NextActionCard({ detail, busy, onSubmit, onWithdraw, onFill, onReceipts, onShowEntries, onBracket, onMatches }: {
   detail: OrganizerEventDetail
   /** Ação em curso (publicar ou retirar). */
   busy: boolean
@@ -72,8 +73,14 @@ export function NextActionCard({ detail, busy, onSubmit, onWithdraw, onFill, onR
   /** Abre Comprovantes e devoluções (tela `event-receipts`). */
   onReceipts: () => void
   onShowEntries: () => void
+  /** Chaveamento ou tabela do campeonato (tela `event-bracket`). */
+  onBracket?: () => void
+  /** Partidas do campeonato (tela `event-matches`). */
+  onMatches?: () => void
 }) {
   const action = detail.next_action
+  const roundRobin = detail.competition_type === 'todos_contra_todos'
+  const tree = roundRobin ? 'a tabela' : 'o chaveamento'
   const paid = Boolean(detail.price_cents)
   const submitLabel = paid ? 'Enviar para aprovação' : 'Publicar'
   const count = action.count ?? 0
@@ -132,9 +139,34 @@ export function NextActionCard({ detail, busy, onSubmit, onWithdraw, onFill, onR
         actions={<button type="button" className={teamButton({ tone: 'outline', size: 'md' })} onClick={onShowEntries}>Ver inscritos</button>}>
         {detail.capacity ? `${detail.entries_count} de ${detail.capacity} ${entrantsUnit(detail.sport)}` : ''}{paid ? ' · os comprovantes chegam para você analisar.' : '.'}
       </NowCard>
+    case 'sortear_chaveamento':
+      return <NowCard tone="now" Icon={Shuffle} title={roundRobin ? 'Sorteie as rodadas' : 'Sorteie o chaveamento'}
+        actions={<button type="button" className={teamButton({ tone: 'brand', size: 'md' })} onClick={onBracket}><Shuffle aria-hidden="true" />{roundRobin ? 'Sortear rodadas' : 'Sortear chaveamento'}</button>}>
+        {plural(count, 'inscrição confirmada', 'inscrições confirmadas')}. Depois do sorteio você confere {tree} e confirma para os {entrantsUnit(detail.sport)} verem.
+      </NowCard>
+    case 'confirmar_chaveamento':
+      return <NowCard tone="now" Icon={GitFork} title={roundRobin ? 'Confirme a tabela' : 'Confirme o chaveamento'}
+        actions={<button type="button" className={teamButton({ tone: 'brand', size: 'md' })} onClick={onBracket}><CircleCheck aria-hidden="true" />Revisar e confirmar</button>}>
+        O sorteio está feito: só você vê {tree}. Troque os lugares, se quiser, e confirme para criar as partidas.
+      </NowCard>
+    case 'decidir_divergencias':
+      return <NowCard tone="bad" Icon={Gavel} title={`${plural(count, 'partida', 'partidas')} para decidir`}
+        actions={<button type="button" className={teamButton({ tone: 'brand', size: 'md' })} onClick={onMatches}><Gavel aria-hidden="true" />Decidir</button>}>
+        Os placares não batem ou o prazo de 48 h passou sem resultado. Você decide, com uma justificativa que os dois times veem.
+      </NowCard>
+    case 'agendar_partidas':
+      return <NowCard tone="now" Icon={CalendarDays} title={`${plural(count, 'partida', 'partidas')} para agendar`}
+        actions={<button type="button" className={teamButton({ tone: 'brand', size: 'md' })} onClick={onMatches}><CalendarDays aria-hidden="true" />Agendar</button>}>
+        Escolha data, horário e quadra de cada jogo. Os dois elencos são avisados.
+      </NowCard>
+    case 'acompanhar_partidas':
+      return <NowCard tone="calm" Icon={CalendarDays} title={count ? `${plural(count, 'partida agendada', 'partidas agendadas')}` : 'Partidas em andamento'}
+        actions={<button type="button" className={teamButton({ tone: 'outline', size: 'md' })} onClick={onMatches}>Ver partidas</button>}>
+        {count ? 'Os times informam o placar depois do jogo; você decide se os placares não baterem.' : 'Os jogos que faltam esperam o resultado dos anteriores.'}
+      </NowCard>
     case 'aguardar_inicio':
       return <NowCard tone="calm" Icon={Flag} title={`Inscrições encerradas · começa ${formatDeadline(action.deadline)}`}>
-        A tabela e as partidas ficam disponíveis numa próxima etapa do Arena.
+        {detail.sport === 'corrida' ? 'Acompanhe os inscritos até o dia da prova.' : 'Com pelo menos 2 inscrições confirmadas, você pode sortear o chaveamento.'}
       </NowCard>
     default:
       if (detail.state === 'cancelado')

@@ -24,7 +24,7 @@ def test_stage_two_and_three_tasks_are_registered_in_order():
     # Expiries run before pairing again, so requeued searches and reopened slots get a new chance in the same run.
     assert [task.name for task in TASKS] == ['reservas_expiradas', 'devolucoes_recebidas', 'buscas_expiradas',
                                              'propostas_expiradas', 'ofertas_expiradas', 'pareamento',
-                                             'resultados_vencidos', 'rankings_janela']
+                                             'resultados_vencidos', 'campeonatos_encerrados', 'rankings_janela']
     # Inline expiry with nothing to expire does not touch the database.
     assert sweep.expire_entries(None, [], NOW) == 0
 

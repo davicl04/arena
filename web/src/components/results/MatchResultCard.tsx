@@ -73,7 +73,8 @@ export function MatchResultCard<T extends ResultMatch = ResultMatch>({
   const sent = present.filter(item => item.stat).length
   const toReview = items.filter(item => item.can_review && item.stat && item.stat.state !== 'revisada').length
   const summary = present.length ? `${sent}/${present.length} estatísticas` : undefined
-  const hasRoster = football && items.length > 0
+  // O organizador do campeonato não registra presença nem estatísticas: o elenco é dos times.
+  const hasRoster = football && items.length > 0 && match.my_role !== 'organizador'
 
   async function send(input: ResultInput) {
     const detail = await score.run(() => reportResult<T>(match.id, input), 'Não foi possível enviar o placar.')

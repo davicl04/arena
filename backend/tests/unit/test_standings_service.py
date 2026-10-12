@@ -5,7 +5,7 @@ service code: who is classified, the tiers and positions written to `standings`,
 leave, the open searches that receive a new tier and the window task. The SQL (window, states) is checked on
 PostgreSQL (`tests/integration/test_standings_recalc.py`).
 """
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from types import SimpleNamespace
 
@@ -26,9 +26,16 @@ def make_cuts():
     def cuts(ranking, metric, prata, ouro, diamante):
         return Cuts(ranking, metric, 'maior', Decimal(prata), Decimal(ouro), Decimal(diamante), 3, Decimal('0.15'), 52)
 
+    def run_cuts(distance_km, prata, ouro, diamante):
+        # Seeded in 0005: times in seconds, lower is better, the first mark classifies.
+        name = f'corrida_{distance_km}'
+        return Cuts(name, 'tempo', 'menor', Decimal(prata), Decimal(ouro), Decimal(diamante), 1, Decimal('0.15'), 52)
+
     return {'futebol_time': cuts('futebol_time', 'pontos', 10, 30, 60),
             'futebol_individual': cuts('futebol_individual', 'media', '2.5', '4.0', '5.5'),
-            'tenis': cuts('tenis', 'pontos', 30, 80, 150)}
+            'tenis': cuts('tenis', 'pontos', 30, 80, 150),
+            'corrida_5': run_cuts(5, 35 * 60, 27 * 60, 22 * 60),
+            'corrida_10': run_cuts(10, 75 * 60, 57 * 60, 47 * 60)}
 
 
 @pytest.fixture
@@ -38,7 +45,8 @@ def scene(monkeypatch):
     monkeypatch.setattr(standings, 'load_cuts', lambda _db, version: make_cuts())
     monkeypatch.setattr(standings.queue, 'lock_bucket', lambda _db, key: state.locked.append(key))
     monkeypatch.setattr(standings.queue, 'try_match', lambda _db, search, *, now: state.tried.append(search.id))
-    db.on('standings', []).on('match_searches', [])
+    # No championship bonus unless a test registers placements (`_tennis_records` always reads them).
+    db.on('standings', []).on('match_searches', []).on('event_placements', [])
     return state
 
 
@@ -158,6 +166,49 @@ def test_the_tennis_ranking_gives_ten_points_per_win(scene):
     assert (rows[51].sport, rows[51].format, rows[51].position) == ('tenis', None, None)
 
 
+def test_the_championship_bonus_adds_to_the_tennis_points_of_whoever_played(scene):
+    # Contract 0003, 21: `event_placements.bonus_points` of events that ended inside the window are summed per
+    # athlete (the grouped query returns the sum); 10 per win plus the bonus. An athlete with a bonus but no
+    # confirmed match in the window has no row: the bonus accompanies the matches, it does not classify anyone.
+    db = scene.db
+    db.on('match_sides', [(51, 'a', 2, 0), (51, 'b', 0, 2), (51, 'a', 2, 1), (52, 'b', 2, 0)])
+    db.on('event_placements', [(51, 60), (99, 40)])
+    standings.recalculate_rankings(db, [RankingKey('tenis')], now=NOW)
+    rows = rows_by_subject(db, 'user_id')
+    assert set(rows) == {51, 52}
+    assert (float(rows[51].metric_value), rows[51].wins, rows[51].tier) == (90.0, 3, 'ouro')      # 30 + 60
+    assert (float(rows[52].metric_value), rows[52].rank_position) == (0.0, None)                  # one match: placement
+
+
+# ----- Running --------------------------------------------------------------------------------------------------
+
+def test_a_running_ranking_orders_by_best_time_then_by_who_ran_it_first(scene):
+    # `_run_records` returns (athlete, marks, best time in seconds, first day the best time was run); the first
+    # mark classifies and lower is better: tiers come from the seeded cuts of the distance.
+    db = scene.db
+    db.on('runs', [(61, 3, 1500, date(2026, 9, 5)), (62, 1, 1500, date(2026, 9, 1)), (63, 2, 1290, date(2026, 9, 20)),
+                   (64, 1, 2400, date(2026, 8, 1))])
+    changed = standings.recalculate_rankings(db, [RankingKey.run(5)], now=NOW)
+    rows = rows_by_subject(db, 'user_id')
+    assert changed == 4 and set(rows) == {61, 62, 63, 64}
+    assert [rows[user].rank_position for user in (63, 62, 61, 64)] == [1, 2, 3, 4]       # same time: the older day wins
+    assert [rows[user].tier for user in (63, 62, 61, 64)] == ['diamante', 'ouro', 'ouro', 'bronze']
+    assert (rows[63].sport, rows[63].distance_km, rows[63].matches_played, float(rows[63].metric_value)) == (
+        'corrida', 5, 2, 1290.0)
+    assert rows[63].goals_for == rows[63].goals_against == 0 and rows[63].format is None
+    assert scene.tried == [] and scene.locked == []          # running has no search: nothing is paired again
+
+
+def test_the_keys_of_the_running_rankings(scene):
+    key = RankingKey.run(10)
+    assert (key.ranking, key.sport, key.distance_km, key.label) == ('corrida_10', 'corrida', 10, 'corrida_10')
+    assert RankingKey('tenis').distance_km is None and RankingKey('tenis').sport == 'tenis'
+    with pytest.raises(ValueError):
+        RankingKey.run(7)                                       # only the standard distances have a ranking
+    with pytest.raises(ValueError):
+        RankingKey('corrida_5', 'society')
+
+
 # ----- Open searches follow the tiers ------------------------------------------------------------------------
 
 def search(search_id, kind='time', team_id=1, user_id=None, tier=None, state='ativa'):
@@ -200,9 +251,12 @@ def test_tennis_and_walk_in_searches_follow_their_subjects(scene):
 def test_the_window_task_recalculates_only_categories_with_matches_that_left(scene, monkeypatch):
     db = scene.db
     old = NOW - 53 * WEEK
-    db.on('standings', [('futebol', True, 'society', None, old), ('futebol', False, 'society', 'goleiro', old),
-                        ('tenis', False, None, None, old)])
+    # The first read lists the football and tennis groups, the second the running distances with rows.
+    db.then('standings', [('futebol', True, 'society', None, old), ('futebol', False, 'society', 'goleiro', old),
+                          ('tenis', False, None, None, old)],
+            [(5, old), (10, old)])
     db.then('matches', True, False, True)                    # which groups have a match that left the window
+    db.then('runs', False, True)                             # ...and which distances have a mark that left it
     seen = []
 
     def spy(db_, keys, *, now, touch=False):
@@ -211,4 +265,32 @@ def test_the_window_task_recalculates_only_categories_with_matches_that_left(sce
 
     monkeypatch.setattr(standings, 'recalculate_rankings', spy)
     assert standings.recalculate_outside_window(db, NOW) == 7
-    assert seen == [(['futebol_time:society', 'tenis'], True)]
+    assert seen == [(['corrida_10', 'futebol_time:society', 'tenis'], True)]
+    assert 'event_placements' not in db.statements            # the tennis match already left: no need to look at bonuses
+
+
+def test_a_tennis_bonus_that_leaves_the_window_recalculates_the_ranking_even_without_a_match(scene, monkeypatch):
+    # The bonus of an event counts while the event ended inside the window, so it can leave after the last match of
+    # the athlete did: the match check alone would keep the stale points (contract 0003, 21).
+    db = scene.db
+    old = NOW - 53 * WEEK
+    db.then('standings', [('futebol', True, 'society', None, old), ('tenis', False, None, None, old)], [])
+    db.then('matches', False, False)
+    db.then('event_placements', True)                       # only tennis reads bonuses, and finds one
+    seen = []
+    monkeypatch.setattr(standings, 'recalculate_rankings',
+                        lambda db_, keys, *, now, touch=False: seen.append(sorted(key.label for key in keys)) or 3)
+    assert standings.recalculate_outside_window(db, NOW) == 3
+    assert seen == [['tenis']] and db.statements.count('event_placements') == 1
+
+
+def test_nothing_is_recalculated_when_neither_match_nor_bonus_nor_mark_left(scene, monkeypatch):
+    db = scene.db
+    old = NOW - 2 * WEEK
+    db.then('standings', [('tenis', False, None, None, old)], [(5, old)])
+    db.then('matches', False).then('event_placements', False).then('runs', False)
+    seen = []
+    monkeypatch.setattr(standings, 'recalculate_rankings',
+                        lambda db_, keys, *, now, touch=False: seen.append(list(keys)) or 0)
+    assert standings.recalculate_outside_window(db, NOW) == 0
+    assert seen == [[]]

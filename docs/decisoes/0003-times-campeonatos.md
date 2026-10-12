@@ -1,10 +1,12 @@
 # Decisões e contratos — Times e campeonatos
 
-Data: 12 de outubro de 2026. Contrato da **etapa 1** da execução (fases 1 a 3 do [plano de Times e campeonatos](../plano-times-campeonatos.md)): times, papéis, convites, link do time com pedido de entrada, encerrar time, pedido de organizador com fila e decisão da administração, e revogação pela administração. A **etapa 2** (fases 4 e 5: eventos, inscrições, comprovantes, devoluções e canal de avisos) está nas seções 10 e 12 a 20; o lado do atleta fica em [0002, seção 6](0002-jogar.md#6-fase-7--campeonatos-e-provas-lado-do-atleta). As fases 6 e 7 ficam **a definir na etapa correspondente** (seção 21). O contrato da linha do elo e de `GET /me/standings` está em [0002-jogar.md](0002-jogar.md).
+Data: 12 de outubro de 2026. Contrato da **etapa 1** da execução (fases 1 a 3 do [plano de Times e campeonatos](../plano-times-campeonatos.md)): times, papéis, convites, link do time com pedido de entrada, encerrar time, pedido de organizador com fila e decisão da administração, e revogação pela administração. A **etapa 2** (fases 4 e 5: eventos, inscrições, comprovantes, devoluções e canal de avisos) está nas seções 10 e 12 a 20; o lado do atleta fica em [0002, seção 6](0002-jogar.md#6-fase-7--campeonatos-e-provas-lado-do-atleta). A **etapa 4** (fases 6 e 7: chaveamento, agenda das partidas e divergência decidida pelo organizador) está na seção 21; o uso das partidas de campeonato está em [0002, seção 17](0002-jogar.md#17-uso-nas-partidas-de-campeonato-etapa-4). O contrato da linha do elo e de `GET /me/standings` está em [0002-jogar.md](0002-jogar.md).
 
 > **Estado (etapa 1 implementada e integrada em 12 de outubro de 2026):** as seções 1 a 9 estão implementadas no backend (migração `0005`, `app/routers/teams.py`, `app/routers/organizers.py`, `app/routers/notifications.py` e os serviços da seção 9) e na web (Meus times, convites, link do time, organizador, filas da administração e Notificações). O Expo ainda não consome este contrato (última etapa). Os desvios das frentes, já incorporados abaixo, estão resumidos na seção 9.1. As fases 4 a 7 seguem na seção 10.
 >
 > **Etapa 2 (backend e web implementados e integrados em 12 de outubro de 2026):** as seções 10 a 19 estão implementadas no backend: o esquema (migração `0008`), as regras puras (`app/services/event_rules.py`), a mídia privada de comprovante (imagem ou PDF), a varredura (`python -m app.admin_cli sweep [--loop 60]`, no README), o lado do organizador e da administração (`app/routers/events.py`, `app/services/events.py`, `app/schemas/organizer_events.py`) e o lado do atleta, dos comprovantes e das devoluções (`app/routers/entries.py`, `app/services/entries.py`, `app/schemas/entries.py`, com o contrato na [seção 6 de 0002](0002-jogar.md#6-fase-7--campeonatos-e-provas-lado-do-atleta)). A conciliação dos dois backends unificou as peças duplicadas, fixou a ordem global das travas (seção 19.1) e conferiu o fluxo ponta a ponta só pela API. A web da etapa 2 está implementada e integrada: Criar evento (V4), Meus eventos (O3), gestão (G3, com Inscritos, Dados do evento e Pagamento e Pix dentro dela), Comprovantes e devoluções (A2), as filas "Eventos pagos", "Eventos de organizador revogado" e "Devoluções contestadas" no Menu da administração, Campeonatos e Provas do atleta (E2 e D2, [0002, seção 6](0002-jogar.md#6-fase-7--campeonatos-e-provas-lado-do-atleta)) e as notificações dos tipos novos, conferidos num fluxo real no navegador. O Expo ainda não consome este contrato (última etapa). Os desvios das frentes e da conciliação do backend, já incorporados às seções abaixo, estão na seção 20.1; os da web, na seção 20.2.
+
+> **Etapas 4 e 5 (backend e web implementados e integrados em 12 de outubro de 2026; Expo em andamento):** a seção 21 (etapa 4: campeonatos) e a [seção 18 de 0002](0002-jogar.md#18-fase-6--corrida-marcas-e-elo-por-distância) (etapa 5: corrida) estão implementadas no backend e conciliadas com o backend integrado da etapa 3 (migrações `0010` e `0011`; `app/services/bracket_rules.py`, `app/services/championship.py`, `app/services/championship_lifecycle.py`, `app/routers/brackets.py`, `app/services/runs.py` e `app/routers/runs.py`). A conciliação corrigiu a ordem de travas do avanço do vencedor, fez a janela de 52 semanas olhar também o bônus do tênis e ampliou o `FakeDb` dos testes de unidade para as consultas novas (seção 21.10). A web consome os dois contratos (`api/brackets.ts`, `api/runs.ts`, as telas `event-bracket`, `event-matches` e `result-decision` e a corrida na placa do Jogar); os desvios da web estão na seção 21.11 e, para a corrida, na [seção 18.9 de 0002](0002-jogar.md#189-desvios-da-web-etapa-5). O Expo ainda está em andamento.
 
 Este documento é a fonte da verdade entre o backend e os clientes. Desvios exigem atualizar este arquivo.
 
@@ -909,7 +911,279 @@ Já incorporados às seções 13 a 17 (os do lado do atleta que mudam o contrato
 | 16, 19 | O limite de arquivo do comprovante aparece como "5 MiB" no organizador e no atleta; a validação no cliente segue a ordem do servidor (tamanho, arquivo vazio, tipo) e, sem tipo informado pelo navegador, vale a extensão. | Uma regra e um texto só (`api/receipts.ts`). |
 | 13 | Os tipos comuns da seção 13 têm uma definição só em `web/src/api/events.ts` (cartaz, Pix, inscrição, comprovante, aviso, pendências); `api/receipts.ts` guarda as rotas e as regras de comprovante e `api/entries.ts`, as formas do atleta. | Antes da integração, três módulos repetiam os mesmos tipos. |
 
-## 21. Fases 6 e 7 (a definir na etapa correspondente)
+## 21. Etapa 4 — chaveamento, agenda e decisão do organizador (fases 6 e 7)
 
-- **Fase 6 — Tabela e agenda:** chaveamento, rodadas e agendamento (S1); leva os eventos a `em_andamento`. A definir.
-- **Fase 7 — Divergência em campeonato (D3).** A definir.
+> **Estado (backend e web implementados e integrados em 12 de outubro de 2026; Expo em andamento):** esta seção está implementada no backend e na web: o esquema (migração `0010`), as regras puras (`app/services/bracket_rules.py`), os ganchos do campeonato (`app/services/championship_lifecycle.py`), as rotas do organizador (`app/routers/brackets.py`, `app/services/championship.py`, `app/schemas/brackets.py`) e a ligação com o cartão de resultado da etapa 3. A web consome este contrato com `web/src/api/brackets.ts` (os tipos da 21.3 e as sete rotas; `scheduleConflict()` lê o `conflict` do `409`), as telas `event-bracket` (`BracketPage`: árvore espelhada em SVG ou tabela cruzada), `event-matches` (`EventMatchesPage`, a S1, com a folha de agenda) e `result-decision` (`ResultDecisionPage`, a D3), a aba Tabela do detalhe do evento e as seções Chaveamento, Tabela e Partidas da gestão (G3). Os desvios da web estão na seção 21.11. O uso das partidas de campeonato (papéis, chat, resultado e W.O.) está em [0002, seção 17](0002-jogar.md#17-uso-nas-partidas-de-campeonato-etapa-4).
+
+Escopo: sortear o chaveamento (eliminação simples com folgas, ou todos contra todos pelo método do círculo), trocar dois times de lugar, confirmar (gera as partidas e leva o evento a `em_andamento`), ler a árvore ou a tabela, listar e agendar as partidas (S1), decidir a divergência, o prazo vencido e o W.O. (D3), avançar o vencedor na chave e encerrar o evento com a classificação final e o bônus do tênis (RN16). Convenções da [seção 1](#1-convenções) valem aqui.
+
+### 21.1 Decisões desta etapa (interpretações dos planos)
+
+- **Tamanho da chave.** A eliminação simples usa a **menor potência de 2 que comporta os confirmados** (de 2 a 16, nunca acima da capacidade). Os lugares que sobram são **folgas**: quem fica sem adversário na primeira fase passa direto. Com 6 confirmados numa chave de 8, são 2 folgas (nas posições 1 e 3 da primeira fase); com 5 confirmados numa chave de 16, a chave é de 8 com 3 folgas, e não de 16 com 11. É o mesmo efeito da decisão de 12 de outubro ("segue com os confirmados"), sem fases inteiras de folga. **Confirmados mínimos: 2**, nos dois tipos.
+- **Sorteio.** Os confirmados são embaralhados por `SHA-256("arena:sorteio:{semente}:{id da inscrição}")` e entram na chave padrão por cabeças de chave (1 contra o último, 2 contra o penúltimo…), de modo que as folgas ficam com as primeiras posições do sorteio, espalhadas pelas duas metades da chave. A **semente** (63 bits) é gravada em `event_brackets.seed`; as trocas ficam em `swaps`. Com a semente e as trocas, o plano é reproduzível. "Sortear de novo" troca a semente e zera as trocas.
+- **Quem lê.** O organizador, a administração e os **inscritos** (a mesma regra do canal de avisos, [10.1](#101-decisões-desta-fundação-interpretações-dos-planos): atleta ou membros ativos do time inscrito, exceto inscrição expirada ou cancelada pelo participante). Os demais atletas recebem `403` com o evento visível e `404` sem ele. **Antes de confirmar**, só o organizador e a administração veem o sorteio; para os inscritos a resposta é `state: 'sem_chaveamento'`, sem rodadas.
+- **Jogos e folgas.** Folga **não** vira partida: o time que passa direto já entra na partida seguinte quando o chaveamento é confirmado, e a árvore mostra o jogo da primeira fase como `bye` ("Folga"). Os jogos reais têm número sequencial **J1, J2…** por fase e posição (os de folga não têm número); as fases seguintes mostram "Vencedor J1 × Vencedor J2" até o resultado chegar.
+- **Agenda.** O organizador escolhe data e hora **livres** (ao minuto, sem passos de 15 min), até 12 meses à frente, e a quadra do catálogo ou uma sugestão. **Só se agenda uma partida com os dois lados definidos.** Partida de campeonato **não** usa `match_terms` nem "quem reserva": `terms.current` e `terms.pending` saem `null`, `booking` sai `null`, e a data e a quadra estão em `starts_at` e `court` do cartão. A reserva é com o local; o Arena só registra (RN08).
+- **Conflito.** A mesma quadra com outra partida do evento a **menos de 2 h** (exatamente 2 h está livre) responde `409`. Acrescentei, como extensão da regra: **um mesmo time ou atleta não joga duas partidas a menos de 2 h** uma da outra (`conflict.kind = 'time'`). Contam as partidas agendadas, realizadas ou encerradas do evento.
+- **Decisão do organizador.** Vale em três situações: **divergência** (os dois lados informaram placares diferentes, a qualquer momento depois do início), **prazo** (passaram as 48 h sem placar confirmado, inclusive com um só placar informado) e **W.O.** (depois do início, informando o lado ausente). Num jogo da eliminação **não há empate**: o placar do futebol soma os pênaltis (`422`). A decisão encerra a partida (`encerrada`, `result_source = 'organizador'`).
+- **Encerramento do evento.** Quando todas as partidas têm resultado final (`realizada` ou `encerrada`), o evento vai a `encerrado`, grava a classificação final (`event_placements`) e, no tênis com **4 ou mais inscrições confirmadas**, o bônus de RN16 entra no ranking: campeão +40, vice +20, semifinalistas (eliminação) ou 3º e 4º (todos contra todos) +10.
+- **Inscrições depois do sorteio.** Confirmar o chaveamento **exige que nenhum comprovante esteja em análise** e **libera** as reservas e recusas ainda abertas (`expirada`, com `reserva_expirada`). Depois de confirmado, a inscrição **não pode ser cancelada** pelo participante (`409 O evento já começou.`; `can_cancel: false`).
+
+### 21.2 Esquema (migração `0010`)
+
+`down_revision = '0009'`. Modelos em `app/models/brackets.py`. As partidas usam as colunas já criadas na `0009` (`origin = 'campeonato'`, `event_id`, `round_number`, `bracket_position`, `next_match_id`, `next_match_side`).
+
+| Tabela | Conteúdo e restrições |
+| --- | --- |
+| `event_brackets` | Um por evento (único): `kind` (`eliminacao_simples` \| `todos_contra_todos`), `state` (`sorteado` \| `confirmado`), `seed`, `size` (lugares da chave, ou número de competidores), `slots` (JSONB: ids das inscrições na ordem do plano; `null` é folga; na eliminação os lugares `2i` e `2i+1` se enfrentam na primeira fase), `swaps` (pares de lugares trocados), `draw_count`, quem sorteou e quando, quem confirmou e quando. Checks: tipo, estado, `size` de 2 a 32, `confirmado` ⇔ `confirmed_at`. |
+| `result_decisions` | Uma por partida (único): `match_id`, `event_id`, `decided_by_id`, `kind` (`divergencia` \| `prazo` \| `wo`), `score_a`, `score_b`, `sets`, `winner_side`, `walkover_absent_side` (⇔ `wo`), `justification` (5 a 500), `reports` (os placares informados por cada lado no momento da decisão) e `created_at`. |
+| `event_placements` | Classificação final: `event_id`, `entry_id` (único por evento), `team_id` ou `user_id`, `placement` (1 campeão, 2 vice, 3 semifinalistas ou a posição na tabela), `bonus_points` (RN16, 0 se não vale) e `awarded_at`. O ranking do tênis soma `bonus_points` dos eventos encerrados dentro da janela de 52 semanas. |
+
+### 21.3 Tipos (TypeScript)
+
+Espelho de `app/schemas/brackets.py` e de `ChampionshipOut`/`NextActionKind` em `app/schemas/events.py`. `Person`, `TeamRef`, `Side`, `ScoreOut`, `MatchCard`, `MatchDetail`, `MatchState`, `MatchPhase`, `EventState`, `Sport`, `FootballFormat` e `CompetitionType` estão nas seções 1, 13 e [0002, 7.4](0002-jogar.md#74-tipos-comuns-typescript).
+
+```ts
+type BracketState = 'sem_chaveamento' | 'sorteado' | 'confirmado'
+type SlotKind = 'competidor' | 'vencedor' | 'folga'
+
+/** Quem disputa: um time (futebol) ou um atleta (tênis). */
+interface Competitor {
+  entry_id: number
+  kind: 'time' | 'atleta'
+  team: TeamRef | null
+  athlete: Person | null
+  place: number | null          // lugar (0, 1, 2…) no plano do sorteio: o valor das trocas
+}
+
+interface BracketSlot {
+  kind: SlotKind                // 'folga' ("Folga"), 'vencedor' ("Vencedor J1") ou 'competidor'
+  competitor: Competitor | null
+  placeholder: string | null    // "Folga" ou "Vencedor J1"
+  from_match: number | null     // número (J) do jogo cujo vencedor chega aqui
+  advanced_by_bye: boolean      // o competidor está aqui porque o jogo da primeira fase foi folga
+  place: number | null          // lugar da primeira fase da eliminação (também para "Folga")
+  winner: boolean               // venceu este jogo
+}
+
+interface BracketMatch {
+  id: number
+  state: MatchState
+  phase: MatchPhase
+  starts_at: string | null
+  court_name: string | null
+  score: ScoreOut | null
+  awaiting_decision: boolean    // placar divergente, ou 48 h sem resultado: o organizador decide
+}
+
+interface BracketNode {
+  position: number              // 1 a n dentro da fase
+  number: number | null         // J do jogo; null no jogo de folga
+  label: string | null          // "J1"
+  bye: boolean                  // jogo de folga: não há partida
+  slots: [BracketSlot, BracketSlot]   // [lado a, lado b]
+  match: BracketMatch | null    // null antes de confirmar e nas folgas
+  next: { round: number; position: number; side: Side } | null   // para onde vai o vencedor
+}
+
+interface BracketRound {
+  number: number
+  name: string                  // "Oitavas de final" | "Quartas de final" | "Semifinal" | "Final" | "Rodada 3"
+  nodes: BracketNode[]
+  rest: Competitor | null       // todos contra todos com número ímpar: quem folga na rodada
+}
+
+interface TableRow {
+  position: number
+  competitor: Competitor
+  played: number; wins: number; draws: number; losses: number
+  goals_for: number; goals_against: number; goal_difference: number   // gols (futebol) ou sets (tênis)
+  points: number                // 3 / 1 / 0
+}
+
+interface Placement { placement: number; competitor: Competitor; bonus_points: number }
+
+interface Bracket {
+  event_id: number
+  event_name: string
+  event_state: EventState
+  sport: Sport
+  format: FootballFormat | null
+  kind: CompetitionType
+  state: BracketState
+  is_organizer: boolean
+  size: number | null           // lugares da chave (eliminação) ou número de competidores
+  byes: number                  // folgas da eliminação
+  seed: number | null           // só para o organizador e a administração
+  draw_count: number | null     // idem
+  drawn_at: string | null       // idem
+  confirmed_at: string | null
+  rounds: BracketRound[]        // a árvore (eliminação) ou as rodadas (todos contra todos)
+  table: TableRow[] | null      // todos contra todos: a classificação (pontos, saldo, gols pró)
+  placements: Placement[] | null  // só com o evento `encerrado`
+  champion: Competitor | null
+  permissions: { can_draw: boolean; can_swap: boolean; can_confirm: boolean; draw_blocker: string | null }
+}
+
+/** Linha da lista S1 e resposta do agendamento. */
+interface EventMatchRow {
+  card: MatchCard               // my_role: 'organizador'; sides com 0, 1 ou 2 lados
+  label: string                 // "J1"
+  stage: string                 // "Quartas de final" | "Rodada 3"
+  round_number: number
+  position: number
+  placeholders: [string | null, string | null]   // "Vencedor J1" enquanto o lado não está definido
+  can_schedule: boolean         // evento em andamento, dois lados, antes do início
+  awaiting_decision: boolean    // divergente, ou 48 h sem resultado
+}
+interface EventMatchList {
+  items: EventMatchRow[]
+  counts: { total: number; to_schedule: number; waiting: number; scheduled: number; to_decide: number; finished: number }
+}
+
+interface ScheduleInput {
+  starts_at: string             // ISO 8601 com fuso, ao minuto
+  court_id?: number | null      // uma quadra do catálogo da cidade do evento…
+  court_suggestion?: { name: string; address?: string | null } | null   // …ou uma sugestão (exatamente uma das duas)
+}
+
+interface ResultDecisionInput {
+  score?: { goals_a: number; goals_b: number } | { sets: TennisSetInput[] } | null   // o placar do jogo
+  walkover_absent_side?: Side | null    // W.O.: o lado que não compareceu (sem `score`)
+  justification: string         // 5 a 500 caracteres
+}
+
+interface ScheduleConflict {    // corpo do 409 de agenda: { detail, conflict }
+  kind: 'quadra' | 'time'
+  match_id: number
+  label: string                 // "J3"
+  stage: string
+  starts_at: string
+  court_name: string | null
+}
+
+/** Extensão de OrganizerEventCard/OrganizerEventDetail (seções 13 e 14); null fora dos campeonatos de futebol e tênis. */
+interface Championship {
+  bracket: BracketState
+  confirmed: number             // inscrições confirmadas (o que o sorteio usa)
+  matches_total: number
+  to_schedule: number           // dois lados definidos e sem data
+  waiting: number               // um lado ainda espera o vencedor de um jogo anterior
+  scheduled: number             // agendadas e sem resultado final
+  to_decide: number             // divergentes ou com 48 h sem resultado
+  finished: number
+  attention: number             // to_schedule + to_decide: o alerta do cartaz
+}
+```
+
+`NextActionKind` (seção 13) ganha `sortear_chaveamento`, `confirmar_chaveamento`, `decidir_divergencias`, `agendar_partidas` e `acompanhar_partidas`, na prioridade: comprovantes e devoluções → (publicado, inscrições encerradas) `confirmar_chaveamento` (sorteio feito) ou `sortear_chaveamento` (2 ou mais confirmadas) → (em andamento) `decidir_divergencias` (count = `to_decide`) → `agendar_partidas` (count = `to_schedule`) → `acompanhar_partidas` (count = `scheduled`). Sem o sorteio possível, continua `aguardar_inicio`. `MatchPermissions` ([0002, 10.1](0002-jogar.md#101-objetos)) ganha `schedule_match` e `decide_result`.
+
+### 21.4 Rotas
+
+| Rota | Quem | Corpo | Resposta |
+| --- | --- | --- | --- |
+| `POST /organizer/events/{id}/bracket` | dono | `{}` | `200 Bracket` (`state: 'sorteado'`) |
+| `PATCH /organizer/events/{id}/bracket` | dono | `{ a: number; b: number }` (lugares, 0 a 63) | `200 Bracket` |
+| `POST /organizer/events/{id}/bracket/confirm` | dono | `{}` | `200 Bracket` (`state: 'confirmado'`, evento `em_andamento`) |
+| `GET /events/{id}/bracket` | dono, administração e inscritos | — | `Bracket` |
+| `GET /organizer/events/{id}/matches` | dono, administração | — | `EventMatchList` (sem paginação: até 190 jogos) |
+| `PUT /organizer/matches/{id}/schedule` | dono do evento | `ScheduleInput` | `200 EventMatchRow`; `409 { detail, conflict }` |
+| `POST /organizer/matches/{id}/result-decision` | dono do evento | `ResultDecisionInput` | `201 MatchDetail` |
+
+Todas exigem sessão; o dono vem da sessão. As ações são JSON (`{}` quando não têm parâmetros) e campos desconhecidos dão `422`. Para o chat da partida, o organizador usa as rotas existentes de [0002, 11.1](0002-jogar.md#111-mensagens) (`GET` e `POST /matches/{id}/messages`).
+
+### 21.5 Regras das rotas
+
+- **Dono.** `404 Evento não encontrado.` para quem não é o dono (não revela existência). Com a revogação pendente, sortear, trocar, confirmar, agendar e decidir respondem `409 A administração está decidindo sobre este evento.` Trava o evento `FOR UPDATE` (seção 21.8).
+- **Sortear.** Só em evento `publicado` de futebol ou tênis, depois do fim das inscrições (`registration_deadline`), com 2 ou mais inscrições `confirmada`. Erros `409`, nesta ordem: `Este evento não tem chaveamento.` (corrida); `O chaveamento já foi confirmado.`; `Este evento não aceita mais sorteio.` (encerrado ou cancelado); `Publique o evento antes de sortear.`; `As inscrições ainda estão abertas. Sorteie depois do fim das inscrições.`; `Confirme pelo menos 2 inscrições para sortear o campeonato.` Grava a semente, o plano e `draw_count` (sortear de novo substitui o sorteio e zera as trocas). Auditoria `chaveamento.sorteado` (`{ seed, kind, entries, size, byes, draw_count }`). `Bracket.permissions.draw_blocker` traz a mensagem do que impede agora (só o organizador).
+- **Trocar.** Dois lugares trocam as inscrições (um time pode ocupar o lugar de uma folga, e a folga vai para onde o time estava). `409 Sorteie o chaveamento antes.` sem sorteio; `409 O chaveamento já foi confirmado.` depois. `422`: `Escolha lugares que existem na chave.` (campo `a`), `Escolha dois lugares diferentes para trocar.` e `Escolha pelo menos um time para trocar de lugar.` (campo `b`) e `Essa troca deixaria um jogo sem nenhum time. Escolha outros lugares.` (sem campo). Auditoria `chaveamento.trocado` (`{ a, b, entry_a, entry_b }`).
+- **Confirmar.** `409 Sorteie o chaveamento antes.`; `409 O chaveamento já foi confirmado.`; `409 As inscrições ainda estão abertas. Confirme depois do fim das inscrições.`; `409 Analise N comprovante(s) pendente(s) antes de confirmar o chaveamento.`; `409 As inscrições confirmadas mudaram desde o sorteio. Sorteie de novo.` Numa transação: trava o evento e as inscrições, **libera** as reservas e recusas abertas (`expirada`, `reserva_expirada`), cria as partidas rodada a rodada (`combinando`, sem data; a eliminação só cria os jogos reais, e quem tem folga já entra na partida seguinte), liga os vencedores (`next_match_id`, `next_match_side`; os jogos que alimentam uma partida têm `id` menor que ela), posta a faixa `partida_combinando` no chat de cada partida, leva o evento a `em_andamento` e notifica `tabela_publicada` aos membros dos times inscritos (ou ao atleta). Auditoria `chaveamento.confirmado` (`{ matches, entries, kind, released }`).
+- **Ler.** Eliminação: `rounds` da primeira fase à final, com `bye`, "Vencedor J1" e, depois do resultado, o time que avançou. Todos contra todos: `rounds` com os jogos e quem folga, e a `table` (3/1/0; saldo, gols pró e vitórias desempatam; a ordem do sorteio decide o resto), inclusive zerada antes do primeiro jogo. `404 Este evento não tem chaveamento.` na corrida. `placements` e `champion` só com o evento `encerrado`. A tabela cruzada do todos contra todos sai de `rounds`: a célula (A, B) é o jogo que reúne os dois, com o número da rodada e o placar.
+- **Lista S1.** Sem data primeiro (os que podem ser agendados e, depois, os que esperam um vencedor, por fase e posição); em seguida os agendados por início; por fim os finalizados, o mais recente primeiro. `counts` vem dos contadores do cartaz. Fora do dono e da administração, `404`.
+- **Agendar.** `404 Partida não encontrada.` para quem não vê a partida (e para amistosos); `403 Só o organizador do evento agenda as partidas.` para quem vê a partida sem ser o dono (elencos e administração). Erros `409`: `Confirme o chaveamento antes de agendar as partidas.`; `Este evento não aceita mais agendamento.`; `Esta partida foi cancelada.`; `O resultado desta partida já foi definido.`; `A partida já começou: depois do início só o resultado pode mudar.`; `Esta partida ainda espera o resultado dos jogos anteriores.`; `Esta partida já tem 3 sugestões de quadra em revisão.`; e o **conflito**, com o corpo `{ detail, conflict }`: `A quadra {nome} já tem o {J} a menos de 2 h desse horário. Escolha outro horário ou outra quadra.` (`kind: 'quadra'`) ou `{time} já joga o {J} a menos de 2 h desse horário. Escolha outro horário.` (`kind: 'time'`). `422` (campo `starts_at`): `Informe a data e a hora com o fuso horário.`, `Escolha uma data e um horário que ainda não passaram.`, `Escolha uma data nos próximos 12 meses.`; (campo `court_id`): `Escolha uma quadra do catálogo ou sugira uma.` (nenhuma ou as duas), `Escolha uma quadra do catálogo da cidade ou a sugerida nesta partida.`, `Escolha uma quadra de {formato}.`. A quadra sugerida nasce `em_revisao` com `origin_match_id` desta partida (como em [0002, 10.4](0002-jogar.md#104-quadras-rn07)), e uma equivalente publicada ou já sugerida nesta partida é reaproveitada. Reagendar (antes do início) vale a mesma regra, ignorando a própria partida. Efeitos: `combinando` → `agendada` (a primeira vez), `result_deadline = início + 48 h`, notificação `partida_agendada` aos membros dos dois elencos (`changed` no reagendamento; `terms_id: null`), faixa `partida_agendada` com o organizador como autor e auditoria `partida.agendada` ou `partida.reagendada` (`{ event_id, starts_at, court_id, previous }`); uma sugestão de quadra grava ainda `quadra.sugerida`.
+- **Decidir.** `404` para quem não vê a partida; `403 Só o organizador do evento decide o resultado.` para quem a vê sem ser o dono. Erros `409`: `O resultado desta partida já foi definido.`; `Esta partida foi cancelada.`; `Agende a partida antes de decidir o resultado.`; `A partida ainda não começou.`; e, sem divergência, sem W.O. e dentro das 48 h, `Os times ainda podem informar o placar. O organizador decide quando os placares divergem, depois do prazo de 48 h ou em caso de W.O.` `422`: `Escreva a justificativa da decisão, de 5 a 500 caracteres.` (campo `justification`), `Informe o placar ou o lado ausente (W.O.), não os dois.` (campo `score`), as validações do placar do cartão de resultado ([0002, 12.3](0002-jogar.md#123-placar-rn09-rn15)) e `Na eliminação simples não há empate. Informe o placar final com o vencedor (some os pênaltis, se houver).` O W.O. grava 3 × 0 (futebol) ou 6-0 6-0 (tênis) para o lado presente e marca `walkover_absent_side`. Numa transação, a decisão grava o placar final (`result_source = 'organizador'`, motivo e quem decidiu na partida), a linha de `result_decisions` (com os placares que cada lado informou), leva a partida a `encerrada`, recalcula os rankings (`standings.recalculate_for_match`), avança o vencedor, encerra o evento se era a última partida, posta a faixa `resultado_decidido` (com a justificativa) e notifica `decisao_registrada` aos membros dos dois elencos. Auditoria `resultado.decidido` (`{ event_id, kind, score_a, score_b, winner, absent_side, justification, reports }`). A justificativa fica visível aos dois times em `MatchDetail.result.decision_reason`.
+- **Avançar o vencedor.** Quando uma partida de eliminação tem placar final (placares iguais, ou decisão do organizador), o vencedor ocupa o lado `next_match_side` da partida `next_match_id` (auditoria `chaveamento.avancou`, sem ator). Quando os dois lados da partida seguinte estão definidos, o chat recebe a faixa `partida_combinando` ("A × B: adversários definidos…") e os dois elencos recebem `adversario_definido`.
+- **Encerrar o evento.** Quando nenhuma partida está em `combinando` ou `agendada`, o evento vai a `encerrado` na mesma transação que deu o último placar; a varredura (`campeonatos_encerrados`) cobre o caso em que a linha do evento estava ocupada. Grava `event_placements` (eliminação: campeão 1º, vice 2º, quem perdeu as semifinais 3º; todos contra todos: a posição na tabela), notifica `evento_encerrado` ao organizador e aos inscritos, audita `evento.encerrado` e, se o bônus vale, recalcula o ranking do tênis.
+
+### 21.6 Notificações
+
+Registradas em `NOTIFICATION_TYPES`; a `partida_agendada` da [seção 13 de 0002](0002-jogar.md#13-notificações-da-etapa-3) é reaproveitada.
+
+| Tipo | Destinatário | `actor` | `payload` | Texto sugerido | Ao tocar |
+| --- | --- | --- | --- | --- | --- |
+| `tabela_publicada` | membros dos times inscritos (ou o atleta) | organizador | `{ event_id, event_name }` | "A tabela de {evento} saiu" | Evento, aba Tabela |
+| `partida_agendada` | membros dos dois elencos | organizador | `{ match_id, terms_id: null, starts_at, court_name, changed, event_id, event_name }` | "Partida agendada: {data} em {quadra}" / "Partida alterada…" | Partida |
+| `adversario_definido` | membros do elenco de cada lado | `null` | `{ match_id, event_id, event_name, opponent_name }` | "Seu próximo jogo: {adversário}" | Partida |
+| `divergencia_para_decidir` | organizador | `null` | `{ match_id, event_id, event_name, deadline }` | "Os placares de {jogo} não batem. Decida" | Partida (D3) |
+| `decisao_registrada` | membros dos dois elencos | organizador | `{ match_id, event_id, event_name, kind: 'divergencia' \| 'prazo' \| 'wo', score_a, score_b, justification, absent_side }` | "O organizador decidiu o resultado: {placar}" | Partida |
+| `evento_encerrado` | organizador e membros dos times inscritos (ou o atleta) | `null` | `{ event_id, event_name, champion }` | "{evento} terminou: campeão {champion}" | Evento, aba Tabela |
+
+No campeonato, o organizador recebe `divergencia_para_decidir` (e não `resultado_divergente`), e os dois elencos continuam recebendo `resultado_divergente`.
+
+### 21.7 Auditoria
+
+| Ação | `target_type` | Gerada por |
+| --- | --- | --- |
+| `chaveamento.sorteado`, `chaveamento.trocado`, `chaveamento.confirmado` | `event` | seção 21.5 |
+| `chaveamento.avancou` | `match` (a partida seguinte; `actor_id` nulo, `data.automatico = true`) | resultado final de uma partida da eliminação |
+| `partida.agendada`, `partida.reagendada` | `match` | agendamento |
+| `quadra.sugerida` | `court` | agendamento com `court_suggestion` |
+| `resultado.decidido` | `match` | decisão do organizador |
+| `partida.cancelada` | `match` (`data.automatico = true`, `data.motivo = 'evento_cancelado'`) | cancelamento do evento |
+| `evento.encerrado` | `event` (`actor_id` nulo) | último resultado ou varredura |
+
+### 21.8 Serviços, ganchos e ordem de travas
+
+| Função | Módulo | Uso |
+| --- | --- | --- |
+| `draw_order`, `elimination_size`, `seed_order`, `elimination_slots`, `elimination_layout`, `swap_slots`, `circle_rounds`, `table_standings`, `find_conflict`, `validate_schedule_start`, `decision_kind`, `clean_justification`, `ensure_decisive`, `elimination_placements`, `table_placements`, `placement_bonus` | `services/bracket_rules.py` (puro, com testes de unidade) | sorteio, folgas, rodadas, tabela, conflito de 2 h, decisão e bônus |
+| `status_for(db, events, now)`, `cancel_event_matches`, `lock_following`, `after_score`, `advance_winner`, `on_divergence`, `try_finish`, `finish_event`, `finish_due_events` | `services/championship_lifecycle.py` | contadores do cartaz, cancelamento do evento, avanço do vencedor, encerramento e varredura |
+| `draw_bracket`, `swap_bracket`, `confirm_bracket`, `get_bracket`, `list_event_matches`, `schedule_match`, `decide_result`, `draw_blocker` | `services/championship.py` | as rotas da seção 21.4 |
+| `event_rules.next_action(…, championship=ChampionshipCounts)` | `services/event_rules.py` | "Agora" com os tipos novos |
+
+**Ganchos em código das etapas anteriores** (cada um é uma chamada): `events._cards` (contadores) e `events.cancel_event` (cancela as partidas abertas do campeonato); `results.report_score` (empate recusado na eliminação), `results._store_report` (avisa o organizador da divergência) e `results._confirm` (avança o vencedor e tenta encerrar o evento); `standings._tennis_records` (soma o bônus); `entries.start_for_cancel` (o evento em andamento conta como iniciado para desistir); `sweep.TASKS` (`campeonatos_encerrados`, antes de `rankings_janela`); `matchmaking.play_board` (partida de campeonato em `combinando` não acende o ponto menta).
+
+**Ordem das travas** (extensão da seção 19.1 e da [seção 15.5 de 0002](0002-jogar.md#155-ordem-global-de-travas-da-etapa-3), que traz o quadro completo por rota): evento `FOR UPDATE` (nível 3) → inscrições do evento (nível 5, só ao confirmar o chaveamento) → partidas do evento, por `id` (as que alimentam outra têm `id` menor) → rankings → balde → busca. Sortear, trocar, confirmar, agendar e decidir travam o evento primeiro, o que serializa o conflito de agenda. Quem começa por uma partida (`results.report_score`) segura a partida, trava a partida seguinte para avançar o vencedor **antes de recalcular o ranking** (`championship_lifecycle.lock_following`, chamada por `results._confirm` e `championship.decide_result`) e só **tenta** a linha do evento (`SKIP LOCKED`) para encerrá-lo, então nunca espera pelo evento enquanto um fluxo do organizador espera pela partida. Testado com conexões reais em `tests/integration/test_championship_concurrency.py` (o agendamento simultâneo, as duas semifinais ao mesmo tempo e a ordem do SQL de cada placar).
+
+### 21.9 Desvios do rascunho do plano e pendências
+
+| Tema | Decisão |
+| --- | --- |
+| Folga | Chave do tamanho dos confirmados (21.1), e não da capacidade; a folga não é partida. |
+| Condições da partida | Partida de campeonato não tem `match_terms` nem reserva (`terms` e `booking` nulos): o organizador agenda direto na partida. |
+| Conflito | Além da quadra, o mesmo competidor (extensão). |
+| Decisão | Vale também para o prazo vencido e para o W.O. (a M2 mandava o W.O. do campeonato ao organizador); a divergência pode ser decidida antes das 48 h. |
+| Leitura da tabela | Só inscritos, organizador e administração (como pedido); abrir a todo atleta logado é trocar `championship._reader_event`. |
+| Pendências | Cancelar uma partida de campeonato isolada (hoje só o cancelamento do evento as cancela); presença e estatísticas nas partidas decididas pelo organizador (a janela fecha com a decisão); notificar o organizador quando o prazo de 48 h vence sem divergência (hoje aparece em `to_decide` e no "Agora"); aviso da tabela aos que entraram e saíram do evento; revogação do organizador com o campeonato em andamento segue a [seção 15.2](#152-revogação-de-organizador-com-eventos-abertos). |
+
+### 21.10 Conciliação com o backend integrado da etapa 3 (etapas 4 e 5)
+
+As frentes S4 (campeonatos) e S5 (corrida) nasceram sobre a fundação da etapa 3 e foram conciliadas com o backend já integrado (12 de outubro de 2026). Resultado:
+
+| Tema | Decisão |
+| --- | --- |
+| Erros de regra | `brackets.py` e `runs.py` não têm mais rota própria de erros (`RuleRoute` saiu): `RuleError` responde `422 { detail, fields }` e `TransitionError`, `409 { detail }` pelos handlers globais de `app/main.py`. Os demais `409` e `404` dos serviços seguem como `HTTPException`. |
+| Conflito de agenda | Continua `409 { detail, conflict }`: `ScheduleConflict` não é `RuleError` nem `TransitionError`, então os handlers globais não passam por ele; a rota o converte em `JSONResponse` com o corpo `{ detail, conflict: { kind, match_id, label, stage, starts_at, court_name } }` (testado em `test_championship_schedule_flow.py` e em `test_championship_service.py`). |
+| Ordem de travas | O avanço do vencedor travava a partida seguinte depois do ranking: agora `lock_following` a trava antes (ver o quadro da [seção 15.5 de 0002](0002-jogar.md#155-ordem-global-de-travas-da-etapa-3)). Agendar, decidir, confirmar o chaveamento, encerrar o campeonato e registrar ou remover marca de corrida seguem a ordem global; testado pela ordem do SQL. |
+| Janela de 52 semanas | `rankings_janela` também recalcula o ranking do tênis quando um bônus de campeonato saiu da janela, mesmo sem partida que tenha saído (antes o bônus ficaria nos pontos guardados até outro recálculo). |
+| Painel da Jogar | A partida de campeonato em `combinando` não acende o ponto menta (`play_board`); o teste de unidade da etapa 3, que supunha qualquer `combinando`, passou a distinguir `origin`. |
+| Testes de unidade da etapa 3 | Cinco testes com `FakeDb` falhavam porque as consultas novas (bônus em `event_placements`, ranking real da corrida, janela da corrida, `origin` do cartão) não tinham resposta registrada: o defeito era do **teste**, não de uma regra da etapa 3 quebrada. O `FakeDb` e os cenários foram ampliados, sem enfraquecer asserções, e ganharam testes do bônus, do ranking da corrida e da janela. |
+
+### 21.11 Desvios registrados na integração da web (etapa 4)
+
+A web da etapa 4 (frente W4) foi integrada sobre a da etapa 5 em 12 de outubro de 2026 e conferida no navegador contra a API real (16 times em eliminação simples, três de quatro vagas com folga num evento pago, todos contra todos no tênis). Onde o contrato era omisso ou a tela precisou de algo a mais:
+
+| Tema | Decisão | Motivo |
+| --- | --- | --- |
+| `TableRow.position` | A web trata como **1 a n** (o backend entrega assim); o contrato não dizia a base. | O número é o da classificação ("1º"), não um índice. |
+| `divergencia_para_decidir` | O texto é "Os placares de **uma partida** de {evento} não batem. Decida", sem o rótulo do jogo (J1…). | O payload da 21.6 não traz o rótulo (`{ match_id, event_id, event_name, deadline }`); incluí-lo pede um campo novo no backend. Pendência pequena: com `label` no payload, o texto diria "{J2}". |
+| `decisao_registrada` | "O organizador decidiu o resultado: {placar}", sem o nome de quem decidiu. | O `actor` da notificação já é o organizador, e o texto fica igual à faixa do chat. |
+| Opções do D3 | "Como decidir o resultado" e "Lado ausente" são **botões de opção** (`role="radiogroup"` e `role="radio"`, `aria-checked`, foco só na opção escolhida, setas movem a escolha), no padrão do `Segmented`. | A primeira versão usava botões com `aria-pressed`; escolha única pede o grupo de opções (teclado e leitores de tela). |
+| Sugestão de quadra do organizador | Só dentro do agendamento (`court_suggestion`), sem chamar `POST /courts/suggestions`. | Essa rota responde `403` a quem não é representante; o organizador não é. A folha de agenda mostra "Sugerir outra quadra" e a quadra entra em revisão ligada à partida. |
+| Campos que a web leu como opcionais | `MatchPermissions.schedule_match` e `decide_result` e `OrganizerEventCard.championship` (`Championship \| null`) passaram a **obrigatórios** nos tipos da web; o backend sempre os envia. | A primeira versão os deixou opcionais para não quebrar fixtures; as fixtures foram ajustadas. |
+| `ApiError.body` | `request` guarda o corpo JSON do erro em `ApiError.body`. | O `409 { detail, conflict }` da agenda carrega o jogo em conflito. |
+| Notificações da tabela | `NotificationTarget.section: 'tabela'` abre o detalhe do evento já na aba Tabela (`tabela_publicada` e `evento_encerrado`). | A 21.6 diz "Evento, aba Tabela". |
+| Texto com atletas | No tênis, as mensagens do sorteio e da confirmação falam em **atletas**, não em times. | Corrigido ao conferir o todos contra todos no navegador. |
+| Confirmar depois de uma troca nas inscrições | Se uma inscrição foi aprovada depois do sorteio, o `409 As inscrições confirmadas mudaram desde o sorteio. Sorteie de novo.` aparece na folha de confirmação; a pessoa fecha a folha e usa "Sortear de novo". | É a regra da 21.5, vista na web; a tela não relê o sorteio sozinha. |
+
+**Não conferido no navegador:** a recusa do sorteio pelo `draw_blocker` com as inscrições abertas (a gestão deixa "Chaveamento" apagado até o fim das inscrições, então só dá para chegar à tela por outro caminho; coberta por teste) e a prova paga (a corrida conferida foi gratuita).

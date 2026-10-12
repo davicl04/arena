@@ -202,7 +202,10 @@ describe('ArenaPage: a notificação abre a partida e as filas da administraçã
     render(<ArenaPage user={me} onUser={vi.fn()} onLogout={vi.fn()} onExpired={vi.fn()} />)
     await ui.click(await screen.findByRole('button', { name: 'Notificações, 1 não lida' }))
     await ui.click(await screen.findByRole('button', { name: /Partida agendada/ }))
-    expect(await screen.findByRole('heading', { level: 1, name: 'Partida' })).not.toBeNull()
+    // A navegação é síncrona: a região principal já se chama "Partida". O título "Partida" da barra de carregamento é
+    // transitório (some assim que o detalhe chega), então a espera é pelo cabeçalho do detalhe, com os dois lados.
+    expect(screen.getByRole('main', { name: 'Partida' })).not.toBeNull()
+    expect(await screen.findByRole('heading', { level: 1, name: /^Ferrugem FC contra / })).not.toBeNull()
     expect(nav().getByRole('button', { name: 'JOGAR' }).getAttribute('aria-current')).toBe('page')
     await ui.click(screen.getByRole('button', { name: 'Voltar' }))
     expect(await screen.findByRole('list', { name: 'Notificações da conta' })).not.toBeNull()

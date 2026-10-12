@@ -9,7 +9,7 @@ import { rankedTier } from '@/components/play/tierLines'
 import { tiers } from '@/data/arena'
 import { cn } from '@/lib/utils'
 import { plural } from '@/utils/format'
-import { formatMetric, metricUnit } from './metric'
+import { formatMetric, isRunRanking, metricText, metricUnit } from './metric'
 
 /*
  * Linhas do Ranking geral: posição, brasão do time ou foto do atleta, nome, campanha, o brasão do elo (todo classificado
@@ -23,6 +23,8 @@ function Subject({ row }: { row: RankingRow }) {
 }
 
 function Record({ row, ranking }: { row: RankingRow; ranking: RankingKey }) {
+  // Corrida: `matches_played` são as marcas da janela e não há vitórias nem derrotas.
+  if (isRunRanking(ranking)) return <>{plural(row.matches_played, 'marca', 'marcas')}</>
   const record = ranking === 'tenis' ? `${row.wins}V ${row.losses}D` : `${row.wins}V ${row.draws}E ${row.losses}D`
   return <>{plural(row.matches_played, 'partida', 'partidas')} · {record}</>
 }
@@ -93,7 +95,7 @@ export function MyRankingPlate({ lines, ranking, empty }: { lines: MyRankingLine
                   <b className="block font-display text-[14px] font-bold"><span className="sr-only">Elo </span>{tiers[tier].name}</b>
                   <small className="mt-0.5 text-[10.5px] text-white/65">
                     {line.rank_position ? `${line.rank_position}º lugar` : 'Ranqueado'}
-                    {line.metric_value != null && ` · ${formatMetric(line.metric_value, ranking)} ${metricUnit(ranking)}`}
+                    {line.metric_value != null && ` · ${metricText(line.metric_value, ranking)}`}
                   </small>
                 </div>
               </div>

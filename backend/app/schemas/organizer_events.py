@@ -13,6 +13,7 @@ from pydantic import BaseModel, BeforeValidator, field_validator, model_validato
 from app.models.rankings import TIERS
 from app.schemas.common import PersonOut, StrictInput
 from app.schemas.events import (
+    ChampionshipOut,
     ChecklistItemOut,
     CompetitionType,
     EntryState,
@@ -182,6 +183,8 @@ class OrganizerEventCardOut(EventPosterOut):
     """Poster of O3 with the alert and the "Agora" action."""
     pending: PendingCountsOut
     next_action: NextActionOut
+    # Futsal, society, campo and tennis championships past publication: bracket and match counters (fase 6).
+    championship: ChampionshipOut | None = None
 
 
 class EventRefusalOut(BaseModel):

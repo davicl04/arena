@@ -145,6 +145,9 @@ def permissions_for(match: Any, access: MatchAccess | None, facts: MatchFacts, *
     can_accept = (acts and friendly and terms_open and pending is not None and pending.starts_at > now
                   and getattr(pending, f'accepted_{side}_at') is None)
     lineup, stat = facts.lineup, facts.stat
+    # The organizer of a championship match does not act for a side: he schedules (both sides known, before the
+    # start) and decides the result (after the start); the chat is his like anyone's in the match.
+    organizer = role == 'organizador' and not friendly
     return MatchPermissionsOut(
         read_chat=can_read_chat(match, access),
         write_chat=can_write_chat(match, access),
@@ -167,7 +170,10 @@ def permissions_for(match: Any, access: MatchAccess | None, facts: MatchFacts, *
         send_stats=(role in STAT_ROLES and football and window and match.state in ('agendada', 'realizada')
                     and not walkover and (lineup is None or lineup.present is not False)
                     and (stat is None or not stat_locked(stat))),
-        manage_slots=role == 'representante' and football and friendly and terms_open)
+        manage_slots=role == 'representante' and football and friendly and terms_open,
+        schedule_match=(organizer and len(facts.sides) == 2 and (match.state == 'combinando' or (
+            scheduled and match.starts_at is not None and now < match.starts_at))),
+        decide_result=organizer and scheduled and match.starts_at is not None and now >= match.starts_at)
 
 
 def needs_my_action(match: Any, access: MatchAccess | None, permissions: MatchPermissionsOut, facts: MatchFacts, *,
@@ -181,6 +187,10 @@ def needs_my_action(match: Any, access: MatchAccess | None, permissions: MatchPe
         mine = facts.sides.get(access.side) if access.side is not None else None
         return bool(access.acts_for_side and mine is not None and mine.accepted_at is None
                     and mine.declined_at is None)
+    if access.role == 'organizador':
+        overdue = match.result_deadline is not None and now >= match.result_deadline
+        return bool((permissions.schedule_match and match.starts_at is None)
+                    or (permissions.decide_result and (facts.reports_differ or overdue)))
     if permissions.accept_terms or permissions.contest_walkover:
         return True
     if permissions.report_result and (access.side not in facts.reports or facts.reports_differ):

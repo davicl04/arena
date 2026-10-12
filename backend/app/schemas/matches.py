@@ -359,6 +359,9 @@ class MatchPermissionsOut(BaseModel):
     send_stats: bool
     manage_slots: bool
     suggest_court: bool
+    # Championship organizer (fase 6): schedule the match, decide a divergence, a missing result or a W.O.
+    schedule_match: bool
+    decide_result: bool
 
 
 class MatchEventRefOut(BaseModel):

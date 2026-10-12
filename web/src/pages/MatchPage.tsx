@@ -53,11 +53,15 @@ function BareTop({ onBack }: { onBack: () => void }) {
  * `detail.permissions`; as folhas (propor condições, cancelar, W.O., vagas) abrem sobre a tela e mostram os erros do
  * servidor sem fechar. A tela relê o detalhe quando chega um evento novo no chat (aceite do outro lado, cancelamento…).
  */
-export default function MatchPage({ matchId, viewerId, onBack, onExpired }: {
+export default function MatchPage({ matchId, viewerId, onBack, onSchedule, onDecide, onExpired }: {
   matchId: number;
   /** Quem vê (a sessão): o cartão de resultado reconhece a própria linha do elenco. */
   viewerId: number;
   onBack: () => void;
+  /** Partida de campeonato, organizador: "Agendar" abre a lista de partidas do evento com a folha desta partida. */
+  onSchedule?: (eventId: number) => void;
+  /** Partida de campeonato, organizador: "Decidir resultado" abre a decisão (D3). */
+  onDecide?: () => void;
   onExpired: () => void;
 }) {
   const [missing, setMissing] = useState(false);
@@ -178,6 +182,7 @@ export default function MatchPage({ matchId, viewerId, onBack, onExpired }: {
   const tennis = current.sport === "tenis";
   const arranging = ["combinando", "agendada", "realizada", "encerrada", "sem_resultado", "cancelada"].includes(current.state);
   const wo = current.walkover;
+  const eventId = current.event?.id;
 
   return (
     <div ref={root} className="flex h-full min-h-0 flex-col" data-match={current.id}>
@@ -217,6 +222,8 @@ export default function MatchPage({ matchId, viewerId, onBack, onExpired }: {
               busy={action.busy}
               error={sheet === null ? action.error : ""}
               onPropose={() => open("terms")}
+              onSchedule={eventId !== undefined && onSchedule ? () => onSchedule(eventId) : undefined}
+              onDecide={onDecide}
               onAccept={(terms) =>
                 void apply(
                   () => acceptTerms(current.id, terms.id),

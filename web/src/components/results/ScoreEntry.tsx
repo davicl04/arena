@@ -9,7 +9,8 @@ import { cn } from '@/lib/utils'
 import { otherSide, viewSide } from './format'
 import { sideName, sideOf } from '@/data/match'
 import { Stepper } from './Stepper'
-import { draftToInput, emptySets, needsTiebreak, reportToDraft, setWinner, showsThirdSet, validateTennisSets } from './tennis'
+import { TennisSets } from './TennisSets'
+import { draftToInput, emptySets, reportToDraft, validateTennisSets } from './tennis'
 import type { SetDraft } from './tennis'
 
 /*
@@ -73,48 +74,7 @@ export function ScoreEntry({ match, initial, busy, error, summary, notice, onRos
       {notice && <p className="m-0 text-[11px] leading-normal text-ink-muted">{notice}</p>}
 
       {tennis ? (
-        <div className="grid gap-2" role="group" aria-label="Placar por sets">
-          <div className="grid grid-cols-[52px_minmax(0,1fr)_14px_minmax(0,1fr)] items-end gap-1.5 text-[10px] font-bold text-ink-muted">
-            <span />
-            <span className="truncate text-center">{myName}</span>
-            <span />
-            <span className="truncate text-center">{theirName}</span>
-          </div>
-          {sets.slice(0, showsThirdSet(sets) ? 3 : 2).map((set, index) => {
-            const number = index + 1
-            const isSuper = index === 2 && superTiebreak
-            const name = isSuper ? 'super tie-break' : `set ${number}`
-            const max = isSuper ? 99 : 7
-            return (
-              <div key={index} role="group" aria-label={isSuper ? 'Super tie-break' : `Set ${number}`} className="grid gap-1.5">
-                <div className="grid grid-cols-[52px_minmax(0,1fr)_14px_minmax(0,1fr)] items-center gap-1.5">
-                  <span className="text-[11px] leading-tight text-ink-muted">{isSuper ? 'Super tie-break' : `Set ${number}`}</span>
-                  <Stepper className="justify-self-center" label={`${isSuper ? 'Pontos' : 'Games'} seus no ${name}`} value={set.mine} max={max} disabled={busy}
-                    onChange={value => patch(index, { mine: value })} />
-                  <span aria-hidden="true" className="text-center text-ink-muted">–</span>
-                  <Stepper className="justify-self-center" label={`${isSuper ? 'Pontos' : 'Games'} de ${theirName} no ${name}`} value={set.theirs} max={max} disabled={busy}
-                    onChange={value => patch(index, { theirs: value })} />
-                </div>
-                {!isSuper && needsTiebreak(set) && (
-                  <div className="grid grid-cols-[52px_minmax(0,1fr)_14px_minmax(0,1fr)] items-center gap-1.5">
-                    <span className="text-[10px] leading-tight text-ink-muted">Tie-break</span>
-                    <Stepper className="justify-self-center" label={`Pontos seus no tie-break do set ${number}`} value={set.tbMine} max={99} disabled={busy}
-                      onChange={value => patch(index, { tbMine: value })} />
-                    <span aria-hidden="true" className="text-center text-ink-muted">–</span>
-                    <Stepper className="justify-self-center" label={`Pontos de ${theirName} no tie-break do set ${number}`} value={set.tbTheirs} max={99} disabled={busy}
-                      onChange={value => patch(index, { tbTheirs: value })} />
-                  </div>
-                )}
-              </div>
-            )
-          })}
-          {!showsThirdSet(sets) && setWinner(sets[0]) && setWinner(sets[1]) && (
-            <p className="m-0 text-[10.5px] leading-normal text-ink-muted">Quem venceu os dois primeiros sets já ganhou a partida.</p>
-          )}
-          {showsThirdSet(sets) && superTiebreak && (
-            <p className="m-0 text-[10.5px] leading-normal text-ink-muted">Os dois primeiros sets ficaram divididos: o desempate é um super tie-break até 10, com 2 de vantagem.</p>
-          )}
-        </div>
+        <TennisSets sets={sets} onPatch={patch} mineName={myName} theirName={theirName} superTiebreak={superTiebreak} disabled={busy} />
       ) : (
         <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-end gap-2" role="group" aria-label="Placar em gols">
           <GoalsSide side={mine} name={myName} value={goals[0]} disabled={busy} onChange={value => setGoals(old => [value, old[1]])} />

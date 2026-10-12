@@ -20,7 +20,7 @@ export const inHours = (hours: number) => new Date(Date.now() + hours * 3_600_00
 export const permissions = (overrides: Partial<MatchPermissions> = {}): MatchPermissions => ({
   read_chat: true, write_chat: true, propose_terms: false, accept_terms: false, suggest_court: false, confirm_booking: false,
   cancel: false, report_result: false, register_walkover: false, withdraw_walkover: false, contest_walkover: false,
-  attendance: false, send_stats: false, manage_slots: false, ...overrides,
+  attendance: false, send_stats: false, manage_slots: false, schedule_match: false, decide_result: false, ...overrides,
 })
 /** Quem age pelo lado (representante ou tenista): informa o placar, registra a presença e envia estatísticas. */
 export const acting = (overrides: Partial<MatchPermissions> = {}) =>

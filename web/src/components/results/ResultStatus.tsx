@@ -30,6 +30,8 @@ export function ResultStatus({ match, result, onCorrect, onChat, walkoverActions
   const fecha = formatDeadline(result.deadline)
   const expired = now >= Date.parse(result.deadline)
   const own = match.my_side ? result.reports[match.my_side] : null
+  // No campeonato o prazo vencido e a divergência não tiram o resultado da partida: o organizador decide (0002, 17.4).
+  const championship = match.origin === 'campeonato'
   const text = (score: ScoreOut) => (
     <>{scoreText(match.sport, score, view)}<span className="sr-only"> ({scoreSpoken(match, score)})</span></>
   )
@@ -42,7 +44,9 @@ export function ResultStatus({ match, result, onCorrect, onChat, walkoverActions
       if (expired) {
         return (
           <StatusCard tone="neutro" title="Prazo encerrado">
-            Sem placar confirmado até <b>{fecha}</b>, a partida fica sem resultado e não pontua.
+            {championship
+              ? <>Sem placar confirmado até <b>{fecha}</b>. O organizador decide o resultado.</>
+              : <>Sem placar confirmado até <b>{fecha}</b>, a partida fica sem resultado e não pontua.</>}
           </StatusCard>
         )
       }
@@ -70,17 +74,22 @@ export function ResultStatus({ match, result, onCorrect, onChat, walkoverActions
       if (expired) {
         return (
           <StatusCard tone="divergente" title="Placares diferentes">
-            Sem acordo até <b>{fecha}</b>: a partida fica sem resultado e não pontua.
+            {championship
+              ? <>Sem acordo até <b>{fecha}</b>: o organizador decide o resultado.</>
+              : <>Sem acordo até <b>{fecha}</b>: a partida fica sem resultado e não pontua.</>}
           </StatusCard>
         )
       }
+      const tail = championship
+        ? <>Os times podem corrigir até <b>{fecha}</b>; o organizador decide se os placares seguirem diferentes.</>
+        : <>Sem acordo até <b>{fecha}</b>, não pontua.</>
       return (
         <StatusCard tone="divergente" title="Placares diferentes" actions={correct || chat ? <>{correct}{chat}</> : undefined}>
           {first?.score && second?.score && own
-            ? <>{match.sport === 'tenis' ? 'Você informou' : 'Vocês informaram'} <b>{text(first.score)}</b>; {opponent} informou <b>{text(second.score)}</b>. Sem acordo até <b>{fecha}</b>, não pontua.</>
+            ? <>{match.sport === 'tenis' ? 'Você informou' : 'Vocês informaram'} <b>{text(first.score)}</b>; {opponent} informou <b>{text(second.score)}</b>. {tail}</>
             : first?.score && second?.score
-              ? <>{sideName(sideOf(match, view))} informou <b>{text(first.score)}</b> e {opponent}, <b>{text(second.score)}</b>. Sem acordo até <b>{fecha}</b>, não pontua.</>
-              : <>Os placares informados não batem. Sem acordo até <b>{fecha}</b>, não pontua.</>}
+              ? <>{sideName(sideOf(match, view))} informou <b>{text(first.score)}</b> e {opponent}, <b>{text(second.score)}</b>. {tail}</>
+              : <>Os placares informados não batem. {tail}</>}
         </StatusCard>
       )
     }

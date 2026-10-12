@@ -518,8 +518,10 @@ def test_match_lineups_is_for_the_participants(view, monkeypatch):
 
 def cuts():
     share = Decimal('0.15')
-    return {name: SimpleNamespace(placement_matches=3, legend_share=share, window_weeks=52)
-            for name in ('futebol_time', 'futebol_individual', 'tenis')}
+    table = {name: SimpleNamespace(placement_matches=3, legend_share=share, window_weeks=52)
+             for name in ('futebol_time', 'futebol_individual', 'tenis')}
+    table['corrida_5'] = SimpleNamespace(placement_matches=1, legend_share=share, window_weeks=52)   # the first mark
+    return table
 
 
 def standing(standing_id, rank, **values):
@@ -570,10 +572,30 @@ def test_tennis_and_running_rankings(ranking):
     db.then('standings', 1).then('standings', [standing(5, 1, sport='tenis', format=None, user_id=REP_A, team_id=None)])
     page = results.rankings_page(db, user(), RankingParams(sport='tenis'))
     assert page.items[0].is_mine and page.mine[0].rank_position == 1
-    db.then('standings', None)
+    # Running reads `standings` like the other rankings: the viewer's line, the classified count and the page.
+    db.then('standings', None).then('standings', 0).then('standings', [])
     running = results.rankings_page(db, user(), RankingParams(sport='corrida', distance_km=5))
     assert (running.ranking, running.items, running.classified_count, running.mine[0].state) == (
         'corrida_5', [], 0, 'sem_marca')
+    assert running.required == 1 and running.legend_slots == 0
+
+
+def test_a_running_ranking_lists_the_best_times_without_goals(ranking):
+    # Contract 0002, 18: `metric_value` is the best time in seconds, `matches_played` the marks, no goals.
+    db = ranking.db
+    mark = standing(7, 1, sport='corrida', format=None, user_id=REP_A, team_id=None, distance_km=5,
+                    metric_value=Decimal(1290), matches_played=2, wins=0, draws=0, losses=0, goals_for=0,
+                    goals_against=0, tier='diamante')
+    other = standing(8, 2, sport='corrida', format=None, user_id=43, team_id=None, distance_km=5,
+                     metric_value=Decimal(1500), matches_played=1, wins=0, draws=0, losses=0, goals_for=0,
+                     goals_against=0, tier='ouro')
+    db.then('standings', mark).then('standings', 2).then('standings', [mark, other])
+    page = results.rankings_page(db, user(), RankingParams(sport='corrida', distance_km=5))
+    assert (page.ranking, page.distance_km, page.classified_count, page.next_cursor) == ('corrida_5', 5, 2, None)
+    assert [(row.rank_position, row.metric_value, row.matches_played, row.goals_for, row.goals_against, row.is_mine)
+            for row in page.items] == [(1, 1290.0, 2, None, None, True), (2, 1500.0, 1, None, None, False)]
+    [mine] = page.mine
+    assert (mine.state, mine.tier, mine.rank_position, mine.metric_value) == ('ranqueado', 'diamante', 1, 1290.0)
 
 
 def test_the_cursor_continues_after_the_last_position(ranking):

@@ -1,15 +1,18 @@
-"""Materialized rankings after confirmed results (Jogar, fase 5).
+"""Materialized rankings after confirmed results and running marks (Jogar, fases 5 e 6).
 
 The pure rules (points, records, order, classification and tiers) are in `services.scoring`; this module loads the
-confirmed matches of the 52-week window, applies them and writes `standings` (contract: docs/decisoes/0002-jogar.md,
-section 12.6). It is called inside the transaction that confirms a result, decides it, closes its deadline or
-changes the attendance or the stats of a confirmed match; nothing here commits.
+confirmed matches (or the marks) of the 52-week window, applies them and writes `standings` (contract:
+docs/decisoes/0002-jogar.md, sections 12.6 and 18). It is called inside the transaction that confirms a result,
+decides it, closes its deadline, changes the attendance or the stats of a confirmed match, or registers or removes
+a running mark; nothing here commits.
 
 A ranking is recalculated whole (positions and the Lendário places depend on every classified subject), one
-category at a time (`RankingKey`): teams by format, athletes by position and format, and tennis. Each category is
-serialized by a transaction advisory lock, taken in a fixed order, so two results that touch the same ranking never
-write at the same time and each one reads the other's committed match. Afterwards, the open searches of subjects
-whose tier changed receive it and try to pair again (`matchmaking_queue.queue.try_match`).
+category at a time (`RankingKey`): teams by format, athletes by position and format, tennis, and running by
+distance (best time of the window, lower is better; the first mark classifies). Each category is serialized by a
+transaction advisory lock, taken in a fixed order, so two results that touch the same ranking never write at the
+same time and each one reads the other's committed match. Afterwards, the open searches of subjects whose tier
+changed receive it and try to pair again (`matchmaking_queue.queue.try_match`); running has no search, so a
+running recalculation changes nothing in the pairing.
 """
 from __future__ import annotations
 
@@ -17,11 +20,12 @@ import hashlib
 from collections import defaultdict
 from collections.abc import Iterable
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 
-from sqlalchemy import exists, func, or_, select, tuple_
+from sqlalchemy import and_, exists, func, or_, select, tuple_
 from sqlalchemy.orm import Session
 
+from app.models.brackets import EventPlacement
 from app.models.matches import (
     OPEN_SEARCH_STATES,
     SCORED_MATCH_STATES,
@@ -31,14 +35,17 @@ from app.models.matches import (
     MatchSearch,
     MatchSide,
 )
-from app.models.rankings import FOOTBALL_FORMATS, Standing
+from app.models.rankings import FOOTBALL_FORMATS, RUN_DISTANCES_KM, Standing
+from app.models.runs import Run
 from app.models.teams import POSITIONS
 from app.services import scoring
 from app.services.match_rules import bucket_key, bucket_lock_id, counted_stat_fields
 from app.services.matchmaking_queue import queue
 from app.services.rankings import CURRENT_CALC_VERSION, Cuts, load_cuts
+from app.services.run_rules import local_date
 
-RANKING_ORDER = ('futebol_time', 'futebol_individual', 'tenis')
+RUN_RANKINGS = tuple(f'corrida_{km}' for km in RUN_DISTANCES_KM)
+RANKING_ORDER = ('futebol_time', 'futebol_individual', 'tenis', *RUN_RANKINGS)
 # Columns of a `standings` row that a recalculation writes; a row is rewritten only when one of them changes.
 VALUE_FIELDS = ('metric_value', 'matches_played', 'wins', 'draws', 'losses', 'goals_for', 'goals_against',
                 'rank_position', 'tier', 'calc_version')
@@ -46,9 +53,8 @@ VALUE_FIELDS = ('metric_value', 'matches_played', 'wins', 'draws', 'losses', 'go
 
 @dataclass(frozen=True)
 class RankingKey:
-    """One ranking category: all teams of a format, all athletes of a position and format, or all tennis players.
-
-    Running rankings (`corrida_<km>`) belong to the running phase and are not recalculated here."""
+    """One ranking category: all teams of a format, all athletes of a position and format, all tennis players, or
+    all athletes of a running distance (`corrida_<km>`, built with `RankingKey.run(km)`)."""
     ranking: str
     format: str | None = None
     position: str | None = None
@@ -59,13 +65,24 @@ class RankingKey:
         elif self.ranking == 'futebol_individual':
             valid = self.format in FOOTBALL_FORMATS and self.position in POSITIONS
         else:
-            valid = self.ranking == 'tenis' and self.format is None and self.position is None
+            valid = ((self.ranking == 'tenis' or self.ranking in RUN_RANKINGS)
+                     and self.format is None and self.position is None)
         if not valid:
             raise ValueError('Chave de ranking inválida.')
 
+    @classmethod
+    def run(cls, distance_km: int) -> RankingKey:
+        return cls(f'corrida_{distance_km}')
+
     @property
     def sport(self) -> str:
+        if self.ranking in RUN_RANKINGS:
+            return 'corrida'
         return 'tenis' if self.ranking == 'tenis' else 'futebol'
+
+    @property
+    def distance_km(self) -> int | None:
+        return int(self.ranking.removeprefix('corrida_')) if self.ranking in RUN_RANKINGS else None
 
     @property
     def label(self) -> str:
@@ -182,8 +199,9 @@ def _individual_records(db: Session, key: RankingKey, window_start: datetime, no
 
 
 def _tennis_records(db: Session, window_start: datetime, now: datetime) -> list:
-    """10 points per confirmed win (RN16). The championship bonus (champion +40, runner-up +20, semifinalists +10)
-    is added by the championship phase (stage 4), which feeds `bonus`; until then it is zero."""
+    """10 points per confirmed win (RN16) plus the championship bonus (champion +40, runner-up +20, semifinalists
+    +10): `event_placements` rows written when a tennis event with 4 or more entries ends, counted while the event
+    ended inside the window."""
     rows = db.execute(
         select(MatchSide.user_id, MatchSide.side, Match.score_a, Match.score_b)
         .join(Match, Match.id == MatchSide.match_id)
@@ -191,7 +209,26 @@ def _tennis_records(db: Session, window_start: datetime, now: datetime) -> list:
     games: dict[int, list[tuple[int, int]]] = defaultdict(list)
     for user_id, side, score_a, score_b in rows:
         games[user_id].append((score_a, score_b) if side == 'a' else (score_b, score_a))
-    return [scoring.tennis_record(user_id, items) for user_id, items in games.items()]
+    bonus = dict(db.execute(
+        select(EventPlacement.user_id, func.sum(EventPlacement.bonus_points))
+        .where(EventPlacement.user_id.is_not(None), EventPlacement.bonus_points > 0,
+               EventPlacement.awarded_at >= window_start, EventPlacement.awarded_at <= now)
+        .group_by(EventPlacement.user_id)).all())
+    return [scoring.tennis_record(user_id, items, bonus=int(bonus.get(user_id, 0))) for user_id, items in games.items()]
+
+
+def _run_records(db: Session, distance_km: int, start_day: date, today: date) -> list[scoring.RunRecord]:
+    """Per athlete, the marks of the distance inside the window: how many, the best time and the first day it was
+    run. Marks count by their standard distance (the ±2% tolerance was applied when they were registered), so a
+    7 km run is in no ranking. One grouped query: the cost does not grow with every mark loaded into Python."""
+    window = (Run.standard_distance_km == distance_km, Run.ran_on >= start_day, Run.ran_on <= today)
+    best = (select(Run.user_id, func.count().label('marks'), func.min(Run.duration_s).label('best'))
+            .where(*window).group_by(Run.user_id).subquery())
+    rows = db.execute(
+        select(best.c.user_id, best.c.marks, best.c.best, func.min(Run.ran_on))
+        .join(Run, and_(Run.user_id == best.c.user_id, Run.duration_s == best.c.best)).where(*window)
+        .group_by(best.c.user_id, best.c.marks, best.c.best)).all()
+    return [scoring.RunRecord(user_id, marks, best_s, first_day) for user_id, marks, best_s, first_day in rows]
 
 
 def _stored_rows(db: Session, key: RankingKey) -> dict[int, Standing]:
@@ -201,6 +238,8 @@ def _stored_rows(db: Session, key: RankingKey) -> dict[int, Standing]:
     elif key.ranking == 'futebol_individual':
         statement = select(Standing).where(Standing.sport == 'futebol', Standing.user_id.is_not(None),
                                            Standing.format == key.format, Standing.position == key.position)
+    elif key.distance_km is not None:
+        statement = select(Standing).where(Standing.sport == 'corrida', Standing.distance_km == key.distance_km)
     else:
         statement = select(Standing).where(Standing.sport == 'tenis')
     rows = db.scalars(statement.execution_options(populate_existing=True)).all()
@@ -210,7 +249,7 @@ def _stored_rows(db: Session, key: RankingKey) -> dict[int, Standing]:
 def _new_row(key: RankingKey, subject_id: int) -> Standing:
     return Standing(team_id=subject_id if key.ranking == 'futebol_time' else None,
                     user_id=None if key.ranking == 'futebol_time' else subject_id, sport=key.sport,
-                    format=key.format, position=key.position)
+                    format=key.format, position=key.position, distance_km=key.distance_km)
 
 
 def _recalculate_key(db: Session, key: RankingKey, cuts: Cuts, *, now: datetime,
@@ -220,6 +259,10 @@ def _recalculate_key(db: Session, key: RankingKey, cuts: Cuts, *, now: datetime,
         records, order = _team_records(db, key, window_start, now), scoring.team_order
     elif key.ranking == 'futebol_individual':
         records, order = _individual_records(db, key, window_start, now), scoring.individual_order
+    elif key.distance_km is not None:
+        today = local_date(now)
+        records = _run_records(db, key.distance_km, scoring.run_window_start(today, cuts.window_weeks), today)
+        order = scoring.run_order
     else:
         records, order = _tennis_records(db, window_start, now), scoring.tennis_order
     placements = scoring.rank_records(records, cuts=cuts, order=order)
@@ -308,11 +351,21 @@ def _refresh_searches(db: Session, changes: list[TierChange], *, now: datetime) 
 
 # ----- Window (sweep) ---------------------------------------------------------------------------------------
 
+def _bonus_departed(db: Session, oldest: datetime, now: datetime, weeks: int) -> bool:
+    """A championship bonus counts while its event ended inside the window (`_tennis_records`), so it can leave
+    after the last match of the same athlete did; the match check alone would keep it in the stored points."""
+    return bool(db.scalar(select(exists().where(
+        EventPlacement.user_id.is_not(None), EventPlacement.bonus_points > 0,
+        EventPlacement.awarded_at >= oldest - timedelta(weeks=weeks),
+        EventPlacement.awarded_at < now - timedelta(weeks=weeks)))))
+
+
 def recalculate_outside_window(db: Session, now: datetime) -> int:
-    """Sweep task `rankings_janela`: matches that left the 52-week window since a category was last written stop
-    counting. A category is looked at when it has a confirmed match that started between the age of its oldest row
-    and the start of the window now; it is then recalculated whole and its rows are stamped, so the next run finds
-    nothing to do (idempotent). Returns how many rows changed."""
+    """Sweep task `rankings_janela`: matches, marks and championship bonuses that left the 52-week window since a
+    category was last written stop counting. A category is looked at when it has a confirmed match (or a running
+    mark, or, in tennis, a bonus awarded) that started between the age of its oldest row and the start of the
+    window now; it is then recalculated whole and its rows are stamped, so the next run finds nothing to do
+    (idempotent). Returns how many rows changed."""
     cuts = load_cuts(db, CURRENT_CALC_VERSION)
     groups = db.execute(
         select(Standing.sport, Standing.team_id.is_not(None), Standing.format, Standing.position,
@@ -327,8 +380,18 @@ def recalculate_outside_window(db: Session, now: datetime) -> int:
                     Match.starts_at >= oldest - timedelta(weeks=weeks), Match.starts_at < now - timedelta(weeks=weeks))
         if format_ is not None:
             departed += (Match.format == format_,)
-        if db.scalar(select(exists().where(*departed))):
+        if db.scalar(select(exists().where(*departed))) or (sport == 'tenis' and _bonus_departed(db, oldest, now, weeks)):
             stale.append(RankingKey(ranking, format_, position))
+    today = local_date(now)
+    runs = db.execute(select(Standing.distance_km, func.min(Standing.updated_at))
+                      .where(Standing.sport == 'corrida').group_by(Standing.distance_km)).all()
+    for distance_km, oldest in runs:
+        weeks = cuts[f'corrida_{distance_km}'].window_weeks
+        departed = (Run.standard_distance_km == distance_km,
+                    Run.ran_on >= scoring.run_window_start(local_date(oldest), weeks),
+                    Run.ran_on < scoring.run_window_start(today, weeks))
+        if db.scalar(select(exists().where(*departed))):
+            stale.append(RankingKey.run(distance_km))
     return recalculate_rankings(db, stale, now=now, touch=True)
 
 

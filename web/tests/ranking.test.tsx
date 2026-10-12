@@ -173,17 +173,54 @@ describe('Ranking geral (GET /rankings)', () => {
     expect(screen.queryByText(/Seu elo começa em campo/)).toBeNull()
   })
 
-  it('a corrida vazia diz que as marcas chegam na próxima etapa', async () => {
+  it('a corrida sem marcas diz que ninguém tem marca na distância e leva a Jogar', async () => {
     const ui = userEvent.setup()
     setup({
       [`GET ${society}`]: rankingPage(),
       'GET /rankings?sport=corrida&distance_km=5&limit=20': rankingPage({ ranking: 'corrida_5', format: null, distance_km: 5, classified_count: 0, required: 1, mine: [line({ state: 'sem_marca', tier: null, played: 0, required: 1, team: null, rank_position: null, metric_value: null })] }),
     })
     await ui.click(chip('Corrida'))
-    expect(await screen.findByText('As marcas da corrida chegam na próxima etapa')).not.toBeNull()
+    expect(await screen.findByText('Ninguém com marca nos 5 km ainda')).not.toBeNull()
+    expect(screen.queryByText(/próxima etapa/)).toBeNull()
     expect(screen.getByLabelText('Sua posição').textContent).toContain('Sem marca neste ranking')
     expect(chip('5 km').getAttribute('aria-pressed')).toBe('true')
     expect(screen.queryByText('Ninguém classificado ainda')).toBeNull()
+  })
+
+  it('a corrida lista o melhor tempo de cada atleta (menor vence), com o elo e as marcas, e a placa "Sua posição" mostra o tempo', async () => {
+    const ui = userEvent.setup()
+    const runnerRow = (position: number, id: number, name: string, seconds: number, tier: 'diamante' | 'ouro' | 'prata', overrides = {}) =>
+      athleteRow(position, id, name, { metric_value: seconds, tier, matches_played: 2, wins: 0, draws: 0, losses: 0, ...overrides })
+    const { api } = setup({
+      [`GET ${society}`]: rankingPage(),
+      'GET /rankings?sport=corrida&distance_km=5&limit=20': rankingPage({
+        ranking: 'corrida_5', format: null, distance_km: 5, required: 1, classified_count: 3, legend_slots: 0,
+        items: [runnerRow(1, 40, 'Ana Souza', 1300, 'diamante', { is_mine: true }), runnerRow(2, 41, 'Bruno Dias', 1565, 'ouro', { matches_played: 1 }), runnerRow(3, 42, 'Carla Nunes', 3690, 'prata')],
+        mine: [line({ team: null, rank_position: 1, metric_value: 1300, tier: 'diamante', played: 2, required: 1 })],
+      }),
+    })
+    await ui.click(chip('Corrida'))
+    expect(await screen.findByText('Bruno Dias')).not.toBeNull()
+    expect(api.calls.at(-1)?.path).toBe('/rankings?sport=corrida&distance_km=5&limit=20')
+    const rows = within(document.querySelector('[data-slot="ranking-list"]') as HTMLElement).getAllByRole('listitem')
+    expect(rows).toHaveLength(3)
+    // Segundos formatados como tempo, "tempo" sob o número e nada de pontos nem de campanha de partidas.
+    expect(within(rows[0]).getByText('21:40')).not.toBeNull()
+    expect(within(rows[1]).getByText('26:05')).not.toBeNull()
+    expect(within(rows[2]).getByText('1:01:30')).not.toBeNull()
+    expect(within(rows[0]).getByText('tempo')).not.toBeNull()
+    expect(rows[0].textContent).toContain('2 marcas')
+    expect(rows[1].textContent).toContain('1 marca')
+    expect(rows[0].textContent).not.toMatch(/pontos|partida|\dV\s/)
+    expect(within(rows[0]).getByRole('img', { name: 'Elo Diamante' })).not.toBeNull()
+    expect(rows[0].hasAttribute('data-mine')).toBe(true)
+    expect(screen.getByText(/3 classificados · menor tempo vence/)).not.toBeNull()
+    expect(screen.getByRole('heading', { name: '5 km' })).not.toBeNull()
+    const plate = screen.getByLabelText('Sua posição')
+    expect(plate.textContent).toContain('Diamante')
+    expect(plate.textContent).toContain('1º lugar · 21:40')
+    expect(plate.textContent).not.toContain('pontos')
+    expect(screen.queryByText(/próxima etapa/)).toBeNull()
   })
 
   it('abre o perfil do atleta ao tocar na linha; times não são links', async () => {

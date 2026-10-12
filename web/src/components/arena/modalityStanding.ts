@@ -7,7 +7,8 @@ import type { TierKey } from '@/data/arena'
 /**
  * Situação do atleta numa modalidade, para os cartões "Seu elo" do Início, a partir de `GET /me/standings`: o maior
  * elo entre as linhas ranqueadas (nunca para quem está em classificação) ou, sem elo, o andamento da classificação
- * ("n de 3 partidas"). A corrida classifica na primeira marca: sem elo, "Sem marca".
+ * ("n de 3 partidas"). A corrida classifica na primeira marca: com elo, mostra a distância de maior elo e o melhor tempo
+ * dela; sem elo, "Sem marca".
  */
 export interface ModalityStanding {
   /** Elo com a classificação completa; `null` em classificação. */
@@ -17,14 +18,14 @@ export interface ModalityStanding {
   required: number
   /** Onde o elo vale ("Society · Leões do Cerrado", "Society · como atacante"); só com elo. */
   context: string | null
-  /** Pontos (time e tênis) ou média por partida (individual) da linha que dá o elo; só com elo. */
-  metric: { value: number; unit: 'pontos' | 'média' } | null
+  /** Pontos (time e tênis), média por partida (individual) ou melhor tempo em segundos (corrida) da linha que dá o elo; só com elo. */
+  metric: { value: number; unit: 'pontos' | 'média' | 'tempo' } | null
 }
 
 const rank = (tier: TierKey) => rankingTiers.findIndex(item => item.image === tier)
 const lower = (text: string) => text.toLocaleLowerCase('pt-BR')
 
-interface Candidate { line: StandingLine; context: string; unit: 'pontos' | 'média' }
+interface Candidate { line: StandingLine; context: string; unit: 'pontos' | 'média' | 'tempo' }
 
 export function modalityStanding(sport: Sport, data: Partial<MeStandings> | null | undefined): ModalityStanding {
   const { teams, individual, tenis, corrida } = normalizeStandings(data)
@@ -39,13 +40,13 @@ export function modalityStanding(sport: Sport, data: Partial<MeStandings> | null
     ]
     : sport === 'tenis'
       ? (tenis ? [{ line: tenis, context: 'Tênis', unit: 'pontos' as const }] : [])
-      : corrida.map(line => ({ line, context: `${line.distance_km} km`, unit: 'pontos' as const }))
+      : corrida.map(line => ({ line, context: `Nos ${line.distance_km} km`, unit: 'tempo' as const }))
 
   let best: { tier: TierKey; context: string; metric: ModalityStanding['metric'] } | null = null
   for (const { line, context, unit } of candidates) {
     const tier = rankedTier(line)
     if (tier && (!best || rank(tier) > rank(best.tier)))
-      best = { tier, context, metric: sport !== 'corrida' && line.metric_value != null ? { value: line.metric_value, unit } : null }
+      best = { tier, context, metric: line.metric_value != null ? { value: line.metric_value, unit } : null }
   }
   const required = sport === 'corrida' ? 1 : candidates[0]?.line.required || placementRequired
   if (best) return { tier: best.tier, played: required, required, context: best.context, metric: best.metric }

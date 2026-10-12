@@ -222,7 +222,7 @@ def test_scheduled_match_lists_the_slots_and_the_walk_in(db, world):
         'read_chat': True, 'write_chat': True, 'propose_terms': True, 'accept_terms': False, 'suggest_court': True,
         'confirm_booking': True, 'cancel': True, 'report_result': False, 'register_walkover': False,
         'withdraw_walkover': False, 'contest_walkover': False, 'attendance': False, 'send_stats': False,
-        'manage_slots': True}
+        'manage_slots': True, 'schedule_match': False, 'decide_result': False}
     assert not detail.needs_my_action and detail.result is None and detail.score is None
 
     # The booking turns confirmed; side B does not book, so it cannot confirm.

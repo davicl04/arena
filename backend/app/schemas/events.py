@@ -17,6 +17,7 @@ from app.schemas.common import PersonOut
 from app.schemas.identity import CityOut
 from app.schemas.rankings import FootballFormat, TeamRefOut, Tier
 from app.services.event_rules import (
+    ChampionshipCounts,
     ChecklistItem,
     NextAction,
     PendingCounts,
@@ -45,7 +46,9 @@ RefundResolution = Literal['devolvida', 'pendente']
 ChecklistKey = Literal['nome_modalidade', 'formato_tipo', 'vagas_elos', 'datas', 'local', 'inscricao']
 NextActionKind = Literal['aguardar_revogacao', 'corrigir_recusa', 'completar_rascunho', 'publicar',
                          'aguardar_aprovacao', 'analisar_comprovantes', 'enviar_devolucoes', 'aguardar_devolucoes',
-                         'acompanhar_inscricoes', 'aguardar_inicio', 'nenhuma']
+                         'sortear_chaveamento', 'confirmar_chaveamento', 'decidir_divergencias', 'agendar_partidas',
+                         'acompanhar_partidas', 'acompanhar_inscricoes', 'aguardar_inicio', 'nenhuma']
+BracketState = Literal['sem_chaveamento', 'sorteado', 'confirmado']
 EntrySubjectKind = Literal['time', 'atleta']
 
 
@@ -100,6 +103,19 @@ class NextActionOut(BaseModel):
     kind: NextActionKind
     count: int | None
     deadline: datetime | None
+
+
+class ChampionshipOut(BaseModel):
+    """Bracket and matches of a championship (fase 6): the counters of the organizer's poster and sections."""
+    bracket: BracketState
+    confirmed: int                      # confirmed entries (what the draw uses)
+    matches_total: int
+    to_schedule: int                    # both sides known, no date yet
+    waiting: int                        # a side still waits for the winner of a previous match
+    scheduled: int                      # scheduled, without a final result
+    to_decide: int                      # divergent score, or 48 h without a result: the organizer decides
+    finished: int
+    attention: int                      # to_schedule + to_decide: the alert of the poster
 
 
 class TennisBonusOut(BaseModel):
@@ -207,6 +223,13 @@ def pending_out(pending: PendingCounts) -> PendingCountsOut:
     return PendingCountsOut(receipts=pending.receipts, refunds_to_send=pending.refunds_to_send,
                             refunds_awaiting=pending.refunds_awaiting, refund_disputes=pending.refund_disputes,
                             total=pending.total)
+
+
+def championship_out(counts: ChampionshipCounts) -> ChampionshipOut:
+    return ChampionshipOut(bracket=counts.bracket, confirmed=counts.confirmed, matches_total=counts.matches_total,
+                           to_schedule=counts.to_schedule, waiting=counts.waiting, scheduled=counts.scheduled,
+                           to_decide=counts.to_decide, finished=counts.finished,
+                           attention=counts.to_schedule + counts.to_decide)
 
 
 def next_action_out(action: NextAction) -> NextActionOut:

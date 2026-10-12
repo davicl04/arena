@@ -402,9 +402,18 @@ def test_the_board_lights_the_dot_for_what_waits_for_the_viewer(db, board):
     assert matchmaking.play_board(db, user(), now=NOW).attention is True
     board.proposals, board.offers = [], ['offer']
     assert matchmaking.play_board(db, user(), now=NOW).attention is True
-    board.offers, board.cards = [], [SimpleNamespace(state='agendada')]
+    board.offers, board.cards = [], [SimpleNamespace(state='agendada', origin='amistoso')]
     assert matchmaking.play_board(db, user(), now=NOW).attention is False
-    board.cards = [SimpleNamespace(state='combinando')]
+    board.cards = [SimpleNamespace(state='combinando', origin='amistoso')]
+    assert matchmaking.play_board(db, user(), now=NOW).attention is True
+
+
+def test_a_championship_match_waiting_for_the_organizer_does_not_light_the_dot(db, board):
+    # Contract 0002, 17.3: in a championship `combinando` means "waiting for the organizer's schedule", so there is
+    # nothing for the squads to arrange; a friendly in the same state still lights the dot.
+    board.cards = [SimpleNamespace(state='combinando', origin='campeonato')]
+    assert matchmaking.play_board(db, user(), now=NOW).attention is False
+    board.cards.append(SimpleNamespace(state='combinando', origin='amistoso'))
     assert matchmaking.play_board(db, user(), now=NOW).attention is True
 
 

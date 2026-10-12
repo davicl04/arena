@@ -63,9 +63,9 @@ No Windows, se o Docker não iniciar, corrija a instalação ou use uma instânc
 
 Se o Compose estiver `healthy`, mas o Alembic tentar conectar à porta `55432`, o `backend/.env` ainda aponta para o ambiente auxiliar. Ajuste a porta de `DATABASE_URL` para `5432`, mantendo as credenciais do banco do Compose. O comando `if (!(Test-Path .env))` apenas cria o arquivo quando ele não existe; não atualiza configurações anteriores. Reinicie a API após alterar o `.env`. Os bancos de 5432 e 55432 têm dados independentes; trocar a conexão não transfere contas e perfis.
 
-### Varredura periódica (eventos, inscrições e partidas)
+### Varredura periódica (eventos, inscrições, partidas, campeonatos e corrida)
 
-Prazos de eventos não dependem de alguém abrir a tela: uma varredura registra o que venceu. Em desenvolvimento, deixe-a rodando num terminal próprio, no diretório `backend/`, com as migrações aplicadas (inclusive a `0008`, de eventos, inscrições e comprovantes, e a `0009`, do Jogar):
+Prazos de eventos não dependem de alguém abrir a tela: uma varredura registra o que venceu. Em desenvolvimento, deixe-a rodando num terminal próprio, no diretório `backend/`, com as migrações aplicadas (inclusive a `0008`, de eventos, inscrições e comprovantes, a `0009`, do Jogar, a `0010`, de chaveamento, decisões e classificação final, e a `0011`, das marcas de corrida):
 
 ```powershell
 .venv/Scripts/python.exe -m app.admin_cli sweep --loop 60
@@ -80,9 +80,10 @@ Sem `--loop`, roda uma vez e termina; com `--loop 60`, repete a cada 60 segundos
 - `ofertas_expiradas`: ofertas de vaga ao avulso sem resposta em 2 h terminam (`sem_resposta`) e a vaga é oferecida ao próximo avulso da cidade; balde a balde, com commit;
 - `pareamento`: refaz o pareamento das buscas que ficaram esperando, balde a balde (rede de segurança, por exemplo depois de uma queda);
 - `resultados_vencidos`: 48 h depois do início, a amistosa sem placar confirmado pelos dois lados fica `sem_resultado`, o W.O. não contestado vale (3×0 no futebol, 6-0 6-0 no tênis) e a partida confirmada passa a `encerrada` (fim da janela de estatísticas); os rankings tocados são recalculados uma vez por rodada. O W.O. contestado espera a administração;
-- `rankings_janela`: partidas que saíram das 52 semanas deixam de contar e os rankings afetados são recalculados.
+- `campeonatos_encerrados`: rede de segurança do encerramento. O evento em andamento cujas partidas já têm todas o resultado final (`realizada` ou `encerrada`) vai a `encerrado`, grava a classificação final e, no tênis com 4 ou mais inscrições confirmadas, o bônus do ranking (campeão +40, vice +20, semifinalistas ou 3º e 4º +10), com a notificação `evento_encerrado` e a auditoria `evento.encerrado`. Normalmente quem dá o último resultado já encerra o evento na mesma transação; esta tarefa cobre o caso em que a linha do evento estava ocupada;
+- `rankings_janela`: partidas, marcas de corrida e bônus de campeonato do tênis que saíram das 52 semanas deixam de contar e os rankings afetados (inclusive os de corrida por distância) são recalculados.
 
-As tarefas de partida seguem a ordem global de travas de [decisões do Jogar](docs/decisoes/0002-jogar.md#155-ordem-global-de-travas-da-etapa-3). Rodar de novo não muda nada, e duas varreduras simultâneas não mudam o mesmo item duas vezes (`FOR UPDATE SKIP LOCKED`). As leituras da API já tratam os prazos sem esperar a varredura (uma reserva vencida aparece como expirada e não ocupa vaga; uma devolução com 7 dias já não aceita resposta), então o comando parado atrasa as notificações, a auditoria e a gravação do novo estado, sem liberar ações vencidas. A varredura usa o `DATABASE_URL` do `backend/.env`. O agendamento fora do desenvolvimento ainda será decidido na implantação.
+As tarefas de partida, de campeonato e de ranking seguem a ordem global de travas de [decisões do Jogar](docs/decisoes/0002-jogar.md#155-ordem-global-de-travas-da-etapa-3). Rodar de novo não muda nada, e duas varreduras simultâneas não mudam o mesmo item duas vezes (`FOR UPDATE SKIP LOCKED`). As leituras da API já tratam os prazos sem esperar a varredura (uma reserva vencida aparece como expirada e não ocupa vaga; uma devolução com 7 dias já não aceita resposta), então o comando parado atrasa as notificações, a auditoria e a gravação do novo estado, sem liberar ações vencidas. A varredura usa o `DATABASE_URL` do `backend/.env`. O agendamento fora do desenvolvimento ainda será decidido na implantação.
 
 ## Web
 
@@ -176,7 +177,7 @@ Use três contas adultas com perfil de futebol e cidade (A, B e C) e promova C a
 
 ## Demonstrar eventos e inscrições (etapa 2, web)
 
-Rode o MinIO e o `ensure-bucket` (comprovantes são arquivos privados) e deixe a [varredura](#varredura-periódica-eventos-e-inscrições) num terminal, se quiser ver prazos vencerem. Use cinco contas adultas com cidade: **ADM** (promovida com `promote-admin`), **ORG** (organizadora), **REP** (representante de um time de futebol, de [Meus times](#demonstrar-times-e-organizador-etapa-1-web)), **ATL** (atleta de tênis) e **MEM**, opcional, para o link do time.
+Rode o MinIO e o `ensure-bucket` (comprovantes são arquivos privados) e deixe a [varredura](#varredura-periódica-eventos-inscrições-partidas-campeonatos-e-corrida) num terminal, se quiser ver prazos vencerem. Use cinco contas adultas com cidade: **ADM** (promovida com `promote-admin`), **ORG** (organizadora), **REP** (representante de um time de futebol, de [Meus times](#demonstrar-times-e-organizador-etapa-1-web)), **ATL** (atleta de tênis) e **MEM**, opcional, para o link do time.
 
 1. **Permissão:** ORG, Perfil › Menu › "Quero organizar" e envie o pedido (futebol e tênis). ADM aprova em Menu › Administração › "Pedidos de organizador". O Menu de ORG passa a mostrar a seção Organizador.
 2. **Evento gratuito:** ORG, Menu › "Criar evento" (ou Meus eventos › "Novo evento"). O Criar evento faz uma pergunta por vez: Enter avança, a seta volta e "Salvar rascunho" grava a qualquer momento. Escolha tênis, todos contra todos, 6 vagas, aberto a todos, datas, cidade, local e "Gratuita": "Publicar" abre a gestão com as inscrições abertas. Recarregue e confira Meus eventos.
@@ -210,13 +211,13 @@ Tudo vem da API; sem busca, partida ou ranking, as telas mostram o estado vazio.
 
 ## Demonstrar o Jogar pela API (etapa 3, backend)
 
-Com a API em `http://127.0.0.1:8000`, as migrações até a `0009` aplicadas e a [varredura](#varredura-periódica-eventos-e-inscrições) rodando, este roteiro, em PowerShell, cria dois times em Brasília, pareia os dois e leva a partida a `combinando`. A cidade do perfil de futebol vem do cadastro, e `promote-admin` dá a administração a uma conta (ela publica quadras e decide W.O.).
+Com a API em `http://127.0.0.1:8000`, as migrações até a `0009` aplicadas e a [varredura](#varredura-periódica-eventos-inscrições-partidas-campeonatos-e-corrida) rodando, este roteiro, em PowerShell, cria dois times em Brasília, pareia os dois e leva a partida a `combinando`. A cidade do perfil de futebol vem do cadastro, e `promote-admin` dá a administração a uma conta (ela publica quadras e decide W.O.).
 
 ```powershell
 $api = 'http://127.0.0.1:8000/api/v1'
 function Arena($method, $path, $token, $body = $null) {
   $request = @{ Method = $method; Uri = "$api$path"; Headers = @{ Authorization = "Bearer $token" } }
-  if ($method -in 'POST', 'PUT') {
+  if ($method -in 'POST', 'PUT', 'PATCH') {
     $request.ContentType = 'application/json'
     $request.Body = ($(if ($body) { $body } else { @{} }) | ConvertTo-Json -Depth 5)
   }
@@ -239,6 +240,51 @@ O restante do fluxo usa as rotas do [contrato](docs/decisoes/0002-jogar.md), sem
 3. **Chat e denúncia:** `GET` e `POST /matches/{id}/messages`; `POST /reports {"target_type":"match_message",…}` e, com a administração, `POST /admin/reports/{id}/decision {"action":"remove",…}`.
 4. **Resultado:** depois do horário, os dois lados fazem `PUT /matches/{id}/result` (`{"goals_a":3,"goals_b":1}` ou, no tênis, `{"sets":[…]}`); `PUT /matches/{id}/attendance`, `PUT /matches/{id}/my-stats`, a revisão e a contestação das estatísticas; depois `GET /rankings?sport=futebol&kind=time&format=society` e `GET /me/standings`.
 5. **Prazos e W.O.:** `POST /matches/{id}/cancel` (até 24 h antes), `POST /matches/{id}/walkover` e a contestação, `GET /admin/walkover-disputes` e `POST /admin/matches/{id}/walkover-decision`. Placares divergentes, depois de 48 h, e W.O. sem contestação fecham pela varredura (`resultados_vencidos`).
+
+## Demonstrar a corrida pela API (etapa 5, backend)
+
+Com a API em `http://127.0.0.1:8000`, as migrações até a `0011` aplicadas e a [varredura](#varredura-periódica-eventos-inscrições-partidas-campeonatos-e-corrida) rodando, a marca é do próprio atleta (autodeclarada, sem comprovação) e o titular vem da sessão. Em PowerShell, reaproveitando a função `Arena` do roteiro do Jogar, com `$a` o token de uma conta adulta:
+
+```powershell
+$treino = @{ distance_m = 5000; duration_s = 1500; source = 'treino' }          # 5 km em 25:00
+(Arena POST '/me/runs/preview' $a $treino).impact                               # primeira_marca, elo estimado (nada é gravado)
+$marca = Arena POST '/me/runs' $a $treino                                       # grava e recalcula o ranking dos 5 km
+$marca.impact                                                                   # tier_after exato, inclusive Lendário
+(Arena GET '/me/run-bests' $a).items | Where-Object { $_.distance_km -eq 5 }  # melhor tempo, série e elo da distância
+(Arena GET '/rankings?sport=corrida&distance_km=5' $a).items                    # metric_value: melhor tempo em segundos
+Arena POST '/me/runs' $a @{ distance_m = 5000; duration_s = 1440; source = 'treino' } | Out-Null   # novo melhor, sobe no ranking
+Arena DELETE "/me/runs/$($marca.run.id)" $a                                     # remove o erro de digitação e recalcula
+```
+
+Detalhes do [contrato, seção 18](docs/decisoes/0002-jogar.md#18-fase-6--corrida-marcas-e-elo-por-distância): a distância é a padrão mais próxima com tolerância de 2% (3, 5, 10, 21 e 42 km); uma corrida de 7 km fica só no histórico (`GET /me/runs?distance=outra`) e não toca ranking; o primeiro tempo já classifica; menor tempo vence e, no empate, vale quem correu primeiro. Para a "Prova do Arena", `GET /me/run-races` lista as provas com inscrição confirmada e largada passada; `POST /me/runs` com `{"source":"prova","entry_id":…,"distance_m":…,"duration_s":…}` registra uma só marca por inscrição (um segundo toque responde `409`).
+
+**Pela web (etapa 5):** em Jogar, escolha Corrida e uma distância. REGISTRAR abre o cronômetro (tempo digitado, "Treino" ou "Prova do Arena", com a prévia do que a marca muda no ranking); "Suas marcas" mostra o melhor tempo, o elo e a evolução de cada distância, com o histórico e a remoção de marcas; e "Ver ranking" abre o Ranking já na corrida e na distância escolhida. A "Prova do Arena" pede uma inscrição confirmada numa prova cuja largada já passou: para testar sem esperar, ajuste o `starts_at` do evento no **banco de teste**, nunca no banco real.
+
+## Demonstrar o campeonato pela API (etapa 4, backend)
+
+Parta de um campeonato de tênis ou futebol criado e publicado como no [roteiro de eventos](#demonstrar-eventos-e-inscrições-etapa-2-web) (organizador aprovado, `competition_type` `eliminacao_simples` ou `todos_contra_todos`, `registration_closes_at` a poucos minutos) com 4 inscrições confirmadas; depois do fim das inscrições, o organizador (`$org`) conduz o campeonato, sempre com corpo JSON (mesmo `{}`; a função `Arena` do roteiro do Jogar já envia corpo também em `PATCH`):
+
+```powershell
+$evento = 42                                                                    # id do evento publicado
+Arena POST "/organizer/events/$evento/bracket" $org | Out-Null                  # sorteia (semente guardada; sortear de novo troca o sorteio)
+Arena PATCH "/organizer/events/$evento/bracket" $org @{ a = 0; b = 3 } | Out-Null   # troca dois lugares antes de confirmar
+Arena POST "/organizer/events/$evento/bracket/confirm" $org | Out-Null          # gera as partidas e leva o evento a em_andamento
+$partidas = (Arena GET "/organizer/events/$evento/matches" $org).items          # J1, J2…, com can_schedule e awaiting_decision
+$quadra = 1                                                                     # id de uma quadra publicada (GET /courts)
+Arena PUT "/organizer/matches/$($partidas[0].card.id)/schedule" $org @{ starts_at = '2026-11-20T18:00:00-03:00'; court_id = $quadra }
+```
+
+Uma agenda a menos de 2 h de outra partida na mesma quadra, ou do mesmo time ou atleta, responde `409 { "detail": …, "conflict": { kind, match_id, label, stage, starts_at, court_name } }`. Depois do horário, os dois lados informam o placar como num amistoso (`PUT /matches/{id}/result`); placares iguais confirmam, recalculam o ranking e **levam o vencedor** à partida seguinte (a eliminação não aceita empate). Se os placares divergirem, ou 48 h passarem sem resultado, ou houver W.O., o organizador decide com justificativa de 5 a 500 caracteres:
+
+```powershell
+Arena POST "/organizer/matches/$($partidas[0].card.id)/result-decision" $org @{ score = @{ goals_a = 2; goals_b = 1 }; justification = 'Conferido com os dois times.' }   # no tênis: score = @{ sets = @(…) }
+Arena POST "/organizer/matches/$($partidas[1].card.id)/result-decision" $org @{ walkover_absent_side = 'b'; justification = 'O time B não compareceu.' }   # W.O.: 3×0 (futebol) ou 6-0 6-0 (tênis)
+Arena GET "/events/$evento/bracket" $org                                        # árvore ou tabela; placements aparecem quando o evento encerra
+```
+
+Quando a última partida recebe o resultado final, o evento vai a `encerrado` na mesma transação (a tarefa `campeonatos_encerrados` da varredura cobre o caso em que a linha do evento estava ocupada) e, no tênis com 4 ou mais inscrições confirmadas, o bônus entra no ranking do tênis (`GET /rankings?sport=tenis`). Cancelar o evento (`POST /organizer/events/{id}/cancel`) cancela as partidas abertas. Contrato: [0003, seção 21](docs/decisoes/0003-times-campeonatos.md#21-etapa-4--chaveamento-agenda-e-decisão-do-organizador-fases-6-e-7) e [0002, seção 17](docs/decisoes/0002-jogar.md#17-uso-nas-partidas-de-campeonato-etapa-4).
+
+**Pela web (etapa 4):** em Perfil, Menu, Meus eventos, abra o evento. Depois do fim das inscrições, a gestão oferece "Sortear chaveamento" (ou "Sortear rodadas", no todos contra todos); na tela do chaveamento, toque em dois times para trocá-los de lugar e confirme. "Partidas" lista os jogos e abre a folha de agenda (Date Picker, horário livre e quadra, com o conflito de 2 h na própria folha); a divergência chega por notificação e abre a decisão (o placar de um lado, outro placar ou W.O., com justificativa); o canal de avisos fica no fim da gestão. Os inscritos veem a chave ou a tabela na aba "Tabela" do detalhe do evento. Para testar as partidas sem esperar o horário, ajuste `registration_closes_at` e `starts_at` dos eventos e das partidas no **banco de teste**, nunca no banco real.
 
 ## Validação
 

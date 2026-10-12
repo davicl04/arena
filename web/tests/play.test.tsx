@@ -4,10 +4,12 @@ import userEvent from '@testing-library/user-event'
 import { ApiError, request } from '../src/api/client'
 import type { City, Profile, User } from '../src/api/client'
 import type { MeStandings, PositionStanding, RunStanding, StandingLine } from '../src/api/play'
-import { avulsoLine, facesText, formatDuration, lineView, runLine } from '../src/components/play/tierLines'
+import type { RunBest } from '../src/api/runs'
+import { avulsoLine, facesText, formatDuration, lineView } from '../src/components/play/tierLines'
 import ArenaPage from '../src/pages/ArenaPage'
 import PlayPage from '../src/pages/PlayPage'
 import type { PlayBoardState } from '../src/hooks/usePlayBoard'
+import { bests, lago, markCard } from './run-fixtures'
 
 vi.mock('../src/api/client', async original => ({
   ...await original<typeof import('../src/api/client')>(),
@@ -41,8 +43,9 @@ const idleBoard = (): PlayBoardState => ({
   loading: false, error: '', reload: vi.fn(async () => null), deferred: [], defer: vi.fn(),
 })
 
-function renderPlay(data: MeStandings | Error, profiles: Profile[] = [football, tennis, running]) {
+function renderPlay(data: MeStandings | Error, profiles: Profile[] = [football, tennis, running], runBests: { items: RunBest[] } = bests()) {
   vi.mocked(request).mockImplementation(async path => {
+    if (path === '/me/run-bests') return runBests as never
     if (path !== '/me/standings') throw new Error(`rota inesperada ${path}`)
     if (data instanceof Error) throw data
     return data as never
@@ -131,17 +134,17 @@ describe('placa do Jogar (fase 1)', () => {
     expect(go).toHaveBeenCalledWith('sports')
   })
 
-  it('corrida: chips de distância, sem marca e marca ranqueada', async () => {
+  it('corrida: chips de distância, sem marca e marca ranqueada (elo e melhor tempo vêm de run-bests)', async () => {
     const ui = userEvent.setup()
-    renderPlay(standings({ corrida: corrida({ 10: { state: 'ranqueado', tier: 'ouro', played: 1, required: 1, metric_value: 3160, faces: ['prata', 'ouro', 'diamante'], faces_any_level: false } }) }))
+    renderPlay(standings(), [football, tennis, running], bests(markCard(10, ['52:40'], { best: { ...markCard(10, ['52:40']).best!, origin: lago } })))
     await ui.click(screen.getByRole('tab', { name: 'Corrida' }))
     expect(screen.getByRole('button', { name: '5 km' }).getAttribute('aria-pressed')).toBe('true')
     expect(await screen.findByText('Sem marca nos 5 km')).not.toBeNull()
-    expect(button('Registrar treino ou prova').disabled).toBe(true)
-    expect(screen.getByText('O registro de treinos e provas chega numa próxima etapa do Arena.')).not.toBeNull()
+    expect(button('Registrar treino ou prova').disabled).toBe(false)
+    expect(screen.getByText(/Registre o tempo de um treino ou de uma prova do Arena/)).not.toBeNull()
     await ui.click(screen.getByRole('button', { name: '10 km' }))
     expect(screen.getByText('Ouro nos 10 km')).not.toBeNull()
-    expect(screen.getByText('Melhor 52:40')).not.toBeNull()
+    expect(screen.getByText('Melhor 52:40 · Corrida do Lago')).not.toBeNull()
     expect(screen.getByRole('heading', { name: 'Provas' })).not.toBeNull()
   })
 
@@ -216,10 +219,5 @@ describe('linha do elo', () => {
     expect(avulsoLine(lines, 'atacante')).toMatchObject({ kind: 'ranked', tier: 'ouro', title: 'Ouro no society como atacante', detail: 'Enfrenta Prata, Ouro ou Diamante' })
     expect(avulsoLine(lines, 'goleiro')).toEqual({ kind: 'placement', title: 'Em classificação como goleiro', played: 2, required: 3 })
     expect(avulsoLine(lines, 'qualquer')).toMatchObject({ title: 'Ouro no society como atacante' })
-  })
-
-  it('na corrida, mostra "Sem marca" sem elo', () => {
-    expect(runLine(corrida(), 42)).toMatchObject({ kind: 'no-mark', title: 'Sem marca nos 42 km' })
-    expect(runLine([], 3)).toMatchObject({ kind: 'no-mark' })
   })
 })

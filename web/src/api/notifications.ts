@@ -5,7 +5,8 @@ import type { Person } from './client'
 
 /**
  * Tipos das etapas 1 (seção 7), 2 (seção 17: eventos, inscrições, comprovantes, devoluções e avisos) e 3 (0002-jogar,
- * seção 13: propostas, partida, W.O., resultado, vagas e quadras). As fases seguintes acrescentam outros; a web mostra
+ * seção 13: propostas, partida, W.O., resultado, vagas e quadras) e 4 (0003, seção 21.6: tabela, adversário, divergência,
+ * decisão e encerramento do campeonato). As fases seguintes acrescentam outros; a web mostra
  * um texto genérico para os desconhecidos.
  */
 export type NotificationType =
@@ -46,6 +47,11 @@ export type NotificationType =
   | 'vaga_preenchida'
   | 'removido_da_partida'
   | 'quadra_decidida'
+  | 'tabela_publicada'
+  | 'adversario_definido'
+  | 'divergencia_para_decidir'
+  | 'decisao_registrada'
+  | 'evento_encerrado'
 
 export interface ArenaNotification {
   id: number

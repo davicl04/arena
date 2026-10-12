@@ -37,7 +37,11 @@ export type Screen =
   // Etapa 3 (Jogar): a partida (condições, chat e resultado), aberta pela placa e pelas notificações, e as filas da administração.
   | "match"
   | "admin-court-suggestions"
-  | "admin-walkover-disputes";
+  | "admin-walkover-disputes"
+  // Etapa 4 (campeonatos): chaveamento e tabela, agenda das partidas e decisão do resultado, do lado do organizador.
+  | "event-bracket"
+  | "event-matches"
+  | "result-decision";
 export type ConnectionsTab = "followers" | "following";
 export { version as appVersion } from "../../package.json";
 export const cover = "/images/arena-cover.jpg";
@@ -71,6 +75,9 @@ const profileScreens: Screen[] = [
   "admin-refund-disputes",
   "admin-court-suggestions",
   "admin-walkover-disputes",
+  "event-bracket",
+  "event-matches",
+  "result-decision",
 ];
 const playScreens: Screen[] = ["teams", "team-form", "team-invite", "join", "events", "event", "match"];
 

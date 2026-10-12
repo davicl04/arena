@@ -32,7 +32,7 @@ export const marcos: Person = person(5, 'Marcos Ribeiro')
 export const noPermissions: MatchPermissions = {
   read_chat: false, write_chat: false, propose_terms: false, accept_terms: false, suggest_court: false, confirm_booking: false,
   cancel: false, report_result: false, register_walkover: false, withdraw_walkover: false, contest_walkover: false,
-  attendance: false, send_stats: false, manage_slots: false,
+  attendance: false, send_stats: false, manage_slots: false, schedule_match: false, decide_result: false,
 }
 /** Permissões do representante em "combinando": conversa, propõe, sugere quadra, cancela e ajusta vagas. */
 export const arranging: MatchPermissions = {

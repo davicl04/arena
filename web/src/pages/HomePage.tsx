@@ -8,6 +8,7 @@ import { useNow } from "../hooks/useNow";
 import { useResource } from "../hooks/useResource";
 import { MatchRow } from "../components/play/MyMatches";
 import { nextScheduledMatch } from "../components/play/matchView";
+import { formatDuration } from "../components/play/tierLines";
 import { Logo } from "../components/Brand";
 import { TierEmblem } from "../components/arena/TierEmblem";
 import { modalityStanding } from "../components/arena/modalityStanding";
@@ -121,9 +122,15 @@ export default function HomePage({
                 <p className="mt-[11px] text-[12px] text-ink-muted">{s.label}</p>
                 <div className="mt-[3px] mb-[9px] flex items-baseline gap-[7px]">
                   <strong className="font-display text-[28px] font-bold">
-                    {standing?.metric ? standing.metric.value.toLocaleString("pt-BR", { maximumFractionDigits: 2 }) : "—"}
+                    {standing?.metric
+                      ? standing.metric.unit === "tempo"
+                        ? formatDuration(standing.metric.value)
+                        : standing.metric.value.toLocaleString("pt-BR", { maximumFractionDigits: 2 })
+                      : "—"}
                   </strong>
-                  <span className="text-[12px] text-ink-muted">{standing?.metric?.unit ?? "pontos"}</span>
+                  <span className="text-[12px] text-ink-muted">
+                    {s.value === "corrida" ? "melhor tempo" : (standing?.metric?.unit ?? "pontos")}
+                  </span>
                 </div>
                 <div className="h-[7px] rounded-[5px] bg-app" />
                 <div className="mt-2 flex items-center justify-between gap-2 text-[10px] text-ink-muted">

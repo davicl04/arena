@@ -1,9 +1,10 @@
 """Tiers (elos): cut mapping, faced range and the read side of standings (Jogar, fases 1 e 5).
 
-Standings are materialized by `services.standings` after each confirmed result (football and tennis, fase 5) and,
-for running, by the marks phase (fase 6). A subject without rows is in placement: 'sem_jogos' (football and
-tennis) or 'sem_marca' (running). A tier is never assigned before classification: the recalculation writes a
-tier only to subjects with the required matches, and the lines below show the tier of a row as stored.
+Standings are materialized by `services.standings` after each confirmed result (football and tennis, fase 5) and
+after each running mark registered or removed (fase 6, `services.runs`). A subject without rows is in placement:
+'sem_jogos' (football and tennis) or 'sem_marca' (running). A tier is never assigned before classification: the
+recalculation writes a tier only to subjects with the required matches (marks, in running), and the lines below
+show the tier of a row as stored.
 """
 from __future__ import annotations
 

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
-import { GitFork, Lock, MapPin, OctagonX, PauseCircle, Route, Settings2, Upload } from "lucide-react";
+import { Lock, MapPin, OctagonX, PauseCircle, Route, Settings2, Upload } from "lucide-react";
 import type { Sport } from "../api/client";
 import {
   cancelEntry,
@@ -26,6 +26,7 @@ import { EventEntrants } from "../components/events/EventEntrants";
 import { EventFacts, OrganizerCard, PaymentHint, PaymentInfoButton, Term } from "../components/events/EventFacts";
 import { placeText } from "../components/events/eventText";
 import { EventNotices } from "../components/events/EventNotices";
+import { EventBracketPanel } from "../components/events/EventBracketPanel";
 import { PaymentInfoSheet } from "../components/events/PaymentInfoSheet";
 import { entryCta, isLocked } from "../components/events/entryCta";
 import { eventFormatParts } from "../data/arena";
@@ -33,7 +34,6 @@ import { useResource } from "../hooks/useResource";
 import { useSubmit } from "../hooks/useSubmit";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { EmptyState } from "@/components/ui/empty-state";
 import { feedbackVariants } from "@/components/ui/feedback";
 import { Tabs } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
@@ -51,8 +51,10 @@ const BADGE_STATES = ["em_andamento", "encerrado", "cancelado"] as const;
  * fixo de inscrição, acima da navegação inferior. Inscrição gratuita confirmada na hora; paga com reserva, Pix,
  * comprovante e, no cancelamento do evento, a resposta à devolução.
  */
-export default function EventPage({ eventId, onSport, onTeams, onManage, onOpenUser, onExpired }: {
+export default function EventPage({ eventId, initialSection, onSport, onTeams, onManage, onOpenUser, onExpired }: {
   eventId: number;
+  /** Aba a abrir junto com a tela: a Tabela (notificações da tabela e do encerramento). */
+  initialSection?: "tabela";
   /** Modalidade do evento, para o título da barra ("Campeonato" ou "Prova"). */
   onSport?: (sport: Sport) => void;
   /** Futebol sem time representado: Meus times. */
@@ -70,7 +72,7 @@ export default function EventPage({ eventId, onSport, onTeams, onManage, onOpenU
   const loadEntry = useCallback(() => getEntry(summaryId ?? 0), [summaryId]);
   const mine = useResource(loadEntry, onExpired, { enabled: summaryId !== null, fallback: "Não foi possível carregar a sua inscrição." });
   const entry = mine.data && mine.data.id === summaryId ? mine.data : null;
-  const [section, setSection] = useState<Section>("info");
+  const [section, setSection] = useState<Section>(initialSection ?? "info");
   const [sheet, setSheet] = useState<SheetKind | null>(null);
   const [infoReturn, setInfoReturn] = useState<SheetKind | null>(null);
   const [toast, setToast] = useState("");
@@ -147,6 +149,8 @@ export default function EventPage({ eventId, onSport, onTeams, onManage, onOpenU
   const run = sport === "corrida";
   const locked = isLocked(current);
   const showLock = !current.is_organizer && !current.eligibility.eligible && current.eligibility.message && (!entry || ["expirada", "cancelada"].includes(entry.state));
+  // A prova de corrida não tem tabela: a aba pedida pela notificação cai nas informações.
+  const shown: Section = run && section === "tabela" ? "info" : section;
   const sections: { value: Section; label: string }[] = [
     { value: "info", label: "Informações" },
     run ? { value: "percurso", label: "Percurso" } : { value: "tabela", label: "Tabela" },
@@ -290,29 +294,29 @@ export default function EventPage({ eventId, onSport, onTeams, onManage, onOpenU
       <Tabs
         variant="track"
         items={sections}
-        value={section}
+        value={shown}
         onChange={setSection}
         label={`Seções ${run ? "da prova" : "do campeonato"}`}
         idPrefix={`${ids}-tab-`}
         controls={panelId}
       />
-      <div id={panelId} role="tabpanel" aria-labelledby={`${ids}-tab-${section}`} className="grid gap-3">
-        {section === "info" && (
+      <div id={panelId} role="tabpanel" aria-labelledby={`${ids}-tab-${shown}`} className="grid grid-cols-[minmax(0,1fr)] gap-3">
+        {shown === "info" && (
           <>
             <EventFacts detail={current} onPaymentInfo={pix ? () => openInfo(null) : undefined} />
             <OrganizerCard name={current.organizer.display_name} onContact={current.contact ? () => open("contact") : undefined} />
             {paid && <PaymentHint />}
           </>
         )}
-        {section === "tabela" && (
-          <EmptyState
-            Icon={GitFork}
-            title="Tabela ainda não definida"
-            text="A tabela aparece quando o organizador confirmar o chaveamento."
-            className="rounded-card bg-white"
+        {shown === "tabela" && (
+          <EventBracketPanel
+            eventId={current.id}
+            canRead={current.is_organizer || current.my_entry !== null}
+            bonus={current.tennis_bonus}
+            onExpired={onExpired}
           />
         )}
-        {section === "percurso" && (
+        {shown === "percurso" && (
           <Card elevated className="grid gap-1 px-3.5 py-3">
             <Term Icon={Route}>
               {eventFormatParts({ sport, distanceKm: current.distance_km }).join(" · ") || "Distância a definir"}
@@ -323,7 +327,7 @@ export default function EventPage({ eventId, onSport, onTeams, onManage, onOpenU
             </p>
           </Card>
         )}
-        {section === "inscritos" && (
+        {shown === "inscritos" && (
           <EventEntrants eventId={current.id} sport={sport} myEntryId={entry?.id ?? null} onOpenUser={onOpenUser} onExpired={onExpired} />
         )}
       </div>

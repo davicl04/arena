@@ -17,6 +17,8 @@ import { cn } from "@/lib/utils";
  */
 
 const SEARCH_DELAY_MS = 300;
+/** Id da sugestão que ainda não foi enviada (campeonato): ela só existe quando o agendamento a leva no corpo. */
+export const DEFERRED_COURT_ID = 0;
 const optionClass =
   "flex w-full items-center gap-2.5 rounded-[13px] border border-solid border-line bg-white px-2.5 py-2 text-left text-ink aria-pressed:border-brand aria-pressed:shadow-[inset_0_0_0_1px_var(--color-brand)]";
 
@@ -43,12 +45,19 @@ export function CourtPicker({
   onSelect,
   canSuggest,
   onExpired,
+  deferSuggestion = false,
 }: {
-  detail: MatchDetail;
+  /** A partida (ou, no campeonato, o recorte que a lista de partidas tem): a cidade e o tipo de quadra. */
+  detail: Pick<MatchDetail, "id" | "city" | "sport" | "format">;
   selected: CourtOut | null;
   onSelect: (court: CourtOut) => void;
   canSuggest: boolean;
   onExpired: () => void;
+  /**
+   * Campeonato: o organizador não usa `POST /courts/suggestions` (só os representantes); a sugestão vira uma quadra
+   * provisória (`id` 0) e segue no corpo do agendamento (`court_suggestion`).
+   */
+  deferSuggestion?: boolean;
 }) {
   const id = useId();
   const kind = courtKindOf(detail);
@@ -92,6 +101,24 @@ export function CourtPicker({
     const cleanName = name.trim();
     if (cleanName.length < 2 || cleanName.length > 80) {
       setSuggestError("O nome da quadra precisa ter de 2 a 80 caracteres.");
+      return;
+    }
+    if (deferSuggestion) {
+      setSuggestError("");
+      const court: CourtOut = {
+        id: DEFERRED_COURT_ID,
+        name: cleanName,
+        address: address.trim() || null,
+        kind: kind ?? "society",
+        city: detail.city,
+        state: "em_revisao",
+        provisional: true,
+      };
+      onSelect(court);
+      setNotice(`${cleanName} será sugerida ao agendar: fica em revisão e vale só nesta partida.`);
+      setSuggesting(false);
+      setName("");
+      setAddress("");
       return;
     }
     setBusy(true);

@@ -37,28 +37,34 @@ function rankingKey(sport: Sport, kind: Kind, distance: RunDistance): RankingKey
 
 /**
  * Tela Ranking: os elos de referência no topo e a lista **geral** (sem cidade) de `GET /rankings`, por modalidade. No
- * futebol, Times | Individual, o formato e, no individual, a posição; no tênis, a lista única; na corrida, a distância
- * (as marcas chegam numa próxima etapa). Cada linha traz o brasão do elo de quem já se classificou; a linha de quem vê
- * fica em destaque e a placa "Sua posição" mostra também quem ainda está em classificação.
+ * futebol, Times | Individual, o formato e, no individual, a posição; no tênis, a lista única; na corrida, a distância,
+ * com o melhor tempo das últimas 52 semanas de cada atleta (menor vence). Cada linha traz o brasão do elo de quem já se
+ * classificou; a linha de quem vê fica em destaque e a placa "Sua posição" mostra também quem ainda está em classificação.
  */
 export default function RankingPage({
   profiles,
+  initialSport,
+  initialDistance,
   go,
   onOpenUser,
   onExpired,
 }: {
   profiles: Profile[];
+  /** Modalidade já escolhida ao abrir (por exemplo, a corrida, pelo "Ver ranking" de "Suas marcas"). */
+  initialSport?: Sport;
+  /** Distância já escolhida ao abrir a corrida. */
+  initialDistance?: RunDistance;
   go: (screen: Screen) => void;
   onOpenUser?: (userId: number) => void;
   onExpired: () => void;
 }) {
-  const [sport, setSport] = useState<Sport>("futebol");
+  const [sport, setSport] = useState<Sport>(initialSport ?? "futebol");
   const [kind, setKind] = useState<Kind>("time");
   const [format, setFormat] = useState<FootballFormat>("society");
   const [position, setPosition] = useState<Position>(
     () => profiles.find((profile) => profile.sport === "futebol")?.position ?? "atacante",
   );
-  const [distance, setDistance] = useState<RunDistance>(5);
+  const [distance, setDistance] = useState<RunDistance>(initialDistance ?? 5);
 
   const football = sport === "futebol";
   const ranking = useRanking(
@@ -186,6 +192,7 @@ export default function RankingPage({
                     <small className="text-[10.5px] text-ink-muted">
                       {plural(page.classified_count, "classificado", "classificados")}
                       {page.legend_slots > 0 && ` · ${plural(page.legend_slots, "vaga", "vagas")} de Lendário`}
+                      {running && " · menor tempo vence"}
                     </small>
                   </div>
                   <RankingRows items={ranking.items} ranking={key} onOpenUser={onOpenUser} />
@@ -210,8 +217,13 @@ export default function RankingPage({
               ) : running ? (
                 <EmptyState
                   Icon={Timer}
-                  title="As marcas da corrida chegam na próxima etapa"
-                  text="Quando o registro de treinos e provas estiver disponível, os melhores tempos de cada distância aparecem aqui."
+                  title={`Ninguém com marca nos ${category} ainda`}
+                  text="O ranking usa o melhor tempo das últimas 52 semanas de cada atleta. A primeira marca já classifica."
+                  action={
+                    <Button variant="link" className="mt-2" onClick={() => go("play")}>
+                      Registrar uma corrida
+                    </Button>
+                  }
                 />
               ) : (
                 <EmptyState

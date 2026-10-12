@@ -79,3 +79,17 @@ Verificação local da integração da etapa 3 (pareamento, partida, avulso, res
 | Web (`npx vitest run --coverage --maxWorkers=4`) | 733 / 733 em 60 arquivos | 91,79% instruções, 85,01% ramos, 91,42% funções, 94,94% linhas | 30% (instruções, linhas e ramos) e 20% (funções) |
 
 Ruff, `alembic check` (sem migração nova), ESLint e build da web (com o aviso de pacote acima de 500 kB: 1.157 kB minificado) aprovados. As suítes novas ou ampliadas cobrem as visões da partida (relato cego, `declared_slots` e `suggest_court`), a fila e o pareamento, o resultado e o ranking, e, na web, a placa, a tela da partida, o cartão de resultado, o Ranking, as notificações e filas e a navegação entre elas (`stage3-navigation.test.tsx`). Com a CPU disputada, alguns testes da web chegam perto dos 5 s: a execução usa `--maxWorkers=4`; nenhum teste foi desativado nem teve o limite alterado nesta entrega. Os pisos não foram reduzidos, nem arquivos excluídos para melhorar os números. Os testes não substituem a conferência no navegador (registrada em [situação da fundação](situacao-fundacao.md)), e o CI remoto continua sem execução comprovada desta versão.
+
+## Etapas 4 e 5 (campeonatos e corrida): indicadores — 12 de outubro de 2026
+
+Verificação local da integração das etapas 4 e 5 (chaveamento, agenda e decisão do organizador; corrida), no backend e na web; o Expo não foi tocado e não foi reexecutado.
+
+| Escopo | Aprovados / executados | Cobertura | Piso |
+| --- | --- | --- | --- |
+| Backend somente unidade (`pytest tests/unit -q --cov=app --cov-branch`) | 1063 / 1063 | 76% (indicador combinado de instruções e ramos: 10710 instruções, 2374 não cobertas; 2374 ramos, 87 parciais) | 60% |
+| Backend suíte completa, com PostgreSQL | 1519 / 1520 (1 pulado: o round-trip S3 real) | 98% (122 instruções não cobertas; 67 ramos parciais) | 85% |
+| Web (`npx vitest run --coverage --maxWorkers=4`) | 898 / 898 em 72 arquivos | 92,39% instruções, 85,93% ramos, 91,92% funções, 95,45% linhas | 30% (instruções, linhas e ramos) e 20% (funções) |
+
+Ruff, ESLint e build da web (com o aviso de pacote acima de 500 kB: 1.250 kB minificado) aprovados; não há migração nova nesta entrega. As suítes novas cobrem, no backend, as regras do chaveamento, da agenda, da decisão e da corrida (unidade e integração, inclusive com conexões reais para a ordem das travas) e, na web, o chaveamento e a árvore em SVG, as partidas e a folha de agenda, a decisão do organizador, a partida de campeonato, a gestão e o detalhe do evento com a tabela, a corrida (cronômetro, marcas, histórico) e a navegação entre elas (`stage4-navigation.test.tsx`, `run-marks.test.tsx`).
+
+**Estabilidade dos testes da web:** um teste de navegação dependia de um título que só existe durante o carregamento (corrigido na raiz), e os fluxos longos passavam de 5 s com a máquina ocupada. O `vitest.config.ts` passou a ter `testTimeout` e `hookTimeout` de 20 s e `tests/setup.ts` (novo) fixa `asyncUtilTimeout` do Testing Library em 4 s; só falhas de verdade demoram mais para aparecer. Num teste de estresse (12 processos ocupando a CPU e 12 trabalhadores) a suíte falhava de 15 a 23 testes por tempo; com 24 processos ocupando a CPU, depois da mudança, duas execuções seguidas passaram sem falhas. Os pisos não foram reduzidos, nem arquivos excluídos para melhorar os números, e nenhum teste foi desativado. A verificação no navegador (fluxos reais de campeonato e de corrida) está em [`situacao-fundacao.md`](situacao-fundacao.md); CI remoto e aparelhos seguem sem validação.

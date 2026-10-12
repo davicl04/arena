@@ -13,7 +13,8 @@ export function MatchHeader({ detail, onBack }: { detail: MatchDetail; onBack: (
   const sides = orderedSides(detail);
   const [first, second] = sides;
   const phase = matchPhases[detail.phase] ?? { label: detail.phase, tone: "draft" as const };
-  const [firstName, secondName] = headerNames(sides);
+  // No campeonato o organizador abre partidas com um lado só (ou nenhum): o que falta aparece como "A definir".
+  const [firstName = "A definir", secondName = "A definir"] = headerNames(sides);
   return (
     <header data-slot="match-header" className="flex flex-none flex-wrap items-center gap-x-1 gap-y-0 bg-forest py-2 pr-3 pl-1 text-white">
       <IconButton tone="glass" aria-label="Voltar" onClick={onBack}>
@@ -22,10 +23,10 @@ export function MatchHeader({ detail, onBack }: { detail: MatchDetail; onBack: (
       <div className="flex min-w-[11.5rem] flex-1 items-center gap-2">
         {first && <TeamMark side={first} />}
         <h1 className="flex min-w-0 flex-1 items-center justify-center gap-2 font-sans text-[12px] font-normal text-white">
-          <span className="sr-only">{sides.map((side) => sideName(side)).join(" contra ")}</span>
-          <b aria-hidden="true" className="min-w-0 truncate" title={sideName(first)}>{firstName}</b>
+          <span className="sr-only">{[firstName, secondName].map((name, index) => (sides[index] ? sideName(sides[index]) : name)).join(" contra ")}</span>
+          <b aria-hidden="true" className="min-w-0 truncate" title={sideName(first, "A definir")}>{firstName}</b>
           <span aria-hidden="true" className="font-display text-[12px] font-extrabold text-mint">×</span>
-          <b aria-hidden="true" className="min-w-0 truncate" title={sideName(second)}>{secondName}</b>
+          <b aria-hidden="true" className="min-w-0 truncate" title={sideName(second, "A definir")}>{secondName}</b>
         </h1>
         {second && <TeamMark side={second} />}
       </div>

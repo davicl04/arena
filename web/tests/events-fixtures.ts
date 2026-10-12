@@ -43,7 +43,7 @@ export function eventCard(overrides: Partial<OrganizerEventCard> = {}): Organize
     registration_deadline: inDays(25, 20), city: brasilia, venue: 'Arena Sudoeste', price_cents: 24000, accepted_tiers: ['prata', 'ouro'],
     state: 'publicado', phase: 'inscricoes_abertas', revocation_pending: false,
     pending: { receipts: 0, refunds_to_send: 0, refunds_awaiting: 0, refund_disputes: 0, total: 0 },
-    next_action: { kind: 'acompanhar_inscricoes', count: null, deadline: inDays(25, 20) },
+    next_action: { kind: 'acompanhar_inscricoes', count: null, deadline: inDays(25, 20) }, championship: null,
     ...overrides,
   }
 }

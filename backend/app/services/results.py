@@ -57,7 +57,7 @@ from app.schemas.matches import (
 )
 from app.schemas.rankings import TeamRefOut
 from app.schemas.results import LineupListOut, MyStatsOut
-from app.services import audit, notifications
+from app.services import audit, bracket_rules, championship_lifecycle, notifications
 from app.services.match_access import (
     MatchAccess,
     audience,
@@ -200,6 +200,8 @@ def report_score(db: Session, user: User, match_id: int, data: ResultInput, *, n
     if match.state != 'agendada' or not result_window_open(match.starts_at, now):
         raise HTTPException(409, RESULT_WINDOW)
     score = validate_score(match, data)
+    if match.origin == 'campeonato':
+        bracket_rules.ensure_decisive(score, championship_lifecycle.is_knockout(db, match))
 
     reports = {row.side: row for row in db.scalars(select(MatchResult).where(MatchResult.match_id == match.id))}
     mine = reports.get(access.side)
@@ -241,6 +243,8 @@ def _store_report(db: Session, match: Match, sides: Mapping[str, MatchSide], acc
                    'Os placares informados pelos dois lados não batem. Corrijam até o fim do prazo.', now=now)
         audit.record(db, actor_id=user.id, action='resultado.divergente', target_type='match', target_id=match.id,
                      data={'side': access.side, 'a': _report_data(reports['a']), 'b': _report_data(reports['b'])})
+        if match.origin == 'campeonato':
+            championship_lifecycle.on_divergence(db, match, now=now)
 
 
 def _report_data(row: MatchResult) -> dict[str, int]:
@@ -253,6 +257,7 @@ def _confirm(db: Session, match: Match, sides: Mapping[str, MatchSide], score: S
     apply_final_score(match, score, source='confirmacao', now=now)
     match.state = next_match_state(match.state, 'confirmar_resultado')
     db.flush()
+    championship_lifecycle.lock_following(db, match)       # a match lock, so it comes before the rankings
     recalculate_for_match(db, match, now=now)
     notifications.notify_many(db, audience(db, match, sides=dict(sides)), 'resultado_partida', {
         'match_id': match.id, 'outcome': 'confirmado', 'score_a': score.score_a, 'score_b': score.score_b})
@@ -262,6 +267,7 @@ def _confirm(db: Session, match: Match, sides: Mapping[str, MatchSide], score: S
     audit.record(db, actor_id=user.id, action='resultado.confirmado', target_type='match', target_id=match.id,
                  data={'score_a': score.score_a, 'score_b': score.score_b, 'winner': score.winner,
                        'source': 'confirmacao'})
+    championship_lifecycle.after_score(db, match, now=now)
 
 
 # ----- Lineups, points preview and the roster view ----------------------------------------------------------
@@ -674,12 +680,14 @@ def ranking_category(params: RankingParams) -> tuple[str, str | None, str | None
     return ranking_key('corrida', distance_km=params.distance_km), None, None, params.distance_km
 
 
-def _category_filter(ranking: str, format_: str | None, position: str | None) -> tuple:
+def _category_filter(ranking: str, format_: str | None, position: str | None, distance_km: int | None) -> tuple:
     if ranking == 'futebol_time':
         return Standing.sport == 'futebol', Standing.team_id.is_not(None), Standing.format == format_
     if ranking == 'futebol_individual':
         return (Standing.sport == 'futebol', Standing.user_id.is_not(None), Standing.format == format_,
                 Standing.position == position)
+    if distance_km is not None:
+        return Standing.sport == 'corrida', Standing.distance_km == distance_km
     return (Standing.sport == 'tenis',)
 
 
@@ -712,8 +720,9 @@ def _my_lines(db: Session, viewer: User, ranking: str, format_: str | None, posi
 
 def rankings_page(db: Session, viewer: User, params: RankingParams) -> RankingPageOut:
     """A page of a general ranking in position order (classified subjects only; positions and tiers are the ones
-    materialized by `services.standings`) with the viewer's own lines, which also exist in placement. Running
-    has no marks yet (phase 6): an empty list with the viewer's line."""
+    materialized by `services.standings`) with the viewer's own lines, which also exist in placement. In a running
+    distance, `metric_value` is the best time in seconds of the window (the lowest wins), `matches_played` counts
+    the marks and the record fields are zero or null."""
     ranking, format_, position, distance_km = ranking_category(params)
     cuts = load_cuts(db, CURRENT_CALC_VERSION)
     required = required_matches(cuts, ranking, 'corrida' if distance_km else 'tenis' if ranking == 'tenis'
@@ -721,10 +730,8 @@ def rankings_page(db: Session, viewer: User, params: RankingParams) -> RankingPa
     mine, my_teams = _my_lines(db, viewer, ranking, format_, position, distance_km, required)
     base = dict(ranking=ranking, format=format_, position=position, distance_km=distance_km,
                 calc_version=CURRENT_CALC_VERSION, required=required, mine=mine)
-    if distance_km is not None:
-        return RankingPageOut(classified_count=0, legend_slots=0, items=[], next_cursor=None, **base)
 
-    where = _category_filter(ranking, format_, position)
+    where = _category_filter(ranking, format_, position, distance_km)
     classified = db.scalar(select(func.count()).select_from(Standing).where(
         *where, Standing.rank_position.is_not(None))) or 0
     rows = list(db.scalars(select(Standing).where(
@@ -739,11 +746,11 @@ def rankings_page(db: Session, viewer: User, params: RankingParams) -> RankingPa
     for row in rows:
         team = teams.get(row.team_id) if row.team_id is not None else None
         athlete = people.get(row.user_id) if row.user_id is not None else None
-        individual = ranking == 'futebol_individual'
+        no_goals = ranking == 'futebol_individual' or distance_km is not None
         items.append(RankingRowOut(
             rank_position=row.rank_position, tier=row.tier, metric_value=float(row.metric_value),
             matches_played=row.matches_played, wins=row.wins, draws=row.draws, losses=row.losses,
-            goals_for=None if individual else row.goals_for, goals_against=None if individual else row.goals_against,
+            goals_for=None if no_goals else row.goals_for, goals_against=None if no_goals else row.goals_against,
             team=None if team is None else TeamRefOut(id=team.id, name=team.name, initials=team.initials,
                                                       crest_url=team.crest_url),
             athlete=athlete, is_mine=row.team_id in my_teams if team is not None else row.user_id == viewer.id))

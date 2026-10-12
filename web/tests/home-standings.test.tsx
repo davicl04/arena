@@ -71,7 +71,31 @@ describe('"Seu elo" no Início lê GET /me/standings', () => {
     expect(card('futebol').textContent).toContain('Campo · como atacante')
     expect(card('futebol').textContent).toContain('5,63média')
     expect(badge('corrida').textContent).toBe('Elo Ouro')
-    expect(card('corrida').textContent).toContain('5 km')
+    expect(card('corrida').textContent).toContain('Nos 5 km')
+    expect(card('corrida').textContent).toContain('25:00melhor tempo')
+  })
+
+  it('corrida: a distância de maior elo e o melhor tempo dela; sem marca, "—" com a unidade de tempo', async () => {
+    renderHome(standings({
+      corrida: runs({
+        5: ranked('prata', { required: 1, played: 1, metric_value: 1860 }),
+        10: ranked('diamante', { required: 1, played: 2, metric_value: 2760 }),
+        21: ranked('diamante', { required: 1, played: 1, metric_value: 6000 }),
+      }),
+    }))
+    await vi.waitFor(() => expect(badge('corrida').textContent).toBe('Elo Diamante'))
+    // Empate de elo: a primeira distância na ordem 3, 5, 10, 21, 42.
+    expect(card('corrida').textContent).toContain('46:00melhor tempo')
+    expect(card('corrida').textContent).toContain('Nos 10 km')
+    expect(card('corrida').textContent).not.toContain('pontos')
+    expect(card('corrida').textContent).not.toContain('autodeclarad')
+  })
+
+  it('corrida sem marca: "Sem marca", "—" e "melhor tempo", sem pontos', async () => {
+    renderHome(standings())
+    await vi.waitFor(() => expect(badge('corrida').textContent).toBe('Sem marca'))
+    expect(card('corrida').textContent).toContain('—melhor tempo')
+    expect(card('corrida').textContent).not.toContain('pontos')
   })
 
   it('sem perfil da modalidade, o convite continua e a classificação segue a API', async () => {
@@ -93,6 +117,11 @@ describe('modalityStanding', () => {
     expect(modalityStanding('futebol', null)).toEqual({ tier: null, played: 0, required: 3, context: null, metric: null })
     expect(modalityStanding('tenis', { calc_version: 1 })).toMatchObject({ tier: null, played: 0, required: 3 })
     expect(modalityStanding('corrida', {})).toMatchObject({ tier: null, required: 1 })
+  })
+
+  it('na corrida a métrica é o melhor tempo, em segundos', () => {
+    const data = standings({ corrida: runs({ 5: ranked('ouro', { required: 1, played: 1, metric_value: 1452 }) }) })
+    expect(modalityStanding('corrida', data)).toEqual({ tier: 'ouro', played: 1, required: 1, context: 'Nos 5 km', metric: { value: 1452, unit: 'tempo' } })
   })
 
   it('o andamento é o maior número de partidas, limitado ao exigido', () => {

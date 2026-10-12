@@ -1,16 +1,16 @@
-"""Points and rankings of football and tennis (Jogar, fase 5), without database access.
+"""Points and rankings of football, tennis and running (Jogar, fases 5 e 6), without database access.
 
 Individual football points per match (RN12, with the position stat of RN13 and the review rules of RN10), team
-points 3/1/0 and tie-breaks (RN14), tennis points (RN16), the 52-week window, classification (3 confirmed
-matches) and the tier of each classified subject from the versioned cuts, Lendário included (RN23). The ranking
-service (stage 3, results and ranking front) loads the confirmed matches, builds the records with these
-functions and materializes `standings`.
+points 3/1/0 and tie-breaks (RN14), tennis points (RN16), the best time of a running distance (RN17), the 52-week
+window, classification (3 confirmed matches; the first mark in running) and the tier of each classified subject
+from the versioned cuts, Lendário included (RN23). The ranking service (`services.standings`) loads the confirmed
+matches and the marks, builds the records with these functions and materializes `standings`.
 """
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Generic, TypeVar
 
@@ -95,8 +95,14 @@ def in_window(played_at: datetime, now: datetime, weeks: int = WINDOW_WEEKS) -> 
     return window_start(now, weeks) <= played_at <= now
 
 
+def run_window_start(today: date, weeks: int = WINDOW_WEEKS) -> date:
+    """First day whose marks count (running windows are calendar days, not instants)."""
+    return today - timedelta(weeks=weeks)
+
+
 def is_classified(matches: int, required: int) -> bool:
-    """Classification: 3 confirmed matches in the window (football and tennis); before that, no tier."""
+    """Classification: 3 confirmed matches in the window (football and tennis), the first mark in running; before
+    that, no tier."""
     return matches >= required
 
 
@@ -221,9 +227,28 @@ def tennis_order(record: TennisRecord) -> tuple:
     return (-record.points, record.matches, record.subject_id)
 
 
+@dataclass(frozen=True)
+class RunRecord:
+    """The marks of an athlete in one distance inside the window: how many, the best time (the metric; lower is
+    better) and the first day it was run, which breaks ties between athletes with the same best time."""
+    subject_id: int
+    matches: int = 0
+    best_s: int = 0
+    achieved_on: date | None = None
+
+    @property
+    def metric(self) -> Decimal:
+        return Decimal(self.best_s)
+
+
+def run_order(record: RunRecord) -> tuple:
+    """Best time first; the same time goes to who ran it first, then the id keeps the order stable."""
+    return (record.best_s, record.achieved_on or date.max, record.subject_id)
+
+
 # ----- Placement and tiers -----------------------------------------------------------------------------------
 
-R = TypeVar('R', TeamRecord, IndividualRecord, TennisRecord)
+R = TypeVar('R', TeamRecord, IndividualRecord, TennisRecord, RunRecord)
 
 
 @dataclass(frozen=True)
@@ -250,12 +275,13 @@ def rank_records(records: Sequence[R], *, cuts: Cuts, order: Callable[[R], tuple
 
 def standing_fields(placement: Placement, *, calc_version: int) -> dict:
     """Column values of a `standings` row for one placement (goals for teams, sets for tennis, none for the
-    individual ranking, whose metric is the average)."""
+    individual ranking, whose metric is the average, nor for running, whose metric is the best time)."""
     record = placement.record
     return {
         'metric_value': placement.metric_value, 'matches_played': placement.matches_played,
         'rank_position': placement.rank_position, 'tier': placement.tier, 'calc_version': calc_version,
-        'wins': record.wins, 'draws': getattr(record, 'draws', 0), 'losses': record.losses,
+        'wins': getattr(record, 'wins', 0), 'draws': getattr(record, 'draws', 0),
+        'losses': getattr(record, 'losses', 0),
         'goals_for': getattr(record, 'goals_for', getattr(record, 'sets_for', 0)),
         'goals_against': getattr(record, 'goals_against', getattr(record, 'sets_against', 0)),
     }

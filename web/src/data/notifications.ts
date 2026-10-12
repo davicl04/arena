@@ -16,9 +16,14 @@ import { formatDeadline } from '../utils/format'
  *
  * Etapa 3 (0002-jogar, seção 13): a partida (`match`, com `matchId`), a placa do Jogar (`play`; propostas e ofertas, com
  * `matchId` como dica da proposta) e as filas da administração (`admin-court-suggestions`, `admin-walkover-disputes`).
+ *
+ * Etapa 4 (0003, seção 21.6): a aba Tabela do evento (`event` com `section: 'tabela'`), a partida e a decisão do organizador
+ * (`result-decision`, com `matchId`).
  */
 export interface NotificationTarget {
   screen: Screen; teamId?: number; invites?: boolean; requests?: boolean; eventId?: number; matchId?: number
+  /** Aba do detalhe do evento (`event`) a abrir: a Tabela, com a árvore ou a classificação. */
+  section?: 'tabela'
 }
 
 export interface NotificationView {
@@ -241,6 +246,33 @@ export function notificationView(notification: ArenaNotification, viewer: Notifi
       const reason = text(payload.reason)
       const why = reason ? noTrailingDot(reason) : id(payload.duplicate_of_id) ? 'já existe no catálogo' : null
       return { text: `${court} foi recusada${why ? `: ${why}` : ''}`, kind: 'court', teamName: null, target: null }
+    }
+
+    /* Etapa 4 (campeonatos): tabela, adversário, divergência, decisão e encerramento. */
+    case 'tabela_publicada':
+      return { ...eventView(`A tabela de ${event} saiu`, 'event'), target: eventId ? { screen: 'event', eventId, section: 'tabela' } : null }
+    case 'adversario_definido': {
+      const opponent = text(payload.opponent_name)
+      return matchView(`Seu próximo jogo${opponent ? `: ${opponent}` : ' está definido'}${eventName ? ` em ${eventName}` : ''}`, 'match', toMatch)
+    }
+    case 'divergencia_para_decidir': {
+      const deadline = formatDeadline(text(payload.deadline))
+      return matchView(`Os placares de uma partida de ${event} não batem. Decida${deadline ? ` (prazo dos times: ${deadline})` : ''}`, 'result',
+        matchId ? { screen: 'result-decision', matchId } : null)
+    }
+    case 'decisao_registrada': {
+      const a = payload.score_a
+      const b = payload.score_b
+      const score = typeof a === 'number' && typeof b === 'number' ? `${a} × ${b}` : ''
+      return matchView(
+        payload.kind === 'wo'
+          ? `O organizador decidiu o resultado por W.O.${score ? ` (${score})` : ''}`
+          : `O organizador decidiu o resultado${score ? `: ${score}` : ''}`,
+        'result', toMatch)
+    }
+    case 'evento_encerrado': {
+      const champion = text(payload.champion)
+      return { ...eventView(`${Event} terminou${champion ? `: campeão ${champion}` : ''}`, 'event'), target: eventId ? { screen: 'event', eventId, section: 'tabela' } : null }
     }
 
     /* Administração. */

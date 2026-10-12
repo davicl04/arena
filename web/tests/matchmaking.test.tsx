@@ -317,14 +317,16 @@ describe('placa: buscar e cancelar', () => {
     expect(screen.queryByText(/Leões J1 está buscando/)).not.toBeNull()
   })
 
-  it('corrida continua honesta: sem busca, o registro chega na etapa 5', async () => {
-    world()
+  it('corrida não busca partida: o botão registra a marca e a placa não lista partidas', async () => {
+    world(playBoard(), { 'GET /me/run-bests': { items: [] } })
     const { ui } = renderPlay([football, { ...tennis, id: 3, sport: 'corrida' }])
     await ui.click(await screen.findByRole('tab', { name: 'Corrida' }))
     const register = button('Registrar treino ou prova')
-    expect(register.disabled).toBe(true)
-    expect(screen.getByText('O registro de treinos e provas chega numa próxima etapa do Arena.')).not.toBeNull()
+    expect(register.disabled).toBe(false)
     expect(screen.queryByRole('region', { name: 'Minhas partidas' })).toBeNull()
+    expect(screen.queryByText(/Encontrar|buscando/i)).toBeNull()
+    await ui.click(register)
+    expect(await screen.findByRole('dialog', { name: 'Registrar corrida' })).not.toBeNull()
   })
 })
 

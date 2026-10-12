@@ -137,6 +137,10 @@ export interface MatchPermissions {
   attendance: boolean
   send_stats: boolean
   manage_slots: boolean
+  /** Organizador (campeonato): os dois lados definidos e a partida combinando, ou agendada antes do início. */
+  schedule_match: boolean
+  /** Organizador (campeonato): partida agendada e já iniciada (a decisão pode ser recusada com 409). */
+  decide_result: boolean
 }
 
 export interface MatchSlotOut {
@@ -188,7 +192,7 @@ export type MatchEventType = 'partida_combinando' | 'condicoes_propostas' | 'con
   | 'reserva_atualizada' | 'vagas_atualizadas' | 'avulso_entrou' | 'avulso_removido' | 'quadra_sugerida'
   | 'partida_cancelada' | 'wo_registrado' | 'wo_retirado' | 'wo_contestado' | 'wo_decidido' | 'placar_enviado'
   | 'resultado_confirmado' | 'resultado_divergente' | 'sem_resultado' | 'presenca_registrada'
-  | 'estatisticas_enviadas' | 'estatistica_revisada' | 'estatistica_contestada'
+  | 'estatisticas_enviadas' | 'estatistica_revisada' | 'estatistica_contestada' | 'resultado_decidido'
 
 export type MessageAuthorRole = 'representante' | 'membro' | 'atleta' | 'avulso' | 'organizador'
 export interface MatchMessageOut {
