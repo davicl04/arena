@@ -228,7 +228,8 @@ def test_paid_event_goes_through_review_refusal_resubmission_and_approval(client
     assert [(item.actor_id, item.payload) for item in alert] == [
         (owner_id, {'event_id': event_id, 'event_name': 'Copa do Lago'})]
     assert counts(http, staff) == {'organizer_requests': 0, 'reports': 0, 'paid_events': 1, 'revoked_events': 0,
-                                   'refund_disputes': 0}
+                                   'refund_disputes': 0,
+                                   'court_suggestions': 0, 'walkover_disputes': 0}
     assert http.patch(f'/api/v1/organizer/events/{event_id}', json={'venue': 'Outro'}, headers=owner).json() == {
         'detail': 'Retire o evento da aprovação para editar.'}
 
@@ -509,7 +510,8 @@ def test_revocation_suspends_open_events_until_the_administration_decides(client
         db, 'event', reviewing['id'])
     assert audit_actions(db, 'event', keep.id)[-1][0] == 'evento.revogacao_pendente'
     assert counts(http, staff) == {'organizer_requests': 0, 'reports': 0, 'paid_events': 0, 'revoked_events': 2,
-                                   'refund_disputes': 0}
+                                   'refund_disputes': 0,
+                                   'court_suggestions': 0, 'walkover_disputes': 0}
 
     assert http.patch(f'/api/v1/organizer/events/{keep.id}', json={'venue': 'Clube'}, headers=owner).json() == \
         PENDING_REVOCATION
@@ -636,7 +638,8 @@ def test_queue_counts_include_paid_events_revocations_and_refund_disputes(client
     _, owner_id = organizer(http, db, 'counts-owner@example.com')
     _, runner_id = register(http, 'counts-runner@example.com')
     assert counts(http, staff) == {'organizer_requests': 0, 'reports': 0, 'paid_events': 0, 'revoked_events': 0,
-                                   'refund_disputes': 0}
+                                   'refund_disputes': 0,
+                                   'court_suggestions': 0, 'walkover_disputes': 0}
     assert http.get('/api/v1/admin/events?queue=revogacao', headers=staff).json() == {'items': [],
                                                                                     'next_cursor': None}
     older = published_event(db, owner_id, state='em_aprovacao', published_at=None,
@@ -653,7 +656,8 @@ def test_queue_counts_include_paid_events_revocations_and_refund_disputes(client
     cancelled = published_event(db, owner_id, state='cancelado', cancelled_at=now(), cancel_reason='Chuva forte')
     entry(db, cancelled, 'devolucao_contestada', user_id=runner_id)
     assert counts(http, staff) == {'organizer_requests': 0, 'reports': 0, 'paid_events': 1, 'revoked_events': 1,
-                                   'refund_disputes': 1}
+                                   'refund_disputes': 1,
+                                   'court_suggestions': 0, 'walkover_disputes': 0}
 
 
 def test_concurrent_decisions_cancellations_and_revocation_are_serialized(test_engine):

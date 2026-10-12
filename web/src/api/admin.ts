@@ -3,12 +3,15 @@ import type { Person } from './client'
 import { ORGANIZER_LIMITS } from './organizer'
 import type { AdminOrganizerRequest, OrganizerRefusalReason } from './organizer'
 import type { EventPix, EventPoster, OrganizerEntry, PendingCounts } from './events'
-import type { EntryState, EventRefusalReason } from '../data/arena'
+import type { MatchCard, WalkoverOut } from './matches'
+import type { CourtKind, CourtOut } from './matches'
+import type { EntryState, EventRefusalReason, FootballFormat } from '../data/arena'
 
 /**
  * Filas da administração (contrato 0003, seções 6 e 15). Exigem `is_admin`; o servidor responde 403 aos demais.
  * `queue-counts` alimenta os contadores do Menu: pedidos de organizador, denúncias, eventos pagos, eventos de
- * organizador revogado e devoluções contestadas.
+ * organizador revogado, devoluções contestadas e, na etapa 3 (0002-jogar, seção 10), quadras sugeridas e W.O.
+ * contestados.
  */
 
 export interface QueueCounts {
@@ -17,6 +20,8 @@ export interface QueueCounts {
   paid_events: number
   revoked_events: number
   refund_disputes: number
+  court_suggestions: number
+  walkover_disputes: number
 }
 export const getQueueCounts = () => request<QueueCounts>('/admin/queue-counts')
 
@@ -112,3 +117,69 @@ export function reasonError(reason: string, message: string): string | null {
 }
 export const CANCEL_REASON_MESSAGE = 'Descreva o motivo do cancelamento, de 5 a 500 caracteres.'
 export const REFUND_REASON_MESSAGE = 'Descreva a decisão, de 5 a 500 caracteres.'
+
+/* ===== Quadras sugeridas e W.O. contestados (etapa 3; 0002-jogar, seções 10.2, 10.4 e 10.7) ===== */
+
+export const courtKindLabel: Record<CourtKind, string> = { futsal: 'Futsal', society: 'Society', campo: 'Campo', tenis: 'Tênis' }
+
+/** Partida de origem da sugestão (`MatchRefOut`). */
+export interface MatchRef {
+  id: number
+  sport: 'futebol' | 'tenis'
+  format: FootballFormat | null
+  state: string
+  starts_at: string | null
+}
+
+/** Linha da fila de quadras (`AdminCourtSuggestionOut`): `possible_duplicates` só nas sugestões em revisão. */
+export interface AdminCourtSuggestion {
+  court: CourtOut
+  suggested_by: Person | null
+  origin_match: MatchRef | null
+  possible_duplicates: CourtOut[]
+  created_at: string
+  reviewed_at: string | null
+  review_reason: string | null
+  duplicate_of: CourtOut | null
+}
+
+export type CourtQueue = 'em_revisao' | 'decididas'
+/** Caminho paginado da fila (para `usePagedList`): em revisão, da mais antiga; decididas, da mais recente. */
+export const courtSuggestionsPath = (queue: CourtQueue) => `/admin/court-suggestions?state=${queue}`
+
+export type CourtDecisionInput =
+  | { decision: 'publicar'; name?: string; address?: string | null }
+  | { decision: 'rejeitar'; reason?: string; duplicate_of_id?: number }
+export const decideCourt = (id: number, input: CourtDecisionInput) =>
+  request<AdminCourtSuggestion>(`/admin/court-suggestions/${id}/decision`, 'POST', input)
+
+/** Nome de 2 a 80 e endereço de até 160 caracteres, como no servidor (`match_rules.clean_court_name`). */
+export const COURT_LIMITS = { nameMin: 2, nameMax: 80, addressMax: 160, reasonMin: 5, reasonMax: 300 } as const
+export function courtPublishError(name: string, address: string): { name?: string; address?: string } {
+  const problems: { name?: string; address?: string } = {}
+  const size = name.trim().length
+  if (size < COURT_LIMITS.nameMin || size > COURT_LIMITS.nameMax) problems.name = 'O nome da quadra precisa ter de 2 a 80 caracteres.'
+  if (address.trim().length > COURT_LIMITS.addressMax) problems.address = `Use até ${COURT_LIMITS.addressMax} caracteres no endereço.`
+  return problems
+}
+/** Rejeitar exige o motivo (5 a 300), dispensado quando há a quadra duplicada do catálogo. */
+export function courtRejectError(reason: string, hasDuplicate: boolean): string | null {
+  const size = reason.trim().length
+  if (size > COURT_LIMITS.reasonMax) return `Use até ${COURT_LIMITS.reasonMax} caracteres no motivo.`
+  if (!hasDuplicate && size < COURT_LIMITS.reasonMin) return 'Descreva o motivo da recusa, de 5 a 300 caracteres.'
+  if (hasDuplicate && size > 0 && size < COURT_LIMITS.reasonMin) return 'O motivo, se informado, tem de 5 a 300 caracteres.'
+  return null
+}
+
+/** Partida do W.O. contestado: o recorte do `MatchCard` (`src/api/matches.ts`) que a fila usa. */
+export type DisputeMatch = Pick<MatchCard, 'id' | 'sport' | 'format' | 'state' | 'phase' | 'sides' | 'starts_at' | 'court' | 'result_deadline'>
+
+export interface WalkoverDispute { match: DisputeMatch; walkover: WalkoverOut }
+
+/** Fila de W.O. contestados, do mais antigo ao mais recente. */
+export const WALKOVER_DISPUTES_PATH = '/admin/walkover-disputes'
+export type WalkoverDecision = 'manter' | 'anular'
+export const decideWalkover = (matchId: number, decision: WalkoverDecision, reason: string) =>
+  request<WalkoverDispute>(`/admin/matches/${matchId}/walkover-decision`, 'POST', { decision, reason: reason.trim() })
+/** Justificativa da decisão: 5 a 500 caracteres. */
+export const WALKOVER_REASON_MESSAGE = 'Descreva a decisão, de 5 a 500 caracteres.'

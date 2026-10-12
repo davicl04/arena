@@ -144,16 +144,38 @@ def test_context_requires_the_representative_role():
     assert context.representative_ids() == [1]
 
 
-def test_closing_needs_an_active_team_without_entries_in_play():
-    no_entry = SimpleNamespace(scalar=lambda statement: None)
-    ensure_closable(no_entry, Team(id=1, name='Ativo', state='ativo'))
+class ClosingDb:
+    """Answers the checks of `ensure_closable` in order: an entry in play, a match in play (twice, around the lock of
+    the open searches), then the lapsed proposals (none) and the open searches."""
+
+    def __init__(self, *, entry=None, match=None, searches=()):
+        self.answers = [entry, match, match]
+        self.lists = [[], list(searches)]
+
+    def scalar(self, statement):
+        return self.answers.pop(0)
+
+    def scalars(self, statement):
+        rows = self.lists.pop(0)
+        return SimpleNamespace(all=lambda: rows)
+
+
+def test_closing_needs_an_active_team_without_entries_or_matches_in_play():
+    message = 'Encerre ou cancele as partidas agendadas e as inscrições ativas antes de encerrar o time.'
+    ensure_closable(ClosingDb(), Team(id=1, name='Ativo', state='ativo'))
     with pytest.raises(HTTPException) as error:
-        ensure_closable(no_entry, Team(id=1, name='Fechado', state='encerrado'))
+        ensure_closable(ClosingDb(), Team(id=1, name='Fechado', state='encerrado'))
     assert error.value.status_code == 409
     with pytest.raises(HTTPException) as entered:
-        ensure_closable(SimpleNamespace(scalar=lambda statement: 7), Team(id=1, name='Inscrito', state='ativo'))
-    assert (entered.value.status_code, entered.value.detail) == (
-        409, 'Encerre ou cancele as partidas agendadas e as inscrições ativas antes de encerrar o time.')
+        ensure_closable(ClosingDb(entry=7), Team(id=1, name='Inscrito', state='ativo'))
+    assert (entered.value.status_code, entered.value.detail) == (409, message)
+    with pytest.raises(HTTPException) as playing:
+        ensure_closable(ClosingDb(match=9), Team(id=1, name='Jogando', state='ativo'))
+    assert (playing.value.status_code, playing.value.detail) == (409, message)
+    # A search that a pairing held meanwhile (`pareada`) also keeps the team open.
+    with pytest.raises(HTTPException) as held:
+        ensure_closable(ClosingDb(searches=[SimpleNamespace(state='pareada')]), Team(id=1, name='Par', state='ativo'))
+    assert held.value.status_code == 409
 
 
 def test_people_hide_avatar_or_actor_for_blocks_and_inactive_accounts():

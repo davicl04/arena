@@ -33,7 +33,7 @@ class ReportReason(StrEnum):
 
 
 class ReportInput(SocialInput):
-    target_type: str = Field(pattern='^(post|comment|user)$')
+    target_type: str = Field(pattern='^(post|comment|user|match_message)$')
     target_id: int = Field(gt=0)
     reason: ReportReason
     description: str | None = Field(default=None, max_length=1000)

@@ -29,8 +29,14 @@ STAGE_TWO_TYPES = {'evento_para_aprovar', 'evento_decidido', 'evento_cancelado',
                    'devolucao_enviada', 'devolucao_confirmada', 'devolucao_contestada', 'devolucao_decidida'}
 
 
+STAGE_THREE_TYPES = {'proposta_partida', 'proposta_aceita', 'proposta_encerrada', 'vaga_encontrada',
+                     'condicoes_propostas', 'partida_agendada', 'partida_cancelada', 'wo_registrado', 'wo_contestado',
+                     'wo_decidido', 'resultado_partida', 'resultado_divergente', 'estatistica_contestada',
+                     'vaga_preenchida', 'removido_da_partida', 'oferta_retirada', 'quadra_decidida'}
+
+
 def test_stage_one_types_are_registered_with_navigation_fields():
-    assert set(NOTIFICATION_TYPES) == STAGE_ONE_TYPES | STAGE_TWO_TYPES
+    assert set(NOTIFICATION_TYPES) == STAGE_ONE_TYPES | STAGE_TWO_TYPES | STAGE_THREE_TYPES
     assert all({'team_id', 'team_name'} <= NOTIFICATION_TYPES[name] for name in STAGE_ONE_TYPES
                if 'organizador' not in name)
 
@@ -42,6 +48,13 @@ def test_stage_two_types_navigate_by_event_and_entry():
     assert all('entry_id' in NOTIFICATION_TYPES[name] for name in per_entry)
     assert all('receipt_id' in NOTIFICATION_TYPES[name] for name in STAGE_TWO_TYPES
                if name.startswith(('comprovante', 'devolucao')))
+
+
+def test_stage_three_types_navigate_by_match_or_court():
+    # The web opens the match (proposal, chat, result card) or, for a court decision, the court.
+    assert all('match_id' in NOTIFICATION_TYPES[name] for name in STAGE_THREE_TYPES - {'quadra_decidida'})
+    assert {'court_id', 'court_name', 'decision'} <= NOTIFICATION_TYPES['quadra_decidida']
+    assert {'slot_id', 'position'} <= NOTIFICATION_TYPES['vaga_encontrada'] & NOTIFICATION_TYPES['vaga_preenchida']
 
 
 def test_notify_adds_without_commit_and_skips_own_action():

@@ -1,8 +1,12 @@
 # Decisões e contratos — Jogar
 
-Data: 12 de outubro de 2026. Contrato da **fase 1 do [plano do Jogar](../plano-jogar.md)** (elos: `rank_cuts` e `standings` vazios e a linha de classificação), executada na etapa 1 junto das fases 1 a 3 de [Times e campeonatos](0003-times-campeonatos.md). A **fase 7** (campeonatos e provas: lista, detalhe, inscrição, reserva, comprovante e devolução, lado do atleta) entra na etapa 2 e está na seção 6. As demais fases ficam **a definir na fase correspondente** (seção 7).
+Data: 12 de outubro de 2026. Contrato da **fase 1 do [plano do Jogar](../plano-jogar.md)** (elos: `rank_cuts` e `standings` vazios e a linha de classificação), executada na etapa 1 junto das fases 1 a 3 de [Times e campeonatos](0003-times-campeonatos.md). A **fase 7** (campeonatos e provas: lista, detalhe, inscrição, reserva, comprovante e devolução, lado do atleta) entra na etapa 2 e está na seção 6. As **fases 2 a 5** (pareamento, partida e chat, avulso, resultado e ranking) formam a etapa 3 e estão nas seções 7 a 17. As fases 6 (corrida) e 8 (Expo) ficam **a definir na fase correspondente** (seção 18).
 
 > **Estado (fase 1 implementada e integrada em 12 de outubro de 2026):** backend (migração `0005`, `app/services/rankings.py` e `GET /api/v1/me/standings`) e web (placa do Jogar com a linha do elo, `web/src/pages/PlayPage.tsx` e `web/src/components/play/`; grade C5 das carteirinhas de Meus times). Nenhuma partida, resultado ou marca é registrada nesta fase, então `standings` está vazio e toda linha sai em classificação ("0/3", sem elo). O botão redondo nunca simula busca: prepara o perfil, leva a Meus times ou fica desabilitado com o aviso da próxima etapa. O Expo ainda não tem a placa (última etapa). Convenções gerais (sessão, JSON, erros, paginação) estão na seção 1 de [0003](0003-times-campeonatos.md#1-convenções).
+>
+> **Estado (etapa 3: backend implementado e integrado em 12 de outubro de 2026):** as seções 9 a 16 estão implementadas e conciliadas no backend. A fundação (esquema `0009`, regras puras `app/services/match_rules.py` e `app/services/scoring.py`, fila `app/services/matchmaking_queue.py`, acessos e transições compartilhadas, varredura, notificações e `app/schemas/matches.py`) recebeu as quatro frentes: pareamento e propostas (`routers/matchmaking.py`, `services/matchmaking.py`), partida, condições, quadras, chat e W.O. (`routers/matches.py`, `routers/courts.py`, `services/matches.py`, `services/courts.py`, `services/match_views.py`), avulso e vagas (`routers/slots.py`, `services/slots.py`) e resultado, estatísticas, contestação e ranking (`routers/results.py`, `services/results.py`, `services/standings.py`). A integração unificou o tratamento dos erros de regra num handler global, fixou a **ordem global de travas** (seção 15.5, com testes de concorrência real), fez o aceite das condições oferecer as vagas aos avulsos que esperam, trocou as ofertas da placa pela implementação única de `slots.slot_offers`, alinhou `permissions.send_stats` à rota, criou o aviso `oferta_retirada` e conferiu o fluxo inteiro só pela API (busca, proposta, condições com quadra sugerida e publicada, avulso, chat e denúncia, placar, presença e estatísticas com contestação, ranking, divergência e varredura, tênis com super tie-break, cancelamento e W.O. decidido). Os desvios das frentes e da integração, já incorporados abaixo, estão na seção 16.1. A web da etapa 3 consome este contrato; o Expo fica para a última etapa; campeonatos (seção 17) e corrida (seção 18) continuam a definir.
+>
+> **Estado (etapa 3: fases 2 a 5 implementadas e integradas na web em 12 de outubro de 2026):** a web consome as seções 7 a 16 com quatro frentes conciliadas: a **placa** (busca de time, avulso e tênis, folha "Preparar busca" com vagas, proposta e oferta de vaga em tela cheia, "Minhas partidas" e o ponto menta do JOGAR; `PlayPage`, `components/play/`, `hooks/usePlayBoard.ts`), a **tela da partida** (cabeçalho, condições com quadra, reserva, vagas, cancelamento, W.O. e chat; `MatchPage`, `components/match/`), o **resultado e o Ranking** (cartão de resultado, presença, estatísticas, contestação e revisão, Ranking real e "Seu elo" do Início; `components/results/`, `components/ranking/`, `RankingPage`) e as **notificações e filas** (os 17 tipos da seção 13 com destino, "Sugestões de quadra" e "W.O. contestados" na administração, denúncia de mensagem na moderação). Os tipos comuns da partida têm um dono só, `web/src/api/matches.ts`. A integração também **revisou o relato do placar** (cego até o meu lado informar o meu, seção 12.3), expôs as **vagas declaradas** em `MatchSideOut.declared_slots` e fechou `permissions.suggest_court` depois do início (seção 16.1). Os desvios da web estão na seção 16.2. O Expo, o chaveamento e as partidas de campeonato (seção 17) e a corrida (seção 18) seguem a definir.
 
 ## 1. Elos e rankings
 
@@ -122,7 +126,7 @@ Registradas em [próximos passos](../proximos-passos-jogar.md#decisões-fechadas
 
 ## 5. Notificações
 
-A infraestrutura (`notifications`, rotas de leitura e o serviço `notify`) é a de [0003, seção 7](0003-times-campeonatos.md#7-notificações). Os tipos do Jogar (proposta, aceite, condições, partida agendada, cancelamento, W.O., resultado, divergência, contestação, vaga preenchida, reserva expirando e comprovante decidido) entram nas fases correspondentes. Os da fase 7 (comprovante decidido, reserva expirada, devolução e avisos do evento) estão em [0003, seção 17](0003-times-campeonatos.md#17-notificações-da-etapa-2).
+A infraestrutura (`notifications`, rotas de leitura e o serviço `notify`) é a de [0003, seção 7](0003-times-campeonatos.md#7-notificações). Os tipos das fases 2 a 5 (proposta, aceite, condições, partida agendada, cancelamento, W.O., resultado, divergência, contestação, vaga encontrada e preenchida, remoção da partida e decisão de quadra) estão na seção 13. Os da fase 7 (comprovante decidido, reserva expirada, devolução e avisos do evento) estão em [0003, seção 17](0003-times-campeonatos.md#17-notificações-da-etapa-2). "Reserva expirando" (lembrete) continua fora, como na etapa 2.
 
 ## 6. Fase 7 — Campeonatos e provas (lado do atleta)
 
@@ -295,12 +299,761 @@ Os do organizador e da administração estão em [0003, seção 20.2](0003-times
 | 6.5 | O limite do comprovante aparece como "5 MiB" (a mesma regra do organizador), com a ordem de validação do servidor. | Uma regra e um texto só (`web/src/api/receipts.ts`). |
 | 6.5 | O motivo da contestação não repete o ponto final depois das aspas ("Motivo: “…” A administração confere…"). | Achado da conferência no navegador: o motivo digitado já termina em ponto. |
 
-## 7. Fases 2 a 6 e 8 (a definir na fase correspondente)
+## 7. Etapa 3 — fases 2 a 5: decisões, esquema, estados e tipos
 
-- **Fase 2 — Pareamento de amistosos:** `match_searches`, `matches`, `match_sides`, trava por balde, varredura (acrescenta tarefas a `services/sweep.py:TASKS`) e notificações. A definir.
-- **Fase 3 — Partida:** condições, quadras, reserva, chat, cancelamento e W.O. A definir.
-- **Fase 4 — Avulso.** A definir.
-- **Fase 5 — Resultado e ranking:** cálculo de `standings` com `tier_for`, janela de 52 semanas e tela Ranking real. A definir.
-- **Fase 6 — Corrida:** registro, tolerância de ±2% e marcas. A definir.
+Escopo: busca de amistoso (time e tênis), proposta de 2 h, avulso (posição específica ou qualquer posição, qualquer formato), partida com condições, quadra, reserva, chat, cancelamento e W.O., resultado bilateral com presença, estatísticas e contestação, rankings reais e a placa do Jogar. Convenções da [seção 1 de 0003](0003-times-campeonatos.md#1-convenções): prefixo `/api/v1`, sessão obrigatória, ações com JSON (mesmo `{}`), `DELETE` sem corpo, `{ detail }` em português, `404` para o que não existe ou não é do titular, `403` só para quem vê o recurso sem o papel exigido, `409` para conflito de estado, `422` com `fields` na validação.
+
+### 7.1 Decisões desta fundação (interpretações dos planos)
+
+- **Fila no PostgreSQL** (plano, A2): a tabela `match_searches` é a fila. O pareamento roda por **balde**, com `pg_advisory_xact_lock` sobre o hash do balde, releitura das linhas com `FOR UPDATE` e criação da proposta na mesma transação. O Redis fica de fora (seção 15.1).
+- **Baldes:** time = futebol + cidade + formato; tênis = tênis + cidade; **avulso = futebol + cidade** (a posição e o formato filtram dentro do balde, porque "qualquer posição" e "qualquer formato" atravessam posições e formatos). Desvio do plano A2, que punha a posição no balde do avulso.
+- **Ordem do pareamento:** mesmo elo, depois o vizinho, depois a busca mais antiga (`started_at`). Quem está em classificação enfrenta qualquer nível; dois lados em classificação contam como "mesmo elo".
+- **Times com um representante em comum nunca se enfrentam** (a mesma pessoa aceitaria os dois lados). Times encerrados e contas inativas ficam de fora.
+- **Lado A** é a busca que esperava; **lado B**, a que chegou.
+- **Elo da busca:** o do time no formato ou o do tenista (`rankings.subject_tier`) no momento da busca, guardado em `match_searches.tier` e copiado para `match_sides.tier`. O avulso guarda `null`: o elo dele é comparado **por vaga** (posição e formato da vaga) com o elo do time que abriu a vaga.
+- **Reenvio de busca:** quem já tem uma busca aberta (esperando ou numa proposta) recebe `200` com ela, sem criar outra (RNF06).
+- **Proposta aceita** abre o chat e encerra as duas buscas como `concluida`; os times podem buscar de novo.
+- **Recusa:** encerra a busca de quem recusou (`recusada`); o outro lado volta à fila com o prazo original e é pareado de novo na hora. **Proposta expirada:** quem tinha aceitado volta à fila com o prazo original; quem não respondeu termina como `sem_resposta`. Se o prazo de 24 h da busca já passou, ela expira.
+- **Oferta de vaga ao avulso:** a vaga fica **reservada** para ele por 2 h (nunca além do início da partida), com a busca `pareada`. "Quero jogar" preenche a vaga; recusa ou falta de resposta encerram a busca e a vaga vai ao próximo avulso. Assim, duas pessoas nunca disputam a mesma oferta, e o preenchimento ainda é atômico (trava da vaga e índice único).
+- **Partida agendada:** fica `agendada` com as condições aceitas mesmo durante uma nova proposta de condições; a nova só vale quando os dois aceitam (RN05). A primeira aceitação abre as vagas declaradas para avulsos.
+- **Quadra:** o tipo da quadra é o formato da partida (`futsal`, `society`, `campo`) ou `tenis`. A sugestão (`em_revisao`) só vale na partida que a sugeriu (RN07). O catálogo começa **vazio**: quadras entram só por sugestão publicada pela administração.
+- **Cancelamento:** `combinando` a qualquer momento; `agendada` até 24 h antes do início. Depois disso, quem não comparece perde por W.O.
+- **W.O. (12/10):** 3×0 no futebol e 6-0 6-0 no tênis, sem restrição automática. O lado presente registra entre o início e o fim do prazo de 48 h, desde que o outro lado ainda não tenha informado placar. O W.O. não contestado vira resultado no fim do prazo; o contestado espera a administração. No W.O., contam a presença e a vitória dos atletas do lado presente; não há estatísticas.
+- **Resultado:** cada lado informa o placar (`match_results`, um por lado); placares iguais confirmam na hora (`realizada`) e o ranking é recalculado. Enquanto não confirmado, os dois podem corrigir até o prazo. No fim das 48 h: sem placar confirmado, `sem_resultado` (amistoso; em campeonato, decide o organizador na etapa 4); com placar confirmado, `encerrada` e fim da janela de estatísticas.
+- **Estatísticas (RN10, RN13):** o atleta envia (`enviada`); o representante do próprio lado revisa (`revisada`), podendo corrigir; o representante adversário contesta itens **uma vez** por estatística (`contestada`); o item contestado só pontua depois de nova revisão, que é final. Só itens revisados pontuam; campo vazio não soma nem tira. Editar uma estatística revisada volta a `enviada`.
+- **Presença:** o envio das próprias estatísticas marca o atleta como presente; o representante do lado decide a presença de todos (inclusive avulsos). Só atuações com presença confirmada contam no ranking individual.
+- **Ranking:** materializado em `standings` a cada confirmação, decisão ou fechamento de prazo; janela de 52 semanas pelo início previsto da partida; classificação com 3 partidas; desempates na seção 12.6.
+- **Moderação do chat (12/10):** `ContentReport` com `target_type = 'match_message'` na fila de Denúncias existente; a remoção esconde o texto para todos e mantém o registro.
+
+### 7.2 Esquema (migração `0009`)
+
+`down_revision = '0008'`. Modelos em `app/models/matches.py`, com os estados e tipos no mesmo módulo.
+
+| Tabela | Conteúdo e restrições |
+| --- | --- |
+| `match_searches` | A fila. `sport`, `kind` (`time` \| `tenis` \| `avulso`), `city_id`, `format` (só time), `position` (só avulso; nulo = qualquer posição), `team_id` **ou** `user_id`, `created_by_id`, `tier` (elo no momento da busca; nulo no avulso), `open_slots` (JSONB por posição, só time), `state`, `match_id` (proposta em curso ou partida resultante), `slot_id` e `offer_expires_at` (oferta ao avulso), `started_at` (antiguidade, mantida ao voltar à fila), `expires_at` (24 h), `ended_at`. **Checks:** categoria por tipo; `ended_at` ⇔ estado final; `pareada` exige proposta (time, tênis) ou oferta com prazo (avulso). **Únicos parciais:** uma busca aberta (`ativa` ou `pareada`) por time e modalidade e por atleta e modalidade; uma oferta pendente por vaga. Índices da fila (`kind, city_id, format, started_at, id` em `ativa`) e dos vencimentos. |
+| `matches` | `sport`, `format` (⇔ futebol), `city_id`, `origin` (`amistoso` \| `campeonato`), `event_id` (⇔ campeonato), `round_number`, `bracket_position`, `next_match_id`/`next_match_side` (só campeonato), `state`, `proposal_expires_at` (proposta), condições aceitas (`starts_at`, `court_id`, `booking_side`, `booking_confirmed_at`/`_by_id`, `super_tiebreak` só tênis), `result_deadline` (início + 48 h, ⇔ `starts_at`), resultado final (`score_a`, `score_b`, `sets`, `winner_side`, `result_source` = `confirmacao` \| `wo` \| `organizador` \| `administracao`, `result_confirmed_at`, `result_decided_by_id`/`_at`/`_reason`), W.O. (`walkover_absent_side`, registro, contestação com motivo, decisão `mantido` \| `anulado` com motivo), cancelamento (`cancelled_at`/`_by_id`, `cancel_reason`) e `closed_at` (⇔ estado final). **Checks:** placar final existe exatamente em `realizada`/`encerrada`; tênis com vencedor e sets; decisão com motivo. |
+| `match_sides` | `side` (`a` \| `b`), `team_id` **ou** `user_id`, `search_id`, `tier` (no pareamento), `declared_slots`, `accepted_at`/`_by_id`, `declined_at`/`_by_id`. **Únicos:** `(match_id, side)`; o mesmo time ou atleta não ocupa os dois lados. Uma partida de campeonato pode ter 0, 1 ou 2 lados ("Vencedor J1 × Vencedor J2"). |
+| `match_terms` | Propostas de condições: `proposed_by_id`/`_side` (nulo = organizador), `starts_at`, `court_id`, `booking_side`, `super_tiebreak`, `state` (`pendente` \| `aceita` \| `substituida` \| `cancelada`), aceites de cada lado e `decided_at`. **Únicos parciais:** uma proposta `pendente` (a vigente) e um conjunto `aceita` por partida. O lado que propõe aceita ao propor. |
+| `courts` | Catálogo: `city_id`, `name` (2–80), `name_key` (nome normalizado), `address`, `kind` (`futsal` \| `society` \| `campo` \| `tenis`), `state` (`publicada` \| `em_revisao` \| `rejeitada`), `suggested_by_id`, `origin_match_id`, revisão (`reviewed_by_id`, `reviewed_at`, `review_reason`, `duplicate_of_id`) e `published_at`. **Único parcial** `(city_id, kind, name_key)` entre publicadas. Começa vazio. |
+| `match_slots` | Vaga para avulso: `side`, `position`, `state` (`aberta` \| `oferecida` \| `preenchida` \| `fechada`), `opened_at`, `filled_by_id`/`filled_at`, `removed_at`/`_by_id`, `closed_at`. **Único parcial** `(match_id, filled_by_id)` em `preenchida`: uma vaga preenchida por atleta e partida. |
+| `match_lineups` | Atuação (RN03): `side`, `user_id`, `team_id`, `guest`, `slot_id`, `position`, `present` (nulo = não informado), `present_marked_by_id`, `removed_at` (avulso removido). **Único** `(match_id, user_id)` (RN02). |
+| `match_messages` | Chat: `author_id`, `side`, `kind` (`texto` \| `evento`), `event_type` (⇔ evento; validado no serviço), `body` (1–1000; o texto do evento é gerado em português), `payload`, `removed_at`/`_by_id` (moderação, só texto). Índice `(match_id, id)`. |
+| `match_results` | Placar informado por lado: `side`, `reported_by_id`, `score_a`, `score_b` (gols ou sets vencidos, sempre do ponto de vista da partida), `sets` (tênis). **Único** `(match_id, side)`. |
+| `football_stats` | Uma por atuação (`lineup_id` único): `goals`, `assists`, `position_stat` (0–50, nulos = vazio), `state` (`enviada` \| `revisada` \| `contestada`), revisão e contestação (`contested_fields` ⊂ `gols`, `assistencias`, `estatistica_posicao`, com motivo). |
+| `standings` | Ganha `wins`, `draws`, `losses`, `goals_for`, `goals_against` (gols do time ou sets do tênis), o check `ck_standings_record` e o índice `ix_standings_ranking` para `GET /rankings`. |
+
+### 7.3 Estados e transições
+
+| Busca | Ação | Próximo |
+| --- | --- | --- |
+| `ativa` | pareamento (proposta ou oferta) | `pareada` |
+| `ativa` | cancelar (titular) | `cancelada` |
+| `ativa` | 24 h | `expirada` |
+| `pareada` | os dois lados aceitam / avulso aceita | `concluida` |
+| `pareada` | o outro lado recusou ou deixou expirar depois do meu aceite; partida cancelada com oferta pendente | `ativa` (prazo original) ou `expirada` |
+| `pareada` | recusei | `recusada` |
+| `pareada` | não respondi em 2 h | `sem_resposta` |
+
+| Partida | Ação | Próximo |
+| --- | --- | --- |
+| `proposta` | os dois aceitam | `combinando` |
+| `proposta` | um recusa / 2 h | `recusada` / `expirada` |
+| `combinando` | condições aceitas pelos dois | `agendada` |
+| `combinando`, `agendada` | cancelar (agendada: até 24 h antes) | `cancelada` |
+| `agendada` | placares iguais | `realizada` |
+| `agendada` | W.O. sem contestação no fim do prazo, W.O. mantido pela administração, decisão do organizador (etapa 4) | `encerrada` |
+| `agendada` | fim do prazo sem placar confirmado; W.O. anulado | `sem_resultado` |
+| `realizada` | fim do prazo de 48 h | `encerrada` |
+
+`match_rules.next_search_state`, `next_match_state` e `next_stat_state` aplicam essas tabelas e levantam `TransitionError` (`409` com a mensagem). As leituras mostram o **estado efetivo**: busca `ativa` vencida aparece `expirada`, proposta vencida aparece `expirada`, mesmo antes da varredura.
+
+**Fase do cartão S1 (`match_rules.match_phase`):** `proposta`, `recusada`, `expirada`, `combinando`, `agendada` (antes do início), `informar_resultado` (depois do início, sem confirmação), `divergente` (os dois informaram placares diferentes), `wo_registrado`, `wo_contestado`, `confirmado` (`realizada`), `encerrada`, `sem_resultado`, `cancelada`.
+
+### 7.4 Tipos comuns (TypeScript)
+
+Espelho de `app/schemas/matches.py`. `Tier`, `Position`, `FootballFormat`, `Person`, `City`, `Page` e `TeamRef` estão na [seção 1 de 0003](0003-times-campeonatos.md#tipos-comuns-typescript) e na seção 2 deste documento.
+
+```ts
+type MatchSport = 'futebol' | 'tenis'
+type Side = 'a' | 'b'
+type SearchKind = 'time' | 'tenis' | 'avulso'
+type SearchState = 'ativa' | 'pareada' | 'concluida' | 'cancelada' | 'expirada' | 'recusada' | 'sem_resposta'
+type MatchState = 'proposta' | 'recusada' | 'expirada' | 'combinando' | 'agendada' | 'realizada' | 'encerrada'
+  | 'sem_resultado' | 'cancelada'
+type MatchPhase = 'proposta' | 'recusada' | 'expirada' | 'combinando' | 'agendada' | 'informar_resultado'
+  | 'divergente' | 'wo_registrado' | 'wo_contestado' | 'confirmado' | 'encerrada' | 'sem_resultado' | 'cancelada'
+type MatchOrigin = 'amistoso' | 'campeonato'
+type MatchRole = 'representante' | 'membro' | 'atleta' | 'avulso' | 'organizador' | 'administracao'
+type TermsState = 'pendente' | 'aceita' | 'substituida' | 'cancelada'
+type CourtKind = 'futsal' | 'society' | 'campo' | 'tenis'
+type CourtState = 'publicada' | 'em_revisao' | 'rejeitada'
+type SlotState = 'aberta' | 'oferecida' | 'preenchida'
+type StatState = 'enviada' | 'revisada' | 'contestada'
+type StatField = 'gols' | 'assistencias' | 'estatistica_posicao'
+type ResultSource = 'confirmacao' | 'wo' | 'organizador' | 'administracao'
+type OpenSlots = Record<Position, number>        // goleiro, defesa, meio_campo, atacante
+
+interface MatchSideOut {
+  side: Side
+  kind: 'time' | 'atleta'
+  team: TeamRef | null
+  athlete: Person | null
+  tier: Tier | null            // elo no pareamento; null em classificação (nunca se atribui elo antes)
+  accepted_at: string | null   // aceite da proposta
+  is_mine: boolean
+  declared_slots: OpenSlots | null   // vagas para avulsos declaradas na busca, só em `proposta` e `combinando` (depois, `slots`); null se não declarou
+}
+
+interface TennisSetOut { a: number; b: number; tiebreak: { a: number; b: number } | null; super_tiebreak: boolean }
+interface ScoreOut {
+  a: number                    // gols (futebol) ou sets vencidos (tênis) do lado A
+  b: number
+  sets: TennisSetOut[] | null
+  winner: Side | null          // null: empate no futebol
+}
+
+interface CourtOut {
+  id: number
+  name: string
+  address: string | null
+  kind: CourtKind
+  city: City
+  state: CourtState
+  provisional: boolean         // em revisão: vale só na partida que a sugeriu (selo "Sugestão em revisão")
+}
+
+/** Linha de listas, placa e cabeçalho. */
+interface MatchCard {
+  id: number
+  sport: MatchSport
+  format: FootballFormat | null
+  origin: MatchOrigin
+  state: MatchState            // efetivo
+  phase: MatchPhase
+  sides: MatchSideOut[]        // [a, b]
+  my_side: Side | null
+  my_role: MatchRole
+  starts_at: string | null
+  court: CourtOut | null
+  result_deadline: string | null
+  score: ScoreOut | null       // placar final, quando houver
+  needs_my_action: boolean     // aceitar proposta ou condições, informar placar, enviar estatísticas, contestar W.O.
+}
+```
+
+## 8. Papéis e acesso na partida
+
+`match_access.match_access(db, match, user) -> MatchAccess | None` (e `load_match_for`, que responde `404 Partida não encontrada.`):
+
+| Papel | Quem | Lado | Age pelo lado |
+| --- | --- | --- | --- |
+| `atleta` | o tenista de um lado | o dele | sim |
+| `representante` | representante ativo do time de um lado | o do time | sim |
+| `membro` | membro ativo do time de um lado | o do time | não ("Só os representantes aceitam.") |
+| `avulso` | avulso com vaga preenchida, **até o encerramento** | o da vaga | não |
+| `organizador` | dono do evento, em partida de campeonato (etapa 4) | — | não |
+| `administracao` | conta administrativa | — | não (só lê) |
+
+- Quem está nos dois elencos pertence ao lado da sua atuação; senão ao lado que representa; senão ao lado A.
+- "Age pelo lado" (`acts_for_side`): aceitar ou recusar a proposta, propor e aceitar condições, cancelar, informar placar, registrar ou contestar W.O., registrar presença, revisar e contestar estatísticas e ajustar vagas.
+- **Chat:** leitura a partir de `combinando` (inclusive depois do fim, só leitura); escrita em `combinando`, `agendada` e `realizada`, por elencos, avulsos e organizador. A administração só lê (denúncias e W.O. contestado). Antes do aceite dos dois lados não há chat.
+
+## 9. Busca, proposta e placa (fase 2) — frente de pareamento
+
+### 9.1 Objetos
+
+```ts
+interface MatchSearchOut {
+  id: number
+  kind: SearchKind
+  sport: MatchSport
+  city: City
+  format: FootballFormat | null      // time; null no avulso (qualquer formato) e no tênis
+  position: Position | null          // avulso; null = qualquer posição
+  team: TeamRef | null
+  tier: Tier | null
+  open_slots: OpenSlots | null       // time
+  state: SearchState                 // efetivo
+  started_at: string                 // tempo decorrido no botão
+  expires_at: string
+  match_id: number | null            // proposta em curso (pareada) ou partida resultante (concluida)
+  slot_id: number | null             // oferta de vaga (avulso)
+  offer_expires_at: string | null
+  can_cancel: boolean                // 'ativa' e titular (atleta ou representante)
+}
+
+interface SearchInput {
+  sport: MatchSport
+  team_id?: number | null            // futebol "Com meu time"; ausente = avulso
+  format?: FootballFormat | null     // obrigatório com team_id
+  team_complete?: boolean | null     // "O time está completo?"
+  open_slots?: Partial<OpenSlots> | null
+  position?: Position | null         // avulso
+}
+
+interface ProposalOut {
+  match_id: number
+  sport: MatchSport
+  format: FootballFormat | null
+  city: City
+  state: 'proposta' | 'combinando' | 'recusada' | 'expirada'   // efetivo
+  expires_at: string                 // contagem regressiva
+  sides: MatchSideOut[]
+  my_side: Side
+  my_role: MatchRole
+  can_respond: boolean               // quem age pelo lado, sem aceite e dentro do prazo
+  created_at: string
+}
+
+interface SlotOfferOut {
+  slot_id: number
+  search_id: number
+  position: Position
+  side: Side                         // lado que abriu a vaga
+  expires_at: string
+  match: MatchCard
+}
+
+interface SearchCreated { search: MatchSearchOut; proposal: ProposalOut | null; offer: SlotOfferOut | null }
+
+/** Placa do Jogar e ponto menta da navegação. */
+interface PlayBoard {
+  attention: boolean                 // busca aberta, proposta ou oferta pendente, ou partida 'combinando'
+  searches: MatchSearchOut[]
+  proposals: ProposalOut[]
+  offers: SlotOfferOut[]
+  matches: MatchCard[]               // combinando, agendada e realizada (prazo aberto) do titular; por starts_at, sem data primeiro
+}
+```
+
+### 9.2 Rotas
+
+| Rota | Quem | Corpo | Resposta |
+| --- | --- | --- | --- |
+| `POST /matchmaking/searches` | atleta (tênis, avulso) ou representante (time) | `SearchInput` | `201 SearchCreated` (ou `200` com a busca aberta) |
+| `GET /me/searches` | titular | — | `{ items: MatchSearchOut[] }` (abertas do titular e dos times ativos dele) |
+| `DELETE /matchmaking/searches/{id}` | atleta ou representante | — | `204` |
+| `GET /me/proposals` | titular | — | `{ items: ProposalOut[] }` (pendentes, por `expires_at`) |
+| `PUT /matches/{id}/accept` | quem age pelo lado | `{}` | `ProposalOut` |
+| `PUT /matches/{id}/decline` | quem age pelo lado | `{}` | `ProposalOut` |
+| `GET /me/play` | titular | — | `PlayBoard` |
+| `GET /me/matches?scope=proximas\|historico&cursor=&limit=` | titular | — | `{ items: MatchCard[]; next_cursor }`: `proximas` sem paginação (até 100, `next_cursor: null`); `historico` paginado (encerrada, sem_resultado, cancelada, por `closed_at` decrescente) |
+
+### 9.3 Regras
+
+- **Criar busca:** o tipo sai do corpo: tênis → `tenis`; futebol com `team_id` → `time`; futebol sem `team_id` → `avulso`. Erros, nesta ordem:
+  - tênis com `team_id`, `format`, `position` ou `open_slots`: `422 Busca de tênis não tem time, formato nem posição.`;
+  - time sem formato: `422 Escolha o formato da partida.` (campo `format`); time com `position`: `422 A posição é só da busca de avulso.`;
+  - avulso com `format` ou `open_slots`: `422 O avulso aceita qualquer formato.`;
+  - time inexistente, encerrado ou do qual o titular não é membro ativo: `404 Time não encontrado.`; membro sem braçadeira: `403 Só representantes buscam partida para o time.`;
+  - vagas: `match_rules.normalize_open_slots` (`422` no campo `open_slots`: `No máximo uma vaga de goleiro.`, `No society cabem até 6 vagas para avulsos.`…); `team_complete: true` com vagas: `422 Com o time completo, não há vagas para avulsos.`;
+  - cidade: time → a do time; tênis → a do perfil de tênis (`409 Complete seu perfil de tênis com a cidade para buscar partidas.`); avulso → a do perfil de futebol (`409 Complete seu perfil de futebol com a cidade para buscar vaga.`);
+  - busca aberta do mesmo time ou atleta na modalidade: `200 SearchCreated` com ela (com a proposta ou a oferta, se houver); um `IntegrityError` do índice único é tratado igual.
+
+  Grava `tier` (`rankings.subject_tier`; avulso `null`), `started_at = agora`, `expires_at = agora + 24 h`, auditoria `busca.criada` e chama `queue.enqueue` na mesma transação; o resultado (`Pairing`) preenche `proposal` ou `offer`.
+- **Minhas buscas:** abertas (`ativa`, `pareada`) do titular (tênis, avulso) e dos times ativos de que é membro; membros veem a busca do time com `can_cancel: false`.
+- **Cancelar busca:** trava a linha (`FOR UPDATE`). `404 Busca não encontrada.` para quem não é o atleta nem membro do time; `403 Só representantes cancelam a busca do time.`; `pareada`: `409 A busca já encontrou uma partida. Responda à proposta.` (avulso: `…Responda à oferta de vaga.`); encerrada: `409 Esta busca já foi encerrada.` Grava `cancelada` e `ended_at`. Auditoria `busca.cancelada`. Sem notificação.
+- **Aceitar proposta:** `load_match_for(…, for_update=True)`; membro: `403 Só os representantes aceitam.`; fora de `proposta` ou vencida: `409 Esta proposta não está mais aberta.` Chama `queue.accept_proposal` (idempotente para o lado que já aceitou). O primeiro aceite notifica `proposta_aceita` (`complete: false`) a quem age pelo outro lado; o segundo leva a partida a `combinando`, encerra as buscas (`concluida`), abre o chat com a faixa `partida_combinando` e notifica `proposta_aceita` (`complete: true`) aos membros dos dois lados. Auditoria `partida.proposta_aceita`.
+- **Recusar proposta:** mesmas checagens; chama `queue.decline_proposal` (busca de quem recusou `recusada`, a outra volta à fila e é pareada de novo). Notificação `proposta_encerrada` (`reason: 'recusada'`, `requeued`) a quem age pelos lados, exceto quem recusou. Auditoria `partida.proposta_recusada` (`{ side, requeued_search_ids }`).
+- **"Responder depois":** não chama a API; a proposta fica na placa e nas notificações até o prazo.
+- **Placa (`GET /me/play`):** lê o estado efetivo. `attention` acende o ponto menta da navegação. A web relê a placa ao focar e a cada 15 s durante a busca. `needs_my_action` marca o que o titular pode fazer agora.
+
+## 10. Partida, condições, quadras, reserva, cancelamento e W.O. (fase 3) — frente de partida
+
+### 10.1 Objetos
+
+```ts
+interface MatchTermsOut {
+  id: number
+  starts_at: string
+  court: CourtOut
+  booking_side: Side             // "Quem reserva com o local"
+  super_tiebreak: boolean | null // tênis
+  proposed_by: Person | null
+  proposed_by_side: Side | null  // null: organizador (etapa 4)
+  state: TermsState
+  accepted_a_at: string | null   // selos de aceite
+  accepted_b_at: string | null
+  created_at: string
+}
+
+interface TermsInput { starts_at: string; court_id: number; booking_side: Side; super_tiebreak?: boolean | null }
+
+interface WalkoverOut {
+  absent_side: Side
+  registered_by: Person | null
+  registered_at: string
+  contest_until: string          // result_deadline
+  contested_by: Person | null
+  contested_at: string | null
+  contest_reason: string | null
+  decision: 'mantido' | 'anulado' | null
+  decision_reason: string | null
+}
+
+interface MatchPermissions {
+  read_chat: boolean; write_chat: boolean
+  propose_terms: boolean; accept_terms: boolean; suggest_court: boolean; confirm_booking: boolean; cancel: boolean
+  report_result: boolean; register_walkover: boolean; withdraw_walkover: boolean; contest_walkover: boolean
+  attendance: boolean; send_stats: boolean; manage_slots: boolean
+}
+
+/** Tela da partida (P2 + C1): cabeçalho, condições fixas e cartão de resultado. */
+interface MatchDetail extends MatchCard {
+  city: City
+  event: { id: number; name: string } | null
+  round_number: number | null
+  proposal_expires_at: string | null
+  terms: { current: MatchTermsOut | null; pending: MatchTermsOut | null }
+  booking: { side: Side; state: 'a_confirmar' | 'confirmada'; confirmed_at: string | null } | null
+  super_tiebreak: boolean | null
+  cancel_until: string | null    // starts_at − 24 h
+  slots: MatchSlotOut[]          // seção 11.2
+  result: MatchResultOut | null  // seção 12; a partir do início
+  walkover: WalkoverOut | null
+  cancellation: { at: string; by: Person | null; reason: string | null } | null
+  permissions: MatchPermissions
+}
+```
+
+As permissões e o cartão seguem `match_views`: o elo de cada lado (`MatchSideOut.tier`) é o gravado em `match_sides.tier` no pareamento, não o atual; `result.points` (a pílula "+3 pts") só vem para o elenco (`representante`, `membro`, `atleta`) com resultado final, e é `null` para avulso, organizador e administração; `suggest_court` e `manage_slots` só valem em partida **amistosa**; `suggest_court` só em `combinando` ou `agendada` **antes do início** (a rota responde `409 Só dá para sugerir quadra antes do início da partida.` depois dele, como as condições).
+
+### 10.2 Rotas
+
+| Rota | Quem | Corpo | Resposta |
+| --- | --- | --- | --- |
+| `GET /matches/{id}` | participantes (seção 8) | — | `MatchDetail` |
+| `POST /matches/{id}/terms` | quem age pelo lado | `TermsInput` | `201 MatchDetail` |
+| `PUT /matches/{id}/terms/{terms_id}/accept` | quem age pelo outro lado | `{}` | `MatchDetail` |
+| `PUT /matches/{id}/booking` | quem age pelo lado que reserva | `{ confirmed: boolean }` | `MatchDetail` |
+| `POST /matches/{id}/cancel` | quem age pelo lado | `{ reason?: string \| null }` (até 300) | `MatchDetail` |
+| `POST /matches/{id}/walkover` | quem age pelo lado presente | `{}` | `MatchDetail` |
+| `DELETE /matches/{id}/walkover` | quem registrou (o lado) | — | `204` |
+| `POST /matches/{id}/walkover/contest` | quem age pelo lado ausente | `{ reason: string }` (5–500) | `MatchDetail` |
+| `GET /courts?city_id=&kind=&q=&match_id=` | qualquer atleta logado | — | `{ items: CourtOut[] }` |
+| `POST /courts/suggestions` | quem age pelo lado | `{ match_id: number; name: string; address?: string \| null; kind?: CourtKind }` | `201 { court: CourtOut; existing: false }` ou `200 { court; existing: true }` |
+| `GET /admin/court-suggestions?state=em_revisao\|decididas&cursor=&limit=` | administração | — | `Page<AdminCourtSuggestion>` |
+| `POST /admin/court-suggestions/{id}/decision` | administração | `{ decision: 'publicar' \| 'rejeitar'; name?: string; address?: string \| null; reason?: string; duplicate_of_id?: number }` | `AdminCourtSuggestion` |
+| `GET /admin/walkover-disputes?cursor=&limit=` | administração | — | `Page<{ match: MatchCard; walkover: WalkoverOut }>` |
+| `POST /admin/matches/{id}/walkover-decision` | administração | `{ decision: 'manter' \| 'anular'; reason: string }` (5–500) | `{ match: MatchCard; walkover: WalkoverOut }` |
+
+### 10.3 Condições (RN05)
+
+- **Propor:** quem age pelo lado (`403 Só os representantes propõem as condições.` para membros e avulsos), em `combinando` ou em `agendada` antes do início (`409 As condições só mudam enquanto a partida está sendo combinada ou antes do início.`); campeonato: `409 Num campeonato, o organizador define data, horário e quadra.` Validação: `match_rules.validate_terms_start` (`422` em `starts_at`: data passada, mais de 60 dias, fora do passo de 15 min ou sem fuso); quadra publicada na cidade da partida, ou a sugestão em revisão desta partida (`422 Escolha uma quadra do catálogo da cidade ou a sugerida nesta partida.` em `court_id`), do tipo `match_rules.court_kind_for` (`422 Escolha uma quadra de {formato}.`); `super_tiebreak` só no tênis (`422 Super tie-break só no tênis.`; padrão `false` no tênis). Trava a partida; a proposta pendente anterior vira `substituida`; a nova nasce `pendente` com o aceite do lado que propôs. Igual às condições aceitas: `409 Estas já são as condições combinadas.` Notificação `condicoes_propostas` a quem age pelo outro lado; faixa `condicoes_propostas`; auditoria `condicoes.propostas`.
+- **Aceitar:** quem age pelo outro lado. Condições `substituida` ou `cancelada`: `409 Estas condições foram substituídas. Confira a proposta atual.`; já aceitas pelo meu lado: `200` (idempotente); horário já passou: `409 O horário proposto já passou. Proponha outro.` Com os dois aceites: `aceita` (a anterior `aceita` vira `substituida`), e a partida copia `starts_at`, `court_id`, `booking_side`, `super_tiebreak` e `result_deadline = início + 48 h`; a reserva volta a "a confirmar" se a quadra, o horário ou quem reserva mudou. Na primeira vez, `combinando` → `agendada`, `match_lifecycle.open_declared_slots` e `queue.offer_slots` (vagas para avulsos). Notificação `partida_agendada` (`changed`: alteração de partida já agendada) aos membros dos dois lados e aos avulsos; faixa `partida_agendada` ou `condicoes_aceitas`; auditoria `condicoes.aceitas` e, na primeira vez, `partida.agendada`.
+- A tela mostra "Só os representantes aceitam" para membros; não há "recusar condições": quem discorda propõe outra.
+
+### 10.4 Quadras (RN07)
+
+- **Catálogo:** `city_id` obrigatório (`422`); só publicadas, por nome, até 50; `q` filtra por `name_key` (sem acento, minúsculas); `kind` filtra o tipo. Com `match_id` de uma partida do titular, as sugestões em revisão dessa partida vêm primeiro, com `provisional: true`.
+- **Sugerir:** quem age pelo lado, em `combinando` ou `agendada` antes do início (`409 Só dá para sugerir quadra antes do início da partida.`); nome por `match_rules.clean_court_name` (`422 O nome da quadra precisa ter de 2 a 80 caracteres.`), endereço aparado até 160; `kind` padrão = o da partida (outro tipo: `422 A quadra sugerida precisa ser de {formato}.`). Duplicidade: publicada com a mesma chave na cidade e tipo, ou sugestão em revisão da mesma partida com a mesma chave → `200` com ela (`existing: true`). Até 3 sugestões em revisão por partida (`409 Esta partida já tem 3 sugestões de quadra em revisão.`). Cria `em_revisao` com `origin_match_id`. Faixa `quadra_sugerida`; auditoria `quadra.sugerida`.
+- **Fila da administração:** `em_revisao` por `created_at` crescente (`paginate(…, ascending=True)`), com `possible_duplicates` (publicadas na mesma cidade e tipo cuja chave é igual, contém ou está contida na da sugestão); `decididas` por `reviewed_at` decrescente. Contador `court_suggestions` em `GET /admin/queue-counts` (seção 16).
+- **Decidir:** `404 Sugestão não encontrada.`; `409 Esta sugestão já foi decidida.` **Publicar**, com correções opcionais de nome e endereço: `publicada`, `published_at`, `reviewed_*`; conflito do único: `409 Já existe uma quadra publicada com este nome nesta cidade. Rejeite como duplicada.` **Rejeitar:** motivo de 5 a 300 (`422 Descreva o motivo da recusa.`), dispensado com `duplicate_of_id` (publicada da mesma cidade e tipo, senão `422 Escolha uma quadra publicada da mesma cidade e tipo.`); com duplicata, as condições pendentes e aceitas e as partidas que usavam a sugestão passam a apontar para a publicada (é o mesmo lugar; sem novo aceite). Sem duplicata, a partida segue com a quadra combinada, que a web mostra como "Sugestão recusada", e as condições **pendentes** que usavam a quadra passam a `cancelada` (quem propôs propõe de novo). Notificação `quadra_decidida` a quem sugeriu; faixa `quadra_sugerida` (sem autor, com `payload.decision`) na partida de origem enquanto o chat aceita escrita; auditoria `quadra.publicada` ou `quadra.rejeitada`.
+
+### 10.5 Reserva (RN08)
+
+Quem age pelo lado que reserva (`403 Só quem reserva confirma a reserva.`), com a partida `agendada` e antes do início (`409 A reserva só muda com a partida agendada e antes do início.`). `confirmed: true` grava `booking_confirmed_at`/`_by_id`; `false` volta a "a confirmar". O Arena só registra o estado. Faixa `reserva_atualizada`; auditoria `partida.reserva_atualizada` (`{ confirmed }`). Sem notificação.
+
+### 10.6 Cancelamento
+
+Quem age pelo lado; `match_rules.cancel_error` (`409 Só partidas combinando ou agendadas podem ser canceladas.` ou `409 Faltam menos de 24 h para a partida. Quem não comparecer perde por W.O.`); campeonato: `409 Partidas de campeonato são canceladas pelo organizador.` Motivo opcional, aparado, até 300. Numa transação, com a partida travada: `cancelada`, `cancelled_*`, `closed_at`; proposta de condições pendente → `cancelada`; `match_lifecycle.close_match_slots` (vagas fechadas, ofertas pendentes devolvidas à fila, escalações encerradas). Notificação `partida_cancelada` aos membros dos dois lados e aos avulsos escalados (calculados antes de fechar); faixa `partida_cancelada`; auditoria `partida.cancelada` (`{ reason, guests }`). Os times podem buscar de novo; a partida não pontua.
+
+### 10.7 W.O.
+
+- **Registrar:** só amistoso (campeonato: etapa 4), `agendada`, entre o início (`409 O W.O. só pode ser registrado depois do horário da partida.`) e o prazo (`409 O prazo de 48 h para registrar o resultado acabou.`); sem W.O. anterior (`409 Já há um W.O. registrado nesta partida.`); o outro lado ainda sem placar informado (`409 O outro lado já informou o placar. Informe o seu ou converse no chat.`). O placar que o meu lado tinha informado é apagado. Grava o lado ausente e o registro. Notificação `wo_registrado` a quem age pelo lado ausente, com `contest_until`; faixa `wo_registrado`; auditoria `partida.wo_registrado`.
+- **Retirar:** o lado que registrou, antes da contestação e do prazo (`409 Não há W.O. registrado pelo seu lado.` ou `409 O W.O. já foi contestado; a administração decide.`). Faixa `wo_retirado`; auditoria `partida.wo_retirado`.
+- **Contestar:** quem age pelo lado ausente, até o prazo, uma vez; motivo de 5 a 500 (`422 Conte o que aconteceu.`). Notificação `wo_contestado` a quem age pelo lado que registrou e às contas administrativas ativas; faixa `wo_contestado`; auditoria `partida.wo_contestado`. A partida fica sem resultado até a decisão; a varredura não a fecha.
+- Com W.O. registrado, o placar não pode ser informado (`409 Há um W.O. registrado nesta partida.`) nem as estatísticas enviadas (`409 Partida decidida por W.O. não tem estatísticas.`); a presença do lado presente pode ser registrada.
+- **Sem contestação até o prazo:** a varredura grava 3×0 (ou 6-0 6-0) para o lado presente, `result_source = 'wo'`, `encerrada`, notifica `resultado_partida` (`outcome: 'wo'`) e recalcula o ranking.
+- **Decisão da administração** (fila por `walkover_contested_at` crescente; contador `walkover_disputes`): `404 Partida não encontrada.`; `409 Este W.O. não aguarda decisão.`; motivo de 5 a 500 (`422 Descreva a decisão.`). **Manter:** placar do W.O. com `result_source = 'administracao'`, `result_decided_*`, `encerrada`, recálculo. **Anular:** `sem_resultado`. Os dois gravam `walkover_decision`, `walkover_decided_*` e o motivo; notificação `wo_decidido` aos membros dos dois lados; faixa `wo_decidido`; auditoria `partida.wo_decidido`. A administração lê o chat da partida para decidir.
+
+## 11. Chat e vagas (fases 3 e 4)
+
+### 11.1 Mensagens
+
+```ts
+type MatchEventType = 'partida_combinando' | 'condicoes_propostas' | 'condicoes_aceitas' | 'partida_agendada'
+  | 'reserva_atualizada' | 'vagas_atualizadas' | 'avulso_entrou' | 'avulso_removido' | 'quadra_sugerida'
+  | 'partida_cancelada' | 'wo_registrado' | 'wo_retirado' | 'wo_contestado' | 'wo_decidido' | 'placar_enviado'
+  | 'resultado_confirmado' | 'resultado_divergente' | 'sem_resultado' | 'presenca_registrada'
+  | 'estatisticas_enviadas' | 'estatistica_revisada' | 'estatistica_contestada'
+
+interface MatchMessageOut {
+  id: number
+  kind: 'texto' | 'evento'
+  event_type: MatchEventType | null
+  body: string | null            // null quando removida pela moderação ("Mensagem removida")
+  removed: boolean
+  author: Person | null          // null nos eventos; avatar null com bloqueio
+  side: Side | null              // lado do autor (lados C1) ou do evento (brasão da faixa)
+  author_role: 'representante' | 'membro' | 'atleta' | 'avulso' | 'organizador' | null  // braçadeira "C" = representante
+  is_mine: boolean
+  payload: Record<string, unknown> | null
+  created_at: string
+}
+interface MessagePage { items: MatchMessageOut[]; has_more: boolean; last_id: number | null }
+```
+
+| Rota | Quem | Corpo | Resposta |
+| --- | --- | --- | --- |
+| `GET /matches/{id}/messages?after=&before=&limit=` | leitores (seção 8) | — | `MessagePage` (itens em ordem crescente) |
+| `POST /matches/{id}/messages` | escritores (seção 8) | `{ body: string }` (1–1000, aparado) | `201 MatchMessageOut` |
+| `POST /reports` (existente) | leitores | `{ target_type: 'match_message'; target_id; reason; description? }` | `201 { id, status }` |
+
+- **Leitura periódica (a cada 4 s com a tela visível):** `after={last_id}` devolve as mensagens com `id` maior, em ordem crescente, até `limit` (padrão 50, máximo 100), com `has_more`; sem novidade, `items: []` e `last_id` igual ao `after`. Sem parâmetros, as últimas `limit`. `before={id}` pagina o histórico para trás. `after` e `before` juntos: `422`.
+- Antes do aceite dos dois lados: `403 O chat abre quando os dois lados aceitam a proposta.`; partida fechada: `409 O chat desta partida está fechado.`; administração escrevendo: `403 A administração só lê o chat.`
+- `author_role` é o papel atual de quem escreveu (a braçadeira "C" aparece para representantes); `side` é o lado gravado ao escrever.
+- Mensagens não geram notificação nem auditoria. Eventos são criados pelas frentes com `match_events.post_event`, na transação da mudança; o texto vem em português e não traz datas (a web formata `payload.starts_at` no fuso do aparelho).
+- **Denúncia (12/10):** extensão de `POST /reports` e da fila `/admin/reports` em `app/routers/social.py`: `target_type` aceita `match_message` para quem lê a mensagem (só `texto` não removido; senão `404 Conteúdo não encontrado.`); a prévia administrativa mostra o texto, a partida e o autor; a ação `remove` grava `removed_at`/`removed_by_id` (o texto some para todos e o registro fica); `suspend` segue como hoje.
+
+### 11.2 Avulso e vagas (fase 4) — frente de avulso
+
+```ts
+interface MatchSlotOut {
+  id: number
+  side: Side
+  position: Position
+  state: SlotState               // 'oferecida' = reservada para um avulso que ainda vai responder
+  guest: Person | null           // preenchida
+  filled_at: string | null
+}
+```
+
+| Rota | Quem | Corpo | Resposta |
+| --- | --- | --- | --- |
+| `GET /me/slot-offers` | titular | — | `{ items: SlotOfferOut[] }` |
+| `PUT /match-slots/{id}/accept` | o avulso da oferta | `{}` | `MatchDetail` |
+| `PUT /match-slots/{id}/decline` | o avulso da oferta | `{}` | `204` |
+| `PUT /matches/{id}/slots` | quem age por um lado de time | `{ open_slots: Partial<OpenSlots> }` | `MatchDetail` |
+| `DELETE /matches/{id}/guests/{user_id}` | quem age pelo lado do avulso | — | `204` |
+
+- **Vagas declaradas na busca** (V2): no máximo um goleiro e, somando as preenchidas, até o tamanho do formato menos um (futsal 4, society 6, campo 10). Viram linhas `match_slots` `aberta` quando a partida é agendada.
+- **Pareamento do avulso:** vagas `aberta` de partidas `agendada` da cidade, ainda não iniciadas, da posição escolhida (ou de qualquer posição), em qualquer formato; o elo individual do avulso na posição e no formato da vaga (ou "qualquer nível" em classificação) contra o elo do time que abriu a vaga; mesmo elo, vizinho, depois a vaga mais antiga. Ficam de fora os membros ativos dos dois times, quem já atuou na partida e quem foi removido dela.
+- **Aceitar ("Quero jogar"):** `queue.accept_offer`: oferta inexistente ou de outra pessoa: `404 Oferta de vaga não encontrada.`; `409 Esta vaga não está mais reservada para você.`, `409 O prazo para aceitar esta vaga acabou.` ou `409 Esta partida não recebe mais avulsos.`; um `IntegrityError` (já atua na partida): `409 Você já está nesta partida.` Efeitos: vaga `preenchida`, busca `concluida` com a partida, atuação de convidado só naquela partida (o ingresso permanente no time continua exigindo convite). Notificação `vaga_preenchida` a quem age pelo lado; faixa `avulso_entrou`; auditoria `vaga.preenchida`. O avulso passa a ler e escrever no chat até o encerramento.
+- **Recusar:** `queue.decline_offer` (busca `recusada`, vaga oferecida ao próximo). Auditoria `vaga.oferta_recusada`.
+- **Ajustar vagas:** o corpo **substitui** a declaração do lado inteiro (posição ausente vale `0`; `{ "open_slots": {} }` fecha todas); só futebol amistoso, em `combinando` (atualiza `match_sides.declared_slots`) ou `agendada` antes do início (`409 As vagas só mudam antes do início da partida.`); `match_rules.normalize_open_slots(formato, desejadas, filled=preenchidas)`; o número pedido é o de vagas abertas ou oferecidas por posição. Para reduzir, fecha primeiro as `aberta` mais recentes e depois as `oferecida` (`queue.release_offer(…, 'devolvida')`: o avulso volta à fila); para aumentar, abre linhas novas e chama `queue.offer_slots`. Faixa `vagas_atualizadas`; auditoria `vagas.atualizadas`.
+- **Remover avulso:** antes do início (`409 Depois do início, o avulso só fica de fora pela presença.`); `404 Avulso não encontrado nesta partida.` Vaga `fechada` com `removed_*`; atuação com `removed_at`; a vaga não reabre sozinha. Notificação `removido_da_partida`; faixa `avulso_removido`; auditoria `avulso.removido`.
+- **Cancelamento ou W.O.:** os avulsos escalados recebem `partida_cancelada` ou `resultado_partida`, e a escalação termina com a partida.
+
+## 12. Resultado, estatísticas, contestação e rankings (fase 5) — frente de resultado
+
+### 12.1 Objetos
+
+```ts
+interface TennisSetInput { a: number; b: number; tiebreak?: { a: number; b: number } | null }
+type ResultInput = { goals_a: number; goals_b: number }            // futebol, 0–99
+                 | { sets: TennisSetInput[] }                        // tênis; com super tie-break, o 3º "set" são os pontos
+
+interface ScoreReport { side: Side; score: ScoreOut | null; reported_by: Person | null; updated_at: string }   // score nulo: relato cego (12.3)
+
+interface MatchResultOut {
+  state: 'aguardando' | 'divergente' | 'confirmado' | 'wo_registrado' | 'wo_contestado' | 'sem_resultado'
+  deadline: string               // anel S1 e "fecha seg, 20 out · 16:00"
+  reports: { a: ScoreReport | null; b: ScoreReport | null }   // o meu relato sempre; o do outro lado, com `score`, só depois do meu ou na divergência (12.3)
+  final: ScoreOut | null
+  source: ResultSource | null
+  confirmed_at: string | null
+  decision_reason: string | null
+  points: number | null          // do meu lado, confirmado: 3/1/0 (time) ou 10/0 (tênis) — pílula "+3 pts"
+}
+
+interface PointsPreview {
+  presence: number; result: number | null; goals: number; assists: number; position_stat: number; total: number
+  counted: StatField[]           // itens que já pontuam (revisados)
+  final: boolean                 // placar confirmado e prazo encerrado
+}
+
+interface FootballStatOut {
+  id: number
+  goals: number | null; assists: number | null; position_stat: number | null
+  state: StatState
+  submitted_at: string
+  reviewed_at: string | null; reviewed_by: Person | null
+  contested_at: string | null; contested_by: Person | null; contest_reason: string | null
+  contested_fields: StatField[] | null
+}
+
+interface LineupOut {
+  user: Person
+  side: Side
+  guest: boolean                 // selo "Avulso"
+  position: Position | null
+  present: boolean | null
+  stat: FootballStatOut | null
+  points: PointsPreview | null
+  can_review: boolean            // representante do lado
+  can_contest: boolean           // representante do outro lado, uma vez, no prazo
+}
+```
+
+### 12.2 Rotas
+
+| Rota | Quem | Corpo | Resposta |
+| --- | --- | --- | --- |
+| `PUT /matches/{id}/result` | quem age pelo lado | `ResultInput` | `MatchDetail` |
+| `PUT /matches/{id}/attendance` | quem age por um lado de time | `{ athletes: { user_id: number; present: boolean; position?: Position \| null }[] }` (1–40) | `{ items: LineupOut[] }` |
+| `GET /matches/{id}/stats` | participantes | — | `{ items: LineupOut[] }` |
+| `PUT /matches/{id}/my-stats` | atleta do elenco ou avulso da partida | `{ position: Position; goals?: number \| null; assists?: number \| null; position_stat?: number \| null }` | `{ lineup: LineupOut; preview: PointsPreview }` |
+| `PUT /matches/{id}/stats/{stat_id}/review` | quem age pelo lado do atleta | `{ position?; goals?; assists?; position_stat? }` (correções opcionais) | `LineupOut` |
+| `POST /matches/{id}/stats/{stat_id}/contest` | quem age pelo outro lado | `{ fields: StatField[]; reason: string }` (5–300) | `LineupOut` |
+| `GET /rankings?sport=&kind=&format=&position=&distance_km=&cursor=&limit=` | qualquer atleta logado | — | `RankingPage` |
+| `GET /me/standings` | titular | — | `MeStandings` (seção 2, sem mudança de contrato) |
+
+`GET /matches/{id}/stats` e as respostas de presença listam o **elenco inteiro** dos dois lados: representantes e membros ativos dos times e os avulsos escalados (o removido não aparece), com `present: null` e `stat: null` para quem ainda não foi registrado; a posição é a da atuação, senão a do elenco.
+
+### 12.3 Placar (RN09, RN15)
+
+- Quem age pelo lado, com a partida `agendada` e a janela aberta (`match_rules.result_window_open`; senão `409 O placar é informado depois do horário da partida e até 48 h depois.`); já confirmado: `409 O placar já foi confirmado pelos dois lados.`; W.O. registrado: `409 Há um W.O. registrado nesta partida.`
+- Futebol: `validate_football_score` (`422 Informe números inteiros de 0 a 99.`). Tênis: `validate_tennis_sets(sets, super_tiebreak=match.super_tiebreak)`: sets de 6-0 a 6-4, 7-5 ou 7-6 com o tie-break (a 7, com 2 de vantagem, de quem venceu o set); super tie-break a 10 com 2 de vantagem no lugar do 3º set quando combinado; vencedor com 2 sets; 3º set só com os dois primeiros divididos. As mensagens apontam o set (`sets.2`).
+- Trava a partida e grava ou substitui a linha do meu lado (`match_results`). Se os dois placares forem iguais (`scores_agree`): `match_lifecycle.apply_final_score(…, source='confirmacao')`, `realizada`, `standings.recalculate_for_match`, notificação `resultado_partida` (`outcome: 'confirmado'`, `score_a`, `score_b`) aos membros e avulsos, faixa `resultado_confirmado`, auditoria `resultado.confirmado`. Se forem diferentes: notificação `resultado_divergente` (`deadline`) a quem age pelos dois lados, faixa `resultado_divergente`, auditoria `resultado.divergente`. Primeiro envio: faixa `placar_enviado`, auditoria `resultado.informado`. Em campeonato, a divergência vai ao organizador (etapa 4).
+- **Relato cego (decisão do orquestrador de 12/10, que revê a anterior):** `result.reports` mostra o **meu** relato sempre. O do outro lado só traz o `score` depois que o **meu lado já informou o meu** (o que inclui a divergência, em que os dois informaram) ou quando o resultado já está decidido (partida que deixou de ser `agendada`: `realizada`, `encerrada` ou `sem_resultado`). Antes disso o relato do outro lado existe, com `side`, `reported_by` e `updated_at`, mas com `score: null`: a tela diz que o outro lado já informou, sem o placar. Quem não age por lado (administração e organizador) vê os dois. Vale para todo o meu lado (representantes, membros e avulso). Motivo: copiar o placar do adversário não é conferir o resultado; a confirmação precisa de dois relatos independentes. A faixa `placar_enviado` do chat também não traz o placar.
+
+### 12.4 Presença e estatísticas (RN03, RN10, RN12, RN13)
+
+- **Presença:** quem age por um lado de time, futebol, janela aberta, partida `agendada` ou `realizada`; o lado ausente num W.O. não registra (`409 O seu lado está com W.O. registrado.`). Só membros ativos do time do lado ou avulsos desse lado (`422 Este atleta não está no elenco deste lado.` em `athletes`). Posição de quem jogou: a informada, senão a da atuação, a do elenco (`team_members.position`) ou a da vaga do avulso; sem nenhuma, `422 Informe a posição de quem jogou.` Faixa `presenca_registrada`; auditoria `presenca.registrada` (`{ side, present, absent }`).
+- **Minhas estatísticas:** atleta membro ativo de um time da partida ou avulso dela; futebol; janela aberta; `agendada` ou `realizada`; W.O.: `409 Partida decidida por W.O. não tem estatísticas.`; marcado ausente pelo representante: `409 O representante marcou que você não jogou. Fale com ele.`; `validate_stat` (`422 Informe números inteiros de 0 a 50.`). Cria ou atualiza a atuação (presente se ainda não informado) e a estatística: nova → `enviada`; `enviada`/`revisada` → `enviada` (nova revisão); `contestada` → `409 Esta estatística foi contestada; o representante do seu time revisa.`; `revisada` depois de uma contestação (revisão final) → `409 Esta estatística já foi contestada e revisada; a revisão é final.` (`permissions.send_stats` é falso nos dois casos) Faixa `estatisticas_enviadas` ("Tiago enviou: 2 gols, 4 finalizações no alvo (ATA)."). Sem auditoria (é declaração, não decisão).
+- **Prévia (RN12):** `scoring.individual_points` com o resultado confirmado, senão o placar informado pelo meu lado, senão `null`: presença 1; vitória 3, empate 1, derrota 0; gol 1; assistência 1; estatística da posição 0,5 por ocorrência até 4. `total` soma tudo o que foi enviado; `counted` (`match_rules.counted_stat_fields`) diz o que já pontua.
+- **Revisar:** quem age pelo lado do atleta; janela aberta; correções validadas; `next_stat_state(…, 'revisar')` → `revisada` (resolve a contestação). Faixa `estatistica_revisada`; auditoria `estatistica.revisada` (`{ match_id, user_id, corrections, after_contest }`); com a partida `realizada`, recálculo.
+- **Contestar:** quem age pelo outro lado; janela aberta; `normalize_contested_fields`; motivo de 5 a 300 (`422 Conte por que a estatística está errada.`); uma vez (`409 Esta estatística já foi contestada.`). Notificação `estatistica_contestada` ao atleta e a quem age pelo lado dele; faixa `estatistica_contestada`; auditoria `estatistica.contestada`; com a partida `realizada`, recálculo.
+- **Fim do prazo:** estatísticas `enviada` não pontuam; itens contestados sem nova revisão não pontuam.
+
+### 12.5 Prazo de 48 h (varredura)
+
+`match_lifecycle.close_due_results`: amistoso `agendada` vencido sem W.O. → `sem_resultado` (notificação `resultado_partida` com `outcome: 'sem_resultado'`, faixa, auditoria `partida.sem_resultado`); com W.O. não contestado → W.O. (seção 10.7); `realizada` vencida → `encerrada` (auditoria `partida.encerrada`, recálculo). W.O. contestado e campeonato sem confirmação ficam como estão.
+
+### 12.6 Rankings (RN11, RN14, RN16, RN23)
+
+```ts
+interface RankingRow {
+  rank_position: number
+  tier: Tier                     // só classificados aparecem na lista
+  metric_value: number           // pontos (time, tênis) ou média por partida (individual)
+  matches_played: number
+  wins: number; draws: number; losses: number
+  goals_for: number | null       // time: gols; tênis: sets; individual: null
+  goals_against: number | null
+  team: TeamRef | null
+  athlete: Person | null
+  is_mine: boolean
+}
+
+interface RankingPage {
+  ranking: 'futebol_time' | 'futebol_individual' | 'tenis' | 'corrida_3' | 'corrida_5' | 'corrida_10' | 'corrida_21'
+    | 'corrida_42'
+  format: FootballFormat | null
+  position: Position | null
+  distance_km: number | null
+  calc_version: number
+  classified_count: number
+  legend_slots: number           // ⌊classificados × 15%⌋
+  required: number               // partidas para classificar
+  items: RankingRow[]
+  next_cursor: string | null
+  mine: (StandingLine & { team: TeamRef | null })[]   // as linhas do titular (ou de cada time ativo dele), mesmo em classificação
+}
+```
+
+- **Parâmetros:** `sport=futebol&kind=time&format=` (times por formato), `sport=futebol&kind=individual&format=&position=` (12 rankings), `sport=tenis`; `sport=corrida&distance_km=` fica para a fase 6 (até lá, lista vazia). Faltando categoria: `422 Escolha o formato.`, `422 Escolha a posição.` ou `422 Escolha a distância.` Rankings **gerais** (sem cidade); quem tem bloqueio com o titular continua na lista, sem avatar. Ordem por `rank_position` crescente; cursor opaco com a última posição; `limit` padrão 20, máximo 50.
+- **Recálculo** (`services/standings.recalculate_for_match(db, match, *, now, positions=())`, seção 15.4): na confirmação, na decisão ou no fim do prazo, recalcula os rankings que a partida toca, na mesma transação: os dois times no formato (`futebol_time`), cada atuação presente na posição e no formato (`futebol_individual`) ou os dois tenistas (`tenis`), com:
+  - janela de 52 semanas pelo `starts_at` (`scoring.in_window`);
+  - partidas `realizada` ou `encerrada` com placar final;
+  - time: `scoring.team_record` (pontos 3/1/0; desempates por saldo de gols, gols marcados, menos partidas e o id; RN14);
+  - individual: média por partida (`scoring.individual_record`; desempate: mais partidas, depois o id — interpretação); só atuações com presença; itens de estatística contados por `counted_stat_fields`; no W.O., presença e vitória para o lado presente;
+  - tênis: 10 por vitória confirmada (RN16) mais o bônus de campeonato (etapa 4); desempate: menos partidas, depois o id (interpretação);
+  - classificação com `placement_matches` (3, lido dos cortes por `rankings.required_matches`), posições e elos por `scoring.rank_records` com os cortes de `rank_cuts` da `CURRENT_CALC_VERSION` (Lendário = Diamante e ⌊classificados × 15%⌋, arredondado para baixo), gravados com `scoring.standing_fields`;
+  - depois, o elo das buscas abertas dos sujeitos cujo elo mudou é atualizado e elas tentam o pareamento de novo (`queue.try_match`).
+- **Saída da janela:** um recálculo diário dos rankings com partidas que saíram das 52 semanas é a tarefa de varredura `rankings_janela` (`standings.recalculate_outside_window`): olha as categorias com partida contabilizada que começou entre a idade da linha mais antiga e o início da janela de agora, recalcula cada uma inteira e carimba as linhas, então rodar de novo não muda nada.
+- **`GET /me/standings`:** o contrato da seção 2 não muda; passa a refletir os rankings reais quando `standings` for preenchido.
+
+## 13. Notificações da etapa 3
+
+Registradas em `NOTIFICATION_TYPES` (campos obrigatórios abaixo; outros são opcionais). Nomes de times e pessoas são cópias do momento; a navegação usa os ids. Sem `actor`, o texto usa "O Arena" ou "A administração".
+
+| Tipo | Destinatário | `actor` | `payload` | Texto sugerido | Ao tocar |
+| --- | --- | --- | --- | --- | --- |
+| `proposta_partida` | quem age por cada lado | `null` | `{ match_id, sport, format, opponent_name, expires_at }` | "Partida encontrada contra {adversário}. Responda em até 2 h" | Proposta em tela cheia |
+| `proposta_aceita` | outro lado (`complete: false`); membros dos dois lados (`complete: true`) | quem aceitou | `{ match_id, opponent_name, complete }` | "{adversário} aceitou a proposta" / "Partida confirmada contra {adversário}. Combinem no chat" | Proposta / partida |
+| `proposta_encerrada` | quem age pelos lados (exceto quem recusou) | quem recusou ou `null` | `{ match_id, opponent_name, reason: 'recusada' \| 'expirada', requeued }` | "A proposta contra {adversário} foi recusada/expirou" (+ "Sua busca continua") | Placa |
+| `vaga_encontrada` | avulso | `null` | `{ match_id, slot_id, position, format, team_name, starts_at, expires_at }` | "Vaga de {posição} no {time}. Responda em até 2 h" | Oferta |
+| `condicoes_propostas` | quem age pelo outro lado | quem propôs | `{ match_id, terms_id, starts_at, court_name }` | "{ator} propôs novas condições" | Partida |
+| `partida_agendada` | membros dos dois lados e avulsos | quem aceitou | `{ match_id, terms_id, starts_at, court_name, changed }` | "Partida agendada: {data} em {quadra}" / "Partida alterada…" | Partida |
+| `partida_cancelada` | membros dos dois lados e avulsos | quem cancelou | `{ match_id, reason }` | "A partida de {data} foi cancelada" (+ motivo) | Partida |
+| `wo_registrado` | quem age pelo lado ausente | quem registrou | `{ match_id, opponent_name, contest_until }` | "{adversário} registrou W.O. Conteste até {prazo} se vocês compareceram" | Partida |
+| `wo_contestado` | quem age pelo lado que registrou e administração | quem contestou | `{ match_id, reason }` | "{ator} contestou o W.O." | Partida / fila de W.O. |
+| `wo_decidido` | membros dos dois lados | `null` | `{ match_id, decision: 'mantido' \| 'anulado', reason? }` | "A administração manteve/anulou o W.O." | Partida |
+| `resultado_partida` | membros dos dois lados e avulsos | `null` | `{ match_id, outcome: 'confirmado' \| 'wo' \| 'sem_resultado', score_a?, score_b?, absent_side? }` | "Resultado confirmado: 3 × 1" / "Vale o W.O." / "A partida ficou sem resultado" | Partida |
+| `resultado_divergente` | quem age pelos dois lados | `null` | `{ match_id, deadline }` | "Os placares não batem. Corrijam até {prazo}" | Partida |
+| `estatistica_contestada` | o atleta e quem age pelo lado dele | quem contestou | `{ match_id, stat_id, fields, reason }` | "{ator} contestou suas estatísticas" | Partida, elenco |
+| `vaga_preenchida` | quem age pelo lado da vaga | o avulso | `{ match_id, slot_id, position }` | "{ator} entrou como {posição}" | Partida |
+| `removido_da_partida` | o avulso | quem removeu | `{ match_id, team_name }` | "Você foi removido da partida do {time}" | — |
+| `oferta_retirada` | avulso com a oferta pendente | quem reduziu as vagas ou cancelou a partida | `{ match_id, slot_id, position, team_name, reason: 'vagas_reduzidas' \| 'partida_cancelada', requeued }` | "A vaga de {posição} no {time} foi retirada" (+ "Sua busca continua" se `requeued`) | Placa |
+| `quadra_decidida` | quem sugeriu | `null` | `{ court_id, court_name, decision: 'publicada' \| 'rejeitada', reason?, duplicate_of_id? }` | "{quadra} entrou no catálogo" / "…foi recusada: {motivo}" | — |
+
+A tela Notificações lista também os pedidos para seguir (`GET /me/follow-requests`), que não entram na contagem.
+
+## 14. Auditoria da etapa 3
+
+| Ação | `target_type` | Gerada por |
+| --- | --- | --- |
+| `busca.criada`, `busca.cancelada` | `match_search` | seção 9 |
+| `busca.expirada` | `match_search` | varredura (`actor_id` nulo, `data.automatico = true`) |
+| `partida.proposta_criada` | `match` | fila (`automatico`) |
+| `partida.proposta_aceita`, `partida.proposta_recusada` | `match` | seção 9 |
+| `partida.proposta_expirada` | `match` | varredura |
+| `condicoes.propostas`, `condicoes.aceitas` | `match_terms` | seção 10.3 |
+| `partida.agendada`, `partida.reserva_atualizada`, `partida.cancelada` | `match` | seções 10.3, 10.5 e 10.6 |
+| `partida.wo_registrado`, `partida.wo_retirado`, `partida.wo_contestado`, `partida.wo_decidido` | `match` | seção 10.7 |
+| `partida.wo_confirmado`, `partida.sem_resultado`, `partida.encerrada` | `match` | varredura |
+| `quadra.sugerida`, `quadra.publicada`, `quadra.rejeitada` | `court` | seção 10.4 |
+| `vaga.oferecida` | `match_slot` | fila (`automatico`) |
+| `vaga.preenchida`, `vaga.oferta_recusada` | `match_slot` | seção 11.2 |
+| `vaga.oferta_sem_resposta`, `vaga.oferta_devolvida` | `match_slot` | varredura (`sem_resposta`) ou, na `devolvida`, o ajuste de vagas e o cancelamento (com o `actor` de quem agiu) |
+| `vagas.atualizadas`, `avulso.removido` | `match` / `match_slot` | seção 11.2 |
+| `resultado.informado`, `resultado.confirmado`, `resultado.divergente` | `match` | seção 12.3 |
+| `presenca.registrada` | `match` | seção 12.4 |
+| `estatistica.revisada`, `estatistica.contestada` | `football_stat` | seção 12.4 |
+
+`data` guarda ids, lados, estados, placares e motivos; nunca conteúdo do chat.
+
+## 15. Fila, varredura e serviços compartilhados
+
+### 15.1 Fila (`app/services/matchmaking_queue.py`)
+
+- **Interface `MatchmakingQueue`:** `enqueue(db, search, *, now) -> Pairing | None`, `try_match(db, search, *, now) -> Pairing | None`, `expire(db, now) -> { buscas, propostas, ofertas }`. `Pairing = { kind: 'proposta' | 'oferta', match, searches, slot }`.
+- **Implementação `PostgresMatchmakingQueue`** (instância `queue`): `pg_advisory_xact_lock(match_rules.bucket_lock_id(bucket_key))` (hash SHA-256 de 64 bits, estável entre instâncias), releitura da busca e do candidato com `FOR UPDATE`, ordem de `match_rules.rank_candidates`, proposta e encerramento das duas buscas na mesma transação. A trava sai no commit: quem chama faz o commit logo depois. As demais travas seguem a ordem global da seção 15.5 (partida → ranking → balde → vaga → busca).
+- **Testes de concorrência** (`tests/integration/test_matchmaking_concurrency.py`, conexões paralelas reais num schema dedicado): duas buscas compatíveis criadas ao mesmo tempo terminam pareadas; nove buscas simultâneas formam quatro propostas sem repetir busca; dois avulsos na mesma vaga recebem uma só oferta; o toque duplo em "Quero jogar" (duas sessões que leem o atleta com `db.get`, sem nada que as serialize antes das travas) preenche a vaga uma vez; e, sem a trava do balde, o mesmo cenário deixa as duas buscas esperando e, sem as releituras `FOR UPDATE`, o toque duplo bate no único do elenco (os testes enxergam a corrida).
+- **Quando o pareamento roda:** busca nova (`enqueue`), busca devolvida à fila (recusa ou expiração do outro lado), vagas que abrem ou reabrem (`offer_slots`), elo que muda (`standings`, depois de recalcular um ranking), as vagas abertas pelo aceite das condições (`accept_terms` chama `offer_slots`) e a varredura (`rematch`).
+
+### 15.2 Varredura (`python -m app.admin_cli sweep [--loop 60]`)
+
+Tarefas da etapa 3 em `services/sweep.py:TASKS`, nesta ordem e depois das da etapa 2: `buscas_expiradas` (24 h), `propostas_expiradas` (2 h; devolve à fila, com o prazo original, o lado que tinha aceitado e tenta parear; uma proposta por vez, com commit), `ofertas_expiradas` (2 h; a vaga vai ao próximo avulso; balde a balde, com commit), `pareamento` (refaz o pareamento balde por balde, com commit por balde), `resultados_vencidos` (seção 12.5; as categorias de ranking do lote são recalculadas uma vez) e `rankings_janela` (partidas que saíram das 52 semanas; seção 12.6). Todas travam com `SKIP LOCKED` ou pela trava do balde, conferem o estado e são idempotentes: rodar de novo não muda nada. Cada tarefa roda na sua transação e uma falha é registrada sem parar as outras. Ordem de travas: seção 15.5.
+
+### 15.3 Implementados na etapa 3
+
+Regras puras e fundação (migração `0009`):
+
+| Função | Uso |
+| --- | --- |
+| `match_rules.search_expires_at`, `proposal_expires_at`, `offer_expires_at`, `cancel_deadline`, `result_deadline`, `result_window_open`, `effective_search_state`, `effective_match_state`, `match_phase`, `cancel_error`, `validate_terms_start` | prazos e estado efetivo |
+| `match_rules.normalize_open_slots`, `max_slots`, `expand_slots`, `slot_total`, `slot_position_matches`, `FORMAT_SIZES` | vagas (RN06) |
+| `match_rules.bucket_key`, `bucket_lock_id`, `pairing_rank`, `compatible`, `Candidate`, `rank_candidates` | baldes e ordem do pareamento |
+| `match_rules.court_key`, `court_kind_for`, `clean_court_name` | quadras e duplicidade |
+| `match_rules.validate_football_score`, `validate_tennis_sets`, `walkover_score`, `scores_agree`, `result_state`, `tennis_sets_from_json`, `other_side`, `Score`, `TennisSet` | placares |
+| `match_rules.next_search_state`, `next_match_state`, `next_stat_state`, `validate_stat`, `normalize_contested_fields`, `counted_stat_fields`, `RuleError` (`422`, com `field`), `TransitionError` (`409`) | transições e estatísticas; os dois erros viram resposta nos handlers globais de `app/main.py` (seção 16.1) |
+| `scoring.outcome_for`, `team_points`, `tennis_points`, `individual_points`, `position_stat_points`, `in_window`, `window_start`, `is_classified`, `team_record`, `individual_record`, `tennis_record`, `team_order`, `individual_order`, `tennis_order`, `rank_records`, `standing_fields` | pontos, desempates, classificação e elos |
+| `match_access.load_match_for(db, match_id, user, *, for_update=False) -> (Match, sides, MatchAccess)`, `match_access`, `match_accesses(db, matches, user, *, sides=None)` (vários de uma vez, em consultas fixas), `load_sides`, `side_users`, `side_actors`, `guest_users`, `audience`, `subject_names`, `can_read_chat`, `can_write_chat` | papéis, destinatários e chat |
+| `match_events.post_event(db, match_id, event_type, body, *, side=None, author_id=None, payload=None, now=None)`, `MATCH_EVENT_TYPES` | faixas do chat |
+| `people.people_out(db, viewer, user_ids) -> {id: Person}` | pessoas compactas; o avatar some com bloqueio (nos dois sentidos) e em conta inativa |
+| `queue.enqueue`, `try_match`, `offer_slots`, `accept_proposal`, `decline_proposal`, `dissolve_proposal`, `requeue`, `accept_offer`, `decline_offer`, `release_offer(…, reason=)`, `expire_searches`, `expire_proposals(…, commit=)`, `expire_offers(…, commit=)`, `expire`, `rematch`, `lock_bucket`, `proposal_bucket` | fila (seção 15.1) |
+| `match_lifecycle.open_declared_slots`, `close_match_slots(db, match, *, now, actor_id=None)`, `apply_final_score`, `close_due_results` | vagas na agenda e no cancelamento, resultado final e prazo |
+| `schemas.matches`: entradas (`SearchInput`, `TermsInput`, `ResultInput`…), saídas (`MatchCardOut`, `MatchDetailOut`, `ProposalOut`, `SlotOfferOut`, `PlayBoardOut`, `MatchMessageOut`, `LineupOut`, `RankingPageOut`…) e `score_out`, `court_out` | formas compartilhadas |
+
+Serviços das frentes (as assinaturas combinadas na fundação, como ficaram):
+
+| Função | Módulo |
+| --- | --- |
+| `match_cards(db, user, matches, *, now) -> list[MatchCardOut]`, `match_detail(db, user, match, *, now, sides=None, access=None) -> MatchDetailOut`, `sides_out(db, viewer, sides, *, my_sides=None) -> {match_id: [MatchSideOut]}`, `permissions_for(match, access, facts, *, now)`, `needs_my_action`, `stat_locked(stat)` (leituras de todas as frentes; o elo do lado é o gravado no pareamento) | `services/match_views.py` |
+| `create_search(db, user, data, *, now) -> SearchCreatedOut` e `create_search_with_status` (devolve também se a busca é nova), `cancel_search`, `my_searches`, `my_proposals`, `searches_out(db, user, rows, *, now)`, `proposals_out(db, user, matches, *, now)`, `respond_to_proposal`, `play_board(db, user, *, now) -> PlayBoardOut`, `my_matches`, `settle` (aplica o vencimento de uma retenção antes de uma escrita), `team_ensure_no_active_match`, `cancel_team_searches` | `services/matchmaking.py` |
+| `propose_terms`, `accept_terms`, `set_booking`, `cancel_match`, `register_walkover`, `withdraw_walkover`, `contest_walkover`, `decide_walkover`, `walkover_queue`, `messages_page`, `post_message`, `get_match` | `services/matches.py` |
+| `catalog`, `suggest_court`, `court_queue`, `decide_court`, `court_duplicates(db, court) -> list[Court]`, `pending_count`, `usable_for_terms` | `services/courts.py` |
+| `slot_offers(db, user, *, now) -> list[SlotOfferOut]` (a única implementação das ofertas; a placa e `SearchCreated` a usam), `accept_slot`, `decline_slot`, `update_slots`, `set_open_slots(db, match, side, slots, *, now, actor_id) -> SlotsChange`, `plan_slot_changes`, `slots_error`, `remove_guest(db, match, user_id, *, now, actor_id, side=None)`, `delete_guest` | `services/slots.py` |
+| `report_score`, `set_attendance`, `send_my_stats`, `review_stat`, `contest_stat`, `match_lineups`, `lineups_out(db, viewer, match, *, now, sides=None, access=None, only_user_id=None)`, `points_preview(*, outcome, stat, final)`, `rankings_page(db, viewer, params) -> RankingPageOut` | `services/results.py` |
+| `recalculate_for_match(db, match, *, now, positions=())`, `recalculate_rankings(db, keys, *, now, touch=False) -> int`, `recalculate_outside_window(db, now) -> int`, `ranking_keys_for_match`, `RankingKey`, `ranking_lock_id` | `services/standings.py` |
+| `required_matches(cuts, ranking, sport)` (partidas para classificar, dos cortes da versão atual) | `services/rankings.py` |
+
+### 15.4 Posição do atleta e o recálculo de partidas já contabilizadas
+
+`recalculate_for_match(…, positions=)` recebe as posições **anteriores** de uma atuação que mudou, para recalcular também o ranking de onde ela saiu. Só três rotas alteram a posição registrada numa partida (`match_lineups.position`), e as três já passam `positions` quando a partida está `realizada`: `PUT /matches/{id}/attendance` (a posição informada pelo representante), `PUT /matches/{id}/my-stats` (a do atleta) e `PUT /matches/{id}/stats/{stat_id}/review` (a corrigida na revisão). Nenhuma outra rota muda a posição: o avulso entra com a posição da vaga antes do início, e a remoção de avulso só vale antes do início, portanto antes de qualquer contabilização. Cobertura em `tests/integration/test_results_flow.py` (mudança de posição pelas três rotas).
+
+### 15.5 Ordem global de travas da etapa 3
+
+Toda transição da etapa 3 pede as travas nesta ordem, e nenhuma pede uma de nível acima depois de segurar uma de nível abaixo, então não há ciclo de espera (impasse). Junta a ordem da frente de resultado (partida → ranking → balde → busca) e a das vagas (balde → partida → vaga → busca), que se contradiziam: o balde fica **depois** da partida e do ranking, e a vaga **depois** do balde. A ordem da etapa 2 (evento → time → inscrições → comprovantes, [0003, seção 19.1](0003-times-campeonatos.md#191-ordem-global-das-travas)) e esta compartilham só o time e não se cruzam em nenhuma rota.
+
+| Nível | Trava | Modo | Quem trava |
+| --- | --- | --- | --- |
+| 1 | time (`teams`) | `FOR SHARE` (busca nova) ou `FOR UPDATE` (encerrar) | criar busca de time e encerrar o time |
+| 2 | partida (`matches`) | `FOR UPDATE` | toda transição da partida (`load_match_for(…, for_update=True)`), o aceite e a recusa da proposta, a decisão de quadra e de W.O., o recálculo; a varredura trava em lote com `SKIP LOCKED` |
+| 3 | ranking (`pg_advisory_xact_lock(ranking_lock_id)`) | exclusiva | `recalculate_rankings`, por categoria, em ordem de `RankingKey.sort_key` |
+| 4 | balde (`pg_advisory_xact_lock(bucket_lock_id)`) | exclusiva | quem pareia ou oferece: `try_match`, `offer_slots`, a dissolução de uma proposta (o balde dela, `proposal_bucket`), o ajuste de vagas, a recusa de oferta e o vencimento de uma oferta; vários baldes numa transação, só em ordem crescente de `bucket_lock_id` |
+| 5 | vaga (`match_slots`) | `FOR UPDATE`, por id | aceitar, recusar e liberar oferta, ajustar vagas, fechar vagas no cancelamento, remover avulso |
+| 6 | busca (`match_searches`) | `FOR UPDATE`, por id | pareamento, aceite da proposta, oferta, cancelamento; fora do balde só se trava a busca retida (`pareada`) ou a própria busca do pedido |
+
+- **Consequências no código:** `update_slots` e `decline_slot` travam a partida e só depois o balde (antes era o contrário); `settle` (vencimento de uma oferta lida por `create_search` ou `cancel_search`) e `queue.expire_offers` pegam o balde da cidade antes da vaga; `queue.dissolve_proposal` pega o balde da proposta antes das buscas; `accept_terms` chama `queue.offer_slots` com a partida já travada (nível 2 → 4).
+- **Varredura:** `expire_offers` trabalha balde a balde, em ordem crescente do id da trava, com commit entre os baldes; `expire_proposals`, uma proposta por vez, com commit entre elas; `rematch`, balde a balde; `close_due_results` junta as categorias de ranking do lote e recalcula cada uma **uma vez** (as partidas do lote já estão travadas, e `recalculate_rankings` ordena ranking e balde). As tarefas passam `db.commit` (`sweep.expire_proposals`, `sweep.expire_offers`).
+- **Dentro do balde**, a busca que chega é travada antes das vagas candidatas (`_offer_to_walkin`) e `offer_slots` trava as vagas antes das buscas: sem ciclo, porque quem trava vaga `aberta` ou busca `ativa` fora do balde não existe (o cancelamento da partida trava só vagas e as buscas `pareada` das ofertas).
+- **Testes com conexões reais** (`tests/integration/test_lock_order_stage3_concurrency.py`; os três primeiros reproduzem o `DeadlockDetected` da ordem antiga): a varredura de ofertas vencidas contra o representante que fecha a vaga; o cancelamento de uma busca com oferta vencida contra o mesmo fechamento; o segundo aceite das condições (que abre e oferece as vagas) contra o ajuste de vagas da mesma partida; e a varredura que confirma proposta por proposta. Os demais testes de concorrência da etapa (`test_matchmaking_concurrency.py`, `test_matchmaking_routes_concurrency.py`, `test_slots_concurrency.py`, `test_results_concurrency.py`, `tests/integration/partida/test_concurrency.py`) continuam valendo.
+
+## 16. Divisão por frente na etapa 3 (executada)
+
+**Backend** (quatro frentes paralelas, sem editar os mesmos arquivos; integradas num único passo, seção 16.1):
+
+- **Pareamento e propostas:** seção 9 em `app/routers/matchmaking.py`, `app/services/matchmaking.py` (e `app/schemas/matchmaking.py`, se precisar de formas próprias).
+- **Partida, condições, quadras, chat, cancelamento e W.O.:** seções 10 e 11.1 em `app/routers/matches.py`, `app/routers/courts.py`, `app/services/matches.py`, `app/services/courts.py` e `app/services/match_views.py`; a denúncia de mensagem em `app/routers/social.py` (e `app/schemas/social.py`); os contadores `court_suggestions` e `walkover_disputes` em `GET /admin/queue-counts` (`app/routers/organizers.py`, depois da integração da etapa 2).
+- **Avulso e vagas:** seção 11.2 em `app/routers/slots.py` e `app/services/slots.py`.
+- **Resultado, estatísticas, contestação e ranking:** seção 12 em `app/routers/results.py`, `app/services/results.py` e `app/services/standings.py`, e a tarefa `rankings_janela` em `app/services/sweep.py`.
+- **Fora das frentes de partida:** `ensure_closable` (`app/services/teams.py`) passa a recusar, com a mensagem da seção 3 de 0003, o time com partida `proposta`, `combinando` ou `agendada`, e o encerramento cancela as buscas abertas do time (ajuste a combinar com quem mantém `teams.py`).
+- Nenhuma frente cria migração: o esquema está completo na `0009`. Necessidades novas são relatadas ao orquestrador.
+
+**Integração do backend** (um passo depois das quatro frentes): handler global dos erros de regra em `app/main.py`; ordem global de travas (seção 15.5); aceite das condições que oferece as vagas; `slots.slot_offers` como implementação única das ofertas; `permissions.send_stats`; aviso `oferta_retirada`; deduplicação das categorias de ranking em `close_due_results`; testes de concorrência da ordem de travas; fluxo real só pela API.
+
+**Web** (consome este contrato):
+
+- **Placa e busca:** `PlayPage` (abas, chave Com meu time | Avulso, posições, linha do elo, botão com tempo decorrido), `PrepareSearchSheet` (V2) e o ponto menta da navegação (`GET /me/play`).
+- **Proposta:** `ProposalDialog` em tela cheia, com contagem regressiva, Recusar, Aceitar e "Responder depois"; oferta de vaga do avulso ("Quero jogar").
+- **Partida e chat:** `MatchPage` (P2 + C1): cabeçalho, `ConditionsCard`, `TermsSheet` (Date Picker, horário de 15 min, `CourtPicker` com sugestão, quem reserva), reserva, cancelamento, W.O., `MatchChat` com leitura a cada 4 s, faixas, braçadeira e denúncia.
+- **Resultado:** cartão R4/S1 no topo da partida (placar, tênis por sets, Revisar elenco, Suas estatísticas com prévia, contestação, divergência).
+- **Ranking real:** tela Ranking com Times | Individual, formato, posição e tênis; "Suas modalidades" lendo `GET /me/standings`.
+- **Notificações:** os tipos da seção 13 na tela atual, ao lado dos pedidos para seguir.
+- **Administração:** filas "Quadras sugeridas" e "W.O. contestados" no Menu, ao lado das demais, com os contadores.
+
+### 16.1 Desvios registrados na integração dos backends
+
+Já incorporados às seções 7 a 15 (os da fundação estão no próprio texto). Onde um desvio mudou uma resposta, a web e o Expo seguem esta tabela:
+
+| Seção | Desvio | Motivo |
+| --- | --- | --- |
+| 9.2 | `GET /me/matches?scope=`: `proximas` (padrão) ou `historico`; outro valor responde `422` de validação. As duas respostas são `{ items, next_cursor }`, e `proximas` não pagina (até 100 itens, partidas sem data primeiro, `next_cursor: null`). | Uma só forma de resposta para os clientes; o contrato dava `{ items }` numa e `Page` na outra. |
+| 7, 9 a 12 | Um erro de regra (`RuleError`) responde `422 { detail, fields }` com a **mensagem específica** em `detail` (não "Revise os campos informados."); `fields` traz `{ field, message }` quando a regra nomeia o campo e `[]` quando não nomeia. `TransitionError` responde `409 { detail }`. Um handler global (`app/main.py`) cobre as cinco frentes; o `422` da validação de entrada do Pydantic não muda. Os `422` de categoria do ranking e de cursor inválido (`HTTPException`) têm só `{ detail }`. | Antes havia três tratamentos (no roteador, numa classe de rota e em cada rota), um deles com `fields: [{ field: "" }]` para erro sem campo. |
+| 10.4 | Rejeitar uma sugestão **sem duplicata** cancela as condições **pendentes** que usavam a quadra (`cancelada`; quem propôs propõe de novo); as condições já aceitas e a partida ficam como estão ("Sugestão recusada" na web). Com duplicata, pendentes e aceitas passam a apontar para a quadra publicada. | Uma proposta pendente com quadra recusada não poderia mais ser aceita. |
+| 10.4, 11.1 | A faixa `quadra_sugerida` também registra a **decisão** da administração (sem autor; `payload.decision` = `publicada` ou `rejeitada`), na partida de origem enquanto o chat aceita escrita. | Sem um tipo novo de faixa; o texto muda com a decisão. |
+| 10 a 12 | Mensagens que o contrato não listava. **Partida:** `404 Condições não encontradas.`, `409 O W.O. só vale para partidas agendadas.`, `409 Num campeonato, o W.O. é decidido pelo organizador.`, `409 Não há W.O. para contestar.`, `403 Só o lado ausente contesta o W.O.`, `409 O W.O. já foi contestado.`, `409 O prazo de 48 h para contestar o W.O. acabou.`, `422 Use só after ou só before.`, `422 Escreva uma mensagem de 1 a 1000 caracteres.`. **Quadras:** `403 Só os representantes sugerem quadras.`, `409 Só dá para sugerir quadra enquanto a partida está sendo combinada ou agendada.`, `422 Só se indica a quadra duplicada ao rejeitar.`, `422 Descreva o motivo com pelo menos 5 caracteres.` (ao publicar com motivo). **Avulso:** `403 Só os representantes do time do avulso o removem da partida.`. **Resultado:** `403 Só os representantes informam o placar.` (e `… registram a presença.`, `… revisam as estatísticas.`, `… contestam as estatísticas.`), `403 Só quem joga a partida envia estatísticas.`, `403 Só o representante do time do atleta revisa a estatística.`, `403 Só o representante do time adversário contesta a estatística.`, `404 Estatística não encontrada.`, `409 As estatísticas são só do futebol.`, `422 Cada atleta aparece uma vez.`, `422 O futebol não tem sets: informe os gols.`, `422 O placar do tênis é informado em sets.`, `422 Escolha se o ranking é de times ou individual.`, `422 Distância inválida.`, `422 Cursor de paginação inválido.`. As validações de data, de sets e de vagas vêm de `match_rules` (campos `starts_at`, `sets.N` e `open_slots`). | O contrato listava as mensagens principais; as demais saem do código, em português e sem dados sensíveis. |
+| 11.2 | `PUT /matches/{id}/slots`: o corpo **substitui** a declaração do lado inteiro, e posição ausente vale `0` (`{ "open_slots": {} }` fecha todas as vagas do lado). O `404`, o `403` e o `409` saem antes de qualquer trava. | `Partial<OpenSlots>` não dizia se ausente era "manter" ou "zero"; substituir é o que `normalize_open_slots` já faz (posições ausentes valem `0`). |
+| 12.4 | Estatística **travada depois da revisão final**: `PUT /matches/{id}/my-stats` numa estatística `revisada` que já foi contestada responde `409 Esta estatística já foi contestada e revisada; a revisão é final.`, e `permissions.send_stats` é falso nesse caso (como na `contestada`). A permissão e a rota dizem o mesmo (matriz de teste em `tests/integration/partida/test_permissions_match_routes.py`). | A revisão depois da contestação é final (7.1); sem isso o atleta reabriria a estatística. |
+| 12.2, 12.4 | `GET /matches/{id}/stats` e as respostas de presença listam o **elenco inteiro** dos dois lados: representantes e membros ativos dos times e os avulsos escalados (avulso removido não aparece), com `present: null` e `stat: null` para quem ainda não foi registrado; não só quem já tem atuação. A posição é a da atuação, senão a do elenco. | A tela "Revisar elenco" precisa dos que ainda não enviaram nada. |
+| 12.6 | `recalculate_rankings(db, keys, *, now, touch=False) -> int` devolve quantas linhas de `standings` mudaram (o contrato dizia `None`), e `recalculate_outside_window(db, now) -> int` faz o mesmo para a janela. A tarefa de varredura `rankings_janela` é a segunda, idempotente (carimba as linhas das categorias que olhou). `rankings.required_matches(cuts, ranking, sport)` lê dos cortes quantas partidas classificam. | A contagem serve à varredura e aos testes; `required` do ranking sai dos cortes, não de uma constante. |
+| 12.6 | Bloqueados aparecem nos rankings: a linha continua e só o **avatar** some (`people_out`, nos dois sentidos de bloqueio e em conta inativa). | Mesmo tratamento do resto do app; o ranking é público entre membros. |
+| 7.4, 10.1 | Decisões de `match_views`: (a) `MatchSideOut.tier` é o elo gravado em `match_sides.tier` no pareamento, não o atual; (b) `result.points` (a pílula "+3 pts") só vem para o elenco (`representante`, `membro`, `atleta`) com resultado final, e é `null` para avulso, organizador e administração (o avulso pontua no ranking individual); (c) `permissions.suggest_court` e `manage_slots` só valem em partida **amistosa** (`suggest_court` em `combinando` e `agendada`; `manage_slots` só para representante, até o início); (d) `needs_my_action` conta proposta ou condições a aceitar, placar a informar ou corrigir, W.O. a contestar e estatística a enviar. | O cartão e a placa mostram o que foi combinado naquele momento, e cada ação só aparece para quem pode executá-la. |
+| 12.3 | **Relato cego** (decisão do orquestrador em 12/10, que revê a de manter o placar visível): `result.reports` só mostra o placar do **outro** lado depois que o meu lado informou o meu, na divergência ou com o resultado decidido; antes, o relato existe com `score: null`. `ScoreReportOut.score` passa a ser opcional. | Copiar o placar do adversário não confirma nada: a confirmação precisa de dois relatos independentes. A web (cartão de resultado) já lia o relato do outro lado só como "já informou". |
+| 7.4, 10.1 | `MatchSideOut.declared_slots` (`OpenSlots | null`): as vagas que o lado declarou na busca, só enquanto a partida é `proposta` ou `combinando`; depois, o que vale são as `slots`. | A folha "Vagas para avulsos" em `combinando` precisa mostrar o declarado, que ainda não virou vaga. |
+| 10.1, 10.4 | `permissions.suggest_court` é falso depois do início da partida, e `POST /courts/suggestions` responde `409 Só dá para sugerir quadra antes do início da partida.` | Como as condições (`terms_open`): a quadra sugerida depois do horário não serve a nada, e a permissão e a rota dizem o mesmo (matriz `test_permissions_match_routes`). |
+| 12.5 | `close_due_results` recalcula cada categoria de ranking **uma vez por lote** (a união das chaves das partidas fechadas), inclusive no fim do prazo de uma `realizada` (que não muda contagens, mas mantém o contrato). | Uma leitura por categoria em vez de uma por partida, e a ordem de travas da seção 15.5. |
+| 13 | Tipo novo `oferta_retirada` (ao avulso que perde uma oferta pendente porque o representante reduziu as vagas ou a partida foi cancelada). | Sem o aviso, o avulso continuava esperando uma vaga que já não existia. |
+| 14 | `vaga.oferta_devolvida` leva o `actor` de quem reduziu as vagas ou cancelou a partida (só a varredura é automática). | A auditoria diz quem tirou a oferta. |
+| 15.5 | A ordem global de travas inverte a das vagas (partida → balde → vaga, e não balde → partida) e põe o balde da proposta antes das buscas na dissolução. | Os três impasses reproduzidos em `test_lock_order_stage3_concurrency.py`. |
+
+### 16.2 Desvios registrados na integração da web
+
+Os tipos comuns da partida (`MatchCard`, `MatchDetail`, `MatchSideOut`, `ScoreOut`, `CourtOut`, `MatchPermissions`, `MatchResultOut`, `WalkoverOut`, `MatchSlotOut`, `MatchMessageOut`...) e as rotas da partida têm um dono só, `web/src/api/matches.ts`; `matchmaking.ts`, `results.ts` e `admin.ts` importam deles (`ResultMatch` é um `Pick` do `MatchDetail`; `DisputeMatch`, da fila de W.O., é um `Pick` do `MatchCard`). `sideName` e `sideOf` ficam em `web/src/data/match.ts`; `useNow(intervalMs, enabled)`, em `web/src/hooks/useNow.ts`; o interruptor é o `Switch` do shadcn (`components/ui/switch.tsx`).
+
+| Seção | Desvio | Motivo |
+| --- | --- | --- |
+| 9.3 | A proposta abre em tela cheia **dentro da moldura do app** (`DialogContainerProvider`, `data-slot="app-frame"`), não na viewport; "Responder depois" mantém a proposta na placa e nas notificações (só na memória da sessão) até o prazo. A placa lê `GET /me/play` ao montar, ao voltar o foco, ao entrar em Jogar ou no Início e a cada 15 s enquanto há atenção. | No desktop o app é um quadro de 390 px; o diálogo precisa respeitar a moldura. A placa é a única leitura que acende o ponto menta. |
+| 9.3 | O botão redondo "Com meu time" abre a folha **"Preparar busca"** (V2: formato, "O time está completo?" e vagas por posição); Avulso e Tênis buscam direto, com o perfil da modalidade. Durante a busca o botão pulsa, conta o tempo e, tocado, pede a confirmação para cancelar. Enquanto o aceite do outro lado não chega, a tela mostra "Aguardando o adversário" e vai à partida quando a placa notar o aceite dos dois. | Fluxo do protótipo V2; sem notificação em tempo real, a placa relê. |
+| 13 | **Destino das notificações:** `proposta_partida`, `proposta_encerrada`, `vaga_encontrada`, `oferta_retirada` e o `proposta_aceita` de um lado só abrem a **placa** (`play` com `matchId`: a proposta ou a oferta *daquela* partida, e não a primeira da fila); `proposta_aceita` com `complete: true`, `vaga_preenchida`, `condicoes_propostas`, `partida_agendada`, `partida_cancelada`, `wo_registrado`, `wo_decidido`, `resultado_partida`, `resultado_divergente` e `estatistica_contestada` abrem a **tela da partida** (`match`); `wo_contestado` abre a partida para quem registrou e a fila **"W.O. contestados"** para a administração; `removido_da_partida` e `quadra_decidida` **não têm destino** (quem foi removido perde o acesso; a quadra não tem tela). A aba JOGAR fica acesa nas telas da partida; as filas acendem Perfil. | A seção 13 dizia "Proposta / partida"; a web escolheu o destino mais útil de cada aviso. `oferta_retirada` ficou fora dos 16 tipos do contrato original (criado na integração do backend). |
+| 12.6 | **Ranking:** chips **Futebol | Tênis | Corrida** e, no futebol, as abas **Times | Individual** no estilo `track` (`Tabs variant="track"`), com formato e posição em chips; a placa **"Sua posição"** (`forest`) mostra o time ou a modalidade do titular com o elo ou a classificação ("1/3", "1 de 3 partidas"); a lista mostra cada linha com o brasão do elo, a marca **"Você"** ou **"Seu time"** e, no cabeçalho, **"N classificados · X vagas de Lendário"** (a parte de Lendário só quando `legend_slots > 0`). Quem está em classificação não aparece na lista nem ganha elo. | Não havia protótipo do Ranking real; segue os cartões e a placa dos protótipos aprovados. |
+| 2, 12.6 | O Início lê `GET /me/standings` no cartão "Seu elo" (elo, pontos ou "n de 3 partidas") e a próxima partida agendada (a de horário mais próximo que ainda não começou) no cartão "Próxima partida", que abre a tela dela; sem partida, o estado vazio. | Dados reais; o cartão dizia "Nenhuma partida agendada" mesmo com uma agendada. |
+| 10.1 | A tela da partida fixa no topo o **cartão de resultado** (`MatchResultCard`) acima do cartão de **condições**; o W.O. mostra o estado no cartão de resultado e os botões (registrar, retirar, contestar) ficam só nas condições. A área fixa rola por dentro (até 62% da altura depois do início) e o chat ocupa o resto. "Conversar" (divergência) leva o foco ao campo do chat. | Uma informação em um lugar só; a tela cabe em 320 px. |
+| 11.1 | Denúncia de mensagem pelo `ReportForm` (`target: 'match_message'`); na moderação, a prévia traz a partida, o autor e o texto (ou "Mensagem já removida"), o rótulo é "Mensagem da partida" e a decisão "Remover mensagem" avisa que o texto some para todos. A linha "Denúncias" do Menu mostra o contador `queue-counts.reports`. | Moderação única; o contador existia no contrato e não aparecia. |
+| 12.4 | Divergência: "Vocês informaram 2 × 0; Tigres do Lago informou 1 × 1" (no tênis, "Você informou…"), em vez de "2 × 0 contra 1 × 1 dos Tigres". | O "dos" não combina com nomes de time no singular (achado no navegador). |
+| 12.3 | O cartão de resultado nunca mostra o placar do outro lado antes do meu: "Ferrugem FC já informou o placar. Informe o seu: se os dois baterem, o resultado é confirmado." | Relato cego (seção 12.3). |
+
+## 17. Uso nas partidas de campeonato (etapa 4) — a definir
+
+As partidas de campeonato reaproveitam a partida, o chat e o cartão de resultado; o organizador agenda, participa do chat e decide a divergência. O esquema já comporta: `origin = 'campeonato'`, `event_id`, `round_number` (fase ou rodada), `bracket_position`, `next_match_id`/`next_match_side`, de 0 a 2 lados, condições com `proposed_by_side` nulo (organizador), `result_source = 'organizador'` com motivo, o papel `organizador` no acesso e a exclusão das partidas de campeonato do fechamento automático por divergência. Rotas, estados de chaveamento (folga, "Vencedor J1"), conflito de quadra de 2 h (índice `ix_matches_court_start`) e o bônus do tênis ficam **a definir na etapa 4**.
+
+## 18. Fases 6 e 8 (a definir na fase correspondente)
+
+- **Fase 6 — Corrida:** registro, tolerância de ±2%, marcas e o ranking por distância (`GET /rankings?sport=corrida`). A definir.
 - **Fase 7 — Campeonatos e provas:** seção 6.
 - **Fase 8 — Expo.** A definir.

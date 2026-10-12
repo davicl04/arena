@@ -1,6 +1,6 @@
 # Arena
 
-Plataforma web e mobile para futebol, tênis e corrida amadores. A fundação implementa cadastro de adultos, autenticação e perfis esportivos privados com PostgreSQL. A etapa 1 de Times e campeonatos acrescentou, no backend e na web, Meus times (convites, link do time, papéis e encerramento), o pedido de organizador com a fila da administração, as notificações da conta e a linha do elo na placa do Jogar, ainda sem partidas. A etapa 2 acrescentou, no backend e na web, os eventos: o organizador cria campeonatos e provas (rascunho, checklist, publicação direta do gratuito e aprovação da administração para o pago), gerencia inscrições, comprovantes de Pix, avisos, cancelamento com devolução e a revogação do organizador, e o atleta lista os eventos, se inscreve (com reserva, Pix e comprovante nos pagos) e responde à devolução. Partidas, chaveamento, resultados e rankings calculados pertencem às próximas entregas do MVP; o Expo ainda não tem as telas das etapas 1 e 2.
+Plataforma web e mobile para futebol, tênis e corrida amadores. A fundação implementa cadastro de adultos, autenticação e perfis esportivos privados com PostgreSQL. A etapa 1 de Times e campeonatos acrescentou, no backend e na web, Meus times (convites, link do time, papéis e encerramento), o pedido de organizador com a fila da administração, as notificações da conta e a linha do elo na placa do Jogar, ainda sem partidas. A etapa 2 acrescentou, no backend e na web, os eventos: o organizador cria campeonatos e provas (rascunho, checklist, publicação direta do gratuito e aprovação da administração para o pago), gerencia inscrições, comprovantes de Pix, avisos, cancelamento com devolução e a revogação do organizador, e o atleta lista os eventos, se inscreve (com reserva, Pix e comprovante nos pagos) e responde à devolução. A etapa 3 acrescentou o Jogar no backend e na web: a placa busca adversário de verdade (times e tênis, e o avulso por posição), mostra a proposta e a oferta de vaga em tela cheia, e leva à tela da partida (condições com quadra, reserva, chat, cancelamento e W.O.) e ao cartão de resultado (placar, presença, estatísticas, contestação), com o Ranking e as modalidades do Início calculados de verdade e as filas de quadras e de W.O. da administração. Chaveamento de campeonatos, partidas de campeonato e corrida pertencem às próximas entregas do MVP; o Expo ainda não tem as telas das etapas 1 a 3.
 
 Leia o [plano inicial](docs/plano-criacao-inicial.md), as [decisões adotadas](docs/decisoes/0001-fundacao.md) e a [situação verificada](docs/situacao-fundacao.md).
 
@@ -63,20 +63,26 @@ No Windows, se o Docker não iniciar, corrija a instalação ou use uma instânc
 
 Se o Compose estiver `healthy`, mas o Alembic tentar conectar à porta `55432`, o `backend/.env` ainda aponta para o ambiente auxiliar. Ajuste a porta de `DATABASE_URL` para `5432`, mantendo as credenciais do banco do Compose. O comando `if (!(Test-Path .env))` apenas cria o arquivo quando ele não existe; não atualiza configurações anteriores. Reinicie a API após alterar o `.env`. Os bancos de 5432 e 55432 têm dados independentes; trocar a conexão não transfere contas e perfis.
 
-### Varredura periódica (eventos e inscrições)
+### Varredura periódica (eventos, inscrições e partidas)
 
-Prazos de eventos não dependem de alguém abrir a tela: uma varredura registra o que venceu. Em desenvolvimento, deixe-a rodando num terminal próprio, no diretório `backend/`, com as migrações aplicadas (inclusive a `0008`, de eventos, inscrições e comprovantes):
+Prazos de eventos não dependem de alguém abrir a tela: uma varredura registra o que venceu. Em desenvolvimento, deixe-a rodando num terminal próprio, no diretório `backend/`, com as migrações aplicadas (inclusive a `0008`, de eventos, inscrições e comprovantes, e a `0009`, do Jogar):
 
 ```powershell
 .venv/Scripts/python.exe -m app.admin_cli sweep --loop 60
 ```
 
-Sem `--loop`, roda uma vez e termina; com `--loop 60`, repete a cada 60 segundos até Ctrl+C. Cada rodada imprime quantos itens cada tarefa mudou. Nesta etapa, as tarefas são:
+Sem `--loop`, roda uma vez e termina; com `--loop 60`, repete a cada 60 segundos até Ctrl+C. Cada rodada imprime quantos itens cada tarefa mudou. As tarefas, nesta ordem, são:
 
 - `reservas_expiradas`: inscrições pagas reservadas (ou com comprovante recusado) cujo prazo acabou, 48 h depois da inscrição ou 12 h antes do início, o que vier primeiro, viram `expirada` e liberam a vaga, com a notificação `reserva_expirada` ao atleta ou aos representantes e a auditoria `inscricao.expirada`;
 - `devolucoes_recebidas`: devoluções por Pix de evento cancelado sem resposta do participante em 7 dias contam como recebidas (`devolvida`), com a notificação `devolucao_confirmada` ao organizador e aos participantes e a auditoria `devolucao.confirmada_automaticamente`.
+- `buscas_expiradas`: buscas de partida que esperaram 24 h sem pareamento viram `expirada` (auditoria `busca.expirada`);
+- `propostas_expiradas`: propostas de partida sem resposta em 2 h terminam; o lado que já tinha aceitado volta à fila com o prazo original da busca e tenta parear de novo, e quem não respondeu termina como `sem_resposta` (notificação `proposta_encerrada`); uma proposta por vez, com commit;
+- `ofertas_expiradas`: ofertas de vaga ao avulso sem resposta em 2 h terminam (`sem_resposta`) e a vaga é oferecida ao próximo avulso da cidade; balde a balde, com commit;
+- `pareamento`: refaz o pareamento das buscas que ficaram esperando, balde a balde (rede de segurança, por exemplo depois de uma queda);
+- `resultados_vencidos`: 48 h depois do início, a amistosa sem placar confirmado pelos dois lados fica `sem_resultado`, o W.O. não contestado vale (3×0 no futebol, 6-0 6-0 no tênis) e a partida confirmada passa a `encerrada` (fim da janela de estatísticas); os rankings tocados são recalculados uma vez por rodada. O W.O. contestado espera a administração;
+- `rankings_janela`: partidas que saíram das 52 semanas deixam de contar e os rankings afetados são recalculados.
 
-Rodar de novo não muda nada, e duas varreduras simultâneas não mudam o mesmo item duas vezes (`FOR UPDATE SKIP LOCKED`). As leituras da API já tratam os prazos sem esperar a varredura (uma reserva vencida aparece como expirada e não ocupa vaga; uma devolução com 7 dias já não aceita resposta), então o comando parado atrasa as notificações, a auditoria e a gravação do novo estado, sem liberar ações vencidas. A varredura usa o `DATABASE_URL` do `backend/.env`. O agendamento fora do desenvolvimento ainda será decidido na implantação.
+As tarefas de partida seguem a ordem global de travas de [decisões do Jogar](docs/decisoes/0002-jogar.md#155-ordem-global-de-travas-da-etapa-3). Rodar de novo não muda nada, e duas varreduras simultâneas não mudam o mesmo item duas vezes (`FOR UPDATE SKIP LOCKED`). As leituras da API já tratam os prazos sem esperar a varredura (uma reserva vencida aparece como expirada e não ocupa vaga; uma devolução com 7 dias já não aceita resposta), então o comando parado atrasa as notificações, a auditoria e a gravação do novo estado, sem liberar ações vencidas. A varredura usa o `DATABASE_URL` do `backend/.env`. O agendamento fora do desenvolvimento ainda será decidido na implantação.
 
 ## Web
 
@@ -185,7 +191,54 @@ Rode o MinIO e o `ensure-bucket` (comprovantes são arquivos privados) e deixe a
 11. **Notificações:** em cada papel, o sino do Início mostra a não lida, e tocar abre a tela do assunto (detalhe do evento, gestão, comprovantes ou a fila da administração); "Voltar" retorna às Notificações.
 12. **Link do time com a sessão expirada:** abra `/entrar/{token}` de um time com MEM logado, apague o cookie de sessão e toque "Pedir para entrar": a web volta ao login com o aviso de sessão expirada, e o mesmo link reabre depois de entrar.
 
-Telas e dados vêm todos da API; sem evento ou inscrição, as telas mostram o estado vazio. Partidas, chaveamento e resultados ainda não existem.
+Telas e dados vêm todos da API; sem evento ou inscrição, as telas mostram o estado vazio. O chaveamento e a tabela dos campeonatos ainda não existem (as partidas dos amistosos estão em [Demonstrar o Jogar pela web](#demonstrar-o-jogar-pela-web-etapa-3-web)).
+
+## Demonstrar o Jogar pela web (etapa 3, web)
+
+Rode a API com as migrações até a `0009` (a seção "Banco e API"), a [varredura](#varredura-periódica-eventos-inscrições-e-partidas) num terminal (`python -m app.admin_cli sweep --loop 60`) e a web (`npm run dev`, em `web/`). Use sete contas adultas em Brasília (cadastradas pela web ou pela API): **ADM** (promovida com `promote-admin`), **REP-A** e **REP-B** (representantes de dois times de futebol criados em [Meus times](#demonstrar-times-e-organizador-etapa-1-web)), **MEM** (membro do time A, por convite), **AVU** (perfil de futebol, procurando partida) e **TEN-A** e **TEN-B** (perfis de tênis). Cada papel entra numa sessão separada (um navegador por conta, ou uma janela anônima).
+
+1. **Busca e proposta:** REP-A, JOGAR › "Com meu time" › o botão redondo abre "Preparar busca": formato Society, desligue "O time está completo?" e abra vagas de goleiro e de atacante para avulsos. Com REP-B buscando no mesmo formato (time completo), o pareamento é imediato e a **proposta abre em tela cheia** para os dois, com a contagem de 2 h; REP-B "Aceitar partida" e espera. REP-A vê a proposta (ao entrar na placa ou pela notificação "Partida encontrada") e aceita: os dois seguem para a **tela da partida**, e o ponto menta do JOGAR acende enquanto há busca, proposta ou partida combinando. "Responder depois" mantém a proposta na placa e nas notificações até o prazo.
+2. **Condições e quadra:** na tela da partida, "Propor condições" (Date Picker, horário em passos de 15 min, quem reserva). Escolha uma quadra do catálogo ou "Sugerir outra quadra": ela fica "Sugestão em revisão" e vale só nessa partida. ADM publica em Menu › Administração › "Sugestões de quadra" (com o contador); o outro lado "Aceitar condições" e a partida fica **agendada**; quem reserva com o local confirma em "Reserva confirmada". As vagas declaradas na busca aparecem em "Vagas para avulsos" (Ajustar).
+3. **Avulso:** AVU, JOGAR › "Avulso" › "Qualquer posição" › o botão redondo: a vaga aparece em tela cheia ("Quero jogar"), e AVU entra na partida e no chat só dessa partida. Reduzir as vagas (Ajustar) retira a oferta pendente e avisa o avulso.
+4. **Chat e moderação:** os dois lados e o avulso conversam (Enter envia, Shift+Enter quebra a linha); o ícone de bandeira denuncia a mensagem de outro participante. ADM abre Menu › "Denúncias" (com o contador), escolhe "Remover mensagem" com a justificativa: o texto some para todos ("Mensagem removida").
+5. **Resultado:** depois do horário (para demonstrar sem esperar, ajuste `starts_at` e `result_deadline` da partida só no seu banco de desenvolvimento), a tela mostra o cartão de resultado: "Revisar elenco" marca presença; REP-A informa o placar e REP-B vê só "Ferrugem FC já informou o placar" (o placar do outro lado não aparece antes do seu); com os dois placares iguais, o resultado é confirmado e o Ranking (Futebol › Times › Society) e o cartão "Seu elo" do Início passam a refletir. Cada atleta envia as suas estatísticas ("Suas estatísticas"); o representante do time adversário pode contestar um item uma vez, e o representante do atleta revisa. Com placares diferentes, o cartão mostra os dois e "Corrigir o meu" e "Conversar"; sem acordo em 48 h, a varredura fecha a partida como "sem resultado".
+6. **W.O. e cancelamento:** no cartão de condições, "Registrar W.O." (só depois do horário e antes do placar do outro lado) e "Contestar W.O." pelo lado ausente; a contestação vai para Menu › "W.O. contestados", onde ADM lê os dois relatos e o chat e "Manter o W.O." ou "Anular". "Cancelar partida" vale até 24 h antes do horário, com motivo opcional.
+7. **Tênis:** TEN-A e TEN-B buscam pela aba Tênis; ao propor condições, ligue "Super tie-break" para o desempate do 3º set; o placar é informado em sets (o 3º set vira os pontos do super tie-break).
+8. **Início e notificações:** o cartão "Próxima partida" do Início mostra a partida agendada mais próxima e abre a tela dela; cada notificação do Jogar abre a placa (proposta ou oferta daquela partida), a tela da partida ou a fila da administração, com a aba JOGAR (ou Perfil, nas filas) acesa.
+
+Tudo vem da API; sem busca, partida ou ranking, as telas mostram o estado vazio. O Expo ainda não tem estas telas, e os campeonatos (chaveamento e partidas de campeonato) e a corrida ainda não têm tela de partida.
+
+## Demonstrar o Jogar pela API (etapa 3, backend)
+
+Com a API em `http://127.0.0.1:8000`, as migrações até a `0009` aplicadas e a [varredura](#varredura-periódica-eventos-e-inscrições) rodando, este roteiro, em PowerShell, cria dois times em Brasília, pareia os dois e leva a partida a `combinando`. A cidade do perfil de futebol vem do cadastro, e `promote-admin` dá a administração a uma conta (ela publica quadras e decide W.O.).
+
+```powershell
+$api = 'http://127.0.0.1:8000/api/v1'
+function Arena($method, $path, $token, $body = $null) {
+  $request = @{ Method = $method; Uri = "$api$path"; Headers = @{ Authorization = "Bearer $token" } }
+  if ($method -in 'POST', 'PUT') {
+    $request.ContentType = 'application/json'
+    $request.Body = ($(if ($body) { $body } else { @{} }) | ConvertTo-Json -Depth 5)
+  }
+  Invoke-RestMethod @request
+}
+# $a e $b: tokens de POST /auth/login de duas contas adultas
+$timeA = (Arena POST '/teams' $a @{ name = 'Ferrugem FC'; city_id = 5300108 }).id
+$timeB = (Arena POST '/teams' $b @{ name = 'Tigres do Lago'; city_id = 5300108 }).id
+Arena POST '/matchmaking/searches' $a @{ sport = 'futebol'; team_id = $timeA; format = 'society'; open_slots = @{ atacante = 1 } } | Out-Null
+$busca = Arena POST '/matchmaking/searches' $b @{ sport = 'futebol'; team_id = $timeB; format = 'society' }
+$partida = $busca.proposal.match_id                      # a segunda busca já nasce com a proposta
+Arena PUT "/matches/$partida/accept" $a | Out-Null        # aceite do primeiro lado
+(Arena PUT "/matches/$partida/accept" $b).state           # combinando: o chat abre
+```
+
+O restante do fluxo usa as rotas do [contrato](docs/decisoes/0002-jogar.md), sempre com o titular vindo da sessão e corpo JSON (mesmo `{}`):
+
+1. **Condições:** `POST /courts/suggestions` (a quadra fica em revisão e vale só nessa partida), `POST /matches/{id}/terms` (data em passos de 15 min, quadra, quem reserva), `POST /admin/court-suggestions/{id}/decision` (`publicar`) e, pelo outro lado, `PUT /matches/{id}/terms/{terms_id}/accept`: a partida fica `agendada` e as vagas declaradas abrem para avulsos.
+2. **Avulso:** com a busca `POST /matchmaking/searches {"sport":"futebol"}` ("qualquer posição"), o atleta recebe a oferta (`GET /me/slot-offers` e a notificação `vaga_encontrada`) e entra com `PUT /match-slots/{id}/accept`. Reduzir as vagas (`PUT /matches/{id}/slots`) tira a oferta pendente e avisa o avulso (`oferta_retirada`).
+3. **Chat e denúncia:** `GET` e `POST /matches/{id}/messages`; `POST /reports {"target_type":"match_message",…}` e, com a administração, `POST /admin/reports/{id}/decision {"action":"remove",…}`.
+4. **Resultado:** depois do horário, os dois lados fazem `PUT /matches/{id}/result` (`{"goals_a":3,"goals_b":1}` ou, no tênis, `{"sets":[…]}`); `PUT /matches/{id}/attendance`, `PUT /matches/{id}/my-stats`, a revisão e a contestação das estatísticas; depois `GET /rankings?sport=futebol&kind=time&format=society` e `GET /me/standings`.
+5. **Prazos e W.O.:** `POST /matches/{id}/cancel` (até 24 h antes), `POST /matches/{id}/walkover` e a contestação, `GET /admin/walkover-disputes` e `POST /admin/matches/{id}/walkover-decision`. Placares divergentes, depois de 48 h, e W.O. sem contestação fecham pela varredura (`resultados_vencidos`).
 
 ## Validação
 

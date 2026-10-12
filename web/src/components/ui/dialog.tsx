@@ -13,7 +13,18 @@ import { iconButtonVariants } from "@/components/ui/button-variants"
  * fundo `scrim` e camadas `z-scrim`/`z-sheet` da folha; cartão branco com os raios ARENA no lugar de
  * `bg-popover`; e entrada suave só com movimento permitido, no lugar do tw-animate-css (não instalado).
  * Telas cheias passam o próprio visual em `className` (ex.: `inset-0 translate-none rounded-none bg-forest`).
+ *
+ * Moldura do app: no desktop o app é um painel de 390 px no meio da janela, e um Dialog preso à viewport o
+ * escaparia. `DialogContainerProvider` (no painel do `ArenaPage`) diz onde o portal entra; com ele, o fundo e o
+ * conteúdo passam de `fixed` a `absolute` e acompanham o painel (e a tela inteira no celular, onde o painel é a
+ * tela). Sem o provedor, o Dialog continua no `body` e na viewport.
  */
+const DialogContainerContext = React.createContext<HTMLElement | null>(null)
+
+function DialogContainerProvider({ container, children }: { container: HTMLElement | null; children: React.ReactNode }) {
+  return <DialogContainerContext.Provider value={container}>{children}</DialogContainerContext.Provider>
+}
+
 function Dialog({ ...props }: DialogPrimitive.Root.Props) {
   return <DialogPrimitive.Root data-slot="dialog" {...props} />
 }
@@ -23,7 +34,8 @@ function DialogTrigger({ ...props }: DialogPrimitive.Trigger.Props) {
 }
 
 function DialogPortal({ ...props }: DialogPrimitive.Portal.Props) {
-  return <DialogPrimitive.Portal data-slot="dialog-portal" {...props} />
+  const container = React.useContext(DialogContainerContext)
+  return <DialogPrimitive.Portal data-slot="dialog-portal" container={container ?? undefined} {...props} />
 }
 
 function DialogClose({ ...props }: DialogPrimitive.Close.Props) {
@@ -34,11 +46,13 @@ function DialogOverlay({
   className,
   ...props
 }: DialogPrimitive.Backdrop.Props) {
+  const inFrame = React.useContext(DialogContainerContext) !== null
   return (
     <DialogPrimitive.Backdrop
       data-slot="dialog-overlay"
       className={cn(
-        "fixed inset-0 isolate z-scrim bg-scrim motion-safe:data-open:animate-glass-in",
+        "isolate z-scrim bg-scrim inset-0 motion-safe:data-open:animate-glass-in",
+        inFrame ? "absolute" : "fixed",
         className
       )}
       {...props}
@@ -54,13 +68,15 @@ function DialogContent({
 }: DialogPrimitive.Popup.Props & {
   showCloseButton?: boolean
 }) {
+  const inFrame = React.useContext(DialogContainerContext) !== null
   return (
     <DialogPortal>
       <DialogOverlay />
       <DialogPrimitive.Popup
         data-slot="dialog-content"
         className={cn(
-          "fixed top-1/2 left-1/2 z-sheet grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-card bg-white p-5 text-[12px] text-ink shadow-sheet outline-none sm:max-w-sm motion-safe:data-open:animate-glass-in",
+          "top-1/2 left-1/2 z-sheet grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-card bg-white p-5 text-[12px] text-ink shadow-sheet outline-none sm:max-w-sm motion-safe:data-open:animate-glass-in",
+          inFrame ? "absolute" : "fixed",
           className
         )}
         {...props}
@@ -143,6 +159,7 @@ function DialogDescription({
 export {
   Dialog,
   DialogClose,
+  DialogContainerProvider,
   DialogContent,
   DialogDescription,
   DialogFooter,

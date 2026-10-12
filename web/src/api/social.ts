@@ -1,7 +1,7 @@
 import { request } from './client'
 import type { Post, SocialComment } from './client'
 
-export type ReportTarget = 'post' | 'comment' | 'user'
+export type ReportTarget = 'post' | 'comment' | 'user' | 'match_message'
 export type ReportReason = 'spam' | 'assedio' | 'conteudo_inadequado' | 'outro'
 export interface ReportInput { target_type: ReportTarget; target_id: number; reason: ReportReason; description?: string }
 

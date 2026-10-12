@@ -67,3 +67,15 @@ Ruff, ESLint, TypeScript web/mobile, build web e exportação Android aprovados.
 Todos os pisos existentes foram atendidos, sem reduzi-los ou excluir arquivos. Unidades novas exercitam autorização, dados privados da fila administrativa, cursores, reenvios, auditoria e a distinção entre falha anterior/posterior ao commit do upload. Regressões de integração cobrem bloqueio recebido no feed, acesso revogado à imagem, denúncia privada, aprovação repetida, post preservado após falha de leitura, bloqueios além de 50 itens e reativação auditada sem restaurar sessões. Web testa digitação completa/foco, continuação de listas, sincronização de privacidade e reativação; mobile testa continuação de busca, galeria, comentários e relações.
 
 Checks locais de Ruff, Alembic check, lint/tipos/build/cobertura web e lint/tipos/cobertura/exportação Android aprovados. Seis cenários adicionais em `artifacts/review-plans/` também passaram, incluindo avatares e posts na API com MinIO real em bucket isolado, removido após o ensaio. A conferência no navegador verificou dados existentes e layout em 320/390/1440 px; múltiplas páginas e decisões administrativas foram verificadas automaticamente. CI remoto e aparelhos permanecem sem validação nesta entrega.
+
+## Etapa 3 (Jogar): indicadores — 12 de outubro de 2026
+
+Verificação local da integração da etapa 3 (pareamento, partida, avulso, resultado e ranking), no backend e na web; o Expo não foi tocado e não foi reexecutado.
+
+| Escopo | Aprovados / executados | Cobertura | Piso |
+| --- | --- | --- | --- |
+| Backend somente unidade (`pytest tests/unit -q --cov=app --cov-branch`) | 875 / 875 | 76% (indicador combinado de instruções e ramos: 9118 instruções, 1975 não cobertas; 1998 ramos, 78 parciais) | 60% |
+| Backend suíte completa, com PostgreSQL | 1243 / 1244 (1 pulado: o round-trip S3 real) | 98% (112 instruções não cobertas; 56 ramos parciais) | 85% |
+| Web (`npx vitest run --coverage --maxWorkers=4`) | 733 / 733 em 60 arquivos | 91,79% instruções, 85,01% ramos, 91,42% funções, 94,94% linhas | 30% (instruções, linhas e ramos) e 20% (funções) |
+
+Ruff, `alembic check` (sem migração nova), ESLint e build da web (com o aviso de pacote acima de 500 kB: 1.157 kB minificado) aprovados. As suítes novas ou ampliadas cobrem as visões da partida (relato cego, `declared_slots` e `suggest_court`), a fila e o pareamento, o resultado e o ranking, e, na web, a placa, a tela da partida, o cartão de resultado, o Ranking, as notificações e filas e a navegação entre elas (`stage3-navigation.test.tsx`). Com a CPU disputada, alguns testes da web chegam perto dos 5 s: a execução usa `--maxWorkers=4`; nenhum teste foi desativado nem teve o limite alterado nesta entrega. Os pisos não foram reduzidos, nem arquivos excluídos para melhorar os números. Os testes não substituem a conferência no navegador (registrada em [situação da fundação](situacao-fundacao.md)), e o CI remoto continua sem execução comprovada desta versão.

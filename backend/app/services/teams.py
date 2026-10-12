@@ -20,7 +20,7 @@ from app.models.teams import Team, TeamInvite, TeamJoinRequest, TeamMember
 from app.schemas.common import PersonOut
 from app.schemas.identity import CityOut
 from app.schemas.teams import RosterPreviewItemOut, TeamCardOut, TeamMemberOut, TeamUpdateInput
-from app.services import audit, notifications, team_links
+from app.services import audit, matchmaking, notifications, team_links
 from app.services.entries import team_ensure_no_active_entry
 from app.services.people import avatar_url, blocked_ids, person_out
 from app.services.rankings import team_format_grid
@@ -67,12 +67,15 @@ def ensure_representative_remains(members: Iterable[TeamMember], leaving: TeamMe
 
 
 def ensure_closable(db: Session, team: Team) -> None:
-    """The (locked) team must be active and without entries in play (stage 2: a spot held in an open event or a
-    refund in progress). The match phase adds its scheduled matches to the same
-    `409 Encerre ou cancele as partidas agendadas e as inscrições ativas antes de encerrar o time.`"""
+    """The (locked) team must be active, without entries in play (a spot held in an open event or a refund in
+    progress) and without a match in `proposta`, `combinando` or `agendada`: both answer
+    `409 Encerre ou cancele as partidas agendadas e as inscrições ativas antes de encerrar o time.`
+    A lapsed proposal does not count (its expiry is applied here). Locks the team's open searches, which
+    `close_team` then cancels."""
     if team.state != 'ativo':
         raise HTTPException(409, ALREADY_CLOSED)
     team_ensure_no_active_entry(db, team)
+    matchmaking.team_ensure_no_active_match(db, team, now=utcnow())
 
 
 def visible_person(user: User, hidden: set[int]) -> PersonOut:
@@ -404,6 +407,7 @@ def close_team(db: Session, viewer: User, team_id: int) -> None:
         request.state, request.decided_at, request.decided_by_id = 'cancelado', now, viewer.id
         audit.record(db, actor_id=viewer.id, action='pedido_entrada.cancelado', target_type='team_join_request',
                      target_id=request.id, data={**automatic, 'user_id': request.user_id})
+    matchmaking.cancel_team_searches(db, team, actor_id=viewer.id, now=now)
     notifications.notify_many(db, list(context.roster), 'time_encerrado',
                               {'team_id': team.id, 'team_name': team.name}, actor_id=viewer.id)
     audit.record(db, actor_id=viewer.id, action='time.encerrado', target_type='team', target_id=team.id,

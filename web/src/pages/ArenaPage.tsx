@@ -1,15 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowLeft, MapPin, Shield, Trophy } from "lucide-react";
+import { ArrowLeft, Shield } from "lucide-react";
 import { ApiError, request, sports } from "../api/client";
 import type { City, Profile, ProfileInput, Sport, User } from "../api/client";
 import SportCard from "../components/SportCard";
 import BottomNav from "../components/BottomNav";
 import { Button, IconButton } from "@/components/ui/button";
-import { Chip } from "@/components/ui/chip";
-import { EmptyState } from "@/components/ui/empty-state";
-import { Eyebrow } from "@/components/ui/eyebrow";
 import { feedbackVariants } from "@/components/ui/feedback";
+import { DialogContainerProvider } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { usePlayBoard } from "../hooks/usePlayBoard";
 import HomePage from "./HomePage";
 import ProfilePage from "./ProfilePage";
 import EditProfilePage from "./EditProfilePage";
@@ -20,10 +19,11 @@ import ConnectionsPage from "./ConnectionsPage";
 import UserProfilePage from "./UserProfilePage";
 import NotificationsPage from "./NotificationsPage";
 import PlayPage from "./PlayPage";
+import RankingPage from "./RankingPage";
 import OrganizerRequestPage from "./OrganizerRequestPage";
 import AdminOrganizerRequests from "../components/admin/AdminOrganizerRequests";
 import SocialCommunity from "../components/SocialCommunity";
-import { activeNavFor, eventNoun, rankingTiers, sportIcons } from "../data/arena";
+import { activeNavFor, eventNoun } from "../data/arena";
 import type { ConnectionsTab, Screen } from "../data/arena";
 // Meus times (frente C): carteirinhas, criar/editar, convidar e entrar pelo link.
 import TeamsPage from "./TeamsPage";
@@ -35,6 +35,9 @@ import ReceiptsPage from "./ReceiptsPage";
 import AdminPaidEvents from "../components/admin/AdminPaidEvents";
 import AdminRevokedEvents from "../components/admin/AdminRevokedEvents";
 import AdminRefundDisputes from "../components/admin/AdminRefundDisputes";
+// Filas da administração da etapa 3: quadras sugeridas e W.O. contestados.
+import AdminCourtSuggestions from "../components/admin/AdminCourtSuggestions";
+import AdminWalkoverDisputes from "../components/admin/AdminWalkoverDisputes";
 // Eventos do organizador (frente W-org1): lista O3, Criar evento V4 e gestão G3.
 import OrganizerEventsPage from "./OrganizerEventsPage";
 import EventWizard from "./EventWizard";
@@ -42,6 +45,8 @@ import EventManagePage from "./EventManagePage";
 // Campeonatos e provas do atleta (etapa 2): lista E2 e detalhe D2.
 import EventsPage from "./EventsPage";
 import EventPage from "./EventPage";
+// Partida do Jogar (etapa 3): condições, quadras, reserva, chat, cancelamento e W.O.
+import MatchPage from "./MatchPage";
 
 /** Uma tela da pilha de navegação, com o contexto necessário para restaurá-la ao voltar. */
 interface Entry {
@@ -67,9 +72,9 @@ interface Entry {
   sport?: Sport;
   /** Passo do Criar evento (`event-wizard`) ao abrir um rascunho ("Preencher" do checklist). */
   step?: number;
+  /** Partida da tela `match` (e, em `play`, a proposta ou a oferta de vaga dessa partida a abrir em tela cheia). */
+  matchId?: number;
 }
-/** Subtítulo das telas Jogar e Ranking. */
-const subtitle = "mb-[25px] text-[12px] leading-[1.6] text-ink-muted";
 const rootScreens: Screen[] = ["home", "ranking", "play", "community", "profile"];
 const titles: Record<Screen, string> = {
   home: "Início",
@@ -98,8 +103,11 @@ const titles: Record<Screen, string> = {
   "admin-paid-events": "Eventos pagos",
   "admin-revoked-events": "Organizador revogado",
   "admin-refund-disputes": "Devoluções contestadas",
+  "admin-court-suggestions": "Sugestões de quadra",
+  "admin-walkover-disputes": "W.O. contestados",
   events: eventNoun.futebol.many,
   event: eventNoun.futebol.one,
+  match: "Partida",
 };
 /** Título da barra conforme o contexto: edição de time ou de rascunho e eventos da corrida ("Provas"). */
 function titleFor(entry: Entry): string {
@@ -154,8 +162,11 @@ export default function ArenaPage({
   const screen = current.screen;
   const viewedUserId = current.userId ?? 0;
   const connectionsTab = current.tab ?? "followers";
-  const [rankingSport, setRankingSport] = useState<Sport>("futebol");
   const mainRef = useRef<HTMLElement>(null);
+  // Moldura do app: os diálogos (Dialog) entram nela, não na viewport (ver ui/dialog.tsx).
+  const [frame, setFrame] = useState<HTMLDivElement | null>(null);
+  // Placa do Jogar (GET /me/play): alimenta a tela Jogar e o ponto menta da navegação.
+  const playBoard = usePlayBoard(onExpired, screen === "play" || screen === "home");
   useEffect(() => {
     let alive = true;
     Promise.all([
@@ -303,10 +314,13 @@ export default function ArenaPage({
   const plateLayout = screen === "event-receipts";
   // Eventos do organizador: placa ou tela escura própria (o Criar evento é escuro de ponta a ponta).
   const eventsLayout = (["organizer-events", "event-wizard", "event-manage"] as Screen[]).includes(screen);
+  // Partida (P2 + C1): cabeçalho próprio e chat que rola por dentro, acima da navegação inferior.
+  const matchLayout = screen === "match";
 
   return (
+    <DialogContainerProvider container={frame}>
     <div className="grid min-h-dvh place-items-center p-6 app-narrow:p-0">
-      <div className="relative h-[844px] max-h-[calc(100dvh-48px)] w-[390px] overflow-hidden rounded-app border border-solid border-line bg-app shadow-app app-narrow:h-dvh app-narrow:max-h-none app-narrow:w-full app-narrow:rounded-none app-narrow:border-0 app-narrow:shadow-none">
+      <div ref={setFrame} data-slot="app-frame" className="relative h-[844px] max-h-[calc(100dvh-48px)] w-[390px] overflow-hidden rounded-app border border-solid border-line bg-app shadow-app app-narrow:h-dvh app-narrow:max-h-none app-narrow:w-full app-narrow:rounded-none app-narrow:border-0 app-narrow:shadow-none">
         <main
           id="main"
           ref={mainRef}
@@ -317,10 +331,11 @@ export default function ArenaPage({
             communityLayout && "px-0 pt-0",
             (teamsLayout || plateLayout || eventsLayout) && "px-0 pt-0",
             darkLayout && "bg-forest",
+            matchLayout && "overflow-y-hidden px-0 pt-0 pb-[82px] app-narrow:pb-[calc(82px+env(safe-area-inset-bottom))]",
           )}
           aria-label={title}
         >
-          {screen !== "home" && !profileLayout && !communityLayout && !teamsLayout && !plateLayout && !eventsLayout && (
+          {screen !== "home" && !profileLayout && !communityLayout && !teamsLayout && !plateLayout && !eventsLayout && !matchLayout && (
             <header className="-mx-2 -mt-2 mb-[18px] flex min-h-[54px] items-center justify-between">
               <IconButton aria-label="Voltar" onClick={back}>
                 <ArrowLeft size={21} />
@@ -349,6 +364,7 @@ export default function ArenaPage({
               firstName={firstName}
               profiles={profiles}
               loading={loading}
+              matches={playBoard.board?.matches}
               go={go}
               onExpired={onExpired}
             />
@@ -368,6 +384,8 @@ export default function ArenaPage({
               profiles={profiles}
               cities={cities}
               loading={loading}
+              board={playBoard}
+              openMatch={current.matchId}
               go={go}
               onExpired={onExpired}
             />
@@ -400,68 +418,7 @@ export default function ArenaPage({
             </>
           )}
           {screen === "ranking" && (
-            <>
-              <div className="mt-1.5 mb-[17px]">
-                <Eyebrow>CADA JOGO CONTA</Eyebrow>
-                <h2 className="mt-[3px] text-[28px]">Ranking</h2>
-                <p className={subtitle}>Reconstrua sua arena a cada elo.</p>
-              </div>
-              <div
-                className="mb-6 flex flex-wrap justify-center gap-2.5"
-                aria-label="Elos do ranking"
-              >
-                {rankingTiers.map((tier) => (
-                  <figure
-                    key={tier.image}
-                    className="m-0 w-[calc((100%-20px)/3)] rounded-xl bg-forest px-1.5 py-3 text-center"
-                  >
-                    <img
-                      className="inline h-[52px] w-full align-baseline object-contain"
-                      src={`/images/brand/${tier.image}.svg`}
-                      alt=""
-                    />
-                    <figcaption className="mt-1.5 text-[11px] font-bold text-[#edebe2]">
-                      {tier.name}
-                    </figcaption>
-                  </figure>
-                ))}
-              </div>
-              <div className="mb-3.5 flex flex-wrap gap-[7px]">
-                {sports.map((s) => {
-                  const Icon = sportIcons[s.value];
-                  return (
-                    <Chip
-                      key={s.value}
-                      aria-pressed={rankingSport === s.value}
-                      onClick={() => setRankingSport(s.value)}
-                    >
-                      <Icon size={15} />
-                      {s.label}
-                    </Chip>
-                  );
-                })}
-              </div>
-              <div className="flex items-center gap-2 rounded-xl bg-white px-[13px] py-[11px] text-[11px]">
-                <MapPin size={16} />
-                {cities.find(
-                  (c) =>
-                    c.id ===
-                    profiles.find((p) => p.sport === rankingSport)?.city_id,
-                )?.name || "Cidade ainda não definida"}
-              </div>
-              <EmptyState
-                Icon={Trophy}
-                title="Seu elo começa em campo"
-                text="O ranking estará disponível após a integração dos resultados das partidas."
-              />
-              <Button
-                variant="secondary"
-                className="mt-[18px] w-full"
-                onClick={() => go("sports")}
-              >
-                Configurar modalidade
-              </Button>
-            </>
+            <RankingPage profiles={profiles} go={go} onOpenUser={openUser} onExpired={onExpired} />
           )}
           {screen === "community" && (
             <SocialCommunity
@@ -523,6 +480,8 @@ export default function ArenaPage({
               onPaidEvents={() => go("admin-paid-events")}
               onRevokedEvents={() => go("admin-revoked-events")}
               onRefundDisputes={() => go("admin-refund-disputes")}
+              onCourtSuggestions={() => go("admin-court-suggestions")}
+              onWalkoverDisputes={() => go("admin-walkover-disputes")}
               onOrganizerEvents={() => go("organizer-events")}
               onOpenEvent={(eventId) => go("event-manage", { eventId })}
               onNewEvent={() => go("event-wizard")}
@@ -548,6 +507,8 @@ export default function ArenaPage({
           {screen === "admin-paid-events" && user.is_admin && <AdminPaidEvents onExpired={onExpired} />}
           {screen === "admin-revoked-events" && user.is_admin && <AdminRevokedEvents onExpired={onExpired} />}
           {screen === "admin-refund-disputes" && user.is_admin && <AdminRefundDisputes onExpired={onExpired} />}
+          {screen === "admin-court-suggestions" && user.is_admin && <AdminCourtSuggestions onExpired={onExpired} />}
+          {screen === "admin-walkover-disputes" && user.is_admin && <AdminWalkoverDisputes onExpired={onExpired} />}
           {screen === "event-receipts" && current.eventId !== undefined && (
             <ReceiptsPage key={current.eventId} eventId={current.eventId} onBack={back} onExpired={onExpired} />
           )}
@@ -656,9 +617,14 @@ export default function ArenaPage({
               onExpired={onExpired}
             />
           )}
+          {/* Partida do Jogar (etapa 3). */}
+          {screen === "match" && current.matchId !== undefined && (
+            <MatchPage key={current.matchId} matchId={current.matchId} viewerId={user.id} onBack={back} onExpired={onExpired} />
+          )}
         </main>
-        <BottomNav active={activeNav} onGo={go} />
+        <BottomNav active={activeNav} onGo={go} playAttention={playBoard.board?.attention} />
       </div>
     </div>
+    </DialogContainerProvider>
   );
 }

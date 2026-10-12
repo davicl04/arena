@@ -1,9 +1,16 @@
-import { BadgeCheck, Bell, ChevronRight, Trophy } from 'lucide-react'
+import { BadgeCheck, Bell, CalendarClock, ChevronRight, ClipboardCheck, Flag, MapPin, Trophy, Zap } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import type { ArenaNotification } from '@/api/notifications'
 import { TeamCrest } from '@/components/arena/TeamCrest'
 import { notificationView } from '@/data/notifications'
+import type { NotificationView } from '@/data/notifications'
 import { cn } from '@/lib/utils'
 import { relativeTime } from '@/utils/relativeTime'
+
+/** Ícone dos avisos sem escudo de time: organizador, evento e, na etapa 3, a partida, a agenda, o resultado, o W.O. e as quadras. */
+const kindIcons: Record<Exclude<NotificationView['kind'], 'team'>, LucideIcon> = {
+  organizer: BadgeCheck, event: Trophy, match: Zap, schedule: CalendarClock, result: ClipboardCheck, walkover: Flag, court: MapPin, other: Bell,
+}
 
 /**
  * Linha de notificação: escudo do time (iniciais do nome no aviso) ou ícone, texto montado do `payload`, tempo
@@ -13,10 +20,11 @@ export function NotificationItem({ notification, busy, isAdmin = false, onOpen }
   const view = notificationView(notification, { isAdmin })
   const unread = !notification.read_at
   const interactive = unread || Boolean(view.target)
+  const Icon = view.kind === 'team' ? null : kindIcons[view.kind]
   const content = <>
-    {view.kind === 'team'
+    {Icon === null
       ? <span className="grid size-[38px] flex-none place-items-center rounded-xl bg-tile"><TeamCrest name={view.teamName ?? 'Time'} size="sm" decorative /></span>
-      : <span className="grid size-[38px] flex-none place-items-center rounded-xl bg-[#005a3612] text-brand">{view.kind === 'organizer' ? <BadgeCheck size={19} /> : view.kind === 'event' ? <Trophy size={19} /> : <Bell size={19} />}</span>}
+      : <span className="grid size-[38px] flex-none place-items-center rounded-xl bg-[#005a3612] text-brand"><Icon size={19} aria-hidden="true" /></span>}
     <span className="min-w-0 flex-1">
       <span className={cn('block text-[12px] leading-[1.45] wrap-anywhere', unread ? 'font-bold text-ink' : 'text-ink-muted')}>{view.text}</span>
       <small className="mt-1 text-[10.5px] text-ink-muted">

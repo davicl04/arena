@@ -20,10 +20,29 @@ class Db:
         self.calls.append('rollback')
 
 
-def test_stage_two_tasks_are_registered_in_order():
-    assert [task.name for task in TASKS] == ['reservas_expiradas', 'devolucoes_recebidas']
+def test_stage_two_and_three_tasks_are_registered_in_order():
+    # Expiries run before pairing again, so requeued searches and reopened slots get a new chance in the same run.
+    assert [task.name for task in TASKS] == ['reservas_expiradas', 'devolucoes_recebidas', 'buscas_expiradas',
+                                             'propostas_expiradas', 'ofertas_expiradas', 'pareamento',
+                                             'resultados_vencidos', 'rankings_janela']
     # Inline expiry with nothing to expire does not touch the database.
     assert sweep.expire_entries(None, [], NOW) == 0
+
+
+def test_rematch_task_commits_bucket_by_bucket(monkeypatch):
+    calls = []
+    monkeypatch.setattr(sweep.queue, 'rematch', lambda db, now, commit: calls.append((db, now, commit)) or 4)
+    db = Db()
+    assert sweep.rematch_waiting(db, NOW) == 4
+    assert calls == [(db, NOW, db.commit)]
+
+
+def test_window_task_delegates_to_the_ranking_recalculation(monkeypatch):
+    calls = []
+    monkeypatch.setattr(sweep, 'recalculate_outside_window', lambda db, now: calls.append((db, now)) or 5)
+    db = Db()
+    assert sweep.rankings_outside_window(db, NOW) == 5
+    assert calls == [(db, NOW)]
 
 
 def test_each_task_commits_and_a_failing_task_does_not_stop_the_others(caplog):

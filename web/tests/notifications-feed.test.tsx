@@ -184,7 +184,7 @@ describe('textos e destinos das notificações', () => {
     [note(1, 'pedido_organizador_decidido', { decision: 'aprovado' }), 'Seu pedido de organizador foi aprovado', { screen: 'menu' }],
     [note(1, 'pedido_organizador_decidido', { decision: 'recusado', reason_code: 'outro', reason_detail: 'Sem eventos' }), 'Seu pedido de organizador foi recusado: Sem eventos', { screen: 'menu' }],
     [note(1, 'organizador_revogado', { reason: 'Eventos sem resposta' }), 'Sua permissão de organizador foi revogada: Eventos sem resposta', { screen: 'menu' }],
-    [note(1, 'proposta_partida', {}), 'Nova atividade na sua conta', null],
+    [note(1, 'marca_corrida_registrada', {}), 'Nova atividade na sua conta', null],
     [note(1, 'convite_time', {}), 'Um representante convidou você para o time', { screen: 'teams', invites: true }],
   ])('%#: monta o texto e o destino', (item, text, target) => {
     const view = notificationView(item)

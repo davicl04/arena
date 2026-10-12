@@ -2,8 +2,15 @@ import { Bell, CalendarDays, ChevronRight, Medal, Zap } from "lucide-react";
 import { sports } from "../api/client";
 import type { Profile } from "../api/client";
 import { getUnreadCount } from "../api/notifications";
+import type { MatchCard } from "../api/matches";
+import { getMyStandings } from "../api/play";
+import { useNow } from "../hooks/useNow";
 import { useResource } from "../hooks/useResource";
+import { MatchRow } from "../components/play/MyMatches";
+import { nextScheduledMatch } from "../components/play/matchView";
 import { Logo } from "../components/Brand";
+import { TierEmblem } from "../components/arena/TierEmblem";
+import { modalityStanding } from "../components/arena/modalityStanding";
 import { Badge } from "@/components/ui/badge";
 import { Button, IconButton } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -17,18 +24,25 @@ export default function HomePage({
   firstName,
   profiles,
   loading,
+  matches = [],
   go,
   onExpired,
 }: {
   firstName: string;
   profiles: Profile[];
   loading: boolean;
-  go: (screen: Screen) => void;
+  /** Partidas do titular lidas pela placa (`GET /me/play`): a próxima agendada vai ao cartão "Próxima partida". */
+  matches?: MatchCard[];
+  go: (screen: Screen, context?: { matchId?: number }) => void;
   onExpired: () => void;
 }) {
+  const now = useNow(60_000);
+  const nextMatch = nextScheduledMatch(matches, now);
   // Indicador de não lidas no sino (os pedidos para seguir não entram nessa contagem).
   const unread = useResource(getUnreadCount, onExpired);
   const count = typeof unread.data?.unread_count === "number" ? unread.data.unread_count : 0;
+  // Classificação de cada modalidade: o elo de quem já se classificou, ou "n de 3 partidas".
+  const standings = useResource(getMyStandings, onExpired);
   return (
     <>
       <header className="flex items-center justify-between">
@@ -79,6 +93,7 @@ export default function HomePage({
           {sports.map((s) => {
             const Icon = sportIcons[s.value];
             const profile = profiles.find((p) => p.sport === s.value);
+            const standing = standings.data ? modalityStanding(s.value, standings.data) : null;
             return (
               <Card
                 as="article"
@@ -91,19 +106,32 @@ export default function HomePage({
                   <IconTile>
                     <Icon size={30} />
                   </IconTile>
-                  <Badge>{profile?.level || "Sem classificação"}</Badge>
+                  <Badge data-testid={`standing-${s.value}`} className="gap-1.5">
+                    {standing?.tier ? (
+                      <TierEmblem tier={standing.tier} size="xs" showName />
+                    ) : standing ? (
+                      s.value === "corrida" ? "Sem marca" : `${standing.played} de ${standing.required} partidas`
+                    ) : standings.loading ? (
+                      <span aria-label="Carregando classificação">…</span>
+                    ) : (
+                      "Classificação indisponível"
+                    )}
+                  </Badge>
                 </div>
                 <p className="mt-[11px] text-[12px] text-ink-muted">{s.label}</p>
                 <div className="mt-[3px] mb-[9px] flex items-baseline gap-[7px]">
-                  <strong className="font-display text-[28px] font-bold">—</strong>
-                  <span className="text-[12px] text-ink-muted">pontos</span>
+                  <strong className="font-display text-[28px] font-bold">
+                    {standing?.metric ? standing.metric.value.toLocaleString("pt-BR", { maximumFractionDigits: 2 }) : "—"}
+                  </strong>
+                  <span className="text-[12px] text-ink-muted">{standing?.metric?.unit ?? "pontos"}</span>
                 </div>
                 <div className="h-[7px] rounded-[5px] bg-app" />
                 <div className="mt-2 flex items-center justify-between gap-2 text-[10px] text-ink-muted">
                   <span>
-                    {profile
-                      ? "Sua trajetória começa aqui"
-                      : "Adicione seu perfil esportivo"}
+                    {standing?.context ??
+                      (profile
+                        ? "Sua trajetória começa aqui"
+                        : "Adicione seu perfil esportivo")}
                   </span>
                   <Button
                     variant="link"
@@ -125,17 +153,23 @@ export default function HomePage({
       <SectionTitle title="Próxima partida" />
       <Card
         as="article"
-        className="flex items-center gap-3 p-[13px] shadow-[0_2px_9px_#0000000c]"
+        className={nextMatch ? "px-[13px] py-0.5 shadow-[0_2px_9px_#0000000c]" : "flex items-center gap-3 p-[13px] shadow-[0_2px_9px_#0000000c]"}
       >
-        <span className="grid h-[53px] w-[47px] place-items-center rounded-xl bg-ink text-app">
-          <CalendarDays size={23} />
-        </span>
-        <div>
-          <h3 className="mt-[3px] mb-1.5 text-[12px]">Nenhuma partida agendada</h3>
-          <p className="text-[10px] leading-[1.5] text-ink-muted">
-            Seu próximo encontro aparecerá aqui.
-          </p>
-        </div>
+        {nextMatch ? (
+          <MatchRow card={nextMatch} onOpen={(matchId) => go("match", { matchId })} />
+        ) : (
+          <>
+            <span className="grid h-[53px] w-[47px] place-items-center rounded-xl bg-ink text-app">
+              <CalendarDays size={23} />
+            </span>
+            <div>
+              <h3 className="mt-[3px] mb-1.5 text-[12px]">Nenhuma partida agendada</h3>
+              <p className="text-[10px] leading-[1.5] text-ink-muted">
+                Seu próximo encontro aparecerá aqui.
+              </p>
+            </div>
+          </>
+        )}
       </Card>
       <SectionTitle
         title="Perto de você"

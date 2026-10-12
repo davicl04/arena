@@ -1,8 +1,9 @@
-"""Tiers (elos): cut mapping, faced range and the read side of standings (Jogar, fase 1).
+"""Tiers (elos): cut mapping, faced range and the read side of standings (Jogar, fases 1 e 5).
 
-Standings are materialized by the result phases (Jogar, fases 5 e 6). Until then the table is empty and every
-line is in placement: 'sem_jogos' (football and tennis) or 'sem_marca' (running). A tier is never assigned
-before classification.
+Standings are materialized by `services.standings` after each confirmed result (football and tennis, fase 5) and,
+for running, by the marks phase (fase 6). A subject without rows is in placement: 'sem_jogos' (football and
+tennis) or 'sem_marca' (running). A tier is never assigned before classification: the recalculation writes a
+tier only to subjects with the required matches, and the lines below show the tier of a row as stored.
 """
 from __future__ import annotations
 
@@ -139,7 +140,8 @@ def subject_tier(db: Session, sport: str, *, team_id: int | None = None, user_id
     return db.scalar(select(Standing.tier).where(Standing.sport == sport, *where))
 
 
-def _required(cuts: dict[str, Cuts], ranking: str, sport: str) -> int:
+def required_matches(cuts: dict[str, Cuts], ranking: str, sport: str) -> int:
+    """Matches (marks, in running) that classify a subject in a ranking, from the cuts of the current version."""
     cut = cuts.get(ranking)
     return cut.placement_matches if cut is not None else DEFAULT_PLACEMENT[sport]
 
@@ -151,7 +153,7 @@ def team_format_grid(db: Session, team_ids: Iterable[int], *,
     if not ids:
         return {}
     cuts = load_cuts(db) if cuts is None else cuts
-    required = _required(cuts, 'futebol_time', 'futebol')
+    required = required_matches(cuts, 'futebol_time', 'futebol')
     rows = db.scalars(select(Standing).where(Standing.team_id.in_(ids), Standing.sport == 'futebol')).all()
     by_key = {(row.team_id, row.format): row for row in rows}
     return {team_id: [FormatStandingOut(format=fmt, **standing_line(by_key.get((team_id, fmt)), required))
@@ -175,16 +177,16 @@ def my_standings(db: Session, user: User) -> MeStandingsOut:
     football = {(row.position, row.format): row for row in rows if row.sport == 'futebol'}
     tennis = next((row for row in rows if row.sport == 'tenis'), None)
     running = {row.distance_km: row for row in rows if row.sport == 'corrida'}
-    individual_required = _required(cuts, 'futebol_individual', 'futebol')
+    individual_required = required_matches(cuts, 'futebol_individual', 'futebol')
     individual = [PositionStandingOut(position=position, format=fmt,
                                       **standing_line(football.get((position, fmt)), individual_required))
                   for position in POSITIONS for fmt in FOOTBALL_FORMATS]
     corrida = [RunStandingOut(distance_km=km, **standing_line(
-        running.get(km), _required(cuts, ranking_key('corrida', distance_km=km), 'corrida'), running=True))
+        running.get(km), required_matches(cuts, ranking_key('corrida', distance_km=km), 'corrida'), running=True))
         for km in RUN_DISTANCES_KM]
     return MeStandingsOut(
         calc_version=CURRENT_CALC_VERSION,
         futebol=FootballStandingsOut(teams=teams, individual=individual),
-        tenis=StandingLineOut(**standing_line(tennis, _required(cuts, 'tenis', 'tenis'))),
+        tenis=StandingLineOut(**standing_line(tennis, required_matches(cuts, 'tenis', 'tenis'))),
         corrida=corrida,
     )

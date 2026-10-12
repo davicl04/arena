@@ -8,7 +8,7 @@ import type { FootballFormat, RunDistance, TierKey } from '@/data/arena'
  * enfrentadas vêm da API (`faces`); o cliente só monta o texto. Quem está em classificação nunca recebe elo.
  */
 export type TierLineView =
-  | { kind: 'ranked'; tier: TierKey; title: string; detail: string }
+  | { kind: 'ranked'; tier: TierKey; title: string; detail: string; levels: string }
   | { kind: 'placement'; title: string; played: number; required: number }
   | { kind: 'no-mark'; title: string; detail: string }
 
@@ -23,11 +23,16 @@ export function rankedTier(line: StandingLine | undefined): TierKey | null {
   return line?.state === 'ranqueado' ? shownTier(line.tier, line.played, line.required || placementRequired) : null
 }
 
+/** "Bronze, Prata ou Ouro", a partir de `faces`; sem elo, "qualquer nível". */
+export function levelsText(line: StandingLine): string {
+  const names = (line.faces ?? []).filter(tier => tier in tiers).map(tier => tiers[tier].name)
+  if (line.faces_any_level || !names.length) return 'qualquer nível'
+  return names.length > 1 ? `${names.slice(0, -1).join(', ')} ou ${names[names.length - 1]}` : names[0]
+}
+
 /** "Enfrenta Bronze, Prata ou Ouro", a partir de `faces`; sem elo, "Enfrenta qualquer nível". */
 export function facesText(line: StandingLine): string {
-  const names = (line.faces ?? []).filter(tier => tier in tiers).map(tier => tiers[tier].name)
-  if (line.faces_any_level || !names.length) return 'Enfrenta qualquer nível'
-  return `Enfrenta ${names.length > 1 ? `${names.slice(0, -1).join(', ')} ou ${names[names.length - 1]}` : names[0]}`
+  return `Enfrenta ${levelsText(line)}`
 }
 
 /** Tempo da marca em h:mm:ss ou m:ss. */
@@ -47,7 +52,7 @@ function placement(lines: StandingLine[], title: string): TierLineView {
 /** Uma linha (time × formato ou tênis): o elo com "Enfrenta…" ou a classificação "n de 3". */
 export function lineView(line: StandingLine | undefined): TierLineView {
   const tier = rankedTier(line)
-  if (line && tier) return { kind: 'ranked', tier, title: tiers[tier].name, detail: facesText(line) }
+  if (line && tier) return { kind: 'ranked', tier, title: tiers[tier].name, detail: facesText(line), levels: levelsText(line) }
   return placement(line ? [line] : [], 'Em classificação')
 }
 
@@ -72,7 +77,7 @@ export function avulsoLine(individual: PositionStanding[], position: AvulsoPosit
     const { line, tier } = best
     const where = `no ${lower(footballFormat[line.format]?.label ?? line.format)}`
     const as = positionOptions.find(option => option.value === line.position)?.label
-    return { kind: 'ranked', tier, title: `${tiers[tier].name} ${where}${as ? ` como ${lower(as)}` : ''}`, detail: facesText(line) }
+    return { kind: 'ranked', tier, title: `${tiers[tier].name} ${where}${as ? ` como ${lower(as)}` : ''}`, detail: facesText(line), levels: levelsText(line) }
   }
   const label = positionOptions.find(option => option.value === position)?.label
   return placement(lines, label ? `Em classificação como ${lower(label)}` : 'Em classificação')
@@ -85,7 +90,7 @@ export function runLine(corrida: RunStanding[], distance: RunDistance): TierLine
   const tier = rankedTier(line)
   if (line && tier) {
     const detail = line.metric_value != null ? `Melhor ${formatDuration(line.metric_value)}` : facesText(line)
-    return { kind: 'ranked', tier, title: `${tiers[tier].name} nos ${label}`, detail }
+    return { kind: 'ranked', tier, title: `${tiers[tier].name} nos ${label}`, detail, levels: levelsText(line) }
   }
   if (!line || line.state === 'sem_marca' || !line.played)
     return { kind: 'no-mark', title: `Sem marca nos ${label}`, detail: 'Registre um treino ou prova para entrar no ranking' }

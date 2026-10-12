@@ -234,14 +234,18 @@ def cancel_request(db: Session, user: User) -> None:
 # --- Administration --------------------------------------------------------------------------------------
 
 def queue_counts(db: Session) -> QueueCountsOut:
-    """Counters of the Menu queues: organizer requests, reports and the stage 2 event queues."""
+    """Counters of the Menu queues: organizer requests, reports, the stage 2 event queues and the stage 3 queues
+    (court suggestions and contested walkovers)."""
+    from app.services.courts import pending_count as court_suggestions
     from app.services.events import queue_counts as event_queue_counts  # events imports this module
+    from app.services.matches import dispute_count as walkover_disputes
 
     requests = db.scalar(select(func.count()).select_from(OrganizerRequest)
                          .where(OrganizerRequest.state == 'em_analise')) or 0
     reports = db.scalar(select(func.count()).select_from(ContentReport)
                         .where(ContentReport.status == 'pending')) or 0
-    return QueueCountsOut(organizer_requests=requests, reports=reports, **event_queue_counts(db))
+    return QueueCountsOut(organizer_requests=requests, reports=reports, **event_queue_counts(db),
+                          court_suggestions=court_suggestions(db), walkover_disputes=walkover_disputes(db))
 
 
 def list_requests(db: Session, admin: User, state: str, cursor: str | None,

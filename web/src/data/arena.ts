@@ -33,7 +33,11 @@ export type Screen =
   | "admin-revoked-events"
   | "admin-refund-disputes"
   | "events"
-  | "event";
+  | "event"
+  // Etapa 3 (Jogar): a partida (condições, chat e resultado), aberta pela placa e pelas notificações, e as filas da administração.
+  | "match"
+  | "admin-court-suggestions"
+  | "admin-walkover-disputes";
 export type ConnectionsTab = "followers" | "following";
 export { version as appVersion } from "../../package.json";
 export const cover = "/images/arena-cover.jpg";
@@ -65,13 +69,16 @@ const profileScreens: Screen[] = [
   "admin-paid-events",
   "admin-revoked-events",
   "admin-refund-disputes",
+  "admin-court-suggestions",
+  "admin-walkover-disputes",
 ];
-const playScreens: Screen[] = ["teams", "team-form", "team-invite", "join", "events", "event"];
+const playScreens: Screen[] = ["teams", "team-form", "team-invite", "join", "events", "event", "match"];
 
 /**
  * Aba acesa na navegação inferior para a tela atual. Perfis e conexões herdam a aba da raiz da pilha
- * (de onde foram abertos); as telas de Meus times e dos eventos do atleta acendem "JOGAR", e as de
- * organizador e administração, "Perfil"; Notificações acendem "Início", ou "Perfil" quando abertas pelo Menu.
+ * (de onde foram abertos); as telas de Meus times, dos eventos do atleta e da partida acendem "JOGAR", e as de
+ * organizador e administração (inclusive as filas de quadras e de W.O.), "Perfil"; Notificações acendem "Início",
+ * ou "Perfil" quando abertas pelo Menu.
  */
 export function activeNavFor(screen: Screen, root: Screen): Screen {
   if (screen === "user-profile" || screen === "connections") {

@@ -72,6 +72,11 @@ def refund_receipt(db, item, uploader, *, sent_at):
     return receipt
 
 
+def stage_two(report):
+    """Stage 2 counts of a full sweep run (the stage 3 tasks find nothing to do in these tests)."""
+    return {name: report[name] for name in ('reservas_expiradas', 'devolucoes_recebidas')}
+
+
 def notifications_of(db, type_):
     return db.scalars(select(Notification).where(Notification.type == type_).order_by(Notification.id)).all()
 
@@ -107,7 +112,8 @@ def test_sweep_expires_due_reservations_once_and_keeps_the_others(client):
     assert audit_count(db, 'inscricao.expirada') == 2
 
     # A second run (or a late one) changes nothing.
-    assert run_sweep(db, NOW + timedelta(seconds=30)) == {'reservas_expiradas': 0, 'devolucoes_recebidas': 0}
+    assert stage_two(run_sweep(db, NOW + timedelta(seconds=30))) == {'reservas_expiradas': 0,
+                                                                     'devolucoes_recebidas': 0}
     assert len(notifications_of(db, 'reserva_expirada')) == 2 and audit_count(db, 'inscricao.expirada') == 2
 
 
@@ -129,7 +135,7 @@ def test_sweep_counts_unanswered_refunds_as_received_after_seven_days(client):
     db.flush()
 
     report = run_sweep(db, NOW)
-    assert report == {'reservas_expiradas': 0, 'devolucoes_recebidas': 1}
+    assert stage_two(report) == {'reservas_expiradas': 0, 'devolucoes_recebidas': 1}
     for item in (old, recent, answered, old_receipt, recent_receipt, contested):
         db.refresh(item)
     assert (old.state, old.refunded_at) == ('devolvida', NOW)
@@ -145,10 +151,11 @@ def test_sweep_counts_unanswered_refunds_as_received_after_seven_days(client):
     assert audit_count(db, 'devolucao.confirmada_automaticamente') == 1
 
     # One hour later the other receipt completes its 7 days; after that, nothing is left to change.
-    assert run_sweep(db, NOW + timedelta(hours=1)) == {'reservas_expiradas': 0, 'devolucoes_recebidas': 1}
+    assert stage_two(run_sweep(db, NOW + timedelta(hours=1))) == {'reservas_expiradas': 0, 'devolucoes_recebidas': 1}
     db.refresh(recent)
     assert recent.state == 'devolvida'
-    assert run_sweep(db, NOW + timedelta(hours=1, minutes=1)) == {'reservas_expiradas': 0, 'devolucoes_recebidas': 0}
+    assert stage_two(run_sweep(db, NOW + timedelta(hours=1, minutes=1))) == {'reservas_expiradas': 0,
+                                                                             'devolucoes_recebidas': 0}
     assert audit_count(db, 'devolucao.confirmada_automaticamente') == 2
 
 

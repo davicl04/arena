@@ -32,6 +32,7 @@ from app.models.identity import (
     UserBlock,
     utcnow,
 )
+from app.models.matches import MatchMessage
 from app.schemas.social import (
     CaptionInput,
     CommentInput,
@@ -46,6 +47,7 @@ from app.schemas.social import (
     ReportOut,
     SocialUserOut,
 )
+from app.services.matches import match_label, reportable_message
 from app.services.media import normalize_post_image, remove_object, require_storage, storage_client
 from app.services.people import block_exists as _blocked_with
 from app.services.people import blocked_between as _blocked
@@ -491,6 +493,10 @@ def unblock_user(user_id: int, user: User = Depends(current_user), db: Session =
 
 @router.post('/reports', status_code=201)
 def report_content(data: ReportInput, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    if data.target_type == 'match_message':
+        # A reader of the match chat reports a text message (event banners and removed texts are not reportable).
+        reportable_message(db, user, data.target_id)
+        return _save_report(db, user, data)
     exists = {'user': lambda: db.get(User, data.target_id),
               'post': lambda: db.get(Post, data.target_id),
               'comment': lambda: db.get(PostComment, data.target_id)}[data.target_type]()
@@ -504,6 +510,10 @@ def report_content(data: ReportInput, user: User = Depends(current_user), db: Se
         allowed = allowed and _can_discover(db, user, db.get(User, exists.user_id))
     if not allowed:
         raise HTTPException(404, 'Conteúdo não encontrado.')
+    return _save_report(db, user, data)
+
+
+def _save_report(db: Session, user: User, data: ReportInput):
     report = ContentReport(reporter_id=user.id, target_type=data.target_type, target_id=data.target_id,
         reason=data.reason.value, description=data.description.strip() if data.description else None)
     db.add(report)
@@ -526,8 +536,12 @@ def admin_reports(cursor: str | None = None, limit: int = Query(PAGE_DEFAULT, ge
     rows, next_cursor = _page(statement, cursor, limit, ContentReport.created_at, ContentReport.id, db)
     items = []
     for report in rows:
-        target = db.get({'user': User, 'post': Post, 'comment': PostComment}[report.target_type], report.target_id)
-        target_user = target if isinstance(target, User) else db.get(User, target.user_id) if target else None
+        target = db.get({'user': User, 'post': Post, 'comment': PostComment,
+                         'match_message': MatchMessage}[report.target_type], report.target_id)
+        if isinstance(target, MatchMessage):
+            target_user = db.get(User, target.author_id) if target.author_id is not None else None
+        else:
+            target_user = target if isinstance(target, User) else db.get(User, target.user_id) if target else None
         preview = None
         is_private_target = False
         if isinstance(target, User):
@@ -544,6 +558,12 @@ def admin_reports(cursor: str | None = None, limit: int = Query(PAGE_DEFAULT, ge
             post_owner = db.get(User, post.user_id) if post else None
             is_private_target = post_owner is None or not post_owner.social_public
             preview = {'body': target.body, 'author': author.name if author else 'Conta indisponível'}
+        elif isinstance(target, MatchMessage):
+            # The chat is private to the match: the text is shown while the report is pending, never afterwards.
+            is_private_target = True
+            preview = {'body': None if target.removed_at else target.body, 'removed': target.removed_at is not None,
+                       'author': target_user.name if target_user else 'Conta indisponível',
+                       'match_id': target.match_id, 'match': match_label(db, target.match_id)}
         if status != 'pending' and is_private_target:
             preview = None
         items.append(ReportOut(id=report.id, target_type=report.target_type, target_id=report.target_id,
@@ -588,6 +608,11 @@ def moderate(report_id: int, data: ModerationInput, user: User = Depends(current
             comment = db.get(PostComment, report.target_id)
             if comment:
                 db.delete(comment)
+        elif report.target_type == 'match_message':
+            # The text disappears for everyone; the row stays as the record (removed_at / removed_by_id).
+            message = db.get(MatchMessage, report.target_id)
+            if message is not None and message.removed_at is None:
+                message.removed_at, message.removed_by_id = utcnow(), user.id
         else:
             raise HTTPException(422, 'Remoção de conta exige suspensão.')
     elif action in {'suspend', 'reactivate'}:
@@ -598,6 +623,9 @@ def moderate(report_id: int, data: ModerationInput, user: User = Depends(current
         elif report.target_type == 'comment':
             item = db.get(PostComment, report.target_id)
             target_id = item.user_id if item else None
+        elif report.target_type == 'match_message':
+            item = db.get(MatchMessage, report.target_id)
+            target_id = item.author_id if item else None
         target = db.get(User, target_id) if target_id else None
         if target is None:
             raise HTTPException(404, 'Conta alvo não encontrada.')

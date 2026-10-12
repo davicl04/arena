@@ -7,6 +7,7 @@ import type { MeStandings, PositionStanding, RunStanding, StandingLine } from '.
 import { avulsoLine, facesText, formatDuration, lineView, runLine } from '../src/components/play/tierLines'
 import ArenaPage from '../src/pages/ArenaPage'
 import PlayPage from '../src/pages/PlayPage'
+import type { PlayBoardState } from '../src/hooks/usePlayBoard'
 
 vi.mock('../src/api/client', async original => ({
   ...await original<typeof import('../src/api/client')>(),
@@ -34,6 +35,12 @@ function standings(extra: Partial<MeStandings> = {}): MeStandings {
   return { calc_version: 1, futebol: { teams: [], individual: individual() }, tenis: empty(), corrida: corrida(), ...extra }
 }
 
+/** Placa sem busca, proposta, oferta nem partida (a leitura de `/me/play` é do ArenaPage; aqui ela já chegou). */
+const idleBoard = (): PlayBoardState => ({
+  board: { attention: false, searches: [], proposals: [], offers: [], matches: [] },
+  loading: false, error: '', reload: vi.fn(async () => null), deferred: [], defer: vi.fn(),
+})
+
 function renderPlay(data: MeStandings | Error, profiles: Profile[] = [football, tennis, running]) {
   vi.mocked(request).mockImplementation(async path => {
     if (path !== '/me/standings') throw new Error(`rota inesperada ${path}`)
@@ -41,7 +48,7 @@ function renderPlay(data: MeStandings | Error, profiles: Profile[] = [football, 
     return data as never
   })
   const go = vi.fn()
-  render(<PlayPage profiles={profiles} cities={[city]} loading={false} go={go} onExpired={vi.fn()} />)
+  render(<PlayPage profiles={profiles} cities={[city]} loading={false} board={idleBoard()} go={go} onExpired={vi.fn()} />)
   return go
 }
 const button = (name: string | RegExp) => screen.getByRole('button', { name }) as HTMLButtonElement
@@ -69,7 +76,7 @@ describe('placa do Jogar (fase 1)', () => {
     expect(go).toHaveBeenCalledWith('teams')
   })
 
-  it('avulso em classificação 0/3: sem elo, "enfrenta qualquer nível" e o botão honesto', async () => {
+  it('avulso em classificação 0/3: sem elo, "enfrenta qualquer nível" e a busca de vaga pronta', async () => {
     const ui = userEvent.setup()
     renderPlay(standings())
     await ui.click(screen.getByRole('button', { name: 'Avulso' }))
@@ -79,8 +86,8 @@ describe('placa do Jogar (fase 1)', () => {
     expect(screen.queryByRole('img', { name: /^Elo/ })).toBeNull()
     expect(document.querySelector('[data-slot="tier-emblem"]')).toBeNull()
     const play = button('Encontrar vaga')
-    expect(play.disabled).toBe(true)
-    expect(document.getElementById(play.getAttribute('aria-describedby')!)?.textContent).toBe('A busca de vagas chega numa próxima etapa do Arena.')
+    expect(play.disabled).toBe(false)
+    expect(document.getElementById(play.getAttribute('aria-describedby')!)?.textContent).toBe('Vagas de atacante em partidas de Brasília.')
     await ui.click(screen.getByRole('button', { name: 'Qualquer posição' }))
     expect(screen.getByText('Em classificação')).not.toBeNull()
     expect(screen.queryByText(/partida encontrada|buscando/i)).toBeNull()
@@ -106,7 +113,7 @@ describe('placa do Jogar (fase 1)', () => {
     expect(await screen.findByText('Leões do Cerrado')).not.toBeNull()
     expect(screen.getByText('2 de 3 partidas · enfrenta qualquer nível')).not.toBeNull()
     expect(document.querySelector('[data-slot="tier-emblem"]')).toBeNull()
-    expect(button('Encontrar partida').disabled).toBe(true)
+    expect(button('Encontrar partida').disabled).toBe(false)
 
     await ui.click(screen.getByRole('button', { name: 'Futsal 5 contra 5' }))
     expect(screen.getByText('Enfrenta Prata, Ouro ou Diamante')).not.toBeNull()

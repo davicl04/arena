@@ -23,7 +23,7 @@ const itemClass = {
   pill: 'h-auto min-h-8 rounded-full border border-solid border-white/15 bg-transparent px-[11px] py-1.5 text-[10.5px] font-bold text-white/70 hover:bg-white/8 hover:text-white data-pressed:border-mint data-pressed:bg-mint/8 data-pressed:text-mint data-pressed:hover:bg-mint/12 data-pressed:hover:text-mint',
 }
 
-export function PlateChips<T extends string>({ label, options, value, onChange, variant = 'pill', disabled, className }: {
+export function PlateChips<T extends string>({ label, options, value, onChange, variant = 'pill', disabled, className, itemClassName }: {
   label: string
   options: readonly PlateOption<T>[]
   value: T
@@ -31,11 +31,13 @@ export function PlateChips<T extends string>({ label, options, value, onChange, 
   variant?: 'segmented' | 'pill'
   disabled?: boolean
   className?: string
+  /** Ajuste dos itens (ex.: altura maior para rótulo de duas linhas na folha "Preparar busca"). */
+  itemClassName?: string
 }) {
   return <ToggleGroup aria-label={label} value={[value]} disabled={disabled} className={cn(groupClass[variant], className)}
     onValueChange={next => { const chosen = next[0] as T | undefined; if (chosen && chosen !== value) onChange(chosen) }}>
     {options.map(option => <ToggleGroupItem key={option.value} value={option.value} aria-label={option.ariaLabel}
-      className={cn(itemClass[variant], 'focus-visible:ring-mint/70 [&_svg]:size-[15px]')}>
+      className={cn(itemClass[variant], 'focus-visible:ring-mint/70 [&_svg]:size-[15px]', itemClassName)}>
       {option.label}
     </ToggleGroupItem>)}
   </ToggleGroup>

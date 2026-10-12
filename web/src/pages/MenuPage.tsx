@@ -1,4 +1,4 @@
-import { BadgeCheck, Banknote, Bell, Flag, Info, LogOut, RotateCcw, ShieldOff, Trophy, UserCog } from 'lucide-react'
+import { BadgeCheck, Banknote, Bell, Flag, Gavel, Info, LogOut, MapPinned, RotateCcw, ShieldOff, Trophy, UserCog } from 'lucide-react'
 import { getQueueCounts } from '../api/admin'
 import { getOrganizerStatus } from '../api/organizer'
 import { listOpenOrganizerEvents } from '../api/events'
@@ -24,7 +24,7 @@ const queueValue = (count: number | undefined) => typeof count === 'number' && c
  * Menu do perfil (hambúrguer): atalhos da conta, o cartão "Organizar no Arena" (P3) ou, com a permissão, a seção
  * Organizador; para a administração, as filas (AD1); informações do app e saída.
  */
-export default function MenuPage({ isAdmin, busy, onEditProfile, onSports, onModeration, onOrganizerRequest, onOrganizerRequests, onPaidEvents, onRevokedEvents, onRefundDisputes, onOrganizerEvents, onOpenEvent, onNewEvent, onNotifications, onLogout, onExpired }: {
+export default function MenuPage({ isAdmin, busy, onEditProfile, onSports, onModeration, onOrganizerRequest, onOrganizerRequests, onPaidEvents, onRevokedEvents, onRefundDisputes, onCourtSuggestions, onWalkoverDisputes, onOrganizerEvents, onOpenEvent, onNewEvent, onNotifications, onLogout, onExpired }: {
   isAdmin: boolean
   busy: boolean
   onEditProfile: () => void
@@ -40,6 +40,10 @@ export default function MenuPage({ isAdmin, busy, onEditProfile, onSports, onMod
   onRevokedEvents: () => void
   /** Abre a fila "Devoluções contestadas". */
   onRefundDisputes: () => void
+  /** Abre a fila "Sugestões de quadra" (etapa 3). */
+  onCourtSuggestions: () => void
+  /** Abre a fila "W.O. contestados" (etapa 3). */
+  onWalkoverDisputes: () => void
   /** Abre a área do organizador (O3). */
   onOrganizerEvents: () => void
   /** Abre a gestão de um evento (G3). */
@@ -76,7 +80,9 @@ export default function MenuPage({ isAdmin, busy, onEditProfile, onSports, onMod
         <ListRow Icon={Banknote} label="Eventos pagos" value={queueValue(counts.data?.paid_events)} onClick={onPaidEvents} />
         <ListRow Icon={ShieldOff} label="Eventos de organizador revogado" value={queueValue(counts.data?.revoked_events)} onClick={onRevokedEvents} />
         <ListRow Icon={RotateCcw} label="Devoluções contestadas" value={queueValue(counts.data?.refund_disputes)} onClick={onRefundDisputes} />
-        <ListRow Icon={Flag} label="Denúncias" onClick={onModeration} />
+        <ListRow Icon={MapPinned} label="Sugestões de quadra" value={queueValue(counts.data?.court_suggestions)} onClick={onCourtSuggestions} />
+        <ListRow Icon={Gavel} label="W.O. contestados" value={queueValue(counts.data?.walkover_disputes)} onClick={onWalkoverDisputes} />
+        <ListRow Icon={Flag} label="Denúncias" value={queueValue(counts.data?.reports)} onClick={onModeration} />
       </ListGroup>
     </>}
     <ListHeading>App</ListHeading>

@@ -131,7 +131,8 @@ def test_admin_refuses_with_reason_then_approves_new_request(client):
     athlete, athlete_id = register(http, 'organizer-decided@example.com', 'Bruna Lima')
     first = submit(http, athlete).json()
     assert http.get('/api/v1/admin/queue-counts', headers=admin).json() == {
-        'organizer_requests': 1, 'reports': 0, 'paid_events': 0, 'revoked_events': 0, 'refund_disputes': 0}
+        'organizer_requests': 1, 'reports': 0, 'paid_events': 0, 'revoked_events': 0, 'refund_disputes': 0,
+        'court_suggestions': 0, 'walkover_disputes': 0}
 
     queue = http.get('/api/v1/admin/organizer-requests', headers=admin)
     assert queue.status_code == 200 and queue.json()['next_cursor'] is None
@@ -299,7 +300,8 @@ def test_queue_counts_cover_organizer_requests_and_pending_reports(client):
     http, db = client
     admin, admin_id = admin_account(http, db, 'organizer-admin-counts@example.com')
     assert http.get('/api/v1/admin/queue-counts', headers=admin).json() == {
-        'organizer_requests': 0, 'reports': 0, 'paid_events': 0, 'revoked_events': 0, 'refund_disputes': 0}
+        'organizer_requests': 0, 'reports': 0, 'paid_events': 0, 'revoked_events': 0, 'refund_disputes': 0,
+        'court_suggestions': 0, 'walkover_disputes': 0}
     people = [register(http, f'organizer-count-{index}@example.com') for index in range(3)]
     for headers, _ in people:
         submit(http, headers)
@@ -311,7 +313,8 @@ def test_queue_counts_cover_organizer_requests_and_pending_reports(client):
                               status='resolved')])
     db.commit()
     counts = http.get('/api/v1/admin/queue-counts', headers=admin).json()
-    assert counts == {'organizer_requests': 2, 'reports': 2, 'paid_events': 0, 'revoked_events': 0, 'refund_disputes': 0}
+    assert counts == {'organizer_requests': 2, 'reports': 2, 'paid_events': 0, 'revoked_events': 0, 'refund_disputes': 0,
+        'court_suggestions': 0, 'walkover_disputes': 0}
     pending_reports = http.get('/api/v1/admin/reports?limit=50', headers=admin).json()['items']
     assert len(pending_reports) == counts['reports']
 

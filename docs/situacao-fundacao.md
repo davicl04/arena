@@ -1,5 +1,76 @@
 # Situação da fundação do Arena
 
+## Etapa 3 — Jogar: pareamento, partida, avulso, resultado e ranking (implementação) — 12 de outubro de 2026
+
+Terceira etapa da execução do [plano do Jogar](plano-jogar.md) (fases 2 a 5), no backend e na web. Contrato: [0002, seções 7 a 16](decisoes/0002-jogar.md#7-etapa-3--fases-2-a-5-decisões-esquema-estados-e-tipos). Foi feita em uma fundação (esquema `0009`, regras puras, fila no PostgreSQL, varredura e visões da partida), quatro frentes de backend (pareamento; partida, quadras, chat e W.O.; avulso e vagas; resultado, estatísticas e ranking), a integração do backend, quatro frentes da web (placa, tela da partida, resultado e Ranking, notificações e filas) e esta integração da web. **Não é o MVP completo:** campeonatos (chaveamento, agenda e partidas de campeonato) e corrida ainda não têm tela de partida, e o Expo não foi tocado.
+
+**O que mudou:**
+- **Backend** (já integrado antes desta entrega; resumo): migração `0009` (buscas, partidas, lados, condições, quadras, vagas, relatos de placar, presença e estatísticas, mensagens), fila de pareamento no PostgreSQL com a varredura `python -m app.admin_cli sweep` (buscas de 24 h, propostas e ofertas de 2 h, resultados de 48 h, janela dos rankings), partida com condições e quadras (sugestão em revisão e fila da administração), reserva, cancelamento até 24 h antes, W.O. (3×0 no futebol, 6-0 6-0 no tênis, contestação decidida pela administração), chat com denúncia de mensagem, avulso (oferta de vaga por 2 h), resultado com confirmação pelos dois lados, estatísticas com revisão e contestação, rankings e `GET /me/standings` reais, 17 tipos de notificação e auditoria.
+- **Web:**
+  - **Placa do Jogar (J1):** busca de time (folha "Preparar busca" com formato, "O time está completo?" e vagas por posição), de avulso (posição ou "Qualquer posição") e de tênis; botão que pulsa e cancela; proposta e oferta de vaga em tela cheia dentro da moldura do app (aceitar, recusar, "Responder depois"); "Minhas partidas" (Próximas e Histórico); ponto menta do JOGAR; `Switch` do shadcn e `Sheet` escuro.
+  - **Tela da partida (J2):** cabeçalho com brasões e fase, cartão de condições (propor, aceitar, reserva, vagas para avulsos, cancelar, W.O.), Date Picker, catálogo de quadras com "Sugerir outra quadra", chat de 4 em 4 s com denúncia de mensagem.
+  - **Resultado e Ranking (J3):** cartão de resultado (informar o placar, aguardar, confirmar, divergência, sem resultado, W.O.), placar do tênis em sets com tie-break e super tie-break, presença, "Suas estatísticas", contestação e revisão, Ranking real (Futebol, Tênis e Corrida; Times e Individual) e "Seu elo" do Início.
+  - **Notificações e filas (J4):** os tipos da etapa 3 com texto e destino, filas "Sugestões de quadra" e "W.O. contestados", e a prévia de mensagem do chat na moderação.
+- **Integração (este registro):**
+  - **cherry-pick** das quatro frentes sobre o backend integrado, na ordem J2, J1, J3, J4. Conflitos resolvidos: `hooks/useNow.ts` (três assinaturas diferentes, ficou `useNow(intervalMs = 30_000, enabled = true)`), `data/arena.ts` (o `Screen` `match` e as duas filas), `ArenaPage.tsx` (comentário de `Entry.matchId`, `DialogContainerProvider`, `board`/`openMatch`/`playAttention` da J1 com a tela `match` e as filas) e `AdminReports.tsx` (a prévia da J4 ficou, com o rótulo "Mensagem da partida" da J2);
+  - **tipos únicos:** os tipos comuns da partida passaram a vir só de `web/src/api/matches.ts`; `matchmaking.ts` e `results.ts` perderam as cópias provisórias (`ResultMatch` virou um `Pick` do `MatchDetail`), e `admin.ts` perdeu `AdminCourt`, `Walkover`, `DisputeSide` e `ChatLine` (a fila de W.O. lê o chat e a partida pelas rotas da `matches.ts`);
+  - **helpers e componentes únicos:** `sideName` e `sideOf` (havia quatro cópias, com três textos de reserva) em `data/match.ts`; mapa de fase da partida (`matchPhases`, que a lista da placa duplicava), `slotTotal`, `maxSlots` e vagas vazias; o interruptor da J2 foi trocado pelo `Switch` do shadcn; o resumo de resultado em leitura da J2 saiu, e o estado do W.O. aparece uma vez só (no cartão de resultado), com os botões no cartão de condições;
+  - **ligações:** `ResultArea` renderiza o `MatchResultCard` (com `viewerId`, `onChanged`, que atualiza o detalhe ou o relê, e `onOpenChat`, que leva o foco ao campo do chat); a placa, o Início e as notificações abrem `match` com `matchId`; `proposta_partida`, `vaga_encontrada` e `oferta_retirada` abrem `play` com `matchId`, e a placa mostra a proposta ou a oferta *daquela* partida; a linha "Denúncias" do Menu mostra o contador `queue-counts.reports`; o tipo `oferta_retirada` ganhou o texto e o destino que faltavam;
+  - **Início:** o cartão "Próxima partida" mostra a partida agendada mais próxima (e abre a tela dela) em vez do texto fixo "Nenhuma partida agendada";
+  - **layout da tela da partida:** a área fixa do topo (resultado, estatísticas e condições) ganhou uma borda e, depois do início da partida, até 62% da altura, rolando por dentro.
+- **Ajustes de backend (mínimos, com teste):**
+  - **relato cego** (`services/match_views.py`): `result.reports` só mostra o placar do outro lado depois que o meu lado informou o meu, na divergência ou com o resultado decidido; antes, o relato existe com `score: null` (o `ScoreReportOut.score` ficou opcional); administração e organizador veem os dois; revê a decisão anterior (0002, seções 12.3 e 16.1);
+  - **vagas declaradas:** `MatchSideOut.declared_slots`, só enquanto a partida é `proposta` ou `combinando`; a folha de vagas da web mostra o declarado;
+  - **`permissions.suggest_court`** é falso depois do início da partida, e `POST /courts/suggestions` responde `409 Só dá para sugerir quadra antes do início da partida.` (a matriz de permissões e rotas confere os dois).
+- **Defeitos achados e corrigidos** (no navegador, salvo onde dito):
+  - o cartão de condições repetia o estado do W.O. que o cartão de resultado já mostra (achado ao ligar as pontas): ficou só o do cartão de resultado;
+  - a área fixa do topo da partida cortava o último cartão de forma seca contra o chat: borda e altura maior no cartão de resultado;
+  - a divergência dizia "1 × 1 contra 0 × 2 dos Ferrugem FC": agora "Vocês informaram 1 × 1; Ferrugem FC informou 0 × 2";
+  - o Início dizia "Nenhuma partida agendada" com uma partida agendada: agora mostra a próxima;
+  - `oferta_retirada` caía em "Nova atividade na sua conta", sem destino: texto e destino pela placa;
+  - "Conversar" levava o foco ao log do chat, não ao campo de mensagem (achado pelo teste de navegação ao ligar o cartão de resultado).
+- **Documentação:** [0002](decisoes/0002-jogar.md) (estado, tipos, relato cego, tabela 16.1 e os desvios da web na seção 16.2, com os destinos das notificações e as escolhas visuais do Ranking), [README](../README.md) (abertura e "Demonstrar o Jogar pela web"), [próximos passos](proximos-passos-jogar.md) e [qualidade do código](qualidade-codigo.md).
+
+**Verificações executadas na integração (branch `orq/etapa3`):**
+- **Backend:**
+  - `ruff check app migrations tests` sem apontamentos;
+  - `pytest -q --cov=app --cov-branch` com `TEST_DATABASE_URL`: 1243 aprovados e 1 pulado (o teste do bucket S3 real), cobertura combinada de 98% (9118 instruções, 112 não cobertas; 1998 ramos, 56 parciais), acima do piso de 85%;
+  - só a unidade (`pytest tests/unit -q --cov=app --cov-branch`): 875 aprovados, 76%, acima do piso de 60%;
+  - `alembic check` no banco da verificação, depois do `upgrade head`: sem diferenças (não há migração nova).
+- **Web:**
+  - `npm run lint` sem apontamentos;
+  - `npm run build` concluído, com o aviso de pacote acima de 500 kB (1.157 kB minificado, 924 kB na etapa 2);
+  - `npx vitest run --coverage --maxWorkers=4`: 60 arquivos e 733 testes aprovados; cobertura de 91,79% das instruções, 85,01% dos ramos, 91,42% das funções e 94,94% das linhas.
+- **Testes novos desta integração:**
+  - `stage3-navigation.test.tsx` (8 testes): placa → proposta → partida → resultado (relato cego, envio, divergência e "Conversar"), o botão do W.O. uma vez só, notificações → proposta daquela partida, oferta, partida e fila de W.O., Menu → quadras, W.O. e denúncias (com os contadores), Início → próxima partida;
+  - backend: relato cego (outro lado, membro, administração, divergência e resultado decidido), `declared_slots` (proposta, combinando e agendada) e a sugestão de quadra depois do início (permissão e rota);
+  - web: vagas declaradas na folha de vagas, `oferta_retirada`, divergência com o texto novo e o contador de denúncias no Menu; ajustes nos testes da J2 (cartão de resultado no lugar do resumo), da J3 (relato cego) e da J4 (a tela `match` com o detalhe simulado).
+- **Fluxo real no navegador** (Chrome headless pelo CDP contra a API real da árvore):
+  - **Ambiente:** banco `arena_orq_e2e3` com as migrações aplicadas, bucket `arena-orq-e2e`, API na 8211 (`ALLOWED_ORIGINS` e `PUBLIC_WEB_URL` da 5311), Vite na 5311 (configuração auxiliar com cache próprio), Chrome na 9411 e portas auxiliares, uma sessão por conta. Contas: administradora (`promote-admin`), dois representantes (Ferrugem FC e Tigres do Lago, em Brasília), um membro, um avulso e dois tenistas, criadas pela API como preparação; as partidas 2 a 5 e 7 a 9 tiveram a busca, o aceite e as condições feitos pela API (só o encaminhamento) e o foco de cada fluxo, pela web, e a primeira e a do tênis foram inteiras pela web;
+  - **Conferido pela web em cada passo, com persistência depois de recarregar:**
+    1. os dois times buscam pela placa (a folha com vagas de goleiro e atacante), a proposta abre em tela cheia para os dois, ambos aceitam e chegam à partida (JOGAR aceso);
+    2. condições com quadra sugerida ("Sugestão em revisão"), publicação na fila "Sugestões de quadra", aceite do outro lado (agendada), vagas declaradas viram vagas abertas e a reserva confirmada persiste;
+    3. o avulso busca "Qualquer posição", recebe a oferta ("Vaga de goleiro"), "Quero jogar" e escreve no chat;
+    4. chat entre os lados e o avulso, denúncia pelo `ReportForm`, e a administração remove a mensagem na moderação (contador "1 pendente" no Menu; "Mensagem removida" para os dois lados);
+    5. com `starts_at` no passado **só no banco da verificação:** presença dos dois elencos, relato cego (o servidor devolve o relato do outro lado com `score: null` e a tela diz só "já informou", sem vazar o placar; a administração vê o placar), confirmação pelo segundo envio, estatísticas do membro e do avulso, contestação pelo representante adversário, revisão final pelo representante do atleta, e o Ranking (Bronze, 1º lugar, 9 pontos) e "Seu elo" do Início atualizados;
+    6. segunda partida: placares diferentes (os dois aparecem), "Conversar" leva o foco ao chat, "Corrigir o meu" e confirmação;
+    7. terceira: W.O. registrado, contestado pelo lado ausente e mantido pela administração na fila "W.O. contestados" (3 × 0, 3 pontos);
+    8. cancelamento de uma partida futura (motivo, os dois lados avisados, chat fechado) e a partida a menos de 24 h sem o botão de cancelar;
+    9. tênis com super tie-break (6-4 3-6 10-8): ligado na proposta, o terceiro set vira os pontos do super tie-break, o relato cego vale também aqui, e 10 pontos para o vencedor;
+    10. notificações de cada papel (representantes, membro, avulso, tenista e administração) com a navegação certa e a aba acesa.
+  - **Prazos observados só por ajuste de horário no banco de verificação e pela varredura:** a proposta de 2 h sem resposta expirou (`propostas_expiradas=1`, notificação "A proposta … expirou") e duas partidas passaram das 48 h (uma com placares divergentes e outra com um relato só) e viraram "sem resultado" (`resultados_vencidos=2`), com a notificação e o cartão "Partida sem resultado"; a regra das 24 h do cancelamento foi vista numa partida a 20 h.
+  - **Layout:** as telas da placa, da partida em cada fase (divergente, aguardando, W.O. contestado, confirmada, agendada, relato cego), da folha do elenco, do Ranking, do Início, das Notificações, do tênis e da administração (Menu, quadras, W.O.) em 320, 390 e 1440 px sem overflow horizontal (verificação automática de cada captura); console sem erros (só o `401` esperado do `GET /me` antes do login e o `favicon`).
+  - **Teclado:** na proposta em tela cheia o foco entra no diálogo, Tab e Shift+Tab ficam dentro dele, Esc fecha e o foco volta ao botão da placa; no chat, Enter envia (Shift+Enter não) e o foco fica no campo; na folha de condições, o foco entra, circula e volta ao botão de origem com Esc. O ponto menta acende com busca, proposta ou partida combinando e apaga sem elas.
+  - Capturas em `artifacts/etapa3/integracao/`; scripts e credenciais em `.local/orquestracao/integracao3/` (não versionados).
+
+**Limitações e pendências:**
+- O Expo não foi tocado, e a paridade visual do Expo não foi verificada; o CI remoto não foi executado nesta entrega; nada foi validado em aparelho.
+- Os prazos de 24 h (busca), 2 h (proposta e oferta de vaga) e 48 h (resultado) foram observados **só por ajuste de horário no banco de verificação**; a expiração da busca de 24 h e a da oferta de vaga ao avulso não foram observadas na web (só nos testes do backend).
+- A web relê a placa a cada 15 s (com atenção) e o chat a cada 4 s: não há atualização em tempo real; "Responder depois" guarda a proposta só na memória da sessão.
+- Campeonatos (chaveamento, agenda, partidas de campeonato e a divergência decidida pelo organizador) e corrida na web seguem por vir; a aba Tabela do D2 continua "ainda não definida".
+- A calibragem dos cortes de elo com dados reais (`rank_cuts`, `calc_version = 1`) fica para depois das primeiras partidas reais; o agendamento da varredura em produção, para a implantação.
+- O botão "Configurar modalidade" do Ranking vazio aparece mesmo com o perfil configurado (leva a Suas modalidades); ajuste visual não solicitado, registrado.
+
 ## Etapa 2 — Eventos, inscrições, comprovantes e devoluções (implementação) — 12 de outubro de 2026
 
 Segunda etapa da execução dos planos de [Times e campeonatos](plano-times-campeonatos.md) (fases 4 e 5) e do [Jogar](plano-jogar.md) (fase 7, lado do atleta), no backend e na web. Contratos: [0003, seções 10 a 20](decisoes/0003-times-campeonatos.md#10-etapa-2--eventos-inscrições-e-comprovantes-fases-4-e-5) e [0002, seção 6](decisoes/0002-jogar.md#6-fase-7--campeonatos-e-provas-lado-do-atleta). Foi feita em uma fundação (backend e web), duas frentes de backend (organizador e administração; atleta e comprovantes), a conciliação dos backends, três frentes da web (organizador, administração e atleta) e a integração. **Não é o MVP completo:** não há chaveamento, tabela, agenda, partidas, resultados nem ranking calculado, e o Expo não foi tocado.

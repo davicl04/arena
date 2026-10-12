@@ -47,6 +47,19 @@ def person_out(user: User, *, blocked: bool = False) -> PersonOut:
                      avatar_url=None if blocked else avatar_url(user))
 
 
+def people_out(db: Session, viewer: User, user_ids: Iterable[int | None]) -> dict[int, PersonOut]:
+    """Compact references of several people in two queries: {user_id: PersonOut}.
+
+    The avatar is hidden for blocks in either direction and for inactive accounts; name and @ stay visible to
+    members. Never carries e-mail or sports profiles."""
+    ids = {user_id for user_id in user_ids if user_id is not None}
+    if not ids:
+        return {}
+    users = db.scalars(select(User).where(User.id.in_(ids))).all()
+    hidden = blocked_ids(db, viewer.id, [user.id for user in users])
+    return {user.id: person_out(user, blocked=user.id in hidden or not user.active) for user in users}
+
+
 def user_search_statement(viewer_id: int, query: str):
     """Active accounts other than the viewer whose name or @ contains `query`, without blocks either way.
 

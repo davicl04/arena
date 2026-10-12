@@ -36,6 +36,25 @@ NOTIFICATION_TYPES: dict[str, frozenset[str]] = {
     'devolucao_confirmada': frozenset({'event_id', 'event_name', 'entry_id', 'receipt_id', 'automatic'}),
     'devolucao_contestada': frozenset({'event_id', 'event_name', 'entry_id', 'receipt_id'}),
     'devolucao_decidida': frozenset({'event_id', 'event_name', 'entry_id', 'receipt_id', 'decision'}),
+    # Stage 3: matchmaking, matches, walk-ins, results and courts (docs/decisoes/0002-jogar.md, section 13).
+    'proposta_partida': frozenset({'match_id', 'sport', 'format', 'opponent_name', 'expires_at'}),
+    'proposta_aceita': frozenset({'match_id', 'opponent_name', 'complete'}),
+    'proposta_encerrada': frozenset({'match_id', 'opponent_name', 'reason', 'requeued'}),
+    'vaga_encontrada': frozenset({'match_id', 'slot_id', 'position', 'format', 'team_name', 'starts_at',
+                                  'expires_at'}),
+    'condicoes_propostas': frozenset({'match_id', 'terms_id', 'starts_at', 'court_name'}),
+    'partida_agendada': frozenset({'match_id', 'terms_id', 'starts_at', 'court_name', 'changed'}),
+    'partida_cancelada': frozenset({'match_id', 'reason'}),
+    'wo_registrado': frozenset({'match_id', 'opponent_name', 'contest_until'}),
+    'wo_contestado': frozenset({'match_id', 'reason'}),
+    'wo_decidido': frozenset({'match_id', 'decision'}),
+    'resultado_partida': frozenset({'match_id', 'outcome'}),
+    'resultado_divergente': frozenset({'match_id', 'deadline'}),
+    'estatistica_contestada': frozenset({'match_id', 'stat_id', 'fields', 'reason'}),
+    'vaga_preenchida': frozenset({'match_id', 'slot_id', 'position'}),
+    'removido_da_partida': frozenset({'match_id', 'team_name'}),
+    'oferta_retirada': frozenset({'match_id', 'slot_id', 'position', 'team_name', 'reason', 'requeued'}),
+    'quadra_decidida': frozenset({'court_id', 'court_name', 'decision'}),
 }
 
 

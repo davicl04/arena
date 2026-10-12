@@ -1,8 +1,9 @@
 """Explicit administrative operations; never called during application startup.
 
 - `promote-admin <email>` / `remove-admin <email>`: administrative role of an existing account.
-- `sweep [--loop SEGUNDOS]`: periodic sweep (expired reservations, refunds counted as received). In development,
-  run `python -m app.admin_cli sweep --loop 60` in a terminal; production scheduling is decided at deployment.
+- `sweep [--loop SEGUNDOS]`: periodic sweep (expired reservations, refunds counted as received, expired searches,
+  proposals and slot offers, pairing again and result deadlines). In development, run
+  `python -m app.admin_cli sweep --loop 60` in a terminal; production scheduling is decided at deployment.
 """
 import argparse
 import time
@@ -41,7 +42,8 @@ def main(argv=None):
     promote.add_argument('email')
     demote = commands.add_parser('remove-admin', help='Remove o papel administrativo de uma conta existente.')
     demote.add_argument('email')
-    periodic = commands.add_parser('sweep', help='Expira reservas vencidas e confirma devoluções sem resposta.')
+    periodic = commands.add_parser('sweep', help='Expira reservas, buscas, propostas e ofertas vencidas, confirma '
+                                   'devoluções sem resposta, refaz o pareamento e fecha os prazos de resultado.')
     periodic.add_argument('--loop', type=int, metavar='SEGUNDOS',
                           help='Repete a varredura a cada SEGUNDOS (por exemplo, 60) até Ctrl+C.')
     args = parser.parse_args(argv)

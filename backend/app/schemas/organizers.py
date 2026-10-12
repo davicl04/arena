@@ -180,3 +180,5 @@ class QueueCountsOut(BaseModel):
     paid_events: int = Field(description='Eventos pagos aguardando aprovação (fila em_aprovacao).')
     revoked_events: int = Field(description='Eventos de organizador revogado aguardando decisão (fila revogacao).')
     refund_disputes: int = Field(description='Devoluções contestadas pelos participantes.')
+    court_suggestions: int = Field(description='Quadras sugeridas em revisão (GET /admin/court-suggestions).')
+    walkover_disputes: int = Field(description='W.O. contestados aguardando decisão (GET /admin/walkover-disputes).')

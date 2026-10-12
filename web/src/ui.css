@@ -78,9 +78,14 @@
   --animate-glass-in: glass-in 0.2s ease-out;
   --animate-viewer-in: viewer-in 0.22s ease-out;
   --animate-indeterminate: indeterminate 1.1s ease-in-out infinite; /* barra de progresso sem valor (Comunidade) */
+  --animate-ripple: ripple 1.8s ease-out infinite; /* ondas do botão redondo do Jogar durante a busca */
   @keyframes glass-in {
     from { opacity: 0; }
     to { opacity: 1; }
+  }
+  @keyframes ripple {
+    from { transform: scale(1); opacity: 0.7; }
+    to { transform: scale(1.22); opacity: 0; }
   }
   @keyframes indeterminate {
     from { translate: -100% 0; }

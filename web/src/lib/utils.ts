@@ -7,7 +7,7 @@ const twMerge = extendTailwindMerge({
     theme: {
       radius: ['field', 'control', 'card', 'panel', 'sheet', 'app'],
       shadow: ['app', 'primary', 'card', 'soft', 'sheet', 'play'],
-      animate: ['glass-in', 'viewer-in'],
+      animate: ['glass-in', 'viewer-in', 'ripple'],
     },
     classGroups: {
       z: [{ z: ['photo-glass', 'tabs', 'topbar', 'viewer', 'nav', 'glass-screen', 'skip-link', 'scrim', 'sheet'] }],

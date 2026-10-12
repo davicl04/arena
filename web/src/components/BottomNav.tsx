@@ -11,9 +11,12 @@ import { ArenaMark } from "./Brand";
 export default function BottomNav({
   active,
   onGo,
+  playAttention = false,
 }: {
   active: Screen;
   onGo: (screen: Screen) => void;
+  /** Busca, proposta, oferta ou partida combinando (`attention` de `GET /me/play`): acende o ponto menta do JOGAR. */
+  playAttention?: boolean;
 }) {
   return (
     <nav
@@ -31,11 +34,19 @@ export default function BottomNav({
               on && "font-bold text-ink",
             )}
             aria-current={on ? "page" : undefined}
+            aria-describedby={screen === "play" && playAttention ? "play-attention-note" : undefined}
             onClick={() => onGo(screen)}
           >
             {screen === "play" ? (
-              <span className="-mt-[25px] grid size-[55px] shrink-0 place-items-center rounded-full border-4 border-solid border-app bg-brand text-white shadow-play">
+              <span className="relative -mt-[25px] grid size-[55px] shrink-0 place-items-center rounded-full border-4 border-solid border-app bg-brand text-white shadow-play">
                 <ArenaMark compact className="size-[29px]" />
+                {playAttention && (
+                  <span
+                    data-testid="play-attention"
+                    aria-hidden="true"
+                    className="absolute top-px right-px size-3 rounded-full border-2 border-solid border-app bg-mint"
+                  />
+                )}
               </span>
             ) : screen === "ranking" ? (
               <ArenaMark className="h-[21px] w-[27px]" />
@@ -52,6 +63,11 @@ export default function BottomNav({
           </button>
         );
       })}
+      {playAttention && (
+        <span id="play-attention-note" className="sr-only">
+          Há uma busca, proposta ou partida em andamento
+        </span>
+      )}
     </nav>
   );
 }

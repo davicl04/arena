@@ -6,7 +6,12 @@ so two sweeps at once (or a second run) never change the same item twice. Reads 
 own, so a late sweep never shows an expired state as valid.
 
 Stage 2 tasks: expire paid reservations without an approved receipt and count unanswered refunds as received
-after 7 days. Stage 3 appends its tasks to `TASKS` (searches of 24 h, proposals of 2 h, result deadlines of 48 h).
+after 7 days. Stage 3 tasks: expire searches (24 h), proposals (2 h, returning the side that had accepted to the
+queue with its original deadline) and walk-in slot offers (2 h); pair the waiting searches again, bucket by
+bucket; and close the result deadlines (48 h): no result, an uncontested walkover, or the end of the stats window.
+The tasks that touch the queue follow the global lock order of stage 3 (team → match → ranking → bucket → slot →
+search, docs/decisoes/0002-jogar.md, section 15.1): one bucket at a time, or several in ascending lock id, with a
+commit between proposals and buckets. Result deadlines recalculate each ranking category once per batch.
 """
 from __future__ import annotations
 
@@ -22,7 +27,10 @@ from app.models.events import EntryReceipt, Event, EventEntry
 from app.models.identity import utcnow
 from app.services import audit, notifications
 from app.services.event_rules import REFUND_AUTO_CONFIRM_AFTER, next_entry_state
+from app.services.match_lifecycle import close_due_results
+from app.services.matchmaking_queue import queue
 from app.services.participants import entry_recipients
+from app.services.standings import recalculate_outside_window
 
 logger = logging.getLogger('arena.sweep')
 BATCH = 500
@@ -94,9 +102,35 @@ def auto_confirm_refunds(db: Session, now: datetime) -> int:
     return len(rows)
 
 
+def expire_proposals(db: Session, now: datetime) -> int:
+    """Lapsed proposals, one at a time with a commit each: the sweep never holds the buckets of several cities."""
+    return queue.expire_proposals(db, now, commit=db.commit)
+
+
+def expire_offers(db: Session, now: datetime) -> int:
+    """Lapsed slot offers, bucket by bucket (ascending lock id) with a commit each."""
+    return queue.expire_offers(db, now, commit=db.commit)
+
+
+def rematch_waiting(db: Session, now: datetime) -> int:
+    """Safety net of the queue: every waiting search tries again, committing bucket by bucket."""
+    return queue.rematch(db, now, commit=db.commit)
+
+
+def rankings_outside_window(db: Session, now: datetime) -> int:
+    """Rankings whose matches left the 52-week window since they were last written; returns the rows changed."""
+    return recalculate_outside_window(db, now)
+
+
 TASKS: tuple[SweepTask, ...] = (
     SweepTask('reservas_expiradas', expire_reservations),
     SweepTask('devolucoes_recebidas', auto_confirm_refunds),
+    SweepTask('buscas_expiradas', queue.expire_searches),
+    SweepTask('propostas_expiradas', expire_proposals),
+    SweepTask('ofertas_expiradas', expire_offers),
+    SweepTask('pareamento', rematch_waiting),
+    SweepTask('resultados_vencidos', close_due_results),
+    SweepTask('rankings_janela', rankings_outside_window),
 )
 
 

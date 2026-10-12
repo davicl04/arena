@@ -12,14 +12,20 @@ from sqlalchemy.exc import SQLAlchemyError
 from app.core.access_log import install_access_log_filter
 from app.core.config import get_settings
 from app.core.database import engine
+from app.routers.courts import router as courts_router
 from app.routers.entries import router as entries_router
 from app.routers.events import router as events_router
 from app.routers.identity import router
+from app.routers.matches import router as matches_router
+from app.routers.matchmaking import router as matchmaking_router
 from app.routers.notifications import router as notifications_router
 from app.routers.organizers import router as organizers_router
 from app.routers.rankings import router as rankings_router
+from app.routers.results import router as results_router
+from app.routers.slots import router as slots_router
 from app.routers.social import router as social_router
 from app.routers.teams import router as teams_router
+from app.services.match_rules import RuleError, TransitionError
 
 app = FastAPI(title='Arena API', version='0.1.0')
 # The team link token travels in GET/POST /api/v1/join/{token}: the access log shows /join/*** instead.
@@ -148,6 +154,22 @@ async def invalid_input(request: Request, error: RequestValidationError):
     ]}, status_code=422)
 
 
+@app.exception_handler(RuleError)
+async def rule_error(request: Request, error: RuleError):
+    """Rule of the product violated (stage 3): `422 { detail, fields }`, the same shape as the input validation.
+
+    The services raise it after checking everything and before writing, so the open transaction is discarded when
+    the request session closes. `fields` names the field when the rule has one (contract 0002, section 7)."""
+    fields = [{'field': error.field, 'message': str(error)}] if error.field else []
+    return JSONResponse({'detail': str(error), 'fields': fields}, status_code=422)
+
+
+@app.exception_handler(TransitionError)
+async def transition_error(request: Request, error: TransitionError):
+    """Action outside the state of the search, match, stat or event: `409 { detail }`."""
+    return JSONResponse({'detail': str(error)}, status_code=409)
+
+
 @app.exception_handler(SQLAlchemyError)
 async def database_error(request: Request, error: SQLAlchemyError):
     logging.getLogger('arena').error('Database operation failed: %s', type(error).__name__)
@@ -174,3 +196,8 @@ app.include_router(teams_router)
 app.include_router(organizers_router)
 app.include_router(events_router)
 app.include_router(entries_router)
+app.include_router(matchmaking_router)
+app.include_router(matches_router)
+app.include_router(courts_router)
+app.include_router(slots_router)
+app.include_router(results_router)
