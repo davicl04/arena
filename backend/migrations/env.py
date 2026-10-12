@@ -1,7 +1,7 @@
 from alembic import context
 
 from app.core.database import Base, engine
-from app.models import identity  # noqa: F401
+from app.models import audit, identity, notifications, organizers, rankings, teams  # noqa: F401
 
 if context.is_offline_mode():
     from app.core.config import get_settings

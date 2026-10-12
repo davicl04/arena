@@ -34,3 +34,9 @@ def current_user(session: AuthSession = Depends(current_session), db: Session = 
     if not user or not user.active:
         raise HTTPException(401, 'Conta indisponível.')
     return user
+
+
+def current_admin(user: User = Depends(current_user)) -> User:
+    if not user.is_admin:
+        raise HTTPException(403, 'Acesso administrativo necessário.')
+    return user

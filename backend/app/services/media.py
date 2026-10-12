@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.models.identity import MediaObject, Post, User, utcnow
+from app.models.teams import Team
 
 logger = logging.getLogger('arena.media')
 MAX_PIXELS = 25_000_000
@@ -206,11 +207,12 @@ def reconcile_orphans(db: Session, older_than_hours: int = 24) -> int:
         User, or_(User.avatar_media_id == MediaObject.id, User.cover_media_id == MediaObject.id)
     )).all())
     linked.update(db.scalars(select(MediaObject.object_key).join(Post, Post.media_id == MediaObject.id)).all())
+    linked.update(db.scalars(select(MediaObject.object_key).join(Team, Team.crest_media_id == MediaObject.id)).all())
     threshold = utcnow() - timedelta(hours=older_than_hours)
     removed = 0
     try:
         paginator = client.get_paginator('list_objects_v2')
-        for prefix in ('avatars/', 'covers/', 'posts/'):
+        for prefix in ('avatars/', 'covers/', 'posts/', 'crests/'):
             for page in paginator.paginate(Bucket=settings.media_s3_bucket, Prefix=prefix):
                 for obj in page.get('Contents', []):
                     if obj['Key'] not in linked and obj['LastModified'] < threshold:
@@ -224,6 +226,7 @@ def reconcile_orphans(db: Session, older_than_hours: int = 24) -> int:
         ~MediaObject.id.in_(select(User.avatar_media_id).where(User.avatar_media_id.is_not(None))),
         ~MediaObject.id.in_(select(User.cover_media_id).where(User.cover_media_id.is_not(None))),
         ~MediaObject.id.in_(select(Post.media_id)),
+        ~MediaObject.id.in_(select(Team.crest_media_id).where(Team.crest_media_id.is_not(None))),
     )).all()
     for media in stale_metadata:
         db.delete(media)

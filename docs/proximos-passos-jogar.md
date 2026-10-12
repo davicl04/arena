@@ -13,7 +13,7 @@ Os dois planos se cruzam: o Jogar precisa de times, e partes de Times e campeona
 5. **Jogar, fases 2 a 5:** pareamento, partida e chat, avulso, resultado e ranking.
 6. **Times e campeonatos, fases 6 e 7:** chaveamento, agenda das partidas de campeonato (usando a partida e o chat do Jogar) e divergência decidida pelo organizador.
 7. **Jogar, fase 6:** corrida.
-8. **Expo**, no momento a decidir.
+8. **Expo**, na última etapa, com todas as telas (decidido em 12 de outubro de 2026).
 
 ## Ordem combinada (11 de outubro de 2026)
 
@@ -24,7 +24,7 @@ A implementação do Jogar **começa depois da tela "Times e campeonatos"**. O J
 | 1 | **Tela "Times e campeonatos"**: desenho (rodadas de protótipo), plano e implementação. | — |
 | 2 | **Telas complementares**: desenho e plano. | Etapa 1 |
 | 3 | **Jogar, fases 1 a 7** do plano. | Etapas 1 e 2 |
-| 4 | **Jogar no Expo** (fase 8). | Etapa 3; momento a decidir |
+| 4 | **Jogar no Expo** (fase 8). | Etapa 3; última etapa, com tudo |
 
 ### Etapa 1 — Tela "Times e campeonatos"
 
@@ -105,16 +105,23 @@ Detalhadas no [plano de Times e campeonatos](plano-times-campeonatos.md#decisõe
 - **Comprovante recusado:** o time pode reenviar até o fim da reserva, com os envios anteriores preservados.
 - **Evento pago recusado** pela administração volta a rascunho com o motivo.
 
+## Decisões fechadas em 12 de outubro de 2026 (execução)
+
+Tomadas ao iniciar a implementação da etapa 1; os contratos estão em [0003-times-campeonatos.md](decisoes/0003-times-campeonatos.md) e [0002-jogar.md](decisoes/0002-jogar.md).
+
+- **W.O.:** placar 3×0 no futebol e 6-0 6-0 no tênis. Sem restrição automática por W.O. repetido no MVP; fica no histórico.
+- **Moderação do chat:** denúncia de mensagem pelo `ContentReport` (`target_type = 'match_message'`), na fila de Denúncias existente.
+- **Varredura de cada minuto:** `python -m app.admin_cli sweep [--loop 60]`, rodado num terminal em desenvolvimento e documentado no README. As leituras continuam tratando os vencimentos. O agendamento em produção fica para a implantação.
+- **Canal do campeonato:** canal de **avisos** do evento; o organizador escreve e os inscritos leem. O cancelamento entra como aviso automático.
+- **Devolução não confirmada:** o participante confirma ou contesta o recebimento. Sem resposta em 7 dias, conta como recebida; a contestação vai à administração.
+- **Expo:** última etapa, com **todas** as telas, inclusive organizador e administração.
+
 ## Ainda a decidir
 
 | Tema | Quando decidir |
 | --- | --- |
-| Placar registrado no W.O. e restrição por W.O. repetido | Antes da fase 3 do Jogar |
-| Desenho do chat do campeonato (canal do evento) e devolução não confirmada | Antes da fase 4 de Times e campeonatos |
-| Moderação do chat (denúncia de mensagem com `ContentReport`) | Antes da fase 3 do Jogar |
-| Onde roda a varredura de cada minuto, em desenvolvimento (Docker Compose ou tarefa local) e em produção | Antes da fase 2 do Jogar |
 | Calibragem dos cortes de elo com dados reais | Depois das primeiras partidas confirmadas |
-| Momento do Expo: acompanha cada fase ou vem no fim | Antes da etapa 3 |
+| Agendamento da varredura em produção | Na implantação |
 | Migração da fila para Redis | Só se aparecerem os sinais listados no plano |
 
 ## Referências

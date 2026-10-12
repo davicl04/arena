@@ -381,8 +381,7 @@ Cada fase precisa ser demonstrável de ponta a ponta, com persistência após re
 
 Resolvidas em 12 de outubro de 2026 (ver [decisões](#decisões-de-12-de-outubro-de-2026-perguntas-da-primeira-versão-do-plano)): folgas no chaveamento, conflito de 2 h, encerrar time, devolução no cancelamento, revogação pela administração e bibliotecas de QR.
 
-- **Chat do campeonato:** o canal do evento (organizador e inscritos) ainda não tem desenho. Faltam a lista de participantes, as permissões (quem escreve, avisos fixos) e a relação com os chats das partidas.
-- **Devolução contestada:** o que acontece se o participante não confirmar o recebimento (prazo, administração).
+- ~~**Chat do campeonato**~~ e ~~**devolução contestada**~~: resolvidos em 12 de outubro de 2026, ao iniciar a implementação ([próximos passos](proximos-passos-jogar.md#decisões-fechadas-em-12-de-outubro-de-2026-execução)). O canal do campeonato é de **avisos** (o organizador escreve, os inscritos leem, o cancelamento entra como aviso automático). Na devolução, o participante confirma ou contesta; sem resposta em 7 dias, conta como recebida, e a contestação vai à administração. A tela do canal será desenhada junto da fase que implementar o cancelamento com inscritos.
 
 ## Fora do escopo
 - Pagamento dentro do Arena, reembolso e cobrança.

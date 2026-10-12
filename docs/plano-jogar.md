@@ -403,10 +403,11 @@ Resolvidas em 11 de outubro de 2026: ranking e Lendário gerais; `react-day-pick
 
   Para não travar essa troca: deixar o pareamento atrás de uma interface de serviço (`MatchmakingQueue` com `enqueue`, `try_match` e `expire`), com a implementação em PostgreSQL. Mesmo com Redis, o PostgreSQL continua sendo a fonte da verdade das buscas e partidas; o Redis seria só índice e aviso. Isso exige um serviço novo no Docker Compose e no CI.
 
-- **Detalhes do W.O.:** placar registrado e eventual restrição por W.O. repetido.
+- ~~**Detalhes do W.O.**~~ Resolvido em 12 de outubro de 2026: placar 3×0 no futebol e 6-0 6-0 no tênis, sem restrição automática por W.O. repetido no MVP (fica no histórico).
 - ~~**Partidas de campeonato:** têm chat? Usam o mesmo cartão de resultado?~~ Resolvido em 12 de outubro de 2026: têm chat **com o organizador participando**, usam o **mesmo cartão de resultado**, e a divergência vai ao organizador, que decide com justificativa ([plano de Times e campeonatos](plano-times-campeonatos.md#partidas-do-campeonato-s1)).
-- **Moderação do chat:** denúncia de mensagem, reaproveitando `ContentReport`.
-- **Momento do Expo** e se ele acompanha cada fase ou vem no fim.
+- ~~**Moderação do chat**~~ Resolvido em 12 de outubro de 2026: denúncia de mensagem pelo `ContentReport` (`target_type = 'match_message'`), na fila de Denúncias.
+- ~~**Momento do Expo**~~ Resolvido em 12 de outubro de 2026: última etapa, com todas as telas.
+- **Varredura:** em desenvolvimento, `python -m app.admin_cli sweep [--loop 60]` num terminal (decidido em 12 de outubro de 2026); o agendamento em produção fica para a implantação.
 
 ## Fora do escopo
 - Criar e gerir campeonatos e provas, aprovar comprovantes como organizador e montar tabelas: estão no [plano de Times e campeonatos](plano-times-campeonatos.md).

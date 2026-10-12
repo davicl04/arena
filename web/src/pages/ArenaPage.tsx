@@ -20,7 +20,7 @@ import ConnectionsPage from "./ConnectionsPage";
 import UserProfilePage from "./UserProfilePage";
 import NotificationsPage from "./NotificationsPage";
 import SocialCommunity from "../components/SocialCommunity";
-import { rankingTiers, sportIcons } from "../data/arena";
+import { activeNavFor, rankingTiers, sportIcons } from "../data/arena";
 import type { ConnectionsTab, Screen } from "../data/arena";
 
 /** Uma tela da pilha de navegação, com o contexto necessário para restaurá-la ao voltar. */
@@ -31,6 +31,10 @@ interface Entry {
   mutual?: boolean;
   /** Comunidade aberta já na nova publicação (quadro "Nova foto" do perfil). */
   compose?: boolean;
+  /** Time da tela (editar time, convidar); em `team-form`, a ausência indica criação. */
+  teamId?: number;
+  /** Token do link do time (`join`), lido do endereço compartilhado. */
+  token?: string;
 }
 /** Subtítulo das telas Jogar e Ranking. */
 const subtitle = "mb-[25px] text-[12px] leading-[1.6] text-ink-muted";
@@ -49,6 +53,12 @@ const titles: Record<Screen, string> = {
   "user-profile": "Perfil",
   notifications: "Notificações",
   sports: "Suas modalidades",
+  teams: "Meus times",
+  "team-form": "Criar time",
+  "team-invite": "Convidar",
+  join: "Entrar no time",
+  "organizer-request": "Seja organizador",
+  "admin-organizer-requests": "Pedidos de organizador",
 };
 
 export default function ArenaPage({
@@ -106,10 +116,14 @@ export default function ArenaPage({
     mainRef.current?.scrollTo({ top: 0 });
     mainRef.current?.focus();
   }
-  /** Abas principais zeram a pilha; as demais telas empilham e voltam à anterior. */
-  function go(next: Screen) {
-    if (rootScreens.includes(next)) show(() => [{ screen: next }]);
-    else show((old) => [...old, { screen: next }]);
+  /**
+   * Abas principais zeram a pilha; as demais telas empilham e voltam à anterior.
+   * `context` leva os dados da tela (ex.: `{ teamId }` em Editar time e Convidar).
+   */
+  function go(next: Screen, context: Omit<Entry, "screen"> = {}) {
+    const entry = { ...context, screen: next };
+    if (rootScreens.includes(next)) show(() => [entry]);
+    else show((old) => [...old, entry]);
   }
   function back() {
     show((old) => (old.length > 1 ? old.slice(0, -1) : [{ screen: "home" }]));
@@ -163,20 +177,12 @@ export default function ArenaPage({
     }
   }
   const firstName = user.name.trim().split(/\s+/)[0];
-  const title = current.mutual ? "Seguidores em comum" : titles[screen];
-  const root = stack[0].screen;
-  const activeNav =
-    screen === "user-profile" || screen === "connections"
-      ? root === "notifications" || root === "sports"
-        ? "home"
-        : ["edit-profile", "menu", "moderation", "blocked"].includes(root)
-          ? "profile"
-          : root
-      : ["edit-profile", "menu", "moderation", "blocked", "sports"].includes(screen)
-        ? "profile"
-        : screen === "notifications"
-          ? "home"
-          : screen;
+  const title = current.mutual
+    ? "Seguidores em comum"
+    : screen === "team-form" && current.teamId
+      ? "Editar time"
+      : titles[screen];
+  const activeNav = activeNavFor(screen, stack[0].screen);
   const profileLayout = screen === "profile" || screen === "user-profile";
   // A Comunidade tem barra própria, de ponta a ponta, presa ao topo do `main`.
   const communityLayout = screen === "community";

@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -11,7 +12,11 @@ from sqlalchemy.exc import SQLAlchemyError
 from app.core.config import get_settings
 from app.core.database import engine
 from app.routers.identity import router
+from app.routers.notifications import router as notifications_router
+from app.routers.organizers import router as organizers_router
+from app.routers.rankings import router as rankings_router
 from app.routers.social import router as social_router
+from app.routers.teams import router as teams_router
 
 app = FastAPI(title='Arena API', version='0.1.0')
 app.add_middleware(CORSMiddleware, allow_origins=get_settings().allowed_origins,
@@ -19,7 +24,17 @@ app.add_middleware(CORSMiddleware, allow_origins=get_settings().allowed_origins,
                    allow_headers=['Content-Type', 'Authorization'])
 
 
-UPLOAD_PATHS = {('PUT', '/api/v1/me/avatar'), ('PUT', '/api/v1/me/cover'), ('POST', '/api/v1/posts')}
+# Multipart uploads as (method, full-path regex): bounded by AvatarBodyLimitMiddleware and exempt from JSON.
+UPLOAD_PATTERNS = (
+    ('PUT', re.compile(r'/api/v1/me/avatar')),
+    ('PUT', re.compile(r'/api/v1/me/cover')),
+    ('POST', re.compile(r'/api/v1/posts')),
+    ('PUT', re.compile(r'/api/v1/teams/[0-9]+/crest')),
+)
+
+
+def is_upload(method: str, path: str) -> bool:
+    return any(method == allowed and pattern.fullmatch(path) for allowed, pattern in UPLOAD_PATTERNS)
 
 
 class AvatarBodyLimitMiddleware:
@@ -29,7 +44,7 @@ class AvatarBodyLimitMiddleware:
         self.application = application
 
     async def __call__(self, scope, receive, send):
-        if scope['type'] != 'http' or (scope['method'], scope['path']) not in UPLOAD_PATHS:
+        if scope['type'] != 'http' or not is_upload(scope['method'], scope['path']):
             await self.application(scope, receive, send)
             return
 
@@ -85,7 +100,7 @@ async def origin_protection(request: Request, call_next):
         origin = request.headers.get('origin')
         if origin and origin not in get_settings().allowed_origins:
             return JSONResponse({'detail': 'Origem da solicitação não autorizada.'}, status_code=403)
-        upload = (request.method, request.url.path) in UPLOAD_PATHS
+        upload = is_upload(request.method, request.url.path)
         delete_avatar = request.url.path == '/api/v1/me/avatar' and request.method == 'DELETE'
         bodyless_action = request.method == 'DELETE' or (
             request.method == 'PUT' and any(marker in request.url.path for marker in ('/like', '/follow', '/block'))
@@ -132,3 +147,7 @@ def ready():
 
 app.include_router(router)
 app.include_router(social_router)
+app.include_router(notifications_router)
+app.include_router(rankings_router)
+app.include_router(teams_router)
+app.include_router(organizers_router)
