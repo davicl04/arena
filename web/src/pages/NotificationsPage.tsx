@@ -19,11 +19,14 @@ const countBadge = 'inline-grid h-[21px] min-w-[21px] place-items-center rounded
 
 /**
  * Notificações: os pedidos para seguir (`/me/follow-requests`) e as atividades da conta (`/me/notifications`):
- * convites e pedidos de times e decisões do organizador. Tocar marca como lida e leva à tela do aviso.
+ * convites e pedidos de times, decisões do organizador e, na etapa 2, inscrições, comprovantes, devoluções e avisos
+ * dos eventos. Tocar marca como lida e leva à tela do aviso.
  */
-export default function NotificationsPage({ onOpenUser, onNavigate, onExpired }: {
+export default function NotificationsPage({ isAdmin = false, onOpenUser, onNavigate, onExpired }: {
+  /** Conta administrativa: tipos que vão ao organizador e à administração levam à fila do Menu. */
+  isAdmin?: boolean
   onOpenUser: (id: number) => void
-  /** Destino da notificação (Meus times com o time, ou o Menu). */
+  /** Destino da notificação (Meus times com o time, o Menu ou as telas do evento). */
   onNavigate: (target: NotificationTarget) => void
   onExpired: () => void
 }) {
@@ -66,7 +69,7 @@ export default function NotificationsPage({ onOpenUser, onNavigate, onExpired }:
     } finally { list.reload(); setBusy(false) }
   }
   async function open(notification: ArenaNotification) {
-    const { target } = notificationView(notification)
+    const { target } = notificationView(notification, { isAdmin })
     setError(''); setNotice('')
     if (!notification.read_at) {
       setBusy(true)
@@ -97,8 +100,8 @@ export default function NotificationsPage({ onOpenUser, onNavigate, onExpired }:
   }
 
   if (list.loading || feed.loading) return <p role="status">Carregando notificações…</p>
-  if (list.error) return <div className={feedbackVariants()} role="alert">{list.error.message} <Button variant="text" onClick={list.reload}>Tentar novamente</Button></div>
-  const empty = list.items.length === 0 && feed.items.length === 0 && !feed.error
+  // Um erro nas solicitações para seguir fica na própria seção: as atividades da conta continuam na tela.
+  const empty = list.items.length === 0 && feed.items.length === 0 && !feed.error && !list.error
   return <>
     <div aria-live="polite">
       {error && <p className={feedbackVariants()} role="alert">{error}</p>}
@@ -107,8 +110,12 @@ export default function NotificationsPage({ onOpenUser, onNavigate, onExpired }:
     {list.items.length === 0 && busy && !feed.items.length
       ? <p role="status">Aprovando solicitações…</p>
       : empty
-      ? <EmptyState Icon={Bell} title="Tudo em dia" text="Convites e pedidos dos seus times e as respostas da administração aparecem aqui." />
+      ? <EmptyState Icon={Bell} title="Tudo em dia" text="Convites e pedidos dos seus times, inscrições em campeonatos e provas e as respostas da administração aparecem aqui." />
       : <>
+        {list.error && <section aria-label="Solicitações para seguir">
+          <h2 className="mt-1 mb-1.5 text-[14px]">Solicitações para seguir</h2>
+          <div className={feedbackVariants()} role="alert">{list.error.message} <Button variant="text" onClick={list.reload}>Tentar novamente</Button></div>
+        </section>}
         {list.items.length > 0 && <section aria-label="Solicitações para seguir">
           <div className="mt-1 mb-1.5 flex items-center justify-between gap-2">
             <h2 className="flex items-center gap-[7px] text-[14px]">Solicitações para seguir <span className={countBadge}>{list.items.length}{list.hasMore ? '+' : ''}</span></h2>
@@ -132,9 +139,9 @@ export default function NotificationsPage({ onOpenUser, onNavigate, onExpired }:
           {feed.error
             ? <div className={feedbackVariants()} role="alert">{feed.error.message} <Button variant="text" onClick={feed.reload}>Tentar novamente</Button></div>
             : feed.items.length === 0
-            ? <p className="rounded-card bg-white px-3.5 py-4 text-[11.5px] leading-[1.6] text-ink-muted">Nenhuma atividade por enquanto. Convites e pedidos dos seus times e as respostas da administração aparecem aqui.</p>
+            ? <p className="rounded-card bg-white px-3.5 py-4 text-[11.5px] leading-[1.6] text-ink-muted">Nenhuma atividade por enquanto. Convites e pedidos dos seus times, inscrições em campeonatos e provas e as respostas da administração aparecem aqui.</p>
             : <ul className="overflow-hidden rounded-card bg-white" aria-label="Notificações da conta">
-              {feed.items.map(item => <NotificationItem key={item.id} notification={item} busy={busy} onOpen={notification => void open(notification)} />)}
+              {feed.items.map(item => <NotificationItem key={item.id} notification={item} busy={busy} isAdmin={isAdmin} onOpen={notification => void open(notification)} />)}
             </ul>}
           {feed.moreError && <p className={feedbackVariants()} role="alert">{feed.moreError}</p>}
           {feed.hasMore && <Button variant="secondary" className="mt-[18px] w-full" disabled={busy || feed.busy} onClick={() => void feed.loadMore()}>Carregar mais notificações</Button>}

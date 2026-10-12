@@ -6,17 +6,19 @@ import { cn } from '@/lib/utils'
 
 const fold = (value: string) => value.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase()
 
-/** Escolha da cidade do time no catálogo (o mesmo das modalidades), com busca por nome ou UF. */
-export function CitySheet({ cities, selectedId, onSelect, onClose }: {
+/** Escolha da cidade no catálogo (o mesmo das modalidades), com busca por nome ou UF: do time ou, com `title`, do evento. */
+export function CitySheet({ cities, selectedId, onSelect, onClose, title = 'Cidade do time', description = 'O pareamento de partidas usa a cidade do time.' }: {
   cities: City[]
   selectedId: number | null
   onSelect: (city: City) => void
   onClose: () => void
+  title?: string
+  description?: string
 }) {
   const [query, setQuery] = useState('')
   const term = fold(query.trim())
   const shown = term ? cities.filter(city => fold(`${city.name} ${city.state}`).includes(term)) : cities
-  return <Sheet title="Cidade do time" description="O pareamento de partidas usa a cidade do time." onClose={onClose}>
+  return <Sheet title={title} description={description} onClose={onClose}>
     <label htmlFor="team-city-search" className="mt-2 mb-1.5">Buscar cidade</label>
     <input id="team-city-search" data-autofocus type="search" autoComplete="off" value={query} onChange={event => setQuery(event.target.value)} placeholder="Nome da cidade ou UF" />
     <ul className="m-0 mt-2 grid max-h-[50vh] list-none overflow-y-auto p-0" aria-label="Cidades do catálogo">

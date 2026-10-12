@@ -78,12 +78,22 @@ export interface Profile extends ProfileInput {
   is_public: boolean
   level: string | null
 }
+/** Campo recusado num `422` (`{ detail, fields: [{ field, message }] }`). */
+export interface FieldError { field: string; message: string }
 export class ApiError extends Error {
   status: number
-  constructor(message: string, status: number) {
+  /** Campos recusados pela validação do servidor (vazio nos demais erros). */
+  fields: FieldError[]
+  constructor(message: string, status: number, fields: FieldError[] = []) {
     super(message)
     this.status = status
+    this.fields = fields
   }
+}
+/** Lista `fields` de um corpo de erro, só com itens bem formados. */
+function fieldErrors(value: unknown): FieldError[] {
+  if (!Array.isArray(value)) return []
+  return value.filter((item): item is FieldError => typeof item?.field === 'string' && typeof item?.message === 'string')
 }
 export function apiBaseUrl(configuredUrl: string | undefined, development: boolean, location: Pick<Location, 'protocol' | 'hostname'>) {
   const defaultBase = development ? `${location.protocol}//${location.hostname}:8000` : 'http://localhost:8000'
@@ -118,6 +128,7 @@ export async function request<T>(
         ? data.detail
         : 'Não foi possível concluir a ação.',
       response.status,
+      fieldErrors(data.fields),
     )
   }
   return response.status === 204 ? (undefined as T) : response.json()

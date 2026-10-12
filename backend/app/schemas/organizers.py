@@ -174,6 +174,9 @@ class AdminOrganizerPage(BaseModel):
 
 
 class QueueCountsOut(BaseModel):
-    """Contadores das filas da administração no Menu; a fase 4 acrescenta os eventos pagos."""
+    """Contadores das filas da administração no Menu (seções 6 e 15)."""
     organizer_requests: int = Field(description='Pedidos de organizador em análise.')
     reports: int = Field(description='Denúncias pendentes (mesma contagem de GET /admin/reports).')
+    paid_events: int = Field(description='Eventos pagos aguardando aprovação (fila em_aprovacao).')
+    revoked_events: int = Field(description='Eventos de organizador revogado aguardando decisão (fila revogacao).')
+    refund_disputes: int = Field(description='Devoluções contestadas pelos participantes.')

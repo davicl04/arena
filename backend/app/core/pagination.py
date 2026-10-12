@@ -29,12 +29,17 @@ def encode_cursor(stamp: datetime, item_id: int) -> str:
     return base64.urlsafe_b64encode(raw).decode().rstrip('=')
 
 
-def paginate(statement, cursor: str | None, limit: int, stamp_field, id_field, db: Session):
-    """Orders by (stamp, id) descending and returns one page plus the cursor of the next one."""
+def paginate(statement, cursor: str | None, limit: int, stamp_field, id_field, db: Session, *,
+             ascending: bool = False):
+    """Orders by (stamp, id), newest first unless `ascending` (e.g. next events first), and returns one page
+    plus the cursor of the next one. The stamp must not be null in the listed rows."""
     point = decode_cursor(cursor)
     if point:
-        statement = statement.where(tuple_(stamp_field, id_field) < tuple_(*point))
-    statement = statement.order_by(stamp_field.desc(), id_field.desc()).limit(limit + 1)
+        after = tuple_(stamp_field, id_field) > tuple_(*point) if ascending else (
+            tuple_(stamp_field, id_field) < tuple_(*point))
+        statement = statement.where(after)
+    order = (stamp_field.asc(), id_field.asc()) if ascending else (stamp_field.desc(), id_field.desc())
+    statement = statement.order_by(*order).limit(limit + 1)
     rows = list(db.scalars(statement).all())
     more = len(rows) > limit
     rows = rows[:limit]

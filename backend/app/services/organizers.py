@@ -234,12 +234,14 @@ def cancel_request(db: Session, user: User) -> None:
 # --- Administration --------------------------------------------------------------------------------------
 
 def queue_counts(db: Session) -> QueueCountsOut:
-    """Counters of the Menu queues; phase 4 adds the paid events awaiting review."""
+    """Counters of the Menu queues: organizer requests, reports and the stage 2 event queues."""
+    from app.services.events import queue_counts as event_queue_counts  # events imports this module
+
     requests = db.scalar(select(func.count()).select_from(OrganizerRequest)
                          .where(OrganizerRequest.state == 'em_analise')) or 0
     reports = db.scalar(select(func.count()).select_from(ContentReport)
                         .where(ContentReport.status == 'pending')) or 0
-    return QueueCountsOut(organizer_requests=requests, reports=reports)
+    return QueueCountsOut(organizer_requests=requests, reports=reports, **event_queue_counts(db))
 
 
 def list_requests(db: Session, admin: User, state: str, cursor: str | None,
@@ -299,13 +301,14 @@ def list_organizers(db: Session, admin: User, cursor: str | None,
 
 
 def handle_open_events(db: Session, organizer: Organizer, *, actor_id: int, revoked_at: datetime) -> None:
-    """Extension point for phase 4 (events), called inside the revocation transaction.
+    """Destiny of the revoked organizer's open events, inside the revocation transaction (section 15.2).
 
-    The contract leaves to phase 4 the destiny of the revoked organizer's open events: the administration
-    decides whether each one goes on or is cancelled with the refund flow. Phase 4 implements it here (e.g.
-    flag the open events for review and notify their entrants) without changing `revoke`. Stage 1 has no
-    events, so there is nothing to do.
+    Events waiting for approval go back to draft; published or running ones wait for the administration to
+    decide whether they go on or are cancelled with the refund flow (`events.on_organizer_revoked`).
     """
+    from app.services.events import on_organizer_revoked  # events imports this module
+
+    on_organizer_revoked(db, organizer, actor_id=actor_id)
 
 
 def revoke(db: Session, admin: User, organizer_id: int, reason: str) -> None:

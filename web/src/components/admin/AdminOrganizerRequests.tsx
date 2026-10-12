@@ -46,7 +46,7 @@ function QueueRow({ person, title, text, badge, onOpen }: { person: Person; titl
   </li>
 }
 
-function ListState({ loading, error, onRetry, empty, emptyTitle, emptyText }: {
+export function ListState({ loading, error, onRetry, empty, emptyTitle, emptyText }: {
   loading: boolean; error: Error | null; onRetry: () => void; empty: boolean; emptyTitle: string; emptyText: string
 }) {
   if (loading) return <p role="status" className="py-4 text-[12px]">Carregando…</p>
@@ -76,6 +76,12 @@ function RequestQueue({ queue, onOpenUser, onNotice, onExpired }: { queue: Organ
         list.setItems(old => old.filter(item => item.id !== decided.id))
         setOpen(null)
         onNotice(message)
+      }}
+      onStale={message => {
+        // Já decidido ou cancelado em outro lugar: a folha fecha e a fila confere o estado atual.
+        setOpen(null)
+        onNotice(message)
+        list.reload()
       }} />}
   </>
 }

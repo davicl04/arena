@@ -23,19 +23,19 @@ function Row({ Icon, title, text, onClick, badge }: { Icon: LucideIcon; title: s
 }
 
 /**
- * "Outras formas de jogar" abaixo da placa: Meu time (futebol) e Campeonatos ou Provas. Os eventos ainda não
- * existem (fase 7 do Jogar), então a linha mostra o estado vazio, sem cartazes de exemplo.
+ * "Outras formas de jogar" abaixo da placa: Meu time (futebol) e Campeonatos ou Provas, que abre a lista de eventos
+ * publicados da modalidade da aba (E2).
  */
-export function OtherWays({ sport, onTeams }: { sport: Sport; onTeams: () => void }) {
+export function OtherWays({ sport, onTeams, onEvents }: { sport: Sport; onTeams: () => void; onEvents: () => void }) {
   const run = sport === 'corrida'
   return <section aria-labelledby="play-other-ways" className="px-5">
     <SectionTitle className="mt-[22px] mb-2.5" title={<span id="play-other-ways">{run ? 'Provas' : 'Outras formas de jogar'}</span>} />
     <Card className="px-3.5 py-1 shadow-card">
       {sport === 'futebol' && <Row Icon={Shield} title="Meu time" text="Elenco, convites e pedidos para entrar" onClick={onTeams} />}
-      <Row Icon={run ? Flag : Trophy} title={run ? 'Provas' : 'Campeonatos'} badge="Em breve"
+      <Row Icon={run ? Flag : Trophy} title={run ? 'Provas' : 'Campeonatos'} onClick={onEvents}
         text={run
-          ? 'Nenhuma prova aberta. As provas chegam numa próxima etapa do Arena.'
-          : 'Nenhum campeonato aberto. Os campeonatos chegam numa próxima etapa do Arena.'} />
+          ? 'Provas de corrida abertas, com inscrição pelo Arena'
+          : `Campeonatos de ${sport === 'tenis' ? 'tênis' : 'futebol'} abertos, com inscrição pelo Arena`} />
     </Card>
   </section>
 }

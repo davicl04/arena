@@ -1,6 +1,7 @@
 import { useId, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Check, Info, X } from 'lucide-react'
+import { ApiError } from '@/api/client'
 import { decideOrganizerRequest, refusalError, refusalInput } from '@/api/admin'
 import { ORGANIZER_LIMITS, ORGANIZER_REFUSAL_REASONS, refusalText, sportNames } from '@/api/organizer'
 import type { AdminOrganizerRequest, OrganizerRefusalReason } from '@/api/organizer'
@@ -32,11 +33,13 @@ export function InfoList({ items, children }: { items: [string, ReactNode][]; ch
  * Folha do pedido de organizador (AD1): dados do pedido, "Ver perfil" e, na fila, Aprovar | Recusar. Recusar
  * exige o motivo do contrato; em "Outro", o detalhe.
  */
-export function OrganizerRequestSheet({ item, onClose, onOpenUser, onDecided, onExpired }: {
+export function OrganizerRequestSheet({ item, onClose, onOpenUser, onDecided, onStale, onExpired }: {
   item: AdminOrganizerRequest
   onClose: () => void
   onOpenUser: (id: number) => void
   onDecided: (decided: AdminOrganizerRequest, message: string) => void
+  /** O pedido já foi decidido ou cancelado (409/404): a fila recarrega e a folha fecha com a mensagem do servidor. */
+  onStale: (message: string) => void
   onExpired: () => void
 }) {
   const id = useId()
@@ -49,14 +52,26 @@ export function OrganizerRequestSheet({ item, onClose, onOpenUser, onDecided, on
   const firstName = item.requester.name.trim().split(/\s+/)[0]
   const pending = item.state === 'em_analise'
 
+  /** Decide; um pedido que deixou de estar em análise (409/404) avisa a fila em vez de manter o item na lista. */
+  async function decide(input: Parameters<typeof decideOrganizerRequest>[1], fallback: string) {
+    let stale = ''
+    const decided = await run(async () => {
+      try { return await decideOrganizerRequest(item.id, input) } catch (cause) {
+        if (cause instanceof ApiError && (cause.status === 409 || cause.status === 404)) stale = cause.message
+        throw cause
+      }
+    }, fallback)
+    if (!decided && stale) onStale(stale)
+    return decided
+  }
   async function approve() {
-    const decided = await run(() => decideOrganizerRequest(item.id, { decision: 'aprovar' }), 'Não foi possível aprovar o pedido.')
+    const decided = await decide({ decision: 'aprovar' }, 'Não foi possível aprovar o pedido.')
     if (decided) onDecided(decided, `${item.display_name} agora é organizador.`)
   }
   async function refuse() {
     setAttempted(true)
     if (refusalError(reason, detail) || !reason) return
-    const decided = await run(() => decideOrganizerRequest(item.id, refusalInput(reason, detail)), 'Não foi possível recusar o pedido.')
+    const decided = await decide(refusalInput(reason, detail), 'Não foi possível recusar o pedido.')
     if (decided) onDecided(decided, `Pedido de ${item.display_name} recusado.`)
   }
 

@@ -21,6 +21,7 @@ from app.schemas.common import PersonOut
 from app.schemas.identity import CityOut
 from app.schemas.teams import RosterPreviewItemOut, TeamCardOut, TeamMemberOut, TeamUpdateInput
 from app.services import audit, notifications, team_links
+from app.services.entries import team_ensure_no_active_entry
 from app.services.people import avatar_url, blocked_ids, person_out
 from app.services.rankings import team_format_grid
 
@@ -66,10 +67,12 @@ def ensure_representative_remains(members: Iterable[TeamMember], leaving: TeamMe
 
 
 def ensure_closable(db: Session, team: Team) -> None:
-    """Stage 1 has no matches or entries yet, so only the state is checked. The match and entry phases add
+    """The (locked) team must be active and without entries in play (stage 2: a spot held in an open event or a
+    refund in progress). The match phase adds its scheduled matches to the same
     `409 Encerre ou cancele as partidas agendadas e as inscrições ativas antes de encerrar o time.`"""
     if team.state != 'ativo':
         raise HTTPException(409, ALREADY_CLOSED)
+    team_ensure_no_active_entry(db, team)
 
 
 def visible_person(user: User, hidden: set[int]) -> PersonOut:
@@ -162,12 +165,43 @@ def load_context(db: Session, team_id: int, viewer_id: int, *, lock: bool = Fals
     return TeamContext(team, roster, roster.get(viewer_id))
 
 
+def _visible(db: Session, context: TeamContext | None, viewer_id: int) -> bool:
+    return context is not None and (context.me is not None or has_pending_link(db, context.team.id, viewer_id))
+
+
 def team_context(db: Session, team_id: int, viewer_id: int, *, lock: bool = False) -> TeamContext:
-    """Active team visible to the viewer (member, pending invite or pending join request); 404 otherwise."""
-    context = load_context(db, team_id, viewer_id, lock=lock)
-    if context is None or (context.me is None and not has_pending_link(db, context.team.id, viewer_id)):
+    """Active team visible to the viewer (member, pending invite or pending join request); 404 otherwise.
+
+    With `lock`, the visibility is checked first without any lock, so someone who cannot see the team never holds
+    (or waits for) its row; only then the team and the roster are locked and checked again (`lock_context`).
+    """
+    context = load_context(db, team_id, viewer_id)
+    if not _visible(db, context, viewer_id):
         raise HTTPException(404, TEAM_NOT_FOUND)
-    return context
+    return lock_context(db, context, viewer_id) if lock else context
+
+
+def lock_context(db: Session, context: TeamContext, viewer_id: int, *,
+                 representative: str | None = None) -> TeamContext:
+    """Locks the team and its active roster (FOR UPDATE, fresh rows) for a context already authorized without
+    locks, and repeats the checks: meanwhile the team may have closed (404) or the viewer may have left or lost the
+    armband (403 with `representative`). Changes that depend on the roster (the last representative) are decided
+    on this locked copy."""
+    locked = load_context(db, context.team.id, viewer_id, lock=True)
+    if not _visible(db, locked, viewer_id):
+        raise HTTPException(404, TEAM_NOT_FOUND)
+    if representative is not None:
+        locked.require_representative(representative)
+    return locked
+
+
+def representative_context(db: Session, team_id: int, viewer_id: int, message: str, *,
+                           lock: bool = False) -> TeamContext:
+    """Visible team (404) where the viewer is a representative (403 with `message`), authorized without locks;
+    with `lock`, only then locked and checked again."""
+    context = team_context(db, team_id, viewer_id)
+    context.require_representative(message)
+    return lock_context(db, context, viewer_id, representative=message) if lock else context
 
 
 def require_city(db: Session, city_id: int) -> None:
@@ -282,8 +316,7 @@ def create_team(db: Session, viewer: User, name: str, city_id: int) -> TeamCardO
 
 
 def update_team(db: Session, viewer: User, team_id: int, data: TeamUpdateInput) -> TeamCardOut:
-    context = team_context(db, team_id, viewer.id, lock=True)
-    context.require_representative(ONLY_REP_EDIT)
+    context = representative_context(db, team_id, viewer.id, ONLY_REP_EDIT, lock=True)
     team = context.team
     changes: dict[str, object] = {}
     if data.name is not None and data.name != team.name:
@@ -351,8 +384,7 @@ def remove_member(db: Session, viewer: User, team_id: int, user_id: int) -> None
 
 def close_team(db: Session, viewer: User, team_id: int) -> None:
     """Closes the team: the roster, invites and requests stay as history; the link dies with it."""
-    context = team_context(db, team_id, viewer.id, lock=True)
-    context.require_representative(ONLY_REP_CLOSE)
+    context = representative_context(db, team_id, viewer.id, ONLY_REP_CLOSE, lock=True)
     team = context.team
     ensure_closable(db, team)
     now = utcnow()
@@ -383,9 +415,7 @@ def close_team(db: Session, viewer: User, team_id: int) -> None:
 
 def crest_team(db: Session, viewer: User, team_id: int, *, lock: bool = False) -> Team:
     """Team whose crest the viewer may change (representative)."""
-    context = team_context(db, team_id, viewer.id, lock=lock)
-    context.require_representative(ONLY_REP_CREST)
-    return context.team
+    return representative_context(db, team_id, viewer.id, ONLY_REP_CREST, lock=lock).team
 
 
 def crest_media(db: Session, team_id: int, version: uuid.UUID) -> MediaObject:

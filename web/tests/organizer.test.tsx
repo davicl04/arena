@@ -7,6 +7,8 @@ import type { OrganizerRequest, OrganizerStatus } from '../src/api/organizer'
 import { organizerRequestInput, refusalText, sportNames, validateOrganizerRequest } from '../src/api/organizer'
 import MenuPage from '../src/pages/MenuPage'
 import OrganizerRequestPage from '../src/pages/OrganizerRequestPage'
+import type { OrganizerEventCard } from '../src/api/events'
+import { eventCard } from './events-fixtures'
 
 vi.mock('../src/api/client', async original => ({
   ...await original<typeof import('../src/api/client')>(),
@@ -22,18 +24,21 @@ const pedido: OrganizerRequest = {
 const status = (state: OrganizerStatus['state'], extra: Partial<OrganizerStatus> = {}): OrganizerStatus =>
   ({ state, request: null, organizer: null, revocation: null, ...extra })
 
-function mockStatus(value: OrganizerStatus, counts = { organizer_requests: 0 }) {
+const noCounts = { organizer_requests: 0, reports: 0, paid_events: 0, revoked_events: 0, refund_disputes: 0 }
+function mockStatus(value: OrganizerStatus, counts: Partial<typeof noCounts> = noCounts, events: OrganizerEventCard[] = []) {
   vi.mocked(request).mockImplementation(async (path, method) => {
     if (path === '/me/organizer-request' && method === 'DELETE') return undefined as never
     if (path === '/me/organizer-request') return value as never
     if (path === '/admin/queue-counts') return counts as never
+    if (path === '/organizer/events?scope=abertos') return { items: events, next_cursor: null } as never
     throw new Error(`rota inesperada ${method ?? 'GET'} ${path}`)
   })
 }
 function renderMenu({ isAdmin = false } = {}) {
   const props = {
     onEditProfile: vi.fn(), onSports: vi.fn(), onModeration: vi.fn(), onOrganizerRequest: vi.fn(), onOrganizerRequests: vi.fn(),
-    onNotifications: vi.fn(), onLogout: vi.fn(), onExpired: vi.fn(),
+    onPaidEvents: vi.fn(), onRevokedEvents: vi.fn(), onRefundDisputes: vi.fn(),
+    onNotifications: vi.fn(), onLogout: vi.fn(), onExpired: vi.fn(), onOrganizerEvents: vi.fn(), onOpenEvent: vi.fn(), onNewEvent: vi.fn(),
   }
   render(<MenuPage isAdmin={isAdmin} busy={false} {...props} />)
   return props
@@ -87,6 +92,25 @@ describe('cartão "Organizar no Arena" no Menu', () => {
     expect(screen.getByText('Pedido em análise')).not.toBeNull()
   })
 
+  it('cancelar um pedido que a administração já decidiu recarrega o estado e mostra a decisão', async () => {
+    let decided = false
+    const refused = status('recusado', { request: { ...pedido, state: 'recusado', reason_code: 'pouca_informacao', reason_detail: null } })
+    vi.mocked(request).mockImplementation(async (path, method) => {
+      if (path === '/me/organizer-request' && method === 'DELETE') { decided = true; throw new ApiError('Nenhum pedido em análise.', 404) }
+      if (path === '/me/organizer-request') return (decided ? refused : status('em_analise', { request: pedido })) as never
+      if (path === '/organizer/events?scope=abertos') return { items: [], next_cursor: null } as never
+      throw new Error(`rota inesperada ${method ?? 'GET'} ${path}`)
+    })
+    const ui = userEvent.setup()
+    renderMenu()
+    await ui.click(await screen.findByRole('button', { name: 'Cancelar pedido' }))
+    await ui.click(screen.getAllByRole('button', { name: 'Cancelar pedido' }).at(-1)!)
+    expect(await screen.findByText('Pedido recusado')).not.toBeNull()
+    expect(screen.getByRole('button', { name: 'Enviar novo pedido' })).not.toBeNull()
+    expect(screen.queryByText('Pedido em análise')).toBeNull()
+    expect(vi.mocked(request).mock.calls.filter(([path, method]) => path === '/me/organizer-request' && !method)).toHaveLength(2)
+  })
+
   it('recusado: mostra o motivo e "Enviar novo pedido"', async () => {
     mockStatus(status('recusado', { request: { ...pedido, state: 'recusado', reason_code: 'pouca_informacao', reason_detail: 'Conte os eventos que já fez' } }))
     const props = renderMenu()
@@ -104,24 +128,64 @@ describe('cartão "Organizar no Arena" no Menu', () => {
     expect(screen.getByRole('button', { name: 'Enviar novo pedido' })).not.toBeNull()
   })
 
-  it('aprovado: o cartão some e aparece "Organizador · Meus eventos" vazio, sem botão de criar', async () => {
-    mockStatus(status('aprovado', { request: { ...pedido, state: 'aprovado' }, organizer: { id: 1, display_name: 'Liga do Bairro', approved_at: '2026-10-12T12:00:00Z' } }))
-    renderMenu()
+  const approved = () => status('aprovado', { request: { ...pedido, state: 'aprovado' }, organizer: { id: 1, display_name: 'Liga do Bairro', approved_at: '2026-10-12T12:00:00Z' } })
+
+  it('aprovado sem eventos: "Organizador · Meus eventos" com o estado vazio e "Criar evento"', async () => {
+    mockStatus(approved())
+    const props = renderMenu()
     expect(await screen.findByRole('heading', { name: 'Organizador' })).not.toBeNull()
-    expect(screen.getByText(/Nenhum evento ainda/)).not.toBeNull()
+    expect(await screen.findByText(/Nenhum evento em aberto/)).not.toBeNull()
     expect(screen.queryByRole('region', { name: 'Organizar no Arena' })).toBeNull()
-    expect(screen.queryByRole('button', { name: /evento/i })).toBeNull()
+    const ui = userEvent.setup()
+    await ui.click(screen.getByRole('button', { name: 'Criar evento' }))
+    expect(props.onNewEvent).toHaveBeenCalled()
+    await ui.click(screen.getByRole('button', { name: /Meus eventos/ }))
+    expect(props.onOrganizerEvents).toHaveBeenCalled()
   })
 
-  it('mostra a fila "Pedidos de organizador" com o contador só para a administração', async () => {
-    mockStatus(status('sem_pedido'), { organizer_requests: 3 })
+  it('aprovado com eventos: prévia dos dois primeiros cartazes, pendências e acesso à gestão', async () => {
+    const events = [eventCard({ id: 5, pending: { receipts: 2, refunds_to_send: 0, refunds_awaiting: 0, refund_disputes: 0, total: 2 } }),
+      eventCard({ id: 6, name: 'Liga Noturna', state: 'rascunho', phase: 'rascunho' }), eventCard({ id: 7, name: 'Terceiro evento' })]
+    mockStatus(approved(), undefined, events)
+    const props = renderMenu()
+    const preview = await screen.findByRole('list', { name: 'Próximos eventos' })
+    expect(within(preview).getAllByRole('listitem')).toHaveLength(2)
+    expect(screen.queryByText('Terceiro evento')).toBeNull()
+    expect(screen.getByRole('button', { name: /Meus eventos/ }).textContent).toContain('3 eventos em aberto · 2 pendências')
+    expect(screen.queryByRole('button', { name: 'Criar evento' })).toBeNull()
+    await userEvent.setup().click(within(preview).getByRole('button', { name: /Copa Sudoeste Society/ }))
+    expect(props.onOpenEvent).toHaveBeenCalledWith(5)
+  })
+
+  it('revogado com eventos mantidos: mostra o cartão P3 e também a seção dos eventos', async () => {
+    mockStatus(status('revogado', { revocation: { revoked_at: '2026-10-12T12:00:00Z', reason: 'Sem resposta' } }), undefined, [eventCard()])
+    renderMenu()
+    expect(await screen.findByRole('region', { name: 'Organizar no Arena' })).not.toBeNull()
+    expect(await screen.findByRole('list', { name: 'Próximos eventos' })).not.toBeNull()
+    expect(screen.queryByRole('button', { name: 'Criar evento' })).toBeNull()
+  })
+
+  it('mostra as filas da administração com os contadores só para a administração', async () => {
+    mockStatus(status('sem_pedido'), { ...noCounts, organizer_requests: 3, paid_events: 2, revoked_events: 1, refund_disputes: 0 })
     const props = renderMenu({ isAdmin: true })
     const row = await screen.findByRole('button', { name: /Pedidos de organizador/ })
     await waitFor(() => expect(row.textContent).toContain('3 pendentes'))
     expect(screen.getByRole('heading', { name: 'Administração' })).not.toBeNull()
-    expect(screen.queryByText(/Eventos pagos/)).toBeNull()
-    await userEvent.setup().click(row)
+    const ui = userEvent.setup()
+    await ui.click(row)
     expect(props.onOrganizerRequests).toHaveBeenCalled()
+    // Etapa 2: eventos pagos, eventos de organizador revogado e devoluções contestadas, com os contadores de queue-counts.
+    const paid = screen.getByRole('button', { name: /Eventos pagos/ })
+    expect(paid.textContent).toContain('2 pendentes')
+    expect(screen.getByRole('button', { name: /Eventos de organizador revogado/ }).textContent).toContain('1 pendente')
+    const disputes = screen.getByRole('button', { name: /Devoluções contestadas/ })
+    expect(disputes.textContent).not.toMatch(/pendente/)
+    await ui.click(paid)
+    await ui.click(screen.getByRole('button', { name: /Eventos de organizador revogado/ }))
+    await ui.click(disputes)
+    expect(props.onPaidEvents).toHaveBeenCalled()
+    expect(props.onRevokedEvents).toHaveBeenCalled()
+    expect(props.onRefundDisputes).toHaveBeenCalled()
     cleanup()
 
     vi.mocked(request).mockClear()

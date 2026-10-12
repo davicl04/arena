@@ -50,6 +50,14 @@ def issue(team: Team) -> str:
     return token
 
 
+def synced_token(team: Team) -> str | None:
+    """The current token when the link exists and the stored hash matches it (nothing to write), else None."""
+    if team.link_nonce is None:
+        return None
+    token = token_for(team.id, team.link_nonce)
+    return token if team.link_token_hash == token_hash(token) else None
+
+
 def current_token(team: Team) -> tuple[str | None, bool]:
     """Current token and whether the stored hash had to be re-synced (the caller then commits)."""
     if team.link_nonce is None:

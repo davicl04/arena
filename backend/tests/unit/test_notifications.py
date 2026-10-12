@@ -22,12 +22,26 @@ class Db:
         self.added.append(value)
 
 
+STAGE_ONE_TYPES = {'convite_time', 'convite_aceito', 'pedido_entrada', 'pedido_entrada_decidido', 'removido_do_time',
+                   'time_encerrado', 'pedido_organizador_decidido', 'organizador_revogado'}
+STAGE_TWO_TYPES = {'evento_para_aprovar', 'evento_decidido', 'evento_cancelado', 'evento_revogacao_decidida',
+                   'aviso_evento', 'time_inscrito', 'comprovante_recebido', 'comprovante_decidido', 'reserva_expirada',
+                   'devolucao_enviada', 'devolucao_confirmada', 'devolucao_contestada', 'devolucao_decidida'}
+
+
 def test_stage_one_types_are_registered_with_navigation_fields():
-    assert set(NOTIFICATION_TYPES) == {
-        'convite_time', 'convite_aceito', 'pedido_entrada', 'pedido_entrada_decidido', 'removido_do_time',
-        'time_encerrado', 'pedido_organizador_decidido', 'organizador_revogado'}
-    assert all({'team_id', 'team_name'} <= keys for name, keys in NOTIFICATION_TYPES.items()
+    assert set(NOTIFICATION_TYPES) == STAGE_ONE_TYPES | STAGE_TWO_TYPES
+    assert all({'team_id', 'team_name'} <= NOTIFICATION_TYPES[name] for name in STAGE_ONE_TYPES
                if 'organizador' not in name)
+
+
+def test_stage_two_types_navigate_by_event_and_entry():
+    # Every event notification names the event; the ones about one entry also carry it (the web opens it).
+    assert all({'event_id', 'event_name'} <= NOTIFICATION_TYPES[name] for name in STAGE_TWO_TYPES)
+    per_entry = STAGE_TWO_TYPES - {'evento_para_aprovar', 'evento_decidido', 'evento_revogacao_decidida', 'aviso_evento'}
+    assert all('entry_id' in NOTIFICATION_TYPES[name] for name in per_entry)
+    assert all('receipt_id' in NOTIFICATION_TYPES[name] for name in STAGE_TWO_TYPES
+               if name.startswith(('comprovante', 'devolucao')))
 
 
 def test_notify_adds_without_commit_and_skips_own_action():

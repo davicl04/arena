@@ -22,6 +22,20 @@ NOTIFICATION_TYPES: dict[str, frozenset[str]] = {
     'time_encerrado': frozenset({'team_id', 'team_name'}),
     'pedido_organizador_decidido': frozenset({'request_id', 'decision'}),
     'organizador_revogado': frozenset({'reason'}),
+    # Stage 2: events, entries, receipts, refunds and the notice channel (docs/decisoes/0003, section 17).
+    'evento_para_aprovar': frozenset({'event_id', 'event_name'}),
+    'evento_decidido': frozenset({'event_id', 'event_name', 'decision'}),
+    'evento_cancelado': frozenset({'event_id', 'event_name', 'entry_id', 'reason', 'refund'}),
+    'evento_revogacao_decidida': frozenset({'event_id', 'event_name', 'decision'}),
+    'aviso_evento': frozenset({'event_id', 'event_name', 'message_id'}),
+    'time_inscrito': frozenset({'event_id', 'event_name', 'entry_id', 'team_id', 'team_name'}),
+    'comprovante_recebido': frozenset({'event_id', 'event_name', 'entry_id', 'receipt_id'}),
+    'comprovante_decidido': frozenset({'event_id', 'event_name', 'entry_id', 'receipt_id', 'decision'}),
+    'reserva_expirada': frozenset({'event_id', 'event_name', 'entry_id'}),
+    'devolucao_enviada': frozenset({'event_id', 'event_name', 'entry_id', 'receipt_id'}),
+    'devolucao_confirmada': frozenset({'event_id', 'event_name', 'entry_id', 'receipt_id', 'automatic'}),
+    'devolucao_contestada': frozenset({'event_id', 'event_name', 'entry_id', 'receipt_id'}),
+    'devolucao_decidida': frozenset({'event_id', 'event_name', 'entry_id', 'receipt_id', 'decision'}),
 }
 
 

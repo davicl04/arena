@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 from alembic import command
 from alembic.config import Config
+from alembic.script import ScriptDirectory
 from sqlalchemy import create_engine, func, inspect, select, text
 from sqlalchemy.exc import IntegrityError
 
@@ -41,7 +42,8 @@ def test_migration_downgrades_to_0004_and_upgrades_again():
             assert not STAGE_ONE_TABLES & set(inspect(connection).get_table_names())
             assert connection.scalar(text('SELECT version_num FROM alembic_version')) == '0004'
             command.upgrade(config, 'head')
-            assert connection.scalar(text('SELECT version_num FROM alembic_version')) == '0005'
+            head = ScriptDirectory.from_config(config).get_current_head()
+            assert connection.scalar(text('SELECT version_num FROM alembic_version')) == head
             assert connection.scalar(text('SELECT count(*) FROM standings')) == 0
     finally:
         engine.dispose()

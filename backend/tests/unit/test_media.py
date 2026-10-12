@@ -200,7 +200,8 @@ def test_reconcile_removes_old_unlinked_objects_and_metadata(monkeypatch):
     class Db:
         def __init__(self):
             self.results = [Values(['avatars/linked.webp', 'covers/linked.webp']), Values(['posts/linked.webp']),
-                            Values(['crests/linked.webp']), Values([SimpleNamespace()])]
+                            Values(['crests/linked.webp']), Values(['receipts/linked.webp']),
+                            Values([SimpleNamespace()])]
             self.deleted = 0
         def scalars(self, _): return self.results.pop(0)
         def delete(self, _): self.deleted += 1
@@ -208,8 +209,9 @@ def test_reconcile_removes_old_unlinked_objects_and_metadata(monkeypatch):
 
     storage, db = Storage(), Db()
     monkeypatch.setattr(media_service, 'storage_client', lambda: storage)
-    assert media_service.reconcile_orphans(db) == 4
-    assert storage.deleted == ['avatars/orphan.webp', 'covers/orphan.webp', 'posts/orphan.webp', 'crests/orphan.webp']
+    assert media_service.reconcile_orphans(db) == 5
+    assert storage.deleted == ['avatars/orphan.webp', 'covers/orphan.webp', 'posts/orphan.webp', 'crests/orphan.webp',
+                               'receipts/orphan.webp']
     assert db.deleted == 1
 
 

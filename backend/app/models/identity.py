@@ -75,8 +75,9 @@ class MediaObject(Base):
     object_key: Mapped[str] = mapped_column(String(200), unique=True)
     content_type: Mapped[str] = mapped_column(String(50))
     size_bytes: Mapped[int]
-    width: Mapped[int]
-    height: Mapped[int]
+    # Pixel size of images; null for PDF receipts, which are stored without being rendered.
+    width: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    height: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 

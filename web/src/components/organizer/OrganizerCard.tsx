@@ -1,12 +1,17 @@
 import { useEffect, useRef, useState } from 'react'
-import { BadgeCheck, CalendarRange, Check, CircleX, Hourglass, RotateCcw, Trophy, X } from 'lucide-react'
-import { cancelOrganizerRequest, refusalText, sentence } from '@/api/organizer'
+import { BadgeCheck, CalendarRange, Check, ChevronRight, CircleX, Hourglass, Plus, RotateCcw, Trophy, X } from 'lucide-react'
+import { ApiError } from '@/api/client'
+import { cancelOrganizerRequest, getOrganizerStatus, refusalText, sentence } from '@/api/organizer'
 import type { OrganizerState, OrganizerStatus } from '@/api/organizer'
+import type { OrganizerEventCard } from '@/api/events'
+import { EventPoster } from '@/components/events/EventPoster'
 import { useSubmit } from '@/hooks/useSubmit'
 import { Button } from '@/components/ui/button'
+import { feedbackVariants } from '@/components/ui/feedback'
 import { glassMessageVariants } from '@/components/ui/glass-variants'
 import { ListGroup, ListHeading } from '@/components/ui/list-row'
 import { cn } from '@/lib/utils'
+import { posterProps } from './eventView'
 import { shortDate } from '@/utils/relativeTime'
 
 type Stage = 'done' | 'current' | 'bad' | 'todo'
@@ -69,8 +74,21 @@ export function OrganizerCard({ status, onRequest, onChange, onExpired }: {
   if (status.state === 'aprovado' || !(status.state in stagesFor)) return null
   const state = status.state
   async function cancel() {
-    const done = await run(async () => { await cancelOrganizerRequest(); return true }, 'Não foi possível cancelar o pedido.')
-    if (!done) return
+    let stale = false
+    const done = await run(async () => {
+      try { await cancelOrganizerRequest(); return true } catch (cause) {
+        // Pedido já decidido (ou cancelado em outro lugar): o cartão confere o estado atual em vez de manter o antigo.
+        stale = cause instanceof ApiError && (cause.status === 404 || cause.status === 409)
+        throw cause
+      }
+    }, 'Não foi possível cancelar o pedido.')
+    if (!done) {
+      if (stale) {
+        setConfirming(false)
+        getOrganizerStatus().then(onChange).catch((cause: unknown) => { if (cause instanceof ApiError && cause.status === 401) onExpired() })
+      }
+      return
+    }
     setConfirming(false)
     setNotice('Pedido cancelado. Você pode enviar um novo quando quiser.')
     onChange({ state: 'sem_pedido', request: null, organizer: null, revocation: null })
@@ -118,22 +136,55 @@ export function OrganizerCard({ status, onRequest, onChange, onExpired }: {
 }
 
 /**
- * Seção "Organizador · Meus eventos" do Menu, para quem tem a permissão. A criação de eventos chega na fase 4:
- * até lá, estado vazio, sem botão que finja criar.
+ * Seção "Organizador · Meus eventos" do Menu: com a permissão (ou com eventos mantidos), a prévia dos eventos em
+ * aberto em cartazes compactos (os dois primeiros, por data) e o acesso à área do organizador (O3). Sem eventos,
+ * o estado vazio leva a criar o primeiro.
  */
-export function OrganizerEvents({ status }: { status: OrganizerStatus }) {
+export function OrganizerEvents({ status, events, loading, error, onReload, onOpenList, onOpenEvent, onCreate }: {
+  status: OrganizerStatus | null
+  /** Eventos em aberto (`GET /organizer/events?scope=abertos`). */
+  events: OrganizerEventCard[]
+  loading: boolean
+  error: string
+  onReload: () => void
+  /** Abre a área do organizador (O3). */
+  onOpenList: () => void
+  /** Abre a gestão de um evento (G3). */
+  onOpenEvent: (eventId: number) => void
+  /** Abre o Criar evento (V4); só com a permissão ativa. */
+  onCreate: () => void
+}) {
+  const approved = status?.state === 'aprovado'
+  const preview = events.slice(0, 2)
+  const pending = events.reduce((total, event) => total + event.pending.total, 0)
   return <section aria-labelledby="organizer-events-title">
     <ListHeading id="organizer-events-title">Organizador</ListHeading>
+    {loading && <p role="status" className="mx-1 mb-2 text-[11px] text-ink-muted">Carregando os seus eventos…</p>}
+    {error && <div className={cn(feedbackVariants(), 'mt-0')} role="alert">{error} <Button variant="text" onClick={onReload}>Tentar novamente</Button></div>}
+    {preview.length > 0 && <ul className="m-0 mb-2.5 grid list-none grid-cols-2 gap-2.5 p-0" aria-label="Próximos eventos">
+      {preview.map(event => <li key={event.id} className="grid min-w-0">
+        <EventPoster {...posterProps(event)} pendingCount={event.pending.total} showSport className="min-h-[170px] pt-[56px]" onClick={() => onOpenEvent(event.id)} />
+      </li>)}
+    </ul>}
     <ListGroup>
-      <div className="flex items-start gap-3 px-3.5 py-3">
-        <span className="grid size-[34px] flex-none place-items-center rounded-[10px] bg-[#005a3612] text-brand"><CalendarRange size={17} /></span>
-        <div className="min-w-0 flex-1">
-          <b className="flex items-center gap-1.5 text-[12px]">Meus eventos{status.organizer && <BadgeCheck size={14} className="text-brand" aria-hidden="true" />}</b>
+      <button type="button" onClick={onOpenList} className="flex min-h-[54px] w-full items-center gap-3 border-0 bg-transparent px-3.5 py-2.5 text-left text-inherit enabled:hover:bg-[#f6f7f9]">
+        <span className="grid size-[34px] flex-none place-items-center rounded-[10px] bg-[#005a3612] text-brand"><CalendarRange size={17} aria-hidden="true" /></span>
+        <span className="min-w-0 flex-1">
+          <b className="flex items-center gap-1.5 text-[12px]">Meus eventos{approved && status?.organizer && <BadgeCheck size={14} className="text-brand" aria-hidden="true" />}</b>
           <small className="mt-0.5 text-[11px] leading-[1.5] text-ink-muted">
-            {status.organizer ? `${status.organizer.display_name} · ` : ''}Nenhum evento ainda. A criação de campeonatos e provas chega numa próxima etapa do Arena.
+            {approved && status?.organizer ? `${status.organizer.display_name} · ` : ''}
+            {loading ? 'Carregando…' : events.length
+              ? `${events.length === 1 ? '1 evento em aberto' : `${events.length} eventos em aberto`}${pending ? ` · ${pending === 1 ? '1 pendência' : `${pending} pendências`}` : ''}`
+              : 'Nenhum evento em aberto.'}
           </small>
-        </div>
-      </div>
+        </span>
+        <ChevronRight size={16} className="flex-none text-ink-muted" aria-hidden="true" />
+      </button>
+      {approved && !loading && !events.length && <button type="button" onClick={onCreate} className="flex min-h-[54px] w-full items-center gap-3 border-0 border-t border-solid border-line bg-transparent px-3.5 py-2.5 text-left text-inherit enabled:hover:bg-[#f6f7f9]">
+        <span className="grid size-[34px] flex-none place-items-center rounded-[10px] bg-[#005a3612] text-brand"><Plus size={17} aria-hidden="true" /></span>
+        <span className="min-w-0 flex-1 text-[12px] font-bold">Criar evento</span>
+        <ChevronRight size={16} className="flex-none text-ink-muted" aria-hidden="true" />
+      </button>}
     </ListGroup>
   </section>
 }

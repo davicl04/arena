@@ -23,12 +23,16 @@ const removed = note(3, 'removido_do_time', { team_id: 9, team_name: 'Leões do 
 const accepted = note(4, 'convite_aceito', { team_id: 9, team_name: 'Leões do Cerrado', invite_id: 3 }, { actor: caio, read_at: hoursAgo(1) })
 
 let calls: { path: string; method?: string; body?: unknown }[]
-function mockApi(items: ArenaNotification[], { unread = items.filter(item => !item.read_at).length, failRead = false, next = null as string | null } = {}) {
+function mockApi(items: ArenaNotification[], { unread = items.filter(item => !item.read_at).length, failRead = false, next = null as string | null, followFailures = 0 } = {}) {
   calls = []
   let count = unread
+  let followLeft = followFailures
   vi.mocked(request).mockImplementation(async (path, method, body) => {
     calls.push({ path, method, body })
-    if (path === '/me/follow-requests') return { items: [], next_cursor: null } as never
+    if (path === '/me/follow-requests') {
+      if (followLeft-- > 0) throw new ApiError('Não foi possível carregar as solicitações.', 500)
+      return { items: [], next_cursor: null } as never
+    }
     if (path === '/me/notifications') return { items, next_cursor: next } as never
     if (path.startsWith('/me/notifications?cursor=')) return { items: [note(40, 'time_encerrado', { team_id: 8, team_name: 'Ferrugem FC' }, { read_at: hoursAgo(1) })], next_cursor: null } as never
     if (path === '/me/notifications/unread-count') return { unread_count: count } as never
@@ -197,5 +201,28 @@ describe('textos e destinos das notificações', () => {
     expect(relativeTime('2026-09-01T12:00:00Z', now)).toMatch(/1.*set/)
     expect(relativeTime('2025-09-01T12:00:00Z', now)).toMatch(/2025/)
     expect(relativeTime('inválida', now)).toBe('')
+  })
+})
+
+describe('erro nas solicitações para seguir', () => {
+  it('aparece só na própria seção: as atividades continuam e o erro some ao tentar de novo', async () => {
+    mockApi([invite, accepted], { followFailures: 1 })
+    renderPage()
+    const list = await screen.findByRole('list', { name: 'Notificações da conta' })
+    expect(within(list).getAllByRole('listitem')).toHaveLength(2)
+    const section = screen.getByRole('region', { name: 'Solicitações para seguir' })
+    expect(within(section).getByRole('alert').textContent).toContain('Não foi possível carregar as solicitações.')
+    expect(screen.queryByText('Tudo em dia')).toBeNull()
+    await userEvent.setup().click(within(section).getByRole('button', { name: 'Tentar novamente' }))
+    await waitFor(() => expect(screen.queryByRole('region', { name: 'Solicitações para seguir' })).toBeNull())
+    expect(screen.getByRole('list', { name: 'Notificações da conta' })).not.toBeNull()
+  })
+
+  it('sem atividades, o erro aparece sem o estado vazio "Tudo em dia"', async () => {
+    mockApi([], { followFailures: 1 })
+    renderPage()
+    const section = await screen.findByRole('region', { name: 'Solicitações para seguir' })
+    expect(within(section).getByRole('alert')).not.toBeNull()
+    expect(screen.queryByText('Tudo em dia')).toBeNull()
   })
 })

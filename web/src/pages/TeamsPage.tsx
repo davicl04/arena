@@ -56,6 +56,7 @@ export default function TeamsPage({ viewerId, selectedTeamId, openInvites = fals
   const [teams, setTeams] = useState<TeamCard[] | null>(null)
   const [loadError, setLoadError] = useState('')
   const [invites, setInvites] = useState<TeamInviteReceived[]>([])
+  const [invitesError, setInvitesError] = useState('')
   const [attempt, setAttempt] = useState(0)
   const [roster, setRoster] = useState<RosterState | null>(null)
   const [rosterAttempt, setRosterAttempt] = useState(0)
@@ -79,7 +80,8 @@ export default function TeamsPage({ viewerId, selectedTeamId, openInvites = fals
     let alive = true
     myTeams().then(items => { if (alive) { setTeams(items); setLoadError('') } })
       .catch((cause: unknown) => { if (alive) { fail(cause); setLoadError(messageOf(cause, 'Não foi possível carregar seus times.')) } })
-    myInvites().then(items => { if (alive) setInvites(items) }).catch(fail)
+    myInvites().then(items => { if (alive) { setInvites(items); setInvitesError('') } })
+      .catch((cause: unknown) => { if (alive) { fail(cause); setInvitesError(messageOf(cause, 'Não foi possível carregar os convites recebidos.')) } })
     return () => { alive = false }
   }, [attempt, fail])
   const reload = () => setAttempt(n => n + 1)
@@ -178,6 +180,7 @@ export default function TeamsPage({ viewerId, selectedTeamId, openInvites = fals
 
     <div className="px-4">
       <p role="status" aria-live="polite" className={cn(notice ? feedbackVariants({ tone: 'success' }) : 'sr-only')}>{notice}</p>
+      {invitesError && <div className={feedbackVariants()} role="alert">{invitesError} <Button variant="text" onClick={reload}>Tentar novamente</Button></div>}
       {listError && <p className={feedbackVariants()} role="alert">{listError}</p>}
       {!selected
         ? <EmptyState Icon={Shield} title="Você ainda não tem time"
@@ -215,7 +218,7 @@ export default function TeamsPage({ viewerId, selectedTeamId, openInvites = fals
         setRoster(old => old && { ...old, items: old.items.filter(item => item.user_id !== member.user_id) })
         setSheet(null); announce(message); reload()
       }} />}
-    {sheet?.kind === 'invites' && <InviteSheet invites={invites} onClose={() => setSheet(null)} onExpired={onExpired}
+    {sheet?.kind === 'invites' && <InviteSheet invites={invites} loadError={invitesError} onRetry={reload} onClose={() => setSheet(null)} onExpired={onExpired}
       onAccepted={(invite, team) => {
         setInvites(old => old.filter(item => item.id !== invite.id))
         if (invites.length <= 1) setSheet(null)

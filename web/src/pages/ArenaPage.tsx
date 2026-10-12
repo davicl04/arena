@@ -23,13 +23,25 @@ import PlayPage from "./PlayPage";
 import OrganizerRequestPage from "./OrganizerRequestPage";
 import AdminOrganizerRequests from "../components/admin/AdminOrganizerRequests";
 import SocialCommunity from "../components/SocialCommunity";
-import { activeNavFor, rankingTiers, sportIcons } from "../data/arena";
+import { activeNavFor, eventNoun, rankingTiers, sportIcons } from "../data/arena";
 import type { ConnectionsTab, Screen } from "../data/arena";
 // Meus times (frente C): carteirinhas, criar/editar, convidar e entrar pelo link.
 import TeamsPage from "./TeamsPage";
 import TeamFormPage from "./TeamFormPage";
 import JoinPage from "./JoinPage";
 import { InviteFlow } from "../components/teams/InviteFlow";
+// Comprovantes e devoluções do organizador (A2) e filas da administração (AD1).
+import ReceiptsPage from "./ReceiptsPage";
+import AdminPaidEvents from "../components/admin/AdminPaidEvents";
+import AdminRevokedEvents from "../components/admin/AdminRevokedEvents";
+import AdminRefundDisputes from "../components/admin/AdminRefundDisputes";
+// Eventos do organizador (frente W-org1): lista O3, Criar evento V4 e gestão G3.
+import OrganizerEventsPage from "./OrganizerEventsPage";
+import EventWizard from "./EventWizard";
+import EventManagePage from "./EventManagePage";
+// Campeonatos e provas do atleta (etapa 2): lista E2 e detalhe D2.
+import EventsPage from "./EventsPage";
+import EventPage from "./EventPage";
 
 /** Uma tela da pilha de navegação, com o contexto necessário para restaurá-la ao voltar. */
 interface Entry {
@@ -49,6 +61,12 @@ interface Entry {
   invites?: boolean;
   /** Meus times (`teams`) aberto já na lista "Pedidos para entrar" do time (notificação de pedido). */
   requests?: boolean;
+  /** Evento da tela (gestão, comprovantes, detalhe); em `event-wizard`, a ausência indica criação. */
+  eventId?: number;
+  /** Modalidade da lista de eventos (`events`) e do detalhe: a corrida chama os eventos de "Provas". */
+  sport?: Sport;
+  /** Passo do Criar evento (`event-wizard`) ao abrir um rascunho ("Preencher" do checklist). */
+  step?: number;
 }
 /** Subtítulo das telas Jogar e Ranking. */
 const subtitle = "mb-[25px] text-[12px] leading-[1.6] text-ink-muted";
@@ -73,20 +91,39 @@ const titles: Record<Screen, string> = {
   join: "Entrar no time",
   "organizer-request": "Seja organizador",
   "admin-organizer-requests": "Pedidos de organizador",
+  "organizer-events": "Meus eventos",
+  "event-wizard": "Novo evento",
+  "event-manage": "Gestão do evento",
+  "event-receipts": "Comprovantes",
+  "admin-paid-events": "Eventos pagos",
+  "admin-revoked-events": "Organizador revogado",
+  "admin-refund-disputes": "Devoluções contestadas",
+  events: eventNoun.futebol.many,
+  event: eventNoun.futebol.one,
 };
+/** Título da barra conforme o contexto: edição de time ou de rascunho e eventos da corrida ("Provas"). */
+function titleFor(entry: Entry): string {
+  if (entry.mutual) return "Seguidores em comum";
+  if (entry.screen === "team-form" && entry.teamId) return "Editar time";
+  if (entry.screen === "event-wizard" && entry.eventId) return "Editar rascunho";
+  if (entry.sport && (entry.screen === "events" || entry.screen === "event"))
+    return entry.screen === "events" ? eventNoun[entry.sport].many : eventNoun[entry.sport].one;
+  return titles[entry.screen];
+}
 
 export default function ArenaPage({
   user,
   onUser,
   onLogout,
-  onExpired,
+  onExpired: expireSession,
   joinToken,
   onJoinOpened,
 }: {
   user: User;
   onUser: (user: User) => void;
   onLogout: () => void;
-  onExpired: () => void;
+  /** Sessão expirada; `joinToken` devolve ao App o link do time ainda aberto, para o próximo login reabri-lo. */
+  onExpired: (joinToken?: string) => void;
   /** Token do link do time lido do endereço (`/entrar/{token}`): abre a tela `join` sobre o Início. */
   joinToken?: string | null;
   /** Consome o token, para um novo login na mesma aba não reabrir o link. */
@@ -104,6 +141,15 @@ export default function ArenaPage({
   useEffect(() => {
     if (joinToken) onJoinOpened?.();
   }, [joinToken, onJoinOpened]);
+  // O token do link é consumido ao abrir; se a sessão expirar com a tela `join` ainda na pilha, ele volta ao App.
+  const stackRef = useRef(stack);
+  useEffect(() => {
+    stackRef.current = stack;
+  }, [stack]);
+  const onExpired = useCallback(() => {
+    const open = [...stackRef.current].reverse().find((entry) => entry.screen === "join");
+    expireSession(open?.token);
+  }, [expireSession]);
   const current = stack[stack.length - 1];
   const screen = current.screen;
   const viewedUserId = current.userId ?? 0;
@@ -184,6 +230,13 @@ export default function ArenaPage({
   const consumeRequestsRequest = useCallback(() => {
     setStack((old) => old.map((entry) => (entry.requests ? { ...entry, requests: false } : entry)));
   }, []);
+  /** Modalidade da lista ou do detalhe do evento na tela atual: título ("Provas") e a volta ao mesmo filtro. */
+  const setScreenSport = useCallback((sport: Sport) => {
+    setStack((old) => {
+      const last = old[old.length - 1];
+      return last.sport === sport ? old : [...old.slice(0, -1), { ...last, sport }];
+    });
+  }, []);
   /**
    * Sai da tela atual para Meus times com `teamId` no carrossel: volta à Meus times logo abaixo na pilha ou a empilha
    * (Criar time, encerrar, link do time).
@@ -194,6 +247,17 @@ export default function ArenaPage({
       const below = rest[rest.length - 1];
       const entry: Entry = { screen: "teams", teamId, invites };
       return below?.screen === "teams" ? [...rest.slice(0, -1), entry] : [...rest, entry];
+    });
+  }
+
+  /* Eventos do organizador (frente W-org1). */
+  /** Sai do Criar evento para a gestão do evento: volta à gestão logo abaixo na pilha ou a empilha. */
+  function showEventManage(eventId: number) {
+    show((old) => {
+      const rest = old.slice(0, -1);
+      const below = rest[rest.length - 1];
+      const entry: Entry = { screen: "event-manage", eventId };
+      return below?.screen === "event-manage" && below.eventId === eventId ? [...rest.slice(0, -1), entry] : [...rest, entry];
     });
   }
 
@@ -227,18 +291,18 @@ export default function ArenaPage({
     }
   }
   const firstName = user.name.trim().split(/\s+/)[0];
-  const title = current.mutual
-    ? "Seguidores em comum"
-    : screen === "team-form" && current.teamId
-      ? "Editar time"
-      : titles[screen];
+  const title = titleFor(current);
   const activeNav = activeNavFor(screen, stack[0].screen);
   const profileLayout = screen === "profile" || screen === "user-profile";
   // A Comunidade e o Jogar têm barra (ou placa) própria, de ponta a ponta, presa ao topo do `main`.
   const communityLayout = screen === "community" || screen === "play";
   // Meus times: placa ou tela escura própria, de ponta a ponta, com o título e o voltar/fechar dentro dela.
   const teamsLayout = (["teams", "team-form", "team-invite", "join"] as Screen[]).includes(screen);
-  const darkLayout = screen === "team-form" || screen === "team-invite";
+  const darkLayout = screen === "team-form" || screen === "team-invite" || screen === "event-wizard";
+  // Comprovantes (A2): placa `forest` própria, com o voltar e o nome do evento dentro dela.
+  const plateLayout = screen === "event-receipts";
+  // Eventos do organizador: placa ou tela escura própria (o Criar evento é escuro de ponta a ponta).
+  const eventsLayout = (["organizer-events", "event-wizard", "event-manage"] as Screen[]).includes(screen);
 
   return (
     <div className="grid min-h-dvh place-items-center p-6 app-narrow:p-0">
@@ -251,12 +315,12 @@ export default function ArenaPage({
             "h-full overflow-x-hidden overflow-y-auto px-5 pt-[18px] pb-28 outline-none scrollbar-hidden app-narrow:pb-[calc(112px+env(safe-area-inset-bottom))]",
             profileLayout && "@container-size pt-0",
             communityLayout && "px-0 pt-0",
-            teamsLayout && "px-0 pt-0",
+            (teamsLayout || plateLayout || eventsLayout) && "px-0 pt-0",
             darkLayout && "bg-forest",
           )}
           aria-label={title}
         >
-          {screen !== "home" && !profileLayout && !communityLayout && !teamsLayout && (
+          {screen !== "home" && !profileLayout && !communityLayout && !teamsLayout && !plateLayout && !eventsLayout && (
             <header className="-mx-2 -mt-2 mb-[18px] flex min-h-[54px] items-center justify-between">
               <IconButton aria-label="Voltar" onClick={back}>
                 <ArrowLeft size={21} />
@@ -410,6 +474,7 @@ export default function ArenaPage({
           )}
           {screen === "notifications" && (
             <NotificationsPage
+              isAdmin={user.is_admin}
               onOpenUser={openUser}
               onNavigate={({ screen: next, ...context }) => go(next, context)}
               onExpired={onExpired}
@@ -455,6 +520,12 @@ export default function ArenaPage({
               onModeration={() => go("moderation")}
               onOrganizerRequest={() => go("organizer-request")}
               onOrganizerRequests={() => go("admin-organizer-requests")}
+              onPaidEvents={() => go("admin-paid-events")}
+              onRevokedEvents={() => go("admin-revoked-events")}
+              onRefundDisputes={() => go("admin-refund-disputes")}
+              onOrganizerEvents={() => go("organizer-events")}
+              onOpenEvent={(eventId) => go("event-manage", { eventId })}
+              onNewEvent={() => go("event-wizard")}
               onNotifications={() => go("notifications")}
               onLogout={logout}
               onExpired={onExpired}
@@ -473,6 +544,12 @@ export default function ArenaPage({
           )}
           {screen === "admin-organizer-requests" && user.is_admin && (
             <AdminOrganizerRequests onOpenUser={openUser} onExpired={onExpired} />
+          )}
+          {screen === "admin-paid-events" && user.is_admin && <AdminPaidEvents onExpired={onExpired} />}
+          {screen === "admin-revoked-events" && user.is_admin && <AdminRevokedEvents onExpired={onExpired} />}
+          {screen === "admin-refund-disputes" && user.is_admin && <AdminRefundDisputes onExpired={onExpired} />}
+          {screen === "event-receipts" && current.eventId !== undefined && (
+            <ReceiptsPage key={current.eventId} eventId={current.eventId} onBack={back} onExpired={onExpired} />
           )}
           {/* Meus times (frente C). */}
           {screen === "teams" && (
@@ -521,6 +598,61 @@ export default function ArenaPage({
               token={current.token}
               onClose={back}
               onOpenTeams={(team, invites) => showTeams(team.id, invites)}
+              onExpired={onExpired}
+            />
+          )}
+          {/* Eventos do organizador (frente W-org1). */}
+          {screen === "organizer-events" && (
+            <OrganizerEventsPage
+              onBack={back}
+              onOpen={(eventId) => go("event-manage", { eventId })}
+              onCreate={() => go("event-wizard")}
+              onExpired={onExpired}
+            />
+          )}
+          {screen === "event-wizard" && (
+            <EventWizard
+              key={`${current.eventId ?? "novo"}-${current.step ?? ""}`}
+              eventId={current.eventId}
+              initialStep={current.step}
+              cities={cities}
+              onClose={back}
+              onDone={(event) => showEventManage(event.id)}
+              onExpired={onExpired}
+            />
+          )}
+          {screen === "event-manage" && current.eventId !== undefined && (
+            <EventManagePage
+              key={current.eventId}
+              eventId={current.eventId}
+              onBack={back}
+              onEdit={(step) => go("event-wizard", { eventId: current.eventId, step })}
+              onReceipts={() => go("event-receipts", { eventId: current.eventId })}
+              onDeleted={back}
+              onExpired={onExpired}
+            />
+          )}
+          {/* Campeonatos e provas do atleta (etapa 2). */}
+          {screen === "events" && (
+            <EventsPage
+              sport={current.sport ?? "futebol"}
+              profiles={profiles}
+              cities={cities}
+              loading={loading}
+              onSport={setScreenSport}
+              onOpen={(eventId, sport) => go("event", { eventId, sport })}
+              onSports={() => go("sports")}
+              onExpired={onExpired}
+            />
+          )}
+          {screen === "event" && current.eventId !== undefined && (
+            <EventPage
+              key={current.eventId}
+              eventId={current.eventId}
+              onSport={setScreenSport}
+              onTeams={() => go("teams")}
+              onManage={(eventId) => go("event-manage", { eventId })}
+              onOpenUser={openUser}
               onExpired={onExpired}
             />
           )}

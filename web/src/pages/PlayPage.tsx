@@ -51,7 +51,7 @@ export default function PlayPage({ profiles, cities, loading, go, onExpired }: {
   cities: City[]
   /** Perfis esportivos ainda carregando (ArenaPage). */
   loading: boolean
-  go: (screen: Screen, context?: { teamId?: number }) => void
+  go: (screen: Screen, context?: { teamId?: number; sport?: Sport }) => void
   onExpired: () => void
 }) {
   const ids = useId()
@@ -143,6 +143,6 @@ export default function PlayPage({ profiles, cities, loading, go, onExpired }: {
         <p id={noteId} className="max-w-[290px] text-[10.5px] leading-[1.55] text-white/65" aria-live="polite">{note}</p>
       </div>
     </section>
-    <OtherWays sport={sport} onTeams={() => go('teams')} />
+    <OtherWays sport={sport} onTeams={() => go('teams')} onEvents={() => go('events', { sport })} />
   </div>
 }

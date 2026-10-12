@@ -1,6 +1,8 @@
 """Invites, team link and join requests (Times e campeonatos, fases 1 e 2; contrato 0003, seções 4 e 5).
 
 Lock order is always team -> roster -> invite or request, so concurrent decisions serialize on the team row.
+Authorization comes first, without locks: who cannot see the team, or is not a representative, gets 404 or 403
+without ever holding (or waiting for) the team row; the checks are repeated on the locked rows.
 """
 from __future__ import annotations
 
@@ -34,9 +36,11 @@ from app.services.teams import (
     build_cards,
     get_team,
     load_context,
+    lock_context,
     lock_row,
     pending_invite,
     pending_request,
+    representative_context,
     team_context,
     users_by_id,
     visible_person,
@@ -146,8 +150,7 @@ def invite_candidates(db: Session, viewer: User, team_id: int, q: str | None, cu
 def create_invite(db: Session, viewer: User, team_id: int, invitee_id: int,
                   message: str | None) -> tuple[TeamInviteSentOut, bool]:
     """Returns the invite and whether it was created (False: the pending one, message unchanged)."""
-    context = team_context(db, team_id, viewer.id, lock=True)
-    context.require_representative(ONLY_REP_INVITE)
+    context = representative_context(db, team_id, viewer.id, ONLY_REP_INVITE, lock=True)
     team = context.team
     invitee = db.get(User, invitee_id)
     if invitee is None or not invitee.active or blocked_between(db, viewer.id, invitee.id):
@@ -185,10 +188,12 @@ def cancel_invite(db: Session, viewer: User, invite_id: int) -> None:
     invite = db.get(TeamInvite, invite_id)
     if invite is None:
         raise HTTPException(404, INVITE_NOT_FOUND)
-    context = load_context(db, invite.team_id, viewer.id, lock=True)
-    if context is None or context.me is None:
-        raise HTTPException(404, INVITE_NOT_FOUND)
-    context.require_representative(ONLY_REP_CANCEL_INVITE)
+    # Authorized without locks first (404 for outsiders, 403 for members), then checked again on the locked team.
+    for lock in (False, True):
+        context = load_context(db, invite.team_id, viewer.id, lock=lock)
+        if context is None or context.me is None:
+            raise HTTPException(404, INVITE_NOT_FOUND)
+        context.require_representative(ONLY_REP_CANCEL_INVITE)
     invite = lock_row(db, TeamInvite, invite_id)
     if invite.state != 'pendente':
         raise HTTPException(409, INVITE_NOT_PENDING)
@@ -249,10 +254,16 @@ def decide_invite(db: Session, viewer: User, invite_id: int, decision: str) -> I
 # --- Team link and join requests (seção 5) ------------------------------------------------------------
 
 def team_link(db: Session, viewer: User, team_id: int, *, regenerate: bool) -> TeamLinkOut:
-    """Current link (recomputed from the nonce) or, with `regenerate`, a new one that voids the previous."""
-    context = team_context(db, team_id, viewer.id, lock=True)
-    context.require_representative(ONLY_REP_LINK)
-    team = context.team
+    """Current link (recomputed from the nonce) or, with `regenerate`, a new one that voids the previous.
+
+    Reading an existing link writes nothing, so it takes no lock; creating, replacing or re-syncing the link (a
+    changed TEAM_LINK_SECRET) locks the team after the authorization and decides on the fresh row.
+    """
+    context = representative_context(db, team_id, viewer.id, ONLY_REP_LINK)
+    if not regenerate and (token := team_links.synced_token(context.team)) is not None:
+        team = context.team
+        return TeamLinkOut(url=team_links.join_url(token), token=token, generated_at=team.link_generated_at)
+    team = lock_context(db, context, viewer.id, representative=ONLY_REP_LINK).team
     if regenerate or team.link_nonce is None:
         token, changed = team_links.issue(team), True
         if regenerate:
@@ -278,6 +289,10 @@ def request_to_join(db: Session, viewer: User, token: str) -> tuple[JoinRequestO
     if team is None:
         raise HTTPException(404, LINK_INVALID)
     context = load_context(db, team.id, viewer.id, lock=True)
+    # Same rule (and answer) as the invite: no request between people with a block, in either direction, with any
+    # active representative (who would receive and decide it).
+    if blocked_ids(db, viewer.id, context.representative_ids()):
+        raise HTTPException(404, ATHLETE_NOT_FOUND)
     if context.me is not None:
         raise HTTPException(409, YOU_ARE_MEMBER)
     if pending_invite(db, team.id, viewer.id) is not None:
@@ -325,11 +340,13 @@ def decide_request(db: Session, viewer: User, request_id: int, decision: str) ->
     request = db.get(TeamJoinRequest, request_id)
     if request is None:
         raise HTTPException(404, REQUEST_NOT_FOUND)
-    context = load_context(db, request.team_id, viewer.id, lock=True)
-    if (context is None or context.me is None) and request.user_id != viewer.id:
-        raise HTTPException(404, REQUEST_NOT_FOUND)
-    if context is None or context.me is None or context.me.role != REPRESENTATIVE:
-        raise HTTPException(403, ONLY_REP_REQUESTS)
+    # Authorized without locks first, then checked again on the locked team and roster.
+    for lock in (False, True):
+        context = load_context(db, request.team_id, viewer.id, lock=lock)
+        if (context is None or context.me is None) and request.user_id != viewer.id:
+            raise HTTPException(404, REQUEST_NOT_FOUND)
+        if context is None or context.me is None or context.me.role != REPRESENTATIVE:
+            raise HTTPException(403, ONLY_REP_REQUESTS)
     request = lock_row(db, TeamJoinRequest, request_id)
     if request.state != 'pendente':
         raise HTTPException(409, REQUEST_NOT_PENDING)

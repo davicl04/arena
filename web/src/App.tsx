@@ -32,7 +32,9 @@ export default function App() {
       alive = false
     }
   }, [attempt])
-  const expired = useCallback(() => {
+  const expired = useCallback((pendingJoinToken?: string) => {
+    // O link do time que ainda estava aberto volta para a memória: o próximo login o reabre.
+    if (pendingJoinToken) setJoinToken(pendingJoinToken)
     setUser(null)
     setError('Sua sessão expirou. Entre novamente para continuar.')
   }, [])

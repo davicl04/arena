@@ -59,8 +59,16 @@ export default function JoinPage({ token, onClose, onOpenTeams, onExpired }: {
   async function cancel() {
     if (!preview?.request_id) return
     const requestId = preview.request_id
-    const done = await action.run(async () => { await cancelJoinRequest(requestId); return true }, 'Não foi possível cancelar o pedido.')
+    let stale = false
+    const done = await action.run(async () => {
+      try { await cancelJoinRequest(requestId); return true } catch (cause) {
+        // Pedido já decidido por um representante (ou cancelado em outro lugar): confere o estado atual do link.
+        stale = cause instanceof ApiError && (cause.status === 404 || cause.status === 409)
+        throw cause
+      }
+    }, 'Não foi possível cancelar o pedido.')
     if (done) setPreview({ ...preview, my_status: 'disponivel', request_id: null })
+    else if (stale) setAttempt(n => n + 1)
   }
 
   const team = preview?.team

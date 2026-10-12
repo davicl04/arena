@@ -3,7 +3,10 @@ import type { Person } from './client'
 
 /** Contrato: docs/decisoes/0003-times-campeonatos.md, seção 7. Os pedidos para seguir ficam em `/me/follow-requests`. */
 
-/** Tipos da etapa 1. As fases seguintes acrescentam outros; a web mostra um texto genérico para os desconhecidos. */
+/**
+ * Tipos das etapas 1 (seção 7) e 2 (seção 17: eventos, inscrições, comprovantes, devoluções e avisos). As fases
+ * seguintes acrescentam outros; a web mostra um texto genérico para os desconhecidos.
+ */
 export type NotificationType =
   | 'convite_time'
   | 'convite_aceito'
@@ -13,6 +16,19 @@ export type NotificationType =
   | 'time_encerrado'
   | 'pedido_organizador_decidido'
   | 'organizador_revogado'
+  | 'evento_para_aprovar'
+  | 'evento_decidido'
+  | 'evento_cancelado'
+  | 'evento_revogacao_decidida'
+  | 'aviso_evento'
+  | 'time_inscrito'
+  | 'comprovante_recebido'
+  | 'comprovante_decidido'
+  | 'reserva_expirada'
+  | 'devolucao_enviada'
+  | 'devolucao_confirmada'
+  | 'devolucao_contestada'
+  | 'devolucao_decidida'
 
 export interface ArenaNotification {
   id: number

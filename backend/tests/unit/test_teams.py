@@ -144,11 +144,16 @@ def test_context_requires_the_representative_role():
     assert context.representative_ids() == [1]
 
 
-def test_closing_needs_an_active_team():
-    ensure_closable(None, Team(id=1, name='Ativo', state='ativo'))
+def test_closing_needs_an_active_team_without_entries_in_play():
+    no_entry = SimpleNamespace(scalar=lambda statement: None)
+    ensure_closable(no_entry, Team(id=1, name='Ativo', state='ativo'))
     with pytest.raises(HTTPException) as error:
-        ensure_closable(None, Team(id=1, name='Fechado', state='encerrado'))
+        ensure_closable(no_entry, Team(id=1, name='Fechado', state='encerrado'))
     assert error.value.status_code == 409
+    with pytest.raises(HTTPException) as entered:
+        ensure_closable(SimpleNamespace(scalar=lambda statement: 7), Team(id=1, name='Inscrito', state='ativo'))
+    assert (entered.value.status_code, entered.value.detail) == (
+        409, 'Encerre ou cancele as partidas agendadas e as inscrições ativas antes de encerrar o time.')
 
 
 def test_people_hide_avatar_or_actor_for_blocks_and_inactive_accounts():

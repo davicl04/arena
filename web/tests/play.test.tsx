@@ -138,13 +138,21 @@ describe('placa do Jogar (fase 1)', () => {
     expect(screen.getByRole('heading', { name: 'Provas' })).not.toBeNull()
   })
 
-  it('"Outras formas de jogar": Meu time e campeonatos em estado vazio', async () => {
+  it('"Outras formas de jogar": Meu time e os campeonatos (ou provas) da modalidade da aba', async () => {
+    const ui = userEvent.setup()
     const go = renderPlay(standings())
     const section = screen.getByRole('region', { name: 'Outras formas de jogar' })
-    expect(within(section).getByText(/Nenhum campeonato aberto/)).not.toBeNull()
-    expect(within(section).queryAllByRole('button')).toHaveLength(1)
-    await userEvent.setup().click(within(section).getByRole('button', { name: /Meu time/ }))
+    expect(within(section).queryByText('Em breve')).toBeNull()
+    await ui.click(within(section).getByRole('button', { name: /Meu time/ }))
     expect(go).toHaveBeenCalledWith('teams')
+    await ui.click(within(section).getByRole('button', { name: /Campeonatos/ }))
+    expect(go).toHaveBeenLastCalledWith('events', { sport: 'futebol' })
+    await ui.click(screen.getByRole('tab', { name: 'Tênis' }))
+    await ui.click(within(screen.getByRole('region', { name: 'Outras formas de jogar' })).getByRole('button', { name: /Campeonatos/ }))
+    expect(go).toHaveBeenLastCalledWith('events', { sport: 'tenis' })
+    await ui.click(screen.getByRole('tab', { name: 'Corrida' }))
+    await ui.click(within(screen.getByRole('region', { name: 'Provas' })).getByRole('button', { name: /Provas/ }))
+    expect(go).toHaveBeenLastCalledWith('events', { sport: 'corrida' })
   })
 
   it('mostra o erro do elo e tenta de novo', async () => {

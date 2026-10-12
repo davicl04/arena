@@ -25,8 +25,11 @@ const decided: AdminOrganizerRequest = { ...base, id: 3, display_name: 'Copa Ant
 const organizer: AdminOrganizer = { id: 9, user: rafa, display_name: 'Liga do Bairro', approved_at: '2026-10-10T10:00:00Z', approved_by: null, request_id: 1 }
 
 let calls: { path: string; method?: string; body?: unknown }[]
+/** Pedidos que saem da fila "Para analisar" (decididos por outra pessoa durante o teste). */
+let gone: number[]
 function mockApi({ decision }: { decision?: (id: number, body: Record<string, unknown>) => unknown } = {}) {
   calls = []
+  gone = []
   vi.mocked(request).mockImplementation(async (path, method, body) => {
     calls.push({ path, method, body })
     const decide = path.match(/^\/admin\/organizer-requests\/(\d+)\/decision$/)
@@ -36,7 +39,7 @@ function mockApi({ decision }: { decision?: (id: number, body: Record<string, un
       if (decision) return decision(id, input) as never
       return { ...[base, second].find(item => item.id === id)!, state: input.decision === 'aprovar' ? 'aprovado' : 'recusado' } as never
     }
-    if (path === '/admin/organizer-requests?state=em_analise') return { items: [base, second], next_cursor: 'p2' } as never
+    if (path === '/admin/organizer-requests?state=em_analise') return { items: [base, second].filter(item => !gone.includes(item.id)), next_cursor: 'p2' } as never
     if (path === '/admin/organizer-requests?state=em_analise&cursor=p2') return { items: [], next_cursor: null } as never
     if (path === '/admin/organizer-requests?state=decididos') return { items: [decided], next_cursor: null } as never
     if (path === '/admin/organizers') return { items: [organizer], next_cursor: null } as never
@@ -111,8 +114,8 @@ describe('fila de pedidos de organizador (AD1)', () => {
     expect((await screen.findByRole('status')).textContent).toBe('Pedido de Assessoria Ritmo recusado.')
   })
 
-  it('mostra o conflito quando o pedido já foi decidido', async () => {
-    mockApi({ decision: () => { throw new ApiError('Este pedido já foi decidido.', 409) } })
+  it('pedido já decidido por outra pessoa: fecha a folha, avisa e recarrega a fila sem o item', async () => {
+    mockApi({ decision: () => { gone.push(1); throw new ApiError('Este pedido já foi decidido.', 409) } })
     const ui = userEvent.setup()
     renderQueue()
     await ui.click(await screen.findByRole('button', { name: /Liga do Bairro/ }))
@@ -120,7 +123,21 @@ describe('fila de pedidos de organizador (AD1)', () => {
     await ui.click(screen.getByRole('button', { name: 'Pouca informação' }))
     await ui.click(screen.getByRole('button', { name: 'Recusar pedido' }))
     expect(calls).toContainEqual({ path: '/admin/organizer-requests/1/decision', method: 'POST', body: { decision: 'recusar', reason_code: 'pouca_informacao' } })
-    expect((await screen.findByRole('alert')).textContent).toBe('Este pedido já foi decidido.')
+    expect((await screen.findByRole('status')).textContent).toBe('Este pedido já foi decidido.')
+    expect(screen.queryByRole('dialog', { name: 'Pedido de organizador' })).toBeNull()
+    const list = await screen.findByRole('list', { name: 'Pedidos para analisar' })
+    await waitFor(() => expect(within(list).queryByText('Liga do Bairro')).toBeNull())
+    expect(within(list).getByText('Assessoria Ritmo')).not.toBeNull()
+    expect(calls.filter(call => call.path === '/admin/organizer-requests?state=em_analise')).toHaveLength(2)
+  })
+
+  it('erro de rede na decisão mantém a folha aberta com a mensagem', async () => {
+    mockApi({ decision: () => { throw new ApiError('Serviço indisponível.', 503) } })
+    const ui = userEvent.setup()
+    renderQueue()
+    await ui.click(await screen.findByRole('button', { name: /Liga do Bairro/ }))
+    await ui.click(screen.getByRole('button', { name: 'Aprovar organizador' }))
+    expect((await screen.findByRole('alert')).textContent).toBe('Serviço indisponível.')
     expect(screen.getByRole('dialog', { name: 'Pedido de organizador' })).not.toBeNull()
   })
 

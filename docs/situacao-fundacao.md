@@ -1,5 +1,89 @@
 # Situação da fundação do Arena
 
+## Etapa 2 — Eventos, inscrições, comprovantes e devoluções (implementação) — 12 de outubro de 2026
+
+Segunda etapa da execução dos planos de [Times e campeonatos](plano-times-campeonatos.md) (fases 4 e 5) e do [Jogar](plano-jogar.md) (fase 7, lado do atleta), no backend e na web. Contratos: [0003, seções 10 a 20](decisoes/0003-times-campeonatos.md#10-etapa-2--eventos-inscrições-e-comprovantes-fases-4-e-5) e [0002, seção 6](decisoes/0002-jogar.md#6-fase-7--campeonatos-e-provas-lado-do-atleta). Foi feita em uma fundação (backend e web), duas frentes de backend (organizador e administração; atleta e comprovantes), a conciliação dos backends, três frentes da web (organizador, administração e atleta) e a integração. **Não é o MVP completo:** não há chaveamento, tabela, agenda, partidas, resultados nem ranking calculado, e o Expo não foi tocado.
+
+**O que mudou:**
+- **Esquema (`0008`):** eventos, inscrições, comprovantes (arquivo privado no MinIO, imagem ou PDF) e canal de avisos, com os índices e as restrições dos estados.
+- **Backend:**
+  - **organizador:** rascunho com checklist, publicação direta do gratuito, envio do pago para a aprovação, retirada, cancelamento (as inscrições pagas viram devolução pendente), edição limitada depois de publicar, inscrições do evento, decisão de comprovantes com motivo, avisos no canal e contadores de pendências;
+  - **administração:** fila de eventos pagos (aprovar ou recusar com motivo, com volta a rascunho), revogação de organizador com a decisão "seguir" ou "cancelar" sobre os eventos abertos e devoluções contestadas;
+  - **atleta:** lista e detalhe com elegibilidade (RN18), inscrição (gratuita na hora, paga com reserva de 48 h ou até 12 h antes do início), envio e reenvio do comprovante, desistência, devolução por Pix (envio pelo organizador, confirmação ou contestação do participante) e leitura dos avisos;
+  - **comum:** notificações e auditoria dos tipos novos, ordem global das travas (0003, seção 19.1), `GET /admin/queue-counts` ampliado e a varredura `python -m app.admin_cli sweep [--loop 60]` (reservas vencidas e devoluções sem resposta em 7 dias; README).
+- **Web:**
+  - **Organizador:** Criar evento (V4) com uma pergunta por vez, Date Picker, rascunho e erros da API no campo certo; Meus eventos (O3) e a seção Organizador do Menu; gestão (G3) com o cartão "Agora", Inscritos, Dados do evento, Pagamento e Pix, avisos, edição de local e contato, retirada, cancelamento e exclusão de rascunho; Comprovantes e devoluções (A2) com folha, recusa motivada, "2ª tentativa" e anexo da devolução;
+  - **Administração:** filas "Eventos pagos", "Eventos de organizador revogado" e "Devoluções contestadas" no Menu, com os contadores;
+  - **Atleta:** Campeonatos e Provas na placa do Jogar (E2), Minhas inscrições, detalhe (D2) com Informações, Tabela ou Percurso e Inscritos, inscrição, Pix com cópia, comprovante, desistência, resposta à devolução e avisos;
+  - **Notificações:** os tipos da etapa 2, com o texto e a tela de cada um (0003, seção 17 e 20.2).
+- **Correções da revisão independente da etapa 1 (web):**
+  - a lista de Notificações não cai mais quando `GET /me/follow-requests` falha: o erro fica na seção "Solicitações para seguir", com "Tentar novamente", e as atividades continuam;
+  - Meus times mostra o erro de `GET /me/team-invites` com "Tentar novamente", na página e na folha de convites, que não diz mais "Nenhum convite pendente." quando a lista não chegou;
+  - o token do link (`/entrar/{token}`) volta ao `App` quando a sessão expira com a tela do link aberta, e o próximo login a reabre;
+  - o cartão do organizador, a folha do link e a folha do pedido de organizador relêem o estado depois de um `404` ou `409` (cancelar um pedido já decidido, cancelar um pedido de entrada já decidido, decidir um pedido que já foi decidido: a folha fecha, avisa e a fila recarrega).
+- **Integração (este registro):**
+  - **cherry-pick da frente do atleta** em cima das duas frentes do organizador e da administração; conflitos resolvidos em `data/arena.ts` (`entryStates` com `rejeitada`, "Comprovante recusado" e `devolucao_contestada`, mais `eventPhases`), `ArenaPage.tsx` (telas das três frentes e o layout dos eventos), `events-fixtures.ts` (arquivo criado pelas duas frentes) e `events-format.test.ts`;
+  - **tipos únicos:** cartaz, Pix, inscrição, comprovante, aviso, pendências e bônus do tênis têm uma definição só, em `web/src/api/events.ts`; `receipts.ts` guarda as rotas e as regras de comprovante e `entries.ts`, as formas do atleta. Saíram as cópias de tipos, de `eventReceiptsPath`, `decideReceipt`, `eventEntriesPath` (a do atleta virou `publicEntriesPath`), `listReceipts`, `formatFileSize`, `receiptFileUrl` e dos limites do arquivo; a validação do comprovante segue a ordem do servidor (tamanho, arquivo vazio, tipo; sem tipo vale a extensão);
+  - **helpers únicos:** `plural` em `utils/format.ts` (eram três cópias) e `receiptRefusalSentence` para o motivo da recusa em frases (atleta e notificações);
+  - **testes:** `tests/events-fixtures.ts` passa a reunir os dados do organizador, do atleta, dos comprovantes e da administração (o antigo `receipts-fixtures.ts` saiu);
+  - **ligações:** a seção "Comprovantes" da G3 abre a A2 do evento certo, com o contador na placa e na aba; a notificação `devolucao_contestada` abre a fila "Devoluções contestadas" para a administração (antes caía no Menu); `comprovante_recebido`, `evento_para_aprovar` e os demais tipos abrem a tela do assunto; o organizador no D2 abre a gestão; `tests/stage2-navigation.test.tsx` cobre Menu → O3 → G3 → A2, Menu → filas da administração, Jogar → E2 → D2 → inscrição, o atalho do organizador e as notificações;
+  - **defeitos achados no navegador e corrigidos:** o cartaz da folha da revogação mostrava "Inscrições abertas" com as inscrições suspensas (agora "Inscrições suspensas", como no O3 e no E2); o cartão da contestação repetia o ponto depois das aspas; o limite do comprovante aparecia como "5 MB" no atleta e "5 MiB" no organizador (agora "5 MiB").
+- **Desvios das frentes:** web na seção 20.2 do [0003](decisoes/0003-times-campeonatos.md#202-desvios-registrados-na-integração-da-web-da-etapa-2) e na seção 6.7 do [0002](decisoes/0002-jogar.md#67-desvios-registrados-na-integração-da-web); backend na 20.1 do 0003 e na 6.6 do 0002.
+- **Documentação:** contratos [0003](decisoes/0003-times-campeonatos.md) e [0002](decisoes/0002-jogar.md) (estado, desvios da web e a tabela de estados S1 com os textos reais); [README](../README.md) (abertura, migração `0008` e "Demonstrar eventos e inscrições"); [próximos passos](proximos-passos-jogar.md).
+
+**Verificações executadas na integração (branch `orq/etapa2`):**
+- **Backend** (uma vez, sem mudanças de código nesta integração):
+  - `ruff check app migrations tests` sem apontamentos;
+  - `pytest -q` com `TEST_DATABASE_URL`: 572 aprovados e 1 pulado (o teste do bucket S3 real);
+  - `alembic check` no banco da verificação, depois do `upgrade head`: sem diferenças.
+- **Web:**
+  - `npm run lint` sem apontamentos;
+  - `npm run build` concluído, com o aviso de pacote acima de 500 kB (924 kB minificado, 613 kB na etapa 1);
+  - `npm run test:coverage`: 45 arquivos e 465 testes aprovados; cobertura de 89,77% das instruções, 83,00% dos ramos, 88,89% das funções e 93,16% das linhas. Os pisos foram atendidos.
+- **Testes novos desta integração:**
+  - `stage2-navigation.test.tsx` (10 testes): Menu, O3, G3, A2, filas, Jogar, E2, D2, atalho do organizador e notificações;
+  - os quatro achados da etapa 1: erro só na seção das solicitações; erro e nova tentativa dos convites (página e folha); token do link depois da sessão expirada (com `App`); estado relido depois de `404` e `409` no cartão do organizador, na folha do link e na folha do pedido (e erro de rede que mantém a folha);
+  - rótulos de `activeNavFor`, `receiptRefusalSentence`, extensão do comprovante sem tipo, cartaz suspenso e ponto da contestação.
+  - Três mutações conferidas à mão: trocar o `eventId` do `onReceipts` ou o destino da notificação `devolucao_contestada` quebra o teste de navegação, e não devolver o token ao `App` quebra o teste do token.
+- **Fluxo real no navegador** (Chrome headless pelo CDP contra a API real da árvore principal):
+  - **Ambiente:** banco `arena_orq_e2e2` com as migrações aplicadas, bucket MinIO `arena-orq-e2e`, API na porta 8191 (`ALLOWED_ORIGINS` e `PUBLIC_WEB_URL` da porta 5291), Vite na 5291 (configuração auxiliar com cache próprio), Chrome na 9391 e portas auxiliares.
+  - **Contas:** administradora (`promote-admin`), organizadora (cadastrada pela web, com pedido e aprovação pela web), representante com o time criado pela web (com brasão), atleta de tênis e um membro, estes dois pela API.
+  - **Conferido, pela web em cada passo, com persistência depois de recarregar:**
+    - evento gratuito de tênis no V4, com teclado (Tab, Enter, setas nos calendários), publicado; o atleta se inscreve pelo D2 e vê "Inscrição confirmada" e a aba Inscritos;
+    - evento pago de futebol no V4 com Pix, enviado para a aprovação e aprovado na fila "Eventos pagos" (folha com o Pix informado);
+    - reserva do time, cópia da chave Pix (com clique real, área de transferência conferida) e envio de um PNG;
+    - recusa na A2 com motivo e detalhe, reenvio de um PDF ("2ª tentativa", com a recusa anterior) e aprovação;
+    - aviso no canal, lido pelo inscrito na notificação e no D2;
+    - cancelamento pela G3 (motivo, confirmação), devolução anexada na A2, contestação pelo representante e decisão "Pedir outro" na fila "Devoluções contestadas"; nova devolução, confirmação do recebimento e estado "Devolução recebida";
+    - revogação do organizador pela API: inscrições suspensas no D2, Menu e O3 da organizadora, e a decisão "Seguir evento" na fila de revogados, com a notificação e as inscrições reabertas;
+    - novo pedido de organizador depois da revogação; prova de corrida paga no V4, recusada pela administração com motivo ("Dados do Pix incompletos"), corrigida e reenviada, e aprovada; o atleta (sem perfil de corrida) se inscreve, desiste, se inscreve de novo, envia o comprovante, e a organizadora aprova (inscrição individual);
+    - notificações de cada papel (administração, organizadora, representante) com a navegação e a aba acesa;
+    - link do time com a sessão expirada no meio (cookie apagado): volta ao login com o aviso, o mesmo link reabre depois de entrar, e o pedido é enviado e aprovado; o token não foi para o armazenamento do navegador;
+    - teclado nas abas (D2 e A2: setas, Home e End, tabulação itinerante) e Esc fechando a folha e devolvendo o foco;
+    - 320, 390 e 1440 px em Menu, O3, G3, A2 (as duas abas), E2, D2, Jogar, as três filas da administração e os cinco passos do V4 (calendário, cidade e a folha "Sair sem salvar" incluídos), sem overflow horizontal;
+    - console sem erros além do `401` de `/me` antes do login e do `favicon.ico` ausente, que já faltava antes.
+  - **Reserva vencida:** o prazo de uma reserva foi alterado no banco da verificação; a leitura mostrou "A vaga foi liberada" e a vaga voltou, e `app.admin_cli sweep` gravou a expiração (`reservas_expiradas=1`). Não foi uma expiração ao vivo.
+  - Capturas em `artifacts/etapa2/integracao/` e scripts em `.local/orquestracao/integracao2/`, não versionados.
+
+**Limitações:**
+- O Expo não foi tocado: as telas da etapa 2 (inclusive organizador e administração) entram na última etapa.
+- O CI remoto não foi executado.
+- A expiração de reserva ao vivo (48 h) e a devolução considerada recebida em 7 dias não foram observadas: a primeira foi simulada com o prazo alterado no banco da verificação, e a segunda só tem os testes do backend.
+- Copiar o Pix funciona com clique real; a leitura do QR do link por câmera de aparelho e a execução em dispositivos físicos seguem sem verificação.
+- O atleta não tem tela do histórico de inscrições (a rota `scope=historico` existe); uma inscrição devolvida, expirada ou cancelada sai de "Minhas inscrições".
+- Chaveamento, tabela, partidas e resultados aparecem como "Em breve" na G3 e como "Tabela ainda não definida" no D2.
+- A notificação `devolucao_decidida` e a `devolucao_confirmada` automática abrem o D2 (com o atalho "Abrir gestão" para o organizador), porque não indicam se quem recebe é o organizador ou um participante.
+- O pacote da web passou de 500 kB (924 kB).
+
+**Pendências de integração:**
+- Fases 6 e 7 de Times e campeonatos: chaveamento, rodadas, agendamento, partidas de campeonato e divergência.
+- Lembrete de "reserva expirando" (exigiria um registro de lembrete enviado), fora desta etapa.
+- Agendamento da varredura fora do desenvolvimento, na implantação.
+- Histórico de inscrições do atleta (tela) e a tela Ranking real (ainda sem ler `GET /me/standings`).
+- Divisão do pacote da web, se o tamanho virar problema.
+- Atualizar os diagramas de modelagem (`docs/diagramas/`) e os indicadores de [qualidade do código](qualidade-codigo.md) com a etapa 2.
+- Calibragem dos cortes de elo com dados reais.
+
 ## Etapa 1 — Times, link do time, organizador e elos (implementação) — 12 de outubro de 2026
 
 Primeira etapa da execução dos planos de [Times e campeonatos](plano-times-campeonatos.md) (fases 1 a 3) e do [Jogar](plano-jogar.md) (fase 1), no backend e na web. Contratos: [0003](decisoes/0003-times-campeonatos.md) e [0002](decisoes/0002-jogar.md). Foi feita em uma fundação comum, quatro frentes paralelas (A e B no backend, C e D na web) e a integração. **Não é o MVP completo:** não há partidas, eventos, resultados nem ranking calculado, e o Expo não foi tocado.

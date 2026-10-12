@@ -331,6 +331,44 @@ def test_join_request_decline_cancel_and_permissions(client):
     assert (preview['my_status'], preview['invite_id'], preview['request_id']) == ('convite_pendente', pending['id'], None)
 
 
+def test_join_request_is_refused_with_a_block_with_any_representative(client):
+    """Same rule and answer as the invite (404 Atleta não encontrado.): a block in either direction with any active
+    representative refuses the request; a block with a plain member does not."""
+    http, db = client
+    owner, owner_id = register(http, 'bloq-dono@example.com', 'Dono Bloqueio')
+    second, second_id = register(http, 'bloq-segundo@example.com', 'Segundo Representante')
+    member, member_id = register(http, 'bloq-membro@example.com', 'Membro Comum')
+    blocker, blocker_id = register(http, 'bloq-bloqueia@example.com', 'Quem Bloqueia')
+    blocked, blocked_id = register(http, 'bloq-bloqueado@example.com', 'Quem Foi Bloqueado')
+    neighbour, neighbour_id = register(http, 'bloq-vizinho@example.com', 'Vizinho do Membro')
+    team_id = create_team(http, owner, 'Bloqueios FC')['id']
+    join_by_invite(http, owner, team_id, second, second_id)
+    join_by_invite(http, owner, team_id, member, member_id)
+    promoted = http.patch(f'/api/v1/teams/{team_id}/members/{second_id}', json={'role': 'representante'},
+                          headers=owner)
+    assert promoted.status_code == 200, promoted.text
+    token = link_token(http, owner, team_id)
+    db.add_all([UserBlock(blocker_id=blocker_id, blocked_id=second_id),   # the athlete blocked a representative
+                UserBlock(blocker_id=owner_id, blocked_id=blocked_id),    # a representative blocked the athlete
+                UserBlock(blocker_id=neighbour_id, blocked_id=member_id)])  # a block with a plain member only
+    db.flush()
+
+    for headers, user_id in ((blocker, blocker_id), (blocked, blocked_id)):
+        refused = http.post(f'/api/v1/join/{token}', json={}, headers=headers)
+        assert (refused.status_code, refused.json()) == (404, {'detail': 'Atleta não encontrado.'})
+        assert db.scalars(select(TeamJoinRequest).where(TeamJoinRequest.team_id == team_id,
+                                                        TeamJoinRequest.user_id == user_id)).all() == []
+    for headers in (owner, second):
+        assert notifications(http, headers, 'pedido_entrada') == []
+    accepted = http.post(f'/api/v1/join/{token}', json={}, headers=neighbour)
+    assert accepted.status_code == 201, accepted.text
+
+    # Without the block, the same athlete can ask again.
+    db.execute(UserBlock.__table__.delete().where(UserBlock.blocker_id == blocker_id))
+    db.flush()
+    assert http.post(f'/api/v1/join/{token}', json={}, headers=blocker).status_code == 201
+
+
 def test_accepting_or_approving_closes_the_other_pending_entry(client):
     """The two entries cannot coexist through the API; a race leaves both pending, and the decision closes the other."""
     http, db = client

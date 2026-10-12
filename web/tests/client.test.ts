@@ -54,6 +54,16 @@ describe('transporte da API web', () => {
     await expect(request('/me')).rejects.toMatchObject({ status, message: 'Ação recusada' })
   })
 
+  it('guarda os campos recusados de um 422, descartando itens malformados', async () => {
+    const body = { detail: 'Revise os campos informados.', fields: [{ field: 'name', message: 'Informe o nome.' }, { field: 1 }, null] }
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify(body), { status: 422 })))
+    await expect(request('/organizer/events', 'POST', {})).rejects.toMatchObject({
+      status: 422, fields: [{ field: 'name', message: 'Informe o nome.' }],
+    })
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('{"detail":"Conflito"}', { status: 409 })))
+    await expect(request('/me')).rejects.toMatchObject({ status: 409, fields: [] })
+  })
+
   it.each(['not-json', '{"detail":[{"msg":"invalid"}]}'])('usa mensagem segura para erro sem detalhe textual: %s', async (body) => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(body, { status: 500 })))
     await expect(request('/me')).rejects.toMatchObject({ status: 500, message: 'Não foi possível concluir a ação.' })

@@ -4,17 +4,20 @@ import io
 import logging
 import uuid
 import warnings
+from dataclasses import dataclass
 from datetime import timedelta
 
 import boto3
 from botocore.client import Config as BotoConfig
 from botocore.exceptions import BotoCoreError, ClientError
-from fastapi import HTTPException
+from fastapi import HTTPException, UploadFile
+from fastapi.responses import Response
 from PIL import Image, ImageOps, UnidentifiedImageError
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
+from app.models.events import EntryReceipt
 from app.models.identity import MediaObject, Post, User, utcnow
 from app.models.teams import Team
 
@@ -25,6 +28,14 @@ COVER_RATIO = (5, 2)
 COVER_MAX_SIZE = (1500, 600)
 # Profile image kinds: user attribute holding the media and the storage key prefix.
 PROFILE_IMAGES = {'avatar': ('avatar_media', 'avatars/'), 'cover': ('cover_media', 'covers/')}
+# Payment and refund receipts (private): images are re-encoded without metadata, PDFs are kept as sent.
+RECEIPT_PREFIX = 'receipts/'
+RECEIPT_MAX_SIDE = 2400
+PDF_SIGNATURE = b'%PDF-'
+PDF_TYPE = 'application/pdf'
+RECEIPT_TOO_LARGE = 'O arquivo excede o limite de 5 MiB.'
+RECEIPT_WRONG_TYPE = 'Envie o comprovante como imagem (JPEG, PNG ou WebP) ou PDF.'
+PREFIXES = ('avatars/', 'covers/', 'posts/', 'crests/', RECEIPT_PREFIX)
 
 
 def storage_client():
@@ -211,6 +222,89 @@ def remove_object(media: MediaObject) -> None:
     require_storage(lambda: storage_client().delete_object(Bucket=media.bucket, Key=media.object_key))
 
 
+@dataclass(frozen=True)
+class ReceiptFile:
+    """A validated receipt ready to store: WebP without metadata (images) or the original bytes (PDF)."""
+    content: bytes
+    content_type: str
+    extension: str
+    width: int | None = None
+    height: int | None = None
+
+    @property
+    def file_type(self) -> str:
+        return 'pdf' if self.content_type == PDF_TYPE else 'imagem'
+
+
+def _receipt_image(image: Image.Image) -> Image.Image:
+    image.thumbnail((RECEIPT_MAX_SIDE, RECEIPT_MAX_SIDE), Image.Resampling.LANCZOS)
+    return image
+
+
+def prepare_receipt(raw: bytes) -> ReceiptFile:
+    """Validates an untrusted receipt (image or PDF up to the upload limit) without rendering PDFs.
+
+    A PDF must start with the `%PDF-` signature and end with `%%EOF` (truncated uploads are refused); it is
+    stored as sent and only ever served back with its own type. Images go through the same checks as the avatar
+    (JPEG, PNG or static WebP up to 25 megapixels), keep their proportions up to 2400 px and lose metadata.
+    """
+    if len(raw) > get_settings().media_max_upload_bytes:
+        raise HTTPException(413, RECEIPT_TOO_LARGE)
+    if not raw:
+        raise HTTPException(422, 'O arquivo enviado está vazio.')
+    if raw.startswith(PDF_SIGNATURE):
+        if b'%%EOF' not in raw[-1024:]:
+            raise HTTPException(422, 'O PDF está incompleto ou corrompido.')
+        return ReceiptFile(raw, PDF_TYPE, 'pdf')
+    try:
+        content = _normalize_profile_image(raw, _receipt_image)
+    except HTTPException as error:
+        if error.status_code == 413 or error.detail == 'Imagens animadas não são aceitas.':
+            raise
+        raise HTTPException(415, RECEIPT_WRONG_TYPE) from None
+    with Image.open(io.BytesIO(content)) as image:
+        width, height = image.size
+    return ReceiptFile(content, 'image/webp', 'webp', width, height)
+
+
+async def read_receipt_upload(file: UploadFile) -> bytes:
+    """Reads at most the upload limit plus one byte, so an oversized file is refused without buffering it all."""
+    raw = await file.read(get_settings().media_max_upload_bytes + 1)
+    await file.close()
+    if len(raw) > get_settings().media_max_upload_bytes:
+        raise HTTPException(413, RECEIPT_TOO_LARGE)
+    return raw
+
+
+def store_receipt(db: Session, uploader_id: int, receipt: ReceiptFile) -> MediaObject:
+    """Uploads the private object and adds its MediaObject without committing.
+
+    The caller adds the EntryReceipt and commits both in the same transaction; if that commit fails, it calls
+    `discard_object(media)` (an object left behind is also removed later by `app.media_admin reconcile`).
+    """
+    settings = get_settings()
+    media_id = uuid.uuid4()
+    key = f'{RECEIPT_PREFIX}{media_id}.{receipt.extension}'
+    require_storage(lambda: storage_client().put_object(
+        Bucket=settings.media_s3_bucket, Key=key, Body=receipt.content,
+        ContentType=receipt.content_type, CacheControl='private, no-store',
+    ))
+    media = MediaObject(id=media_id, user_id=uploader_id, bucket=settings.media_s3_bucket, object_key=key,
+                        content_type=receipt.content_type, size_bytes=len(receipt.content),
+                        width=receipt.width, height=receipt.height)
+    db.add(media)
+    db.flush()
+    return media
+
+
+def discard_object(media: MediaObject) -> None:
+    """Best-effort removal of an object whose database row was not committed."""
+    try:
+        remove_object(media)
+    except HTTPException:
+        logger.error('Uncommitted receipt cleanup deferred to reconcile.')
+
+
 def read_object(media: MediaObject) -> bytes:
     result = require_storage(lambda: storage_client().get_object(Bucket=media.bucket, Key=media.object_key))
     try:
@@ -273,6 +367,16 @@ def clear_team_crest(db: Session, team: Team) -> None:
     team.crest_media_id = None
     db.commit()
     _discard_media(db, previous_id, 'crest')
+def private_file_response(media: MediaObject, *, filename: str) -> Response:
+    """Serves a private object to an authorized reader (the route checks who may see it, never this function).
+
+    PDFs go inline with a fixed file name (the browser's own viewer opens them); images are served like the
+    other private images. Never cached and never sniffed into another type.
+    """
+    headers = {'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff'}
+    if media.content_type == PDF_TYPE:
+        headers['Content-Disposition'] = f'inline; filename="{filename}.pdf"'
+    return Response(read_object(media), media_type=media.content_type, headers=headers)
 
 
 def reconcile_orphans(db: Session, older_than_hours: int = 24) -> int:
@@ -283,11 +387,13 @@ def reconcile_orphans(db: Session, older_than_hours: int = 24) -> int:
     )).all())
     linked.update(db.scalars(select(MediaObject.object_key).join(Post, Post.media_id == MediaObject.id)).all())
     linked.update(db.scalars(select(MediaObject.object_key).join(Team, Team.crest_media_id == MediaObject.id)).all())
+    linked.update(db.scalars(select(MediaObject.object_key).join(
+        EntryReceipt, EntryReceipt.media_id == MediaObject.id)).all())
     threshold = utcnow() - timedelta(hours=older_than_hours)
     removed = 0
     try:
         paginator = client.get_paginator('list_objects_v2')
-        for prefix in ('avatars/', 'covers/', 'posts/', 'crests/'):
+        for prefix in PREFIXES:
             for page in paginator.paginate(Bucket=settings.media_s3_bucket, Prefix=prefix):
                 for obj in page.get('Contents', []):
                     if obj['Key'] not in linked and obj['LastModified'] < threshold:
@@ -302,6 +408,7 @@ def reconcile_orphans(db: Session, older_than_hours: int = 24) -> int:
         ~MediaObject.id.in_(select(User.cover_media_id).where(User.cover_media_id.is_not(None))),
         ~MediaObject.id.in_(select(Post.media_id)),
         ~MediaObject.id.in_(select(Team.crest_media_id).where(Team.crest_media_id.is_not(None))),
+        ~MediaObject.id.in_(select(EntryReceipt.media_id)),
     )).all()
     for media in stale_metadata:
         db.delete(media)

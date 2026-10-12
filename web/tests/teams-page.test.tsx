@@ -246,4 +246,36 @@ describe('Meus times', () => {
     expect(await screen.findByRole('dialog', { name: 'Convite para time' })).toBeTruthy()
     expect(onInvitesOpened).toHaveBeenCalled()
   })
+
+  it('erro ao carregar os convites: avisa na página, tenta de novo e mostra a faixa de convites', async () => {
+    let fail = true
+    mockApi({
+      'GET /me/teams': { items: [] },
+      'GET /me/team-invites': () => fail ? reply(503, { detail: 'Convites indisponíveis.' }) : { items: [receivedInvite()] },
+    })
+    const ui = userEvent.setup()
+    render(<Harness />)
+    expect((await screen.findByRole('alert')).textContent).toContain('Convites indisponíveis.')
+    expect(screen.queryByRole('button', { name: /convidou você|convites para times/ })).toBeNull()
+    fail = false
+    await ui.click(screen.getByRole('button', { name: 'Tentar novamente' }))
+    expect(await screen.findByRole('button', { name: /convidou você/ })).toBeTruthy()
+    expect(screen.queryByRole('alert')).toBeNull()
+  })
+
+  it('a folha de convites não diz "Nenhum convite pendente" quando a lista falhou: mostra o erro e tenta de novo', async () => {
+    let fail = true
+    mockApi({
+      'GET /me/teams': { items: [] },
+      'GET /me/team-invites': () => fail ? reply(503, { detail: 'Convites indisponíveis.' }) : { items: [receivedInvite()] },
+    })
+    const ui = userEvent.setup()
+    render(<Harness openInvites />)
+    const sheet = await screen.findByRole('dialog', { name: 'Convite para time' })
+    await waitFor(() => expect(within(sheet).getByRole('alert').textContent).toContain('Convites indisponíveis.'))
+    expect(within(sheet).queryByText('Nenhum convite pendente.')).toBeNull()
+    fail = false
+    await ui.click(within(sheet).getByRole('button', { name: 'Tentar novamente' }))
+    expect(await within(screen.getByRole('dialog', { name: 'Convite para time' })).findByRole('button', { name: /Aceitar convite/ })).toBeTruthy()
+  })
 })

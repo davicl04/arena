@@ -231,7 +231,13 @@ def test_current_organizer_requires_an_active_permission():
     assert current_organizer(user=SimpleNamespace(id=1), db=FakeDb(scalar=permission)) is permission
 
 
-def test_open_events_extension_point_is_a_no_op_until_phase_four():
-    db = FakeDb()
-    assert organizers.handle_open_events(db, Organizer(id=1), actor_id=2, revoked_at=T0) is None
-    assert db.added == [] and not db.committed
+def test_open_events_extension_point_delegates_to_the_events_service(monkeypatch):
+    from app.services import events
+
+    calls = []
+    monkeypatch.setattr(events, 'on_organizer_revoked',
+                        lambda db, organizer, *, actor_id: calls.append((db, organizer, actor_id)))
+    db, organizer = FakeDb(), Organizer(id=1)
+    assert organizers.handle_open_events(db, organizer, actor_id=2, revoked_at=T0) is None
+    # Same transaction as the revocation: nothing is committed here.
+    assert calls == [(db, organizer, 2)] and not db.committed

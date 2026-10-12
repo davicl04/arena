@@ -40,6 +40,22 @@ describe('Entrar no time pelo link', () => {
     expect(api.find('DELETE', '/team-join-requests/700')).toHaveLength(1)
   })
 
+  it('cancelar um pedido que um representante já aprovou recarrega a prévia e mostra o estado atual', async () => {
+    let approved = false
+    const api = mockApi({
+      [`GET /join/${TOKEN}`]: () => approved ? preview('membro', { team: { ...linkTeam, my_role: 'membro' } }) : preview('pedido_pendente', { request_id: 700 }),
+      'DELETE /team-join-requests/700': () => { approved = true; return apiError(409, 'Este pedido já foi decidido.') },
+    })
+    const ui = userEvent.setup()
+    renderJoin()
+    await ui.click(await screen.findByRole('button', { name: 'Cancelar pedido' }))
+    expect((await screen.findAllByRole('status')).map(node => node.textContent).join(' ')).toContain('Você já está no elenco do Real Sudoeste.')
+    expect(screen.getByRole('alert').textContent).toBe('Este pedido já foi decidido.')
+    expect(screen.queryByRole('button', { name: 'Cancelar pedido' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Abrir Meus times' })).toBeTruthy()
+    expect(api.find('GET', `/join/${TOKEN}`)).toHaveLength(2)
+  })
+
   it('link trocado ou de time encerrado: "Este link não vale mais"', async () => {
     mockApi({ 'GET /join/velho': apiError(404, 'Este link não vale mais.') })
     const { onClose } = renderJoin('velho')
@@ -108,6 +124,35 @@ describe('Link do time no App', () => {
     await ui.click(screen.getByRole('button', { name: 'Entrar no Arena →' }))
     expect(await screen.findByRole('button', { name: 'Pedir para entrar' })).toBeTruthy()
     expect(screen.getByRole('heading', { level: 1, name: 'Entrar no time' })).toBeTruthy()
+    // Fechar volta ao Início.
+    await ui.click(screen.getByRole('button', { name: 'Fechar' }))
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Pedir para entrar' })).toBeNull())
+  })
+
+  it('sessão expirada na tela do link: o token volta ao App e o próximo login reabre o link', async () => {
+    window.history.pushState(null, '', `/entrar/${TOKEN}`)
+    let previews = 0
+    let session = true
+    const api = mockApi({
+      'GET /me': () => session ? me : apiError(401, 'Entre na sua conta para continuar.'),
+      'POST /auth/login': () => { session = true; return { user: me } },
+      'GET /me/sports-profiles': [], 'GET /cities': [brasilia],
+      [`GET /join/${TOKEN}`]: () => (++previews === 1 ? apiError(401, 'Entre na sua conta para continuar.') : preview('disponivel')),
+    })
+    const ui = userEvent.setup()
+    render(<App />)
+    // A primeira consulta do link responde 401: volta ao login, avisando que a sessão expirou.
+    expect(await screen.findByRole('button', { name: 'Entrar no Arena →' })).toBeTruthy()
+    expect(screen.getByText('Sua sessão expirou. Entre novamente para continuar.')).toBeTruthy()
+    session = false
+    expect(JSON.stringify({ ...localStorage })).not.toContain(TOKEN)
+    expect(window.location.pathname).toBe('/')
+    fireEvent.change(screen.getByLabelText('E-mail'), { target: { value: me.email } })
+    fireEvent.change(screen.getByLabelText('Senha'), { target: { value: 'SenhaDeTeste123' } })
+    await ui.click(screen.getByRole('button', { name: 'Entrar no Arena →' }))
+    // O link não se perdeu: a carteirinha do time abre de novo, com o mesmo token.
+    expect(await screen.findByRole('button', { name: 'Pedir para entrar' })).toBeTruthy()
+    expect(api.find('GET', `/join/${TOKEN}`)).toHaveLength(2)
     // Fechar volta ao Início.
     await ui.click(screen.getByRole('button', { name: 'Fechar' }))
     await waitFor(() => expect(screen.queryByRole('button', { name: 'Pedir para entrar' })).toBeNull())

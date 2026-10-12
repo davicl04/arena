@@ -1,6 +1,6 @@
 # Próximos passos — tela Jogar
 
-> Estado em 12 de outubro de 2026: o [plano da tela Jogar](plano-jogar.md) e o [plano de Times e campeonatos](plano-times-campeonatos.md) estão fechados. **A etapa 1 da execução está implementada e integrada no backend e na web**: Times e campeonatos, fases 1 a 3 (times, convites, link do time, encerrar time, pedido de organizador e fila da administração), e Jogar, fase 1 (elos e linha de classificação na placa). Os contratos estão em [0003](decisoes/0003-times-campeonatos.md) e [0002](decisoes/0002-jogar.md); o registro, em [situação da fundação](situacao-fundacao.md). O Expo fica para a última etapa. Este arquivo define a ordem de trabalho e o que ainda falta decidir. Atualize-o a cada etapa concluída, junto com a situação da fundação.
+> Estado em 12 de outubro de 2026: o [plano da tela Jogar](plano-jogar.md) e o [plano de Times e campeonatos](plano-times-campeonatos.md) estão fechados. **A etapa 1 da execução está implementada e integrada no backend e na web**: Times e campeonatos, fases 1 a 3 (times, convites, link do time, encerrar time, pedido de organizador e fila da administração), e Jogar, fase 1 (elos e linha de classificação na placa). Os contratos estão em [0003](decisoes/0003-times-campeonatos.md) e [0002](decisoes/0002-jogar.md); o registro, em [situação da fundação](situacao-fundacao.md). **A etapa 2 também está implementada e integrada no backend e na web**: Times e campeonatos, fases 4 e 5 (criar evento, aprovação de pagos pela administração, gestão, comprovantes, devoluções por Pix, avisos e revogação), e Jogar, fase 7 (Campeonatos e Provas do atleta: lista, detalhe, inscrição, reserva, Pix e comprovante). O Expo fica para a última etapa. Este arquivo define a ordem de trabalho e o que ainda falta decidir. Atualize-o a cada etapa concluída, junto com a situação da fundação.
 
 ## Ordem de implementação recomendada (12 de outubro de 2026)
 
@@ -8,8 +8,8 @@ Os dois planos se cruzam: o Jogar precisa de times, e partes de Times e campeona
 
 1. **Times e campeonatos, fases 1 a 3:** times, link do time e organizador (pedido e aprovação). **Implementado no backend e na web em 12 de outubro de 2026 (etapa 1).**
 2. **Jogar, fase 1:** elos e linha de classificação. **Implementado no backend e na web em 12 de outubro de 2026 (etapa 1)**, com `standings` vazio até existirem partidas.
-3. **Times e campeonatos, fase 4:** criar evento, rascunho, aprovação de pagos e gestão.
-4. **Jogar, fase 7, junto com Times e campeonatos, fase 5:** inscrição do atleta, comprovante e análise pelo organizador.
+3. **Times e campeonatos, fase 4:** criar evento, rascunho, aprovação de pagos e gestão. **Implementado no backend e na web em 12 de outubro de 2026 (etapa 2).**
+4. **Jogar, fase 7, junto com Times e campeonatos, fase 5:** inscrição do atleta, comprovante e análise pelo organizador, com a devolução por Pix. **Implementado no backend e na web em 12 de outubro de 2026 (etapa 2).**
 5. **Jogar, fases 2 a 5:** pareamento, partida e chat, avulso, resultado e ranking.
 6. **Times e campeonatos, fases 6 e 7:** chaveamento, agenda das partidas de campeonato (usando a partida e o chat do Jogar) e divergência decidida pelo organizador.
 7. **Jogar, fase 6:** corrida.
@@ -30,7 +30,9 @@ A implementação do Jogar **começa depois da tela "Times e campeonatos"**. O J
 
 > **Desenho e plano concluídos em 12 de outubro de 2026**, em 19 rodadas de protótipos: veja o [plano de Times e campeonatos](plano-times-campeonatos.md). O escopo virou **duas áreas separadas**: Meus times, de todo atleta, e Organizador, só para quem tem a permissão concedida pela administração. A implementação segue as fases do plano. As fases 5 (comprovantes) e 7 (divergência) dependem de partes do Jogar (inscrição do atleta e cartão de resultado).
 >
-> **Progresso:** as fases 1 a 3 (times, papéis, convites, sair e remover, elenco, link e QR com pedido de entrada, encerrar time, pedido de organizador, fila e decisão da administração, revogação) estão implementadas no backend e na web, com notificações e auditoria. Faltam, da lista abaixo, os eventos do organizador (fase 4), a gestão de comprovantes e o chaveamento, e a aprovação de eventos pagos pela administração, além de todas as telas no Expo.
+> **Progresso:** as fases 1 a 3 (times, papéis, convites, sair e remover, elenco, link e QR com pedido de entrada, encerrar time, pedido de organizador, fila e decisão da administração, revogação) estão implementadas no backend e na web, com notificações e auditoria. Os eventos do organizador (fase 4), a gestão de comprovantes e a aprovação de eventos pagos pela administração entraram na etapa 2 (implementados e integrados no backend e na web). Falta, da lista abaixo, a montagem do chaveamento ou da tabela e o agendamento das partidas (fase 6), além de todas as telas no Expo.
+>
+> **Etapa 2 (12 de outubro de 2026):** criar evento (V4) com rascunho e checklist, publicação direta do gratuito, aprovação do pago na fila "Eventos pagos", cartazes (O3) e gestão (G3), análise de comprovantes (A2) com recusa e reenvio, avisos do evento, cancelamento com devolução por Pix e contestação decidida pela administração, revogação de organizador com a decisão da administração, Campeonatos e Provas do atleta (E2 e D2) com reserva, Pix e comprovante, e as notificações dos tipos novos, todos conferidos num fluxo real no navegador. Pendências desta etapa: histórico de inscrições do atleta (a rota `scope=historico` existe, sem tela), a aba Tabela do D2 (depende da fase 6) e as telas no Expo.
 
 Escopo mínimo para destravar o Jogar, como foi planejado em 11 de outubro:
 
@@ -71,7 +73,7 @@ Seguir as fases do [plano](plano-jogar.md#fases-de-entrega), cada uma demonstrá
 4. Avulso: qualquer formato, posição específica ou qualquer posição, entrada direta.
 5. Resultado, estatísticas, contestação e ranking.
 6. Corrida.
-7. Campeonatos e provas (inscrição e comprovante).
+7. Campeonatos e provas (inscrição e comprovante). **Concluída na etapa 2 da execução** (backend e web): a inscrição, a reserva, o Pix, o comprovante, a devolução e os avisos já funcionam; o chaveamento e a tabela dependem de Times e campeonatos, fase 6.
 
 Em cada fase:
 - migração Alembic e `alembic check`;

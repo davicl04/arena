@@ -122,6 +122,23 @@ def standing_line(row: Standing | None, required: int, *, running: bool = False)
     }
 
 
+def subject_tier(db: Session, sport: str, *, team_id: int | None = None, user_id: int | None = None,
+                 format: str | None = None, distance_km: int | None = None) -> str | None:
+    """Current tier in the category an event looks at (RN18); None while in placement or without games.
+
+    Football: the team in the event format. Tennis: the athlete. Running: the athlete at the race distance.
+    """
+    if sport == 'futebol' and team_id is not None and format in FOOTBALL_FORMATS:
+        where = (Standing.team_id == team_id, Standing.format == format)
+    elif sport == 'tenis' and user_id is not None:
+        where = (Standing.user_id == user_id,)
+    elif sport == 'corrida' and user_id is not None and distance_km in RUN_DISTANCES_KM:
+        where = (Standing.user_id == user_id, Standing.distance_km == distance_km)
+    else:
+        raise ValueError('Categoria de elegibilidade inválida.')
+    return db.scalar(select(Standing.tier).where(Standing.sport == sport, *where))
+
+
 def _required(cuts: dict[str, Cuts], ranking: str, sport: str) -> int:
     cut = cuts.get(ranking)
     return cut.placement_matches if cut is not None else DEFAULT_PLACEMENT[sport]
