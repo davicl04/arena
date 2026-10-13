@@ -7,6 +7,7 @@ import { useResource } from '../hooks/useResource'
 import { LoadError } from '@/components/ui/load-error'
 import { ListGroup, ListHeading, ListRow } from '@/components/ui/list-row'
 import { appVersion } from '../data/arena'
+import { AppearanceCard } from '../components/menu/AppearanceCard'
 
 /** Contador de pendências da fila (AD1). */
 function QueueCount({ count }: { count: number }) {
@@ -17,7 +18,7 @@ function QueueCount({ count }: { count: number }) {
 
 /** Contador da linha "Notificações" do Menu (o mesmo número do sino). */
 function NotificationCount({ count }: { count: number }) {
-  return <span className="inline-grid h-[17px] min-w-[17px] place-items-center rounded-[9px] bg-brand px-1 text-[9.5px] font-extrabold text-white">
+  return <span className="inline-grid h-[17px] min-w-[17px] place-items-center rounded-[9px] bg-brand px-1 text-[9.5px] font-extrabold text-on-brand">
     {count > 99 ? '99+' : count}<span className="sr-only"> {count === 1 ? 'nova' : 'novas'}</span>
   </span>
 }
@@ -27,7 +28,7 @@ const queueValue = (count: number | undefined) => typeof count === 'number' && c
 
 /**
  * Menu do perfil (hambúrguer): atalhos da conta, o cartão "Organizar no Arena" (P3) ou, com a permissão, a seção
- * Organizador; para a administração, as filas (AD1); informações do app e saída.
+ * Organizador; para a administração, as filas (AD1); a aparência (tema), informações do app e saída.
  */
 export default function MenuPage({ isAdmin, busy, onEditProfile, onSports, onModeration, onOrganizerRequest, onOrganizerRequests, onPaidEvents, onRevokedEvents, onRefundDisputes, onCourtSuggestions, onWalkoverDisputes, onOrganizerEvents, onOpenEvent, onNewEvent, onNotifications, notificationCount = 0, onLogout, onExpired }: {
   isAdmin: boolean
@@ -92,6 +93,8 @@ export default function MenuPage({ isAdmin, busy, onEditProfile, onSports, onMod
         <ListRow Icon={Flag} label="Denúncias" value={queueValue(counts.data?.reports)} onClick={onModeration} />
       </ListGroup>
     </>}
+    <ListHeading>Aparência</ListHeading>
+    <AppearanceCard />
     <ListHeading>App</ListHeading>
     <ListGroup>
       <ListRow Icon={Bell} label="Notificações" value={notificationCount > 0 ? <NotificationCount count={notificationCount} /> : undefined} onClick={onNotifications} />

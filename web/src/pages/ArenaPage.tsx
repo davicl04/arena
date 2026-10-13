@@ -374,7 +374,7 @@ export default function ArenaPage({
   return (
     <DialogContainerProvider container={frame}>
     <div className="grid min-h-dvh place-items-center p-6 app-narrow:p-0">
-      <div ref={setFrame} data-slot="app-frame" className="relative h-[844px] max-h-[calc(100dvh-48px)] w-[390px] overflow-hidden rounded-app border border-solid border-line bg-app shadow-app app-narrow:h-dvh app-narrow:max-h-none app-narrow:w-full app-narrow:rounded-none app-narrow:border-0 app-narrow:shadow-none">
+      <div ref={setFrame} data-slot="app-frame" className="relative h-[844px] max-h-[calc(100dvh-48px)] w-[390px] overflow-hidden rounded-app border border-solid border-line bg-app bg-(image:--app-glow) bg-no-repeat shadow-app app-narrow:h-dvh app-narrow:max-h-none app-narrow:w-full app-narrow:rounded-none app-narrow:border-0 app-narrow:shadow-none">
         <main
           id="main"
           ref={mainRef}
