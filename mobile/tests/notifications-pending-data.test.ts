@@ -74,13 +74,21 @@ describe('prazo da pendência', () => {
     expect(remainingText(72 * HOUR)).toBe('3 dias')
   })
 
-  it('a barra vai de created_at até action_until; âmbar com menos de 25% do tempo ou menos de 3 h', () => {
+  it('a barra vai de created_at até action_until; âmbar só com menos de 25% do tempo restante (sem limite fixo de horas)', () => {
     const now = Date.now()
     const deadline = (agoH: number, leftH: number | null) => pendingDeadline(pendingNote('proposta_partida', {}, null, { agoH, leftH }), now)
     expect(deadline(1, 30)).toMatchObject({ remaining: '1 dia 6 h', warn: false })
     expect(deadline(1, 30).fraction).toBeCloseTo(30 / 31)
-    expect(deadline(1, 2)).toMatchObject({ remaining: '2 h', warn: true })
-    expect(deadline(70, 10)).toMatchObject({ remaining: '10 h', warn: true })
+    // Proposta de 2 h com 1 h 52 restante: 93% do tempo, verde.
+    expect(pendingDeadline(pendingNote('proposta_partida', {}, null, { created_at: new Date(now - 8 * MIN).toISOString(), action_until: new Date(now + 112 * MIN).toISOString() }), now))
+      .toMatchObject({ remaining: '1 h 52', warn: false })
+    // Menos de 3 h restantes, mas ainda mais de 25% do tempo: verde.
+    expect(deadline(1, 2)).toMatchObject({ remaining: '2 h', warn: false })
+    // 20% do tempo: âmbar. Exatamente 25%: ainda não ("menos de 25%").
+    const between = (totalMin: number, leftMin: number) => pendingDeadline(pendingNote('proposta_partida', {}, null, { created_at: new Date(now + leftMin * MIN - totalMin * MIN).toISOString(), action_until: new Date(now + leftMin * MIN).toISOString() }), now)
+    expect(between(120, 24)).toMatchObject({ remaining: '24 min', warn: true })
+    expect(between(120, 30)).toMatchObject({ fraction: 0.25, warn: false })
+    expect(between(120, 29)).toMatchObject({ warn: true })
     expect(deadline(10, 70)).toMatchObject({ warn: false })
     expect(deadline(1, null)).toEqual({ remaining: null, fraction: null, warn: false })
     expect(deadline(1, -1)).toEqual({ remaining: 'encerrado', fraction: 0, warn: true })

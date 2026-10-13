@@ -296,12 +296,13 @@ describe('Notificações: lista agrupada por dia e bloco "Para responder"', () =
     expect(item(mounted, 'Novo aviso em Copa Sudoeste').props.accessibilityLabel).toBe('Novo aviso em Copa Sudoeste. há 1 hora. Não lida')
   })
 
-  it('o cartão mostra rótulo, texto, tempo, prazo e a barra: verde com folga, âmbar com menos de 3 h; sem prazo, sem barra', async () => {
+  it('o cartão mostra rótulo, texto, tempo, prazo e a barra: verde enquanto restar 25% do tempo ou mais, âmbar com menos disso; sem prazo, sem barra', async () => {
     const roomy = pendingNote('convite_time', { team_id: 3, team_name: 'Várzea Unida' }, 'Marina Costa', { agoH: 1, leftH: 30 })
-    serveNotifications({ pending: [proposal(), roomy, pendingNote('comprovante_recebido', event, null, { agoH: 2, leftH: null })] })
-    const { tree } = await mountNotifications({ summary: summaryOf({ pending_count: 3 }) })
+    const urgent = pendingNote('proposta_partida', { match_id: 13, opponent_name: 'Tigres' }, null, { agoH: 4, leftH: 1 })
+    serveNotifications({ pending: [proposal(), roomy, pendingNote('comprovante_recebido', event, null, { agoH: 2, leftH: null }), urgent] })
+    const { tree } = await mountNotifications({ summary: summaryOf({ pending_count: 4 }) })
     const cards = byId(tree, 'pending-card')
-    expect(cards).toHaveLength(3)
+    expect(cards).toHaveLength(4)
     const [first, second, third] = cards.map(card => allText({ root: card } as never))
     expect(first).toContain('PARTIDA ENCONTRADA')
     expect(first).toContain(PROPOSAL_TEXT)
@@ -315,9 +316,10 @@ describe('Notificações: lista agrupada por dia e bloco "Para responder"', () =
     expect(third).toContain('COMPROVANTE RECEBIDO')
     expect(third).toContain('sem prazo')
     const fill = (card: (typeof cards)[number]) => byId({ root: card } as never, 'deadline-bar')[0]?.children[0] as unknown as { props: { style: { width: string; backgroundColor: string } } } | undefined
-    expect(fill(cards[0])?.props.style).toMatchObject({ width: '60%', backgroundColor: '#d99400' })
+    expect(fill(cards[0])?.props.style).toMatchObject({ width: '60%', backgroundColor: '#1f9d57' })
     expect(fill(cards[1])?.props.style).toMatchObject({ width: '97%', backgroundColor: '#1f9d57' })
     expect(fill(cards[2])).toBeUndefined()
+    expect(fill(cards[3])?.props.style).toMatchObject({ width: '20%', backgroundColor: '#d99400' })
   })
 
   it('o botão do cartão marca como lida, leva à tela do aviso e a pendência lida continua no bloco', async () => {

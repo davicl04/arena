@@ -83,9 +83,20 @@ describe('prazo da pendência', () => {
   it('calcula o que falta, a fração restante e o alerta', () => {
     expect(pendingDeadline(withDeadline(-10 * HOUR, 2 * HOUR), NOW)).toEqual({ left: '2 h', remaining: 2 / 12, warn: true })
     expect(pendingDeadline(withDeadline(-1 * HOUR, 10 * HOUR), NOW)).toEqual({ left: '10 h', remaining: 10 / 11, warn: false })
-    // Menos de 25% do tempo, ainda com mais de 3 h.
+    // Com mais de 3 h faltando, a fração decide: 12 h de 84 h (14%) é âmbar.
     expect(pendingDeadline(withDeadline(-72 * HOUR, 12 * HOUR), NOW)).toMatchObject({ left: '12 h', warn: true })
     expect(pendingDeadline(withDeadline(-1 * HOUR, null), NOW)).toEqual({ left: null, remaining: null, warn: false })
+  })
+  it('o alerta depende só da fração restante (menos de 25%), não de horas fixas', () => {
+    const MIN = 60_000
+    // Proposta de 2 h com 1 h 52 restante (93%): verde, mesmo faltando menos de 3 h.
+    expect(pendingDeadline(withDeadline(-8 * MIN, 112 * MIN), NOW)).toMatchObject({ left: '1 h 52', warn: false })
+    // 20% restante: âmbar.
+    expect(pendingDeadline(withDeadline(-4 * HOUR, HOUR), NOW)).toMatchObject({ left: '1 h', remaining: 0.2, warn: true })
+    // Exatamente 25%: fronteira exclusiva, ainda verde.
+    expect(pendingDeadline(withDeadline(-3 * HOUR, HOUR), NOW)).toMatchObject({ left: '1 h', remaining: 0.25, warn: false })
+    // Um pouco abaixo de 25% (24,99%): âmbar.
+    expect(pendingDeadline(withDeadline(-3 * HOUR - 1000, HOUR), NOW)).toMatchObject({ warn: true })
   })
   it('prazo vencido ou sem duração não passa de 0% nem de 100%', () => {
     expect(pendingDeadline(withDeadline(-3 * HOUR, -HOUR), NOW)).toEqual({ left: 'menos de 1 min', remaining: 0, warn: true })

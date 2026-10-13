@@ -241,8 +241,8 @@ describe('Notificações: pendências fixadas e lista por dia', () => {
     expect(cards[0].textContent).toContain('Partida encontrada contra Tigres do Lago. Responda em até 2 h')
     expect(cards[0].textContent).toContain('há 8 min')
     expect(cards[0].textContent).toContain('faltam 1 h 52')
-    // Menos de 3 h para responder já merece atenção, mesmo com 93% do tempo restante.
-    expect(cards[0].hasAttribute('data-warn')).toBe(true)
+    // Proposta de 2 h com 1 h 52 restante (93%): ainda não é urgente, a barra segue verde.
+    expect(cards[0].hasAttribute('data-warn')).toBe(false)
     expect((cards[0].querySelector('[style*="width"]') as HTMLElement).style.width).toBe('93%')
     expect(within(cards[0]).getByRole('button', { name: 'Responder proposta' })).not.toBeNull()
     expect(cards[1].textContent).toContain('CONVITE DE TIME')
@@ -251,14 +251,15 @@ describe('Notificações: pendências fixadas e lista por dia', () => {
     expect(within(cards[1]).getByRole('button', { name: 'Ver convite' })).not.toBeNull()
   })
 
-  it('a barra fica âmbar com menos de 3 h ou menos de 25% do tempo', async () => {
+  it('a barra fica âmbar só com menos de 25% do tempo restante, não por horas fixas', async () => {
+    // 30 min de 90 (33%): verde, mesmo com menos de 1 h. 1 dia de 11 (9%): âmbar. 10 h de 11 (91%): verde.
     const soon = noteOf(7, 'wo_registrado', { match_id: 13, opponent_name: 'Atlético Norte' }, { category: 'partidas', pending: true, created_at: minutesAgo(60), action_until: minutesAhead(30) })
     const late = noteOf(8, 'resultado_divergente', { match_id: 14 }, { category: 'partidas', pending: true, created_at: minutesAgo(10 * 24 * 60), action_until: minutesAhead(24 * 60) })
     const roomy = noteOf(9, 'comprovante_recebido', { event_id: 5, event_name: 'Copa Sudoeste' }, { category: 'eventos', pending: true, created_at: minutesAgo(60), action_until: minutesAhead(10 * 60) })
     mockServer({ pending: [soon, late, roomy] })
     render(<NotificationsHarness />)
     const cards = await screen.findAllByRole('article')
-    expect(cards.map(card => card.hasAttribute('data-warn'))).toEqual([true, true, false])
+    expect(cards.map(card => card.hasAttribute('data-warn'))).toEqual([false, true, false])
     expect(cards[0].textContent).toContain('faltam 30 min')
     expect(cards[1].textContent).toContain('faltam 1 d')
     expect(cards[2].textContent).toContain('faltam 10 h')

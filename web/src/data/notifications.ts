@@ -358,7 +358,7 @@ export interface PendingDeadline {
   left: string | null
   /** Fração do tempo que ainda resta, de 0 a 1; `null` sem prazo. */
   remaining: number | null
-  /** Menos de 25% do tempo restante ou menos de 3 h. */
+  /** Menos de 25% do tempo restante (fronteira exclusiva: 25% exatos ainda é verde); prazo vencido também é âmbar. */
   warn: boolean
 }
 
@@ -386,7 +386,7 @@ export function pendingDeadline(notification: ArenaNotification, now: number): P
   const left = Math.max(0, end - now)
   const total = Number.isNaN(start) ? 0 : end - start
   const remaining = total > 0 ? Math.min(1, left / total) : left > 0 ? 1 : 0
-  return { left: formatTimeLeft(left), remaining, warn: remaining < 0.25 || left < 3 * HOUR }
+  return { left: formatTimeLeft(left), remaining, warn: remaining < 0.25 }
 }
 
 /* ----- Lista agrupada por dia ----- */

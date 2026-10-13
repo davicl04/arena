@@ -7,7 +7,7 @@ import { NotificationLead } from './NotificationLead'
 
 /**
  * Cartão de uma pendência no bloco "Para responder": rótulo curto, texto em negrito, tempo relativo, barra do prazo
- * (verde; âmbar com menos de 25% do tempo ou menos de 3 h) e o botão que leva à tela do aviso, onde a resposta acontece.
+ * (verde; âmbar com menos de 25% do tempo restante) e o botão que leva à tela do aviso, onde a resposta acontece.
  * `now` vem de quem lista (`useNow(60_000)`), para o prazo andar sem um relógio por cartão.
  */
 export function PendingCard({ notification, now, busy, isAdmin = false, onOpen }: {

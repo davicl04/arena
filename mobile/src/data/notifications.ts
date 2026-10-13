@@ -404,7 +404,7 @@ export interface PendingDeadline {
   remaining: string | null
   /** Fração do tempo que ainda resta, de 1 (recém-criada) a 0 (prazo); `null` sem prazo. */
   fraction: number | null
-  /** Âmbar: menos de 25% do tempo ou menos de 3 h. */
+  /** Âmbar: restam menos de 25% do tempo entre `created_at` e `action_until` (exatamente 25% ainda é verde). */
   warn: boolean
 }
 
@@ -416,7 +416,7 @@ export function pendingDeadline(notification: ArenaNotification, now: number): P
   if (left <= 0) return { remaining: 'encerrado', fraction: 0, warn: true }
   const total = until - new Date(notification.created_at).getTime()
   const fraction = Number.isFinite(total) && total > 0 ? Math.min(1, left / total) : 1
-  return { remaining: remainingText(left), fraction, warn: fraction < 0.25 || left < 3 * HOUR }
+  return { remaining: remainingText(left), fraction, warn: fraction < 0.25 }
 }
 
 /** "faltam 1 h 52", "sem prazo" ou "prazo encerrado". */

@@ -6,7 +6,7 @@ import { relativeTime } from '../../utils/relativeTime'
 import { ActionButton } from '../arena/controls'
 import { NotificationLead } from './NotificationItem'
 
-/** Verde da barra com prazo folgado e âmbar quando falta pouco (menos de 25% do tempo ou de 3 h). */
+/** Verde da barra com prazo folgado e âmbar quando falta pouco (menos de 25% do tempo restante, regra em `pendingDeadline`). */
 const ok = { bar: '#1f9d57', border: 'rgba(0,90,54,0.13)', label: colors.brand }
 const warn = { bar: '#d99400', border: 'rgba(196,122,0,0.25)', label: '#8a5a00' }
 
