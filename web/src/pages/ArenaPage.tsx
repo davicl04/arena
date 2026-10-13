@@ -4,13 +4,15 @@ import { ApiError, request, sports } from "../api/client";
 import type { City, Profile, ProfileInput, Sport, User } from "../api/client";
 import SportCard from "../components/SportCard";
 import BottomNav from "../components/BottomNav";
-import { Button, IconButton } from "@/components/ui/button";
-import { feedbackVariants } from "@/components/ui/feedback";
+import { IconButton } from "@/components/ui/button";
+import { LoadError } from "@/components/ui/load-error";
 import { DialogContainerProvider } from "@/components/ui/dialog";
 import { Toaster } from "@/components/ui/toast";
 import { ConnectionNotice } from "../components/ConnectionNotice";
 import { cn } from "@/lib/utils";
 import { usePlayBoard } from "../hooks/usePlayBoard";
+import { connection } from "../api/connection";
+import { reportActionError } from "../hooks/useSubmit";
 import HomePage from "./HomePage";
 import ProfilePage from "./ProfilePage";
 import EditProfilePage from "./EditProfilePage";
@@ -159,7 +161,8 @@ export default function ArenaPage({
   const [profileTab, setProfileTab] = useState<ProfileTab>("Fotos");
   const [cities, setCities] = useState<City[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  // Erro de carregamento de perfis e cidades (LoadError); o erro de uma ação (sair, salvar perfil) é toast.
+  const [loadFailure, setLoadFailure] = useState<{ message: string; cause: unknown } | null>(null);
   const [busy, setBusy] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const [stack, setStack] = useState<Entry[]>(() =>
@@ -200,7 +203,7 @@ export default function ArenaPage({
       })
       .catch((err) => {
         if (alive) {
-          setError(err.message);
+          setLoadFailure({ message: err instanceof Error && err.message ? err.message : "Não foi possível carregar os seus dados.", cause: err });
           if (err instanceof ApiError && err.status === 401) onExpired();
         }
       })
@@ -212,6 +215,16 @@ export default function ArenaPage({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [attempt]);
+  // Falha por conexão: relê uma única vez quando a conexão volta (as demais esperam o "Tentar novamente").
+  const loadLost = loadFailure?.cause instanceof ApiError && loadFailure.cause.isConnection;
+  useEffect(() => {
+    if (!loadLost) return;
+    return connection.onRestored(() => {
+      setLoading(true);
+      setLoadFailure(null);
+      setAttempt((v) => v + 1);
+    });
+  }, [loadLost]);
   function show(update: (old: Entry[]) => Entry[]) {
     setStack(update);
     mainRef.current?.scrollTo({ top: 0 });
@@ -295,31 +308,22 @@ export default function ArenaPage({
     });
   }
 
-  function handleError(err: unknown) {
-    if (err instanceof ApiError && err.status === 401) onExpired();
-    setError(err instanceof Error ? err.message : "Tente novamente.");
-  }
+  // A falha ao salvar sobe ao SportCard, que a classifica (reportActionError) e a mostra como toast ou junto ao formulário.
   async function save(sport: Sport, input: ProfileInput) {
-    try {
-      const profile = await request<Profile>(
-        `/me/sports-profiles/${sport}`,
-        "PUT",
-        input,
-      );
-      setProfiles((old) => [...old.filter((p) => p.sport !== sport), profile]);
-    } catch (err) {
-      if (err instanceof ApiError && err.status === 401) onExpired();
-      throw err;
-    }
+    const profile = await request<Profile>(
+      `/me/sports-profiles/${sport}`,
+      "PUT",
+      input,
+    );
+    setProfiles((old) => [...old.filter((p) => p.sport !== sport), profile]);
   }
   async function logout() {
     setBusy(true);
-    setError("");
     try {
       await request("/auth/logout", "POST");
       onLogout();
     } catch (err) {
-      handleError(err);
+      reportActionError(err, "Não foi possível sair da conta. Tente novamente.", onExpired);
     } finally {
       setBusy(false);
     }
@@ -367,20 +371,18 @@ export default function ArenaPage({
               <span className="w-11" />
             </header>
           )}
-          {error && (
-            <div className={feedbackVariants()} role="alert">
-              {error}
-              <Button
-                variant="text"
-                onClick={() => {
-                  setLoading(true);
-                  setError("");
-                  setAttempt((v) => v + 1);
-                }}
-              >
-                Recarregar dados
-              </Button>
-            </div>
+          {loadFailure && (
+            <LoadError
+              size="section"
+              title="Não foi possível carregar seus dados"
+              text={loadFailure.message}
+              cause={loadFailure.cause}
+              onRetry={() => {
+                setLoading(true);
+                setLoadFailure(null);
+                setAttempt((v) => v + 1);
+              }}
+            />
           )}
           {screen === "home" && (
             <HomePage
@@ -430,6 +432,7 @@ export default function ArenaPage({
                       profile={profiles.find((p) => p.sport === s.value)}
                       cities={cities}
                       onSave={save}
+                      onExpired={onExpired}
                     />
                   ))}
                 </div>

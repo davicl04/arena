@@ -6,6 +6,7 @@ import { usePagedList } from '../hooks/usePagedList'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { feedbackVariants } from '@/components/ui/feedback'
+import { LoadError } from '@/components/ui/load-error'
 import PostViewer from './PostViewer'
 import type { PostUpdate } from './PostItem'
 
@@ -50,7 +51,7 @@ export default function ProfileGallery({ userId, username, ownerName, viewerId, 
   function close() { setReturnTo(openId); setOpenId(null) }
 
   if (list.loading) return <p className="py-7 text-center text-[12px] text-ink-muted" role="status">Carregando fotos…</p>
-  if (list.error) return <div className={feedbackVariants()} role="alert">{list.error.message} <Button type="button" variant="text" onClick={list.reload}>Tentar novamente</Button></div>
+  if (list.error) return <LoadError size="section" title="Não foi possível carregar as fotos" text={list.error.message} cause={list.error} onRetry={list.reload} />
   if (!list.items.length) {
     return <EmptyState Icon={ImageIcon} title="Nenhuma foto por aqui"
       text={own ? 'Publique pela Comunidade e suas fotos aparecem nesta grade.' : 'Quando esta conta publicar fotos, elas aparecerão aqui.'}

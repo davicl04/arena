@@ -153,8 +153,8 @@ describe('UsernameSheet', () => {
     await settle(400)
     fireEvent.click(screen.getByRole('button', { name: 'Salvar' }))
     await settle(0)
-    // Com os temporizadores falsos, `findBy*` não avança: o toast já está na região depois do `settle`.
-    expect(queryToast('Este nome de usuário já está em uso.')).toBeTruthy()
+    // Nome em uso é validação do campo: fica na linha de status do nome, sem toast.
+    expect(queryToast('Este nome de usuário já está em uso.')).toBeNull()
     expect(screen.getByText('@corrida já está em uso.')).toBeTruthy()
     expect(h.onSaved).not.toHaveBeenCalled()
     expect((screen.getByRole('button', { name: 'Salvar' }) as HTMLButtonElement).disabled).toBe(true)

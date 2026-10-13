@@ -8,6 +8,7 @@ import type { TimelineItem } from '@/api/profile'
 import { nextScheduledMatch } from '@/components/play/matchView'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
+import { LoadError } from '@/components/ui/load-error'
 import { usePagedList } from '@/hooks/usePagedList'
 import { useNow } from '@/hooks/useNow'
 import { NextMatchNode } from './NextMatchNode'
@@ -62,9 +63,7 @@ export function MatchTimeline({ userId, own, onOpenMatch, onPlay, matches, onExp
   const filtered = filter !== 'todas'
 
   if (notFound) return <EmptyState Icon={CalendarDays} title="Nenhuma partida por aqui" text="Quando esta conta jogar ou correr, os registros aparecem nesta linha do tempo." />
-  if (list.error) return <p role="alert" className="m-0 py-6 text-center text-[12px] text-error">
-    {list.error.message} <Button variant="text" className="inline min-h-11 p-0" onClick={list.reload}>Tentar novamente</Button>
-  </p>
+  if (list.error) return <LoadError size="section" title="Não foi possível carregar as partidas" text={list.error.message} cause={list.error} onRetry={list.reload} />
 
   const empty = !list.loading && list.items.length === 0
   if (empty && !filtered && !nextShown) {
