@@ -1,6 +1,6 @@
 # Plano — sino global, pendências e tela de notificações (backend + web + Expo)
 
-> Estado: **apenas planejamento, 13 de outubro de 2026**. Nenhum código foi alterado.
+> Estado: **implementado em 13 de outubro de 2026** no backend, na web e no Expo (branch `orq/notificacoes`). Contrato final em [0003, seção 7](decisoes/0003-times-campeonatos.md#7-notificações); verificações, divergências e pendências em [situacao-fundacao.md](situacao-fundacao.md).
 
 ## Contexto
 

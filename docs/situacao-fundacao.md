@@ -1,5 +1,42 @@
 # Situação da fundação do Arena
 
+## Sino global, pendências e tela de notificações (backend, web e Expo) — 13 de outubro de 2026
+
+Implementado o [plano de notificações](plano-notificacoes.md) no backend, na web e no Expo. Contrato em [0003, seção 7](decisoes/0003-times-campeonatos.md#7-notificações): pendências (7.1) e tipos com ação (7.2).
+
+**O que mudou:**
+- **Backend:** migração `0012_notification_actions` adiciona `action_key`, `action_until` e `resolved_at` em `notifications`, com dois índices parciais. `NOTIFICATION_CATEGORY` (43 tipos em partidas, times, eventos e conta) e `ACTION_TYPES` (14 tipos). `notify` e `notify_many` recebem `action_key`, `action_until` e `informative`; `resolve_actions`, `resolve_actions_many` e `resolve_actions_prefix` resolvem as pendências; há construtores de chave por tipo. Rotas novas: `GET /me/notifications/pending` e `GET /me/notifications/summary`; `GET /me/notifications` aceita os filtros `categoria` e `pendente`; `PUT .../read` e `.../read-all` devolvem o resumo. Os 14 tipos recebem a chave na criação e são resolvidos nos serviços de times, convites, fila do Jogar, vagas, condições, W.O., resultados, quadras, inscrições, comprovantes, devoluções, eventos, campeonato e varredura. Em `devolucao_contestada` e `wo_contestado`, só a administração recebe a pendência; organizador e lado que registrou recebem aviso informativo.
+- **Web:** `useNotificationSummary` no `ArenaPage`, relido na troca de aba raiz, ao entrar ou voltar de subtela, em foco e visibilidade e a cada 60 s visível. `NotificationBell` nas cinco abas raiz (Início, Ranking, Jogar, Comunidade e Perfil próprio), com contador de não lidas mais pedidos para seguir (`9+` acima de nove). A tela de notificações tem placa `forest`, "Ler todas", linha de resumo, chips *Tudo · Para responder · Partidas · Times · Eventos* filtrados no servidor, bloco "Para responder" com `PendingCard` (prazo, barra e botão que marca como lida e leva ao destino) e lista agrupada por dia. A linha "N pedidos para seguir" abre a nova subtela `follow-requests` (`FollowRequestsPage`). O Início ganha a placa "Para responder" (`PendingPlate`), e a linha "Notificações" do Menu mostra o contador. O Início deixou de ler `unread-count`.
+- **Expo:** o mesmo conjunto: `useNotificationSummary` no `ArenaShell`, com `AppState`; `NotificationBell`, `NotificationsPlate`, `PendingCard`, `FollowRequestsLine`, tela `follow-requests`, `PendingPlate` no Início e contador na linha "Notificações" do Menu do Perfil.
+
+**Verificações executadas:**
+- Backend: `ruff check app migrations tests` aprovado; `pytest -q` com `TEST_DATABASE_URL` (PostgreSQL 16 local, schema aleatório): **1625 aprovados e 1 pulado**. Migração aplicada em banco de teste separado (`arena_notif_check`), com `alembic check` sem diferenças e ciclo `downgrade 0011` / `upgrade head` aprovado. O banco de desenvolvimento `arena` não foi migrado nesta entrega.
+- Integração por tipo com ação: `test_notification_actions_flow.py`, `test_notification_resolution_matches_flow.py`, `partida/test_notification_resolution_flow.py` e `test_notification_resolution_events_flow.py`, conferindo que ler não resolve e que a ação real e os caminhos alternativos resolvem.
+- Web: `npm run lint`, `npm run build` e `npm run test:coverage` aprovados: **79 arquivos e 1041 testes**; cobertura de **92,59% das instruções e 86,16% dos ramos**.
+- Expo: `npm run lint`, `npm run typecheck`, `npm run test:coverage` (**88 arquivos e 1384 testes**) e `npm run export:android` aprovados.
+- Navegador, com Chrome headless controlado por CDP, API na porta 8001 apontando para `arena_notif_check`, Vite na 5174 e contas de teste criadas pela API:
+  - a 320, 390 e 1440 px, sino presente nas cinco abas raiz, com alvo de 44 px e sem overflow horizontal;
+  - tela aberta pelo sino e pela placa do Início, que abre no chip *Para responder*; chips filtrando, e *Partidas* vazio mostra "Nada neste filtro.";
+  - foco visível nos chips e no sino;
+  - o botão do cartão marca como lida e leva a Meus times; após recarregar, a leitura persiste e a pendência continua aberta;
+  - aceitar o convite e recusar o pedido de entrada resolvem as pendências, e a placa do Início some;
+  - "Ler todas" mostra "Tudo lido · 1 ainda pede sua resposta";
+  - aprovar pedido para seguir atualiza o contador.
+
+**Limitações e pendências:**
+- Sem validação em aparelho Android/iOS nem conferência visual do Expo; o build do Expo não comprova funcionamento em aparelho.
+- O sistema de toasts ([plano-toasts.md](plano-toasts.md)) não existe nesta branch: "Ler todas" usa o bloco de sucesso atual, a conciliar depois do merge.
+- Sem preenchimento retroativo: notificações anteriores à migração nunca aparecem como pendentes.
+- Divergências do plano:
+  - `condicoes_propostas` tem prazo no horário proposto (o plano previa sem prazo), porque as condições não podem ser aceitas depois dele;
+  - `convite_time` não tem prazo, porque convites não têm validade no código;
+  - a aba acesa em Notificações e Pedidos para seguir é a aba de onde o sino foi tocado (o plano dizia Início);
+  - o resumo também é relido ao entrar e voltar de subtelas.
+- A barra do prazo fica âmbar com menos de 25% do tempo ou menos de 3 h, como no plano; propostas de 2 h ficam sempre âmbar.
+- Um ex-representante que saiu do time depois de receber uma proposta mantém a pendência até a proposta terminar ou o prazo vencer.
+- O banco de desenvolvimento `arena` precisa de `alembic upgrade head` antes de usar esta branch.
+- No Expo, o cartão interno "Notificações" (pedidos para seguir) do Perfil continua existindo.
+
 ## Plano do sino global e da tela de notificações (apenas planejamento) — 13 de outubro de 2026
 
 Registrado [plano-notificacoes.md](plano-notificacoes.md), resultado de uma sessão de protótipos em quatro rodadas. O protótipo está num artefato privado do usuário, e a fonte local fica em `artifacts/prototipos-notificacoes/`, fora do versionamento.
@@ -1225,7 +1262,7 @@ Atualizar este Markdown a cada entrega ou alteração no projeto, registrando im
 | Edição de perfil e @ | Integradas à API: lista agrupada com folhas, @ único com verificação de disponibilidade, visibilidade, contas bloqueadas e conexões. |
 | Posts, comunidade e perfis sociais | Integrados à API: feed cronológico, foto/legenda, curtidas, comentários, busca, privacidade social, seguidores, bloqueios e denúncias. Painel administrativo web e histórico de decisões implementados. |
 | Conteúdo do perfil | Abas Fotos \| Partidas na web e no Expo: grade com visualizador "Publicações", post 4:5, comentários e ações em vidro, denúncias de post/comentário/conta com motivo e detalhes e topo fixo condensado. Partidas integrada: linha do tempo de partidas e corridas (`GET /users/{id}/timeline`) nos perfis próprio e visitado, e estatísticas do perfil próprio (`GET /me/profile-stats`, com Melhor elo); Atividades sairá para Notificações em entrega futura. |
-| Partidas, ranking, estatísticas e notificações | Integrados à API na web (etapas 3 e 4) e no Expo (etapa 6): partidas, resultado, estatísticas, Ranking e Notificações com os tipos de times, eventos, partidas e campeonatos, além das solicitações para seguir. Sem partida, evento ou marca, as telas mostram o estado vazio; não há dados demonstrativos. |
+| Partidas, ranking, estatísticas e notificações | Integrados à API na web (etapas 3 e 4) e no Expo (etapa 6): partidas, resultado, estatísticas, Ranking e Notificações com os tipos de times, eventos, partidas e campeonatos, além das solicitações para seguir. Sem partida, evento ou marca, as telas mostram o estado vazio; não há dados demonstrativos. Desde 13 de outubro, o sino global das abas raiz, a tela de notificações com filtros e as pendências "Para responder" (resolvidas pela ação real) estão integrados ao backend, à web e ao Expo; sem validação em aparelho. |
 | Moedas e carteira | Removidas da interface web e fora da direção atual do produto; não implementar sem nova solicitação. |
 | Botão Jogar | Busca adversário de verdade (times, tênis e avulso), com proposta, partida e agendamento, na web e no Expo; sem perfil esportivo, prepara o perfil. Nunca simula uma partida encontrada. |
 | Cliente Expo | Comunidade e recursos sociais; título @, hambúrguer e folha Menu. Desde a etapa 6, também times, organizador, eventos e inscrições, comprovantes, administração, Jogar (placa, partida, resultado e Ranking), corrida e campeonatos (chaveamento, agenda e decisão), sem tela "em breve". A revisão visual do Figma foi aplicada somente à web; paridade visual do Expo, funcionamento em aparelho, leitor de tela e API real não foram verificados. |
