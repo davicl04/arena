@@ -40,7 +40,7 @@ export function CrossTable({ bracket }: { bracket: Bracket }) {
   if (!competitors.length) return null
   return (
     <div role="region" aria-label="Tabela cruzada (role para os lados se não couber)" tabIndex={0}
-      className="overflow-x-auto rounded-[14px] bg-white p-2 outline-offset-2 focus-visible:outline-3 focus-visible:outline-focus">
+      className="surface overflow-x-auto rounded-[14px] p-2 inset-ring inset-ring-surface-edge outline-offset-2 focus-visible:outline-3 focus-visible:outline-focus">
       <table className="w-full border-collapse text-[10.5px]">
         <caption className="sr-only">Tabela cruzada: a rodada de cada confronto e, depois do jogo, o placar</caption>
         <thead>
@@ -62,7 +62,7 @@ export function CrossTable({ bracket }: { bracket: Bracket }) {
               </th>
               {competitors.map(column => {
                 if (row.entry_id === column.entry_id) {
-                  return <td key={column.entry_id} aria-label="Mesmo competidor" className="border border-solid border-line bg-[repeating-linear-gradient(45deg,var(--color-subtle)_0_4px,#fff_4px_8px)]" />
+                  return <td key={column.entry_id} aria-label="Mesmo competidor" className="border border-solid border-line bg-[repeating-linear-gradient(45deg,var(--color-subtle)_0_4px,var(--color-surface)_4px_8px)]" />
                 }
                 const cell = cells.get(`${row.entry_id}:${column.entry_id}`)
                 return (
@@ -110,7 +110,7 @@ export function StandingsTable({ rows, sport }: { rows: TableRow[]; sport: Brack
   ] as const
   return (
     <div role="region" aria-label="Classificação (role para os lados se não couber)" tabIndex={0}
-      className="overflow-x-auto rounded-[14px] bg-white outline-offset-2 focus-visible:outline-3 focus-visible:outline-focus">
+      className="surface overflow-x-auto rounded-[14px] inset-ring inset-ring-surface-edge outline-offset-2 focus-visible:outline-3 focus-visible:outline-focus">
       <table className="w-full min-w-[330px] border-collapse text-[11px]">
         <caption className="sr-only">Classificação: vitória vale 3 pontos, empate 1 e derrota 0; saldo, {unit} pró e vitórias desempatam</caption>
         <thead>

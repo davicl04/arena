@@ -20,7 +20,7 @@ export default function EditProfilePage({ user, onUser, onExpired, openBlocked }
   const props = { user, onUser, onExpired, onClose: close, onSaved: (text: string) => { toast.success(text); close() } }
   const open = (next: Sheet) => setSheet(next)
   return <>
-    <section className="flex items-center gap-3.5 rounded-card bg-white p-4" aria-label="Sua identidade">
+    <section className="flex items-center gap-3.5 rounded-card surface p-4 inset-ring inset-ring-surface-edge" aria-label="Sua identidade">
       <Avatar key={user.avatar?.id ?? 'initials'} user={user} className={avatarPreviewVariants()} />
       <div className="grid min-w-0 gap-0.5">
         <b className="text-[15px] wrap-anywhere">{user.name}</b>

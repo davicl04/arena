@@ -71,7 +71,7 @@ function RefundRow({ entry, onSent, onExpired }: { entry: OrganizerEntry; onSent
     if (sent) onSent(sent)
   }
 
-  return <li className="rounded-card bg-white p-3 shadow-[0_2px_8px_#0000000a]" aria-labelledby={`${id}-name`}>
+  return <li className="surface rounded-card p-3 shadow-[0_2px_8px_#0000000a] noite:shadow-none inset-ring inset-ring-surface-edge" aria-labelledby={`${id}-name`}>
     <div className="flex items-start gap-3">
       {refund && status.step !== 'enviar'
         ? <ReceiptThumb receipt={refund} name={name} onExpired={onExpired} />

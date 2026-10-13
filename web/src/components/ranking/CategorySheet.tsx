@@ -49,7 +49,7 @@ export function CategorySheet({ profiles, category, onChange, onClose }: {
               return (
                 <button key={sport} type="button" aria-pressed={selected} onClick={() => onChange({ sport })}
                   className={cn('grid min-w-0 justify-items-center gap-1.5 rounded-card border border-solid px-1.5 pt-3 pb-2.5 text-[12px] font-semibold',
-                    selected ? 'border-brand bg-success-bg text-forest shadow-[inset_0_0_0_1px_var(--color-brand)]' : 'border-line bg-white text-ink')}>
+                    selected ? 'border-brand bg-success-bg text-forest noite:text-heading shadow-[inset_0_0_0_1px_var(--color-brand)]' : 'border-line bg-surface text-ink')}>
                   <SportIcon sport={sport} size={34} />
                   <span className="max-w-full truncate">{item?.label}</span>
                 </button>
@@ -67,10 +67,10 @@ export function CategorySheet({ profiles, category, onChange, onClose }: {
       {category.sport === 'futebol' && (
         <>
           <Group label="Tipo de ranking">
-            <div className="grid grid-cols-2 gap-[3px] rounded-[12px] bg-[#49505714] p-[3px]">
+            <div className="grid grid-cols-2 gap-[3px] rounded-[12px] bg-[#49505714] noite:bg-[#ffffff0d] p-[3px]">
               {kinds.map(item => (
                 <button key={item.value} type="button" aria-pressed={category.kind === item.value} onClick={() => onChange({ kind: item.value })}
-                  className={cn('min-h-9 rounded-[9px] border-0 text-[12px] font-semibold', category.kind === item.value ? 'bg-white text-forest shadow-soft' : 'bg-transparent text-ink-muted')}>
+                  className={cn('min-h-9 rounded-[9px] border-0 text-[12px] font-semibold', category.kind === item.value ? 'bg-white text-forest shadow-soft noite:bg-legend noite:text-[#1a1404]' : 'bg-transparent text-ink-muted')}>
                   {item.label}
                 </button>
               ))}

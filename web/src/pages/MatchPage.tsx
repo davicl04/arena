@@ -181,7 +181,7 @@ export default function MatchPage({ matchId, viewerId, onBack, onSchedule, onDec
       <MatchHeader detail={current} onBack={onBack} />
       {!arranging ? (
         <div className="grid flex-1 content-start gap-3 overflow-y-auto px-5 pt-4">
-          <div role="note" className="flex gap-2.5 rounded-card bg-white p-3.5 shadow-card">
+          <div role="note" className="flex gap-2.5 rounded-card surface inset-ring inset-ring-surface-edge p-3.5 shadow-card">
             <Hourglass size={20} className="mt-px flex-none text-brand" aria-hidden="true" />
             <p className="m-0 min-w-0 flex-1 text-[12px] leading-normal text-ink">
               <b className="block text-[13px]">

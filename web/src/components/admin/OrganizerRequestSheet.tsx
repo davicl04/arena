@@ -99,7 +99,7 @@ export function OrganizerRequestSheet({ item, onClose, onOpenUser, onDecided, on
       <Button variant="secondary" disabled={busy} onClick={() => { setRefusing(true); setError('') }}><X size={17} aria-hidden="true" />Recusar</Button>
     </SheetActions>}
 
-    {pending && refusing && <div className="mt-3 grid gap-2.5 rounded-card p-3.5 shadow-[inset_0_0_0_1.5px_#b9374955]">
+    {pending && refusing && <div className="mt-3 grid gap-2.5 rounded-card p-3.5 shadow-[inset_0_0_0_1.5px_#b9374955] noite:shadow-[inset_0_0_0_1.5px_#ff8a8055]">
       <b id={`${id}-reason`} className="text-[13px]">Motivo da recusa</b>
       <div role="group" aria-labelledby={`${id}-reason`} aria-describedby={problem && !reason ? `${id}-problem` : undefined} className="flex flex-wrap gap-1.5">
         {ORGANIZER_REFUSAL_REASONS.map(option => <Chip key={option.value} type="button" aria-pressed={reason === option.value}
@@ -112,7 +112,7 @@ export function OrganizerRequestSheet({ item, onClose, onOpenUser, onDecided, on
       <p className="flex items-start gap-2 text-[11px] leading-[1.5] text-ink-muted"><Info size={15} className="mt-px flex-none text-brand" aria-hidden="true" />A pessoa vê o motivo e pode enviar um novo pedido.</p>
       <SheetActions className="mt-0">
         <Button variant="secondary" disabled={busy} onClick={() => { setRefusing(false); setAttempted(false); setError('') }}>Voltar</Button>
-        <Button className="bg-danger-ink shadow-none hover:bg-[#9a1e14]" disabled={busy} onClick={() => void refuse()}>{busy ? 'Recusando…' : 'Recusar pedido'}</Button>
+        <Button className="bg-danger-ink shadow-none hover:bg-[#9a1e14] noite:hover:bg-[#ffa39b]" disabled={busy} onClick={() => void refuse()}>{busy ? 'Recusando…' : 'Recusar pedido'}</Button>
       </SheetActions>
     </div>}
     {error && <p className={feedbackVariants()} role="alert">{error}</p>}

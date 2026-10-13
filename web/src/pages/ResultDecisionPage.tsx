@@ -120,7 +120,7 @@ export default function ResultDecisionPage({ matchId, onBack, onOpenChat, onDone
     </TeamsPlate>
 
     <div className="grid grid-cols-[minmax(0,1fr)] gap-3.5 px-4 pt-4">
-      <div className="flex items-center justify-center gap-2.5 rounded-card bg-white px-3 py-2.5" data-slot="decision-vs">
+      <div className="flex items-center justify-center gap-2.5 rounded-card surface px-3 py-2.5" data-slot="decision-vs">
         {sides[0] && <TeamMark side={sides[0]} />}
         <h2 className="m-0 flex min-w-0 items-center gap-2 text-[13px]">
           <span className="sr-only">{sides.map(side => sideName(side)).join(' contra ')}</span>
@@ -131,11 +131,11 @@ export default function ResultDecisionPage({ matchId, onBack, onOpenChat, onDone
         {sides[1] && <TeamMark side={sides[1]} />}
       </div>
 
-      <section aria-label="Linha do tempo da partida" className="rounded-card bg-white p-3.5">
+      <section aria-label="Linha do tempo da partida" className="rounded-card surface p-3.5">
         <ol className="m-0 grid list-none gap-0 p-0">
           {timelineOf(detail).map((item, index, all) => (
             <li key={`${item.title}-${index}`} className={cn('relative flex gap-3 pb-3.5 last:pb-0', index < all.length - 1 && 'before:absolute before:top-7 before:bottom-0 before:left-[13px] before:w-px before:bg-line')}>
-              <span className={cn('relative z-1 grid size-[27px] flex-none place-items-center rounded-full', item.bad ? 'bg-[#fff0f2] text-danger' : 'bg-[#005a3612] text-brand')}>
+              <span className={cn('relative z-1 grid size-[27px] flex-none place-items-center rounded-full', item.bad ? 'bg-[#fff0f2] noite:bg-error-bg text-danger' : 'bg-icon-tile text-icon-tile-ink')}>
                 <item.Icon size={14} aria-hidden="true" />
               </span>
               <span className="min-w-0 flex-1">
@@ -155,9 +155,9 @@ export default function ResultDecisionPage({ matchId, onBack, onOpenChat, onDone
           </div>
           {chat.loading && <p role="status" className="m-0 text-[11px] text-ink-muted">Carregando o chat…</p>}
           {chat.error && <LoadError size="section" title="Não foi possível carregar o chat" text={chat.error} cause={chat.errorCause} onRetry={chat.reload} />}
-          {!chat.loading && !chat.error && recent.length === 0 && <p className="m-0 rounded-card bg-white p-3 text-[11.5px] text-ink-muted">Ainda não há mensagens no chat desta partida.</p>}
+          {!chat.loading && !chat.error && recent.length === 0 && <p className="m-0 rounded-card surface p-3 text-[11.5px] text-ink-muted">Ainda não há mensagens no chat desta partida.</p>}
           {recent.length > 0 && (
-            <ul className="m-0 grid list-none gap-2 rounded-card bg-white p-3">
+            <ul className="m-0 grid list-none gap-2 rounded-card surface p-3">
               {recent.map(item => {
                 const side = sideOf(detail, item.side)
                 const time = parseIso(item.created_at)
@@ -181,7 +181,7 @@ export default function ResultDecisionPage({ matchId, onBack, onOpenChat, onDone
       {canDecide && <DecisionForm key={detail.id} match={detail} busy={action.busy} error={action.error} onSubmit={input => void decide(input)} />}
 
       {!canDecide && !decided && (
-        <p className="m-0 rounded-card bg-white p-3.5 text-[12px] leading-[1.5] text-ink-muted" role="note">
+        <p className="m-0 rounded-card surface p-3.5 text-[12px] leading-[1.5] text-ink-muted" role="note">
           {detail.state === 'cancelada' ? 'Esta partida foi cancelada.' : detail.state === 'agendada' ? 'A partida ainda não começou: a decisão fica disponível depois do horário.' : 'Não há resultado para decidir nesta partida agora.'}
         </p>
       )}

@@ -21,9 +21,9 @@ export function FeedProgress({ label, className }: { label: string; className?: 
 
 /** Esqueleto de um post quadrado, enquanto a primeira página chega. */
 function PostSkeleton() {
-  const block = 'rounded-lg bg-[#d5d9de] motion-safe:animate-pulse'
+  const block = 'rounded-lg bg-[#d5d9de] noite:bg-[#ffffff14] motion-safe:animate-pulse'
   return <div className="pb-3.5 [&+&]:mt-1.5" aria-hidden="true">
-    <div className="aspect-square bg-[#d5d9de] motion-safe:animate-pulse" />
+    <div className="aspect-square bg-[#d5d9de] noite:bg-[#ffffff14] motion-safe:animate-pulse" />
     <div className="grid gap-[7px] px-4 pt-3"><div className={cn(block, 'h-[9px] w-[86%]')} /><div className={cn(block, 'h-[9px] w-[58%]')} /></div>
   </div>
 }
@@ -87,7 +87,7 @@ export default function CommunityFeed({ feed, viewerId, scroller, onOpenUser, on
       {busy ? <FeedProgress label="Carregando mais publicações" className="mx-1 my-3.5" />
         : <Button type="button" variant="secondary" className="w-full" onClick={() => void loadMore()}>Carregar mais publicações</Button>}
     </div> : <>
-      <div className="mx-4 mt-3 flex items-center gap-3 rounded-panel bg-white p-3.5 shadow-card">
+      <div className="mx-4 mt-3 flex items-center gap-3 rounded-panel surface p-3.5 shadow-card inset-ring inset-ring-surface-edge">
         <div className="min-w-0 flex-1"><b className="block font-display text-[13px]">Chegou ao fim</b>
           <small className="mt-0.5 text-[10.5px] text-ink-muted">Que tal compartilhar a sua?</small></div>
         <Button type="button" size="compact" onClick={onCompose}><Camera size={16} />Publicar</Button>

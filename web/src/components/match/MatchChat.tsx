@@ -31,7 +31,7 @@ function EventStrip({ detail, message }: { detail: MatchDetail; message: MatchMe
   const team = sideOf(detail, message.side)?.team ?? null;
   const when = eventWhen(message.payload);
   return (
-    <div data-slot="chat-event" data-event={message.event_type} className="flex items-center gap-2 self-stretch rounded-[12px] bg-white/65 px-3 py-2 text-[11px] leading-snug text-ink">
+    <div data-slot="chat-event" data-event={message.event_type} className="flex items-center gap-2 self-stretch rounded-[12px] bg-white/65 noite:bg-[#ffffff0d] px-3 py-2 text-[11px] leading-snug text-ink">
       {team ? (
         <TeamCrest name={team.name} initials={team.initials} path={team.crest_url} size="xs" className="h-[18px] w-4" />
       ) : (
@@ -52,7 +52,7 @@ function Bubble({ message, own, onReport }: { message: MatchMessageOut; own: boo
   const mine = message.is_mine;
   if (message.removed) {
     return (
-      <div className="flex max-w-full items-center gap-1.5 rounded-[16px] bg-white/60 px-3 py-2 text-[11.5px] text-ink-muted italic">
+      <div className="flex max-w-full items-center gap-1.5 rounded-[16px] bg-white/60 noite:bg-[#ffffff0d] px-3 py-2 text-[11.5px] text-ink-muted italic">
         <EyeOff size={14} className="flex-none" aria-hidden="true" />
         Mensagem removida
       </div>
@@ -63,7 +63,7 @@ function Bubble({ message, own, onReport }: { message: MatchMessageOut; own: boo
       <p
         className={cn(
           "m-0 min-w-0 rounded-[16px] px-3 py-2 text-[12px] leading-[1.45] wrap-anywhere whitespace-pre-line",
-          mine ? "rounded-br-[6px] bg-brand text-white" : own ? "bg-[#d5e9dc] text-ink" : "rounded-bl-[6px] bg-white text-ink",
+          mine ? "rounded-br-[6px] bg-brand text-on-brand" : own ? "bg-[#d5e9dc] noite:bg-[#8fe0b426] text-ink" : "rounded-bl-[6px] bg-surface text-ink",
         )}
       >
         {message.body}
@@ -157,14 +157,14 @@ function Composer({
   if (!canWrite) {
     const admin = detail.my_role === "administracao";
     return (
-      <p data-slot="chat-closed" className="m-0 flex flex-none items-center gap-2 border-t border-solid border-line bg-white px-4 py-3 text-[11.5px] text-ink-muted">
+      <p data-slot="chat-closed" className="m-0 flex flex-none items-center gap-2 border-t border-solid border-line bg-surface px-4 py-3 text-[11.5px] text-ink-muted">
         <Info size={15} className="flex-none" aria-hidden="true" />
         {detail.my_role === 'historico' ? 'O acesso pelo histórico não inclui o chat.' : !canRead ? "O chat abre quando os dois lados aceitam a proposta." : admin ? "A administração só lê o chat." : "O chat desta partida está fechado."}
       </p>
     );
   }
   return (
-    <form data-slot="chat-composer" className="relative flex flex-none items-end gap-1 border-t border-solid border-line bg-white p-2" onSubmit={(event) => void submit(event)}>
+    <form data-slot="chat-composer" className="relative flex flex-none items-end gap-1 border-t border-solid border-line bg-surface p-2" onSubmit={(event) => void submit(event)}>
       {canPropose && onPropose && (
         <IconButton type="button" aria-label="Propor dia, horário e quadra" className="text-brand" onClick={onPropose}>
           <CalendarPlus size={20} aria-hidden="true" />
@@ -189,7 +189,7 @@ function Composer({
       <IconButton type="submit" aria-label="Enviar mensagem" className="text-brand disabled:opacity-40" disabled={sending || !text.trim()}>
         <SendHorizontal size={20} aria-hidden="true" />
       </IconButton>
-      <p id={`${id}-status`} role="status" aria-live="polite" className={cn("m-0", error || sending ? "absolute -top-6 right-3 left-3 rounded-field px-2 py-1 text-[11px]" : "sr-only", error ? "bg-error-bg text-error" : "bg-white text-ink-muted")}>
+      <p id={`${id}-status`} role="status" aria-live="polite" className={cn("m-0", error || sending ? "absolute -top-6 right-3 left-3 rounded-field px-2 py-1 text-[11px]" : "sr-only", error ? "bg-error-bg text-error" : "bg-surface text-ink-muted")}>
         {sending ? "Enviando mensagem…" : error}
       </p>
     </form>
@@ -287,7 +287,7 @@ export function MatchChat({
             )}
             {rows.map((row) =>
               row.kind === "day" ? (
-                <div key={row.key} className="self-center rounded-full bg-white/60 px-2.5 py-[3px] text-[10px] font-bold text-ink-muted">
+                <div key={row.key} className="self-center rounded-full bg-white/60 noite:bg-[#ffffff0d] px-2.5 py-[3px] text-[10px] font-bold text-ink-muted">
                   {row.label}
                 </div>
               ) : row.kind === "event" ? (

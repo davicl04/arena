@@ -253,7 +253,7 @@ export function ContestRefundSheet({ entry, busy, error, onContest, onClose }: {
           aria-invalid={touched && short ? true : undefined}
           aria-describedby={`${id}-help`}
           onChange={(event) => setReason(event.target.value)}
-          className="w-full resize-none rounded-field border border-solid border-field-border bg-white p-2.5 text-[12px] leading-normal text-ink"
+          className="w-full resize-none rounded-field border border-solid border-field-border bg-field p-2.5 text-[12px] leading-normal text-ink"
           placeholder="Ex.: o valor que voltou é menor que o pago."
         />
         <small id={`${id}-help`} className="flex justify-between gap-2 px-0.5 text-[10.5px] text-ink-muted">
@@ -314,7 +314,7 @@ export function ContactSheet({ name, contact, onClose }: { name: string; contact
   }
   return (
     <Sheet title="Contato do organizador" description={name} onClose={onClose}>
-      <div className="mt-1 flex min-w-0 items-center gap-2 rounded-xl border border-dashed border-line-strong bg-white py-2 pr-2 pl-3">
+      <div className="mt-1 flex min-w-0 items-center gap-2 rounded-xl border border-dashed border-line-strong bg-field py-2 pr-2 pl-3">
         <Phone size={17} className="flex-none text-brand" aria-hidden="true" />
         <span ref={text} className="min-w-0 flex-1 text-[12.5px] font-semibold wrap-anywhere text-ink select-all">
           {contact}

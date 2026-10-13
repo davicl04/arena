@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils'
 
 /* Campos da fila: seletores compactos sobre a base global de `select` (o filtro do cabeçalho tem largura automática). */
 const adminSelect = 'min-h-[42px] rounded-[9px] p-[9px] text-[11px]'
-const adminTextarea = 'min-h-[42px] w-full resize rounded-[9px] border border-solid border-field-border bg-white p-[9px] text-[11px] text-ink'
+const adminTextarea = 'min-h-[42px] w-full resize rounded-[9px] border border-solid border-field-border bg-field p-[9px] text-[11px] text-ink'
 
 type Report = {
   id: number; target_type: 'post' | 'comment' | 'user' | 'match_message'; target_id: number

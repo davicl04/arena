@@ -28,7 +28,7 @@ type SectionKey = 'entries' | 'data' | 'pix'
 type SheetKind = 'cancel' | 'delete' | 'edit' | null
 
 const rowClass = 'flex min-h-[58px] w-full items-center gap-3 border-0 bg-transparent px-0 py-2 text-left text-ink'
-const rowIcon = 'grid size-[34px] flex-none place-items-center rounded-[10px] bg-[#005a3612] text-brand'
+const rowIcon = 'grid size-[34px] flex-none place-items-center rounded-[10px] bg-icon-tile text-brand'
 
 /** Rótulo e valor da linha de seção (`.nl`): título em negrito e o resumo abaixo. */
 function RowText({ title, value, hot }: { title: string; value: ReactNode; hot?: boolean }) {
@@ -50,7 +50,7 @@ function SectionPanel({ id, Icon, title, value, hot, open, onOpenChange, childre
   children: ReactNode
 }) {
   return <Collapsible open={open} onOpenChange={onOpenChange} className="border-0 border-b border-solid border-line last:border-b-0">
-    <CollapsibleTrigger id={id} className={cn(rowClass, 'enabled:hover:bg-[#f6f7f9]')}>
+    <CollapsibleTrigger id={id} className={cn(rowClass, 'enabled:hover:bg-hover')}>
       <span className={rowIcon}><Icon size={17} aria-hidden="true" /></span>
       <RowText title={title} value={value} hot={hot} />
       <ChevronDown size={17} aria-hidden="true" className={cn('flex-none text-ink-muted motion-safe:transition-transform', open && 'rotate-180')} />
@@ -62,7 +62,7 @@ function SectionPanel({ id, Icon, title, value, hot, open, onOpenChange, childre
 /** Seção com tela própria (comprovantes e devoluções). */
 function SectionLink({ Icon, title, value, hot, onClick }: { Icon: LucideIcon; title: string; value: ReactNode; hot?: boolean; onClick: () => void }) {
   return <div className="border-0 border-b border-solid border-line last:border-b-0">
-    <button type="button" className={cn(rowClass, 'hover:bg-[#f6f7f9]')} onClick={onClick}>
+    <button type="button" className={cn(rowClass, 'hover:bg-hover')} onClick={onClick}>
       <span className={rowIcon}><Icon size={17} aria-hidden="true" /></span>
       <RowText title={title} value={value} hot={hot} />
       <ChevronRight size={17} aria-hidden="true" className="flex-none text-ink-muted" />
@@ -231,7 +231,7 @@ export default function EventManagePage({ eventId, onBack, onEdit, onReceipts, o
         onFill={step => onEdit(step)} onReceipts={onReceipts} onShowEntries={showEntries} onBracket={onBracket} onMatches={onMatches} />
 
       <h2 className="mt-5 mb-2 text-[16px]">Seções</h2>
-      <div className="rounded-card bg-white px-3.5">
+      <div className="surface rounded-card px-3.5 inset-ring inset-ring-surface-edge">
         {beforeRegistration
           ? <SectionLater Icon={Users} title={entriesTitle(detail.sport)} value={detail.capacity ? `0 de ${detail.capacity} · depois de publicar` : 'Depois de publicar'} />
           : <SectionPanel id="section-entries" Icon={Users} title={entriesTitle(detail.sport)} open={open.entries} onOpenChange={toggle('entries')}

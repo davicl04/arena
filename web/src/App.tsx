@@ -44,7 +44,7 @@ export default function App() {
   return (
     <>
       <a
-        className="absolute -top-20 left-5 z-skip-link rounded-[8px] bg-white p-3.5 underline focus:top-2.5"
+        className="absolute -top-20 left-5 z-skip-link rounded-[8px] bg-sheet p-3.5 underline focus:top-2.5"
         href="#main"
       >
         Pular para conteúdo

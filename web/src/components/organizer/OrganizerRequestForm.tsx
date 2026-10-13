@@ -15,7 +15,7 @@ import { cn } from '@/lib/utils'
 import { errorClass, hintClass, invalidClass, textareaClass } from './fieldStyles'
 
 const fieldOrder: (keyof OrganizerRequestDraft)[] = ['display_name', 'city_id', 'sports', 'experience', 'contact', 'link', 'accept_terms']
-const sportToggle = 'h-auto min-h-[38px] rounded-xl border border-solid border-line-strong bg-white py-1 pr-3 pl-1.5 text-[11.5px] font-bold text-ink hover:bg-subtle data-pressed:border-forest data-pressed:bg-forest data-pressed:text-white data-pressed:hover:bg-forest data-pressed:hover:text-white data-pressed:[&_[data-slot=sport-icon]]:mix-blend-screen data-pressed:[&_[data-slot=sport-icon]]:[filter:grayscale(1)_invert(1)] focus-visible:ring-focus/60'
+const sportToggle = 'h-auto min-h-[38px] rounded-xl border border-solid border-line-strong bg-surface py-1 pr-3 pl-1.5 text-[11.5px] font-bold text-ink hover:bg-subtle data-pressed:border-forest data-pressed:bg-forest data-pressed:text-white data-pressed:hover:bg-forest data-pressed:hover:text-white data-pressed:[&_[data-slot=sport-icon]]:mix-blend-screen data-pressed:[&_[data-slot=sport-icon]]:[filter:grayscale(1)_invert(1)] focus-visible:ring-focus/60'
 
 /** Campo com rótulo, dica e erro ligados por `aria-describedby`. */
 function Field({ id, label, hint, error, children }: { id: string; label: string; hint?: ReactNode; error?: string; children: ReactNode }) {
@@ -107,7 +107,7 @@ export function OrganizerRequestForm({ cities, defaultCityId, onSent, onExpired 
           onChange={event => update({ link: event.target.value })} />
       </Field>
     </Card>
-    <label htmlFor={fid('accept_terms')} className={cn('mt-3.5 mb-0 flex items-start gap-2.5 rounded-[14px] border border-solid bg-white p-3 text-[11.5px] leading-[1.5] font-normal',
+    <label htmlFor={fid('accept_terms')} className={cn('mt-3.5 mb-0 flex items-start gap-2.5 surface rounded-[14px] border border-solid p-3 text-[11.5px] leading-[1.5] font-normal',
       errors.accept_terms ? 'border-error' : 'border-line')}>
       <input id={fid('accept_terms')} type="checkbox" className="mt-0.5 size-[18px] shrink-0 accent-brand" checked={draft.accept_terms}
         aria-invalid={Boolean(errors.accept_terms)} aria-describedby={describedBy(fid('accept_terms'), errors.accept_terms, false)}

@@ -14,11 +14,11 @@ function Row({ Icon, title, text, onClick, badge }: { Icon: LucideIcon; title: s
       <b className="block text-[12.5px]">{title}</b>
       <small className="mt-0.5 text-[10.5px] leading-[1.5] text-ink-muted">{text}</small>
     </span>
-    {badge && <span className="flex-none rounded-full bg-[#4950571a] px-2 py-[3px] text-[9px] font-bold">{badge}</span>}
+    {badge && <span className="flex-none rounded-full bg-[#4950571a] noite:bg-[#ffffff12] px-2 py-[3px] text-[9px] font-bold">{badge}</span>}
     {onClick && <ChevronRight size={18} className="text-ink-muted" />}
   </>
   return onClick
-    ? <button type="button" data-slot="other-way" className={cn(rowClass, 'rounded-none enabled:hover:bg-[#f6f7f9]')} onClick={onClick}>{body}</button>
+    ? <button type="button" data-slot="other-way" className={cn(rowClass, 'rounded-none enabled:hover:bg-hover')} onClick={onClick}>{body}</button>
     : <div data-slot="other-way" className={rowClass}>{body}</div>
 }
 

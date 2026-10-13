@@ -7,9 +7,9 @@ export type NotificationBellTone = 'light' | 'dark' | 'cover'
 
 const countBase = 'pointer-events-none absolute grid h-4 min-w-4 place-items-center rounded-full px-1 text-[9px] leading-none font-bold tabular-nums ring-2'
 const countClass: Record<NotificationBellTone, string> = {
-  light: 'top-1.5 right-1 bg-brand text-white ring-app',
+  light: 'top-1.5 right-1 bg-brand text-on-brand ring-app',
   dark: 'top-1 right-0.5 bg-mint text-night ring-forest',
-  cover: 'top-1 right-0.5 bg-mint text-night ring-forest group-data-[condensed=true]/topbar:bg-brand group-data-[condensed=true]/topbar:text-white group-data-[condensed=true]/topbar:ring-app',
+  cover: 'top-1 right-0.5 bg-mint text-night ring-forest group-data-[condensed=true]/topbar:bg-brand group-data-[condensed=true]/topbar:text-on-brand group-data-[condensed=true]/topbar:ring-app',
 }
 const focusMint = 'focus-visible:outline-mint'
 

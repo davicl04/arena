@@ -60,7 +60,7 @@ describe('lados, agrupamento e braçadeira', () => {
     // Adversário: à esquerda, bolhas brancas.
     expect(opponent.className).toContain('self-start')
     expect(opponent.dataset.side).toBe('b')
-    expect(Array.from(opponent.querySelectorAll('p')).every(bubble => bubble.className.includes('bg-white'))).toBe(true)
+    expect(Array.from(opponent.querySelectorAll('p')).every(bubble => bubble.className.includes('bg-surface'))).toBe(true)
     // Eu: à direita, verde-escuro com o nome "Você".
     expect(me.className).toContain('self-end')
     expect(me.dataset.mine).toBe('true')

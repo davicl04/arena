@@ -18,7 +18,7 @@ export function ConfirmBox({ children, confirmLabel, cancelLabel = 'Cancelar', b
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => { ref.current?.focus() }, [])
   return <div ref={ref} tabIndex={-1} role="group" aria-label="Confirmação"
-    className="mt-3.5 rounded-[14px] bg-[#fff0f2] p-[13px] text-[12px] leading-[1.5] text-ink outline-none">
+    className="mt-3.5 rounded-[14px] bg-[#fff0f2] noite:bg-error-bg p-[13px] text-[12px] leading-[1.5] text-ink outline-none">
     {children}
     <div className="mt-2.5 flex gap-2 *:flex-1">
       <button type="button" className={teamButton({ tone: 'danger' })} disabled={busy} onClick={onConfirm}>{busy ? 'Aguarde…' : confirmLabel}</button>

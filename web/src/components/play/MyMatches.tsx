@@ -24,7 +24,7 @@ export function MatchRow({ card, onOpen }: { card: MatchCard; onOpen: (matchId: 
   return <button type="button" data-slot="match-row" data-phase={card.phase} onClick={() => onOpen(card.id)}
     className="flex min-h-[64px] w-full items-center gap-3 border-0 bg-transparent px-0 py-2.5 text-left text-inherit [&+&]:border-t [&+&]:border-solid [&+&]:border-line">
     <span className="flex flex-none -space-x-2" aria-hidden="true">
-      <SideMark side={mine} className="relative z-1 ring-2 ring-white" />
+      <SideMark side={mine} className="relative z-1 ring-2 ring-white noite:ring-surface" />
       <SideMark side={other} />
     </span>
     <span className="min-w-0 flex-1">

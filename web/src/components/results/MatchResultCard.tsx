@@ -105,7 +105,7 @@ export function MatchResultCard<T extends ResultMatch = ResultMatch>({
       {hasRoster && (!form || ownReport) && (
         <button
           type="button" onClick={() => setRoster(true)}
-          className="flex w-full items-center gap-3 rounded-card border-0 bg-white p-3.5 text-left shadow-card"
+          className="flex w-full items-center gap-3 rounded-card border-0 surface p-3.5 text-left shadow-card noite:inset-ring noite:inset-ring-surface-edge"
         >
           <Users size={20} className="flex-none text-brand" aria-hidden="true" />
           <span className="min-w-0 flex-1">

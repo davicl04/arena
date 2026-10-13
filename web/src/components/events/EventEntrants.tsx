@@ -38,7 +38,7 @@ export function EventEntrants({ eventId, sport, myEntryId, onOpenUser, onExpired
         Icon={Users}
         title="Nenhuma inscrição confirmada"
         text={`Os ${noun.entrants} aparecem aqui quando a inscrição é confirmada.`}
-        className="rounded-card bg-white"
+        className="surface rounded-card inset-ring inset-ring-surface-edge"
       />
     );
   return (

@@ -27,7 +27,7 @@ export function RosterGrid({ members, loading, error, errorCause, onRetry, onOpe
   const hidden = members.length - shown.length
   return <section aria-labelledby="roster-title">
     <SectionTitle title={<span id="roster-title">Elenco{members.length ? ` · ${members.length}` : ''}</span>} action={action} className="mt-[22px] mb-2.5" />
-    <div className="rounded-card bg-white shadow-card">
+    <div className="surface rounded-card shadow-card inset-ring inset-ring-surface-edge">
       {loading ? <p role="status" className="px-3.5 py-6 text-center text-[12px] text-ink-muted">Carregando elenco…</p>
         : error ? <LoadError size="section" title="Não foi possível carregar o elenco" text={error} cause={errorCause} onRetry={onRetry} />
         : <ul className="m-0 grid list-none grid-cols-4 gap-x-1.5 gap-y-3 px-2.5 py-3.5">

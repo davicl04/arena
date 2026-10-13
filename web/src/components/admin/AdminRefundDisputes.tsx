@@ -102,7 +102,7 @@ function DisputeSheet({ dispute, onClose, onDecided, onExpired }: {
       </>
       : <p className="mt-1 text-[11.5px] text-ink-muted">Comprovante indisponível.</p>}
     <p className={eyebrow}>Motivo do participante</p>
-    <blockquote className="mt-1 rounded-xl border-l-4 border-solid border-danger bg-[#fff0f2] px-3 py-2.5 text-[12px] leading-[1.5] whitespace-pre-line wrap-anywhere">
+    <blockquote className="mt-1 rounded-xl border-l-4 border-solid border-danger bg-[#fff0f2] noite:bg-error-bg px-3 py-2.5 text-[12px] leading-[1.5] whitespace-pre-line wrap-anywhere">
       {refund?.contest_reason ?? 'Sem motivo informado.'}
     </blockquote>
     <History entryId={entry.id} currentId={refund?.id ?? null} name={name} onExpired={onExpired} />

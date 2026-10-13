@@ -62,7 +62,7 @@ export default function FollowRequestsPage({ summary, onOpenUser, onExpired }: {
       ? <EmptyState Icon={UserCheck} title="Tudo em dia" text="Quando alguém pedir para seguir você, o pedido aparece aqui para você aprovar ou recusar." />
       : <section aria-label="Pedidos para seguir">
         <div className="mt-1 mb-1.5 flex items-center justify-between gap-2">
-          <h2 className="flex items-center gap-[7px] text-[14px]">Pedidos para seguir <span className="inline-grid h-[21px] min-w-[21px] place-items-center rounded-[11px] bg-[#005a3612] px-1 text-[10px] text-brand">{list.items.length}{list.hasMore ? '+' : ''}</span></h2>
+          <h2 className="flex items-center gap-[7px] text-[14px]">Pedidos para seguir <span className="inline-grid h-[21px] min-w-[21px] place-items-center rounded-[11px] bg-icon-tile px-1 text-[10px] text-icon-tile-ink">{list.items.length}{list.hasMore ? '+' : ''}</span></h2>
           <Button variant="text" className="m-0 shrink-0" disabled={busy || list.busy} onClick={() => void approveAll()}>Aprovar todas</Button>
         </div>
         <PersonList>

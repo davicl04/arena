@@ -19,5 +19,5 @@ export function NotificationLead({ view, tone = 'light', className }: { view: No
   const frame = cn('grid flex-none place-items-center', dark ? 'size-[30px] rounded-[10px]' : 'size-[38px] rounded-xl', className)
   return Icon === null
     ? <span className={cn(frame, dark ? 'bg-mint/10' : 'bg-tile')}><TeamCrest name={view.teamName ?? 'Time'} size={dark ? 'xs' : 'sm'} decorative /></span>
-    : <span className={cn(frame, dark ? 'bg-mint/10 text-mint' : 'bg-[#005a3612] text-brand')}><Icon size={dark ? 16 : 19} aria-hidden="true" /></span>
+    : <span className={cn(frame, dark ? 'bg-mint/10 text-mint' : 'bg-icon-tile text-brand')}><Icon size={dark ? 16 : 19} aria-hidden="true" /></span>
 }

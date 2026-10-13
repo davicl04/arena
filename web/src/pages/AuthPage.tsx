@@ -117,12 +117,12 @@ export default function AuthPage({
             ? 'Uma conta. Três maneiras de se movimentar.'
             : 'Entre para cuidar do seu perfil esportivo.'}
         </p>
-        <div className="my-5 flex rounded-field bg-app p-1">
+        <div className="my-5 flex rounded-field bg-app p-1 noite:bg-[#ffffff0d]">
           {modes.map((mode) => (
             <button
               key={mode.label}
               type="button"
-              className="min-h-10 flex-1 rounded-[8px] border-0 bg-transparent text-[12px] font-bold aria-pressed:bg-white aria-pressed:text-brand aria-pressed:shadow-soft"
+              className="min-h-10 flex-1 rounded-[8px] border-0 bg-transparent text-[12px] font-bold aria-pressed:bg-white aria-pressed:text-brand aria-pressed:shadow-soft noite:aria-pressed:bg-legend noite:aria-pressed:text-[#1a1404]"
               aria-pressed={register === mode.register}
               disabled={busy}
               onClick={() => {

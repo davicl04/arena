@@ -27,15 +27,15 @@ function ProfileStatsBlocks({ state }: { state: StatsState }) {
   const stats = state.status === "ready" ? state.stats : null;
   return (
     <div className="grid grid-cols-3 gap-2" aria-busy={state.status === "loading"}>
-      <div className="rounded-control bg-white px-2 py-[13px] text-center">
+      <div className="rounded-control surface px-2 py-[13px] text-center">
         <b className="block font-display text-[18px] font-bold">{stats ? winRateText(stats.win_rate) : "—"}</b>
         <span className="mt-[3px] block text-[9px] text-ink-muted">Taxa de vitória</span>
       </div>
-      <div className="rounded-control bg-white px-2 py-[13px] text-center">
+      <div className="rounded-control surface px-2 py-[13px] text-center">
         <b className="block font-display text-[18px] font-bold">{stats ? stats.played : "—"}</b>
         <span className="mt-[3px] block text-[9px] text-ink-muted">Partidas</span>
       </div>
-      <div className="rounded-control bg-white px-2 py-[13px] text-center">
+      <div className="rounded-control surface px-2 py-[13px] text-center">
         {stats?.best_tier ? (
           <b className="flex items-center justify-center gap-1 font-display text-[14px] leading-[22px] font-bold">
             <TierEmblem tier={stats.best_tier} size="sm" showName />

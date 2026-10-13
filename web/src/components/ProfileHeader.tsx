@@ -29,7 +29,7 @@ export function ProfileTopbar({ leading, trailing, username, condensed = false }
   condensed?: boolean
 }) {
   return <div data-condensed={condensed ? 'true' : 'false'}
-    className={`group/topbar sticky top-0 z-topbar -mx-5 -mb-14 flex h-14 items-center gap-2 border-b border-transparent px-3 py-1.5 data-[condensed=true]:border-line data-[condensed=true]:bg-[#e2e4e9f7] data-[condensed=true]:backdrop-blur-[14px] ${topbarMotion}`}>
+    className={`group/topbar sticky top-0 z-topbar -mx-5 -mb-14 flex h-14 items-center gap-2 border-b border-transparent px-3 py-1.5 data-[condensed=true]:border-line data-[condensed=true]:bg-nav data-[condensed=true]:backdrop-blur-[14px] ${topbarMotion}`}>
     <span className="flex min-w-11 items-center">{leading}</span>
     <span className={`min-w-0 flex-1 truncate text-center font-display text-[15px] font-bold text-ink opacity-0 group-data-[condensed=true]/topbar:opacity-100 ${topbarMotion}`} aria-hidden="true">{username ? `@${username}` : ''}</span>
     <span className="flex min-w-11 items-center justify-end">{trailing}</span>
@@ -84,9 +84,9 @@ export default function ProfileHeader({ mode, name, username, avatar, coverUrl, 
       <div className="absolute -top-[42px] left-0 size-[88px]">
         {/* A foto de visitante chega como <SocialPhoto size="fill" />, que ocupa o quadro inteiro. */}
         <div data-slot="profile-avatar"
-          className="grid size-[88px] place-items-center overflow-hidden rounded-full border-4 border-solid border-white bg-app text-[22px] font-extrabold text-ink shadow-[0_2px_8px_#0001] [&_img]:size-full [&_img]:object-cover">{avatar}</div>
+          className="grid size-[88px] place-items-center overflow-hidden rounded-full border-4 border-solid border-white noite:border-app bg-app text-[22px] font-extrabold text-ink shadow-[0_2px_8px_#0001] noite:shadow-none [&_img]:size-full [&_img]:object-cover">{avatar}</div>
         {mode === 'own' && onEdit && <button type="button" aria-label="Editar perfil" onClick={onEdit}
-          className="absolute -right-1 bottom-0.5 grid size-9 place-items-center rounded-full border-[3px] border-solid border-app bg-brand p-0 text-white hover:bg-brand-hover"><UserCog size={16} /></button>}
+          className="absolute -right-1 bottom-0.5 grid size-9 place-items-center rounded-full border-[3px] border-solid border-app bg-brand p-0 text-on-brand hover:bg-brand-hover"><UserCog size={16} /></button>}
       </div>
       {actions && <div className="mb-1 flex justify-end">{actions}</div>}
       <h1 className="mt-[13px] text-[21px] wrap-anywhere"><span className="text-brand">@</span>{username}</h1>

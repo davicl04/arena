@@ -29,14 +29,14 @@ const tabs = [
 const stateBadge = {
   em_analise: ['Em análise', 'bg-warning-bg text-warning'],
   aprovado: ['Aprovado', 'bg-success-bg text-brand'],
-  recusado: ['Recusado', 'bg-[#fff0f2] text-danger'],
+  recusado: ['Recusado', 'bg-[#fff0f2] noite:bg-error-bg text-danger'],
   cancelado: ['Cancelado', 'bg-subtle text-ink-muted'],
 } as const
 
 /** Linha da fila (AD1): foto, nome, resumo e chevron; abre a folha. */
 function QueueRow({ person, title, text, badge, onOpen }: { person: Person; title: string; text: string; badge?: readonly [string, string]; onOpen: () => void }) {
   return <li>
-    <button type="button" className="flex w-full items-center gap-3 rounded-card border-0 bg-white p-2.5 text-left text-inherit shadow-[0_2px_8px_#0000000a] hover:bg-[#fbfbfc]" onClick={onOpen}>
+    <button type="button" className="flex w-full items-center gap-3 rounded-card border-0 bg-surface p-2.5 text-left text-inherit shadow-[0_2px_8px_#0000000a] hover:bg-[#fbfbfc] noite:shadow-none noite:hover:bg-[#16241d] noite:inset-ring noite:inset-ring-surface-edge" onClick={onOpen}>
       <SocialPhoto path={person.avatar_url} name={person.name} />
       <span className="grid min-w-0 flex-1 justify-items-start gap-[3px]">
         <b className="max-w-full truncate text-[13px]">{title}</b>
@@ -118,7 +118,7 @@ function OrganizerSheet({ item, onClose, onOpenUser, onRevoked, onExpired }: {
     <Button variant="link" className="mt-1.5 justify-self-start" onClick={() => { onClose(); onOpenUser(item.user.id) }}>Ver perfil de {item.user.name.trim().split(/\s+/)[0]}</Button>
     {!revoking
       ? <SheetActions><Button variant="secondary" onClick={() => { setRevoking(true); setError('') }}><ShieldOff size={17} aria-hidden="true" />Revogar permissão</Button></SheetActions>
-      : <div className="mt-3 grid gap-2.5 rounded-card p-3.5 shadow-[inset_0_0_0_1.5px_#b9374955]">
+      : <div className="mt-3 grid gap-2.5 rounded-card p-3.5 shadow-[inset_0_0_0_1.5px_#b9374955] noite:shadow-[inset_0_0_0_1.5px_#ff8a8055]">
         <label htmlFor={`${id}-reason`} className="m-0 text-[13px] font-bold">Motivo da revogação</label>
         <textarea id={`${id}-reason`} data-autofocus className={textareaClass} rows={3} maxLength={ORGANIZER_LIMITS.detailMax} value={reason}
           aria-invalid={Boolean(problem)} aria-describedby={problem ? `${id}-problem` : `${id}-hint`} onChange={event => setReason(event.target.value)} />
@@ -127,7 +127,7 @@ function OrganizerSheet({ item, onClose, onOpenUser, onRevoked, onExpired }: {
           : <p id={`${id}-hint`} className="text-[11px] leading-[1.5] text-ink-muted">A pessoa recebe o motivo nas notificações e deixa de ver a seção Organizador.</p>}
         <SheetActions className="mt-0">
           <Button variant="secondary" disabled={busy} onClick={() => { setRevoking(false); setAttempted(false); setError('') }}>Voltar</Button>
-          <Button className="bg-danger-ink shadow-none hover:bg-[#9a1e14]" disabled={busy} onClick={() => void revoke()}>{busy ? 'Revogando…' : 'Revogar'}</Button>
+          <Button className="bg-danger-ink shadow-none hover:bg-[#9a1e14] noite:hover:bg-[#ffa39b]" disabled={busy} onClick={() => void revoke()}>{busy ? 'Revogando…' : 'Revogar'}</Button>
         </SheetActions>
       </div>}
     {error && <p className={feedbackVariants()} role="alert">{error}</p>}

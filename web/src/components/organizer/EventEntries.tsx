@@ -55,7 +55,7 @@ export function EventEntries({ eventId, onReceipts, onExpired }: {
             </small>
           </span>
           {entry.state === 'em_analise' && <button type="button" onClick={onReceipts} aria-label={`Ver comprovante de ${name}`}
-            className="min-h-9 flex-none rounded-[11px] border border-solid border-line-strong bg-white px-2.5 text-[11px] font-bold text-brand hover:bg-subtle">Ver comprovante</button>}
+            className="min-h-9 flex-none rounded-[11px] border border-solid border-line-strong bg-surface px-2.5 text-[11px] font-bold text-brand hover:bg-subtle">Ver comprovante</button>}
         </li>
       })}
     </ul>

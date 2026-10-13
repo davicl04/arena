@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils'
  */
 const lowerFirst = (text: string) => text.charAt(0).toLowerCase() + text.slice(1)
 
-const step = 'grid flex-none place-items-center rounded-[9px] border border-solid border-line-strong bg-white text-brand enabled:hover:bg-subtle disabled:opacity-35'
+const step = 'grid flex-none place-items-center rounded-[9px] border border-solid border-line-strong bg-field text-brand enabled:hover:bg-subtle disabled:opacity-35'
 const stepSize = { md: 'size-7', lg: 'size-8' }
 
 export function Stepper({ value, onChange, label, min = 0, max = 99, size = 'md', disabled = false, className }: {
@@ -90,7 +90,7 @@ export function Segmented<T extends string>({ items, value, onChange, label, dis
             onClick={() => onChange(item.value)} onKeyDown={event => onKeyDown(event, index)}
             className={cn('min-w-0 flex-1 rounded-lg border-0 font-bold',
               size === 'sm' ? 'min-h-8 text-[10px]' : 'min-h-9 text-[11px]',
-              on ? 'bg-brand text-white' : 'bg-transparent text-ink-muted enabled:hover:bg-white/70')}
+              on ? 'bg-brand text-on-brand' : 'bg-transparent text-ink-muted enabled:hover:bg-white/70 noite:enabled:hover:bg-[#ffffff12]')}
           >
             {item.label}
           </button>

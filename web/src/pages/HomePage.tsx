@@ -190,13 +190,13 @@ export default function HomePage({
       <SectionTitle title="Próxima partida" />
       <Card
         as="article"
-        className={nextMatch ? "px-[13px] py-0.5 shadow-[0_2px_9px_#0000000c]" : "flex items-center gap-3 p-[13px] shadow-[0_2px_9px_#0000000c]"}
+        className={nextMatch ? "px-[13px] py-0.5 shadow-[0_2px_9px_#0000000c] noite:shadow-none" : "flex items-center gap-3 p-[13px] shadow-[0_2px_9px_#0000000c] noite:shadow-none"}
       >
         {nextMatch ? (
           <MatchRow card={nextMatch} onOpen={(matchId) => go("match", { matchId })} />
         ) : (
           <>
-            <span className="grid h-[53px] w-[47px] place-items-center rounded-xl bg-ink text-app">
+            <span className="grid h-[53px] w-[47px] place-items-center rounded-xl bg-ink text-app noite:bg-icon-tile noite:text-icon-tile-ink">
               <CalendarDays size={23} />
             </span>
             <div>
@@ -239,14 +239,14 @@ export default function HomePage({
       </div>
       <SectionTitle title="Seu próximo passo" />
       <button
-        className="flex w-full items-center gap-[11px] rounded-card border border-solid border-line bg-white p-3.5 text-left"
+        className="flex w-full items-center gap-[11px] rounded-card border border-solid border-line bg-surface p-3.5 text-left noite:border-surface-edge"
         onClick={() => go("sports")}
       >
         <IconTile>
           <Medal size={22} />
         </IconTile>
         <span className="flex-1">
-          <b className="text-[12px]">Complete seu perfil esportivo</b>
+          <b className="text-[12px] text-heading">Complete seu perfil esportivo</b>
           <small className="mt-1 text-[10px] leading-[1.5] text-ink-muted">
             Mostre onde e como você gosta de jogar.
           </small>

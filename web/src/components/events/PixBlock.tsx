@@ -27,7 +27,7 @@ export function CopyIconButton({
       title={label}
       onClick={onCopy}
       className={cn(
-        "grid size-9 flex-none place-items-center rounded-[10px] border border-solid border-line-strong bg-white p-0 text-brand hover:bg-subtle",
+        "grid size-9 flex-none place-items-center rounded-[10px] border border-solid border-line-strong bg-surface p-0 text-brand hover:bg-subtle",
         className,
       )}
     >
@@ -54,7 +54,7 @@ export function ManualCopyField({ label, value }: { label: string; value: string
       aria-label={label}
       value={value}
       onFocus={(event) => event.currentTarget.select()}
-      className="w-full resize-none rounded-field border border-solid border-line-strong bg-white p-2.5 font-mono text-[11px] wrap-anywhere text-ink"
+      className="w-full resize-none rounded-field border border-solid border-line-strong bg-field p-2.5 font-mono text-[11px] wrap-anywhere text-ink"
     />
   );
 }
@@ -94,7 +94,7 @@ export function PixBlock({ pix, priceCents, onInfo, title = "Pix do organizador"
     <div
       data-slot="pix-block"
       className={cn(
-        "grid min-w-0 gap-2 rounded-card bg-success-bg p-3.5 shadow-[inset_0_0_0_1px_#005a3633]",
+        "grid min-w-0 gap-2 rounded-card bg-success-bg p-3.5 shadow-[inset_0_0_0_1px_#005a3633] noite:shadow-[inset_0_0_0_1px_#8fe0b433]",
         className,
       )}
     >
@@ -107,7 +107,7 @@ export function PixBlock({ pix, priceCents, onInfo, title = "Pix do organizador"
             aria-label="Informações de pagamento"
             title="Informações de pagamento"
             onClick={onInfo}
-            className="grid size-8 flex-none place-items-center rounded-full bg-transparent p-0 text-brand hover:bg-[#005a3612]"
+            className="grid size-8 flex-none place-items-center rounded-full bg-transparent p-0 text-brand hover:bg-icon-tile"
           >
             <Info size={18} aria-hidden="true" />
           </button>
@@ -116,7 +116,7 @@ export function PixBlock({ pix, priceCents, onInfo, title = "Pix do organizador"
       <small className="text-[10.5px] leading-[1.45] text-ink-muted">
         {pix.holder} · chave por {kind?.inline ?? pix.keyType}
       </small>
-      <div className="flex min-w-0 items-center gap-2 rounded-xl border border-dashed border-line-strong bg-white py-2 pr-2 pl-3">
+      <div className="flex min-w-0 items-center gap-2 rounded-xl border border-dashed border-line-strong bg-field py-2 pr-2 pl-3">
         <code
           ref={keyRef}
           className="min-w-0 flex-1 font-mono text-[12.5px] font-semibold wrap-anywhere text-ink select-all"
@@ -134,7 +134,7 @@ export function PixBlock({ pix, priceCents, onInfo, title = "Pix do organizador"
           <button
             type="button"
             onClick={() => void copyCode()}
-            className="inline-flex min-h-[34px] w-full items-center justify-center gap-1.5 rounded-field border border-solid border-line-strong bg-white px-[11px] text-[11px] font-bold text-brand hover:bg-subtle"
+            className="inline-flex min-h-[34px] w-full items-center justify-center gap-1.5 rounded-field border border-solid border-line-strong bg-surface px-[11px] text-[11px] font-bold text-brand hover:bg-subtle"
           >
             {status === "copied" && copiedKey === "codigo" ? (
               <Check size={17} aria-hidden="true" />

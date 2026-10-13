@@ -146,12 +146,12 @@ export default function EventMatchesPage({ eventId, initialMatchId, onInitialSho
     {header}
     <div className="grid grid-cols-[minmax(0,1fr)] gap-3 px-4 pt-4">
       {list.items.length === 0
-        ? <EmptyState Icon={CalendarDays} title="Nenhuma partida ainda" text="As partidas aparecem quando você confirma o chaveamento do campeonato." className="rounded-card bg-white" />
+        ? <EmptyState Icon={CalendarDays} title="Nenhuma partida ainda" text="As partidas aparecem quando você confirma o chaveamento do campeonato." className="surface rounded-card inset-ring inset-ring-surface-edge" />
         : <>
           {chips.length > 0 && (
             <ul aria-label="Resumo das partidas" className="m-0 flex list-none flex-wrap gap-1.5 p-0">
               {chips.map(item => (
-                <li key={item.label} className={cn('rounded-full px-2.5 py-1 text-[10.5px] font-bold', item.hot ? 'bg-warning-bg text-warning' : 'bg-white text-ink-muted')}>
+                <li key={item.label} className={cn('rounded-full px-2.5 py-1 text-[10.5px] font-bold', item.hot ? 'bg-warning-bg text-warning' : 'surface text-ink-muted')}>
                   <b className="font-display text-[11.5px]">{item.value}</b> {item.label}
                 </li>
               ))}
@@ -180,11 +180,11 @@ export default function EventMatchesPage({ eventId, initialMatchId, onInitialSho
                   {interactive && <ChevronRight size={16} className="flex-none text-ink-muted" aria-hidden="true" />}
                 </>
               )
-              const frame = 'flex min-h-[60px] w-full items-center gap-2.5 rounded-card border-0 bg-white px-3 py-2.5 text-left text-ink shadow-card'
+              const frame = 'flex min-h-[60px] w-full items-center gap-2.5 surface rounded-card border-0 px-3 py-2.5 text-left text-ink shadow-card inset-ring inset-ring-surface-edge'
               return (
                 <li key={item.card.id} data-match={item.card.id}>
                   {interactive
-                    ? <button type="button" className={cn(frame, 'cursor-pointer enabled:hover:bg-[#f6f7f9]')} onClick={() => open(item)}
+                    ? <button type="button" className={cn(frame, 'cursor-pointer enabled:hover:bg-hover')} onClick={() => open(item)}
                       aria-label={`${item.label}, ${first} contra ${second}. ${rowSubtitle(item)}. ${badge.label}.`}>{content}</button>
                     : <div className={cn(frame, 'opacity-80')}>{content}</div>}
                 </li>

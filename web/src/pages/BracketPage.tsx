@@ -117,7 +117,7 @@ export default function BracketPage({ eventId, onBack, onMatches, onExpired }: {
 
     <div className="grid grid-cols-[minmax(0,1fr)] gap-3.5 px-4 pt-4">
       {current.state === 'sem_chaveamento' && (
-        <div className="grid gap-3 rounded-card bg-white p-3.5">
+        <div className="grid gap-3 surface rounded-card p-3.5 inset-ring inset-ring-surface-edge">
           <div className="flex items-start gap-3">
             <Shuffle size={22} className="mt-px flex-none text-brand" aria-hidden="true" />
             <div className="min-w-0 flex-1">

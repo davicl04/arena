@@ -17,7 +17,7 @@ function followRequestNames(people: readonly SocialUser[], total: number): strin
 export function FollowRequestsLine({ people, count, onOpen }: { people: readonly SocialUser[]; count: number; onOpen: () => void }) {
   const names = followRequestNames(people, count)
   return <button type="button" data-slot="follow-requests-line" onClick={onOpen}
-    className="flex min-h-[58px] w-full items-center gap-2.5 rounded-2xl border-0 bg-white px-3 py-[11px] text-left text-inherit enabled:hover:bg-[#f6f7f9]">
+    className="flex min-h-[58px] w-full items-center gap-2.5 rounded-2xl border-0 bg-surface px-3 py-[11px] text-left text-inherit enabled:hover:bg-hover">
     <span aria-hidden="true" className="flex flex-none">
       {people.slice(0, 3).map(person => <SocialPhoto key={person.id} path={person.avatar_url} name={person.name} size="face" className="border-white" />)}
     </span>

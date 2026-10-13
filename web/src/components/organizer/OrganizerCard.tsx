@@ -164,8 +164,8 @@ export function OrganizerEvents({ status, events, loading, error, errorCause, on
       </li>)}
     </ul>}
     <ListGroup>
-      <button type="button" onClick={onOpenList} className="flex min-h-[54px] w-full items-center gap-3 border-0 bg-transparent px-3.5 py-2.5 text-left text-inherit enabled:hover:bg-[#f6f7f9]">
-        <span className="grid size-[34px] flex-none place-items-center rounded-[10px] bg-[#005a3612] text-brand"><CalendarRange size={17} aria-hidden="true" /></span>
+      <button type="button" onClick={onOpenList} className="flex min-h-[54px] w-full items-center gap-3 border-0 bg-transparent px-3.5 py-2.5 text-left text-inherit enabled:hover:bg-hover">
+        <span className="grid size-[34px] flex-none place-items-center rounded-[10px] bg-icon-tile text-brand"><CalendarRange size={17} aria-hidden="true" /></span>
         <span className="min-w-0 flex-1">
           <b className="flex items-center gap-1.5 text-[12px]">Meus eventos{approved && status?.organizer && <BadgeCheck size={14} className="text-brand" aria-hidden="true" />}</b>
           <small className="mt-0.5 text-[11px] leading-[1.5] text-ink-muted">
@@ -177,8 +177,8 @@ export function OrganizerEvents({ status, events, loading, error, errorCause, on
         </span>
         <ChevronRight size={16} className="flex-none text-ink-muted" aria-hidden="true" />
       </button>
-      {approved && !loading && !events.length && <button type="button" onClick={onCreate} className="flex min-h-[54px] w-full items-center gap-3 border-0 border-t border-solid border-line bg-transparent px-3.5 py-2.5 text-left text-inherit enabled:hover:bg-[#f6f7f9]">
-        <span className="grid size-[34px] flex-none place-items-center rounded-[10px] bg-[#005a3612] text-brand"><Plus size={17} aria-hidden="true" /></span>
+      {approved && !loading && !events.length && <button type="button" onClick={onCreate} className="flex min-h-[54px] w-full items-center gap-3 border-0 border-t border-solid border-line bg-transparent px-3.5 py-2.5 text-left text-inherit enabled:hover:bg-hover">
+        <span className="grid size-[34px] flex-none place-items-center rounded-[10px] bg-icon-tile text-brand"><Plus size={17} aria-hidden="true" /></span>
         <span className="min-w-0 flex-1 text-[12px] font-bold">Criar evento</span>
         <ChevronRight size={16} className="flex-none text-ink-muted" aria-hidden="true" />
       </button>}

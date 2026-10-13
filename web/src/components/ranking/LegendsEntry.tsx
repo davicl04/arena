@@ -26,10 +26,10 @@ export function LegendsEntry({ count, slots, preview, mine, onOpen }: {
 }) {
   if (count <= 0) {
     return (
-      <div data-slot="legends-empty" className="flex items-center gap-2.5 rounded-card border border-dashed border-[#b8962f66] bg-white px-3.5 py-3">
+      <div data-slot="legends-empty" className="flex items-center gap-2.5 rounded-card border border-dashed border-[#b8962f66] surface px-3.5 py-3">
         <span aria-hidden="true" className="grid flex-none place-items-center opacity-45 grayscale-[0.6]"><TierEmblem tier="lendario" size="lg" decorative /></span>
         <div className="min-w-0">
-          <b className="block font-display text-[12.5px] text-forest">Nenhum Lendário ainda</b>
+          <b className="block font-display text-[12.5px] text-forest noite:text-heading">Nenhum Lendário ainda</b>
           <small className="text-[10.5px] leading-[1.45] text-ink-muted">
             {slots > 0
               ? `${plural(slots, 'vaga', 'vagas')} no topo 15%, para quem tem os pontos de Diamante.`

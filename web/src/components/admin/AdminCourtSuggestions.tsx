@@ -127,7 +127,7 @@ function CourtSheet({ item, onClose, onDecided, onStale, onExpired }: {
       <Button variant="secondary" disabled={busy} onClick={() => { setMode('reject'); setError('') }}><X size={17} aria-hidden="true" />Rejeitar</Button>
     </SheetActions>}
 
-    {mode === 'publish' && <div className="mt-3 grid gap-2.5 rounded-card p-3.5 shadow-[inset_0_0_0_1.5px_#005a3655]">
+    {mode === 'publish' && <div className="mt-3 grid gap-2.5 rounded-card p-3.5 shadow-[inset_0_0_0_1.5px_#005a3655] noite:shadow-[inset_0_0_0_1.5px_#8fe0b455]">
       <b className="text-[13px]">Publicar no catálogo</b>
       <label htmlFor={`${id}-name`} className="m-0">Nome da quadra</label>
       <input id={`${id}-name`} data-autofocus value={name} maxLength={COURT_LIMITS.nameMax} aria-invalid={Boolean(publishProblems.name)}

@@ -9,8 +9,8 @@ export const teamButton = cva('inline-flex min-w-0 items-center justify-center g
     tone: {
       mint: 'border-transparent bg-mint text-night',
       line: 'border-white/25 bg-transparent text-white hover:bg-white/8',
-      brand: 'border-transparent bg-brand text-white hover:bg-brand-hover',
-      outline: 'border-line-strong bg-white text-brand hover:bg-subtle',
+      brand: 'border-transparent bg-brand text-on-brand hover:bg-brand-hover',
+      outline: 'border-line-strong bg-surface text-brand hover:bg-subtle',
       danger: 'border-transparent bg-danger text-white',
     },
     size: {

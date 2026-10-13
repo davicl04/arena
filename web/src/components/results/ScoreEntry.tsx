@@ -65,7 +65,7 @@ export function ScoreEntry({ match, initial, busy, error, summary, notice, onRos
     setSets(old => old.map((set, at) => (at === index ? { ...set, ...change } : set)))
 
   return (
-    <section aria-labelledby={headingId} data-slot="score-entry" className="grid grid-cols-[minmax(0,1fr)] gap-3 rounded-card bg-white p-3.5 shadow-card">
+    <section aria-labelledby={headingId} data-slot="score-entry" className="grid grid-cols-[minmax(0,1fr)] gap-3 rounded-card surface p-3.5 shadow-card noite:inset-ring noite:inset-ring-surface-edge">
       <div className="flex items-center gap-2">
         <Flag size={16} className="flex-none text-brand" aria-hidden="true" />
         <h3 id={headingId} className="text-[13px]">{initial ? 'Corrigir o meu placar' : 'Informe o placar'}</h3>

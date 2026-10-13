@@ -58,7 +58,7 @@ export function NameSheet({ user, onUser, onExpired, onClose, onSaved }: SheetPr
 
 type Checked = { for: string; result?: UsernameAvailability; failed?: boolean }
 const statusTone = { ok: 'text-brand', bad: 'text-error', wait: 'text-ink-muted' } as const
-const ruleItem = 'flex items-center gap-[7px] text-[10.5px] text-ink-muted before:size-1.5 before:flex-none before:rounded-full before:bg-[#b9c0c6] data-[state=ok]:text-brand data-[state=ok]:before:bg-brand data-[state=bad]:text-error data-[state=bad]:before:bg-error'
+const ruleItem = 'flex items-center gap-[7px] text-[10.5px] text-ink-muted before:size-1.5 before:flex-none before:rounded-full before:bg-[#b9c0c6] noite:before:bg-[#ffffff30] data-[state=ok]:text-brand data-[state=ok]:before:bg-brand data-[state=bad]:text-error data-[state=bad]:before:bg-error'
 
 export function UsernameSheet({ user, onUser, onExpired, onClose, onSaved }: SheetProps) {
   const [value, setValue] = useState(user.username)
@@ -111,7 +111,7 @@ export function UsernameSheet({ user, onUser, onExpired, onClose, onSaved }: She
       <label htmlFor="edit-username">Nome de usuário</label>
       {/* O campo interno parte da base global de input, sem borda nem fundo próprios: o contorno e o foco ficam no contêiner. */}
       <div data-slot="at-field" data-invalid={status?.tone === 'bad' ? '' : undefined}
-        className="flex items-center rounded-field border border-solid border-field-border bg-white pl-[13px] focus-within:border-brand focus-within:shadow-[0_0_0_3px_#005a3622] data-invalid:border-error">
+        className="flex items-center rounded-field border border-solid border-field-border bg-field pl-[13px] focus-within:border-brand focus-within:shadow-[0_0_0_3px_#005a3622] data-invalid:border-error">
         <span className="text-[14px] font-bold text-ink-muted" aria-hidden="true">@</span>
         <input id="edit-username" className="border-0 bg-transparent pl-[3px] focus-visible:outline-none" data-autofocus value={value} maxLength={31} autoCapitalize="none" autoComplete="username" spellCheck={false}
           aria-describedby="username-status username-rules" aria-invalid={status?.tone === 'bad'}
@@ -202,8 +202,8 @@ const visibilityFacts = {
 } as const
 
 /* Opção de visibilidade (radio): selecionada com borda verde, fundo claro e ícone preenchido. */
-const visibilityOption = 'group grid min-h-[118px] content-center justify-items-center gap-1.5 rounded-panel border-[1.5px] border-solid border-line bg-white px-2 py-3 text-center aria-checked:border-brand aria-checked:bg-[#f4f9f6] aria-checked:shadow-[0_0_0_3px_#005a3612]'
-const visibilityIcon = 'grid size-12 place-items-center rounded-full bg-app group-aria-checked:bg-brand group-aria-checked:text-white'
+const visibilityOption = 'group grid min-h-[118px] content-center justify-items-center gap-1.5 rounded-panel border-[1.5px] border-solid border-line bg-surface px-2 py-3 text-center noite:border-surface-edge aria-checked:border-brand aria-checked:bg-[#f4f9f6] noite:aria-checked:bg-brand/8 aria-checked:shadow-[0_0_0_3px_#005a3612]'
+const visibilityIcon = 'grid size-12 place-items-center rounded-full bg-app group-aria-checked:bg-brand group-aria-checked:text-on-brand'
 const visibilityHint = 'text-[10.5px] leading-[1.35] text-ink-muted'
 
 export function VisibilitySheet({ user, onUser, onExpired, onClose, onSaved }: SheetProps) {

@@ -22,7 +22,7 @@ import { usePendingNotifications } from '../hooks/usePendingNotifications'
 import { reportActionError } from '../hooks/useSubmit'
 
 type FollowRequest = { user: SocialUser; state: string }
-const countPill = 'ml-1.5 inline-grid h-[19px] min-w-[19px] place-items-center rounded-[10px] bg-[#005a3612] px-1 align-middle text-[10px] font-bold tracking-normal text-brand'
+const countPill = 'ml-1.5 inline-grid h-[19px] min-w-[19px] place-items-center rounded-[10px] bg-icon-tile px-1 align-middle text-[10px] font-bold tracking-normal text-icon-tile-ink'
 const categoryFilters: readonly NotificationFilter[] = ['partidas', 'times', 'eventos']
 
 /** O Coliseu da marca como ícone do estado vazio (o `EmptyState` passa só o tamanho). */
@@ -124,7 +124,7 @@ export default function NotificationsPage({ isAdmin = false, summary, filter, on
           </section>}
           {groups.map(group => <section key={group.label} aria-label={group.label}>
             <ListHeading>{group.label}</ListHeading>
-            <ul className="overflow-hidden rounded-card bg-white" aria-label={`Notificações · ${group.label}`}>
+            <ul className="overflow-hidden rounded-card surface" aria-label={`Notificações · ${group.label}`}>
               {group.items.map(item => <NotificationItem key={item.id} notification={item} busy={busy} isAdmin={isAdmin} onOpen={notification => void open(notification)} />)}
             </ul>
           </section>)}

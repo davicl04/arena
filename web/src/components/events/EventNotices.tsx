@@ -29,7 +29,7 @@ export function EventNotices({ eventId, onExpired }: { eventId: number; onExpire
       ) : list.error ? (
         <LoadError size="section" title="Não foi possível carregar os avisos" text={list.error.message} cause={list.error} onRetry={list.reload} />
       ) : list.items.length === 0 ? (
-        <p className="m-0 rounded-card bg-white px-3.5 py-3 text-[11px] leading-normal text-ink-muted">
+        <p className="m-0 surface rounded-card px-3.5 py-3 inset-ring inset-ring-surface-edge text-[11px] leading-normal text-ink-muted">
           Nenhum aviso do organizador por enquanto. Os avisos aparecem aqui e nas suas notificações.
         </p>
       ) : (
@@ -43,7 +43,7 @@ export function EventNotices({ eventId, onExpired }: { eventId: number; onExpire
                   data-kind={message.kind}
                   className={cn(
                     "grid gap-1 px-3.5 py-3 [&+&]:border-t [&+&]:border-solid [&+&]:border-line",
-                    cancelled && "bg-[#fff0f2]",
+                    cancelled && "bg-[#fff0f2] noite:bg-error-bg",
                   )}
                 >
                   {cancelled && (

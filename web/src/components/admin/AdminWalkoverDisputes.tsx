@@ -40,7 +40,7 @@ function Party({ title, person, side, role, at, reason }: {
     <p className="text-[9px] font-extrabold tracking-[0.08em] text-ink-muted uppercase">{title}</p>
     <b className="mt-0.5 block text-[13px] wrap-anywhere">{person?.name ?? 'Conta indisponível'}</b>
     <small className="text-[11px] text-ink-muted">{sideName(side)} · {role}{at ? ` · ${formatDeadline(at)}` : ''}</small>
-    {reason !== undefined && <blockquote className="mt-2 rounded-xl border-l-4 border-solid border-danger bg-[#fff0f2] px-3 py-2.5 text-[12px] leading-[1.5] whitespace-pre-line wrap-anywhere">
+    {reason !== undefined && <blockquote className="mt-2 rounded-xl border-l-4 border-solid border-danger bg-[#fff0f2] noite:bg-error-bg px-3 py-2.5 text-[12px] leading-[1.5] whitespace-pre-line wrap-anywhere">
       {reason ?? 'Sem motivo informado.'}
     </blockquote>}
   </section>
@@ -63,7 +63,7 @@ function ChatExcerpt({ match, onExpired }: { match: DisputeMatch; onExpired: () 
       <ol ref={list} tabIndex={0} className="mt-1.5 grid max-h-[220px] gap-1.5 overflow-y-auto rounded-xl bg-subtle p-2.5 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-focus" aria-label="Mensagens do chat">
         {lines.map(line => line.kind === 'evento'
           ? <li key={line.id} className="text-center text-[10.5px] leading-[1.4] text-ink-muted italic wrap-anywhere">{line.body}</li>
-          : <li key={line.id} className="rounded-lg bg-white px-2.5 py-2 text-[11.5px] leading-[1.45]">
+          : <li key={line.id} className="rounded-lg bg-white noite:bg-[#ffffff0d] px-2.5 py-2 text-[11.5px] leading-[1.45]">
             <b>{line.author?.name ?? 'Conta indisponível'}</b>
             <small className="inline text-[10px] text-ink-muted"> · {sideName(sideOf(match, line.side ?? 'a'))} · {formatDeadline(line.created_at)}</small>
             <p className={line.removed ? 'mt-0.5 text-ink-muted italic' : 'mt-0.5 wrap-anywhere'}>{line.removed ? 'Mensagem removida' : line.body}</p>

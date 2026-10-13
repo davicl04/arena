@@ -37,7 +37,7 @@ function GoalsSide({ match, side, name, value, disabled, onChange }: {
   )
 }
 
-const choice = 'grid min-h-[78px] min-w-0 content-start justify-items-start gap-0.5 rounded-[14px] border-[1.5px] border-solid border-line-strong bg-white p-2.5 text-left text-ink aria-checked:border-brand aria-checked:bg-[#eaf5ed] aria-checked:shadow-[0_0_0_3px_#8fe0b455]'
+const choice = 'grid min-h-[78px] min-w-0 content-start justify-items-start gap-0.5 rounded-[14px] border-[1.5px] border-solid border-line-strong bg-surface p-2.5 text-left text-ink aria-checked:border-brand aria-checked:bg-[#eaf5ed] noite:aria-checked:bg-success-bg aria-checked:shadow-[0_0_0_3px_#8fe0b455]'
 
 /**
  * Escolha de uma opção entre cartões: `radiogroup` com foco só na opção escolhida (ou na primeira) e as setas movendo a
@@ -165,7 +165,7 @@ export function DecisionForm({ match, busy, error, onSubmit }: {
         tennis
           ? <TennisSets sets={sets} onPatch={patch} mineName={nameA} theirName={nameB} superTiebreak={superTiebreak} disabled={busy} />
           : (
-            <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-end gap-2 rounded-card bg-white p-3" role="group" aria-label="Placar em gols">
+            <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-end gap-2 surface rounded-card p-3 inset-ring inset-ring-surface-edge" role="group" aria-label="Placar em gols">
               <GoalsSide match={match} side="a" name={nameA} value={goals[0]} disabled={busy} onChange={value => setGoals(old => [value, old[1]])} />
               <span aria-hidden="true" className="pb-1 font-display text-[20px] font-extrabold text-ink-muted">×</span>
               <GoalsSide match={match} side="b" name={nameB} value={goals[1]} disabled={busy} onChange={value => setGoals(old => [old[0], value])} />

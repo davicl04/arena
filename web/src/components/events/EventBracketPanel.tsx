@@ -10,13 +10,13 @@ import { useResource } from '@/hooks/useResource'
 
 /** Texto honesto de quem não lê a tabela (sem inscrição ativa) ou ainda não tem o que ver (antes de confirmar). */
 function Notice({ title, text }: { title: string; text: string }) {
-  return <EmptyState Icon={GitFork} title={title} text={text} className="rounded-card bg-white" />
+  return <EmptyState Icon={GitFork} title={title} text={text} className="surface rounded-card inset-ring inset-ring-surface-edge" />
 }
 
 /** Bônus de ranking do tênis (RN16), lembrado na aba enquanto o campeonato não termina. */
 function BonusNote({ bonus }: { bonus: TennisBonus }) {
   return (
-    <p className="m-0 flex items-start gap-2 rounded-card bg-white p-3 text-[11px] leading-[1.5] text-ink-muted" data-slot="tennis-bonus">
+    <p className="m-0 flex items-start gap-2 surface rounded-card p-3 text-[11px] inset-ring inset-ring-surface-edge leading-[1.5] text-ink-muted" data-slot="tennis-bonus">
       <Medal size={16} className="mt-px flex-none text-brand" aria-hidden="true" />
       <span>
         <b className="text-ink">Bônus no ranking do tênis:</b> campeão +{bonus.champion}, vice +{bonus.runner_up} e semifinalistas +{bonus.semifinalist}

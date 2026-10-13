@@ -17,7 +17,7 @@ import { relativeTime } from '@/utils/relativeTime'
 function Notice({ message }: { message: EventMessage }) {
   const cancelled = message.kind === 'evento_cancelado'
   const author = message.author?.name ?? (cancelled ? 'Aviso automático' : 'Organizador')
-  return <li data-kind={message.kind} className={cn('rounded-card p-3 text-[12px] leading-[1.55]', cancelled ? 'bg-[#fff0f2] shadow-[inset_0_0_0_1px_#b9374933]' : 'bg-white')}>
+  return <li data-kind={message.kind} className={cn('rounded-card p-3 text-[12px] leading-[1.55]', cancelled ? 'bg-[#fff0f2] noite:bg-error-bg shadow-[inset_0_0_0_1px_#b9374933]' : 'surface inset-ring inset-ring-surface-edge')}>
     <div className="mb-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10.5px] text-ink-muted">
       {cancelled && <span className="inline-flex items-center gap-1 rounded-full bg-danger px-2 py-0.5 text-[9.5px] font-extrabold text-white"><CircleX size={12} aria-hidden="true" />Evento cancelado</span>}
       <b className="text-ink">{author}</b>
@@ -56,7 +56,7 @@ export function EventNotices({ eventId, canWrite, onExpired }: {
   return <section aria-labelledby="notices-title" className="mt-6">
     <h2 id="notices-title" className="flex items-center gap-2 text-[16px]"><Megaphone size={18} className="text-brand" aria-hidden="true" />Avisos do evento</h2>
     <p className="mt-1 text-[11px] leading-[1.5] text-ink-muted">Só você escreve. Os inscritos (atletas ou elencos dos times) leem aqui e recebem a notificação.</p>
-    {canWrite && <form onSubmit={event => void send(event)} noValidate className="mt-3 rounded-card bg-white p-3">
+    {canWrite && <form onSubmit={event => void send(event)} noValidate className="surface mt-3 rounded-card p-3 inset-ring inset-ring-surface-edge">
       <label htmlFor="notice-body" className="mt-0 mb-1.5">Novo aviso</label>
       <textarea id="notice-body" className={textareaClass} rows={3} maxLength={max} value={body} placeholder="Ex.: mudamos o horário da primeira rodada para 9h."
         aria-describedby="notice-body-hint" aria-invalid={Boolean(error) || undefined} onChange={event => { setBody(event.target.value); setError('') }} />

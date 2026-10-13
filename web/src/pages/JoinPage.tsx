@@ -83,7 +83,7 @@ export default function JoinPage({ token, onClose, onOpenTeams, onExpired }: {
     return <section aria-label="Entrar no time" className="min-h-full">
       <TeamsPlate className="pb-5">{top}</TeamsPlate>
       <div className="px-4 pt-4">
-        <div className="rounded-panel bg-white">
+        <div className="rounded-panel surface inset-ring inset-ring-surface-edge">
           <EmptyState Icon={Link2Off} title="Este link não vale mais"
             text="Um representante gerou outro link ou o time foi encerrado. Peça o link novo a um representante do time." />
         </div>

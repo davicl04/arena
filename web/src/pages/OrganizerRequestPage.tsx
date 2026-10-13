@@ -21,7 +21,7 @@ const rules: [LucideIcon, string, string][] = [
 
 /** Bloco de situação claro (pedido enviado, em análise, já organizador). */
 function Situation({ Icon, title, text, tone }: { Icon: LucideIcon; title: string; text: string; tone: 'wait' | 'ok' }) {
-  return <div className="flex gap-3 rounded-card bg-white p-3.5">
+  return <div className="surface flex gap-3 rounded-card p-3.5 inset-ring inset-ring-surface-edge">
     <span className={tone === 'wait' ? 'grid size-10 flex-none place-items-center rounded-xl bg-warning-bg text-warning' : 'grid size-10 flex-none place-items-center rounded-xl bg-success-bg text-brand'}><Icon size={20} /></span>
     <div className="min-w-0"><b className="block text-[13.5px]">{title}</b><small className="mt-0.5 text-[11px] leading-[1.5] text-ink-muted">{text}</small></div>
   </div>
@@ -69,7 +69,7 @@ export default function OrganizerRequestPage({ cities, profiles, onBack, onExpir
           : !status.loading && <>
             <SectionTitle title="Como funciona" />
             <ul className="grid gap-2" aria-label="Regras do organizador">
-              {rules.map(([Icon, title, text]) => <li key={title} className="flex gap-3 rounded-[14px] bg-white p-3">
+              {rules.map(([Icon, title, text]) => <li key={title} className="flex gap-3 surface rounded-[14px] p-3 inset-ring inset-ring-surface-edge">
                 <Icon size={20} className="flex-none text-brand" aria-hidden="true" />
                 <div className="min-w-0"><b className="block text-[12.5px]">{title}</b><small className="text-[11px] leading-[1.45] text-ink-muted">{text}</small></div>
               </li>)}

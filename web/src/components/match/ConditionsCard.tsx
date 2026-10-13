@@ -120,7 +120,7 @@ function ChampionshipConditions({ detail, busy, error, onSchedule, onDecide }: P
   const waiting = detail.sides.length < 2;
 
   return (
-    <Collapsible open={open} onOpenChange={setOpen} data-slot="conditions-card" data-origin="campeonato" className="mx-3 mt-2.5 rounded-card bg-white shadow-card">
+    <Collapsible open={open} onOpenChange={setOpen} data-slot="conditions-card" data-origin="campeonato" className="mx-3 mt-2.5 rounded-card surface inset-ring inset-ring-surface-edge shadow-card">
       <CollapsibleTrigger className="flex min-h-12 w-full items-center gap-2 border-0 bg-transparent px-3.5 py-2.5 text-left text-ink">
         {scheduled ? <CalendarCheck size={16} className="flex-none text-brand" aria-hidden="true" /> : <Pin size={16} className="flex-none text-brand" aria-hidden="true" />}
         <b className="text-[13px]">{scheduled ? "Partida agendada" : "Data e quadra"}</b>
@@ -236,7 +236,7 @@ function FriendlyConditions({
   const guests = guestSlots(detail.slots, mine);
 
   return (
-    <Collapsible open={open} onOpenChange={setOpen} data-slot="conditions-card" className="mx-3 mt-2.5 rounded-card bg-white shadow-card">
+    <Collapsible open={open} onOpenChange={setOpen} data-slot="conditions-card" className="mx-3 mt-2.5 rounded-card surface inset-ring inset-ring-surface-edge shadow-card">
       <CollapsibleTrigger className="flex min-h-12 w-full items-center gap-2 border-0 bg-transparent px-3.5 py-2.5 text-left text-ink">
         <TitleIcon size={16} className="flex-none text-brand" aria-hidden="true" />
         <b className="text-[13px]">{title}</b>

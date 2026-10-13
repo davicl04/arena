@@ -496,9 +496,9 @@ function PriceStep({ form, errors, update }: StepProps) {
     </>}
     {textField('contact', 'Contato para dúvidas (opcional)', { max: contactMax, placeholder: 'WhatsApp ou e-mail' })}
     {paid
-      ? <div className="mt-3.5 flex gap-3 rounded-[14px] bg-warning-bg p-3 text-[12px] text-ink">
-        <Hourglass size={20} className="flex-none text-warning" aria-hidden="true" />
-        <div><b className="block">Evento pago passa pela administração</b><small className="mt-0.5 text-[10.5px] leading-[1.45] text-ink-muted">Depois de enviar, ele fica “Em aprovação” até a conferência e só então abre as inscrições.</small></div>
+      ? <div className="mt-3.5 flex gap-3 rounded-[14px] bg-warning-bg p-3 text-[12px] text-ink noite:bg-[#fdf3e2] noite:text-[#495057]">
+        <Hourglass size={20} className="flex-none text-warning noite:text-[#6f4305]" aria-hidden="true" />
+        <div><b className="block">Evento pago passa pela administração</b><small className="mt-0.5 text-[10.5px] leading-[1.45] text-ink-muted noite:text-[#626970]">Depois de enviar, ele fica “Em aprovação” até a conferência e só então abre as inscrições.</small></div>
       </div>
       : form.paid === false && <Note>Evento gratuito publica direto: as inscrições abrem na hora.</Note>}
   </>

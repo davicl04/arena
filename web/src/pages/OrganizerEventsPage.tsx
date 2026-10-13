@@ -49,7 +49,7 @@ export default function OrganizerEventsPage({ onBack, onOpen, onCreate, onExpire
       {open.error && <LoadError size="screen" text={open.error} cause={open.errorCause} onRetry={open.reload} />}
 
       {empty ? <div className="px-3 py-8 text-center">
-        <span className="mx-auto mb-3.5 grid size-14 place-items-center rounded-[18px] bg-[#005a3610] text-brand"><Trophy size={26} aria-hidden="true" /></span>
+        <span className="mx-auto mb-3.5 grid size-14 place-items-center rounded-[18px] bg-icon-tile text-brand"><Trophy size={26} aria-hidden="true" /></span>
         <h2 className="text-[15px]">Seu primeiro evento</h2>
         <p className="mx-auto mt-[7px] max-w-[290px] text-[12px] leading-[1.7] text-ink-muted">
           Campeonato de futebol ou tênis (todos contra todos ou eliminação simples) ou prova de corrida. Eventos pagos passam pela aprovação da administração antes de publicar.

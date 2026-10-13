@@ -75,7 +75,7 @@ function RevokedEventSheet({ event, onClose, onDecided, onExpired }: {
       <Button variant="secondary" disabled={busy} onClick={() => { setStep('cancelar'); setError('') }}><Ban size={17} aria-hidden="true" />Cancelar evento</Button>
     </SheetActions>}
 
-    {step === 'seguir' && <div className="mt-3 grid gap-2.5 rounded-card p-3.5 shadow-[inset_0_0_0_1.5px_#005a3655]">
+    {step === 'seguir' && <div className="mt-3 grid gap-2.5 rounded-card p-3.5 shadow-[inset_0_0_0_1.5px_#005a3655] noite:shadow-[inset_0_0_0_1.5px_#8fe0b455]">
       <b className="text-[13px]">Seguir com o evento?</b>
       <p className="text-[11.5px] leading-[1.5] text-ink-muted">O organizador continua gerindo este evento, e as inscrições reabrem se o prazo permitir. A decisão fica registrada e ele é avisado.</p>
       <SheetActions className="mt-0">

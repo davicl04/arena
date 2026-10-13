@@ -116,7 +116,7 @@ export function ReasonSheet({
           aria-invalid={touched && short ? true : undefined}
           aria-describedby={`${id}-help`}
           onChange={(event) => setReason(event.target.value)}
-          className="w-full resize-none rounded-field border border-solid border-field-border bg-white p-2.5 text-[12px] leading-normal text-ink aria-invalid:border-error"
+          className="w-full resize-none rounded-field border border-solid border-field-border bg-field p-2.5 text-[12px] leading-normal text-ink aria-invalid:border-error"
           placeholder={placeholder}
         />
         <small id={`${id}-help`} className="flex justify-between gap-2 px-0.5 text-[10.5px] text-ink-muted">

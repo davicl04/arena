@@ -121,7 +121,7 @@ function MyEntries({ entries, onOpen }: { entries: MyEntry[]; onOpen: (entry: My
             <button
               key={entry.id}
               type="button"
-              className="flex min-h-[58px] w-full items-center gap-3 border-0 bg-transparent px-3.5 py-2.5 text-left text-inherit enabled:hover:bg-[#f6f7f9] [&+&]:border-t [&+&]:border-solid [&+&]:border-line"
+              className="flex min-h-[58px] w-full items-center gap-3 border-0 bg-transparent px-3.5 py-2.5 text-left text-inherit enabled:hover:bg-hover [&+&]:border-t [&+&]:border-solid [&+&]:border-line"
               onClick={() => onOpen(entry)}
             >
               <span className="grid w-10 flex-none justify-items-center rounded-[10px] bg-forest py-1 text-mint" aria-hidden="true">
@@ -186,7 +186,7 @@ export default function EventsPage({ sport, profiles, cities, loading, onSport, 
           );
         })}
       </div>
-      <div className="mb-4 flex min-h-11 items-center gap-2 rounded-xl bg-white px-[13px] py-1.5 text-[11px]">
+      <div className="mb-4 flex min-h-11 items-center gap-2 surface rounded-xl inset-ring inset-ring-surface-edge px-[13px] py-1.5 text-[11px]">
         <MapPin size={16} className="flex-none text-brand" aria-hidden="true" />
         <span className="min-w-0 flex-1 truncate">
           {loading ? "Carregando cidade…" : filtered && city ? city.name : city ? "Todas as cidades" : `Sem cidade no perfil de ${label} · todas as cidades`}

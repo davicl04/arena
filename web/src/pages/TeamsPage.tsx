@@ -187,7 +187,7 @@ export default function TeamsPage({ viewerId, selectedTeamId, openInvites = fals
           <RosterGrid key={selected.id} members={members} loading={!currentRoster} error={currentRoster?.error ?? ''} errorCause={currentRoster?.cause}
             onRetry={() => setRosterAttempt(n => n + 1)} onOpen={member => setSheet({ kind: 'member', member })}
             action={representative ? <Button variant="link" className="text-[11px]" onClick={() => onInvite(selected)}>Convidar</Button> : undefined} />
-          {representative && selected.member_count <= 1 && <div className="mt-3 flex gap-3 rounded-card bg-white p-3.5 shadow-[inset_0_0_0_1.5px_var(--color-mint),0_3px_12px_#0000000d]">
+          {representative && selected.member_count <= 1 && <div className="mt-3 flex gap-3 surface rounded-card p-3.5 shadow-[inset_0_0_0_1.5px_var(--color-mint),0_3px_12px_#0000000d] noite:shadow-[inset_0_0_0_1.5px_var(--color-mint)]">
             <Users size={22} className="flex-none text-brand" aria-hidden="true" />
             <div className="min-w-0 flex-1 text-[12.5px] text-ink">
               <b className="block">Seu time só tem você</b>

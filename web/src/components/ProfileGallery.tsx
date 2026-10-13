@@ -69,9 +69,9 @@ export default function ProfileGallery({ userId, username, ownerName, viewerId, 
         </button>
       </div>)}
       {fill > 0 && onNewPhoto && <div role="listitem">
-        <button type="button" className={`${tileBase} grid place-items-center content-center gap-1.5 border-[1.5px] border-dashed border-field-border bg-transparent p-0 text-[10px] font-bold text-brand hover:bg-[#005a360a]`} onClick={onNewPhoto}><Plus size={22} />Nova foto</button>
+        <button type="button" className={`${tileBase} grid place-items-center content-center gap-1.5 border-[1.5px] border-dashed border-field-border bg-transparent p-0 text-[10px] font-bold text-brand hover:bg-brand/5`} onClick={onNewPhoto}><Plus size={22} />Nova foto</button>
       </div>}
-      {Array.from({ length: fill > 0 && onNewPhoto ? fill - 1 : 0 }, (_, index) => <span key={index} className="block aspect-square w-full bg-[#49505708]" aria-hidden="true" />)}
+      {Array.from({ length: fill > 0 && onNewPhoto ? fill - 1 : 0 }, (_, index) => <span key={index} className="block aspect-square w-full bg-[#49505708] noite:bg-[#ffffff08]" aria-hidden="true" />)}
     </div>
     {list.moreError && <p className={feedbackVariants()} role="alert">{list.moreError}</p>}
     {list.hasMore && <Button type="button" variant="secondary" className="mt-3.5 w-full" disabled={list.busy} onClick={() => void list.loadMore()}>Carregar mais fotos</Button>}

@@ -41,7 +41,7 @@ function ReceiptRow({ review, decided, onOpen, onExpired }: { review: ReceiptRev
   const { receipt, entry, attempt } = review
   const name = subjectName(entry.subject)
   const when = decided ? `Decidido ${relativeTime(receipt.decided_at ?? receipt.created_at)}` : `Enviado ${relativeTime(receipt.created_at)}`
-  return <li className="relative flex items-center gap-3 rounded-card bg-white p-2.5 shadow-[0_2px_8px_#0000000a] has-[button:focus-visible]:outline-3 has-[button:focus-visible]:outline-offset-2 has-[button:focus-visible]:outline-focus hover:bg-[#fbfbfc]">
+  return <li className="relative flex items-center gap-3 rounded-card bg-surface p-2.5 shadow-[0_2px_8px_#0000000a] noite:shadow-none inset-ring inset-ring-surface-edge has-[button:focus-visible]:outline-3 has-[button:focus-visible]:outline-offset-2 has-[button:focus-visible]:outline-focus hover:bg-[#fbfbfc] noite:hover:bg-hover">
     <ReceiptThumb receipt={receipt} name={name} onExpired={onExpired} />
     <span className="grid min-w-0 flex-1 justify-items-start gap-[3px]">
       <button type="button" className="max-w-full truncate border-0 bg-transparent p-0 text-left text-[13px] font-bold text-inherit after:absolute after:inset-0 after:rounded-card focus-visible:outline-none"

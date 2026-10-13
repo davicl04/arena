@@ -12,10 +12,10 @@ import { entrantsUnit, eventRefusalText } from './eventView'
 
 type Tone = 'now' | 'wait' | 'bad' | 'calm'
 const toneClass: Record<Tone, string> = {
-  now: 'bg-white shadow-[inset_0_0_0_1.5px_var(--color-mint),var(--shadow-card)] [&_[data-slot=now-icon]]:text-brand',
+  now: 'surface shadow-[inset_0_0_0_1.5px_var(--color-mint),var(--shadow-card)] [&_[data-slot=now-icon]]:text-brand',
   wait: 'bg-warning-bg [&_[data-slot=now-icon]]:text-warning',
-  bad: 'bg-[#fff0f2] [&_[data-slot=now-icon]]:text-danger',
-  calm: 'bg-white [&_[data-slot=now-icon]]:text-brand',
+  bad: 'bg-[#fff0f2] noite:bg-error-bg [&_[data-slot=now-icon]]:text-danger',
+  calm: 'surface [&_[data-slot=now-icon]]:text-brand',
 }
 
 /** Cartão "Agora" (`.nowc` e `.banner` do G3): ícone, título, texto, conteúdo extra e ações. */

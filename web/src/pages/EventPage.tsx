@@ -315,7 +315,7 @@ export default function EventPage({ eventId, initialSection, onSport, onTeams, o
       {cta && (
         <div
           data-slot="entry-bar"
-          className="absolute inset-x-0 bottom-[82px] z-[19] flex items-center gap-2 border-t border-solid border-line bg-white px-5 py-2.5 app-narrow:bottom-[calc(82px+env(safe-area-inset-bottom))]"
+          className="absolute inset-x-0 bottom-[82px] z-[19] flex items-center gap-2 border-t border-solid border-line bg-sheet px-5 py-2.5 app-narrow:bottom-[calc(82px+env(safe-area-inset-bottom))]"
         >
           <Button
             className="min-w-0 flex-1 text-center"
