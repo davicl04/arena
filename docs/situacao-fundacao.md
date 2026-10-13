@@ -10,10 +10,10 @@ Implementado o [plano de notificações](plano-notificacoes.md) no backend, na w
 - **Expo:** o mesmo conjunto: `useNotificationSummary` no `ArenaShell`, com `AppState`; `NotificationBell`, `NotificationsPlate`, `PendingCard`, `FollowRequestsLine`, tela `follow-requests`, `PendingPlate` no Início e contador na linha "Notificações" do Menu do Perfil.
 
 **Verificações executadas:**
-- Backend: `ruff check app migrations tests` aprovado; `pytest -q` com `TEST_DATABASE_URL` (PostgreSQL 16 local, schema aleatório): **1625 aprovados e 1 pulado**. Migração aplicada em banco de teste separado (`arena_notif_check`), com `alembic check` sem diferenças e ciclo `downgrade 0011` / `upgrade head` aprovado. O banco de desenvolvimento `arena` não foi migrado nesta entrega.
+- Backend: `ruff check app migrations tests` aprovado; `pytest -q` com `TEST_DATABASE_URL` (PostgreSQL 16 local, schema aleatório): **1638 aprovados e 1 pulado** (após os ajustes de ex-representante). Migração aplicada em banco de teste separado (`arena_notif_check`), com `alembic check` sem diferenças e ciclo `downgrade 0011` / `upgrade head` aprovado. O banco de desenvolvimento `arena` não foi migrado nesta entrega.
 - Integração por tipo com ação: `test_notification_actions_flow.py`, `test_notification_resolution_matches_flow.py`, `partida/test_notification_resolution_flow.py` e `test_notification_resolution_events_flow.py`, conferindo que ler não resolve e que a ação real e os caminhos alternativos resolvem.
-- Web: `npm run lint`, `npm run build` e `npm run test:coverage` aprovados: **79 arquivos e 1041 testes**; cobertura de **92,59% das instruções e 86,16% dos ramos**.
-- Expo: `npm run lint`, `npm run typecheck`, `npm run test:coverage` (**88 arquivos e 1384 testes**) e `npm run export:android` aprovados.
+- Web: `npm run lint`, `npm run build` e `npm run test:coverage` aprovados: **79 arquivos e 1042 testes**; cobertura de **92,59% das instruções e 86,17% dos ramos**.
+- Expo: `npm run lint`, `npm run typecheck`, `npm run test:coverage` (**88 arquivos e 1375 testes** após a remoção do cartão do Perfil) e `npm run export:android` aprovados.
 - Navegador, com Chrome headless controlado por CDP, API na porta 8001 apontando para `arena_notif_check`, Vite na 5174 e contas de teste criadas pela API:
   - a 320, 390 e 1440 px, sino presente nas cinco abas raiz, com alvo de 44 px e sem overflow horizontal;
   - tela aberta pelo sino e pela placa do Início, que abre no chip *Para responder*; chips filtrando, e *Partidas* vazio mostra "Nada neste filtro.";
@@ -32,10 +32,10 @@ Implementado o [plano de notificações](plano-notificacoes.md) no backend, na w
   - `convite_time` não tem prazo, porque convites não têm validade no código;
   - a aba acesa em Notificações e Pedidos para seguir é a aba de onde o sino foi tocado (o plano dizia Início);
   - o resumo também é relido ao entrar e voltar de subtelas.
-- A barra do prazo fica âmbar com menos de 25% do tempo ou menos de 3 h, como no plano; propostas de 2 h ficam sempre âmbar.
-- Um ex-representante que saiu do time depois de receber uma proposta mantém a pendência até a proposta terminar ou o prazo vencer.
+- A barra do prazo fica âmbar só com menos de 25% do tempo restante (decisão do usuário; o limite de 3 h do plano foi removido na web e no Expo).
+- Quando um representante sai, é removido, deixa de representar ou o time é encerrado, as pendências que recebeu como representante daquele time (`pedido_entrada`, `proposta_partida`, `condicoes_propostas`, `wo_registrado`, `resultado_divergente`, `comprovante_decidido` e `devolucao_enviada`) são resolvidas só para ele (`team_notifications.resolve_for_former_representatives`); as recebidas por outro papel continuam. `vaga_encontrada` fica de fora porque vai ao avulso, não a representantes. Regra na seção 7.2 do 0003.
 - O banco de desenvolvimento `arena` precisa de `alembic upgrade head` antes de usar esta branch.
-- No Expo, o cartão interno "Notificações" (pedidos para seguir) do Perfil continua existindo.
+- No Expo, o cartão interno "Notificações" (pedidos para seguir) do Perfil foi removido: os pedidos ficam só na subtela "Pedidos para seguir", como na web.
 
 ## Plano do sino global e da tela de notificações (apenas planejamento) — 13 de outubro de 2026
 
