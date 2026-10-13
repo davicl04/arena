@@ -1,6 +1,6 @@
 export type Sport = 'futebol' | 'tenis' | 'corrida'
 export type Position = 'goleiro' | 'defesa' | 'meio_campo' | 'atacante'
-export interface Page<T> { items: T[]; next_cursor: string | null }
+export interface Page<T> { items: T[]; next_cursor: string | null; total?: number }
 export interface User {
   id: number
   name: string

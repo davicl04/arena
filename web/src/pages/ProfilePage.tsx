@@ -1,9 +1,13 @@
 import { useEffect, useState } from "react";
-import { CalendarDays, ChevronRight, Menu, Trophy } from "lucide-react";
+import { ChevronRight, Menu, Trophy } from "lucide-react";
 import { request } from "../api/client";
 import type { Profile, SocialUser, User } from "../api/client";
+import type { MatchCard } from "../api/matches";
+import { getProfileStats } from "../api/profile";
+import type { ProfileStats } from "../api/profile";
+import { TierEmblem } from "@/components/arena/TierEmblem";
+import { MatchTimeline } from "@/components/profile-matches/MatchTimeline";
 import { IconButton } from "@/components/ui/button";
-import { EmptyState } from "@/components/ui/empty-state";
 import { SectionTitle } from "@/components/ui/section-title";
 import ProfileGallery from "../components/ProfileGallery";
 import ProfileHeader from "../components/ProfileHeader";
@@ -12,25 +16,69 @@ import type { ProfileTab } from "../components/ProfileTabs";
 import Avatar from "../components/Avatar";
 import type { ConnectionsTab, Screen } from "../data/arena";
 
-const stats = ["Taxa de vitória", "Partidas", "Pontos de elo"];
+type StatsState = { status: "loading" } | { status: "error" } | { status: "ready"; stats: ProfileStats };
+
+/** "62%" (arredondado) ou "—" sem partidas. */
+const winRateText = (rate: number | null) => (rate == null ? "—" : `${Math.round(rate)}%`);
+
+/** Blocos "Suas estatísticas": os números vêm do servidor; carregando ou com erro ficam "—" sem bloquear o perfil. */
+function ProfileStatsBlocks({ state }: { state: StatsState }) {
+  const stats = state.status === "ready" ? state.stats : null;
+  return (
+    <div className="grid grid-cols-3 gap-2" aria-busy={state.status === "loading"}>
+      <div className="rounded-control bg-white px-2 py-[13px] text-center">
+        <b className="block font-display text-[18px] font-bold">{stats ? winRateText(stats.win_rate) : "—"}</b>
+        <span className="mt-[3px] block text-[9px] text-ink-muted">Taxa de vitória</span>
+      </div>
+      <div className="rounded-control bg-white px-2 py-[13px] text-center">
+        <b className="block font-display text-[18px] font-bold">{stats ? stats.played : "—"}</b>
+        <span className="mt-[3px] block text-[9px] text-ink-muted">Partidas</span>
+      </div>
+      <div className="rounded-control bg-white px-2 py-[13px] text-center">
+        {stats?.best_tier ? (
+          <b className="flex items-center justify-center gap-1 font-display text-[14px] leading-[22px] font-bold">
+            <TierEmblem tier={stats.best_tier} size="sm" showName />
+          </b>
+        ) : (
+          <b className={stats?.in_placement ? "block text-[12px] leading-[22px] font-bold" : "block font-display text-[18px] font-bold"}>
+            {stats?.in_placement ? "Em classificação" : "—"}
+          </b>
+        )}
+        <span className="mt-[3px] block text-[9px] text-ink-muted">Melhor elo</span>
+      </div>
+    </div>
+  );
+}
 
 export default function ProfilePage({
   user,
   profiles,
   go,
+  matches,
+  tab,
+  onTabChange,
   onNewPhoto,
   openConnections,
   onExpired,
 }: {
   user: User;
   profiles: Profile[];
-  go: (screen: Screen) => void;
+  /** `context.matchId` abre a tela da partida (toque em um registro da aba Partidas). */
+  go: (screen: Screen, context?: { matchId?: number }) => void;
+  /** Partidas da placa do Jogar, se o shell já a leu (próxima partida da aba Partidas); sem ela, a aba a lê. */
+  matches?: readonly MatchCard[] | null;
+  /** Aba ativa guardada pelo shell (sobrevive à ida à tela da partida); sem ela, a página guarda a própria. */
+  tab?: ProfileTab;
+  onTabChange?: (tab: ProfileTab) => void;
   /** Abre a Comunidade já na nova publicação. */
   onNewPhoto: () => void;
   openConnections: (userId: number, tab: ConnectionsTab) => void;
   onExpired: () => void;
 }) {
-  const [profileTab, setProfileTab] = useState<ProfileTab>("Fotos");
+  const [ownTab, setOwnTab] = useState<ProfileTab>("Fotos");
+  const profileTab = tab ?? ownTab;
+  const setProfileTab = onTabChange ?? setOwnTab;
+  const [statsState, setStatsState] = useState<StatsState>({ status: "loading" });
   const [counts, setCounts] = useState<{ followers: number; following: number } | null>(null);
   useEffect(() => {
     let alive = true;
@@ -40,6 +88,19 @@ export default function ProfilePage({
       })
       .catch(() => {
         /* As contagens são complementares: sem elas a linha de conexões não aparece. */
+      });
+    return () => {
+      alive = false;
+    };
+  }, [user.id]);
+  useEffect(() => {
+    let alive = true;
+    getProfileStats()
+      .then((stats) => {
+        if (alive) setStatsState({ status: "ready", stats });
+      })
+      .catch(() => {
+        if (alive) setStatsState({ status: "error" });
       });
     return () => {
       alive = false;
@@ -80,14 +141,7 @@ export default function ProfilePage({
         </button>
       </div>
       <SectionTitle title="Suas estatísticas" />
-      <div className="grid grid-cols-3 gap-2">
-        {stats.map((label) => (
-          <div key={label} className="rounded-control bg-white px-2 py-[13px] text-center">
-            <b className="block font-display text-[18px] font-bold">—</b>
-            <span className="mt-[3px] block text-[9px] text-ink-muted">{label}</span>
-          </div>
-        ))}
-      </div>
+      <ProfileStatsBlocks state={statsState} />
       <ProfileTabs value={profileTab} onChange={setProfileTab} />
       <ProfilePanel tab={profileTab}>
         {profileTab === "Fotos" ? (
@@ -101,10 +155,13 @@ export default function ProfilePage({
             onExpired={onExpired}
           />
         ) : (
-          <EmptyState
-            Icon={CalendarDays}
-            title="Sua história em campo"
-            text="Quando as partidas estiverem disponíveis, seus resultados ficam registrados aqui."
+          <MatchTimeline
+            own
+            userId={user.id}
+            matches={matches}
+            onOpenMatch={(matchId) => go("match", { matchId })}
+            onPlay={() => go("play")}
+            onExpired={onExpired}
           />
         )}
       </ProfilePanel>

@@ -116,6 +116,9 @@ it('pagina busca e comentários com seus respectivos cursores', async () => {
 it('abre o próprio perfil em Fotos, pagina a grade e abre as conexões pelas contagens', async () => {
   vi.mocked(request).mockImplementation(async path => {
     if (path === '/users/1') return { ...person, id: 1, follower_count: 4, following_count: 1, username: 'eu' } as never
+    if (path === '/me/profile-stats') return { played: 0, wins: 0, draws: 0, losses: 0, win_rate: null, best_tier: null, in_placement: false } as never
+    if (path === '/me/play') return { attention: false, searches: [], proposals: [], offers: [], matches: [] } as never
+    if (path.startsWith('/users/1/timeline')) return { items: [], next_cursor: null, total: 0 } as never
     return { items: [{ ...post, id: path.includes('cursor=') ? 8 : 7, caption: path.includes('cursor=') ? 'Foto antiga' : 'Foto recente' }], next_cursor: path.includes('cursor=') ? null : 'own-gallery' } as never
   })
   const go = vi.fn()
@@ -142,7 +145,7 @@ it('abre o próprio perfil em Fotos, pagina a grade e abre as conexões pelas co
   await user.click(screen.getByRole('button', { name: 'Nova foto' }))
   expect(onNewPhoto).toHaveBeenCalled()
   await user.click(screen.getByRole('tab', { name: 'Partidas' }))
-  expect(screen.getByText('Sua história em campo')).not.toBeNull()
+  expect(await screen.findByText('Sua história em campo começa aqui')).not.toBeNull()
   expect(screen.queryByRole('button', { name: 'Nova foto' })).toBeNull()
 })
 

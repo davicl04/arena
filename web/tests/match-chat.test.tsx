@@ -34,6 +34,12 @@ const setHidden = (hidden: boolean) => {
 }
 
 describe('lados, agrupamento e braçadeira', () => {
+  it('acesso histórico mostra a restrição e não lê mensagens', async () => {
+    const api = renderChat(matchDetail({ my_role: 'historico', state: 'encerrada', permissions: { ...noPermissions } }))
+    expect(await screen.findByText('Chat indisponível no histórico')).not.toBeNull()
+    expect(screen.queryByRole('log', { name: 'Mensagens da partida' })).toBeNull()
+    expect(api.calls.filter(call => call.path.includes('/messages'))).toHaveLength(0)
+  })
   const conversation = [
     message(1, { body: 'Boa tarde!', author: caio, side: 'b', author_role: 'representante' }),
     message(2, { body: 'Sábado fica bom?', author: caio, side: 'b', author_role: 'representante' }),

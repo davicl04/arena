@@ -37,7 +37,7 @@ As decisões foram tomadas na sessão de protótipos de 12 de outubro de 2026. O
 - **Período:** a linha do tempo e as estatísticas cobrem a **carreira inteira**, não a janela de 52 semanas do ranking. A linha do tempo mostra tudo, e as estatísticas acompanham. O texto não fala em "temporada".
 - **Toque no registro:** no perfil próprio, um toque em uma partida abre a tela da partida (`go("match", { matchId })`, o mesmo caminho de `MyMatches`). Corridas não são tocáveis. No visitado, nada é tocável, porque a tela da partida exige participação.
 - **Treinos de corrida** aparecem também para o visitante. A corrida não tem local.
-- **Partidas em aberto** (`realizada`, aguardando placar) ainda não entram no trilho. Elas continuam no Jogar até fechar.
+- **Partidas em aberto** (`agendada` depois do início, aguardando placar) ainda não entram no trilho. Elas continuam no Jogar até ter resultado. *Correção na implementação:* `realizada` não significa "aguardando placar": o estado sempre tem placar confirmado (já conta no ranking) e vira `encerrada` quando fecha a janela de 48 h das estatísticas. Por isso `realizada` entra no trilho e nas contagens.
 - **Canceladas** só entram se chegaram a ter data (`starts_at` não nulo). Propostas recusadas ou expiradas nunca entram.
 - **Escopo:** web e Expo, seguindo o padrão das entregas do perfil. A parte Expo pode ser adiada sem afetar o contrato.
 
@@ -204,7 +204,7 @@ Nenhuma coluna nova é prevista. Se houver migração, rodar `alembic check`.
 - Estatísticas no perfil visitado.
 - Gráficos de evolução.
 - Exportar histórico.
-- Partidas `realizada` no trilho.
+- Partidas `agendada` aguardando placar no trilho.
 - Commit e push.
 
 ## Ordem de execução e validação

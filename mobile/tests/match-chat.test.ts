@@ -48,6 +48,12 @@ const style = (node: { props: { style?: unknown } }) => node.props.style as Reco
 const input = (tree: ReactTestRenderer) => tree.root.findAllByType('TextInput' as never).find(item => item.props.accessibilityLabel === 'Mensagem')!
 
 describe('lados, agrupamento e braçadeira', () => {
+  it('acesso histórico mostra a restrição e não lê mensagens', async () => {
+    const { tree } = await mountMatch(matchRoutes(matchDetail({ my_role: 'historico', state: 'encerrada', permissions: { ...noPermissions } })))
+    expect(allText(tree)).toContain('Chat indisponível no histórico')
+    expect(byId(tree, 'chat-log')).toHaveLength(0)
+    expect(callsTo('GET', '/matches/1/messages')).toHaveLength(0)
+  })
   const conversation = [
     message(1, { body: 'Boa tarde!', author: caio, side: 'b', author_role: 'representante' }),
     message(2, { body: 'Sábado fica bom?', author: caio, side: 'b', author_role: 'representante' }),

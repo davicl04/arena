@@ -7,7 +7,8 @@ import AccountActions from './AccountActions'
 import { Avatar, Cover } from './media'
 import type { PostUpdate } from './PostItem'
 import ProfileGallery from './ProfileGallery'
-import { MatchesEmpty, ProfileTabs } from './ProfileTabs'
+import { MatchTimeline } from './profile-matches/MatchTimeline'
+import { ProfileTabs } from './ProfileTabs'
 import type { ProfileTab } from './ProfileTabs'
 import ProfileTitle from './ProfileTitle'
 import ProfileTopBar, { TopBarButton, useCondensedTopBar } from './ProfileTopBar'
@@ -51,7 +52,7 @@ export default function VisitedProfile({ profile, user, token, mutualText, error
         <View accessibilityLabel={tab} className="min-h-[280px]">
           {tab === 'Fotos'
             ? <ProfileGallery key={profile.id} userId={profile.id} ownerName={profile.name} ownerUsername={profile.username} viewerId={user.id} token={token} onPostUpdate={onPostUpdate} onPostRemove={onPostRemove} onExpired={onExpired} />
-            : <MatchesEmpty />}
+            : <MatchTimeline key={profile.id} userId={profile.id} own={false} onExpired={onExpired} />}
         </View>
       </> : <Text className={cx(tw.body, 'p-5.5')}>Esta conta é privada. Solicite acesso para ver as publicações; as listas de seguidores também ficam fechadas até lá.</Text>}
     </ScrollView>

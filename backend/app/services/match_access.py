@@ -19,9 +19,10 @@ from app.models.events import Event
 from app.models.identity import User
 from app.models.matches import CLOSED_MATCH_STATES, Match, MatchLineup, MatchSide, MatchSlot
 from app.models.teams import Team, TeamMember
+from app.services.match_participation import owner_sides, participation_clause
 
 Scope = Literal['representantes', 'membros']
-Role = Literal['representante', 'membro', 'atleta', 'avulso', 'organizador', 'administracao']
+Role = Literal['representante', 'membro', 'atleta', 'avulso', 'organizador', 'administracao', 'historico']
 # The chat opens when both sides accepted the proposal and turns read-only when the match closes.
 CHAT_STATES = ('combinando', 'agendada', 'realizada', 'encerrada', 'sem_resultado', 'cancelada')
 CHAT_WRITE_STATES = ('combinando', 'agendada', 'realizada')
@@ -175,7 +176,8 @@ def match_access(db: Session, match: Match, user: User, *,
 
 
 def load_match_for(db: Session, match_id: int, user: User, *,
-                   for_update: bool = False) -> tuple[Match, dict[str, MatchSide], MatchAccess]:
+                   for_update: bool = False, allow_history: bool = False
+                   ) -> tuple[Match, dict[str, MatchSide], MatchAccess]:
     """The match, its sides and the viewer's access, for every match route; `404 Partida não encontrada.` when the
     match does not exist or is not the viewer's (never revealing it). `for_update` locks the match row first
     (lock order: match → slot → search)."""
@@ -185,16 +187,23 @@ def load_match_for(db: Session, match_id: int, user: User, *,
     match = db.scalar(statement)
     sides = load_sides(db, [match.id])[match.id] if match is not None else {}
     access = match_access(db, match, user, sides=sides) if match is not None else None
+    # Only the detail and own lineup reads opt in. Mutations and chat retain their current authorization.
+    if access is None and match is not None and allow_history and not for_update:
+        historical = db.scalar(select(Match.id).where(Match.id == match.id, participation_clause(user.id)))
+        if historical is not None:
+            mine, _ = owner_sides(db, user.id, [match], {match.id: sides})
+            access = MatchAccess('historico', mine[match.id])
     if access is None:
         raise HTTPException(404, 'Partida não encontrada.')
     return match, sides, access
 
 
 def can_read_chat(match: Match, access: MatchAccess | None) -> bool:
-    return access is not None and match.state in CHAT_STATES
+    return access is not None and access.role != 'historico' and match.state in CHAT_STATES
 
 
 def can_write_chat(match: Match, access: MatchAccess | None) -> bool:
     """Rosters, walk-ins and the championship organizer write while the match is open; the administration
     only reads."""
-    return (access is not None and access.role != 'administracao' and match.state in CHAT_WRITE_STATES)
+    return (access is not None and access.role not in ('administracao', 'historico')
+            and match.state in CHAT_WRITE_STATES)

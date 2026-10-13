@@ -159,7 +159,7 @@ function Composer({
     return (
       <p data-slot="chat-closed" className="m-0 flex flex-none items-center gap-2 border-t border-solid border-line bg-white px-4 py-3 text-[11.5px] text-ink-muted">
         <Info size={15} className="flex-none" aria-hidden="true" />
-        {!canRead ? "O chat abre quando os dois lados aceitam a proposta." : admin ? "A administração só lê o chat." : "O chat desta partida está fechado."}
+        {detail.my_role === 'historico' ? 'O acesso pelo histórico não inclui o chat.' : !canRead ? "O chat abre quando os dois lados aceitam a proposta." : admin ? "A administração só lê o chat." : "O chat desta partida está fechado."}
       </p>
     );
   }
@@ -258,7 +258,7 @@ export function MatchChat({
     <section aria-label="Chat da partida" className="relative flex min-h-0 flex-1 flex-col">
       {!readable ? (
         <div className="min-h-0 flex-1 overflow-y-auto">
-          <EmptyState Icon={MessagesSquare} title="O chat ainda não abriu" text="Ele abre quando os dois lados aceitam a proposta de partida." />
+          <EmptyState Icon={MessagesSquare} title={detail.my_role === 'historico' ? 'Chat indisponível no histórico' : 'O chat ainda não abriu'} text={detail.my_role === 'historico' ? 'O acesso pelo histórico permite consultar a partida e suas estatísticas.' : 'Ele abre quando os dois lados aceitam a proposta de partida.'} />
         </div>
       ) : (
         <div className="relative flex min-h-0 flex-1 flex-col">

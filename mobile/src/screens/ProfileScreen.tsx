@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native'
 import * as ImagePicker from 'expo-image-picker'
 import { ApiError, clearToken, getToken, request, sports } from '../api/client'
+import type { MatchCard } from '../api/matches'
 import type { City, Page, Profile, ProfileInput, SocialUser, Sport, User } from '../api/client'
 import { approveAllFollowRequests } from '../api/social'
 import { Button, Field } from '../components/ui'
@@ -14,7 +15,9 @@ import Sheet from '../components/Sheet'
 import UsernameForm from '../components/UsernameForm'
 import SportCard from '../components/SportCard'
 import ProfileGallery from '../components/ProfileGallery'
-import { MatchesEmpty, ProfileTabs } from '../components/ProfileTabs'
+import { MatchTimeline } from '../components/profile-matches/MatchTimeline'
+import { ProfileStatsBlocks } from '../components/profile-matches/ProfileStatsBlocks'
+import { ProfileTabs } from '../components/ProfileTabs'
 import type { ProfileTab } from '../components/ProfileTabs'
 import ProfileTopBar, { TopBarButton, useCondensedTopBar } from '../components/ProfileTopBar'
 import { appVersion } from '../utils/appInfo'
@@ -45,8 +48,19 @@ function VisibilityOption({ selected, title, facts, onPress }: { selected: boole
   </Pressable>
 }
 
-export default function ProfileScreen({ user, onUser, onLogout, onExpired, onNewPhoto, menuSections }: { user: User; onUser: (user: User) => void; onLogout: () => void; onExpired: () => void; onNewPhoto?: () => void; menuSections?: (close: () => void) => ReactNode }) {
-  const [contentTab, setContentTab] = useState<ProfileTab>('Fotos')
+export default function ProfileScreen({ user, onUser, onLogout, onExpired, onNewPhoto, menuSections, upcoming, onOpenMatch, onPlay, tab: activeContentTab, onTabChange }: {
+  user: User; onUser: (user: User) => void; onLogout: () => void; onExpired: () => void; onNewPhoto?: () => void; menuSections?: (close: () => void) => ReactNode
+  /** Partidas da placa do Jogar (já lidas pelo shell): dela sai a próxima partida da aba Partidas. */
+  upcoming?: readonly MatchCard[]
+  /** Abre a tela da partida (o mesmo caminho do Jogar e do Início). */
+  onOpenMatch?: (matchId: number) => void
+  onPlay?: () => void
+  tab?: ProfileTab
+  onTabChange?: (tab: ProfileTab) => void
+}) {
+  const [localTab, setLocalTab] = useState<ProfileTab>('Fotos')
+  const contentTab = activeContentTab ?? localTab
+  const setContentTab = onTabChange ?? setLocalTab
   const { condensed, onScroll } = useCondensedTopBar(COVER_HEIGHT)
   const [profiles, setProfiles] = useState<Profile[]>([])
   const [cities, setCities] = useState<City[]>([])
@@ -243,11 +257,12 @@ export default function ProfileScreen({ user, onUser, onLogout, onExpired, onNew
         <Text className={tw.heading}>Suas modalidades</Text>{loading ? <ActivityIndicator accessibilityLabel="Carregando modalidades" /> : sports.map(s => <SportCard key={s.value} sport={s.value} label={s.label} cities={cities} profile={profiles.find(p => p.sport === s.value)} onSave={save} />)}
         {!loading && !profiles.length && !error ? <Text className={tw.body}>Adicione sua primeira modalidade acima.</Text> : null}
       </View>
+      <ProfileStatsBlocks onExpired={onExpired} />
       <ProfileTabs value={contentTab} onChange={setContentTab} />
       <View accessibilityLabel={contentTab} className="min-h-[280px]">
         {contentTab === 'Fotos'
           ? <ProfileGallery own userId={user.id} ownerName={user.name} ownerUsername={user.username} viewerId={user.id} token={token} onNewPhoto={onNewPhoto} onExpired={onExpired} />
-          : <MatchesEmpty />}
+          : <MatchTimeline userId={user.id} own upcoming={upcoming} onOpenMatch={onOpenMatch} onPlay={onPlay} onExpired={onExpired} />}
       </View>
     </ScrollView>
     <ProfileTopBar condensed={condensed} username={user.username} trailing={<TopBarButton label="Menu" glyph="☰" condensed={condensed} onPress={() => open('menu')} />} />

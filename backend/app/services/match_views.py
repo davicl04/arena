@@ -137,7 +137,7 @@ def permissions_for(match: Any, access: MatchAccess | None, facts: MatchFacts, *
     Mirrors the rules of the routes in docs/decisoes/0002-jogar.md, sections 8 and 10 to 12: chat by state and
     role; everything else only for who acts for a side (representative or tennis athlete), on the stored state
     and the 48 h window. The administration and the organizer never act for a side here."""
-    if access is None:
+    if access is None or access.role == 'historico':
         return MatchPermissionsOut(**dict.fromkeys(MatchPermissionsOut.model_fields, False))
     side, role, acts = access.side, access.role, access.acts_for_side
     friendly = match.origin == 'amistoso'

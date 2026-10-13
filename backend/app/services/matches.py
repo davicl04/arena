@@ -125,7 +125,7 @@ def _cancel_pending_terms(db: Session, match: Match, now: datetime) -> None:
 
 
 def get_match(db: Session, user: User, match_id: int, *, now: datetime) -> MatchDetailOut:
-    match, sides, access = load_match_for(db, match_id, user)
+    match, sides, access = load_match_for(db, match_id, user, allow_history=True)
     return _detail(db, user, match, sides, access, now=now)
 
 

@@ -1,5 +1,92 @@
 # Situação da fundação do Arena
 
+## Espera pelo retorno da cópia de Pix nos testes web — 13 de outubro de 2026
+
+O CI do commit `1c7ce14` passou no backend e no Expo nas duas execuções (push e pull request), confirmando a recuperação da compilação do MinIO. A web passou na execução do PR, mas falhou na do push: o teste de Pix encontrou a região `role="status"` ainda vazia, antes da conclusão assíncrona de `navigator.clipboard.writeText`. A presença dessa região não comprova que a mensagem já foi atualizada.
+
+Corrigidas cinco esperas em `events-components.test.tsx` (PixBlock e PaymentInfoSheet) para aguardar o conteúdo esperado com `waitFor`. Acrescentados dois casos com promessa controlada, de sucesso e falha: a mensagem permanece vazia durante a cópia e muda após o retorno. Sem alteração no código do produto, nos timeouts, nas dependências ou no banco.
+
+Verificações locais: os 17 testes do arquivo, lint, build e `npm run test:coverage -- --maxWorkers=4` aprovados: **945 testes em 75 arquivos**, cobertura de **92,5% das instruções e 86,09% dos ramos**. `git diff --check` aprovado. Permanece o aviso existente de bundle acima de 500 kB. Logs em `artifacts/pix-ci-*.log`, fora do versionamento. Backend e Expo não foram retestados localmente nesta alteração exclusiva dos testes web; fluxo no navegador não foi repetido, pois o comportamento do produto não mudou. O CI remoto da nova correção será disparado pelo push solicitado; esses resultados locais não comprovam sua aprovação.
+
+A tela com estatísticas em traços e o texto “Sua história em campo” corresponde ao placeholder de `feat/notifications-ranking`, baseada na `main` anterior ao [PR #3](https://github.com/davicl04/arena/pull/3). Nessa versão, o perfil não solicita a linha do tempo nem as estatísticas. Essas integrações estão em `feat/play-page`; um pull da `main` só as trará depois do merge do PR. Nenhuma falha da API foi constatada pela imagem. A correção dos testes foi preparada em checkout separado de `feat/play-page`, preservando a branch e os servidores locais do usuário.
+
+## Compilação do MinIO após falha de rede no CI — 13 de outubro de 2026
+
+O log da etapa `Start isolated MinIO` mostrou uma falha HTTP/2 (`INTERNAL_ERROR`) ao consultar `sum.golang.org` para verificar módulos do Go, antes de iniciar o servidor ou executar os testes. O Dockerfile agora repete `go install` até três vezes, com pausa de cinco segundos entre tentativas e reaproveitamento dos downloads da mesma etapa. A versão fixada do MinIO e a verificação de integridade dos módulos foram mantidas; três falhas ainda encerram o build com erro. README atualizado.
+
+Verificações locais: build com `--no-cache --pull` aprovado; imagem corrigida saudável e teste real de gravação/leitura S3 com acesso anônimo negado aprovado em bucket isolado; simulação do comando do Dockerfile aprovada para sucesso imediato, recuperação após duas falhas e erro após três tentativas; `docker compose config --quiet` e `git diff --check` aprovados. Em `feat/play-page`, Ruff e a suíte completa com PostgreSQL e MinIO reais (`pytest -q --cov=app --cov-branch`, `TEST_DATABASE_URL` e `MEDIA_TEST_S3=1`) passaram: **1.587 testes aprovados, sem pulos, cobertura total 98%**. Logs e simulação em `artifacts/minio-ci-*` e `artifacts/check_minio_retry.py`, fora do versionamento.
+
+A correção foi registrada em commit local em checkout separado da branch `feat/play-page`, conforme solicitado, preservando `feat/notifications-ranking`. Os testes usaram schemas PostgreSQL aleatórios e MinIO temporário, removidos ao final, sem modificar contas, objetos ou volumes existentes. Sem migração ou dependência nova. Web e Expo não alterados nem retestados nesta correção de infraestrutura. O CI remoto não foi reexecutado; uma indisponibilidade persistente do serviço externo ainda pode exceder as tentativas. Sem push ou publicação.
+
+## Correções do acesso histórico e do perfil no Expo — 13 de outubro de 2026
+
+Corrigidos os três achados da revisão abaixo, com testes de regressão e contrato atualizado em [0002, seção 19.5](decisoes/0002-jogar.md#195-leitura-da-partida-pelo-histórico). Sem migração ou dependências novas.
+
+- **Acesso histórico:** ex-integrantes e avulsos com participação válida podem abrir o detalhe da partida e ler apenas suas próprias estatísticas. A regra é compartilhada com a linha do tempo, incluindo os estados `realizada`, `encerrada`, `sem_resultado` e `cancelada`. O novo papel `historico` tem todas as permissões falsas, sem acesso ao chat ou às rotas de alteração. Participação ausente, removida ou posterior à partida não concede esse acesso. Os clientes não oferecem revisão de elenco e explicam o bloqueio do chat.
+- **Filtro no Expo:** a próxima partida respeita a modalidade selecionada e aparece mesmo quando o histórico daquela modalidade está vazio.
+- **Volta ao perfil no Expo:** a aba fica nos parâmetros da navegação; abrir uma partida e voltar mantém Partidas depois da remontagem da tela.
+
+**Verificações:**
+
+- Backend: `ruff check app migrations tests` e `pytest -q --cov=app --cov-branch` aprovados com PostgreSQL configurado em `TEST_DATABASE_URL`, em schemas aleatórios isolados: **1.586 aprovados e 1 pulado** (já existente), cobertura total **98%**. Os 14 testes novos cobrem bloqueio de chat e alterações, leitura limitada ao titular e exclusão de não participantes. A primeira execução encontrou um mock do teste unitário de escalações sem o novo parâmetro `allow_history`; o mock foi atualizado e a suíte completa repetida passou.
+- Web: lint, build e cobertura aprovados, **943 testes**, **92,5% das instruções e 86,09% dos ramos**. Permanece o aviso já existente de bundle acima de 500 kB.
+- Expo: lint, typecheck, cobertura e exportação Android aprovados, **1.323 testes**, **94,95% das instruções e 90,14% dos ramos**. O teste do Menu do Perfil passou a renderizar a rota pelo React, permitindo os hooks da rota sem perder a verificação das props do organizador.
+- Navegador com API e PostgreSQL reais, contas sintéticas e schema isolado: ex-integrante e avulso abriram suas partidas, viram as próprias estatísticas sem ações e o aviso de chat indisponível; a volta manteve Partidas na web. Sessão, contagens e registro do avulso se mantiveram após recarga. Detalhe conferido em 320, 390 e 1440 px, sem overflow horizontal, e console sem erros de JS. O schema temporário foi removido e os servidores auxiliares encerrados ao final, sem alterar dados existentes. Capturas e logs em `artifacts/perfil-revisao/`, fora do versionamento.
+- Diff final conferido com `git diff --check`, sem alterações incidentais ou artefatos temporários versionados.
+
+**Limitações:** Expo não ensaiado em aparelho Android/iOS nem contra API real; exportação e testes de navegação não comprovam paridade visual ou funcionamento em aparelho. CI remoto não executado. As pendências de integração da entrega anterior permanecem. Entrega registrada em commit local na branch `feat/play-page`, a pedido do usuário; sem push ou publicação.
+
+## Revisão da linha do tempo e das estatísticas do perfil — 12 de outubro de 2026
+
+Revisado o commit `e09fd1a` (comparado com `0341e58`), sem alterações funcionais naquele momento. Encontrados três problemas, corrigidos na entrega de 13 de outubro acima:
+
+- **Abrir partidas do histórico:** ex-membros de times e avulsos com presença confirmada recebem a partida na linha do tempo, mas `GET /matches/{id}` responde 404 quando já não têm o vínculo atual exigido por `match_accesses`. Os cartões dos dois clientes oferecem abertura mesmo nesses casos. Reproduzido em dois testes exploratórios com PostgreSQL, em schema aleatório isolado; corrigir a leitura histórica sem conceder permissões de ação ou chat pelo antigo vínculo.
+- **Filtro no Expo:** a próxima partida é calculada sem considerar a modalidade selecionada e continua visível no filtro Corrida mesmo sendo de futebol. Reproduzido com teste de componente. Quando a lista filtrada está vazia, o retorno antecipado também oculta uma próxima partida da modalidade selecionada.
+- **Volta ao perfil no Expo:** a aba fica apenas no estado local do `ProfileScreen`, iniciado em Fotos. A navegação para a partida desmonta essa tela (`ArenaShell` renderiza só a entrada atual); ao voltar, Fotos é selecionada novamente. Confirmado pela inspeção do estado e do ciclo de montagem da navegação; não ensaiado em aparelho.
+
+Verificações desta revisão: Ruff aprovado; 34 testes de integração do perfil aprovados com PostgreSQL; 27 testes existentes da linha do tempo e Duelos na web e 39 testes de API, paginação e linha do tempo no Expo aprovados. Os testes exploratórios de acesso histórico (dois) e filtro (um) falharam nos comportamentos descritos acima. Web: lint e build aprovados, com o aviso já existente de bundle acima de 500 kB. Expo: lint e typecheck aprovados. Fontes dos testes exploratórios ficaram em `artifacts/revisao-e09fd1a/`, fora do versionamento; os arquivos temporários foram retirados das suítes do produto.
+
+Não foram repetidos a suíte completa, cobertura, exportação Android, ensaios no navegador/aparelho nem CI remoto. Nenhuma migração, correção funcional, commit ou push nesta revisão. As pendências de integração e as limitações da entrega abaixo permanecem.
+
+## Aba Partidas do perfil (linha do tempo) e estatísticas do perfil — 12 de outubro de 2026
+
+Implementado o [plano da aba Partidas](plano-perfil-partidas.md) no backend, na web e no Expo. Contrato e regras em [0002, seção 19](decisoes/0002-jogar.md#19-histórico-do-perfil-linha-do-tempo-e-estatísticas-12-de-outubro-de-2026).
+
+- **Backend:** `GET /users/{id}/timeline`, com a visibilidade das fotos (`_can_view`, 404 sem acesso) e cursor estável entre partidas e corridas, e `GET /me/profile-stats` (partidas, vitórias, empates, derrotas, taxa de vitória e melhor elo). A regra de participação conta só as partidas que a pessoa jogou: escalação confirmada, avulso incluído, ou membro do time na data da partida sem ausência marcada. Quem saiu do time mantém o passado, e quem entrou depois não herda partidas antigas. A corrida traz o melhor anterior e o tipo da marca recalculados com a semântica do registro. Sem migração.
+- **Web:** a aba Partidas passou a mostrar a linha do tempo, nos perfis próprio e visitado, com:
+  - topo "N registros" e filtro só com ícone;
+  - próxima partida em cartão forest, só no perfil próprio;
+  - Duelos com selo de resultado, faixa de campeonato, "Ausente" no W.O., sets do tênis e pílulas de pontos e estatísticas;
+  - corrida contra o melhor anterior e canceladas ou sem resultado esmaecidas;
+  - "Carregar mais".
+
+  No perfil próprio, as partidas abrem a tela da partida, e voltar mantém a aba. Os blocos de estatística mostram Taxa de vitória, Partidas e **Melhor elo** (antes "Pontos de elo"), sem bloquear o perfil.
+- **Expo:** mesmos componentes em RN, dentro da rolagem do perfil, sem `FlatList` aninhada; filtro em folha; blocos de estatística no perfil próprio; aba do visitado pelo `VisitedProfile`.
+
+**Verificações executadas:**
+
+- Backend: `ruff check app migrations tests` e `pytest -q` com `TEST_DATABASE_URL` no PostgreSQL Docker (schemas aleatórios isolados): **1.571 aprovados e 1 pulado** (o pulado já existia). Testes novos: regra de participação (9 casos), timeline (privacidade nos seis casos do plano, quadra nula para visitante, filtro e `total`, paginação estável na mesma data, corrida à meia-noite de Brasília, melhor anterior igual ao devolvido por `create_run`, estatística contestada oculta) e estatísticas (W.O., empate, cancelada, sem resultado, elos mistos e classificação).
+- Web: `npm run lint`, `npm run build` e `npm run test:coverage -- --maxWorkers=4`: **940 testes**, **92,5% das instruções e 86,09% dos ramos**; aviso do bundle acima de 500 kB mantido. Depois disso, o ajuste do tie-break passou por lint, build e pelos testes da linha do tempo (26).
+- Expo: `npm run lint`, `npm run typecheck`, `npm run test:coverage -- --maxWorkers=4` (**1.317 testes**, **94,93% das instruções e 90,12% dos ramos**) e `npm run export:android` aprovados. A exportação pelo Git Bash gerou o bundle e terminou com falha de segmentação do wrapper do npm; repetida pelo PowerShell, terminou com código 0. Depois do ajuste do tie-break: lint, typecheck e os testes da linha do tempo (28).
+- Navegador com API e PostgreSQL reais (schema temporário removido ao final, contas sintéticas, sem tocar dados do usuário), com uma titular semeada com 30 registros:
+  - estatísticas iguais às da API (68%, 22 partidas, Ouro);
+  - filtro com contagem igual ao `total` da API em Todas, Futebol, Tênis e Corrida;
+  - "Carregar mais" sem repetir nem pular IDs;
+  - toque na partida e volta à aba Partidas;
+  - visitado público e seguidor aprovado sem quadra, sem próxima partida, sem "você" e sem toque; conta privada sem seguir com o aviso de conta privada já existente (e "Nenhuma partida por aqui" quando a conta fica privada com a aba aberta);
+  - recarga com sessão e dados preservados;
+  - 320, 390 e 1440 px sem overflow horizontal;
+  - console sem erros de JS.
+
+  Capturas locais em `artifacts/perfil-partidas/` (não versionado).
+- A verificação no navegador apontou o tie-break exibido nos dois lados; ele foi corrigido na web e no Expo para aparecer só no lado que perdeu o set, como no restante do app.
+
+**Correção após teste do usuário (mesmo dia):** a linha do tempo mostrava só corridas numa conta com três partidas de tênis com placar confirmado. A causa era o plano supor que `realizada` aguardava placar; na verdade o estado sempre tem placar confirmado e só vira `encerrada` quando fecha a janela de 48 h das estatísticas. O histórico e as contagens passaram a incluir `realizada` (backend), e os clientes deixaram de esmaecer esse estado. Conferido no banco de desenvolvimento, só em leitura: a conta passou a ter as três partidas no trilho e 1 vitória em 3 (33,3%). Testes de regressão no backend (`realizada` de futebol e tênis entra; `agendada` aguardando placar não) e nos dois clientes. Verificações: ruff e os testes de perfil do backend (34), lint, build/typecheck e os testes da linha do tempo na web (36) e no Expo (31), além da suíte completa do backend: **1.572 aprovados e 1 pulado**. Numa primeira execução, `test_championship_result_flow.py::test_equal_reports_confirm_the_match_and_take_the_winner_to_the_next_one` falhou uma vez; ele não usa o código alterado e passou isolado, no arquivo inteiro (duas vezes) e na suíte completa repetida, então foi registrado como intermitente, sem causa investigada.
+
+**Limitações:** "Em classificação", o esqueleto de carregamento e o vazio próprio não foram capturados no navegador (cobertos por testes); `EXPLAIN` dos índices não foi executado. O Expo não foi verificado em aparelho Android/iOS nem contra a API real; não há declaração de paridade visual. CI remoto não executado. **Pendências:** Atividades em Notificações, estatísticas no perfil visitado, gráficos de evolução e exportação do histórico (fora do plano). Esta entrega não declara o MVP completo.
+
+A pedido do usuário, a entrega foi registrada em commit na branch `feat/play-page` e enviada ao remoto.
+
 ## Consolidação da branch para commit — 12 de outubro de 2026
 
 O usuário autorizou incluir todos os arquivos pendentes no commit e enviar a branch `feat/play-page` ao remoto. O conteúdo reúne as cinco correções da revisão, seus testes e contratos, e o plano da aba Partidas do perfil (somente planejamento). Conferência final com `git diff --check` aprovada; as verificações de código são as registradas na entrega das correções abaixo, sem nova execução nesta etapa de Git.
@@ -1101,7 +1188,7 @@ Atualizar este Markdown a cada entrega ou alteração no projeto, registrando im
 | Foto de perfil (avatar) e capa | Integradas à API e ao armazenamento privado, com recorte, troca e remoção (capa padrão) na web e no mobile. |
 | Edição de perfil e @ | Integradas à API: lista agrupada com folhas, @ único com verificação de disponibilidade, visibilidade, contas bloqueadas e conexões. |
 | Posts, comunidade e perfis sociais | Integrados à API: feed cronológico, foto/legenda, curtidas, comentários, busca, privacidade social, seguidores, bloqueios e denúncias. Painel administrativo web e histórico de decisões implementados. |
-| Conteúdo do perfil | Abas Fotos \| Partidas na web e no Expo: grade com visualizador "Publicações", post 4:5, comentários e ações em vidro, denúncias de post/comentário/conta com motivo e detalhes e topo fixo condensado. Partidas (P2) aguarda domínio e mostra estado vazio; Atividades sairá para Notificações em entrega futura. |
+| Conteúdo do perfil | Abas Fotos \| Partidas na web e no Expo: grade com visualizador "Publicações", post 4:5, comentários e ações em vidro, denúncias de post/comentário/conta com motivo e detalhes e topo fixo condensado. Partidas integrada: linha do tempo de partidas e corridas (`GET /users/{id}/timeline`) nos perfis próprio e visitado, e estatísticas do perfil próprio (`GET /me/profile-stats`, com Melhor elo); Atividades sairá para Notificações em entrega futura. |
 | Partidas, ranking, estatísticas e notificações | Integrados à API na web (etapas 3 e 4) e no Expo (etapa 6): partidas, resultado, estatísticas, Ranking e Notificações com os tipos de times, eventos, partidas e campeonatos, além das solicitações para seguir. Sem partida, evento ou marca, as telas mostram o estado vazio; não há dados demonstrativos. |
 | Moedas e carteira | Removidas da interface web e fora da direção atual do produto; não implementar sem nova solicitação. |
 | Botão Jogar | Busca adversário de verdade (times, tênis e avulso), com proposta, partida e agendamento, na web e no Expo; sem perfil esportivo, prepara o perfil. Nunca simula uma partida encontrada. |

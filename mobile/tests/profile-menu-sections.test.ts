@@ -8,6 +8,7 @@ vi.mock('react-native', async () => (await import('./support/native')).reactNati
 vi.mock('expo-image-picker', () => ({ launchImageLibraryAsync: vi.fn(), ImagePickerResult: undefined }))
 vi.mock('../src/components/SportCard', () => ({ default: () => null }))
 vi.mock('../src/api/client', () => ({
+  positions: [],
   ApiError: class ApiError extends Error { constructor(message: string, public status: number) { super(message) } },
   apiUrl: (path: string) => path,
   getToken: vi.fn().mockResolvedValue('test-token'),

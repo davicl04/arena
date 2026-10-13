@@ -629,9 +629,10 @@ def contest_stat(db: Session, user: User, match_id: int, stat_id: int, data: Sta
 
 
 def match_lineups(db: Session, user: User, match_id: int, *, now: datetime) -> LineupListOut:
-    """`GET /matches/{id}/stats`: every participant (and the administration) reads the athletes of the match."""
-    match, sides, access = load_match_for(db, match_id, user)
-    return LineupListOut(items=lineups_out(db, user, match, now=now, sides=sides, access=access))
+    """`GET /matches/{id}/stats`: current access reads the roster; historical access reads only own stats."""
+    match, sides, access = load_match_for(db, match_id, user, allow_history=True)
+    return LineupListOut(items=lineups_out(db, user, match, now=now, sides=sides, access=access,
+                                         only_user_id=user.id if access.role == 'historico' else None))
 
 
 # ----- Rankings (RN11, RN14, RN16, RN23) --------------------------------------------------------------------

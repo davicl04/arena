@@ -14,6 +14,7 @@ vi.mock('../src/components/ui', async () => (await import('./support/native')).u
 vi.mock('expo-image-picker', () => ({ launchImageLibraryAsync: vi.fn() }))
 vi.mock('../src/components/SportCard', () => ({ default: () => null }))
 vi.mock('../src/api/client', () => ({
+  positions: [],
   ApiError: class ApiError extends Error { constructor(message: string, public status: number) { super(message) } },
   apiUrl: (path: string) => path,
   getToken: vi.fn().mockResolvedValue('test-token'),
@@ -171,7 +172,8 @@ describe('telas com abas, topo fixo e ações da conta', () => {
       if (path === '/cities' || path === '/me/sports-profiles') return [] as never
       if (path === '/users/1') return meSocial as never
       if (path === '/users/1/posts') return { items: [makePost(1)], next_cursor: null } as never
-      return { items: [], next_cursor: null } as never
+      if (path === '/me/profile-stats') return { played: 0, wins: 0, draws: 0, losses: 0, win_rate: null, best_tier: null, in_placement: false } as never
+      return { items: [], next_cursor: null, total: 0 } as never
     })
     const onNewPhoto = vi.fn()
     let tree!: Tree
