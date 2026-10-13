@@ -20,7 +20,7 @@ describe('entradas tipadas', () => {
 
   it('declara as telas de todas as frentes seguintes, cada uma com título', () => {
     const declared: ScreenName[] = [
-      'home', 'ranking', 'play', 'community', 'profile', 'user-profile', 'notifications', 'follow-requests', 'events', 'event', 'match',
+      'home', 'ranking', 'legends', 'play', 'community', 'profile', 'user-profile', 'notifications', 'follow-requests', 'events', 'event', 'match',
       'event-bracket', 'event-matches', 'result-decision',
       'teams', 'team-form', 'team-invite', 'join',
       'organizer-request', 'organizer-events', 'event-wizard', 'event-manage', 'event-receipts',
@@ -37,10 +37,10 @@ describe('entradas tipadas', () => {
   })
 
   it('as telas com placa escura ou capa própria dispensam o cabeçalho do shell; as demais o usam', () => {
-    for (const screen of ['home', 'play', 'user-profile', 'teams', 'team-form', 'team-invite', 'join', 'organizer-events', 'event-wizard', 'event-manage', 'event-receipts',
+    for (const screen of ['home', 'ranking', 'legends', 'play', 'user-profile', 'teams', 'team-form', 'team-invite', 'join', 'organizer-events', 'event-wizard', 'event-manage', 'event-receipts',
       'match', 'event-bracket', 'event-matches', 'result-decision', 'notifications'] as const) expect(hasOwnHeader(screen)).toBe(true)
     // A placa das notificações tem voltar e título próprios; os pedidos para seguir usam o cabeçalho padrão do shell.
-    for (const screen of ['ranking', 'community', 'profile', 'follow-requests', 'events', 'event', 'organizer-request', 'moderation', 'admin-paid-events', 'admin-court-suggestions', 'admin-walkover-disputes'] as const) expect(hasOwnHeader(screen)).toBe(false)
+    for (const screen of ['community', 'profile', 'follow-requests', 'events', 'event', 'organizer-request', 'moderation', 'admin-paid-events', 'admin-court-suggestions', 'admin-walkover-disputes'] as const) expect(hasOwnHeader(screen)).toBe(false)
   })
 
   it('"Ver perfil" empilha o perfil do atleta; o próprio perfil é a aba Perfil', () => {
@@ -118,6 +118,13 @@ describe('aba acesa e título', () => {
     for (const screen of ['teams', 'team-form', 'team-invite', 'join', 'events', 'event', 'match'] as const) expect(activeNavFor(screen, 'home')).toBe('play')
     for (const screen of ['organizer-request', 'organizer-events', 'event-wizard', 'event-manage', 'event-receipts', 'event-bracket', 'event-matches', 'result-decision', 'admin-paid-events', 'admin-court-suggestions', 'admin-walkover-disputes', 'moderation'] as const)
       expect(activeNavFor(screen, 'home')).toBe('profile')
+  })
+
+  it('o Salão dos Lendários empilha sobre o Ranking, acende a aba de origem e carrega a categoria', () => {
+    expect(activeNavFor('legends', 'ranking')).toBe('ranking')
+    expect(titleFor(makeEntry('legends', { category: { sport: 'tenis' } }))).toBe('Salão dos Lendários')
+    const stack = push(push(initialStack(), makeEntry('ranking')), makeEntry('legends', { category: { sport: 'corrida', distance_km: 5 } }))
+    expect(stack).toEqual([{ screen: 'ranking' }, { screen: 'legends', params: { category: { sport: 'corrida', distance_km: 5 } } }])
   })
 
   it('as abas acendem a si mesmas; Notificações e Pedidos para seguir acendem a aba de onde o sino foi tocado', () => {

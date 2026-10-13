@@ -7,7 +7,7 @@ import { request } from '../src/api/client'
 import ArenaShell from '../src/screens/ArenaShell'
 import { enableAct } from './support/native'
 import { brasilia, emptyBoard, football, standings, tennis } from './support/play'
-import { rankingPage } from './support/results'
+import { rankingOverview } from './support/results'
 import { bests, markCard } from './support/runs'
 import { allText, findButton, flush, labelled, me, pressButton } from './support/review'
 
@@ -40,7 +40,7 @@ async function mountShell() {
     if (path === '/me/run-bests') return bests(markCard(10, ['52:40'])) as never
     if (path === '/me/run-races') return { items: [] } as never
     if (path === '/me/notifications/unread-count') return { unread_count: 0 } as never
-    if (path.startsWith('/rankings')) return rankingPage({ ranking: 'corrida_10', distance_km: 10 }) as never
+    if (path.startsWith('/rankings')) return rankingOverview({ ranking: 'corrida_10', distance_km: 10, classified_count: 0, required: 1 }) as never
     return { items: [], next_cursor: null } as never
   })
   let tree!: ReactTestRenderer
@@ -98,10 +98,9 @@ describe('Corrida pelo Jogar', () => {
     const tree = await mountShell()
     await choose(tree, '10 km')
     await pressButton(tree, 'Ver ranking')
-    expect(rankingCalls().at(-1)).toBe('/rankings?sport=corrida&distance_km=10&limit=20')
+    expect(rankingCalls().at(-1)).toBe('/rankings/overview?sport=corrida&distance_km=10')
     expect(allText(tree)).toContain('Ranking')
-    expect(stateOf(tree, 'Corrida')).toMatchObject({ checked: true })
-    expect(stateOf(tree, '10 km')).toMatchObject({ checked: true })
+    expect(allText(tree)).toContain('Corrida · 10 km')
   })
 
   it('voltar ao Início relê a classificação: a marca salva na corrida aparece no cartão da modalidade', async () => {

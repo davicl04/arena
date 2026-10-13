@@ -53,6 +53,12 @@
   --color-info-soft: #c9d6cf;
   --color-toast: rgba(8, 20, 14, 0.94);
   --color-toast-line: #ffffff17;
+  --color-legend: #f4de9a;
+  --color-tier-bronze-tint: #7a4a22;
+  --color-tier-prata-tint: #5d6670;
+  --color-tier-ouro-tint: #7a5a12;
+  --color-tier-diamante-tint: #1d5c6a;
+  --color-tier-lendario-tint: #5a4a10;
 
   --radius-control: 8px;
   --radius-lg: 12px;
