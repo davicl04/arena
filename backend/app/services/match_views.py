@@ -108,6 +108,12 @@ def stat_locked(stat: Any) -> bool:
     return stat.state == 'contestada' or (stat.state == 'revisada' and stat.contested_at is not None)
 
 
+def can_see_report(match: Any, access: MatchAccess, reports: Mapping, side: str) -> bool:
+    """Same visibility for the score and every value derived from it (including the points preview)."""
+    return (side == access.side or access.side is None or match.state != 'agendada'
+            or access.side in reports)
+
+
 @dataclass(frozen=True)
 class MatchFacts:
     """Rows, besides the match and the viewer's access, that the viewer's permissions depend on."""
@@ -409,9 +415,8 @@ class _Sheet:
         # Blind report (12.3): while the result is open, the other side's score stays hidden until my side has
         # reported mine (which includes the divergence, where both reported); who reports for no side (the
         # administration, the organizer) and a settled result see them all. Hidden: the report exists, `score` is null.
-        reveal = access.side is None or match.state != 'agendada' or access.side in facts.reports
         for key, row in facts.reports.items():
-            shown = reveal or key == access.side
+            shown = can_see_report(match, access, facts.reports, key)
             reports[key] = ScoreReportOut(
                 side=key,
                 score=score_out(row.score_a, row.score_b, row.sets, _winner(row.score_a, row.score_b)) if shown else None,

@@ -47,6 +47,7 @@ from app.schemas.social import (
     ReportOut,
     SocialUserOut,
 )
+from app.services.match_events import post_event
 from app.services.matches import match_label, reportable_message
 from app.services.media import normalize_post_image, remove_object, require_storage, storage_client
 from app.services.people import block_exists as _blocked_with
@@ -613,6 +614,9 @@ def moderate(report_id: int, data: ModerationInput, user: User = Depends(current
             message = db.get(MatchMessage, report.target_id)
             if message is not None and message.removed_at is None:
                 message.removed_at, message.removed_by_id = utcnow(), user.id
+                post_event(db, message.match_id, 'mensagem_removida',
+                           'Uma mensagem foi removida pela administração.',
+                           payload={'message_id': message.id}, now=message.removed_at)
         else:
             raise HTTPException(422, 'Remoção de conta exige suspensão.')
     elif action in {'suspend', 'reactivate'}:

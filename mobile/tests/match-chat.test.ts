@@ -150,6 +150,24 @@ describe('lados, agrupamento e braçadeira', () => {
 })
 
 describe('leitura periódica', () => {
+  it('substitui o texto já carregado ao receber uma remoção incremental', async () => {
+    vi.useFakeTimers()
+    const { tree } = await mountMatch(matchRoutes(matchDetail(), {
+      [MESSAGES]: messagePage([message(1, { body: 'Texto moderado' })]),
+      [`${MESSAGES}?after=1`]: messagePage([matchEvent(2, 'mensagem_removida', 'Uma mensagem foi removida pela administração.', { payload: { message_id: 1 } })]),
+      [`${MESSAGES}?after=2`]: messagePage([], { last_id: 2 }),
+    }), { fake: true })
+    expect(allText(tree)).toContain('Texto moderado')
+    await tick(4000)
+    expect(allText(tree)).not.toContain('Texto moderado')
+    expect(allText(tree)).toContain('Mensagem removida')
+  })
+  it('uma página antiga tardia não restaura o texto removido', () => {
+    const removal = matchEvent(2, 'mensagem_removida', 'Removida', { payload: { message_id: 1 } })
+    const merged = mergeMessages([removal], [message(1, { body: 'Resposta antiga' })])
+    expect(merged[0].body).toBeNull()
+    expect(merged[0].removed).toBe(true)
+  })
   const live = async (routes: Record<string, unknown>, detail = matchDetail()) => {
     vi.useFakeTimers({ toFake: [...FAKE] })
     return await mountMatch(matchRoutes(detail, routes as never), { fake: true })
@@ -203,16 +221,23 @@ describe('leitura periódica', () => {
     expect(callsTo('GET', `${MESSAGES}?after=1`)).toHaveLength(0)
   })
 
-  it('partida encerrada: lê o histórico uma vez e para de consultar', async () => {
-    const { tree } = await live({ [MESSAGES]: messagePage([message(1, { body: 'Foi um jogão' })]) },
+  it('partida encerrada: continua recebendo remoções a cada 30 s e ao voltar ao app', async () => {
+    const { tree } = await live({
+      [MESSAGES]: messagePage([message(1, { body: 'Foi um jogão' })]),
+      [`${MESSAGES}?after=1`]: messagePage([matchEvent(2, 'mensagem_removida', 'Uma mensagem foi removida pela administração.', { payload: { message_id: 1 } })]),
+      [`${MESSAGES}?after=2`]: messagePage([], { last_id: 2 }),
+    },
       matchDetail({ state: 'encerrada', phase: 'encerrada', permissions: { ...noPermissions, read_chat: true } }))
     expect(bubbleTexts(tree)).toEqual(['Foi um jogão'])
     await tick(30_000)
+    expect(allText(tree)).not.toContain('Foi um jogão')
+    expect(allText(tree)).toContain('Mensagem removida')
     await act(async () => { appState.set('background') })
     await act(async () => { appState.set('active') })
     await tick(50)
     expect(callsTo('GET', MESSAGES)).toHaveLength(1)
-    expect(callsTo('GET', `${MESSAGES}?after=1`)).toHaveLength(0)
+    expect(callsTo('GET', `${MESSAGES}?after=1`)).toHaveLength(1)
+    expect(callsTo('GET', `${MESSAGES}?after=2`)).toHaveLength(1)
   })
 
   it('com mais mensagens novas do que cabem numa página, lê de novo na hora', async () => {

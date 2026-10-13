@@ -495,6 +495,8 @@ def next_match_state(state: str, action: str) -> str:
 
 def next_stat_state(state: str, action: str, *, contested_before: bool = False) -> str:
     """Stat transitions; each stat can be contested once (the review after a contest is final)."""
+    if state == 'revisada' and contested_before and action in ('editar', 'revisar'):
+        raise TransitionError('Esta estatística já foi contestada e revisada; a revisão é final.')
     if action == 'contestar' and contested_before:
         raise TransitionError(STAT_MESSAGES['contestar'])
     return _transition(STAT_TRANSITIONS, STAT_MESSAGES, state, action, 'Esta estatística não pode mudar agora.')

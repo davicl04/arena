@@ -342,6 +342,10 @@ def test_stat_transitions_allow_one_contest():
     assert next_stat_state('revisada', 'editar') == 'enviada'
     assert next_stat_state('revisada', 'contestar') == 'contestada'
     assert next_stat_state('contestada', 'revisar') == 'revisada'
+    assert next_stat_state('contestada', 'revisar', contested_before=True) == 'revisada'
+    for action in ('editar', 'revisar'):
+        with pytest.raises(TransitionError, match='a revisão é final'):
+            next_stat_state('revisada', action, contested_before=True)
     with pytest.raises(TransitionError, match='já foi contestada'):
         next_stat_state('revisada', 'contestar', contested_before=True)
     with pytest.raises(TransitionError, match='representante do seu time revisa'):

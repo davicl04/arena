@@ -24,6 +24,7 @@ import { TermsSheet } from "../components/match/TermsSheet";
 import ReportForm from "../components/ReportForm";
 import { nameOf, orderedSides, sideName } from "../data/match";
 import { useResource } from "../hooks/useResource";
+import { useMatchDeadlines } from "../hooks/useMatchDeadlines";
 import { useSubmit } from "../hooks/useSubmit";
 import { Button, IconButton } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -91,10 +92,13 @@ export default function MatchPage({ matchId, viewerId, onBack, onSchedule, onDec
   const refresh = useCallback(async () => {
     try {
       setDetail(await getMatch(matchId));
+      return true;
     } catch (cause) {
       if (cause instanceof ApiError && cause.status === 401) onExpired();
+      return false;
     }
   }, [matchId, onExpired, setDetail]);
+  useMatchDeadlines(detail, refresh);
 
   /** "Conversar" no cartão de resultado: leva o foco ao campo do chat (ou, fechado, às mensagens) e o deixa à vista. */
   function focusChat() {

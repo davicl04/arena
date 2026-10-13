@@ -14,6 +14,7 @@ from app.models.identity import utcnow
 from app.models.matches import MatchMessage
 
 MATCH_EVENT_TYPES = frozenset({
+    'mensagem_removida',        # tombstone: payload.message_id invalidates the text already loaded by readers
     'partida_combinando',       # both sides accepted the proposal: the chat opens
     'condicoes_propostas',
     'condicoes_aceitas',

@@ -8,6 +8,13 @@ export function mergeMessages(old: MatchMessageOut[], incoming: MatchMessageOut[
   if (!incoming.length) return old
   const byId = new Map(old.map(message => [message.id, message]))
   for (const message of incoming) byId.set(message.id, message)
+  // Reapply removals when an older page arrives after the moderation event.
+  for (const message of byId.values()) {
+    if (message.event_type !== 'mensagem_removida') continue
+    const id = message.payload?.message_id
+    const target = typeof id === 'number' ? byId.get(id) : undefined
+    if (target?.kind === 'texto') byId.set(target.id, { ...target, body: null, removed: true })
+  }
   return [...byId.values()].sort((a, b) => a.id - b.id)
 }
 
@@ -15,7 +22,7 @@ const messageOf = (cause: unknown, fallback: string) => cause instanceof Error &
 
 /**
  * Chat da partida (contrato 0002, 11.1): lê as últimas mensagens ao abrir e depois só as novas, com `after={último id}`,
- * a cada 4 s enquanto a tela está visível e a partida aberta (parada com a aba oculta; ao voltar, lê na hora). Carrega as anteriores com
+ * a cada 4 s com escrita aberta ou 30 s em somente leitura (pausa com a aba oculta; ao voltar, lê na hora). Carrega as anteriores com
  * `before`. O envio acrescenta a mensagem devolvida sem mexer no cursor da leitura, para não pular mensagens do outro
  * lado que chegaram antes.
  */
@@ -58,7 +65,7 @@ export function useMatchChat(matchId: number, enabled: boolean, onExpired: () =>
             // Evento novo (aceite, cancelamento, vagas…): a partida mudou e o cartão de condições precisa reler.
             if (page.items.some(item => item.kind === 'evento')) onEventRef.current?.()
           } else {
-            setItems(page.items)
+            setItems(mergeMessages([], page.items))
             setHasOlder(page.has_more)
             loaded = true
             more = false
@@ -88,13 +95,13 @@ export function useMatchChat(matchId: number, enabled: boolean, onExpired: () =>
     }
     function schedule() {
       window.clearTimeout(timer)
-      // Partida fechada (encerrada, sem resultado ou cancelada): lê uma vez e para, não há mais o que chegar.
-      if (stopped || document.hidden || !liveRef.current) return
-      timer = window.setTimeout(() => void poll(), CHAT_POLL_MS)
+      // Chats encerrados ainda recebem moderação, com leitura menos frequente.
+      if (stopped || document.hidden) return
+      timer = window.setTimeout(() => void poll(), liveRef.current ? CHAT_POLL_MS : 30_000)
     }
     function onVisibility() {
       window.clearTimeout(timer)
-      if (!document.hidden && !busy && liveRef.current) void poll()
+      if (!document.hidden && !busy) void poll()
     }
     document.addEventListener('visibilitychange', onVisibility)
     void poll()

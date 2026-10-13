@@ -128,17 +128,27 @@ class PostgresMatchmakingQueue:
 
     def try_match(self, db: Session, search: MatchSearch, *, now: datetime) -> Pairing | None:
         self.lock_bucket(db, bucket_key(search.kind, search.city_id, search.format))
-        current = _locked(db, MatchSearch, search.id)
+        current = self._waiting_search(db, search.id, now)
         if current is None or current.state != 'ativa' or current.expires_at <= now:
             return None
         if current.kind == 'avulso':
             return self._offer_to_walkin(db, current, now)
         for candidate in self._candidates(db, current, now):
-            other = _locked(db, MatchSearch, candidate.id)
+            other = self._waiting_search(db, candidate.id, now)
             if other is None or other.state != 'ativa' or other.expires_at <= now:
                 continue
             return self._propose(db, other, current, now)
         return None
+
+    @staticmethod
+    def _waiting_search(db: Session, search_id: int, now: datetime) -> MatchSearch | None:
+        """Recheck the subject when locking a waiting search, including the one the sweep starts from."""
+        active_subject = or_(
+            exists().where(Team.id == MatchSearch.team_id, Team.state == 'ativo'),
+            exists().where(User.id == MatchSearch.user_id, User.active.is_(True)))
+        return db.scalar(select(MatchSearch).where(
+            MatchSearch.id == search_id, MatchSearch.state == 'ativa', MatchSearch.expires_at > now,
+            active_subject).with_for_update().execution_options(populate_existing=True))
 
     def _candidates(self, db: Session, current: MatchSearch, now: datetime) -> list[MatchSearch]:
         """Waiting searches of the bucket in pairing order: same tier, neighbour, then the oldest.
@@ -247,7 +257,7 @@ class PostgresMatchmakingQueue:
             ranked = rank_candidates(Candidate(row, tiers.get((row.user_id, slot.position, match.format)), side.tier,
                                                row.started_at, row.id) for row in rows)
             for row in ranked:
-                search = _locked(db, MatchSearch, row.id)
+                search = self._waiting_search(db, row.id, now)
                 if search is None or search.state != 'ativa' or search.expires_at <= now:
                     continue
                 pairings.append(self._offer(db, search, slot, match, side, now))

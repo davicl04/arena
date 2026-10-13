@@ -86,6 +86,7 @@ def test_removing_a_reported_message_hides_its_text_for_everyone(client, world, 
     first = report(http, world, message_id).json()['id']
     second = report(http, world, message_id, 'member_b').json()['id']
     third = report(http, world, other_id).json()['id']
+    cursor = http.get(f'{API}/matches/{match.id}/messages', headers=world['h']['rep_b']).json()['last_id']
 
     dismissed = moderate(http, world, third, 'dismiss')
     assert dismissed.status_code == 200 and dismissed.json()['status'] == 'resolved'
@@ -98,7 +99,12 @@ def test_removing_a_reported_message_hides_its_text_for_everyone(client, world, 
     assert row.removed_at is not None and row.removed_by_id == world['admin'].id and row.body == 'Texto removível'
     for who in ('rep_a', 'rep_b', 'admin'):
         items = http.get(f'{API}/matches/{match.id}/messages', headers=world['h'][who]).json()['items']
-        assert [(item['body'], item['removed']) for item in items] == [(None, True), ('Texto que fica', False)]
+        assert [(item['body'], item['removed']) for item in items if item['kind'] == 'texto'] == [
+            (None, True), ('Texto que fica', False)]
+    updates = http.get(f'{API}/matches/{match.id}/messages', params={'after': cursor},
+                       headers=world['h']['rep_b']).json()['items']
+    assert len(updates) == 1 and updates[0]['event_type'] == 'mensagem_removida'
+    assert updates[0]['payload'] == {'message_id': message_id} and updates[0]['author'] is None
     action = db.scalars(select(ModerationAction).where(ModerationAction.report_id == first)).one()
     assert (action.target_type, action.target_id, action.action, action.admin_id) == (
         'match_message', message_id, 'remove', world['admin'].id)

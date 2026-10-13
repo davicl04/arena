@@ -9,6 +9,13 @@ export function mergeMessages(old: MatchMessageOut[], incoming: MatchMessageOut[
   if (!incoming.length) return old
   const byId = new Map(old.map(message => [message.id, message]))
   for (const message of incoming) byId.set(message.id, message)
+  // Reapply removals when an older page arrives after the moderation event.
+  for (const message of byId.values()) {
+    if (message.event_type !== 'mensagem_removida') continue
+    const id = message.payload?.message_id
+    const target = typeof id === 'number' ? byId.get(id) : undefined
+    if (target?.kind === 'texto') byId.set(target.id, { ...target, body: null, removed: true })
+  }
   return [...byId.values()].sort((a, b) => a.id - b.id)
 }
 
@@ -18,8 +25,8 @@ const visible = (state: string) => state !== 'background' && state !== 'inactive
 
 /**
  * Chat da partida (contrato 0002, 11.1; porta de `useMatchChat` da web): lê as últimas mensagens ao abrir e depois só as
- * novas, com `after={último id}`, a cada `CHAT_POLL_MS` (4 s) enquanto a tela está montada, o app está em primeiro plano e
- * a partida segue aberta. Em segundo plano (`AppState`) a leitura pausa; ao voltar ao primeiro plano, lê na hora. Carrega
+ * novas, com `after={último id}`, a cada `CHAT_POLL_MS` (4 s) com escrita aberta ou 30 s em somente leitura, com a tela
+ * montada e o app em primeiro plano. Em segundo plano (`AppState`) a leitura pausa; ao voltar, lê na hora. Carrega
  * as anteriores com `before`. O envio acrescenta a mensagem devolvida sem mexer no cursor da leitura, para não pular
  * mensagens do outro lado que chegaram antes. Erros 4xx (chat fechado para quem lê) encerram a leitura; falha de rede só
  * marca `offline` e tenta de novo no ciclo seguinte.
@@ -63,7 +70,7 @@ export function useMatchChat(matchId: number, enabled: boolean, onExpired: () =>
             // Evento novo (aceite, cancelamento, vagas…): a partida mudou e o cartão de condições precisa reler.
             if (page.items.some(item => item.kind === 'evento')) onEventRef.current?.()
           } else {
-            setItems(page.items)
+            setItems(mergeMessages([], page.items))
             setHasOlder(page.has_more)
             loaded = true
             more = false
@@ -93,13 +100,13 @@ export function useMatchChat(matchId: number, enabled: boolean, onExpired: () =>
     }
     function schedule() {
       clearTimeout(timer)
-      // Partida fechada (encerrada, sem resultado ou cancelada): lê uma vez e para, não há mais o que chegar.
-      if (stopped || !visible(AppState.currentState) || !liveRef.current) return
-      timer = setTimeout(() => void poll(), CHAT_POLL_MS)
+      // Chats encerrados ainda recebem moderação, com leitura menos frequente.
+      if (stopped || !visible(AppState.currentState)) return
+      timer = setTimeout(() => void poll(), liveRef.current ? CHAT_POLL_MS : 30_000)
     }
     const subscription = AppState.addEventListener('change', state => {
       clearTimeout(timer)
-      if (visible(state) && !busy && liveRef.current) void poll()
+      if (visible(state) && !busy) void poll()
     })
     void poll()
     return () => {

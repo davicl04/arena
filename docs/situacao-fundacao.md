@@ -1,5 +1,69 @@
 # Situação da fundação do Arena
 
+## Consolidação da branch para commit — 12 de outubro de 2026
+
+O usuário autorizou incluir todos os arquivos pendentes no commit e enviar a branch `feat/play-page` ao remoto. O conteúdo reúne as cinco correções da revisão, seus testes e contratos, e o plano da aba Partidas do perfil (somente planejamento). Conferência final com `git diff --check` aprovada; as verificações de código são as registradas na entrega das correções abaixo, sem nova execução nesta etapa de Git.
+
+## Plano da aba Partidas do perfil (apenas planejamento) — 12 de outubro de 2026
+
+A pedido do usuário, o plano definido em rodadas de protótipos foi registrado em [docs/plano-perfil-partidas.md](plano-perfil-partidas.md). O plano substitui o "Boletim por modalidade" (P2) por uma **linha do tempo** com:
+
+- topo mínimo com ícone de filtro;
+- próxima partida em cartão forest, só no perfil próprio;
+- registros "Duelo" com faixa de campeonato e "Ausente" no W.O.;
+- corrida comparada ao melhor anterior;
+- canceladas e sem resultado esmaecidas.
+
+Também prevê:
+
+- `GET /users/{id}/timeline`, com a visibilidade das fotos (`_can_view`) e sem próxima partida nem local para o visitante;
+- `GET /me/profile-stats`;
+- a regra de participação "só as partidas que a pessoa jogou", que corrige a dependência da associação atual ao time;
+- a troca de "Pontos de elo" por "Melhor elo".
+
+Somente documentação: nenhum código foi alterado e nenhum teste foi executado. Diff conferido. Sem commit, push ou publicação.
+
+## Correções da revisão da branch `feat/play-page` — 12 de outubro de 2026
+
+Os cinco achados da revisão abaixo foram corrigidos no backend, na web e no Expo, com testes de regressão versionados. Sem dependência nova, migração, commit ou publicação.
+
+- **Estatísticas:** a revisão depois de uma contestação é final também para o representante: novas revisões respondem `409`, sem alterar números ou ranking, e `can_review` fica falso.
+- **Pareamento:** a releitura com trava verifica o titular ativo tanto na busca corrente quanto nos candidatos e nas ofertas de avulso. Conta suspensa ou time encerrado não recebe nova proposta/oferta; a busca conserva seu prazo original.
+- **Moderação:** remover uma mensagem cria, na mesma transação, o evento `mensagem_removida`, com apenas o ID da mensagem no payload. Os clientes apagam o texto carregado ao recebê-lo por cursor, inclusive se uma página antiga chegar depois. Chats que aceitam escrita releem a cada 4 s; os de somente leitura, a cada 30 s, com pausa em segundo plano e leitura ao voltar.
+- **Horários da partida:** web e Expo releem o detalhe no início, no limite de cancelamento e no fim da janela de resultado. A leitura pausa quando a tela fica oculta, confere os limites ao retornar e tenta novamente em 15 s após falha.
+- **Relato cego:** a prévia de pontos usa a mesma visibilidade do placar. Enquanto o relato adversário estiver oculto, `points.result` é nulo e seu valor não entra no total; presença e estatísticas continuam visíveis conforme o contrato.
+
+**Verificações executadas:**
+
+- Backend: `ruff check app migrations tests` e `pytest -q --cov=app --cov-branch` aprovados, com PostgreSQL configurado em `TEST_DATABASE_URL` e schemas aleatórios isolados: **1.538 aprovados e 1 pulado**, cobertura total **98%**.
+- Web: `npm run lint`, `npm run build` e `npm run test:coverage -- --maxWorkers=4` aprovados: **914 testes**, cobertura de **92,36% das instruções e 85,92% dos ramos**. Permanece o aviso do bundle acima de 500 kB.
+- Expo: `npm run lint`, `npm run typecheck`, `npm run test:coverage -- --maxWorkers=4` e `npm run export:android` aprovados: **1.285 testes**, cobertura de **94,86% das instruções e 90,05% dos ramos**.
+- Navegador com API e PostgreSQL reais: o formulário de placar apareceu no horário de início sem interação ou mensagem nova; a remoção administrativa substituiu o texto por "Mensagem removida" na tela aberta. Recarregar preservou a sessão e a remoção, sem erros no console. Contas sintéticas em schema isolado temporário, removido ao terminar, sem alterar dados do usuário. Evidência local em `artifacts/fix-review-browser.jpg` e logs dos checks em `artifacts/fix-review-*.log`.
+- Contrato atualizado em [0002-jogar](decisoes/0002-jogar.md); diff conferido, sem alterações incidentais.
+
+**Limitações:** o teste pulado do backend permanece; não houve validação em aparelho Android/iOS nem execução do CI remoto. A exportação Android e os testes do Expo não comprovam funcionamento em aparelho. Esta entrega não declara o MVP completo.
+
+## Revisão da branch `feat/play-page` — 12 de outubro de 2026
+
+Revisão de `c2d1275` (último commit anterior ao trabalho da branch) até `085fb9f`, cobrindo as etapas de times, eventos, Jogar, campeonatos, corrida e Expo. A revisão inicial não corrigiu a implementação nem criou commit; os achados registrados abaixo foram corrigidos na entrega descrita acima.
+
+**Achados reproduzidos:**
+
+- **Revisão final das estatísticas:** após contestação e revisão do representante, outra chamada a `PUT /matches/{id}/stats/{stat_id}/review` ainda altera os números e retorna `200`. O adversário continua impedido de contestar novamente. A trava da revisão final vale para o envio do atleta, mas falta na revisão do representante e em `can_review` (`services/results.py`).
+- **Busca de conta suspensa:** a varredura pareia uma busca de tênis cujo titular foi suspenso. `matchmaking_queue.try_match` não verifica se o titular da busca corrente está ativo; o filtro de contas ativas só se aplica ao candidato. A proposta prende também a busca do atleta ativo, embora o suspenso não possa responder.
+- **Moderação com chat aberto:** remover uma mensagem grava `removed_at`, mas não produz atualização acessível por `after={último id}`. Os hooks `useMatchChat` da web e do Expo conservam o texto já carregado até reabrir a tela. Reproduzido pela API e pela interface web simulada.
+- **Horário de início com a tela aberta:** sem novo evento no chat, `MatchPage` não relê o detalhe quando `starts_at` chega. O cartão e as permissões do resultado continuam no estado anterior ao início até reabrir a tela. Reproduzido na web com relógio simulado; a mesma ausência de atualização por horário foi identificada por leitura do `MatchScreen` do Expo, sem teste em aparelho.
+- **Relato cego pela prévia:** antes de o lado B informar seu placar, `GET /matches/{id}/stats` devolve os pontos de resultado dos atletas do lado A com base no relato de A. Isso revela vitória, empate ou derrota (3/1/0), apesar de `result.reports.a.score` permanecer oculto. A prévia precisa respeitar a visibilidade do relato para o visitante (`services/results.py`, `lineups_out`).
+
+**Verificações executadas:**
+
+- Backend: `ruff check app migrations tests` aprovado; `pytest -q` com `TEST_DATABASE_URL` obtida da configuração local existente: **1.533 aprovados e 1 pulado**. Os testes usam schemas aleatórios isolados, sem alteração dos dados da conta do usuário. `alembic check` via API do Alembic, sobre outro schema de teste migrado, aprovado.
+- Web: `npm run lint`, `npm run build` e `npm run test:coverage -- --maxWorkers=4` aprovados; **909 testes**, cobertura de 92,35% das instruções e 85,88% dos ramos. O aviso do bundle acima de 500 kB permanece.
+- Expo: `npm run lint`, `npm run typecheck`, `npm run test:coverage -- --maxWorkers=4` e `npm run export:android` aprovados; **1.280 testes**, cobertura de 94,86% das instruções e 90,01% dos ramos.
+- Diagnósticos adicionais, fora das suítes versionadas: quatro cenários de backend reproduziram as falhas de busca suspensa, relato cego, revisão final e moderação; dois cenários de interface web reproduziram a passagem do horário e a mensagem moderada ainda visível. Arquivos temporários em `artifacts/review_branch_diagnostics.py`, `artifacts/review_branch_ui.test.tsx` e `artifacts/review_schema_check.py`.
+
+**Limitações:** os diagnósticos de interface usam API e relógio simulados; não houve validação no navegador contra a API real, em aparelho Android/iOS nem no CI remoto. Aprovação das suítes existentes não cobre os cinco achados. Esta revisão não declara conclusão do MVP nem paridade visual entre clientes.
+
 ## Ajustes de Meus times e da folha de cidade — 12 de outubro de 2026
 
 Ajustes pedidos pelo usuário depois de usar a web com o próprio banco.

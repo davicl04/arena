@@ -85,7 +85,7 @@ from app.services.match_rules import (
     validate_stat,
     validate_tennis_sets,
 )
-from app.services.match_views import match_detail
+from app.services.match_views import can_see_report, match_detail
 from app.services.match_views import report_score as score_of_report
 from app.services.people import people_out
 from app.services.rankings import (
@@ -390,10 +390,13 @@ def lineups_out(db: Session, viewer: User, match: Match, *, now: datetime,
             contest_reason=stat.contest_reason, contested_fields=stat.contested_fields)
         points = None
         if present is True:
-            points = points_preview(outcome=_outcome_of(match, entry.side, reports), stat=stat, final=final)
+            outcome = _outcome_of(match, entry.side, reports) if can_see_report(
+                match, access, reports, entry.side) else None
+            points = points_preview(outcome=outcome, stat=stat, final=final)
         result.append(LineupOut(
             user=who, side=entry.side, guest=entry.guest, position=entry.position, present=present, stat=stat_out,
-            points=points, can_review=acting and entry.side == access.side,
+            points=points, can_review=acting and entry.side == access.side
+            and not (stat.state == 'revisada' and stat.contested_at is not None),
             can_contest=acting and entry.side != access.side and stat.contested_at is None))
     return result
 
@@ -559,6 +562,7 @@ def review_stat(db: Session, user: User, match_id: int, stat_id: int, data: Stat
     if match.walkover_absent_side is not None:
         raise HTTPException(409, WALKOVER_NO_STATS)
     _ensure_open(match, now, REVIEW_WINDOW)
+    state = next_stat_state(stat.state, 'revisar', contested_before=stat.contested_at is not None)
 
     corrections = data.model_dump(exclude_unset=True)
     values = {
@@ -570,7 +574,6 @@ def review_stat(db: Session, user: User, match_id: int, stat_id: int, data: Stat
     if position is None:
         raise RuleError('Informe a posição de quem jogou.', 'position')
     after_contest = stat.state == 'contestada'
-    state = next_stat_state(stat.state, 'revisar')
     previous = lineup.position
     stat.goals, stat.assists, stat.position_stat = values['goals'], values['assists'], values['position_stat']
     stat.state, stat.reviewed_at, stat.reviewed_by_id, stat.updated_at = state, now, user.id, now

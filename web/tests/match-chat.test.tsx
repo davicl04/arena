@@ -157,6 +157,26 @@ describe('lados, agrupamento e braçadeira', () => {
 })
 
 describe('leitura periódica', () => {
+  it('substitui o texto já carregado ao receber a remoção em uma página incremental', async () => {
+    vi.useFakeTimers()
+    renderChat(matchDetail(), {
+      'GET /matches/1/messages': page([message(1, { body: 'Texto moderado' })]),
+      'GET /matches/1/messages?after=1': page([event(2, 'mensagem_removida', 'Uma mensagem foi removida pela administração.', { payload: { message_id: 1 } })]),
+      'GET /matches/1/messages?after=2': page([], { last_id: 2 }),
+    })
+    await act(async () => { await vi.advanceTimersByTimeAsync(50) })
+    expect(screen.getByText('Texto moderado')).toBeTruthy()
+    await act(async () => { await vi.advanceTimersByTimeAsync(4000) })
+    expect(screen.queryByText('Texto moderado')).toBeNull()
+    expect(screen.getByText('Mensagem removida')).toBeTruthy()
+  })
+
+  it('uma página antiga tardia não restaura o texto removido', () => {
+    const removal = event(2, 'mensagem_removida', 'Removida', { payload: { message_id: 1 } })
+    const merged = mergeMessages([removal], [message(1, { body: 'Resposta antiga' })])
+    expect(merged[0].body).toBeNull()
+    expect(merged[0].removed).toBe(true)
+  })
   it('lê só as novas com after a cada 4 s, sem recarregar a tela', async () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'] })
     let reads = 0
@@ -200,19 +220,24 @@ describe('leitura periódica', () => {
     expect(find('GET', '/matches/1/messages?after=1')).toHaveLength(before + 1)
   })
 
-  it('partida encerrada: lê o histórico uma vez e para de consultar', async () => {
+  it('partida encerrada: continua recebendo remoções a cada 30 s e ao voltar à aba', async () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'] })
     const { find } = renderChat(matchDetail({ state: 'encerrada', phase: 'encerrada', permissions: { ...noPermissions, read_chat: true } }), {
       'GET /matches/1/messages': page([message(1, { body: 'Foi um jogão' })]),
+      'GET /matches/1/messages?after=1': page([event(2, 'mensagem_removida', 'Uma mensagem foi removida pela administração.', { payload: { message_id: 1 } })]),
+      'GET /matches/1/messages?after=2': page([], { last_id: 2 }),
     })
     await act(async () => { await vi.advanceTimersByTimeAsync(50) })
     expect(screen.getByText('Foi um jogão')).not.toBeNull()
     await act(async () => { await vi.advanceTimersByTimeAsync(30_000) })
+    expect(screen.queryByText('Foi um jogão')).toBeNull()
+    expect(screen.getByText('Mensagem removida')).not.toBeNull()
     await act(async () => { setHidden(true) })
     await act(async () => { setHidden(false) })
     await act(async () => { await vi.advanceTimersByTimeAsync(50) })
     expect(find('GET', '/matches/1/messages')).toHaveLength(1)
-    expect(find('GET', '/matches/1/messages?after=1')).toHaveLength(0)
+    expect(find('GET', '/matches/1/messages?after=1')).toHaveLength(1)
+    expect(find('GET', '/matches/1/messages?after=2')).toHaveLength(1)
   })
 
   it('com mais mensagens novas do que cabem numa página, lê de novo na hora', async () => {

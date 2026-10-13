@@ -623,6 +623,8 @@ interface MatchDetail extends MatchCard {
 
 As permissões e o cartão seguem `match_views`: o elo de cada lado (`MatchSideOut.tier`) é o gravado em `match_sides.tier` no pareamento, não o atual; `result.points` (a pílula "+3 pts") só vem para o elenco (`representante`, `membro`, `atleta`) com resultado final, e é `null` para avulso, organizador e administração; `suggest_court` e `manage_slots` só valem em partida **amistosa**; `suggest_court` só em `combinando` ou `agendada` **antes do início** (a rota responde `409 Só dá para sugerir quadra antes do início da partida.` depois dele, como as condições).
 
+Web e Expo releem este detalhe ao cruzar `starts_at`, `cancel_until` e `result_deadline`, mesmo sem evento novo no chat. O servidor continua decidindo estado e permissões. Os temporizadores conferem o relógio no máximo a cada 60 s, pausam com a tela oculta e conferem prazos vencidos ao retornar; uma falha de leitura tenta novamente após 15 s.
+
 ### 10.2 Rotas
 
 | Rota | Quem | Corpo | Resposta |
@@ -681,7 +683,7 @@ type MatchEventType = 'partida_combinando' | 'condicoes_propostas' | 'condicoes_
   | 'reserva_atualizada' | 'vagas_atualizadas' | 'avulso_entrou' | 'avulso_removido' | 'quadra_sugerida'
   | 'partida_cancelada' | 'wo_registrado' | 'wo_retirado' | 'wo_contestado' | 'wo_decidido' | 'placar_enviado'
   | 'resultado_confirmado' | 'resultado_divergente' | 'sem_resultado' | 'presenca_registrada'
-  | 'estatisticas_enviadas' | 'estatistica_revisada' | 'estatistica_contestada'
+  | 'estatisticas_enviadas' | 'estatistica_revisada' | 'estatistica_contestada' | 'mensagem_removida'
 
 interface MatchMessageOut {
   id: number
@@ -705,11 +707,12 @@ interface MessagePage { items: MatchMessageOut[]; has_more: boolean; last_id: nu
 | `POST /matches/{id}/messages` | escritores (seção 8) | `{ body: string }` (1–1000, aparado) | `201 MatchMessageOut` |
 | `POST /reports` (existente) | leitores | `{ target_type: 'match_message'; target_id; reason; description? }` | `201 { id, status }` |
 
-- **Leitura periódica (a cada 4 s com a tela visível):** `after={last_id}` devolve as mensagens com `id` maior, em ordem crescente, até `limit` (padrão 50, máximo 100), com `has_more`; sem novidade, `items: []` e `last_id` igual ao `after`. Sem parâmetros, as últimas `limit`. `before={id}` pagina o histórico para trás. `after` e `before` juntos: `422`.
+- **Leitura periódica (com a tela visível):** a cada 4 s enquanto o chat aceita escrita; a cada 30 s quando só aceita leitura, para receber moderação. Web e Expo pausam em segundo plano e leem ao voltar. `after={last_id}` devolve as mensagens com `id` maior, em ordem crescente, até `limit` (padrão 50, máximo 100), com `has_more`; sem novidade, `items: []` e `last_id` igual ao `after`. Sem parâmetros, as últimas `limit`. `before={id}` pagina o histórico para trás. `after` e `before` juntos: `422`.
 - Antes do aceite dos dois lados: `403 O chat abre quando os dois lados aceitam a proposta.`; partida fechada: `409 O chat desta partida está fechado.`; administração escrevendo: `403 A administração só lê o chat.`
 - `author_role` é o papel atual de quem escreveu (a braçadeira "C" aparece para representantes); `side` é o lado gravado ao escrever.
 - Mensagens não geram notificação nem auditoria. Eventos são criados pelas frentes com `match_events.post_event`, na transação da mudança; o texto vem em português e não traz datas (a web formata `payload.starts_at` no fuso do aparelho).
 - **Denúncia (12/10):** extensão de `POST /reports` e da fila `/admin/reports` em `app/routers/social.py`: `target_type` aceita `match_message` para quem lê a mensagem (só `texto` não removido; senão `404 Conteúdo não encontrado.`); a prévia administrativa mostra o texto, a partida e o autor; a ação `remove` grava `removed_at`/`removed_by_id` (o texto some para todos e o registro fica); `suspend` segue como hoje.
+- **Atualização da remoção (correção da revisão, 12/10):** uma nova remoção também grava, na mesma transação, o evento `mensagem_removida`, sem autor, com `payload: { message_id }` e o texto "Uma mensagem foi removida pela administração.". Não replica o conteúdo removido. Os clientes aplicam `body: null` e `removed: true` ao item indicado, inclusive em páginas antigas recebidas depois do evento; a API continua retornando o texto removido como nulo.
 
 ### 11.2 Avulso e vagas (fase 4) — frente de avulso
 
@@ -817,8 +820,8 @@ interface LineupOut {
 
 - **Presença:** quem age por um lado de time, futebol, janela aberta, partida `agendada` ou `realizada`; o lado ausente num W.O. não registra (`409 O seu lado está com W.O. registrado.`). Só membros ativos do time do lado ou avulsos desse lado (`422 Este atleta não está no elenco deste lado.` em `athletes`). Posição de quem jogou: a informada, senão a da atuação, a do elenco (`team_members.position`) ou a da vaga do avulso; sem nenhuma, `422 Informe a posição de quem jogou.` Faixa `presenca_registrada`; auditoria `presenca.registrada` (`{ side, present, absent }`).
 - **Minhas estatísticas:** atleta membro ativo de um time da partida ou avulso dela; futebol; janela aberta; `agendada` ou `realizada`; W.O.: `409 Partida decidida por W.O. não tem estatísticas.`; marcado ausente pelo representante: `409 O representante marcou que você não jogou. Fale com ele.`; `validate_stat` (`422 Informe números inteiros de 0 a 50.`). Cria ou atualiza a atuação (presente se ainda não informado) e a estatística: nova → `enviada`; `enviada`/`revisada` → `enviada` (nova revisão); `contestada` → `409 Esta estatística foi contestada; o representante do seu time revisa.`; `revisada` depois de uma contestação (revisão final) → `409 Esta estatística já foi contestada e revisada; a revisão é final.` (`permissions.send_stats` é falso nos dois casos) Faixa `estatisticas_enviadas` ("Tiago enviou: 2 gols, 4 finalizações no alvo (ATA)."). Sem auditoria (é declaração, não decisão).
-- **Prévia (RN12):** `scoring.individual_points` com o resultado confirmado, senão o placar informado pelo meu lado, senão `null`: presença 1; vitória 3, empate 1, derrota 0; gol 1; assistência 1; estatística da posição 0,5 por ocorrência até 4. `total` soma tudo o que foi enviado; `counted` (`match_rules.counted_stat_fields`) diz o que já pontua.
-- **Revisar:** quem age pelo lado do atleta; janela aberta; correções validadas; `next_stat_state(…, 'revisar')` → `revisada` (resolve a contestação). Faixa `estatistica_revisada`; auditoria `estatistica.revisada` (`{ match_id, user_id, corrections, after_contest }`); com a partida `realizada`, recálculo.
+- **Prévia (RN12):** `scoring.individual_points` com o resultado confirmado, senão o placar informado pelo lado do atleta quando visível ao visitante conforme o relato cego (12.3), senão `null`: presença 1; vitória 3, empate 1, derrota 0; gol 1; assistência 1; estatística da posição 0,5 por ocorrência até 4. `total` soma tudo o que foi enviado; `counted` (`match_rules.counted_stat_fields`) diz o que já pontua. Relato oculto implica `points.result: null`, sem contribuição do resultado no total, também no elenco adversário.
+- **Revisar:** quem age pelo lado do atleta; janela aberta; correções validadas; `next_stat_state(…, 'revisar')` → `revisada` (resolve a contestação). Uma estatística `revisada` depois de contestação não aceita outra revisão: `409 Esta estatística já foi contestada e revisada; a revisão é final.`, sem alterar estatística ou ranking; `can_review` fica falso. Faixa `estatistica_revisada`; auditoria `estatistica.revisada` (`{ match_id, user_id, corrections, after_contest }`); com a partida `realizada`, recálculo.
 - **Contestar:** quem age pelo outro lado; janela aberta; `normalize_contested_fields`; motivo de 5 a 300 (`422 Conte por que a estatística está errada.`); uma vez (`409 Esta estatística já foi contestada.`). Notificação `estatistica_contestada` ao atleta e a quem age pelo lado dele; faixa `estatistica_contestada`; auditoria `estatistica.contestada`; com a partida `realizada`, recálculo.
 - **Fim do prazo:** estatísticas `enviada` não pontuam; itens contestados sem nova revisão não pontuam.
 
@@ -928,6 +931,7 @@ A tela Notificações lista também os pedidos para seguir (`GET /me/follow-requ
 - **Implementação `PostgresMatchmakingQueue`** (instância `queue`): `pg_advisory_xact_lock(match_rules.bucket_lock_id(bucket_key))` (hash SHA-256 de 64 bits, estável entre instâncias), releitura da busca e do candidato com `FOR UPDATE`, ordem de `match_rules.rank_candidates`, proposta e encerramento das duas buscas na mesma transação. A trava sai no commit: quem chama faz o commit logo depois. As demais travas seguem a ordem global da seção 15.5 (partida → ranking → balde → vaga → busca).
 - **Testes de concorrência** (`tests/integration/test_matchmaking_concurrency.py`, conexões paralelas reais num schema dedicado): duas buscas compatíveis criadas ao mesmo tempo terminam pareadas; nove buscas simultâneas formam quatro propostas sem repetir busca; dois avulsos na mesma vaga recebem uma só oferta; o toque duplo em "Quero jogar" (duas sessões que leem o atleta com `db.get`, sem nada que as serialize antes das travas) preenche a vaga uma vez; e, sem a trava do balde, o mesmo cenário deixa as duas buscas esperando e, sem as releituras `FOR UPDATE`, o toque duplo bate no único do elenco (os testes enxergam a corrida).
 - **Quando o pareamento roda:** busca nova (`enqueue`), busca devolvida à fila (recusa ou expiração do outro lado), vagas que abrem ou reabrem (`offer_slots`), elo que muda (`standings`, depois de recalcular um ranking), as vagas abertas pelo aceite das condições (`accept_terms` chama `offer_slots`) e a varredura (`rematch`).
+- **Titular ativo (correção da revisão, 12/10):** a releitura com `FOR UPDATE` exige busca `ativa`, prazo não vencido e time `ativo` ou conta `active`, tanto na busca corrente quanto nos candidatos e nas ofertas de avulso. Uma busca de titular inativo é ignorada, sem prender a do atleta ativo; não ganha estado novo nem prazo novo e continua sujeita à expiração original.
 
 ### 15.2 Varredura (`python -m app.admin_cli sweep [--loop 60]`)
 

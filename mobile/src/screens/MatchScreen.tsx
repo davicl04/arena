@@ -21,6 +21,7 @@ import ReportForm from '../components/ReportForm'
 import { LoadState } from '../components/review/ui'
 import { nameOf, orderedSides, sideName } from '../data/match'
 import { useResource } from '../hooks/useResource'
+import { useMatchDeadlines } from '../hooks/useMatchDeadlines'
 import { useSessionToken } from '../hooks/useSessionToken'
 import { useSubmit } from '../hooks/useSubmit'
 import type { ScreenProps } from '../navigation/screens'
@@ -79,10 +80,13 @@ export default function MatchScreen({ user, params, navigation, onExpired, refre
   const refresh = useCallback(async () => {
     try {
       take(await getMatch(matchId))
+      return true
     } catch (cause) {
       if (cause instanceof ApiError && cause.status === 401) onExpired()
+      return false
     }
   }, [matchId, onExpired, take])
+  useMatchDeadlines(detail, refresh)
 
   /** "Conversar", no cartão de resultado: leva o foco ao campo de mensagem do chat. */
   const focusChat = useCallback(() => composer.current?.focus(), [])
