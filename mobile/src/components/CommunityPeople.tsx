@@ -2,6 +2,7 @@ import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-nati
 import type { SocialUser } from '../api/client'
 import type { AthleteSearch } from '../hooks/useAthleteSearch'
 import { usePagedList } from '../hooks/usePagedList'
+import { LoadError } from './arena/LoadError'
 import { Avatar } from './media'
 import { Button } from './ui'
 import { cx, tw } from '../styles'
@@ -67,7 +68,7 @@ export default function CommunityPeople({ userId, token, search, pendingIds, onF
 
   return <ScrollView keyboardShouldPersistTaps="handled" contentContainerClassName="pb-8" accessibilityLabel="Resultados da busca">
     {search.loading ? <ActivityIndicator accessibilityLabel="Buscando atletas" color={colors.brand} className="my-6" />
-      : search.error ? <Text accessibilityRole="alert" className={cx(tw.error, 'px-4')}>{search.error}</Text>
+      : search.error ? <LoadError size="section" title="Busca indisponível" text={search.error} cause={search.errorCause} onRetry={search.reload} />
         : !search.items.length ? <View className="items-center px-6 pt-8">
           <Text accessibilityRole="header" className="text-[17px] font-bold text-ink">Nenhum atleta encontrado</Text>
           <Text className="mt-1 text-center text-[14px] text-ink-muted">Confira a grafia ou busque pelo @ exato.</Text>

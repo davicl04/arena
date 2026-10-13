@@ -4,6 +4,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiError, request } from '../src/api/client'
 import type { RankingPage } from '../src/api/results'
 import RankingScreen from '../src/screens/RankingScreen'
+import { act } from 'react-test-renderer'
+import { connection } from '../src/api/connection'
 import { enableAct } from './support/native'
 import { allText, byId, callsTo, findButton, flush, labelled, me, navigationMock, page as listPage, pressButton, render, serve } from './support/review'
 import { football as footballProfile, playContext } from './support/play'
@@ -275,6 +277,21 @@ describe('Ranking: paginação, estados vazios e erros', () => {
     const expired = vi.fn()
     await mount(undefined, { onExpired: expired })
     expect(expired).toHaveBeenCalled()
+  })
+
+  it('o erro é de tela (LoadError); se foi de conexão, diz isso e a lista é relida uma vez quando ela volta', async () => {
+    let fail = true
+    serve({ [TEAMS]: () => (fail ? new ApiError('Sem resposta.', 503) : teamsPage()), [PROFILES]: [] })
+    const { tree } = await mount()
+    expect(byId(tree, 'load-error-screen')).toHaveLength(1)
+    expect(allText(tree)).toContain('Sem conexão com a ARENA. Vamos tentar de novo assim que voltar.')
+    expect(allText(tree)).not.toContain('Sem resposta.')
+    fail = false
+    await act(async () => { connection.lost({ mutating: false }); connection.reached() })
+    await flush()
+    expect(allText(tree)).toContain('Leões do Cerrado')
+    expect(byId(tree, 'load-error-screen')).toHaveLength(0)
+    expect(callsTo('GET', TEAMS)).toHaveLength(2)
   })
 
   it('carregando mostra o status; a resposta de uma categoria antiga não substitui a atual', async () => {

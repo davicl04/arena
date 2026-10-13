@@ -364,8 +364,9 @@ describe('RunHistorySheet: histórico paginado e remoção', () => {
 
   it('erro de leitura oferece tentar de novo; Fechar sai da folha', async () => {
     let fail = true
-    const { tree, onClose } = await open('10', { [path('10')]: () => (fail ? new ApiError('Serviço indisponível.', 503) : { items: [rows[0]], next_cursor: null }) })
+    const { tree, onClose } = await open('10', { [path('10')]: () => (fail ? new ApiError('Serviço indisponível.', 500) : { items: [rows[0]], next_cursor: null }) })
     expect(textOf(tree)).toContain('Serviço indisponível.')
+    expect(byId(tree, 'load-error-section')).toHaveLength(1)
     fail = false
     await press(tree, 'Tentar novamente')
     await tick()

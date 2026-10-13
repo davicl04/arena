@@ -9,7 +9,8 @@ import { useMatchChat } from '../../hooks/useMatchChat'
 import { colors } from '../../theme'
 import { formatClock, parseIso } from '../../utils/format'
 import { Armband } from '../arena/Armband'
-import { ActionButton, ErrorText } from '../arena/controls'
+import { ActionButton } from '../arena/controls'
+import { LoadError } from '../arena/LoadError'
 import { TeamCrest } from '../arena/TeamCrest'
 import { Icon } from '../Icon'
 import { Avatar } from '../media'
@@ -203,7 +204,7 @@ export function MatchChat({ detail, onExpired, onReport, onPropose, onEvent, com
             <ActionButton tone="outline" size="sm" fit title={chat.loadingOlder ? 'Carregando…' : 'Carregar anteriores'} accessibilityLabel="Carregar anteriores" busy={chat.loadingOlder} onPress={() => void chat.loadOlder()} />
           </View> : null}
           {chat.loading ? <Text accessibilityLiveRegion="polite" style={{ paddingVertical: 16, textAlign: 'center', color: colors['ink-muted'], fontSize: 12 }}>Carregando o chat…</Text> : null}
-          {chat.error && !chat.items.length ? <ErrorText>{chat.error}</ErrorText> : null}
+          {chat.error && !chat.items.length ? <LoadError size="section" title="Não foi possível carregar o chat" text={chat.error} cause={chat.errorCause} onRetry={chat.reload} /> : null}
           {!chat.loading && !chat.error && rows.length === 0
             ? <Text style={{ paddingVertical: 16, textAlign: 'center', color: colors['ink-muted'], fontSize: 12, lineHeight: 18 }}>
               {championship ? 'Nenhuma mensagem ainda. Conversem por aqui.' : 'Nenhuma mensagem ainda. Combinem dia, horário e quadra por aqui.'}

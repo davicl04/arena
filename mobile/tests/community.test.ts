@@ -5,6 +5,7 @@ import { ApiError, request } from '../src/api/client'
 import CommunityScreen from '../src/screens/CommunityScreen'
 import ProfileScreen from '../src/screens/ProfileScreen'
 import { searchAthletes, textOf as textsOf } from './support/native'
+import { toasts, toastText } from './support/toast'
 
 vi.mock('react-native', async () => (await import('./support/native')).reactNativeMock())
 
@@ -219,8 +220,7 @@ describe('CommunityScreen', () => {
     expect(approveCalls().map(([path]) => path)).toEqual(['/me/follow-requests/2?approve=true', '/me/follow-requests/3?approve=true'])
     // Duas leituras do laço (a segunda trouxe os mesmos pedidos) e uma da atualização final.
     expect(reads).toBe(3)
-    expect(textOf(tree)).toContain('Nem todas as solicitações foram aprovadas.')
-    expect(textOf(tree)).not.toContain('Solicitações aprovadas.')
+    expect(toasts().map(item => [item.tone, item.title])).toEqual([['warning', 'Nem todas as solicitações foram aprovadas. Tente de novo em instantes.']])
     await act(async () => { tree.unmount() })
   })
 
@@ -229,7 +229,7 @@ describe('CommunityScreen', () => {
     const { tree, pending } = await mountFollowRequests(2, options)
     await press(tree, 'Button', props => props.title === 'Aprovar todas')
     expect(pending().map(person => person.id)).toEqual([3])
-    expect(textOf(tree)).toContain('Falha na aprovação')
+    expect(toasts().map(item => [item.tone, item.title])).toEqual([['error', 'Falha na aprovação']])
     expect(tree.root.findAllByType('Pressable' as never).some(entry => entry.props.accessibilityLabel === 'Aprovar Pessoa 2')).toBe(false)
     expectFollowerCount(tree, 1)
     options.failId = -1
@@ -248,7 +248,7 @@ describe('CommunityScreen', () => {
     await press(tree, 'Button', props => props.title === 'Aprovar todas')
     expect(pending()).toHaveLength(1)
     expectFollowerCount(tree, 20)
-    expect(textOf(tree)).toContain('Falha ao atualizar solicitações')
+    expect(toastText()).toContain('Falha ao atualizar solicitações')
     expect(tree.root.findAllByType('Pressable' as never).some(entry => entry.props.accessibilityLabel === 'Aprovar Pessoa 22')).toBe(true)
     await press(tree, 'Button', props => props.title === 'Aprovar todas')
     expect(pending()).toHaveLength(0)
@@ -263,7 +263,7 @@ describe('CommunityScreen', () => {
     expectFollowerCount(tree, 1)
     expect(tree.root.findAllByType('Pressable' as never).some(entry => entry.props.accessibilityLabel === 'Aprovar Pessoa 2')).toBe(false)
     expect(tree.root.findAllByType('Pressable' as never).some(entry => entry.props.accessibilityLabel === 'Aprovar Pessoa 3')).toBe(true)
-    expect(textOf(tree)).toContain('Falha ao atualizar solicitações')
+    expect(toastText()).toContain('Falha ao atualizar solicitações')
     await act(async () => { tree.unmount() })
   })
 
@@ -345,7 +345,8 @@ describe('CommunityScreen', () => {
     })
     await press(tree, 'Pressable', props => props.accessibilityLabel === 'Aprovar Pessoa 2')
     expect(expired).toHaveBeenCalledOnce()
-    expect(textOf(tree)).toContain('Sessão expirada')
+    // Sessão expirada vai ao fluxo de login, sem toast.
+    expect(toastText()).not.toContain('Sessão expirada')
     await act(async () => { tree.unmount() })
   })
 

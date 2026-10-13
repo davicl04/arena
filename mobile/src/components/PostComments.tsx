@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-native'
-import { ApiError } from '../api/client'
 import type { Post, SocialComment } from '../api/client'
 import { COMMENT_MAX, createComment, deleteComment } from '../api/social'
 import { usePagedList } from '../hooks/usePagedList'
+import { reportActionError } from '../hooks/useSubmit'
 import { cx } from '../styles'
 import { colors } from '../theme'
+import { LoadError } from './arena/LoadError'
 import GlassOverlay from './GlassOverlay'
 import ReportForm from './ReportForm'
 import { Avatar } from './media'
@@ -23,9 +24,13 @@ export default function PostComments({ post, viewerId, token, onClose, onCountCh
   const [draft, setDraft] = useState('')
   const [sending, setSending] = useState(false)
   const [removing, setRemoving] = useState<number | null>(null)
+  // Só a recusa de validação do servidor (comentário) fica junto ao campo; os outros erros viram toast ou aviso de conexão.
   const [error, setError] = useState('')
   const [reporting, setReporting] = useState<SocialComment | null>(null)
-  function fail(err: unknown, fallback: string) { if (err instanceof ApiError && err.status === 401) onExpired(); setError(err instanceof Error ? err.message : fallback) }
+  function fail(err: unknown, fallback: string) {
+    const report = reportActionError(err, fallback, onExpired)
+    if (report.kind === 'form') setError(report.message)
+  }
   async function send() {
     const body = draft.trim()
     if (!body || sending) return
@@ -57,10 +62,7 @@ export default function PostComments({ post, viewerId, token, onClose, onCountCh
   </View>
   return <GlassOverlay title={`Comentários (${post.comment_count})`} onClose={onClose} closeLabel="Fechar comentários" footer={composer}>
     {list.loading ? <ActivityIndicator accessibilityLabel="Carregando comentários" color={colors['glass-accent']} /> : null}
-    {list.error ? <View>
-      <Text accessibilityRole="alert" className="text-glass-danger">{list.error.message}</Text>
-      <Pressable accessibilityRole="button" accessibilityLabel="Tentar carregar os comentários novamente" onPress={list.reload} className="min-h-11 justify-center"><Text className={link}>Tentar novamente</Text></Pressable>
-    </View> : null}
+    {list.error ? <LoadError size="section" tone="dark" title="Comentários indisponíveis" text={list.error.message} cause={list.error} onRetry={list.reload} /> : null}
     {!list.loading && !list.error && !list.items.length ? <Text className="text-glass-muted">Nenhum comentário ainda. Escreva o primeiro.</Text> : null}
     {list.items.map(comment => <View key={comment.id} className="flex-row items-start gap-2 py-1.5">
       <Avatar path={comment.author_avatar_url} name={comment.author_name} token={token} size={28} />

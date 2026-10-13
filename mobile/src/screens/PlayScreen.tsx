@@ -6,10 +6,12 @@ import { cancelSearch, createSearch, normalizeBoard } from '../api/matchmaking'
 import type { MatchSearch, Proposal, SearchCreated } from '../api/matchmaking'
 import { getMyStandings } from '../api/play'
 import { ArenaMark } from '../components/arena/ArenaMark'
-import { LiveNotice, Notice, TextAction } from '../components/arena/controls'
+import { LoadError } from '../components/arena/LoadError'
+import { Notice, TextAction } from '../components/arena/controls'
 import { TeamCrest } from '../components/arena/TeamCrest'
 import { TeamsPlate } from '../components/arena/TeamsPlate'
 import { Icon } from '../components/Icon'
+import { toast } from '../components/toast/toastStore'
 import { CancelSearchSheet } from '../components/play/CancelSearchSheet'
 import { formatChips } from '../components/play/formatChips'
 import { MyMatches } from '../components/play/MyMatches'
@@ -75,7 +77,6 @@ export default function PlayScreen({ navigation, onExpired, playBoard: board, re
   const [distance, setDistance] = useState<RunDistance>(5)
   const [sheet, setSheet] = useState(false)
   const [confirming, setConfirming] = useState(false)
-  const [notice, setNotice] = useState('')
   /** Folha aberta pela pessoa; sem ela, a primeira proposta pendente que ela pode responder abre sozinha. */
   const [picked, setPicked] = useState<Picked | null>(null)
   /** Proposta que eu aceitei e que espera o outro lado: quando os dois aceitam, vai à partida. */
@@ -113,8 +114,8 @@ export default function PlayScreen({ navigation, onExpired, playBoard: board, re
 
   /* A corrida lê o elo e o melhor tempo de `run-bests`; as outras modalidades, de `standings`. */
   const elo = sport === 'corrida'
-    ? { loading: bests.loading && !bests.loaded, error: bests.loaded ? '' : bests.error, reload: bests.reload }
-    : { loading: standings.loading, error: standings.error, reload: standings.reload }
+    ? { loading: bests.loading && !bests.loaded, error: bests.loaded ? '' : bests.error, cause: bests.errorCause, reload: bests.reload }
+    : { loading: standings.loading, error: standings.error, cause: standings.errorCause, reload: standings.reload }
   let view: TierLineView | null = null
   if (sport === 'corrida') {
     if (bests.loaded) view = runBestLine(bests.items, distance)
@@ -165,7 +166,6 @@ export default function PlayScreen({ navigation, onExpired, playBoard: board, re
 
   function created(result: SearchCreated) {
     setSheet(false)
-    setNotice('')
     setWatching(null)
     void refreshPlayBoard().then(() => {
       if (result.proposal) pick({ kind: 'proposta', id: result.proposal.match_id })
@@ -183,7 +183,7 @@ export default function PlayScreen({ navigation, onExpired, playBoard: board, re
     const done = await cancel.run(async () => { await cancelSearch(search.id); return true }, 'Não foi possível cancelar a busca.')
     if (done) {
       setConfirming(false)
-      setNotice('Busca cancelada.')
+      toast.success('Busca cancelada.')
     }
     void refreshPlayBoard()
   }
@@ -192,19 +192,18 @@ export default function PlayScreen({ navigation, onExpired, playBoard: board, re
     else if (heldOffer) pick({ kind: 'oferta', id: heldOffer.slot_id })
   }
   /**
-   * O servidor recusou a resposta da folha porque a proposta ou a oferta mudou (404 ou 409): fecha a folha (uma proposta não
-   * reabre sozinha), mostra a mensagem dele na placa e lê a placa de novo.
+   * O servidor recusou a resposta da folha porque a proposta ou a oferta mudou (404 ou 409): a folha já mostrou a mensagem
+   * dele em aviso; aqui fecha a folha (uma proposta não reabre sozinha) e lê a placa de novo.
    */
-  function staleSheet(message: string, proposalId?: number) {
+  function staleSheet(proposalId?: number) {
     if (proposalId !== undefined) board.defer(proposalId)
     pick(null)
-    setNotice(message)
     void refreshPlayBoard()
   }
   function later(proposal: Proposal) {
     board.defer(proposal.match_id)
     pick(null)
-    setNotice(proposal.can_respond ? 'A proposta continua na placa e nas notificações até o prazo.' : '')
+    if (proposal.can_respond) toast.info('A proposta continua na placa e nas notificações até o prazo.')
   }
 
   const button = plateButton({
@@ -216,14 +215,13 @@ export default function PlayScreen({ navigation, onExpired, playBoard: board, re
   const actions: Record<PlateAction, () => void> = {
     prepare: () => navigation.go('profile'),
     teams: () => navigation.go('teams'),
-    start: () => { setNotice(''); if (timeMode) setSheet(true); else void startDirect() },
+    start: () => { if (timeMode) setSheet(true); else void startDirect() },
     cancel: () => setConfirming(true),
     held: openHeld,
   }
+  /* Carregamento (LoadError) e ação (toast) não se misturam: `start.error` só traz a recusa do servidor que fica no formulário. */
   const boardFailed = !board.board && !board.loading
-  const feedback = start.error || (cancel.error && !showConfirm ? cancel.error : '') || (boardFailed ? board.error || 'Não foi possível carregar a placa do Jogar.' : '') || places.error
-  const retryFeedback = boardFailed ? () => void refreshPlayBoard() : places.error ? places.reload : null
-  const message = notice || (waitingOver && confirmedId === null ? 'A proposta foi encerrada. Veja a situação da busca na placa.' : '')
+  const proposalEnded = waitingOver && confirmedId === null
 
   return <View style={{ flex: 1 }}>
     <ScrollView testID="play-screen" contentContainerStyle={{ paddingBottom: 32 }}>
@@ -238,9 +236,9 @@ export default function PlayScreen({ navigation, onExpired, playBoard: board, re
             <Text numberOfLines={1} style={{ flexShrink: 1, color: 'rgba(255,255,255,0.8)', fontSize: 10.5, fontWeight: '600' }}>{city ? city.name : 'Definir cidade'}</Text>
           </Pressable>
         </View>
-        <SportTabs value={sport} onChange={next => { setSport(next); setNotice(''); navigation.setParams('play', { sport: next }) }} />
+        <SportTabs value={sport} onChange={next => { setSport(next); navigation.setParams('play', { sport: next }) }} />
         <View style={{ alignItems: 'center', gap: 14, paddingHorizontal: 20, paddingTop: 16 }}>
-          {sport === 'futebol' ? <PlateChips variant="segmented" label="Jogar como" options={modeOptions} value={mode} onChange={next => { setMode(next); setNotice('') }} /> : null}
+          {sport === 'futebol' ? <PlateChips variant="segmented" label="Jogar como" options={modeOptions} value={mode} onChange={setMode} /> : null}
           {timeMode && represented.length > 1 ? <PlateChips label="Time que você representa" value={String(team?.team.id ?? '')}
             options={represented.map(entry => ({ value: String(entry.team.id), label: entry.team.name }))} onChange={value => setTeamChoice(Number(value))} /> : null}
           {timeMode && represented.length === 1 && team ? <View accessible accessibilityLabel={`${team.team.name}, você representa`} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -252,10 +250,7 @@ export default function PlayScreen({ navigation, onExpired, playBoard: board, re
           {sport === 'corrida' ? <PlateChips label="Distância" options={distanceChips} value={`${distance}`} onChange={value => setDistance(Number(value) as RunDistance)} /> : null}
           <View style={{ minHeight: 44, alignItems: 'center', justifyContent: 'center' }}>
             {elo.loading ? <Text accessibilityLiveRegion="polite" style={{ color: 'rgba(255,255,255,0.65)', fontSize: 11 }}>Carregando seu elo…</Text> : null}
-            {elo.error ? <View style={{ alignItems: 'center' }}>
-              <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={{ textAlign: 'center', color: '#ffd0d7', fontSize: 11, lineHeight: 17 }}>{elo.error}</Text>
-              <TextAction surface="dark" title="Tentar novamente" accessibilityLabel="Tentar carregar o elo novamente" onPress={elo.reload} />
-            </View> : null}
+            {elo.error ? <LoadError size="section" tone="dark" text={elo.error} cause={elo.cause} onRetry={elo.reload} /> : null}
             {view ? <TierLine view={view} /> : null}
             {standings.data && timeMode && !team ? <PlateNote tone="strong">Você ainda não representa um time.</PlateNote> : null}
           </View>
@@ -270,11 +265,10 @@ export default function PlayScreen({ navigation, onExpired, playBoard: board, re
           {sport === 'futebol' ? otherTeamSearches.map(item => <PlateNote key={item.id} tone="strong">
             {item.team?.name} está buscando {item.state === 'pareada' ? 'e encontrou um adversário' : 'partida'}. Só os representantes respondem.
           </PlateNote>) : null}
-          {feedback ? <View style={{ alignSelf: 'stretch', alignItems: 'center' }}>
-            <View style={{ alignSelf: 'stretch' }}><Notice surface="dark">{feedback}</Notice></View>
-            {retryFeedback ? <TextAction surface="dark" title="Tentar novamente" onPress={retryFeedback} /> : null}
-          </View> : null}
-          <View style={{ alignSelf: 'stretch' }}><LiveNotice text={message} /></View>
+          {boardFailed ? <LoadError size="section" tone="dark" text={board.error || 'Não foi possível carregar a placa do Jogar.'} cause={board.errorCause} onRetry={() => void refreshPlayBoard()} /> : null}
+          {places.error ? <LoadError size="section" tone="dark" text={places.error} cause={places.errorCause} onRetry={places.reload} /> : null}
+          {start.error ? <View style={{ alignSelf: 'stretch' }}><Notice surface="dark">{start.error}</Notice></View> : null}
+          {proposalEnded ? <Text accessibilityLiveRegion="polite" style={{ maxWidth: 300, textAlign: 'center', color: colors.mint, fontSize: 11, lineHeight: 17 }}>A proposta foi encerrada. Veja a situação da busca na placa.</Text> : null}
           {proposalsHere.length > 0 || offersHere.length > 0 ? <View style={{ alignSelf: 'stretch', gap: 12 }}>
             {proposalsHere.map(item => <ProposalCard key={item.match_id} proposal={item} onElapsed={() => void refreshPlayBoard()} onOpen={() => pick({ kind: 'proposta', id: item.match_id })} />)}
             {offersHere.map(item => <SlotOfferCard key={item.slot_id} offer={item} onElapsed={() => void refreshPlayBoard()} onOpen={() => pick({ kind: 'oferta', id: item.slot_id })} />)}
@@ -290,21 +284,20 @@ export default function PlayScreen({ navigation, onExpired, playBoard: board, re
 
     {sheet && team ? <PrepareSearchSheet team={team.team} eyebrow={`${team.team.name} · ${view?.kind === 'ranked' ? view.title : 'Em classificação'}`}
       format={format} onFormat={setFormat} hint={hint} onCreated={created} onClose={() => setSheet(false)} onExpired={onExpired} /> : null}
-    {showConfirm ? <CancelSearchSheet busy={cancel.busy} error={cancel.error} onKeep={() => { setConfirming(false); cancel.setError('') }} onConfirm={() => void endSearch()} /> : null}
+    {showConfirm ? <CancelSearchSheet busy={cancel.busy} onKeep={() => setConfirming(false)} onConfirm={() => void endSearch()} /> : null}
     {openProposal ? <ProposalSheet key={openProposal.match_id} proposal={openProposal} onLater={() => later(openProposal)}
       onOpenMatch={matchId => { pick(null); navigation.go('match', { matchId }) }} onElapsed={() => void refreshPlayBoard()} onExpired={onExpired}
-      onStale={message => staleSheet(message, openProposal.match_id)}
+      onStale={() => staleSheet(openProposal.match_id)}
       onAnswer={async (updated, answer) => {
-        setNotice('')
-        if (answer === 'recusar') { pick(null); setNotice('Proposta recusada.'); await refreshPlayBoard(); return }
+        if (answer === 'recusar') { pick(null); toast.success('Proposta recusada.'); await refreshPlayBoard(); return }
         if (updated.state === 'combinando') { pick(null); void refreshPlayBoard(); navigation.go('match', { matchId: updated.match_id }); return }
         setWatching(updated.match_id)
         pick({ kind: 'proposta', id: updated.match_id })
         await refreshPlayBoard()
       }} /> : null}
     {openOffer ? <SlotOfferSheet key={openOffer.slot_id} offer={openOffer} onLater={() => pick(null)} onElapsed={() => void refreshPlayBoard()} onExpired={onExpired}
-      onStale={message => staleSheet(message)}
+      onStale={() => staleSheet()}
       onAccepted={matchId => { pick(null); void refreshPlayBoard(); navigation.go('match', { matchId }) }}
-      onDeclined={() => { pick(null); setNotice('Vaga recusada. Sua busca terminou.'); void refreshPlayBoard() }} /> : null}
+      onDeclined={() => { pick(null); toast.info('Vaga recusada. Sua busca terminou.'); void refreshPlayBoard() }} /> : null}
   </View>
 }

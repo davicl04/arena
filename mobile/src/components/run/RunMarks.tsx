@@ -5,7 +5,8 @@ import type { RunDistance } from '../../data/arena'
 import { colors } from '../../theme'
 import { Icon } from '../Icon'
 import { ArenaMark } from '../arena/ArenaMark'
-import { Notice, TextAction } from '../arena/controls'
+import { TextAction } from '../arena/controls'
+import { LoadError } from '../arena/LoadError'
 import { TierEmblem } from '../arena/TierEmblem'
 import { formatRunDate, originLabel } from '../play/runView'
 import { formatDuration } from '../play/tierLines'
@@ -79,10 +80,12 @@ function Card({ card, selected, wide, now, onAdd, onOpen }: {
   </View>
 }
 
-export function RunMarks({ items, loading, error, selected, onAdd, onOpen, onRetry, onOpenRanking, now }: {
+export function RunMarks({ items, loading, error, errorCause, selected, onAdd, onOpen, onRetry, onOpenRanking, now }: {
   items: RunBest[]
   loading: boolean
   error: string
+  /** O erro lançado pelo carregamento (para o `LoadError` reconhecer a falta de conexão). */
+  errorCause?: unknown
   /** Distância escolhida nos chips da placa: o cartão ganha o contorno verde. */
   selected: RunDistance
   /** O "+" do cartão: registrar já nessa distância. */
@@ -101,10 +104,7 @@ export function RunMarks({ items, loading, error, selected, onAdd, onOpen, onRet
       <TextAction title="Ver ranking" accessibilityLabel="Ver ranking" onPress={() => onOpenRanking(selected)} />
     </View>
     {loading && !items.length ? <Text accessibilityLiveRegion="polite" style={{ color: colors['ink-muted'], fontSize: 12 }}>Carregando suas marcas…</Text> : null}
-    {error && !items.length ? <View>
-      <Notice>{error}</Notice>
-      <TextAction title="Tentar novamente" onPress={onRetry} />
-    </View> : null}
+    {error && !items.length ? <LoadError size="section" title="Não foi possível carregar suas marcas" text={error} cause={errorCause} onRetry={onRetry} /> : null}
     {items.length > 0 ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 10 }}>
       {items.map(card => <Card key={card.distance_km} card={card} selected={card.distance_km === selected} wide={wide} now={now} onAdd={onAdd} onOpen={onOpen} />)}
       <Pressable accessibilityRole="button" accessibilityLabel="Outras distâncias" accessibilityHint="Fora de 3, 5, 10, 21 e 42 km, a marca fica só no histórico" onPress={() => onOpen('outra')}

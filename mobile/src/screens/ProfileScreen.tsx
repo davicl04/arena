@@ -1,12 +1,16 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native'
 import * as ImagePicker from 'expo-image-picker'
 import { ApiError, clearToken, getToken, request, sports } from '../api/client'
+import { connection } from '../api/connection'
 import type { MatchCard } from '../api/matches'
 import type { City, Page, Profile, ProfileInput, SocialUser, Sport, User } from '../api/client'
 import { approveAllFollowRequests } from '../api/social'
 import { Button, Field } from '../components/ui'
+import { LoadError } from '../components/arena/LoadError'
+import { toast } from '../components/toast/toastStore'
+import { reportActionError } from '../hooks/useSubmit'
 import { cx, tw } from '../styles'
 import { Avatar, Cover } from '../components/media'
 import ListRow from '../components/ListRow'
@@ -65,8 +69,10 @@ export default function ProfileScreen({ user, onUser, onLogout, onExpired, onNew
   const [profiles, setProfiles] = useState<Profile[]>([])
   const [cities, setCities] = useState<City[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
-  const [message, setMessage] = useState('')
+  /* Carregamento (LoadError), ação (toast) e validação local (junto à folha) não se misturam. */
+  const [loadError, setLoadError] = useState<{ message: string; cause: unknown } | null>(null)
+  /** Validação local ou recusa de campo do servidor (`422` com campos), mostrada dentro da folha. */
+  const [problem, setProblem] = useState('')
   const [name, setName] = useState(user.name)
   const [busy, setBusy] = useState(false)
   const followAction = useRef(false)
@@ -85,17 +91,28 @@ export default function ProfileScreen({ user, onUser, onLogout, onExpired, onNew
   useEffect(() => {
     let alive = true
     Promise.all([request<Profile[]>('/me/sports-profiles'), request<City[]>('/cities'), request<Page<{ user: SocialUser }>>('/me/follow-requests'), request<Page<SocialUser>>('/me/blocks'), request<Page<{ user: SocialUser }>>(`/users/${user.id}/followers`), request<Page<{ user: SocialUser }>>(`/users/${user.id}/following`), request<SocialUser>(`/users/${user.id}`)]).then(([p, c, r, b, followersPage, followingPage, me]) => { if (alive) { setProfiles(p); setCities(c); setRequests(r.items.map(item => item.user)); setBlocks(b.items); setFollowers(followersPage.items.map(item => item.user)); setFollowing(followingPage.items.map(item => item.user)); setCounts({ followers: me.follower_count, following: me.following_count }); setCursors({ requests: r.next_cursor, blocks: b.next_cursor, followers: followersPage.next_cursor, following: followingPage.next_cursor }) } })
-      .catch(err => { if (alive) { setError(err.message); if (err instanceof ApiError && err.status === 401) onExpired() } })
+      .catch(err => { if (alive) { setLoadError({ message: err instanceof Error && err.message ? err.message : 'Não foi possível carregar o perfil.', cause: err }); if (err instanceof ApiError && err.status === 401) onExpired() } })
       .finally(() => { if (alive) setLoading(false) })
     return () => { alive = false }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [attempt])
   useEffect(() => { let alive = true; void getToken().then(value => { if (alive) setToken(value) }); return () => { alive = false } }, [])
-  function fail(err: unknown) { if (err instanceof ApiError && err.status === 401) onExpired(); setError(err instanceof Error ? err.message : 'Tente novamente.') }
+  const retryLoad = useCallback(() => { setLoadError(null); setLoading(true); setAttempt(v => v + 1) }, [])
+  /* Se o carregamento falhou por conexão, lê de novo uma única vez quando ela volta (como `useResource`). */
+  const connectionLoad = loadError?.cause instanceof ApiError && loadError.cause.isConnection
+  useEffect(() => {
+    if (!connectionLoad) return
+    return connection.onRestored(retryLoad)
+  }, [connectionLoad, retryLoad])
+  /** Falha de ação: 401 sai da sessão, sem conexão o aviso de conexão cuida, o resto vira toast; só a recusa de campo fica na folha. */
+  function fail(err: unknown) {
+    const report = reportActionError(err, 'Tente novamente.', onExpired)
+    if (report.kind === 'form') setProblem(report.message)
+  }
   function startFollowAction() {
     if (busy || followAction.current) return false
     followAction.current = true
-    setBusy(true); setError(''); setMessage('')
+    setBusy(true); setProblem('')
     return true
   }
   function resolveLocalRequest(id: number, approve: boolean) {
@@ -125,15 +142,16 @@ export default function ProfileScreen({ user, onUser, onLogout, onExpired, onNew
     followAction.current = false
     setBusy(false)
   }
-  function open(next: SheetName | null) { setError(''); setMessage(''); if (next === null || next === 'menu') setFromMenu(false); setSheet(next) }
+  function open(next: SheetName | null) { setProblem(''); if (next === null || next === 'menu') setFromMenu(false); setSheet(next) }
   // "Editar perfil" aberto pelo menu volta ao menu; aberto pelo selo do avatar apenas fecha.
   function editFromMenu() { open('edit'); setFromMenu(true) }
   async function save(sport: Sport, input: ProfileInput) {
-    try { const p = await request<Profile>(`/me/sports-profiles/${sport}`, 'PUT', input); setProfiles(old => [...old.filter(v => v.sport !== sport), p]) }
-    catch (err) { if (err instanceof ApiError && err.status === 401) onExpired(); throw err }
+    // As falhas sobem para o SportCard, que as classifica (reportActionError) e trata a sessão expirada.
+    const p = await request<Profile>(`/me/sports-profiles/${sport}`, 'PUT', input)
+    setProfiles(old => [...old.filter(v => v.sport !== sport), p])
   }
   async function logout() {
-    setBusy(true); setError('')
+    setBusy(true); setProblem('')
     // Avisar o servidor é o melhor esforço: sem rede (ou com a sessão já inválida) a pessoa sai mesmo assim, apagando o token
     // do aparelho e a conta da memória; do contrário ficaria presa na sessão.
     try { await request('/auth/logout', 'POST') } catch { /* a saída local vale mesmo sem a resposta do servidor */ }
@@ -141,28 +159,28 @@ export default function ProfileScreen({ user, onUser, onLogout, onExpired, onNew
     catch (err) { fail(err) } finally { setBusy(false) }
   }
   async function rename() {
-    setBusy(true); setError(''); setMessage('')
-    try { onUser(await request<User>('/me', 'PATCH', { name })); setMessage('Nome atualizado.'); setSheet('edit') }
+    setBusy(true); setProblem('')
+    try { onUser(await request<User>('/me', 'PATCH', { name })); toast.success('Nome atualizado.'); setSheet('edit') }
     catch (err) { fail(err) } finally { setBusy(false) }
   }
   // 'aspect' vale no Android; no iOS o recorte nativo é quadrado e o servidor centraliza o resultado em 5:2.
   async function pickImage(kind: 'avatar' | 'cover') {
-    setError(''); setMessage('')
+    setProblem('')
     let result: ImagePicker.ImagePickerResult
     try { result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsMultipleSelection: false, allowsEditing: true, aspect: kind === 'cover' ? [5, 2] : [1, 1], quality: 0.85 }) }
     catch (err) { fail(err); return }
     if (result.canceled || !result.assets[0]) return
     const asset = result.assets[0]
-    if (asset.fileSize && asset.fileSize > MAX_IMAGE) { setError('A imagem deve ter até 5 MiB.'); return }
+    if (asset.fileSize && asset.fileSize > MAX_IMAGE) { setProblem('A imagem deve ter até 5 MiB.'); return }
     const form = new FormData()
     form.append('file', { uri: asset.uri, name: asset.fileName ?? `${kind}.jpg`, type: asset.mimeType ?? 'image/jpeg' } as unknown as Blob)
     setBusy(true)
-    try { onUser(await request<User>(kind === 'cover' ? '/me/cover' : '/me/avatar', 'PUT', form)); setMessage(kind === 'cover' ? 'Foto de capa atualizada.' : 'Foto de perfil atualizada.') }
+    try { onUser(await request<User>(kind === 'cover' ? '/me/cover' : '/me/avatar', 'PUT', form)); toast.success(kind === 'cover' ? 'Foto de capa atualizada.' : 'Foto de perfil atualizada.') }
     catch (err) { fail(err) } finally { setBusy(false) }
   }
   async function removeImage(kind: 'avatar' | 'cover') {
-    setBusy(true); setError(''); setMessage('')
-    try { await request<void>(kind === 'cover' ? '/me/cover' : '/me/avatar', 'DELETE'); onUser({ ...user, [kind]: null }); setMessage(kind === 'cover' ? 'Capa padrão restaurada.' : 'Foto de perfil removida.') }
+    setBusy(true); setProblem('')
+    try { await request<void>(kind === 'cover' ? '/me/cover' : '/me/avatar', 'DELETE'); onUser({ ...user, [kind]: null }); toast.success(kind === 'cover' ? 'Capa padrão restaurada.' : 'Foto de perfil removida.') }
     catch (err) { fail(err) } finally { setBusy(false) }
   }
   async function savePrivacy() {
@@ -171,7 +189,7 @@ export default function ProfileScreen({ user, onUser, onLogout, onExpired, onNew
       const value = await request<{ social_public: boolean }>('/me/privacy', 'PUT', { social_public: draftPublic })
       onUser({ ...user, social_public: value.social_public }); setDraftPublic(value.social_public)
       if (value.social_public) { setRequests([]); setCursors(old => ({ ...old, requests: null })) }
-      setMessage(value.social_public ? 'Conta pública. As solicitações pendentes foram aprovadas.' : 'Conta privada. Quem já segue continua seguindo.')
+      toast.success(value.social_public ? 'Conta pública. As solicitações pendentes foram aprovadas.' : 'Conta privada. Quem já segue continua seguindo.')
     } catch (err) { fail(err) } finally { await finishFollowAction() }
   }
   async function resolveRequest(id: number, approve: boolean) {
@@ -187,8 +205,8 @@ export default function ProfileScreen({ user, onUser, onLogout, onExpired, onNew
       // Cada aprovação tira o item da fila; por isso a primeira página é consultada de novo até esvaziar (com teto de rodadas
       // e parada se a fila não andar).
       const done = await approveAllFollowRequests(id => resolveLocalRequest(id, true))
-      if (done) setMessage('Solicitações aprovadas.')
-      else setError('Nem todas as solicitações foram aprovadas. Tente de novo em instantes.')
+      if (done) toast.success('Solicitações aprovadas.')
+      else toast.warning('Nem todas as solicitações foram aprovadas. Tente de novo em instantes.')
     } catch (err) { fail(err) } finally { await finishFollowAction() }
   }
   async function unblock(id: number) {
@@ -206,7 +224,7 @@ export default function ProfileScreen({ user, onUser, onLogout, onExpired, onNew
   async function loadMore(which: Which) {
     const cursor = cursors[which]
     if (!cursor || busy) return
-    setBusy(true); setError('')
+    setBusy(true); setProblem('')
     try {
       const path = which === 'requests' ? '/me/follow-requests' : which === 'blocks' ? '/me/blocks' : `/users/${user.id}/${which}`
       if (which === 'blocks') {
@@ -225,7 +243,7 @@ export default function ProfileScreen({ user, onUser, onLogout, onExpired, onNew
   function more(which: Which, label: string) {
     return cursors[which] ? <Button secondary title={`Carregar mais ${label}`} disabled={busy} onPress={() => void loadMore(which)} /> : null
   }
-  const feedback = <>{error ? <Text className={tw.error} accessibilityRole="alert">{error}</Text> : null}{message ? <Text className={tw.success} accessibilityLiveRegion="polite">{message}</Text> : null}</>
+  const feedback = problem ? <Text className={tw.error} accessibilityRole="alert">{problem}</Text> : null
   const back = () => open('edit')
   const visibilityChanged = draftPublic !== user.social_public
   // A rolagem é própria da tela: a barra superior fica fixa por fora do ScrollView.
@@ -244,7 +262,7 @@ export default function ProfileScreen({ user, onUser, onLogout, onExpired, onNew
         </View>
       </View>
       <View className={tw.content}>
-        {!sheet ? <>{error ? <><Text className={tw.error} accessibilityRole="alert">{error}</Text><Button secondary title="Recarregar dados" onPress={() => { setError(''); setLoading(true); setAttempt(v => v + 1) }} /></> : null}{message ? <Text className={tw.success} accessibilityLiveRegion="polite">{message}</Text> : null}</> : null}
+        {!sheet && loadError ? <LoadError size="section" title="Não foi possível carregar o perfil" text={loadError.message} cause={loadError.cause} onRetry={retryLoad} /> : null}
         <View className={tw.card}>
           <Text className={tw.heading}>Notificações</Text>
           {requests.length ? <>
@@ -254,8 +272,8 @@ export default function ProfileScreen({ user, onUser, onLogout, onExpired, onNew
             <Button title={busy ? 'Aguarde…' : 'Aprovar todas'} disabled={busy} onPress={() => void approveAll()} />
           </> : <Text className={tw.body}>Nenhuma notificação por enquanto.</Text>}
         </View>
-        <Text className={tw.heading}>Suas modalidades</Text>{loading ? <ActivityIndicator accessibilityLabel="Carregando modalidades" /> : sports.map(s => <SportCard key={s.value} sport={s.value} label={s.label} cities={cities} profile={profiles.find(p => p.sport === s.value)} onSave={save} />)}
-        {!loading && !profiles.length && !error ? <Text className={tw.body}>Adicione sua primeira modalidade acima.</Text> : null}
+        <Text className={tw.heading}>Suas modalidades</Text>{loading ? <ActivityIndicator accessibilityLabel="Carregando modalidades" /> : sports.map(s => <SportCard key={s.value} sport={s.value} label={s.label} cities={cities} profile={profiles.find(p => p.sport === s.value)} onSave={save} onExpired={onExpired} />)}
+        {!loading && !profiles.length && !loadError ? <Text className={tw.body}>Adicione sua primeira modalidade acima.</Text> : null}
       </View>
       <ProfileStatsBlocks onExpired={onExpired} />
       <ProfileTabs value={contentTab} onChange={setContentTab} />
@@ -298,7 +316,7 @@ export default function ProfileScreen({ user, onUser, onLogout, onExpired, onNew
       <Button title={busy ? 'Salvando…' : 'Salvar nome'} disabled={busy || !name.trim() || name.trim() === user.name} onPress={() => void rename()} />
     </Sheet> : null}
     {sheet === 'username' ? <Sheet title="Nome de usuário" onClose={() => open(null)} onBack={back}>
-      <UsernameForm current={user.username} onExpired={onExpired} onSaved={saved => { onUser(saved); setMessage('Nome de usuário atualizado.'); setSheet('edit') }} />
+      <UsernameForm current={user.username} onExpired={onExpired} onSaved={saved => { onUser(saved); toast.success('Nome de usuário atualizado.'); setSheet('edit') }} />
     </Sheet> : null}
     {sheet === 'visibility' ? <Sheet title="Visibilidade da conta" onClose={() => open(null)} onBack={back}>
       {feedback}

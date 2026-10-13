@@ -6,6 +6,7 @@ import { ApiError, request } from '../src/api/client'
 import type { Post, SocialUser } from '../src/api/client'
 import CommunityScreen from '../src/screens/CommunityScreen'
 import { button, byLabel, click, enableAct, press, searchAthletes, textOf, type } from './support/native'
+import { toasts, toastText } from './support/toast'
 
 vi.mock('react-native', async () => (await import('./support/native')).reactNativeMock())
 vi.mock('react-native-safe-area-context', async () => (await import('./support/native')).safeAreaMock())
@@ -145,9 +146,11 @@ describe('Comunidade: barra, abas e feed', () => {
     })
     const tree = await mount()
     expect(textOf(tree)).toContain('Feed indisponível')
-    expect(textOf(tree)).toContain('Não foi possível carregar as publicações. Verifique sua conexão.')
+    // Erro de tela com o Coliseu (LoadError), no lugar do bloco antigo.
+    expect(textOf(tree)).toContain('Não foi possível carregar as publicações.')
+    expect(tree.root.findAll(node => typeof node.type === 'string' && node.props.testID === 'load-error-screen')).toHaveLength(1)
     fail = false
-    await click(tree, 'Tentar de novo')
+    await click(tree, 'Tentar novamente')
     expect(postsCalls()).toHaveLength(2)
     expect(textOf(tree)).toContain('Foto 7')
     expect(textOf(tree)).not.toContain('Feed indisponível')
@@ -313,11 +316,57 @@ describe('Comunidade: aba Atletas', () => {
     expect(textOf(tree)).toContain('Confira a grafia ou busque pelo @ exato.')
     await searchAthletes(tree, 'atleta')
     await press(tree, 'Seguir: @atleta.a')
-    expect(textOf(tree)).toContain('Não foi possível seguir.')
+    expect(toasts().map(item => [item.tone, item.title])).toEqual([['error', 'Não foi possível seguir.']])
+    expect(textOf(tree)).not.toContain('Não foi possível seguir.')
     expect(byLabel(tree, 'Seguir: @atleta.a')[0].props.disabled).toBe(false)
     await searchAthletes(tree, 'sair')
     expect(onExpired).toHaveBeenCalledOnce()
     expect(textOf(tree)).toContain('Sessão expirada')
+    await act(async () => { tree.unmount() })
+  })
+})
+
+describe('Comunidade: erros de carregamento e de abertura de perfil', () => {
+  beforeEach(() => { enableAct(); vi.mocked(request).mockReset(); vi.mocked(ImagePicker.launchImageLibraryAsync).mockReset(); scroller.scrollToOffset.mockReset() })
+
+  it('a busca que falha é um erro de seção (LoadError), com "Tentar novamente" que refaz a busca', async () => {
+    let fail = true
+    serve(path => {
+      if (path === '/users?q=falha') { if (fail) throw new ApiError('Busca fora do ar.', 500); return page([athlete]) }
+      return undefined
+    })
+    const tree = await mount()
+    await searchAthletes(tree, 'falha')
+    expect(tree.root.findAll(node => typeof node.type === 'string' && node.props.testID === 'load-error-section')).toHaveLength(1)
+    expect(textOf(tree)).toContain('Busca indisponível')
+    expect(textOf(tree)).toContain('Busca fora do ar.')
+    expect(toasts()).toEqual([])
+    fail = false
+    vi.useFakeTimers()
+    try {
+      await press(tree, 'Tentar novamente')
+      await act(async () => { await vi.advanceTimersByTimeAsync(300) })
+    } finally { vi.useRealTimers() }
+    expect(textOf(tree)).toContain('Atleta A')
+    expect(textOf(tree)).not.toContain('Busca indisponível')
+    await act(async () => { tree.unmount() })
+  })
+
+  it('o perfil que não abre vira toast de erro; a sessão expirada e a falta de conexão não', async () => {
+    const onExpired = vi.fn()
+    let failure: Error = new ApiError('Perfil fora do ar.', 500)
+    serve(path => { if (path === '/users/2') throw failure; return undefined })
+    const tree = await mount({ onExpired })
+    await press(tree, 'Abrir perfil de @atleta.a')
+    expect(toasts().map(item => [item.tone, item.title])).toEqual([['error', 'Perfil fora do ar.']])
+    expect(tree.root.findAllByType('Modal' as never)).toHaveLength(0)
+    failure = new ApiError('Sem resposta.', 503) as Error
+    Object.assign(failure, { isConnection: true })
+    await press(tree, 'Abrir perfil de @atleta.a')
+    failure = new ApiError('Sessão expirada', 401)
+    await press(tree, 'Abrir perfil de @atleta.a')
+    expect(onExpired).toHaveBeenCalledOnce()
+    expect(toasts()).toHaveLength(1)
     await act(async () => { tree.unmount() })
   })
 })
@@ -353,7 +402,7 @@ describe('Comunidade: nova publicação em dois passos', () => {
     expect(sent!.get('caption')).toBe('Golaço')
     expect(sent!.has('file')).toBe(true)
     expect(tree.root.findAllByType('Modal' as never)).toHaveLength(0)
-    expect(textOf(tree)).toContain('Publicação compartilhada.')
+    expect(toasts().map(item => [item.tone, item.title])).toEqual([['success', 'Publicação compartilhada.']])
     const captions = textOf(tree).split(' | ').filter(text => text.includes('Golaço') || text.includes('Foto 7'))
     expect(captions[0]).toContain('Golaço')
     expect(scroller.scrollToOffset).toHaveBeenCalledWith({ offset: 0, animated: true })
@@ -384,10 +433,9 @@ describe('Comunidade: nova publicação em dois passos', () => {
     vi.mocked(ImagePicker.launchImageLibraryAsync).mockResolvedValueOnce(picked(asset('file:///grande.jpg', { fileSize: 6 * 1024 * 1024 }))).mockResolvedValue(picked(asset()))
     const tree = await mount({ onExpired })
     await press(tree, 'Nova publicação')
-    expect(textOf(tree)).toContain('A imagem deve ter até 5 MiB.')
+    expect(toastText()).toContain('A imagem deve ter até 5 MiB.')
     expect(tree.root.findAllByType('Modal' as never)).toHaveLength(0)
     await press(tree, 'Nova publicação')
-    expect(textOf(tree)).not.toContain('A imagem deve ter até 5 MiB.')
     await press(tree, 'Publicar')
     expect(onExpired).toHaveBeenCalledOnce()
     await act(async () => { tree.unmount() })

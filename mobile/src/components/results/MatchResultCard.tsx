@@ -6,7 +6,7 @@ import type { ResultInput, ResultMatch } from '../../api/results'
 import { sideName, sideOf } from '../../data/match'
 import { useSubmit } from '../../hooks/useSubmit'
 import { colors } from '../../theme'
-import { ErrorText, TextAction } from '../arena/controls'
+import { LoadError } from '../arena/LoadError'
 import { Icon } from '../Icon'
 import { toast } from '../toast/toastStore'
 import { otherSide, outcomeFor } from './format'
@@ -118,10 +118,7 @@ export function MatchResultCard<T extends ResultMatch = ResultMatch>({
       </Pressable>
       : null}
     {football && lineups.error
-      ? <View>
-        <ErrorText>{lineups.error}</ErrorText>
-        <TextAction title="Tentar novamente" accessibilityLabel="Tentar carregar o elenco de novo" onPress={lineups.reload} />
-      </View>
+      ? <LoadError size="section" title="Não foi possível carregar o elenco" text={lineups.error} cause={lineups.errorCause} onRetry={lineups.reload} />
       : null}
 
     {football && (match.permissions.send_stats || mine?.stat)
@@ -136,7 +133,7 @@ export function MatchResultCard<T extends ResultMatch = ResultMatch>({
 
     {roster
       ? <RosterSheet match={match} lineups={items} onLineups={lineups.replaceAll} onUpdated={lineups.replaceOne} onChanged={() => onChanged()}
-        onClose={() => setRoster(false)} onExpired={onExpired} notify={message => toast.success(message)} />
+        onClose={() => setRoster(false)} onExpired={onExpired} />
       : null}
   </View>
 }

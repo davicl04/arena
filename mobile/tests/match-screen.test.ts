@@ -121,6 +121,9 @@ describe('estados da tela', () => {
     const { tree } = await mountMatch(matchRoutes(matchDetail(), { '/matches/1': () => (++reads === 1 ? new ApiError('Falha no servidor.', 500) : matchDetail()) }))
     expect(allText(tree)).toContain('Falha no servidor.')
     expect(allText(tree)).not.toContain('Partida não encontrada')
+    // Erro de tela (LoadError), não toast.
+    expect(byId(tree, 'load-error-screen')).toHaveLength(1)
+    expect(toasts()).toEqual([])
     await pressButton(tree, 'Tentar novamente')
     expect(allText(tree)).toContain('Combinando')
     expect(callsTo('GET', '/matches/1')).toHaveLength(2)
@@ -186,7 +189,7 @@ describe('condições: propor', () => {
 
     expect(bodyOf('POST', '/matches/1/terms')).toEqual({ starts_at: combineDateTime('2026-10-20', '19:00'), court_id: 7, booking_side: 'b' })
     const text = allText(tree)
-    expect(text).toContain('Proposta enviada. Leões do Cerrado precisa aceitar.')
+    expect(toasts().map(item => [item.tone, item.title])).toEqual([['success', 'Proposta enviada. Leões do Cerrado precisa aceitar.']])
     expect(hasField(tree, 'Horário')).toBe(false)
     expect(text).toContain('Proposta de Ferrugem FC')
     expect(text).toContain('Ferrugem FC aceitou')
@@ -372,7 +375,7 @@ describe('condições: aceitar', () => {
     expect(text).toContain('Leões do Cerrado aceitou')
     await pressButton(tree, 'Aceitar condições')
     expect(bodyOf('PUT', '/matches/1/terms/31/accept')).toEqual({})
-    expect(allText(tree)).toContain('Partida agendada. As condições estão valendo.')
+    expect(toasts().map(item => [item.tone, item.title])).toEqual([['success', 'Partida agendada. As condições estão valendo.']])
     expect(allText(tree)).toContain('Agendada')
     expect(findByPrefix(tree, 'Partida agendada')).toBeTruthy()
     expect(refreshPlayBoard).toHaveBeenCalledOnce()
@@ -471,7 +474,7 @@ describe('reserva', () => {
     expect(toggle.props.accessibilityState.checked).toBe(false)
     await pressButton(tree, 'Reserva confirmada')
     expect(bodyOf('PUT', '/matches/1/booking')).toEqual({ confirmed: true })
-    expect(allText(tree)).toContain('Reserva confirmada.')
+    expect(toastText()).toContain('Reserva confirmada.')
     expect(findButton(tree, 'Reserva confirmada')!.props.accessibilityState.checked).toBe(true)
     expect(allText(tree)).toContain('confirmada com o local')
     // A reserva não muda a placa do Jogar.
@@ -484,7 +487,7 @@ describe('reserva', () => {
     await openCard(tree)
     await pressButton(tree, 'Reserva confirmada')
     expect(bodyOf('PUT', '/matches/1/booking')).toEqual({ confirmed: false })
-    expect(allText(tree)).toContain('Reserva marcada como a confirmar.')
+    expect(toastText()).toContain('Reserva marcada como a confirmar.')
   })
 
   it('quando o adversário reserva, mostra só o estado, sem o interruptor', async () => {
@@ -520,7 +523,7 @@ describe('cancelamento', () => {
     await pressButton(tree, 'Confirmar cancelamento')
     expect(bodyOf('POST', '/matches/1/cancel')).toEqual({ reason: 'A quadra caiu para manutenção.' })
     const text = allText(tree)
-    expect(text).toContain('Partida cancelada. Os dois lados foram avisados.')
+    expect(toastText()).toContain('Partida cancelada. Os dois lados foram avisados.')
     expect(text).toContain('Cancelada')
     expect(text).toContain('Ricardo Moura cancelou a partida. Motivo: A quadra caiu para manutenção.')
     expect(text).toContain('O chat desta partida está fechado.')
@@ -575,7 +578,7 @@ describe('W.O.', () => {
     await pressButton(tree, 'Registrar W.O.')
     expect(bodyOf('POST', '/matches/1/walkover')).toEqual({})
     const text = allText(tree)
-    expect(text).toContain('W.O. registrado. O outro lado pode contestar até o fim do prazo.')
+    expect(toastText()).toContain('W.O. registrado. O outro lado pode contestar até o fim do prazo.')
     // O estado do W.O. fica no cartão de resultado; os botões, no de condições.
     expect(text).toContain('W.O. registrado contra Leões do Cerrado')
     expect(findButton(tree, 'Registrar W.O.')).toBeUndefined()
@@ -601,7 +604,7 @@ describe('W.O.', () => {
     expect(allText(tree)).toContain('O W.O. deixa de valer e a partida volta a aguardar o placar dos dois lados.')
     await pressButton(tree, 'Retirar W.O.')
     expect(callsTo('DELETE', '/matches/1/walkover')).toHaveLength(1)
-    expect(allText(tree)).toContain('W.O. retirado. A partida volta a aguardar o placar.')
+    expect(toastText()).toContain('W.O. retirado. A partida volta a aguardar o placar.')
     expect(allText(tree)).not.toContain('W.O. registrado contra Leões do Cerrado')
   })
 
@@ -625,7 +628,7 @@ describe('W.O.', () => {
     await typeInto(tree, 'O que aconteceu?', 'Não Estávamos na quadra.')
     await pressButton(tree, 'Contestar W.O.')
     expect(bodyOf('POST', '/matches/1/walkover/contest')).toEqual({ reason: 'Não Estávamos na quadra.' })
-    expect(allText(tree)).toContain('Contestação enviada à administração.')
+    expect(toastText()).toContain('Contestação enviada à administração.')
     expect(allText(tree)).toContain('W.O. contestado')
     expect(allText(tree)).toContain('A administração decide; até lá a partida fica sem resultado.')
     expect(findButton(tree, 'Contestar W.O.')).toBeUndefined()

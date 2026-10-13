@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { Pressable, Text, View } from 'react-native'
-import { ApiError } from '../api/client'
 import type { Post } from '../api/client'
 import { setLike } from '../api/social'
+import { reportActionError } from '../hooks/useSubmit'
 import PostActions from './PostActions'
 import PostComments from './PostComments'
 import PostImage from './PostImage'
@@ -32,15 +32,14 @@ export default function PostItem({ post, viewerId, token, onUpdate, onRemove, on
 }) {
   const [panel, setPanel] = useState<'comments' | 'actions' | null>(null)
   const [liking, setLiking] = useState(false)
-  const [error, setError] = useState('')
   async function toggleLike() {
     if (liking) return
     const liked = !post.liked_by_me
-    setLiking(true); setError('')
+    setLiking(true)
     try {
       await setLike(post.id, liked)
       onUpdate(post.id, item => item.liked_by_me === liked ? item : { ...item, liked_by_me: liked, like_count: Math.max(0, item.like_count + (liked ? 1 : -1)) })
-    } catch (err) { if (err instanceof ApiError && err.status === 401) onExpired(); setError(err instanceof Error ? err.message : 'Não foi possível curtir.') }
+    } catch (err) { reportActionError(err, 'Não foi possível curtir.', onExpired) }
     finally { setLiking(false) }
   }
   const author = post.author
@@ -77,7 +76,6 @@ export default function PostItem({ post, viewerId, token, onUpdate, onRemove, on
       {panel === 'actions' ? <PostActions post={post} onClose={() => setPanel(null)} onExpired={onExpired}
         onUpdated={updated => onUpdate(post.id, () => updated)} onDeleted={onRemove} /> : null}
     </View>
-    {error ? <Text accessibilityRole="alert" className="px-3.5 pt-2.5 text-error">{error}</Text> : null}
     <Text className="px-3.5 py-3 text-[14px] leading-[21px] text-ink">
       <Text className="text-ink-muted">{postDate(post.created_at)}</Text>{post.caption ? `  ${post.caption}` : null}
     </Text>

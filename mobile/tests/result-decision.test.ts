@@ -350,11 +350,24 @@ describe('sem o que decidir', () => {
     expect(allText(idle)).toContain('Não há resultado para decidir nesta partida agora.')
   })
 
+  it('o chat que não carrega é um erro de seção com "Tentar novamente", sem esconder o resto da tela', async () => {
+    let fail = true
+    const tree = await mount(divergent(), { [CHAT]: () => (fail ? new ApiError('Chat indisponível.', 500) : messagePage([message(1, { body: 'Podem confirmar?' })])) })
+    expect(byId(tree, 'load-error-section')).toHaveLength(1)
+    expect(allText(tree)).toContain('Chat indisponível.')
+    expect(allText(tree)).toContain('Placar divergente')
+    fail = false
+    await pressButton(tree, 'Tentar novamente')
+    expect(byId(tree, 'load-error-section')).toHaveLength(0)
+    expect(allText(tree)).toContain('Podem confirmar?')
+  })
+
   it('erro de carregamento tem "Tentar novamente"; 401 chama onExpired; voltar volta', async () => {
     serve({ [MATCH]: new ApiError('Partida não encontrada.', 404) })
     const tree = await render(h(ResultDecisionScreen, { params: { matchId: 7 }, navigation, onExpired, title: 'Decidir resultado' } as never))
     trees.push(tree)
     expect(allText(tree)).toContain('Partida não encontrada.')
+    expect(byId(tree, 'load-error-screen')).toHaveLength(1)
     serve({ [MATCH]: divergent(), [CHAT]: messagePage([]) })
     await pressButton(tree, 'Tentar novamente')
     expect(allText(tree)).toContain('Placar divergente')

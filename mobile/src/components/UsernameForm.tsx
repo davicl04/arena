@@ -4,6 +4,7 @@ import { ApiError, request } from '../api/client'
 import type { User, UsernameAvailability } from '../api/client'
 import { availabilityMessage, normalizeUsername, usernameProblem } from '../utils/profile'
 import { Button, Field } from './ui'
+import { reportActionError } from '../hooks/useSubmit'
 import { cx, tw } from '../styles'
 
 // O resultado fica ligado ao @ consultado (for): se o texto mudou, a verificação está pendente.
@@ -35,9 +36,10 @@ export default function UsernameForm({ current, onSaved, onExpired }: { current:
     setBusy(true); setError('')
     try { onSaved(await request<User>('/me', 'PATCH', { username: normalized })) }
     catch (err) {
-      if (err instanceof ApiError && err.status === 401) onExpired()
+      // Nome em uso (409) ou recusado (422) é estado do campo: fica junto dele. O resto passa pela regra comum de erros de ação.
       if (err instanceof ApiError && err.status === 409) setCheck({ for: normalized, failed: false, text: err.message, result: { available: false, reason: 'taken', suggestions: [] } })
-      else setError(err instanceof Error ? err.message : 'Tente novamente.')
+      else if (err instanceof ApiError && err.status === 422) setError(err.message)
+      else reportActionError(err, 'Tente novamente.', onExpired)
     } finally { setBusy(false) }
   }
   const note = unchanged ? 'Este é o seu nome de usuário atual.' : problem ?? (checking ? 'Verificando disponibilidade…' : entry?.text ?? '')

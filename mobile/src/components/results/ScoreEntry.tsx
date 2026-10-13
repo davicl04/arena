@@ -24,6 +24,7 @@ export interface ScoreEntryProps {
   /** O placar que o meu lado já informou (corrigir o meu). */
   initial?: ScoreOut
   busy: boolean
+  /** Recusa do servidor ao placar (`422`): as demais falhas de envio saem em toast. */
   error: string
   /** "3/7 estatísticas": o andamento do elenco, só no futebol. */
   summary?: string
@@ -62,7 +63,7 @@ export function ScoreEntry({ match, initial, busy, error, summary, notice, onRos
   }
   const patch = (index: number, change: Partial<SetDraft>) =>
     setSets(old => old.map((set, at) => (at === index ? { ...set, ...change } : set)))
-  const message = error || (attempted && problem) || ''
+  const local = attempted && problem ? problem : ''
 
   return <ResultCard testID="score-entry">
     <CardTitle icon="flag" title={initial ? 'Corrigir o meu placar' : 'Informe o placar'} trailing={summary ? <Text style={{ textAlign: 'right', color: colors['ink-muted'], fontSize: 10.5 }}>{summary}</Text> : undefined} />
@@ -76,7 +77,8 @@ export function ScoreEntry({ match, initial, busy, error, summary, notice, onRos
         <GoalsSide side={theirs} name={theirName} value={goals[1]} disabled={busy} compact={compact} onChange={value => setGoals(old => [old[0], value])} />
       </View>}
 
-    {message ? <ErrorText>{message}</ErrorText> : null}
+    {local ? <ErrorText>{local}</ErrorText> : null}
+    {error && !local ? <ErrorText>{error}</ErrorText> : null}
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
       {onRoster && !initial ? <ActionButton tone="outline" icon="users" title="Revisar elenco" disabled={busy} onPress={onRoster} grow /> : null}
       {onCancel ? <ActionButton tone="outline" title="Cancelar" disabled={busy} onPress={onCancel} grow /> : null}

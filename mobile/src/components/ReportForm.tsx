@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { Pressable, Text, TextInput, View } from 'react-native'
-import { ApiError } from '../api/client'
 import { REPORT_DETAILS_MAX, REPORT_REASONS, sendReport } from '../api/social'
 import type { ReportReason, ReportTarget } from '../api/social'
+import { reportActionError } from '../hooks/useSubmit'
 import { cx } from '../styles'
 import { colors } from '../theme'
+import { toast } from './toast/toastStore'
 import { Button } from './ui'
 
 const SENT: Record<ReportTarget, string> = {
@@ -14,7 +15,10 @@ const SENT: Record<ReportTarget, string> = {
   match_message: 'Denúncia da mensagem enviada.',
 }
 
-/** Formulário de denúncia (post, comentário ou conta) para uso dentro do vidro. */
+/**
+ * Formulário de denúncia (post, comentário, conta ou mensagem) para uso dentro do vidro. Ao enviar, avisa em toast de sucesso e
+ * chama `onDone`; só a recusa de validação do servidor fica no formulário, e os outros erros viram toast ou aviso de conexão.
+ */
 export default function ReportForm({ target, targetId, title = 'Por que você quer denunciar?', onDone, onExpired }: {
   target: ReportTarget; targetId: number; title?: string; onDone: () => void; onExpired: () => void
 }) {
@@ -22,19 +26,18 @@ export default function ReportForm({ target, targetId, title = 'Por que você qu
   const [details, setDetails] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
-  const [sent, setSent] = useState(false)
   async function submit() {
     if (!reason || busy) return
     setBusy(true); setError('')
-    try { await sendReport({ target_type: target, target_id: targetId, reason, description: details }); setSent(true) }
-    catch (err) { if (err instanceof ApiError && err.status === 401) onExpired(); setError(err instanceof Error ? err.message : 'Não foi possível enviar a denúncia.') }
-    finally { setBusy(false) }
+    try {
+      await sendReport({ target_type: target, target_id: targetId, reason, description: details })
+      toast.success(SENT[target], { description: 'A equipe de moderação fará a análise.' })
+      onDone()
+    } catch (err) {
+      const report = reportActionError(err, 'Não foi possível enviar a denúncia.', onExpired)
+      if (report.kind === 'form') setError(report.message)
+    } finally { setBusy(false) }
   }
-  if (sent) return <View>
-    <Text accessibilityLiveRegion="polite" className="mt-2 text-[15px] font-bold text-white">{SENT[target]}</Text>
-    <Text className="mt-1.5 text-[13px] leading-[20px] text-glass-muted">A equipe de moderação fará a análise.</Text>
-    <Button title="Concluir" onPress={onDone} />
-  </View>
   return <View>
     <Text className="mb-1.5 text-[15px] font-bold text-white">{title}</Text>
     <View accessibilityRole="radiogroup" accessibilityLabel="Motivo da denúncia">

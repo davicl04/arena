@@ -1,9 +1,10 @@
 import { useRef, useState } from 'react'
 import { Image, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native'
 import * as ImagePicker from 'expo-image-picker'
-import { ApiError, request } from '../api/client'
+import { request } from '../api/client'
 import type { Post } from '../api/client'
 import { CAPTION_MAX } from '../api/social'
+import { reportActionError } from '../hooks/useSubmit'
 import { Screen } from './Screen'
 import { ToastViewport } from './toast/ToastViewport'
 import { cx } from '../styles'
@@ -33,6 +34,7 @@ export default function PostComposer({ initial, onClose, onPublished, onExpired 
   const [asset, setAsset] = useState(initial)
   const [caption, setCaption] = useState('')
   const [busy, setBusy] = useState(false)
+  // Validação local da foto (limite de 5 MiB) e recusa de validação do servidor (legenda, imagem); os outros erros viram toast.
   const [error, setError] = useState('')
   const picking = useRef(false)
 
@@ -56,8 +58,8 @@ export default function PostComposer({ initial, onClose, onPublished, onExpired 
       setBusy(false)
       onPublished(created)
     } catch (err) {
-      if (err instanceof ApiError && err.status === 401) onExpired()
-      setError(err instanceof Error ? err.message : 'Não foi possível publicar a foto.')
+      const report = reportActionError(err, 'Não foi possível publicar a foto.', onExpired)
+      if (report.kind === 'form') setError(report.message)
       setBusy(false)
     }
   }

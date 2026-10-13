@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Animated, Text, View, useWindowDimensions } from 'react-native'
+import { LoadError } from './arena/LoadError'
 import { Button } from './ui'
 import { cx, tw } from '../styles'
 import { colors } from '../theme'
@@ -56,13 +57,9 @@ export function FeedEmpty({ onPublish, onSearch }: { onPublish: () => void; onSe
   </View>
 }
 
-/** Erro na primeira página do feed. */
-export function FeedError({ onRetry }: { onRetry: () => void }) {
-  return <View className="items-center px-6 pt-10 pb-6">
-    <Text accessibilityRole="header" className={cx(tw.heading, 'text-center')}>Feed indisponível</Text>
-    <Text accessibilityRole="alert" className={cx(tw.body, 'text-center')}>Não foi possível carregar as publicações. Verifique sua conexão.</Text>
-    <View className="w-full max-w-[320px]"><Button title="Tentar de novo" onPress={onRetry} /></View>
-  </View>
+/** Erro na primeira página do feed (`LoadError` de tela; `cause` é o erro da lista, para reconhecer a falta de conexão). */
+export function FeedError({ onRetry, cause }: { onRetry: () => void; cause?: unknown }) {
+  return <LoadError size="screen" title="Feed indisponível" text="Não foi possível carregar as publicações." cause={cause} onRetry={onRetry} />
 }
 
 /** Fim da lista: cartão "Chegou ao fim" com convite para publicar. */

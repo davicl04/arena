@@ -21,10 +21,10 @@ const COVER_HEIGHT = 120
 /**
  * Perfil visitado em tela cheia: topo fixo (‹ e •••), abas Fotos | Partidas e grade compartilhada com o visualizador.
  * Na Comunidade abre num `Modal` (`modal`); na tela empilhada `user-profile`, ocupa a área do shell, que já respeita a
- * margem segura.
+ * margem segura. As falhas de Seguir (e da releitura do perfil) saem em toast; o `Modal` monta o próprio viewport.
  */
-export default function VisitedProfile({ profile, user, token, mutualText, error, modal = false, onClose, onFollow, onBlocked, onPostUpdate, onPostRemove, onExpired }: {
-  profile: SocialUser; user: User; token: string | null; mutualText: string | null; error: string
+export default function VisitedProfile({ profile, user, token, mutualText, modal = false, onClose, onFollow, onBlocked, onPostUpdate, onPostRemove, onExpired }: {
+  profile: SocialUser; user: User; token: string | null; mutualText: string | null
   /** Abre num `Modal` próprio, por cima da tela atual; sem isso, ocupa o espaço da tela. */
   modal?: boolean
   onClose: () => void; onFollow: (person: SocialUser) => void; onBlocked: () => void; onPostUpdate: PostUpdate; onPostRemove: (id: number) => void; onExpired: () => void
@@ -45,7 +45,6 @@ export default function VisitedProfile({ profile, user, token, mutualText, error
           <Text accessibilityLabel="Contagens do perfil" className={tw.body}>{canView ? `${profile.post_count} publicações · ` : ''}{connectionsText(profile.follower_count, profile.following_count)}</Text>
           {mutualText ? <Text className={tw.body}>{mutualText}</Text> : null}
           {!own ? <Button title={profile.follow_state === 'approved' ? 'Deixar de seguir' : profile.follow_state === 'pending' ? 'Cancelar solicitação' : profile.social_public ? 'Seguir' : 'Solicitar acesso'} onPress={() => onFollow(profile)} /> : null}
-          {error ? <Text accessibilityRole="alert" className={tw.error}>{error}</Text> : null}
         </View>
       </View>
       {canView ? <>

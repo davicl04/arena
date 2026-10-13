@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { View } from 'react-native'
 import type { RunFilter } from '../../api/runs'
 import type { RunDistance } from '../../data/arena'
-import { LiveNotice } from '../arena/controls'
 import { RunHistorySheet } from './RunHistorySheet'
 import { RunMarks } from './RunMarks'
 import { RunSavedCard } from './RunSavedCard'
@@ -25,9 +24,8 @@ export function RunMarksSection(props: RunPartProps) {
     run.open(next)
   }
   return <View style={{ paddingHorizontal: 20 }}>
-    <LiveNotice text={run.notice} />
     {run.saved ? <View style={{ marginTop: 10 }}><RunSavedCard created={run.saved} onDismiss={run.dismiss} /></View> : null}
-    <RunMarks items={bests.items} loading={bests.loading && !bests.loaded} error={bests.loaded ? '' : bests.error} selected={distance}
+    <RunMarks items={bests.items} loading={bests.loading && !bests.loaded} error={bests.loaded ? '' : bests.error} errorCause={bests.errorCause} selected={distance}
       onAdd={register} onOpen={setHistory} onRetry={bests.reload} onOpenRanking={next => navigation.go('ranking', { sport: 'corrida', distanceKm: next })} />
     {run.sheet}
     {history ? <RunHistorySheet filter={history} onClose={() => setHistory(null)} onExpired={props.onExpired} onChanged={run.removed}

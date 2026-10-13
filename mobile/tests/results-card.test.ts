@@ -182,6 +182,15 @@ describe('Informar o placar: futebol', () => {
     expect(expired).toHaveBeenCalled()
   })
 
+  it('a recusa de campo do servidor (422 com campos) fica no formulário do placar, sem toast', async () => {
+    serve({ [STATS]: roster(), 'PUT /matches/7/result': new ApiError('Placar inválido.', 422, [{ field: 'goals_a', message: 'Os gols devem ser de 0 a 99.' }]) })
+    const { tree, onChanged } = await mount({ match: football() })
+    await pressButton(tree, 'Enviar placar')
+    expect(toasts()).toEqual([])
+    expect(allText(tree)).toContain('Placar inválido.')
+    expect(onChanged).not.toHaveBeenCalled()
+  })
+
   it('quem não age pelo lado não vê o formulário, e a partida sem resultado (antes do início) não desenha nada', async () => {
     serve({ [STATS]: roster() })
     const watcher = await mount({ match: football({ permissions: permissions(), result: result({ reports: { a: report('a', 1, 0), b: report('b', 1, 0) } }) }) })
@@ -400,7 +409,8 @@ describe('Presença, elenco e estatísticas (futebol)', () => {
     expect(isDisabled(tree, 'Salvar presença')).toBe(false)
     await pressButton(tree, 'Salvar presença')
     expect(bodyOf('PUT', '/matches/7/attendance')).toEqual({ athletes: [{ user_id: 12, present: true, position: 'goleiro' }] })
-    expect(allText(tree)).toContain('Presença registrada')
+    // Um só aviso (toast de sucesso, desenhado no viewport da folha): não há mais região viva paralela.
+    expect(toasts().map(item => [item.tone, item.title])).toEqual([['success', 'Presença registrada']])
     expect(onChanged).toHaveBeenCalled()
     expect(callsTo('PUT', '/matches/7/attendance')).toHaveLength(1)
   })
@@ -442,7 +452,7 @@ describe('Presença, elenco e estatísticas (futebol)', () => {
     await bump(tree, 'Defesas de Tiago Melo', 1, 'decrement')
     await pressButton(tree, 'Aprovar estatísticas de Tiago Melo')
     expect(bodyOf('PUT', '/matches/7/stats/71/review')).toEqual({ goals: 1, position_stat: 2 })
-    expect(allText(tree)).toContain('Estatísticas revisadas')
+    expect(toasts().map(item => [item.tone, item.title])).toEqual([['success', 'Estatísticas revisadas']])
   })
 
   it('estatística contestada ou já revisada reabre a revisão; depois da contestação a revisão é final; o erro fica no painel', async () => {
@@ -490,7 +500,7 @@ describe('Presença, elenco e estatísticas (futebol)', () => {
     await typeInto(tree, 'Motivo', 'Foi um gol só.')
     await pressButton(tree, 'Enviar contestação')
     expect(bodyOf('POST', '/matches/7/stats/90/contest')).toEqual({ fields: ['gols'], reason: 'Foi um gol só.' })
-    expect(allText(tree)).toContain('Contestação enviada')
+    expect(toasts().map(item => [item.tone, item.title])).toEqual([['success', 'Contestação enviada']])
     expect(allText(tree)).toContain('Contestada')
   })
 
@@ -544,9 +554,12 @@ describe('Presença, elenco e estatísticas (futebol)', () => {
     let fail = true
     serve({ [STATS]: () => (fail ? new ApiError('Não foi possível carregar o elenco.', 500) : roster()) })
     const { tree } = await mount({ match: own() })
+    // Erro de carregamento da seção (LoadError), não toast.
     expect(allText(tree)).toContain('Não foi possível carregar o elenco.')
+    expect(tree.root.findAll(node => typeof node.type === 'string' && node.props.testID === 'load-error-section')).toHaveLength(1)
+    expect(toasts()).toEqual([])
     fail = false
-    await pressButton(tree, 'Tentar carregar o elenco de novo')
+    await pressButton(tree, 'Tentar novamente')
     expect(allText(tree)).toContain('Elenco e estatísticas')
     expect(allText(tree)).not.toContain('Não foi possível carregar o elenco.')
   })

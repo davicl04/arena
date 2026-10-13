@@ -1,18 +1,24 @@
 import { useEffect, useState } from 'react'
 import { Pressable, Text, TextInput, View } from 'react-native'
 import { ApiError } from '../../api/client'
+import { connection } from '../../api/connection'
 import { listCourts, suggestCourt } from '../../api/matches'
 import type { CourtOut, MatchDetail } from '../../api/matches'
 import { courtKindOf } from '../../data/match'
+import { reportActionError } from '../../hooks/useSubmit'
 import { colors } from '../../theme'
 import { ActionButton, BusyStatus, ErrorText, FormField } from '../arena/controls'
+import { LoadError } from '../arena/LoadError'
+import { toast } from '../toast/toastStore'
 import { Icon } from '../Icon'
 import { DEFERRED_COURT_ID } from './termsRules'
 
 /*
  * Quadra da proposta (RN07): busca no catálogo da cidade (`GET /courts`, com as sugestões em revisão desta partida
  * primeiro) ou "Sugerir outra quadra" (nome e endereço), que fica "em revisão" e vale só nesta partida.
- * O catálogo começa vazio: sem quadras publicadas, a sugestão é o caminho.
+ * O catálogo começa vazio: sem quadras publicadas, a sugestão é o caminho. A sugestão enviada (ou a existente que foi
+ * escolhida) é confirmada em toast; a lista que não carregou é um `LoadError`; só a validação do nome e a recusa de campo
+ * do servidor ficam no formulário da sugestão.
  *
  * Peça compartilhada: a folha "Propor condições" (amistoso) e a agenda do campeonato (organizador) usam este mesmo seletor.
  */
@@ -56,12 +62,13 @@ export function CourtPicker({ detail, selected, onSelect, canSuggest, onExpired,
   const [query, setQuery] = useState('')
   const [courts, setCourts] = useState<CourtOut[] | null>(null)
   const [failure, setFailure] = useState('')
+  const [failureCause, setFailureCause] = useState<unknown>(null)
+  const [attempt, setAttempt] = useState(0)
   const [suggesting, setSuggesting] = useState(false)
   const [name, setName] = useState('')
   const [address, setAddress] = useState('')
   const [busy, setBusy] = useState(false)
   const [suggestError, setSuggestError] = useState('')
-  const [notice, setNotice] = useState('')
 
   useEffect(() => {
     let alive = true
@@ -70,18 +77,33 @@ export function CourtPicker({ detail, selected, onSelect, canSuggest, onExpired,
         if (!alive) return
         setCourts(page.items)
         setFailure('')
+        setFailureCause(null)
       }).catch((cause: unknown) => {
         if (!alive) return
         if (cause instanceof ApiError && cause.status === 401) onExpired()
         setFailure(cause instanceof Error && cause.message ? cause.message : 'Não foi possível carregar as quadras.')
+        setFailureCause(cause)
         setCourts([])
       })
     }, query ? SEARCH_DELAY_MS : 0)
     return () => { alive = false; clearTimeout(timer) }
-  }, [detail.city.id, detail.id, kind, query, onExpired])
+  }, [detail.city.id, detail.id, kind, query, onExpired, attempt])
 
-  function finishSuggestion(message: string) {
-    setNotice(message)
+  /* Se a lista falhou por conexão, lê de novo uma única vez quando ela volta (como `useResource`). */
+  const connectionFailure = failureCause instanceof ApiError && failureCause.isConnection
+  useEffect(() => {
+    if (!connectionFailure) return
+    return connection.onRestored(() => setAttempt(count => count + 1))
+  }, [connectionFailure])
+
+  function retry() {
+    setFailure('')
+    setFailureCause(null)
+    setCourts(null)
+    setAttempt(count => count + 1)
+  }
+
+  function finishSuggestion() {
     setSuggesting(false)
     setName('')
     setAddress('')
@@ -97,7 +119,8 @@ export function CourtPicker({ detail, selected, onSelect, canSuggest, onExpired,
     if (deferSuggestion) {
       setSuggestError('')
       onSelect({ id: DEFERRED_COURT_ID, name: cleanName, address: address.trim() || null, kind: kind ?? 'society', city: detail.city, state: 'em_revisao', provisional: true })
-      finishSuggestion(`${cleanName} será sugerida ao agendar: fica em revisão e vale só nesta partida.`)
+      toast.info(`${cleanName} será sugerida ao agendar: fica em revisão e vale só nesta partida.`)
+      finishSuggestion()
       return
     }
     setBusy(true)
@@ -105,13 +128,13 @@ export function CourtPicker({ detail, selected, onSelect, canSuggest, onExpired,
     try {
       const result = await suggestCourt({ match_id: detail.id, name: cleanName, address: address.trim() || null })
       onSelect(result.court)
-      finishSuggestion(result.existing
-        ? `${result.court.name} já estava no catálogo ou nesta partida e foi selecionada.`
-        : `${result.court.name} foi sugerida: fica em revisão e vale só nesta partida.`)
+      if (result.existing) toast.info(`${result.court.name} já estava no catálogo ou nesta partida e foi selecionada.`)
+      else toast.success(`${result.court.name} foi sugerida: fica em revisão e vale só nesta partida.`)
+      finishSuggestion()
       setCourts(old => (old && !old.some(item => item.id === result.court.id) ? [result.court, ...old] : old))
     } catch (cause) {
-      if (cause instanceof ApiError && cause.status === 401) onExpired()
-      setSuggestError(cause instanceof Error && cause.message ? cause.message : 'Não foi possível sugerir a quadra.')
+      const report = reportActionError(cause, 'Não foi possível sugerir a quadra.', onExpired)
+      if (report.kind === 'form') setSuggestError(report.message)
     } finally {
       setBusy(false)
     }
@@ -129,7 +152,7 @@ export function CourtPicker({ detail, selected, onSelect, canSuggest, onExpired,
       </View>
       {selected ? <CourtOption court={selected} selected onSelect={() => onSelect(selected)} /> : null}
       {courts === null ? <Text accessibilityLiveRegion="polite" style={{ color: colors['ink-muted'], fontSize: 11 }}>Buscando quadras…</Text> : null}
-      {failure ? <ErrorText>{failure}</ErrorText> : null}
+      {failure ? <LoadError size="section" title="Não foi possível carregar as quadras" text={failure} cause={failureCause} onRetry={retry} /> : null}
       {rest.map(court => <CourtOption key={court.id} court={court} selected={false} onSelect={() => onSelect(court)} />)}
       {courts !== null && !failure && rest.length === 0 && !selected
         ? <Text style={{ color: colors['ink-muted'], fontSize: 11.5, lineHeight: 17 }}>
@@ -138,7 +161,7 @@ export function CourtPicker({ detail, selected, onSelect, canSuggest, onExpired,
         </Text> : null}
     </View>
     {canSuggest && !suggesting
-      ? <Pressable accessibilityRole="button" accessibilityLabel="Sugerir outra quadra" accessibilityHint="Entra no catálogo depois da revisão" onPress={() => { setSuggesting(true); setNotice('') }}
+      ? <Pressable accessibilityRole="button" accessibilityLabel="Sugerir outra quadra" accessibilityHint="Entra no catálogo depois da revisão" onPress={() => setSuggesting(true)}
         style={{ marginTop: 8, minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 13, borderWidth: 1, borderStyle: 'dashed', borderColor: colors['line-strong'], backgroundColor: '#ffffff', paddingHorizontal: 10 }}>
         <View style={{ width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.tile }}><Icon name="plus" size={16} color={colors.brand} /></View>
         <View style={{ flex: 1 }}>
@@ -158,6 +181,5 @@ export function CourtPicker({ detail, selected, onSelect, canSuggest, onExpired,
           <ActionButton tone="brand" title={busy ? 'Enviando…' : 'Sugerir quadra'} accessibilityLabel="Sugerir quadra" grow busy={busy} onPress={() => void suggest()} />
         </View>
       </View> : null}
-    <Text accessibilityLiveRegion="polite" style={notice ? { marginTop: 8, color: colors.brand, fontSize: 11, lineHeight: 16 } : { height: 0 }}>{notice}</Text>
   </View>
 }

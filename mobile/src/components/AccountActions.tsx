@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { Text, View } from 'react-native'
-import { ApiError } from '../api/client'
 import type { SocialUser } from '../api/client'
 import { blockUser } from '../api/social'
+import { reportActionError } from '../hooks/useSubmit'
 import GlassOverlay, { GlassRow } from './GlassOverlay'
 import ReportForm from './ReportForm'
 import { Avatar } from './media'
@@ -14,13 +14,12 @@ export default function AccountActions({ person, token, onClose, onBlocked, onEx
 }) {
   const [step, setStep] = useState<Step>('menu')
   const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
-  function go(next: Step) { setError(''); setStep(next) }
+  function go(next: Step) { setStep(next) }
   async function block() {
     if (busy) return
-    setBusy(true); setError('')
+    setBusy(true)
     try { await blockUser(person.id); onBlocked() }
-    catch (err) { if (err instanceof ApiError && err.status === 401) onExpired(); setError(err instanceof Error ? err.message : 'Não foi possível bloquear a conta.'); setBusy(false) }
+    catch (err) { reportActionError(err, 'Não foi possível bloquear a conta.', onExpired); setBusy(false) }
   }
   const title = step === 'block' ? 'Bloquear conta' : step === 'report' ? 'Denunciar conta' : 'Ações da conta'
   return <GlassOverlay variant="screen" title={title} onClose={onClose} onBack={step === 'menu' || busy ? undefined : () => go('menu')}>
@@ -36,7 +35,6 @@ export default function AccountActions({ person, token, onClose, onBlocked, onEx
     {step === 'block' ? <View>
       <Text className="text-[16px] font-bold text-white">Bloquear @{person.username}?</Text>
       <Text className="mt-1.5 leading-[20px] text-glass-muted">Os vínculos atuais são removidos e esta conta deixa de ver seu perfil. Você pode desbloquear depois em Contas bloqueadas.</Text>
-      {error ? <Text accessibilityRole="alert" className="mt-2 text-glass-danger">{error}</Text> : null}
       <Button title={busy ? 'Bloqueando…' : 'Confirmar bloqueio'} disabled={busy} onPress={() => void block()} />
       <Button secondary title="Cancelar" disabled={busy} onPress={() => go('menu')} />
     </View> : null}

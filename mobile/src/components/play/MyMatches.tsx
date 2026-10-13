@@ -6,6 +6,7 @@ import { matchPhases, sideOf } from '../../data/match'
 import { usePagedList } from '../../hooks/usePagedList'
 import { colors } from '../../theme'
 import { ActionButton } from '../arena/controls'
+import { LoadError } from '../arena/LoadError'
 import { StateBadge } from '../arena/StateBadge'
 import { Icon } from '../Icon'
 import { matchDetail, matchTitle } from './matchView'
@@ -46,10 +47,7 @@ function History({ sport, onOpen, onExpired }: { sport: MatchCard['sport']; onOp
   const list = usePagedList<MatchCard>(MY_MATCHES_HISTORY_PATH, onExpired)
   const items = list.items.filter(card => card.sport === sport)
   if (list.loading) return <Text accessibilityLiveRegion="polite" style={message}>Carregando o histórico…</Text>
-  if (list.error) return <View>
-    <Text accessibilityRole="alert" style={{ ...message, color: colors.error }}>{list.error.message}</Text>
-    <ActionButton tone="outline" title="Tentar novamente" onPress={list.reload} />
-  </View>
+  if (list.error) return <LoadError size="section" title="Não foi possível carregar o histórico" text={list.error.message} cause={list.error} onRetry={list.reload} />
   return <View>
     {items.length
       ? items.map((card, index) => <MatchRow key={card.id} card={card} divider={index > 0} onOpen={onOpen} />)
