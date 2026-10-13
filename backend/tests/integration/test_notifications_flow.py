@@ -38,13 +38,13 @@ def test_notifications_are_listed_counted_and_read_only_by_their_owner(client):
     assert http.put(f'/api/v1/me/notifications/{foreign_id}/read', json={}, headers=owner).status_code == 404
     assert http.put(f"/api/v1/me/notifications/{newest['id']}/read", json={}, headers=other).status_code == 404
     read = http.put(f"/api/v1/me/notifications/{newest['id']}/read", json={}, headers=owner)
-    assert read.status_code == 200 and read.json() == {'unread_count': 2}
+    assert read.status_code == 200 and read.json()['unread_count'] == 2
     stamp = http.get('/api/v1/me/notifications?limit=1', headers=owner).json()['items'][0]['read_at']
     assert stamp is not None
-    assert http.put(f"/api/v1/me/notifications/{newest['id']}/read", json={}, headers=owner).json() == {'unread_count': 2}
+    assert http.put(f"/api/v1/me/notifications/{newest['id']}/read", json={}, headers=owner).json()['unread_count'] == 2
     assert http.get('/api/v1/me/notifications?limit=1', headers=owner).json()['items'][0]['read_at'] == stamp
 
-    assert http.put('/api/v1/me/notifications/read-all', json={}, headers=owner).json() == {'unread_count': 0}
+    assert http.put('/api/v1/me/notifications/read-all', json={}, headers=owner).json()['unread_count'] == 0
     assert http.get('/api/v1/me/notifications/unread-count', headers=owner).json() == {'unread_count': 0}
     assert http.get('/api/v1/me/notifications/unread-count', headers=other).json() == {'unread_count': 1}
 

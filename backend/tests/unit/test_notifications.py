@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from unittest.mock import Mock
 
@@ -136,3 +136,110 @@ def test_serialize_shows_actor_only_when_active_and_not_blocked(monkeypatch):
     items = notifications.serialize(db, SimpleNamespace(id=1), rows)
     assert [item.actor.id if item.actor else None for item in items] == [2, None, None, None]
     assert items[0].payload == TEAM and items[0].read_at is None
+
+
+# --- Categories and pending actions ---------------------------------------------------------------------
+
+NOW = datetime(2026, 10, 12, 12, 0, tzinfo=timezone.utc)
+HOUR = timedelta(hours=1)
+PAYLOADS = {'convite_time': {**TEAM, 'invite_id': 9}}
+
+
+def receipt_payload(decision):
+    return {'event_id': 1, 'event_name': 'Copa', 'entry_id': 2, 'receipt_id': 3, 'decision': decision}
+
+
+def test_every_type_has_a_category_and_the_catalog_is_exact():
+    assert set(notifications.NOTIFICATION_CATEGORY) == set(NOTIFICATION_TYPES)
+    assert set(notifications.NOTIFICATION_CATEGORY.values()) == {'partidas', 'times', 'eventos', 'conta'}
+    by_category = {name: set(notifications.types_of(name)) for name in ('partidas', 'times', 'eventos', 'conta')}
+    assert sum(len(value) for value in by_category.values()) == len(NOTIFICATION_TYPES) == 43
+    assert by_category['conta'] == {'pedido_organizador_decidido', 'organizador_revogado', 'quadra_decidida'}
+    assert by_category['times'] == {'convite_time', 'convite_aceito', 'pedido_entrada', 'pedido_entrada_decidido',
+                                    'removido_do_time', 'time_encerrado'}
+
+
+def test_action_types_are_a_subset_of_the_catalog():
+    assert len(notifications.ACTION_TYPES) == 14
+    assert notifications.ACTION_TYPES <= set(NOTIFICATION_TYPES)
+
+
+def test_notify_stores_action_key_and_deadline():
+    db = Db()
+    created = notify(db, 5, 'convite_time', PAYLOADS['convite_time'], actor_id=2, action_key='invite:9',
+                     action_until=NOW)
+    assert (created.action_key, created.action_until, created.resolved_at) == ('invite:9', NOW, None)
+    many = notify_many(db, [5, 6], 'convite_time', PAYLOADS['convite_time'], action_key='invite:9')
+    assert [(item.user_id, item.action_key, item.action_until) for item in many] == [
+        (5, 'invite:9', None), (6, 'invite:9', None)]
+    plain = notify(db, 5, 'time_encerrado', TEAM)
+    assert (plain.action_key, plain.action_until) == (None, None)
+
+
+def test_action_key_is_optional_during_the_transition_and_required_afterwards(monkeypatch):
+    assert notifications.REQUIRE_ACTION_KEYS is False
+    assert notify(Db(), 5, 'convite_time', PAYLOADS['convite_time']) is not None
+    monkeypatch.setattr(notifications, 'REQUIRE_ACTION_KEYS', True)
+    for type_ in notifications.ACTION_TYPES - {'comprovante_decidido'}:
+        payload = {key: 1 for key in NOTIFICATION_TYPES[type_]}
+        with pytest.raises(ValueError):
+            notify(Db(), 5, type_, payload)
+        with pytest.raises(ValueError):
+            notify_many(Db(), [5], type_, payload)
+        assert notify(Db(), 5, type_, payload, action_key=f'{type_}:1') is not None
+        assert notify(Db(), 5, type_, payload, informative=True) is not None
+    assert notify(Db(), 5, 'time_encerrado', TEAM) is not None
+
+
+def test_receipt_decision_only_needs_a_key_when_refused(monkeypatch):
+    monkeypatch.setattr(notifications, 'REQUIRE_ACTION_KEYS', True)
+    assert notify(Db(), 5, 'comprovante_decidido', receipt_payload('aprovado')) is not None
+    with pytest.raises(ValueError):
+        notify(Db(), 5, 'comprovante_decidido', receipt_payload('recusado'))
+    assert notify(Db(), 5, 'comprovante_decidido', receipt_payload('recusado'),
+                  action_key='entry_receipt:2') is not None
+
+
+def test_action_key_rules_that_always_apply():
+    with pytest.raises(ValueError):
+        notify(Db(), 5, 'time_encerrado', TEAM, action_key='team:3')
+    with pytest.raises(ValueError):
+        notify(Db(), 5, 'convite_time', PAYLOADS['convite_time'], action_key='x' * 81)
+    with pytest.raises(ValueError):
+        notify(Db(), 5, 'convite_time', PAYLOADS['convite_time'], action_key='')
+    with pytest.raises(ValueError):
+        notify(Db(), 5, 'convite_time', PAYLOADS['convite_time'], action_key='invite:9', informative=True)
+    with pytest.raises(ValueError):
+        notify_many(Db(), [5], 'convite_time', PAYLOADS['convite_time'], action_key='invite:9', informative=True)
+    assert notify(Db(), 5, 'convite_time', PAYLOADS['convite_time'], action_key='x' * 80) is not None
+
+
+def test_pending_rule_respects_deadline_and_resolution():
+    def item(**values):
+        return Notification(user_id=1, type='convite_time', payload={}, created_at=NOW, **values)
+
+    assert notifications.is_pending(item(action_key='invite:1'), NOW)
+    assert notifications.is_pending(item(action_key='invite:1', action_until=NOW + HOUR), NOW)
+    assert not notifications.is_pending(item(action_key='invite:1', action_until=NOW), NOW)
+    assert not notifications.is_pending(item(action_key='invite:1', action_until=NOW - HOUR), NOW)
+    assert not notifications.is_pending(item(action_key='invite:1', resolved_at=NOW), NOW)
+    assert not notifications.is_pending(item(), NOW)
+    assert not notifications.is_pending(item(action_until=NOW + HOUR), NOW)
+
+
+def test_serialize_fills_category_pending_and_deadline():
+    rows = [Notification(id=1, user_id=1, type='convite_time', payload={}, created_at=NOW, action_key='invite:1',
+                         action_until=NOW + HOUR),
+            Notification(id=2, user_id=1, type='quadra_decidida', payload={}, created_at=NOW),
+            Notification(id=3, user_id=1, type='convite_time', payload={}, created_at=NOW, action_key='invite:3',
+                         action_until=NOW - HOUR)]
+    items = notifications.serialize(Mock(), SimpleNamespace(id=1), rows, NOW)
+    assert [(item.category, item.pending, item.action_until) for item in items] == [
+        ('times', True, NOW + HOUR), ('conta', False, None), ('times', False, NOW - HOUR)]
+
+
+def test_resolve_actions_without_recipients_or_keys_does_nothing():
+    db = Mock()
+    assert notifications.resolve_actions(db, 'invite:1', user_ids=[]) == 0
+    assert notifications.resolve_actions_many(db, []) == 0
+    db.execute.assert_not_called()
