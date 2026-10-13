@@ -46,8 +46,9 @@ export default function ArenaShell({ user, onUser, onLogout, onExpired: expireSe
   }, [expireSession])
   // Placa do Jogar (GET /me/play): alimenta as telas do Jogar e o ponto do JOGAR; relida ao abrir o Jogar ou o Início.
   const playBoard = usePlayBoard(onExpired, current.screen === 'play' || current.screen === 'home')
-  // Resumo das notificações (GET /me/notifications/summary): o sino de cada aba raiz e a tela de notificações; relido a cada troca de aba.
-  const notificationSummary = useNotificationSummary(onExpired, root)
+  // Resumo das notificações (GET /me/notifications/summary): o sino de cada aba raiz e a tela de notificações; relido a cada troca de aba
+  // e ao entrar ou voltar à aba vindo de uma subtela (uma ação lá pode ter resolvido uma pendência).
+  const notificationSummary = useNotificationSummary(onExpired, current.screen === root ? root : `${root}:subtela`)
   const Body = screens[current.screen] as ScreenComponent<ScreenName>
   const title = titleFor(current)
   return <>

@@ -192,8 +192,9 @@ export default function ArenaPage({
   // Placa do Jogar (GET /me/play): alimenta a tela Jogar e o ponto menta da navegação.
   const playBoard = usePlayBoard(onExpired, screen === "play" || screen === "home");
   // Resumo das notificações (GET /me/notifications/summary): sino das abas raiz, chips, Menu e placa do Início.
-  // Relido quando a aba raiz muda, ao voltar à janela e a cada 60 s.
-  const notifications = useNotificationSummary(onExpired, stack[0].screen);
+  // Relido quando a aba raiz muda ou quando se entra ou se volta a ela vindo de uma subtela (uma ação em Meus times,
+  // na partida ou no evento pode ter resolvido uma pendência), ao voltar à janela e a cada 60 s.
+  const notifications = useNotificationSummary(onExpired, rootScreens.includes(screen) ? screen : `${stack[0].screen}:subtela`);
   useEffect(() => {
     let alive = true;
     Promise.all([

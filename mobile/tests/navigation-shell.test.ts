@@ -309,7 +309,7 @@ describe('Início: sino e atalhos', () => {
 describe('sino das notificações em cada aba raiz e resumo compartilhado', () => {
   const summaryReads = () => vi.mocked(request).mock.calls.filter(([path]) => path === '/me/notifications/summary').length
 
-  it('o shell lê o resumo uma vez e o entrega a toda tela; a troca de aba raiz o relê', async () => {
+  it('o shell lê o resumo uma vez e o entrega a toda tela; a troca de aba raiz e a ida ou volta de uma subtela o releem', async () => {
     unread = 4
     const tree = await mount()
     expect(summaryReads()).toBe(1)
@@ -319,11 +319,15 @@ describe('sino das notificações em cada aba raiz e resumo compartilhado', () =
     await press(tree, 'JOGAR')
     expect(summaryReads()).toBe(3)
     expect(host(tree, 'PlayScreen')[0].props.notificationSummary.count).toBe(4)
-    // Voltar à mesma aba não é troca; abrir uma subtela também não.
+    // Voltar à mesma aba não é troca.
     await press(tree, 'JOGAR')
     expect(summaryReads()).toBe(3)
+    // Abrir uma subtela relê (o sino da tela de notificações chega atualizado), e voltar à aba também: uma ação na subtela
+    // pode ter resolvido uma pendência.
     await act(async () => { host(tree, 'PlayScreen')[0].props.navigation.go('teams') })
-    expect(summaryReads()).toBe(3)
+    expect(summaryReads()).toBe(4)
+    await press(tree, 'Voltar')
+    expect(summaryReads()).toBe(5)
   })
 
   it('Comunidade e Perfil recebem o número e a abertura das Notificações, que acendem a aba de origem', async () => {
