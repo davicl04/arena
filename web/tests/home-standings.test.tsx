@@ -5,6 +5,7 @@ import type { MeStandings, PositionStanding, RunStanding, StandingLine } from '.
 import { modalityStanding } from '../src/components/arena/modalityStanding'
 import HomePage from '../src/pages/HomePage'
 import { apiError, mockApi } from './teams-fixtures'
+import { summaryOf } from './notifications-fixtures'
 
 afterEach(cleanup)
 
@@ -30,7 +31,7 @@ const profiles: Profile[] = (['futebol', 'tenis', 'corrida'] as const).map((spor
   ({ id: index + 1, sport, city_id: 5300108, position: null, looking_for: false, is_public: false, level: null }))
 
 function renderHome(reply: unknown, loadedProfiles: Profile[] = profiles) {
-  const api = mockApi({ 'GET /me/notifications/unread-count': { unread_count: 0 }, 'GET /me/standings': reply as never })
+  const api = mockApi({ 'GET /me/notifications/summary': summaryOf({ unread_count: 0 }), 'GET /me/standings': reply as never })
   render(<HomePage firstName="Caio" profiles={loadedProfiles} loading={false} go={vi.fn()} onExpired={vi.fn()} />)
   return api
 }

@@ -1,10 +1,10 @@
-import type { ReactNode } from 'react'
-import type { LucideIcon } from 'lucide-react'
+import type { ComponentType, ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 
 /* Estado vazio (.empty-state, .empty-icon): ícone em quadro verde-claro, título e texto centralizados. */
 export function EmptyState({ Icon, title, text, action, className }: {
-  Icon: LucideIcon
+  /** Ícone do Lucide ou qualquer componente que aceite size (ex.: o Coliseu da marca). */
+  Icon: ComponentType<{ size?: number | string }>
   title: string
   text: string
   action?: ReactNode

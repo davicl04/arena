@@ -10,6 +10,7 @@ import ArenaPage from '../src/pages/ArenaPage'
 import PlayPage from '../src/pages/PlayPage'
 import type { PlayBoardState } from '../src/hooks/usePlayBoard'
 import { bests, lago, markCard } from './run-fixtures'
+import { summaryOf } from './notifications-fixtures'
 
 vi.mock('../src/api/client', async original => ({
   ...await original<typeof import('../src/api/client')>(),
@@ -180,12 +181,12 @@ describe('placa do Jogar (fase 1)', () => {
       if (path === '/me/sports-profiles') return [football] as never
       if (path === '/cities') return [city] as never
       if (path === '/me/standings') return standings() as never
-      if (path === '/me/notifications/unread-count') return { unread_count: 2 } as never
+      if (path === '/me/notifications/summary') return summaryOf({ unread_count: 2 }) as never
       return { items: [], next_cursor: null } as never
     })
     const ui = userEvent.setup()
     render(<ArenaPage user={me} onUser={vi.fn()} onLogout={vi.fn()} onExpired={vi.fn()} />)
-    expect(await screen.findByRole('button', { name: 'Notificações, 2 não lidas' })).not.toBeNull()
+    expect(await screen.findByRole('button', { name: 'Notificações, 2 novas' })).not.toBeNull()
     await ui.click(within(screen.getByRole('navigation', { name: 'Navegação principal' })).getByRole('button', { name: 'JOGAR' }))
     expect(await screen.findByRole('heading', { level: 1, name: 'Jogar' })).not.toBeNull()
     expect(screen.queryByText('Qual é o jogo de hoje?')).toBeNull()

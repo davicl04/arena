@@ -5,9 +5,10 @@ import type { Profile, User } from '../src/api/client'
 import type { ArenaNotification } from '../src/api/notifications'
 import { notificationView } from '../src/data/notifications'
 import ArenaPage from '../src/pages/ArenaPage'
-import NotificationsPage from '../src/pages/NotificationsPage'
 import { brasilia, mockApi, person } from './teams-fixtures'
 import { card, detail, fromNow } from './events-fixtures'
+import { listed, summaryOf } from './notifications-fixtures'
+import { NotificationsHarness } from './notifications-harness'
 
 /*
  * Notificações da etapa 2 (0003, seção 17): texto e destino dos tipos novos do atleta, do organizador e da
@@ -75,15 +76,16 @@ describe('tela Notificações com os tipos novos', () => {
     ]
     const calls = mockApi({
       'GET /me/follow-requests': { items: [], next_cursor: null },
-      'GET /me/notifications': { items, next_cursor: null },
-      'GET /me/notifications/unread-count': { unread_count: 2 },
-      'PUT /me/notifications/1/read': { unread_count: 1 },
-      'PUT /me/notifications/2/read': { unread_count: 0 },
+      'GET /me/notifications/pending?limit=50': { items: [] },
+      'GET /me/notifications?pendente=false': { items, next_cursor: null },
+      'GET /me/notifications/summary': summaryOf({ unread_count: 2 }),
+      'PUT /me/notifications/1/read': summaryOf({ unread_count: 1 }),
+      'PUT /me/notifications/2/read': summaryOf({ unread_count: 0 }),
     })
     const onNavigate = vi.fn()
     const ui = userEvent.setup()
-    render(<NotificationsPage isAdmin onOpenUser={vi.fn()} onNavigate={onNavigate} onExpired={vi.fn()} />)
-    const list = await screen.findByRole('list', { name: 'Notificações da conta' })
+    render(<NotificationsHarness isAdmin onNavigate={onNavigate} />)
+    const list = await listed()
     expect(within(list).getAllByRole('listitem')[0].querySelector('.lucide-trophy')).not.toBeNull()
     await ui.click(within(list).getByRole('button', { name: /Novo comprovante em Copa Sudoeste/ }))
     expect(onNavigate).toHaveBeenLastCalledWith({ screen: 'event-receipts', eventId: 3 })
@@ -103,10 +105,11 @@ describe('ArenaPage: notificação e Jogar levam aos campeonatos do atleta', () 
     return mockApi({
       'GET /me/sports-profiles': [running],
       'GET /cities': [brasilia],
-      'GET /me/notifications/unread-count': { unread_count: notifications.length },
+      'GET /me/notifications/summary': summaryOf({ unread_count: notifications.length }),
       'GET /me/follow-requests': { items: [], next_cursor: null },
-      'GET /me/notifications': { items: notifications, next_cursor: null },
-      'PUT /me/notifications/1/read': { unread_count: 0 },
+      'GET /me/notifications/pending?limit=50': { items: [] },
+      'GET /me/notifications?pendente=false': { items: notifications, next_cursor: null },
+      'PUT /me/notifications/1/read': summaryOf({ unread_count: 0 }),
       'GET /me/standings': standings,
       'GET /me/entries?scope=ativas&limit=50': { items: [], next_cursor: null },
       [`GET /events?sport=corrida&city_id=${brasilia.id}`]: { items: [card({ ...race, eligibility: race.eligibility })], next_cursor: null },
@@ -119,13 +122,13 @@ describe('ArenaPage: notificação e Jogar levam aos campeonatos do atleta', () 
     api([note(1, 'aviso_evento', { event_name: 'Corrida do Lago', message_id: 2 }, { created_at: fromNow(-1) })])
     const ui = userEvent.setup()
     render(<ArenaPage user={me} onUser={vi.fn()} onLogout={vi.fn()} onExpired={vi.fn()} />)
-    await ui.click(await screen.findByRole('button', { name: 'Notificações, 1 não lida' }))
+    await ui.click(await screen.findByRole('button', { name: 'Notificações, 1 nova' }))
     await ui.click(await screen.findByRole('button', { name: /Novo aviso em Corrida do Lago/ }))
     expect(await screen.findByRole('heading', { level: 2, name: 'Corrida do Lago' })).not.toBeNull()
     expect(await screen.findByRole('heading', { level: 1, name: 'Prova' })).not.toBeNull()
     expect(within(screen.getByRole('navigation', { name: 'Navegação principal' })).getByRole('button', { name: 'JOGAR' }).getAttribute('aria-current')).toBe('page')
     await ui.click(screen.getByRole('button', { name: 'Voltar' }))
-    expect(await screen.findByRole('list', { name: 'Notificações da conta' })).not.toBeNull()
+    expect(await listed()).not.toBeNull()
   })
 
   it('Jogar → Provas lista os cartazes da corrida e abre o detalhe', async () => {

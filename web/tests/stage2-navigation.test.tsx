@@ -7,6 +7,7 @@ import type { OrganizerStatus } from '../src/api/organizer'
 import ArenaPage from '../src/pages/ArenaPage'
 import { brasilia, mockApi, person } from './teams-fixtures'
 import { adminEvent, card, detail, dispute, entry, eventCard, eventDetail, fromNow, myEntry, receipt, review, withEntry } from './events-fixtures'
+import { summaryOf } from './notifications-fixtures'
 
 /*
  * Pontas entre as frentes web da etapa 2, com o ArenaPage inteiro: o Menu leva à área do organizador (O3), à gestão do
@@ -29,7 +30,7 @@ function api(extra: Record<string, unknown> = {}) {
   return mockApi({
     'GET /me/sports-profiles': [football],
     'GET /cities': [brasilia],
-    'GET /me/notifications/unread-count': { unread_count: 0 },
+    'GET /me/notifications/summary': summaryOf({ unread_count: 0 }),
     'GET /me/follow-requests': page([]),
     'GET /me/organizer-request': approved,
     'GET /organizer/events?scope=abertos': page([copaCard]),
@@ -254,13 +255,14 @@ describe('ligações da etapa 2: notificações', () => {
   const note = (id: number, type: string, payload: Record<string, unknown>): ArenaNotification =>
     ({ id, type, payload, actor: person(9, 'Caio Ramos'), created_at: fromNow(-id), read_at: null })
   const withNotifications = (items: ArenaNotification[], extra: Record<string, unknown> = {}) => api({
-    'GET /me/notifications/unread-count': { unread_count: items.length },
-    'GET /me/notifications': page(items),
-    [`PUT /me/notifications/${items[0].id}/read`]: { unread_count: items.length - 1 },
+    'GET /me/notifications/summary': summaryOf({ unread_count: items.length }),
+    'GET /me/notifications/pending?limit=50': { items: [] },
+    'GET /me/notifications?pendente=false': page(items),
+    [`PUT /me/notifications/${items[0].id}/read`]: summaryOf({ unread_count: items.length - 1 }),
     ...extra,
   })
   async function openFirst(ui: ReturnType<typeof userEvent.setup>, text: RegExp) {
-    await ui.click(await screen.findByRole('button', { name: 'Notificações, 1 não lida' }))
+    await ui.click(await screen.findByRole('button', { name: 'Notificações, 1 nova' }))
     await ui.click(await screen.findByRole('button', { name: text }))
   }
 
@@ -278,7 +280,7 @@ describe('ligações da etapa 2: notificações', () => {
     expect(calls.find('PUT', '/me/notifications/1/read')).toHaveLength(1)
     // Voltar da tela de comprovantes retorna às Notificações, de onde foi aberta.
     await ui.click(screen.getByRole('button', { name: 'Voltar para o evento' }))
-    expect(await screen.findByRole('list', { name: 'Notificações da conta' })).not.toBeNull()
+    expect((await screen.findAllByRole('listitem')).length).toBeGreaterThan(0)
   })
 
   it('evento para aprovar leva a administração à fila de eventos pagos', async () => {

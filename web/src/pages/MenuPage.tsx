@@ -17,6 +17,13 @@ function QueueCount({ count }: { count: number }) {
   </span>
 }
 
+/** Contador da linha "Notificações" do Menu (o mesmo número do sino). */
+function NotificationCount({ count }: { count: number }) {
+  return <span className="inline-grid h-[17px] min-w-[17px] place-items-center rounded-[9px] bg-brand px-1 text-[9.5px] font-extrabold text-white">
+    {count > 99 ? '99+' : count}<span className="sr-only"> {count === 1 ? 'nova' : 'novas'}</span>
+  </span>
+}
+
 /** Valor da linha da fila: o contador, só quando há pendências. */
 const queueValue = (count: number | undefined) => typeof count === 'number' && count > 0 ? <QueueCount count={count} /> : undefined
 
@@ -24,7 +31,7 @@ const queueValue = (count: number | undefined) => typeof count === 'number' && c
  * Menu do perfil (hambúrguer): atalhos da conta, o cartão "Organizar no Arena" (P3) ou, com a permissão, a seção
  * Organizador; para a administração, as filas (AD1); informações do app e saída.
  */
-export default function MenuPage({ isAdmin, busy, onEditProfile, onSports, onModeration, onOrganizerRequest, onOrganizerRequests, onPaidEvents, onRevokedEvents, onRefundDisputes, onCourtSuggestions, onWalkoverDisputes, onOrganizerEvents, onOpenEvent, onNewEvent, onNotifications, onLogout, onExpired }: {
+export default function MenuPage({ isAdmin, busy, onEditProfile, onSports, onModeration, onOrganizerRequest, onOrganizerRequests, onPaidEvents, onRevokedEvents, onRefundDisputes, onCourtSuggestions, onWalkoverDisputes, onOrganizerEvents, onOpenEvent, onNewEvent, onNotifications, notificationCount = 0, onLogout, onExpired }: {
   isAdmin: boolean
   busy: boolean
   onEditProfile: () => void
@@ -50,8 +57,10 @@ export default function MenuPage({ isAdmin, busy, onEditProfile, onSports, onMod
   onOpenEvent: (eventId: number) => void
   /** Abre o Criar evento (V4). */
   onNewEvent: () => void
-  /** Abre a tela Notificações (a mesma do sino do Início). */
+  /** Abre a tela Notificações (a mesma do sino das abas). */
   onNotifications: () => void
+  /** Não lidas mais pedidos para seguir (resumo das notificações do ArenaPage): o número na linha "Notificações". */
+  notificationCount?: number
   onLogout: () => void
   onExpired: () => void
 }) {
@@ -87,7 +96,7 @@ export default function MenuPage({ isAdmin, busy, onEditProfile, onSports, onMod
     </>}
     <ListHeading>App</ListHeading>
     <ListGroup>
-      <ListRow Icon={Bell} label="Notificações" onClick={onNotifications} />
+      <ListRow Icon={Bell} label="Notificações" value={notificationCount > 0 ? <NotificationCount count={notificationCount} /> : undefined} onClick={onNotifications} />
       <ListRow Icon={Info} label="Sobre o ARENA" value={`Versão ${appVersion}`} />
     </ListGroup>
     <ListGroup className="mt-5">

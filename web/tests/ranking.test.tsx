@@ -9,6 +9,7 @@ import ArenaPage from '../src/pages/ArenaPage'
 import RankingPage from '../src/pages/RankingPage'
 import { athleteRow, leoes, rankingPage, rankingRow } from './results-fixtures'
 import { apiError, brasilia, mockApi } from './teams-fixtures'
+import { summaryOf } from './notifications-fixtures'
 
 afterEach(cleanup)
 
@@ -280,7 +281,7 @@ describe('Ranking no aplicativo', () => {
     const api = mockApi({
       'GET /me/sports-profiles': [profile('futebol', 'atacante')],
       'GET /cities': [brasilia],
-      'GET /me/notifications/unread-count': { unread_count: 0 },
+      'GET /me/notifications/summary': summaryOf({ unread_count: 0 }),
       'GET /me/standings': { calc_version: 1, futebol: { teams: [], individual: [] }, tenis: null, corrida: [] },
       [`GET ${society}`]: rankingPage({ items: [rankingRow(1, 'Ferrugem FC')], mine: [line()] }),
     })
@@ -293,5 +294,31 @@ describe('Ranking no aplicativo', () => {
     expect(screen.queryByText(/Cidade ainda não definida|Brasília/)).toBeNull()
     expect(api.calls.map(call => call.path)).toContain(society)
     expect(api.calls.some(call => call.path.includes('city'))).toBe(false)
+  })
+
+  it('o Ranking tem o sino no lado direito do cabeçalho; ele abre as notificações com Ranking aceso e volta', async () => {
+    Element.prototype.scrollTo = () => {}
+    mockApi({
+      'GET /me/sports-profiles': [profile('futebol', 'atacante')],
+      'GET /cities': [brasilia],
+      'GET /me/notifications/summary': summaryOf({ unread_count: 3, follow_requests_count: 1 }),
+      'GET /me/standings': { calc_version: 1, futebol: { teams: [], individual: [] }, tenis: null, corrida: [] },
+      [`GET ${society}`]: rankingPage({ items: [rankingRow(1, 'Ferrugem FC')], mine: [line()] }),
+      'GET /me/notifications/pending?limit=50': { items: [] },
+      'GET /me/notifications?pendente=false': { items: [], next_cursor: null },
+      'GET /me/follow-requests': { items: [], next_cursor: null },
+    })
+    render(<ArenaPage user={me} onUser={vi.fn()} onLogout={vi.fn()} onExpired={vi.fn()} />)
+    const ui = userEvent.setup()
+    await ui.click(await screen.findByRole('button', { name: 'Ver elos' }))
+    await screen.findByText('Ferrugem FC')
+    const header = screen.getByRole('heading', { level: 1, name: 'Ranking' }).parentElement as HTMLElement
+    const bell = await within(header).findByRole('button', { name: 'Notificações, 4 novas' })
+    expect(bell.nextElementSibling).toBeNull()
+    await ui.click(bell)
+    expect(await screen.findByRole('heading', { level: 1, name: 'Notificações' })).not.toBeNull()
+    expect(within(screen.getByRole('navigation', { name: 'Navegação principal' })).getByRole('button', { current: 'page' }).textContent).toBe('Ranking')
+    await ui.click(screen.getByRole('button', { name: 'Voltar' }))
+    expect(screen.getByRole('heading', { level: 1, name: 'Ranking' })).not.toBeNull()
   })
 })

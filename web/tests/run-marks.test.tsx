@@ -13,6 +13,7 @@ import { apiError, mockApi, reply } from './teams-fixtures'
 import { brasilia, football, playBoard, standings } from './matchmaking-fixtures'
 import { athleteRow, rankingPage } from './results-fixtures'
 import { bests, created, emptyCard, impact, lago, markCard, preview, run, sec } from './run-fixtures'
+import { summaryOf } from './notifications-fixtures'
 
 /*
  * "Suas marcas" (K4), o histórico, a linha do elo da corrida na placa e o fluxo REGISTRAR → salvar, etapa 5.
@@ -437,7 +438,7 @@ describe('"Ver ranking" no aplicativo inteiro', () => {
     const api = mockApi({
       'GET /me/sports-profiles': [football, running],
       'GET /cities': [brasilia],
-      'GET /me/notifications/unread-count': { unread_count: 0 },
+      'GET /me/notifications/summary': summaryOf({ unread_count: 0 }),
       'GET /me/standings': standings(),
       'GET /me/play': playBoard(),
       'GET /me/run-bests': bests(markCard(10, ['52:40'], { tier: 'prata' })),

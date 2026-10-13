@@ -16,6 +16,8 @@ export type Screen =
   | "connections"
   | "user-profile"
   | "notifications"
+  // Pedidos para seguir: aprovar e recusar, aberta pela linha-resumo da tela de notificações.
+  | "follow-requests"
   | "sports"
   // Etapa 1 (Times e organizador): telas declaradas, renderizadas pelas frentes de cada área.
   | "teams"
@@ -84,8 +86,8 @@ const playScreens: Screen[] = ["teams", "team-form", "team-invite", "join", "eve
 /**
  * Aba acesa na navegação inferior para a tela atual. Perfis e conexões herdam a aba da raiz da pilha
  * (de onde foram abertos); as telas de Meus times, dos eventos do atleta e da partida acendem "JOGAR", e as de
- * organizador e administração (inclusive as filas de quadras e de W.O.), "Perfil"; Notificações acendem "Início",
- * ou "Perfil" quando abertas pelo Menu.
+ * organizador e administração (inclusive as filas de quadras e de W.O.), "Perfil"; Notificações e Pedidos para seguir
+ * acendem a aba de onde o sino foi tocado (Início, Ranking, Jogar, Comunidade ou Perfil, também pelo Menu).
  */
 export function activeNavFor(screen: Screen, root: Screen): Screen {
   if (screen === "user-profile" || screen === "connections") {
@@ -95,8 +97,8 @@ export function activeNavFor(screen: Screen, root: Screen): Screen {
   }
   if (profileScreens.includes(screen) || screen === "sports") return "profile";
   if (playScreens.includes(screen)) return "play";
-  // Notificações acendem "Início" (o sino) ou "Perfil", quando abertas pela linha do Menu.
-  if (screen === "notifications") return root === "profile" ? "profile" : "home";
+  // Notificações e Pedidos para seguir acendem a aba de onde o sino foi tocado (ou "Perfil", pela linha do Menu).
+  if (screen === "notifications" || screen === "follow-requests") return navItems.some((item) => item.screen === root) ? root : "home";
   return screen;
 }
 

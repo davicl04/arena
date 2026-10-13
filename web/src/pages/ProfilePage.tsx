@@ -11,6 +11,7 @@ import { IconButton } from "@/components/ui/button";
 import { SectionTitle } from "@/components/ui/section-title";
 import ProfileGallery from "../components/ProfileGallery";
 import ProfileHeader from "../components/ProfileHeader";
+import { NotificationBell } from "../components/notifications/NotificationBell";
 import ProfileTabs, { ProfilePanel } from "../components/ProfileTabs";
 import type { ProfileTab } from "../components/ProfileTabs";
 import Avatar from "../components/Avatar";
@@ -57,6 +58,7 @@ export default function ProfilePage({
   matches,
   tab,
   onTabChange,
+  notificationCount = 0,
   onNewPhoto,
   openConnections,
   onExpired,
@@ -70,6 +72,8 @@ export default function ProfilePage({
   /** Aba ativa guardada pelo shell (sobrevive à ida à tela da partida); sem ela, a página guarda a própria. */
   tab?: ProfileTab;
   onTabChange?: (tab: ProfileTab) => void;
+  /** Não lidas mais pedidos para seguir (resumo das notificações do ArenaPage): o número do sino. */
+  notificationCount?: number;
   /** Abre a Comunidade já na nova publicação. */
   onNewPhoto: () => void;
   openConnections: (userId: number, tab: ConnectionsTab) => void;
@@ -119,9 +123,12 @@ export default function ProfilePage({
         followingCount={counts?.following ?? null}
         sportList={profiles.map((p) => p.sport)}
         trailing={
-          <IconButton tone="cover" aria-label="Menu" onClick={() => go("menu")}>
-            <Menu size={21} />
-          </IconButton>
+          <div className="flex items-center gap-1.5">
+            <NotificationBell tone="cover" count={notificationCount} onOpen={() => go("notifications")} />
+            <IconButton tone="cover" aria-label="Menu" onClick={() => go("menu")}>
+              <Menu size={21} />
+            </IconButton>
+          </div>
         }
         onEdit={() => go("edit-profile")}
         onFollowers={() => openConnections(user.id, "followers")}

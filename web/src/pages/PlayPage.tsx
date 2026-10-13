@@ -13,6 +13,7 @@ import { CancelSearchDialog } from '../components/play/CancelSearchDialog'
 import { formatChips } from '../components/play/formatChips'
 import { MyMatches } from '../components/play/MyMatches'
 import { OtherWays } from '../components/play/OtherWays'
+import { NotificationBell } from '../components/notifications/NotificationBell'
 import { PlateChips } from '../components/play/PlateChips'
 import type { PlateOption } from '../components/play/PlateChips'
 import { PlayButton } from '../components/play/PlayButton'
@@ -75,7 +76,7 @@ function searchHint(sport: Sport, mode: Mode, city: string, position: AvulsoPosi
  * à tela da partida. Na Corrida (K2 + K4, etapa 5), o botão REGISTRAR abre o cronômetro em tela cheia; a placa mostra o elo e
  * o melhor tempo da distância escolhida (`GET /me/run-bests`) e, abaixo, "Suas marcas" com o histórico de cada distância.
  */
-export default function PlayPage({ profiles, cities, loading, board, openMatch, go, onExpired }: {
+export default function PlayPage({ profiles, cities, loading, board, openMatch, notificationCount = 0, go, onExpired }: {
   profiles: Profile[]
   cities: City[]
   /** Perfis esportivos ainda carregando (ArenaPage). */
@@ -84,6 +85,8 @@ export default function PlayPage({ profiles, cities, loading, board, openMatch, 
   board: PlayBoardState
   /** Partida cuja proposta (ou oferta de vaga) abre em tela cheia ao entrar: as notificações "Partida encontrada" e "Vaga encontrada". */
   openMatch?: number
+  /** Não lidas mais pedidos para seguir (resumo das notificações do ArenaPage): o número do sino. */
+  notificationCount?: number
   go: (screen: Screen, context?: { teamId?: number; sport?: Sport; matchId?: number; distance?: RunDistance }) => void
   onExpired: () => void
 }) {
@@ -263,15 +266,16 @@ export default function PlayPage({ profiles, cities, loading, board, openMatch, 
   return <div className="min-h-full">
     <section aria-labelledby={`${ids}-title`} className="relative overflow-hidden rounded-b-[28px] bg-forest pb-[26px] text-white">
       <span aria-hidden="true" className="pointer-events-none absolute -bottom-[30px] left-1/2 h-[240px] w-[420px] -translate-x-1/2 bg-white opacity-[0.045] mask-[url(/images/brand/coliseum.svg)] mask-contain mask-center mask-no-repeat" />
-      <div className="relative flex min-h-[54px] items-center gap-2.5 pt-1.5 pr-3 pl-[18px]">
+      <div className="relative flex min-h-[54px] items-center gap-2.5 pt-1.5 pr-2 pl-[18px]">
         <ArenaMark className="h-[22px] w-[30px] text-mint" />
-        <h1 id={`${ids}-title`} className="min-w-0 flex-1 text-[17px] text-white">Jogar</h1>
-        <button type="button" className="inline-flex max-w-[55%] min-w-0 items-center gap-[5px] rounded-full border-0 bg-white/8 px-2.5 py-1.5 text-[10.5px] font-semibold text-white/80 hover:bg-white/12 focus-visible:outline-mint"
+        <h1 id={`${ids}-title`} className="min-w-fit flex-1 text-[17px] text-white">Jogar</h1>
+        <button type="button" className="inline-flex max-w-[55%] min-w-0 shrink items-center gap-[5px] rounded-full border-0 bg-white/8 px-2.5 py-1.5 text-[10.5px] font-semibold text-white/80 hover:bg-white/12 focus-visible:outline-mint"
           aria-label={city ? `Cidade do perfil de ${sportLabel}: ${city.name}. Alterar em Suas modalidades` : `Definir a cidade do perfil de ${sportLabel}`}
           onClick={() => go('sports')}>
           <MapPin size={13} className="text-mint" aria-hidden="true" />
           <span className="truncate">{city ? city.name : 'Definir cidade'}</span>
         </button>
+        <NotificationBell tone="dark" count={notificationCount} onOpen={() => go('notifications')} />
       </div>
       <Tabs variant="dark" items={sportTabs} value={sport} onChange={next => { setSport(next); setSavedRun(null) }} label="Modalidade" idPrefix={`${ids}-tab-`} controls={`${ids}-panel`}
         className="relative border-b border-solid border-white/7" />

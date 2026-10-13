@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event'
 import { request } from '../src/api/client'
 import type { Post, SocialUser, User } from '../src/api/client'
 import ArenaPage from '../src/pages/ArenaPage'
+import { summaryOf } from './notifications-fixtures'
 
 vi.mock('../src/api/client', async original => ({
   ...await original<typeof import('../src/api/client')>(),
@@ -27,6 +28,7 @@ beforeEach(() => {
     if (path === '/users/2') return other as never
     if (path === '/users/1/posts') return page([{ ...post, author: { ...other, id: me.id, username: me.username } }]) as never
     if (path === '/posts') return page([post]) as never
+    if (path === '/me/notifications/summary') return summaryOf({ follow_requests_count: 1 }) as never
     if (path === '/users/1/followers') return page([{ user: other, state: 'approved' }]) as never
     if (path === '/users/2/followers') return page([]) as never
     if (path.startsWith('/users/2/mutual-followers')) return { items: [], total: 0, next_cursor: null } as never
@@ -176,23 +178,73 @@ describe('navegação do ArenaPage', () => {
     renderArena()
     await ui.click(nav('Perfil'))
     await ui.click(await screen.findByRole('button', { name: 'Menu' }))
-    await ui.click(screen.getByRole('button', { name: 'Notificações' }))
+    await ui.click(await screen.findByRole('button', { name: /^Notificações\s*1\s*nova\s*$/ }))
     expect(screen.getByRole('heading', { name: 'Notificações' })).not.toBeNull()
     expect(current()).toBe('Perfil')
-    expect(await screen.findByRole('button', { name: 'Aprovar solicitação de Atleta Dois' })).not.toBeNull()
+    expect(await screen.findByRole('button', { name: /1 pedido para seguir/ })).not.toBeNull()
     await ui.click(screen.getByRole('button', { name: 'Voltar' }))
     expect(screen.getByRole('heading', { name: 'Menu' })).not.toBeNull()
   })
 
-  it('mostra solicitações em Notificações, mantendo Início como aba ativa, e volta ao início', async () => {
+  it('abre Pedidos para seguir pela linha-resumo de Notificações, mantendo Início aceso, e volta passo a passo', async () => {
     const ui = userEvent.setup()
     renderArena()
-    await ui.click(screen.getByRole('button', { name: 'Notificações' }))
+    await ui.click(await screen.findByRole('button', { name: 'Notificações, 1 nova' }))
+    expect(current()).toBe('Início')
+    await ui.click(await screen.findByRole('button', { name: /1 pedido para seguir/ }))
+    expect(screen.getByRole('heading', { name: 'Pedidos para seguir', level: 1 })).not.toBeNull()
     expect(current()).toBe('Início')
     await ui.click(await screen.findByRole('button', { name: 'Aprovar solicitação de Atleta Dois' }))
     expect(request).toHaveBeenCalledWith('/me/follow-requests/2?approve=true', 'PUT')
     expect(await screen.findByText('Tudo em dia')).not.toBeNull()
+    await waitFor(() => expect(vi.mocked(request).mock.calls.filter(([path]) => path === '/me/notifications/summary').length).toBeGreaterThan(1))
+    await ui.click(screen.getByRole('button', { name: 'Voltar' }))
+    expect(screen.getByRole('heading', { name: 'Notificações', level: 1 })).not.toBeNull()
     await ui.click(screen.getByRole('button', { name: 'Voltar' }))
     expect(screen.getByRole('heading', { name: /Bora jogar/ })).not.toBeNull()
+  })
+
+  it('a placa "Para responder" do Início abre as notificações já no chip Para responder e volta ao Início', async () => {
+    const proposal = { id: 7, type: 'proposta_partida', payload: { match_id: 12, opponent_name: 'Tigres do Lago' }, actor: null, created_at: new Date(Date.now() - 60e3).toISOString(),
+      read_at: null, category: 'partidas', pending: true, action_until: new Date(Date.now() + 3600e3).toISOString() }
+    const base = vi.mocked(request).getMockImplementation()!
+    vi.mocked(request).mockImplementation(async (path, method, body) => {
+      if (path === '/me/notifications/summary') return summaryOf({ unread_count: 1, pending_count: 1, unread_by_category: { partidas: 1 } }) as never
+      if (path.startsWith('/me/notifications/pending')) return { items: [proposal] } as never
+      return base(path, method, body)
+    })
+    const ui = userEvent.setup()
+    renderArena()
+    await ui.click(await screen.findByRole('button', { name: 'Ver notificações' }))
+    expect(screen.getByRole('button', { name: 'Para responder, 1 pendência' }).getAttribute('aria-pressed')).toBe('true')
+    expect(await screen.findByRole('button', { name: 'Responder proposta' })).not.toBeNull()
+    expect(current()).toBe('Início')
+    await ui.click(screen.getByRole('button', { name: 'Voltar' }))
+    expect(screen.getByRole('heading', { name: /Bora jogar/ })).not.toBeNull()
+  })
+
+  it('mostra o sino com o total nas abas Início, Jogar, Comunidade e Perfil e o abre pela aba onde foi tocado', async () => {
+    const ui = userEvent.setup()
+    renderArena()
+    for (const tab of ['Início', 'JOGAR', 'Comunidade', 'Perfil']) {
+      await ui.click(nav(tab))
+      expect(await screen.findByRole('button', { name: 'Notificações, 1 nova' })).not.toBeNull()
+    }
+    await ui.click(screen.getByRole('button', { name: 'Notificações, 1 nova' }))
+    expect(current()).toBe('Perfil')
+    await ui.click(screen.getByRole('button', { name: 'Voltar' }))
+    expect(screen.getByRole('region', { name: 'Seu perfil' })).not.toBeNull()
+  })
+
+  it('não mostra o sino nas subtelas nem no perfil de outra pessoa', async () => {
+    const ui = userEvent.setup()
+    renderArena()
+    await ui.click(nav('Perfil'))
+    await ui.click(await screen.findByRole('button', { name: 'Menu' }))
+    expect(screen.queryByRole('button', { name: /^Notificações, / })).toBeNull()
+    await ui.click(nav('Comunidade'))
+    await ui.click(await screen.findByRole('button', { name: 'Abrir perfil de @atleta.dois' }))
+    await screen.findByRole('region', { name: 'Perfil de Atleta Dois' })
+    expect(screen.queryByRole('button', { name: /^Notificações/ })).toBeNull()
   })
 })

@@ -7,6 +7,7 @@ import { usePullToRefresh } from '../hooks/usePullToRefresh'
 import { ArenaMark } from './Brand'
 import CommunityFeed from './CommunityFeed'
 import CommunityPeople from './CommunityPeople'
+import { NotificationBell } from './notifications/NotificationBell'
 import PostComposer from './PostComposer'
 import { buttonVariants } from '@/components/ui/button-variants'
 import { feedbackVariants } from '@/components/ui/feedback'
@@ -26,10 +27,14 @@ const TITLE_ROW = 54
  * Ao rolar para baixo, o título recolhe e só as abas ficam. O feed atualiza ao ser puxado no topo (com um botão
  * visível só no foco, para o teclado). A rolagem é a do `main` do app, onde a seção é montada.
  */
-export default function SocialCommunity({ viewerId, onOpenUser, onExpired, composeOnOpen = false, onComposeStarted }: {
+export default function SocialCommunity({ viewerId, onOpenUser, onExpired, notificationCount = 0, onNotifications, composeOnOpen = false, onComposeStarted }: {
   viewerId: number
   onOpenUser: (id: number) => void
   onExpired: () => void
+  /** Não lidas mais pedidos para seguir (resumo das notificações do ArenaPage): o número do sino. */
+  notificationCount?: number
+  /** Abre a tela de notificações; sem ele, a barra não mostra o sino. */
+  onNotifications?: () => void
   /** Abre direto a nova publicação (quadro "Nova foto" do perfil). */
   composeOnOpen?: boolean
   /** Consome o pedido de abertura sem remontar a Comunidade. */
@@ -98,6 +103,7 @@ export default function SocialCommunity({ viewerId, onOpenUser, onExpired, compo
       <div className="flex h-[54px] items-center gap-2.5 pr-2 pl-[18px]">
         <ArenaMark className="h-[22px] w-[30px] text-mint" />
         <h1 className="flex-1 text-[17px] text-white">Comunidade</h1>
+        {onNotifications && <NotificationBell tone="dark" count={notificationCount} onOpen={onNotifications} />}
         <button type="button" className="grid size-[38px] place-items-center rounded-full border-0 bg-mint text-night" aria-label="Nova publicação"
           onClick={() => setComposing(true)}><Plus size={20} /></button>
       </div>

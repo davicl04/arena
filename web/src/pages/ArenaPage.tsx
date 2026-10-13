@@ -9,6 +9,8 @@ import { feedbackVariants } from "@/components/ui/feedback";
 import { DialogContainerProvider } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { usePlayBoard } from "../hooks/usePlayBoard";
+import { useNotificationSummary } from "../hooks/useNotificationSummary";
+import { NotificationBell } from "../components/notifications/NotificationBell";
 import HomePage from "./HomePage";
 import ProfilePage from "./ProfilePage";
 import EditProfilePage from "./EditProfilePage";
@@ -19,6 +21,7 @@ import ConnectionsPage from "./ConnectionsPage";
 import type { ProfileTab } from "../components/ProfileTabs";
 import UserProfilePage from "./UserProfilePage";
 import NotificationsPage from "./NotificationsPage";
+import FollowRequestsPage from "./FollowRequestsPage";
 import PlayPage from "./PlayPage";
 import RankingPage from "./RankingPage";
 import OrganizerRequestPage from "./OrganizerRequestPage";
@@ -26,6 +29,7 @@ import AdminOrganizerRequests from "../components/admin/AdminOrganizerRequests";
 import SocialCommunity from "../components/SocialCommunity";
 import { activeNavFor, eventNoun } from "../data/arena";
 import type { ConnectionsTab, RunDistance, Screen } from "../data/arena";
+import type { NotificationFilter } from "../data/notifications";
 // Meus times (frente C): carteirinhas, criar/editar, convidar e entrar pelo link.
 import TeamsPage from "./TeamsPage";
 import TeamFormPage from "./TeamFormPage";
@@ -86,6 +90,8 @@ interface Entry {
   distance?: RunDistance;
   /** Aba do detalhe do evento (`event`) a abrir: a Tabela (notificações da tabela e do encerramento). */
   section?: "tabela";
+  /** Filtro (chip) da tela de notificações: abre num chip (a placa do Início abre "Para responder") e guarda o escolhido. */
+  filter?: NotificationFilter;
 }
 const rootScreens: Screen[] = ["home", "ranking", "play", "community", "profile"];
 const titles: Record<Screen, string> = {
@@ -101,6 +107,7 @@ const titles: Record<Screen, string> = {
   connections: "Conexões",
   "user-profile": "Perfil",
   notifications: "Notificações",
+  "follow-requests": "Pedidos para seguir",
   sports: "Suas modalidades",
   teams: "Meus times",
   "team-form": "Criar time",
@@ -184,6 +191,9 @@ export default function ArenaPage({
   const [frame, setFrame] = useState<HTMLDivElement | null>(null);
   // Placa do Jogar (GET /me/play): alimenta a tela Jogar e o ponto menta da navegação.
   const playBoard = usePlayBoard(onExpired, screen === "play" || screen === "home");
+  // Resumo das notificações (GET /me/notifications/summary): sino das abas raiz, chips, Menu e placa do Início.
+  // Relido quando a aba raiz muda, ao voltar à janela e a cada 60 s.
+  const notifications = useNotificationSummary(onExpired, stack[0].screen);
   useEffect(() => {
     let alive = true;
     Promise.all([
@@ -242,6 +252,10 @@ export default function ArenaPage({
   function openConnections(userId: number, tab: ConnectionsTab, mutual = false) {
     show((old) => [...old, { screen: "connections", userId, tab, mutual }]);
   }
+  /** Guarda na tela de notificações o chip escolhido, para voltar do aviso ao mesmo filtro. */
+  const selectNotificationFilter = useCallback((filter: NotificationFilter) => {
+    setStack((old) => [...old.slice(0, -1), { ...old[old.length - 1], filter }]);
+  }, []);
   function changeTab(tab: ConnectionsTab) {
     setStack((old) => [...old.slice(0, -1), { ...old[old.length - 1], tab }]);
   }
@@ -331,8 +345,8 @@ export default function ArenaPage({
   // Meus times: placa ou tela escura própria, de ponta a ponta, com o título e o voltar/fechar dentro dela.
   const teamsLayout = (["teams", "team-form", "team-invite", "join"] as Screen[]).includes(screen);
   const darkLayout = screen === "team-form" || screen === "team-invite" || screen === "event-wizard";
-  // Comprovantes (A2): placa `forest` própria, com o voltar e o nome do evento dentro dela.
-  const plateLayout = screen === "event-receipts";
+  // Comprovantes (A2) e Notificações: placa `forest` própria, com o voltar e o título dentro dela.
+  const plateLayout = screen === "event-receipts" || screen === "notifications";
   // Eventos do organizador: placa ou tela escura própria (o Criar evento é escuro de ponta a ponta).
   const eventsLayout = (["organizer-events", "event-wizard", "event-manage", "event-bracket", "event-matches", "result-decision"] as Screen[]).includes(screen);
   // Partida (P2 + C1): cabeçalho próprio e chat que rola por dentro, acima da navegação inferior.
@@ -362,7 +376,11 @@ export default function ArenaPage({
                 <ArrowLeft size={21} />
               </IconButton>
               <h1 className="text-[17px]">{title}</h1>
-              <span className="w-11" />
+              {screen === "ranking" ? (
+                <NotificationBell tone="light" count={notifications.count} onOpen={() => go("notifications")} />
+              ) : (
+                <span className="w-11" />
+              )}
             </header>
           )}
           {error && (
@@ -386,6 +404,8 @@ export default function ArenaPage({
               profiles={profiles}
               loading={loading}
               matches={playBoard.board?.matches}
+              summary={notifications}
+              isAdmin={user.is_admin}
               go={go}
               onExpired={onExpired}
             />
@@ -398,6 +418,7 @@ export default function ArenaPage({
               matches={playBoard.board?.matches ?? null}
               tab={profileTab}
               onTabChange={setProfileTab}
+              notificationCount={notifications.count}
               onNewPhoto={openComposer}
               openConnections={openConnections}
               onExpired={onExpired}
@@ -410,6 +431,7 @@ export default function ArenaPage({
               loading={loading}
               board={playBoard}
               openMatch={current.matchId}
+              notificationCount={notifications.count}
               go={go}
               onExpired={onExpired}
             />
@@ -456,6 +478,8 @@ export default function ArenaPage({
               viewerId={user.id}
               onOpenUser={openUser}
               onExpired={onExpired}
+              notificationCount={notifications.count}
+              onNotifications={() => go("notifications")}
               composeOnOpen={Boolean(current.compose)}
               onComposeStarted={consumeComposeRequest}
             />
@@ -463,10 +487,17 @@ export default function ArenaPage({
           {screen === "notifications" && (
             <NotificationsPage
               isAdmin={user.is_admin}
-              onOpenUser={openUser}
+              summary={notifications}
+              filter={current.filter ?? "tudo"}
+              onFilter={selectNotificationFilter}
+              onBack={back}
+              onOpenFollowRequests={() => go("follow-requests")}
               onNavigate={({ screen: next, ...context }) => go(next, context)}
               onExpired={onExpired}
             />
+          )}
+          {screen === "follow-requests" && (
+            <FollowRequestsPage summary={notifications} onOpenUser={openUser} onExpired={onExpired} />
           )}
           {screen === "edit-profile" && (
             <EditProfilePage
@@ -517,6 +548,7 @@ export default function ArenaPage({
               onOpenEvent={(eventId) => go("event-manage", { eventId })}
               onNewEvent={() => go("event-wizard")}
               onNotifications={() => go("notifications")}
+              notificationCount={notifications.count}
               onLogout={logout}
               onExpired={onExpired}
             />

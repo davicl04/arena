@@ -7,6 +7,7 @@ import AdminReports from '../src/components/AdminReports'
 import ArenaPage from '../src/pages/ArenaPage'
 import { apiError, brasilia, mockApi } from './teams-fixtures'
 import { dispute, suggestion } from './admin-match-fixtures'
+import { summaryOf } from './notifications-fixtures'
 
 /*
  * Ligações da administração na etapa 3: o Menu mostra as filas de quadras e de W.O. com os contadores de
@@ -24,7 +25,7 @@ function renderMenu(extra: Record<string, unknown> = {}) {
   const calls = mockApi({
     'GET /me/sports-profiles': [football],
     'GET /cities': [brasilia],
-    'GET /me/notifications/unread-count': { unread_count: 0 },
+    'GET /me/notifications/summary': summaryOf({ unread_count: 0 }),
     'GET /me/follow-requests': page([]),
     'GET /me/organizer-request': none,
     'GET /organizer/events?scope=abertos': page([]),
@@ -92,7 +93,7 @@ describe('Menu → Administração: quadras e W.O.', () => {
 
   it('quem não é da administração não vê as filas novas', async () => {
     const calls = mockApi({
-      'GET /me/sports-profiles': [football], 'GET /cities': [brasilia], 'GET /me/notifications/unread-count': { unread_count: 0 },
+      'GET /me/sports-profiles': [football], 'GET /cities': [brasilia], 'GET /me/notifications/summary': summaryOf({ unread_count: 0 }),
       'GET /me/follow-requests': page([]), 'GET /me/organizer-request': none, 'GET /organizer/events?scope=abertos': page([]),
     })
     const ui = userEvent.setup()

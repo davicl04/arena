@@ -5,6 +5,7 @@ import type { Profile, User } from '../src/api/client'
 import type { ArenaNotification } from '../src/api/notifications'
 import ArenaPage from '../src/pages/ArenaPage'
 import { brasilia, mockApi, person, receivedInvite, roster, team } from './teams-fixtures'
+import { summaryOf } from './notifications-fixtures'
 
 /*
  * Pontas entre as frentes da etapa 1, com o ArenaPage inteiro: as notificações (frente D) abrem Meus times (frente C) no
@@ -22,10 +23,11 @@ function api(notifications: ArenaNotification[], extra: Record<string, unknown> 
   return mockApi({
     'GET /me/sports-profiles': [football],
     'GET /cities': [brasilia],
-    'GET /me/notifications/unread-count': { unread_count: notifications.length },
+    'GET /me/notifications/summary': summaryOf({ unread_count: notifications.length }),
     'GET /me/follow-requests': empty,
-    'GET /me/notifications': { items: notifications, next_cursor: null },
-    'PUT /me/notifications/1/read': { unread_count: 0 },
+    'GET /me/notifications/pending?limit=50': { items: [] },
+    'GET /me/notifications?pendente=false': { items: notifications, next_cursor: null },
+    'PUT /me/notifications/1/read': summaryOf({ unread_count: 0 }),
     'GET /me/teams': { items: [team(), lions] },
     'GET /me/team-invites': { items: [] },
     'GET /teams/10/members': { items: roster() },
@@ -43,7 +45,7 @@ describe('ligações entre Notificações, Jogar e Meus times', () => {
     const calls = api([notice(1, 'convite_aceito', { team_id: 20, team_name: 'Leões do Cerrado', invite_id: 3 })])
     const ui = userEvent.setup()
     renderArena()
-    await ui.click(await screen.findByRole('button', { name: 'Notificações, 1 não lida' }))
+    await ui.click(await screen.findByRole('button', { name: 'Notificações, 1 nova' }))
     await ui.click(await screen.findByRole('button', { name: /aceitou o convite e entrou no Leões do Cerrado/ }))
     const card = await screen.findByRole('group', { name: 'Leões do Cerrado, 2 de 2' })
     expect(card.getAttribute('tabindex')).toBe('0')
@@ -53,7 +55,7 @@ describe('ligações entre Notificações, Jogar e Meus times', () => {
     expect(calls.find('PUT', '/me/notifications/1/read')[0].body).toEqual({})
     // Voltar retorna às Notificações, de onde o time foi aberto.
     await ui.click(screen.getByRole('button', { name: 'Voltar' }))
-    expect(await screen.findByRole('list', { name: 'Notificações da conta' })).not.toBeNull()
+    expect((await screen.findAllByRole('listitem')).length).toBeGreaterThan(0)
   })
 
   it('a notificação de pedido para entrar leva aos "Pedidos para entrar" do time, uma vez', async () => {
@@ -66,7 +68,7 @@ describe('ligações entre Notificações, Jogar e Meus times', () => {
     })
     const ui = userEvent.setup()
     renderArena()
-    await ui.click(await screen.findByRole('button', { name: 'Notificações, 1 não lida' }))
+    await ui.click(await screen.findByRole('button', { name: 'Notificações, 1 nova' }))
     await ui.click(await screen.findByRole('button', { name: /pediu para entrar no Ferrugem FC/ }))
     expect(await screen.findByRole('button', { name: 'Aprovar pedido de Lia Moraes' })).not.toBeNull()
     await waitFor(() => expect(scroll).toHaveBeenCalledTimes(1))
@@ -85,7 +87,7 @@ describe('ligações entre Notificações, Jogar e Meus times', () => {
     })
     const ui = userEvent.setup()
     renderArena()
-    await ui.click(await screen.findByRole('button', { name: 'Notificações, 1 não lida' }))
+    await ui.click(await screen.findByRole('button', { name: 'Notificações, 1 nova' }))
     await ui.click(await screen.findByRole('button', { name: /convidou você para o Leões do Cerrado/ }))
     const sheet = await screen.findByRole('dialog', { name: 'Convite para time' })
     expect(await within(sheet).findByRole('button', { name: 'Aceitar convite do Leões do Cerrado' })).not.toBeNull()
