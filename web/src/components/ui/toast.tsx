@@ -111,7 +111,7 @@ export function ToastCard({ toast: item, behind = false }: ToastCardProps) {
   // `role="group"` no lugar do `dialog` do Base UI: o toast não é um diálogo, e a lista de diálogos (e `getByRole('dialog')`) fica só com folhas e diálogos de verdade.
   return <Toast.Root toast={item} role="group" swipeDirection="down" data-tone={tone} data-behind={behind ? '' : undefined} data-blurred={windowFocused ? undefined : ''}
     className="toast-root">
-    <div className="relative h-full overflow-hidden rounded-panel border border-solid border-toast-line bg-toast text-white shadow-toast backdrop-blur-[16px] backdrop-saturate-[1.3]">
+    <div className="relative h-full overflow-clip rounded-panel border border-solid border-toast-line bg-toast text-white shadow-toast backdrop-blur-[16px] backdrop-saturate-[1.3]">
       <span aria-hidden="true" className="pointer-events-none absolute inset-x-4 top-0 h-px bg-[linear-gradient(90deg,transparent,var(--tone),transparent)]" />
       <span aria-hidden="true" className="pointer-events-none absolute -right-4 -bottom-4 h-[84px] w-[150px] bg-(--tone) opacity-[0.09] mask-[url(/images/brand/coliseum.svg)] mask-contain mask-center mask-no-repeat" />
       <div className="toast-body relative flex items-start gap-3 py-3 pr-2 pl-3">

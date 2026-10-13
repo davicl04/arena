@@ -115,6 +115,20 @@ describe('classificação de falhas de conexão', () => {
     expect(connection.getState()).toMatchObject({ status: 'offline', sheetOpen: true })
   })
 
+  it('depois de "Continuar sem conexão", uma nova ação não é enviada e a faixa treme; leitura e entrada seguem tentando', async () => {
+    const fetchMock = vi.fn().mockRejectedValue(new TypeError('network'))
+    vi.stubGlobal('fetch', fetchMock)
+    await request('/me', 'PUT', { name: 'Atleta' }).catch(() => undefined)
+    connection.dismissSheet()
+    fetchMock.mockClear()
+    await expect(request('/me', 'PUT', { name: 'Atleta' })).rejects.toMatchObject({ status: 0, isConnection: true })
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(connection.getState()).toMatchObject({ status: 'offline', sheetOpen: false, nudge: 1 })
+    await request('/me').catch(() => undefined)
+    await request('/auth/login', 'POST', {}).catch(() => undefined)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
   it.each([502, 503, 504])('%s com detalhe do servidor é falha de conexão, mantendo a mensagem', async status => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('{"detail":"Serviço indisponível."}', { status })))
     await expect(request('/me/play')).rejects.toMatchObject({ status, isConnection: true, message: 'Serviço indisponível.' })

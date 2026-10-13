@@ -124,6 +124,14 @@ export async function request<T>(
   { background = false }: RequestOptions = {},
 ): Promise<T> {
   const mutating = method.toUpperCase() !== 'GET'
+  // Depois de "Continuar sem conexão", uma nova ação não é enviada: a faixa treme (plano de toasts). A entrada
+  // (`/auth/`) não tem o aviso de conexão e sempre tenta.
+  const offline = connection.getState()
+  if (mutating && !background && offline.status === 'offline' && offline.sheetDismissed && !path.startsWith('/auth/')) {
+    const failure = new ApiError('Não foi possível conectar ao Arena. Verifique a conexão e tente novamente.', 0)
+    connection.lost({ mutating, background, cause: failure })
+    throw failure
+  }
   let response: Response
   try {
     response = await fetch(`${base}/api/v1${path}`, {
