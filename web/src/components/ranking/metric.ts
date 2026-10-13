@@ -22,3 +22,20 @@ export const metricUnit = (ranking: RankingKey) => (isRunRanking(ranking) ? 'tem
 /** Métrica no meio da frase: "38 pontos", "4,26 média" ou só o tempo ("24:12"). */
 export const metricText = (value: number, ranking: RankingKey) =>
   isRunRanking(ranking) ? formatMetric(value, ranking) : `${formatMetric(value, ranking)} ${metricUnit(ranking)}`
+
+/**
+ * Diferença entre dois colocados no mesmo ranking, sem sinal: "7 pts" (time e tênis), "0,28" (média, sem unidade) ou
+ * "0:42" (corrida, em tempo).
+ */
+export function gapText(value: number, ranking: RankingKey): string {
+  const amount = Math.abs(value)
+  if (isRunRanking(ranking)) return formatDuration(amount)
+  if (ranking === 'futebol_individual') return number2.format(amount)
+  return `${number1.format(amount)} ${amount === 1 ? 'pt' : 'pts'}`
+}
+
+/** Dia da melhor marca (AAAA-MM-DD) como "03/09", sem passar por fuso horário. */
+export function dayMonth(date: string): string {
+  const [, month, day] = date.split('-')
+  return month && day ? `${day}/${month}` : date
+}

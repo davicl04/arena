@@ -51,6 +51,13 @@
   --color-cover: #2b3a33;
   --color-tile: #dfe3e0;
   --color-scrim: #101814b8;
+  --color-legend: #F4DE9A; /* dourado do Salão dos Lendários (acento sobre fundo escuro) */
+  /* Tom de cada elo na placa contínua do Ranking: o gradiente vai dele para o forest (combina com o brasão do elo). */
+  --color-tier-bronze-tint: #7a4a22;
+  --color-tier-prata-tint: #5d6670;
+  --color-tier-ouro-tint: #7a5a12;
+  --color-tier-diamante-tint: #1d5c6a;
+  --color-tier-lendario-tint: #5a4a10;
 
   /* Raios recorrentes (os da escala padrão continuam disponíveis). */
   --radius-field: 11px; /* campos, avisos */

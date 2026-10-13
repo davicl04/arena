@@ -6,6 +6,8 @@ import type { Position, Sport } from "../api/client";
 export type Screen =
   | "home"
   | "ranking"
+  // Salão dos Lendários: subtela do Ranking, aberta pela entrada do Salão e pela seta do Diamante.
+  | "legends"
   | "play"
   | "community"
   | "profile"
@@ -95,6 +97,7 @@ export function activeNavFor(screen: Screen, root: Screen): Screen {
     if (profileScreens.includes(root)) return "profile";
     return playScreens.includes(root) ? "play" : root;
   }
+  if (screen === "legends") return "ranking";
   if (profileScreens.includes(screen) || screen === "sports") return "profile";
   if (playScreens.includes(screen)) return "play";
   // Notificações e Pedidos para seguir acendem a aba de onde o sino foi tocado (ou "Perfil", pela linha do Menu).
@@ -125,6 +128,20 @@ export const tiers = Object.fromEntries(
     { key: tier.image, name: tier.name, image: `/images/brand/${tier.image}.svg` },
   ]),
 ) as Record<TierKey, TierInfo>;
+
+/** Elos do mais baixo ao mais alto (a ordem de progressão do Ranking). */
+export const tierOrder: readonly TierKey[] = rankingTiers.map((tier) => tier.image);
+/**
+ * Tom de cada elo na placa contínua do Ranking (tokens `--color-tier-*-tint` de `ui.css`): o gradiente vai desse tom
+ * para o `forest`. O Lendário é o tom dourado do Salão.
+ */
+export const tierTints: Record<TierKey, string> = {
+  bronze: "var(--color-tier-bronze-tint)",
+  prata: "var(--color-tier-prata-tint)",
+  ouro: "var(--color-tier-ouro-tint)",
+  diamante: "var(--color-tier-diamante-tint)",
+  lendario: "var(--color-tier-lendario-tint)",
+};
 
 /** Partidas confirmadas para sair da classificação no futebol e no tênis (a corrida classifica na primeira marca). */
 export const placementRequired = 3;
