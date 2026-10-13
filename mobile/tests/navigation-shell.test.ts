@@ -90,6 +90,19 @@ beforeEach(() => {
 afterEach(() => { Object.assign(screens, original); vi.useRealTimers() })
 
 describe('barra inferior e abas', () => {
+  it('preserva Partidas ao abrir a partida pelo perfil e voltar', async () => {
+    const tree = await mount()
+    await press(tree, 'Perfil')
+    const profile = host(tree, 'ProfileScreen')[0]
+    await act(async () => { profile.props.onTabChange('Partidas') })
+    expect(host(tree, 'ProfileScreen')[0].props.tab).toBe('Partidas')
+    await act(async () => { host(tree, 'ProfileScreen')[0].props.onOpenMatch(31) })
+    expect(host(tree, 'ProfileScreen')).toHaveLength(0)
+    expect(host(tree, 'MatchScreen')).toHaveLength(1)
+    await back()
+    expect(host(tree, 'ProfileScreen')[0].props.tab).toBe('Partidas')
+    await act(async () => { tree.unmount() })
+  })
   it('abre no Início, com Início | Ranking | JOGAR | Comunidade | Perfil e o JOGAR no centro', async () => {
     const tree = await mount()
     expect(tabs(tree).map(entry => entry.props.accessibilityLabel)).toEqual(['Início', 'Ranking', 'JOGAR', 'Comunidade', 'Perfil'])

@@ -41,7 +41,8 @@ export function MatchTimeline({ userId, own, upcoming = [], onOpenMatch, onPlay,
   const [filter, setFilter] = useState<SportFilter>(null)
   const list = usePagedList<TimelineItem>(timelinePath(userId, filter), onExpired)
   const now = useNow(60_000, own)
-  const next = own ? nextScheduledMatch(upcoming, now) : null
+  const scheduled = own ? nextScheduledMatch(upcoming, now) : null
+  const next = scheduled && (filter === null || scheduled.sport === filter) ? scheduled : null
   // O filtro só vale com a lista carregada; o 404 do visitante (sem acesso) é o mesmo vazio do visitante.
   const hidden = !own && list.error instanceof ApiError && list.error.status === 404
   const failed = Boolean(list.error) && !hidden
@@ -58,7 +59,7 @@ export function MatchTimeline({ userId, own, upcoming = [], onOpenMatch, onPlay,
     </View>
   }
   const empty = hidden || list.items.length === 0
-  if (empty && filter !== null && !hidden) {
+  if (empty && filter !== null && !hidden && !next) {
     return <View>{header}<Text style={{ ...message, padding: 24 }}>Nenhum registro nesta modalidade.</Text></View>
   }
   if (empty && !next) {

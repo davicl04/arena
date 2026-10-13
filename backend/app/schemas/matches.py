@@ -27,7 +27,7 @@ MatchState = Literal['proposta', 'recusada', 'expirada', 'combinando', 'agendada
 MatchPhase = Literal['proposta', 'recusada', 'expirada', 'combinando', 'agendada', 'informar_resultado', 'divergente',
                      'wo_registrado', 'wo_contestado', 'confirmado', 'encerrada', 'sem_resultado', 'cancelada']
 MatchOrigin = Literal['amistoso', 'campeonato']
-MatchRole = Literal['representante', 'membro', 'atleta', 'avulso', 'organizador', 'administracao']
+MatchRole = Literal['representante', 'membro', 'atleta', 'avulso', 'organizador', 'administracao', 'historico']
 TermsState = Literal['pendente', 'aceita', 'substituida', 'cancelada']
 CourtKind = Literal['futsal', 'society', 'campo', 'tenis']
 CourtState = Literal['publicada', 'em_revisao', 'rejeitada']

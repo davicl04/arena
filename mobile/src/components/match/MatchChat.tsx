@@ -115,7 +115,7 @@ function Composer({ detail, sending, error, onSend, onPropose, inputRef }: {
     return <View testID="chat-closed" style={{ flexDirection: 'row', alignItems: 'center', gap: 8, borderTopWidth: 1, borderTopColor: colors.line, backgroundColor: '#ffffff', paddingHorizontal: 16, paddingVertical: 12 }}>
       <Icon name="info" size={15} color={colors['ink-muted']} />
       <Text style={{ flex: 1, color: colors['ink-muted'], fontSize: 11.5, lineHeight: 16 }}>
-        {!canRead ? 'O chat abre quando os dois lados aceitam a proposta.' : admin ? 'A administração só lê o chat.' : 'O chat desta partida está fechado.'}
+        {detail.my_role === 'historico' ? 'O acesso pelo histórico não inclui o chat.' : !canRead ? 'O chat abre quando os dois lados aceitam a proposta.' : admin ? 'A administração só lê o chat.' : 'O chat desta partida está fechado.'}
       </Text>
     </View>
   }
@@ -192,8 +192,8 @@ export function MatchChat({ detail, onExpired, onReport, onPropose, onEvent, com
     {!readable
       ? <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 6, padding: 24 }}>
         <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants"><Icon name="messages-square" size={26} color={colors['ink-muted']} /></View>
-        <Text accessibilityRole="header" style={{ color: colors.ink, fontSize: 14, fontWeight: '700', textAlign: 'center' }}>O chat ainda não abriu</Text>
-        <Text style={{ color: colors['ink-muted'], fontSize: 12, lineHeight: 18, textAlign: 'center' }}>Ele abre quando os dois lados aceitam a proposta de partida.</Text>
+        <Text accessibilityRole="header" style={{ color: colors.ink, fontSize: 14, fontWeight: '700', textAlign: 'center' }}>{detail.my_role === 'historico' ? 'Chat indisponível no histórico' : 'O chat ainda não abriu'}</Text>
+        <Text style={{ color: colors['ink-muted'], fontSize: 12, lineHeight: 18, textAlign: 'center' }}>{detail.my_role === 'historico' ? 'O acesso pelo histórico permite consultar a partida e suas estatísticas.' : 'Ele abre quando os dois lados aceitam a proposta de partida.'}</Text>
       </View>
       : <View style={{ flex: 1, minHeight: 0 }}>
         <ScrollView ref={scroller} testID="chat-log" accessibilityLabel="Mensagens da partida" onScroll={onScroll} scrollEventThrottle={64} keyboardShouldPersistTaps="handled"

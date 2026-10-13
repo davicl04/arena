@@ -509,7 +509,7 @@ def test_the_points_preview_is_final_only_for_a_confirmed_match_after_the_deadli
 
 
 def test_match_lineups_is_for_the_participants(view, monkeypatch):
-    monkeypatch.setattr(results, 'load_match_for', lambda _db, match_id, who, *, for_update=False: (
+    monkeypatch.setattr(results, 'load_match_for', lambda _db, match_id, who, *, for_update=False, allow_history=False: (
         view.match, view.sides, view.access))
     assert len(results.match_lineups(view.db, user(), 1, now=NOW).items) == 4
 

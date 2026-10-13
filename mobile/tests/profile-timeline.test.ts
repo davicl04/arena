@@ -367,6 +367,33 @@ describe('MatchTimeline: a aba Partidas', () => {
     expect(textOf(tree)).not.toContain('Arena Sudoeste')
     await unmount(tree)
   })
+
+  it('filtro Corrida oculta a próxima partida de futebol, mesmo com corridas no histórico', async () => {
+    vi.mocked(request).mockResolvedValue(page([timelineRun()]) as never)
+    const upcoming = [matchCard({ id: 77, sport: 'futebol', state: 'agendada', phase: 'agendada', starts_at: new Date(Date.now() + 3 * 86_400_000).toISOString() })]
+    const tree = await mountTimeline({ upcoming })
+    expect(find(tree, 'next-match')).toHaveLength(1)
+    await press(tree, 'Filtrar por modalidade')
+    await press(tree, 'Corrida')
+    expect(find(tree, 'next-match')).toHaveLength(0)
+    expect(find(tree, 'run-duel-card')).toHaveLength(1)
+    await unmount(tree)
+  })
+
+  it('mantém a próxima partida da modalidade selecionada mesmo sem histórico nesse filtro', async () => {
+    vi.mocked(request).mockResolvedValue(page([]) as never)
+    const upcoming = [matchCard({ id: 77, sport: 'tenis', state: 'agendada', phase: 'agendada', starts_at: new Date(Date.now() + 3 * 86_400_000).toISOString() })]
+    const tree = await mountTimeline({ upcoming })
+    await press(tree, 'Filtrar por modalidade')
+    await press(tree, 'Tênis')
+    expect(find(tree, 'next-match')).toHaveLength(1)
+    expect(textOf(tree)).not.toContain('Nenhum registro nesta modalidade.')
+    await press(tree, 'Filtrar por modalidade')
+    await press(tree, 'Futebol')
+    expect(find(tree, 'next-match')).toHaveLength(0)
+    expect(textOf(tree)).toContain('Nenhum registro nesta modalidade.')
+    await unmount(tree)
+  })
 })
 
 describe('ProfileStatsBlocks: Taxa de vitória, Partidas e Melhor elo', () => {

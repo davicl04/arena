@@ -31,6 +31,13 @@ const toast = () => document.querySelector('[data-slot="result-toast"]') as HTML
 const body = (api: ReturnType<typeof mockApi>, method: string, path: string) => api.find(method, path)[0]?.body
 
 describe('Informe o placar (futebol)', () => {
+  it('acesso histórico mostra as estatísticas próprias sem oferecer revisão de elenco', async () => {
+    setup(football({ my_role: 'historico', state: 'encerrada', result: confirmed(3, 1, null), permissions: permissions() }), {},
+      { lineups: [lineup(caio, { side: 'a', present: true, stat: stat({ goals: 1 }), points: preview() })] })
+    await screen.findByText('Suas estatísticas')
+    expect(screen.queryByRole('button', { name: /Elenco e estatísticas/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: /Enviar estatísticas/ })).toBeNull()
+  })
   it('não renderiza nada antes do início da partida (sem resultado)', () => {
     const { container, api } = setup(football({ result: null, permissions: permissions() }))
     expect(container.querySelector('[data-slot="match-result"]')).toBeNull()

@@ -68,6 +68,14 @@ function CommunityRoute({ user, params, navigation, onExpired }: ScreenProps<'co
   return <CommunityScreen user={user} onExpired={onExpired} composeOnOpen={Boolean(params?.compose)} onComposeStarted={started} />
 }
 
+function ProfileRoute({ user, params, navigation, onUser, onLogout, onExpired, playBoard }: ScreenProps<'profile'>) {
+  const changeTab = useCallback((tab: 'Fotos' | 'Partidas') => navigation.setParams('profile', { tab }), [navigation])
+  return <ProfileScreen user={user} onUser={onUser} onLogout={onLogout} onExpired={onExpired}
+    tab={params?.tab} onTabChange={changeTab} onNewPhoto={() => navigation.go('community', { compose: true })}
+    upcoming={playBoard.board?.matches} onOpenMatch={matchId => navigation.go('match', { matchId })} onPlay={() => navigation.go('play')}
+    menuSections={close => <OrganizerMenu isAdmin={user.is_admin} navigation={navigation} onLeave={close} onExpired={onExpired} />} />
+}
+
 /**
  * Registro das telas: uma linha por tela de `ScreenParams`, cada uma com o componente (que recebe `ScreenProps`). Todas existem:
  * as abas, o Jogar (placa, partida, resultado e corrida nos próprios componentes), o Ranking, os campeonatos do atleta e do
@@ -79,9 +87,7 @@ export const screens: { [S in ScreenName]: ScreenComponent<S> } = {
   play: PlayScreen,
   community: CommunityRoute,
   'user-profile': UserProfileScreen,
-  profile: ({ user, navigation, onUser, onLogout, onExpired, playBoard }) => <ProfileScreen user={user} onUser={onUser} onLogout={onLogout} onExpired={onExpired} onNewPhoto={() => navigation.go('community', { compose: true })}
-    upcoming={playBoard.board?.matches} onOpenMatch={matchId => navigation.go('match', { matchId })} onPlay={() => navigation.go('play')}
-    menuSections={close => <OrganizerMenu isAdmin={user.is_admin} navigation={navigation} onLeave={close} onExpired={onExpired} />} />,
+  profile: ProfileRoute,
   notifications: NotificationsScreen,
   events: EventsScreen,
   event: EventScreen,

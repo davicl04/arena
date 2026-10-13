@@ -1,5 +1,35 @@
 # Situação da fundação do Arena
 
+## Correções do acesso histórico e do perfil no Expo — 13 de outubro de 2026
+
+Corrigidos os três achados da revisão abaixo, com testes de regressão e contrato atualizado em [0002, seção 19.5](decisoes/0002-jogar.md#195-leitura-da-partida-pelo-histórico). Sem migração ou dependências novas.
+
+- **Acesso histórico:** ex-integrantes e avulsos com participação válida podem abrir o detalhe da partida e ler apenas suas próprias estatísticas. A regra é compartilhada com a linha do tempo, incluindo os estados `realizada`, `encerrada`, `sem_resultado` e `cancelada`. O novo papel `historico` tem todas as permissões falsas, sem acesso ao chat ou às rotas de alteração. Participação ausente, removida ou posterior à partida não concede esse acesso. Os clientes não oferecem revisão de elenco e explicam o bloqueio do chat.
+- **Filtro no Expo:** a próxima partida respeita a modalidade selecionada e aparece mesmo quando o histórico daquela modalidade está vazio.
+- **Volta ao perfil no Expo:** a aba fica nos parâmetros da navegação; abrir uma partida e voltar mantém Partidas depois da remontagem da tela.
+
+**Verificações:**
+
+- Backend: `ruff check app migrations tests` e `pytest -q --cov=app --cov-branch` aprovados com PostgreSQL configurado em `TEST_DATABASE_URL`, em schemas aleatórios isolados: **1.586 aprovados e 1 pulado** (já existente), cobertura total **98%**. Os 14 testes novos cobrem bloqueio de chat e alterações, leitura limitada ao titular e exclusão de não participantes. A primeira execução encontrou um mock do teste unitário de escalações sem o novo parâmetro `allow_history`; o mock foi atualizado e a suíte completa repetida passou.
+- Web: lint, build e cobertura aprovados, **943 testes**, **92,5% das instruções e 86,09% dos ramos**. Permanece o aviso já existente de bundle acima de 500 kB.
+- Expo: lint, typecheck, cobertura e exportação Android aprovados, **1.323 testes**, **94,95% das instruções e 90,14% dos ramos**. O teste do Menu do Perfil passou a renderizar a rota pelo React, permitindo os hooks da rota sem perder a verificação das props do organizador.
+- Navegador com API e PostgreSQL reais, contas sintéticas e schema isolado: ex-integrante e avulso abriram suas partidas, viram as próprias estatísticas sem ações e o aviso de chat indisponível; a volta manteve Partidas na web. Sessão, contagens e registro do avulso se mantiveram após recarga. Detalhe conferido em 320, 390 e 1440 px, sem overflow horizontal, e console sem erros de JS. O schema temporário foi removido e os servidores auxiliares encerrados ao final, sem alterar dados existentes. Capturas e logs em `artifacts/perfil-revisao/`, fora do versionamento.
+- Diff final conferido com `git diff --check`, sem alterações incidentais ou artefatos temporários versionados.
+
+**Limitações:** Expo não ensaiado em aparelho Android/iOS nem contra API real; exportação e testes de navegação não comprovam paridade visual ou funcionamento em aparelho. CI remoto não executado. As pendências de integração da entrega anterior permanecem. Entrega registrada em commit local na branch `feat/play-page`, a pedido do usuário; sem push ou publicação.
+
+## Revisão da linha do tempo e das estatísticas do perfil — 12 de outubro de 2026
+
+Revisado o commit `e09fd1a` (comparado com `0341e58`), sem alterações funcionais naquele momento. Encontrados três problemas, corrigidos na entrega de 13 de outubro acima:
+
+- **Abrir partidas do histórico:** ex-membros de times e avulsos com presença confirmada recebem a partida na linha do tempo, mas `GET /matches/{id}` responde 404 quando já não têm o vínculo atual exigido por `match_accesses`. Os cartões dos dois clientes oferecem abertura mesmo nesses casos. Reproduzido em dois testes exploratórios com PostgreSQL, em schema aleatório isolado; corrigir a leitura histórica sem conceder permissões de ação ou chat pelo antigo vínculo.
+- **Filtro no Expo:** a próxima partida é calculada sem considerar a modalidade selecionada e continua visível no filtro Corrida mesmo sendo de futebol. Reproduzido com teste de componente. Quando a lista filtrada está vazia, o retorno antecipado também oculta uma próxima partida da modalidade selecionada.
+- **Volta ao perfil no Expo:** a aba fica apenas no estado local do `ProfileScreen`, iniciado em Fotos. A navegação para a partida desmonta essa tela (`ArenaShell` renderiza só a entrada atual); ao voltar, Fotos é selecionada novamente. Confirmado pela inspeção do estado e do ciclo de montagem da navegação; não ensaiado em aparelho.
+
+Verificações desta revisão: Ruff aprovado; 34 testes de integração do perfil aprovados com PostgreSQL; 27 testes existentes da linha do tempo e Duelos na web e 39 testes de API, paginação e linha do tempo no Expo aprovados. Os testes exploratórios de acesso histórico (dois) e filtro (um) falharam nos comportamentos descritos acima. Web: lint e build aprovados, com o aviso já existente de bundle acima de 500 kB. Expo: lint e typecheck aprovados. Fontes dos testes exploratórios ficaram em `artifacts/revisao-e09fd1a/`, fora do versionamento; os arquivos temporários foram retirados das suítes do produto.
+
+Não foram repetidos a suíte completa, cobertura, exportação Android, ensaios no navegador/aparelho nem CI remoto. Nenhuma migração, correção funcional, commit ou push nesta revisão. As pendências de integração e as limitações da entrega abaixo permanecem.
+
 ## Aba Partidas do perfil (linha do tempo) e estatísticas do perfil — 12 de outubro de 2026
 
 Implementado o [plano da aba Partidas](plano-perfil-partidas.md) no backend, na web e no Expo. Contrato e regras em [0002, seção 19](decisoes/0002-jogar.md#19-histórico-do-perfil-linha-do-tempo-e-estatísticas-12-de-outubro-de-2026).

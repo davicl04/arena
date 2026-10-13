@@ -20,7 +20,8 @@ export interface ScreenParams {
   play: { matchId?: number; sport?: Sport } | undefined
   /** `compose`: abre a Comunidade já na nova publicação (quadro "Nova foto" do perfil). */
   community: { compose?: boolean } | undefined
-  profile: undefined
+  /** Aba do conteúdo preservada ao abrir uma partida e voltar ao perfil. */
+  profile: { tab?: 'Fotos' | 'Partidas' } | undefined
   /** Perfil de outro atleta (o `user-profile` da web), empilhado sobre a tela de origem: "Ver perfil" do elenco e das filas. */
   'user-profile': { userId: number }
   /* Atleta: notificações, campeonatos e provas. */

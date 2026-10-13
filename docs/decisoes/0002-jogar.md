@@ -1337,7 +1337,7 @@ A corrida na web (frente W5: `web/src/api/runs.ts`, `RunStopwatchDialog` (K2), `
 
 ## 19. Histórico do perfil: linha do tempo e estatísticas (12 de outubro de 2026)
 
-Implementa a Parte A de [plano-perfil-partidas.md](../plano-perfil-partidas.md). Código: `app/services/profile_history.py` (regra de participação e contagens), `app/services/profile_timeline.py` (união e cursor), `app/routers/profile.py` e `app/schemas/profile.py`. Sem migração: as consultas partem de `user_id`, já indexado em `match_lineups`, `team_members` e `runs` (`ix_runs_user_history`); `EXPLAIN` não foi executado.
+Implementa a Parte A de [plano-perfil-partidas.md](../plano-perfil-partidas.md). Código: `app/services/match_participation.py` (regra de participação compartilhada), `app/services/profile_history.py` (contagens), `app/services/profile_timeline.py` (união e cursor), `app/routers/profile.py` e `app/schemas/profile.py`. Sem migração: as consultas partem de `user_id`, já indexado em `match_lineups`, `team_members` e `runs` (`ix_runs_user_history`); `EXPLAIN` não foi executado.
 
 ### 19.1 Regra de participação
 
@@ -1376,3 +1376,10 @@ Web (`web/src/api/profile.ts`, `web/src/components/profile-matches/`) e Expo (`m
 - O tie-break do set aparece só no lado que perdeu o set (convenção de `results/format.ts`), nunca no super tie-break.
 - No perfil visitado, um `404` da linha do tempo vira o vazio "Nenhuma partida por aqui"; no próprio, é tratado como erro com "Tentar novamente".
 - Na web, a aba do perfil próprio fica guardada no `ArenaPage`, de modo que voltar da tela da partida mantém Partidas.
+- No Expo, a aba fica nos parâmetros da entrada `profile` da navegação; abrir uma partida e voltar preserva Partidas mesmo quando a tela remonta. Uma próxima partida da modalidade selecionada permanece visível quando o histórico filtrado está vazio.
+
+### 19.5 Leitura da partida pelo histórico
+
+`GET /matches/{id}` e `GET /matches/{id}/stats` aceitam, além dos vínculos atuais já previstos, o participante da regra 19.1. Sem vínculo atual, o detalhe retorna `my_role: 'historico'`, o lado na época, `needs_my_action: false` e todas as permissões falsas. A leitura das estatísticas retorna apenas a escalação e as estatísticas do próprio titular; sem chamada, retorna a lista vazia, sem acrescentar o elenco atual.
+
+Esse acesso não permite ler ou escrever no chat, enviar ou revisar estatísticas, contestar, informar resultado, cancelar ou alterar condições. Essas rotas conservam a autorização pelo vínculo atual. Pessoa estranha, membro que entrou depois da partida, atleta ausente e avulso removido sem participação válida não ganham acesso. Partidas agendadas continuam fora desse acesso histórico. Os clientes mostram as estatísticas do titular sem ações e explicam a indisponibilidade do chat.

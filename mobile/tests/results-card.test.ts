@@ -57,6 +57,14 @@ const roster = (overrides: { caio?: Partial<ReturnType<typeof lineup>>; tiago?: 
 })
 
 describe('Informar o placar: futebol', () => {
+  it('acesso histórico mostra as estatísticas próprias sem oferecer revisão de elenco', async () => {
+    serve({ [`GET ${STATS}`]: { items: [lineup(caio, { side: 'a', present: true, stat: stat({ goals: 1 }), points: preview() })] } })
+    const { tree } = await mount({ match: football({ my_role: 'historico', state: 'encerrada', result: confirmed(3, 1, null), permissions: permissions() }) })
+    await flush()
+    expect(allText(tree)).toContain('Suas estatísticas')
+    expect(findButton(tree, 'Elenco e estatísticas')).toBeUndefined()
+    expect(findButton(tree, 'Enviar estatísticas')).toBeUndefined()
+  })
   it('conta os gols de cada lado, envia pelo lado A e avisa que falta o outro lado', async () => {
     const sent = football({ result: result({ reports: { a: report('a', 3, 1), b: hiddenReport('b') } }) })
     serve({ [STATS]: roster(), 'PUT /matches/7/result': sent })

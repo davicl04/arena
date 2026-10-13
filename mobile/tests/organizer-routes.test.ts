@@ -1,4 +1,7 @@
+import { createElement } from 'react'
 import type { ReactElement } from 'react'
+import { act, create } from 'react-test-renderer'
+import type { ReactTestRenderer } from 'react-test-renderer'
 import { describe, expect, it, vi } from 'vitest'
 import type { User } from '../src/api/client'
 import OrganizerMenu from '../src/components/organizer/OrganizerMenu'
@@ -10,6 +13,7 @@ import OrganizerRequestScreen from '../src/screens/OrganizerRequestScreen'
 import ProfileScreen from '../src/screens/ProfileScreen'
 import { navigationMock } from './support/organizer'
 import { playContext } from './support/play'
+import { enableAct } from './support/native'
 
 vi.mock('react-native', async () => (await import('./support/native')).reactNativeMock())
 vi.mock('expo-secure-store', () => ({ getItemAsync: vi.fn(), setItemAsync: vi.fn(), deleteItemAsync: vi.fn() }))
@@ -28,16 +32,21 @@ describe('registro de telas: organizador e Menu do Perfil', () => {
     expect(screens['event-manage']).toBe(EventManageScreen)
   })
 
-  it('o Perfil entrega ao Menu as seções do organizador com a navegação e o encerramento de sessão do shell', () => {
+  it('o Perfil entrega ao Menu as seções do organizador com a navegação e o encerramento de sessão do shell', async () => {
+    enableAct()
     const navigation = navigationMock()
     const onExpired = vi.fn()
     const close = vi.fn()
-    const element = screens.profile({ user: me, navigation: navigation as never, onUser: vi.fn(), onLogout: vi.fn(), ...playContext(), onExpired, params: undefined, title: 'Perfil' }) as ProfileElement
-    expect(element.type).toBe(ProfileScreen)
-    const sections = element.props.menuSections(close)
+    const props = { user: me, navigation: navigation as never, onUser: vi.fn(), onLogout: vi.fn(), ...playContext(), onExpired, params: undefined, title: 'Perfil' }
+    let tree!: ReactTestRenderer
+    await act(async () => { tree = create(createElement(screens.profile, props)) })
+    const profileProps = tree.root.findByType(ProfileScreen).props as ProfileElement['props']
+    const sections = profileProps.menuSections(close)
     expect(sections.type).toBe(OrganizerMenu)
     expect(sections.props).toMatchObject({ isAdmin: true, navigation, onLeave: close, onExpired })
-    const plain = screens.profile({ user: { ...me, is_admin: false }, navigation: navigation as never, onUser: vi.fn(), onLogout: vi.fn(), ...playContext(), onExpired, params: undefined, title: 'Perfil' }) as ProfileElement
-    expect(plain.props.menuSections(close).props.isAdmin).toBe(false)
+    await act(async () => { tree.update(createElement(screens.profile, { ...props, user: { ...me, is_admin: false } })) })
+    const plainProps = tree.root.findByType(ProfileScreen).props as ProfileElement['props']
+    expect(plainProps.menuSections(close).props.isAdmin).toBe(false)
+    await act(async () => { tree.unmount() })
   })
 })

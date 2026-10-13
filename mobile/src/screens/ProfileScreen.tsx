@@ -48,15 +48,19 @@ function VisibilityOption({ selected, title, facts, onPress }: { selected: boole
   </Pressable>
 }
 
-export default function ProfileScreen({ user, onUser, onLogout, onExpired, onNewPhoto, menuSections, upcoming, onOpenMatch, onPlay }: {
+export default function ProfileScreen({ user, onUser, onLogout, onExpired, onNewPhoto, menuSections, upcoming, onOpenMatch, onPlay, tab: activeContentTab, onTabChange }: {
   user: User; onUser: (user: User) => void; onLogout: () => void; onExpired: () => void; onNewPhoto?: () => void; menuSections?: (close: () => void) => ReactNode
   /** Partidas da placa do Jogar (já lidas pelo shell): dela sai a próxima partida da aba Partidas. */
   upcoming?: readonly MatchCard[]
   /** Abre a tela da partida (o mesmo caminho do Jogar e do Início). */
   onOpenMatch?: (matchId: number) => void
   onPlay?: () => void
+  tab?: ProfileTab
+  onTabChange?: (tab: ProfileTab) => void
 }) {
-  const [contentTab, setContentTab] = useState<ProfileTab>('Fotos')
+  const [localTab, setLocalTab] = useState<ProfileTab>('Fotos')
+  const contentTab = activeContentTab ?? localTab
+  const setContentTab = onTabChange ?? setLocalTab
   const { condensed, onScroll } = useCondensedTopBar(COVER_HEIGHT)
   const [profiles, setProfiles] = useState<Profile[]>([])
   const [cities, setCities] = useState<City[]>([])
