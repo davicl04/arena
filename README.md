@@ -37,6 +37,8 @@ O Compose também fornece MinIO local, construído do código na versão fixada 
 docker compose up -d --build --wait minio
 ```
 
+A compilação do MinIO faz até três tentativas, com pausa de cinco segundos entre elas, para tolerar falhas transitórias dos serviços de dependências do Go. Os downloads da tentativa anterior são reaproveitados e a verificação de integridade permanece ativa; se as três tentativas falharem, o build continua retornando erro.
+
 Configure no `backend/.env` `MEDIA_S3_ENDPOINT`, `MEDIA_S3_REGION`, `MEDIA_S3_BUCKET`, `MEDIA_S3_ACCESS_KEY` e `MEDIA_S3_SECRET_KEY`. Os valores de acesso precisam corresponder a `MINIO_ROOT_USER` e `MINIO_ROOT_PASSWORD` usados pelo Compose; se forem alterados, mantenha ambos os arquivos locais alinhados. Os valores de exemplo servem somente para desenvolvimento local. Depois que o MinIO estiver healthy e o ambiente do backend estiver configurado, crie o bucket privado explicitamente:
 
 ```powershell

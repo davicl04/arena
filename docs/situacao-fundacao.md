@@ -1,5 +1,13 @@
 # Situação da fundação do Arena
 
+## Compilação do MinIO após falha de rede no CI — 13 de outubro de 2026
+
+O log da etapa `Start isolated MinIO` mostrou uma falha HTTP/2 (`INTERNAL_ERROR`) ao consultar `sum.golang.org` para verificar módulos do Go, antes de iniciar o servidor ou executar os testes. O Dockerfile agora repete `go install` até três vezes, com pausa de cinco segundos entre tentativas e reaproveitamento dos downloads da mesma etapa. A versão fixada do MinIO e a verificação de integridade dos módulos foram mantidas; três falhas ainda encerram o build com erro. README atualizado.
+
+Verificações locais: build com `--no-cache --pull` aprovado; imagem corrigida saudável e teste real de gravação/leitura S3 com acesso anônimo negado aprovado em bucket isolado; simulação do comando do Dockerfile aprovada para sucesso imediato, recuperação após duas falhas e erro após três tentativas; `docker compose config --quiet` e `git diff --check` aprovados. Em `feat/play-page`, Ruff e a suíte completa com PostgreSQL e MinIO reais (`pytest -q --cov=app --cov-branch`, `TEST_DATABASE_URL` e `MEDIA_TEST_S3=1`) passaram: **1.587 testes aprovados, sem pulos, cobertura total 98%**. Logs e simulação em `artifacts/minio-ci-*` e `artifacts/check_minio_retry.py`, fora do versionamento.
+
+A correção foi registrada em commit local em checkout separado da branch `feat/play-page`, conforme solicitado, preservando `feat/notifications-ranking`. Os testes usaram schemas PostgreSQL aleatórios e MinIO temporário, removidos ao final, sem modificar contas, objetos ou volumes existentes. Sem migração ou dependência nova. Web e Expo não alterados nem retestados nesta correção de infraestrutura. O CI remoto não foi reexecutado; uma indisponibilidade persistente do serviço externo ainda pode exceder as tentativas. Sem push ou publicação.
+
 ## Correções do acesso histórico e do perfil no Expo — 13 de outubro de 2026
 
 Corrigidos os três achados da revisão abaixo, com testes de regressão e contrato atualizado em [0002, seção 19.5](decisoes/0002-jogar.md#195-leitura-da-partida-pelo-histórico). Sem migração ou dependências novas.

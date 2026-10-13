@@ -1,7 +1,14 @@
 ARG MINIO_VERSION=RELEASE.2025-10-15T17-29-55Z
 FROM golang:1.24-alpine AS build
 ARG MINIO_VERSION
-RUN CGO_ENABLED=0 go install github.com/minio/minio@${MINIO_VERSION}
+# Retry transient proxy/checksum service failures, preserving downloaded modules and checksum verification.
+RUN set -eu; \
+    for attempt in 1 2 3; do \
+        if CGO_ENABLED=0 go install github.com/minio/minio@${MINIO_VERSION}; then exit 0; fi; \
+        if [ "$attempt" -eq 3 ]; then exit 1; fi; \
+        echo "MinIO build failed; retrying ($attempt/3) in 5 seconds." >&2; \
+        sleep 5; \
+    done
 
 FROM alpine:3.22
 RUN apk add --no-cache ca-certificates wget su-exec && adduser -D -u 10001 minio && mkdir /data
