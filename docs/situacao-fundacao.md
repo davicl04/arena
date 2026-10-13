@@ -29,7 +29,8 @@ Fechamento do merge das branches `orq/toasts` e `orq/notificacoes` em `feat/noti
 **Verificações executadas:**
 - Web: `npm run lint` e `npm run build` aprovados (permanece o aviso de bundle acima de 500 kB); `npm run test:coverage` aprovado com **1.192 testes em 86 arquivos**, 93,54% das instruções e 87,47% dos ramos.
 - Expo: `npm run lint`, `npm run typecheck` e `npm run test:coverage` aprovados, com **1.534 testes em 99 arquivos**, 96,19% das instruções e 91,10% dos ramos.
-- Não executados: `export:android`, backend (sem alteração) e conferência no navegador ou em aparelho; a conciliação foi validada só por testes.
+- Depois do merge: backend com `ruff` sem apontamentos e `pytest -q` com `TEST_DATABASE_URL` (PostgreSQL 5432, schema aleatório): 1649 aprovados e 1 pulado; Expo com `npm run export:android` concluído.
+- Não executados: conferência da conciliação no navegador e em aparelho; ela foi validada só por testes. CI remoto não executado.
 
 **Limitações:** sem validação em aparelho Android/iOS (o toast sobre os `Modal`, a faixa e a folha de conexão do Expo seguem pendentes de conferência em aparelho); CI remoto não executado.
 
