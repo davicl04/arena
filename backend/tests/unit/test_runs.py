@@ -205,7 +205,8 @@ def test_a_running_standing_row_has_the_best_time_and_no_record():
     fields = standing_fields(placement, calc_version=1)
     assert fields == {
         'metric_value': Decimal(3150), 'matches_played': 3, 'rank_position': 1, 'tier': 'ouro', 'calc_version': 1,
-        'wins': 0, 'draws': 0, 'losses': 0, 'goals_for': 0, 'goals_against': 0}
+        'wins': 0, 'draws': 0, 'losses': 0, 'goals_for': 0, 'goals_against': 0, 'recent_form': '',
+        'best_mark_on': date(2026, 9, 1)}
 
 
 # ----- Preview verdicts ----------------------------------------------------------------------------------------------

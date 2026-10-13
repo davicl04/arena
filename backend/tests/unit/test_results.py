@@ -7,12 +7,11 @@ import pytest
 from fastapi import HTTPException
 
 from app.schemas.matches import ResultInput
-from app.services import results
+from app.services import ranking_views
 from app.services.match_rules import RuleError, validate_tennis_sets
+from app.services.ranking_views import RankingParams, ranking_category
 from app.services.results import (
-    RankingParams,
     points_preview,
-    ranking_category,
     score_text,
     stats_text,
     validate_score,
@@ -117,12 +116,12 @@ def test_ranking_categories_need_the_format_position_or_distance():
 
 
 def test_the_cursor_is_an_opaque_position():
-    assert results._decode_position(None) == 0 and results._decode_position('') == 0
-    assert results._decode_position(results._encode_position(41)) == 41
-    assert '=' not in results._encode_position(7)
+    assert ranking_views._decode_position(None) == 0 and ranking_views._decode_position('') == 0
+    assert ranking_views._decode_position(ranking_views._encode_position(41)) == 41
+    assert '=' not in ranking_views._encode_position(7)
     for cursor in ('%%', 'MA', 'abc', 'LTE'):
         with pytest.raises(HTTPException) as error:
-            results._decode_position(cursor)
+            ranking_views._decode_position(cursor)
         assert (error.value.status_code, error.value.detail) == (422, 'Cursor de paginação inválido.')
 
 

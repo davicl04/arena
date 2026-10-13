@@ -1,4 +1,4 @@
-"""Result, attendance, stats, contests and rankings of a match (Jogar, fase 5; etapa 3).
+"""Result, attendance, stats and contests of a match (Jogar, fase 5; etapa 3).
 
 Contract: docs/decisoes/0002-jogar.md, section 12. Every route here locks the match first (`FOR UPDATE`), so the
 two sides reporting at once, the attendance and the stats of one match are serialized; the ranking categories are
@@ -10,23 +10,20 @@ end and answer with the view the route returns; `now` comes from the router, whi
   turns a friendly into 'sem_resultado'; the organizer decides championships in stage 4).
 - **Attendance (RN03) and stats (RN10, RN12, RN13):** the athlete sends, the own representative reviews, the
   opposing representative contests once; contested items score only after the final review.
-- **Rankings (RN11, RN14, RN16, RN23):** `rankings_page` lists the general rankings from the materialized
-  `standings` (no city).
+- **Rankings (RN11, RN14, RN16, RN23):** the general rankings are read from the materialized `standings` by
+  `services.ranking_views` (no city).
 """
 from __future__ import annotations
 
-import base64
-import binascii
 from collections import defaultdict
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
 
 from fastapi import HTTPException
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.pagination import PAGE_DEFAULT
 from app.models.identity import User
 from app.models.matches import (
     SCORED_MATCH_STATES,
@@ -38,24 +35,19 @@ from app.models.matches import (
     MatchSide,
     MatchSlot,
 )
-from app.models.rankings import FOOTBALL_FORMATS, RUN_DISTANCES_KM, Standing
-from app.models.teams import POSITIONS, Team, TeamMember
+from app.models.teams import TeamMember
 from app.schemas.common import PersonOut
 from app.schemas.matches import (
     AttendanceInput,
     FootballStatOut,
     LineupOut,
     MatchDetailOut,
-    MyRankingLineOut,
     MyStatsInput,
     PointsPreviewOut,
-    RankingPageOut,
-    RankingRowOut,
     ResultInput,
     StatContestInput,
     StatReviewInput,
 )
-from app.schemas.rankings import TeamRefOut
 from app.schemas.results import LineupListOut, MyStatsOut
 from app.services import audit, bracket_rules, championship_lifecycle, notifications
 from app.services.match_access import (
@@ -88,14 +80,6 @@ from app.services.match_rules import (
 from app.services.match_views import can_see_report, match_detail
 from app.services.match_views import report_score as score_of_report
 from app.services.people import people_out
-from app.services.rankings import (
-    CURRENT_CALC_VERSION,
-    legend_slots,
-    load_cuts,
-    ranking_key,
-    required_matches,
-    standing_line,
-)
 from app.services.scoring import individual_points, outcome_for
 from app.services.standings import recalculate_for_match
 
@@ -127,7 +111,6 @@ POSITION_ABBREVIATIONS = {'goleiro': 'GOL', 'defesa': 'DEF', 'meio_campo': 'MEI'
 POSITION_STAT_UNITS = {'goleiro': ('defesa', 'defesas'), 'defesa': ('desarme', 'desarmes'),
                        'meio_campo': ('passe decisivo', 'passes decisivos'),
                        'atacante': ('finalização no alvo', 'finalizações no alvo')}
-CURSOR_INVALID = 'Cursor de paginação inválido.'
 
 
 def _conflict(error: TransitionError) -> HTTPException:
@@ -641,136 +624,5 @@ def match_lineups(db: Session, user: User, match_id: int, *, now: datetime) -> L
                                          only_user_id=user.id if access.role == 'historico' else None))
 
 
-# ----- Rankings (RN11, RN14, RN16, RN23) --------------------------------------------------------------------
-
-@dataclass(frozen=True)
-class RankingParams:
-    """Query of `GET /rankings`: football by team (`kind='time'`, format) or individual (format and position),
-    tennis, or running by distance. Rankings are general: there is no city."""
-    sport: str
-    kind: str | None = None
-    format: str | None = None
-    position: str | None = None
-    distance_km: int | None = None
-    cursor: str | None = None
-    limit: int = PAGE_DEFAULT
-
-
-def _decode_position(cursor: str | None) -> int:
-    if not cursor:
-        return 0
-    try:
-        value = int(base64.urlsafe_b64decode(cursor + '=' * (-len(cursor) % 4)).decode())
-    except (ValueError, binascii.Error, UnicodeDecodeError):
-        raise HTTPException(422, CURSOR_INVALID) from None
-    if value < 1:
-        raise HTTPException(422, CURSOR_INVALID)
-    return value
-
-
-def _encode_position(position: int) -> str:
-    return base64.urlsafe_b64encode(str(position).encode()).decode().rstrip('=')
-
-
-def ranking_category(params: RankingParams) -> tuple[str, str | None, str | None, int | None]:
-    """(ranking key, format, position, distance) of the query, or 422 for a missing category."""
-    if params.sport == 'futebol':
-        if params.kind not in ('time', 'individual'):
-            raise HTTPException(422, 'Escolha se o ranking é de times ou individual.')
-        if params.format not in FOOTBALL_FORMATS:
-            raise HTTPException(422, 'Escolha o formato.')
-        if params.kind == 'time':
-            return ranking_key('futebol', team=True), params.format, None, None
-        if params.position not in POSITIONS:
-            raise HTTPException(422, 'Escolha a posição.')
-        return ranking_key('futebol'), params.format, params.position, None
-    if params.sport == 'tenis':
-        return ranking_key('tenis'), None, None, None
-    if params.distance_km is None:
-        raise HTTPException(422, 'Escolha a distância.')
-    if params.distance_km not in RUN_DISTANCES_KM:
-        raise HTTPException(422, 'Distância inválida.')
-    return ranking_key('corrida', distance_km=params.distance_km), None, None, params.distance_km
-
-
-def _category_filter(ranking: str, format_: str | None, position: str | None, distance_km: int | None) -> tuple:
-    if ranking == 'futebol_time':
-        return Standing.sport == 'futebol', Standing.team_id.is_not(None), Standing.format == format_
-    if ranking == 'futebol_individual':
-        return (Standing.sport == 'futebol', Standing.user_id.is_not(None), Standing.format == format_,
-                Standing.position == position)
-    if distance_km is not None:
-        return Standing.sport == 'corrida', Standing.distance_km == distance_km
-    return (Standing.sport == 'tenis',)
-
-
-def _my_lines(db: Session, viewer: User, ranking: str, format_: str | None, position: str | None,
-              distance_km: int | None, required: int) -> tuple[list[MyRankingLineOut], set[int]]:
-    """The viewer's lines in this ranking (each active team in a team ranking), even while in placement, and the
-    ids of their active teams (for `is_mine`)."""
-    if ranking == 'futebol_time':
-        memberships = db.execute(
-            select(TeamMember, Team).join(Team, Team.id == TeamMember.team_id)
-            .where(TeamMember.user_id == viewer.id, TeamMember.left_at.is_(None), Team.state == 'ativo')
-            .order_by((TeamMember.role == 'representante').desc(), TeamMember.joined_at, Team.id)).all()
-        rows = {row.team_id: row for row in db.scalars(select(Standing).where(
-            Standing.team_id.in_([team.id for _, team in memberships]), Standing.sport == 'futebol',
-            Standing.format == format_))} if memberships else {}
-        lines = [MyRankingLineOut(
-            team=TeamRefOut(id=team.id, name=team.name, initials=team.initials, crest_url=team.crest_url),
-            **standing_line(rows.get(team.id), required)) for _, team in memberships]
-        return lines, {team.id for _, team in memberships}
-    where = [Standing.user_id == viewer.id]
-    if ranking == 'futebol_individual':
-        where += [Standing.sport == 'futebol', Standing.format == format_, Standing.position == position]
-    elif ranking == 'tenis':
-        where += [Standing.sport == 'tenis']
-    else:
-        where += [Standing.sport == 'corrida', Standing.distance_km == distance_km]
-    row = db.scalar(select(Standing).where(*where))
-    return [MyRankingLineOut(team=None, **standing_line(row, required, running=ranking.startswith('corrida')))], set()
-
-
-def rankings_page(db: Session, viewer: User, params: RankingParams) -> RankingPageOut:
-    """A page of a general ranking in position order (classified subjects only; positions and tiers are the ones
-    materialized by `services.standings`) with the viewer's own lines, which also exist in placement. In a running
-    distance, `metric_value` is the best time in seconds of the window (the lowest wins), `matches_played` counts
-    the marks and the record fields are zero or null."""
-    ranking, format_, position, distance_km = ranking_category(params)
-    cuts = load_cuts(db, CURRENT_CALC_VERSION)
-    required = required_matches(cuts, ranking, 'corrida' if distance_km else 'tenis' if ranking == 'tenis'
-                                else 'futebol')
-    mine, my_teams = _my_lines(db, viewer, ranking, format_, position, distance_km, required)
-    base = dict(ranking=ranking, format=format_, position=position, distance_km=distance_km,
-                calc_version=CURRENT_CALC_VERSION, required=required, mine=mine)
-
-    where = _category_filter(ranking, format_, position, distance_km)
-    classified = db.scalar(select(func.count()).select_from(Standing).where(
-        *where, Standing.rank_position.is_not(None))) or 0
-    rows = list(db.scalars(select(Standing).where(
-        *where, Standing.rank_position > _decode_position(params.cursor))
-        .order_by(Standing.rank_position, Standing.id).limit(params.limit + 1)))
-    more = len(rows) > params.limit
-    rows = rows[:params.limit]
-    teams = {team.id: team for team in db.scalars(select(Team).where(
-        Team.id.in_([row.team_id for row in rows if row.team_id is not None])))} if ranking == 'futebol_time' else {}
-    people = people_out(db, viewer, [row.user_id for row in rows])
-    items = []
-    for row in rows:
-        team = teams.get(row.team_id) if row.team_id is not None else None
-        athlete = people.get(row.user_id) if row.user_id is not None else None
-        no_goals = ranking == 'futebol_individual' or distance_km is not None
-        items.append(RankingRowOut(
-            rank_position=row.rank_position, tier=row.tier, metric_value=float(row.metric_value),
-            matches_played=row.matches_played, wins=row.wins, draws=row.draws, losses=row.losses,
-            goals_for=None if no_goals else row.goals_for, goals_against=None if no_goals else row.goals_against,
-            team=None if team is None else TeamRefOut(id=team.id, name=team.name, initials=team.initials,
-                                                      crest_url=team.crest_url),
-            athlete=athlete, is_mine=row.team_id in my_teams if team is not None else row.user_id == viewer.id))
-    return RankingPageOut(classified_count=classified, legend_slots=legend_slots(classified, cuts[ranking].legend_share),
-                          items=items, next_cursor=_encode_position(rows[-1].rank_position) if more else None,
-                          **base)
-
-
-__all__ = ['RankingParams', 'contest_stat', 'lineups_out', 'match_lineups', 'points_preview', 'rankings_page',
+__all__ = ['contest_stat', 'lineups_out', 'match_lineups', 'points_preview',
            'report_score', 'review_stat', 'send_my_stats', 'set_attendance', 'validate_score']

@@ -1,5 +1,5 @@
 """Points and rankings (stage 3): RN11, RN12, RN14, RN16, the 52-week window, classification and tiers."""
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 
 import pytest
@@ -8,6 +8,7 @@ from app.services.rankings import Cuts
 from app.services.scoring import (
     IndividualPoints,
     IndividualRecord,
+    RunRecord,
     TeamRecord,
     TennisRecord,
     in_window,
@@ -18,6 +19,9 @@ from app.services.scoring import (
     outcome_for,
     position_stat_points,
     rank_records,
+    recent_form,
+    run_order,
+    score_outcome,
     standing_fields,
     team_order,
     team_points,
@@ -153,13 +157,45 @@ def test_standing_fields_carry_the_record_and_the_calc_version():
     team = rank_records([team_record(1, [(2, 0), (1, 1), (0, 3)])], cuts=TEAM_CUTS, order=team_order)[0]
     assert standing_fields(team, calc_version=1) == {
         'metric_value': Decimal(4), 'matches_played': 3, 'rank_position': 1, 'tier': 'bronze', 'calc_version': 1,
-        'wins': 1, 'draws': 1, 'losses': 1, 'goals_for': 3, 'goals_against': 4}
+        'wins': 1, 'draws': 1, 'losses': 1, 'goals_for': 3, 'goals_against': 4, 'recent_form': '',
+        'best_mark_on': None}
     tennis = rank_records([tennis_record(2, [(2, 1)])], cuts=TENNIS_CUTS, order=tennis_order)[0]
     assert standing_fields(tennis, calc_version=2) == {
         'metric_value': Decimal(10), 'matches_played': 1, 'rank_position': None, 'tier': None, 'calc_version': 2,
-        'wins': 1, 'draws': 0, 'losses': 0, 'goals_for': 2, 'goals_against': 1}
+        'wins': 1, 'draws': 0, 'losses': 0, 'goals_for': 2, 'goals_against': 1, 'recent_form': '',
+        'best_mark_on': None}
     individual = rank_records([IndividualRecord(3, 3, Decimal(12), 2, 0, 1)], cuts=INDIVIDUAL_CUTS,
                               order=individual_order)[0]
     fields = standing_fields(individual, calc_version=1)
     assert (fields['metric_value'], fields['tier'], fields['goals_for'], fields['wins']) == (
         Decimal('4.000'), 'ouro', 0, 2)
+
+
+# ----- Recent form (Ranking screen) ---------------------------------------------------------------------------
+
+def test_recent_form_keeps_the_last_five_oldest_first_by_start_then_id():
+    day = datetime(2026, 9, 1, 20, 0, tzinfo=timezone.utc)
+    shuffled = [(day + timedelta(days=4), 7, 'vitoria'), (day, 1, 'derrota'), (day + timedelta(days=2), 3, 'empate'),
+                (day + timedelta(days=1), 2, 'vitoria'), (day + timedelta(days=5), 9, 'derrota'),
+                (day + timedelta(days=3), 5, 'vitoria'), (day + timedelta(days=4), 6, 'empate')]
+    # In order: D V E V E V D. The two oldest leave; the two of the same start are ordered by match id (6, then 7).
+    assert recent_form(shuffled) == 'EVEVD'
+    assert recent_form(shuffled, limit=2) == 'VD' and recent_form(shuffled, limit=0) == ''
+    assert recent_form(shuffled[:2]) == 'DV'                    # fewer than five: only the ones that exist
+    assert recent_form([]) == ''
+
+
+def test_a_tennis_score_has_no_draw_in_the_form():
+    assert [score_outcome(2, 1), score_outcome(1, 1), score_outcome(0, 3)] == ['vitoria', 'empate', 'derrota']
+    assert [score_outcome(2, 1, draws=False), score_outcome(1, 1, draws=False)] == ['vitoria', 'derrota']
+
+
+def test_the_form_and_the_best_mark_day_are_standing_columns():
+    cuts = Cuts('futebol_time', 'pontos', 'maior', Decimal(10), Decimal(30), Decimal(60), 3, Decimal('0.15'), 52)
+    [placement] = rank_records([team_record(1, [(1, 0)] * 3, form='VVV')], cuts=cuts, order=team_order)
+    fields = standing_fields(placement, calc_version=1)
+    assert (fields['recent_form'], fields['best_mark_on']) == ('VVV', None)
+    run_cuts = Cuts('corrida_5', 'tempo', 'menor', Decimal(1800), Decimal(1500), Decimal(1260), 1, Decimal('0.15'), 52)
+    [mark] = rank_records([RunRecord(1, 2, 1400, date(2026, 9, 3))], cuts=run_cuts, order=run_order)
+    fields = standing_fields(mark, calc_version=1)
+    assert (fields['recent_form'], fields['best_mark_on']) == ('', date(2026, 9, 3))

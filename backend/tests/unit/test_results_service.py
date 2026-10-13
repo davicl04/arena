@@ -1,11 +1,10 @@
-"""Scores, attendance, stats, reviews, contests and rankings over a simulated session (no database).
+"""Scores, attendance, stats, reviews and contests over a simulated session (no database).
 
 The real service code runs on plain model instances; the tests check the rules in their order and what each
 transition writes. The SQL, the locks and the ranking recalculation are checked on PostgreSQL
 (`tests/integration/test_results_flow.py`, `test_standings_recalc.py`).
 """
 from datetime import datetime, timedelta, timezone
-from decimal import Decimal
 from types import SimpleNamespace
 
 import pytest
@@ -15,8 +14,7 @@ from app.models.audit import AuditLog
 from app.models.identity import User
 from app.models.matches import FootballStat, Match, MatchLineup, MatchMessage, MatchResult, MatchSide
 from app.models.notifications import Notification
-from app.models.rankings import Standing
-from app.models.teams import Team, TeamMember
+from app.models.teams import TeamMember
 from app.schemas.common import PersonOut
 from app.schemas.matches import (
     AttendanceInput,
@@ -28,7 +26,6 @@ from app.schemas.matches import (
 from app.services import results
 from app.services.match_access import MatchAccess
 from app.services.match_rules import RuleError
-from app.services.results import RankingParams
 from tests.unit.fakes import FakeDb
 
 NOW = datetime(2026, 10, 12, 15, 0, tzinfo=timezone.utc)
@@ -512,97 +509,3 @@ def test_match_lineups_is_for_the_participants(view, monkeypatch):
     monkeypatch.setattr(results, 'load_match_for', lambda _db, match_id, who, *, for_update=False, allow_history=False: (
         view.match, view.sides, view.access))
     assert len(results.match_lineups(view.db, user(), 1, now=NOW).items) == 4
-
-
-# ----- Rankings -----------------------------------------------------------------------------------------------
-
-def cuts():
-    share = Decimal('0.15')
-    table = {name: SimpleNamespace(placement_matches=3, legend_share=share, window_weeks=52)
-             for name in ('futebol_time', 'futebol_individual', 'tenis')}
-    table['corrida_5'] = SimpleNamespace(placement_matches=1, legend_share=share, window_weeks=52)   # the first mark
-    return table
-
-
-def standing(standing_id, rank, **values):
-    base = dict(id=standing_id, sport='futebol', format='society', metric_value=Decimal(20 - rank),
-                matches_played=5, wins=3, draws=1, losses=1, goals_for=9, goals_against=5, rank_position=rank,
-                tier='ouro')
-    return Standing(**{**base, **values})
-
-
-@pytest.fixture
-def ranking(scene, monkeypatch):
-    monkeypatch.setattr(results, 'load_cuts', lambda _db, version: cuts())
-    return scene
-
-
-def test_the_team_ranking_lists_the_classified_with_my_teams_marked(ranking):
-    db = ranking.db
-    team_a, team_b = Team(id=1, name='Ferrugem FC', city_id=1), Team(id=2, name='Tigres do Lago', city_id=1)
-    db.on('team_members', [(TeamMember(team_id=1, user_id=REP_A, role='representante', joined_at=NOW), team_a)])
-    db.then('standings', [standing(1, 1, team_id=2), standing(2, 2, team_id=1)])               # my teams' rows
-    db.then('standings', 2)                                                                   # classified count
-    db.then('standings', [standing(1, 1, team_id=2), standing(2, 2, team_id=1)])               # the page
-    db.on('teams', [team_a, team_b])
-    page = results.rankings_page(db, user(), RankingParams(sport='futebol', kind='time', format='society', limit=20))
-    assert (page.ranking, page.classified_count, page.legend_slots, page.required, page.next_cursor) == (
-        'futebol_time', 2, 0, 3, None)
-    assert [(row.rank_position, row.team.name, row.is_mine, row.goals_for) for row in page.items] == [
-        (1, 'Tigres do Lago', False, 9), (2, 'Ferrugem FC', True, 9)]
-    [mine] = page.mine
-    assert (mine.team.id, mine.state, mine.tier, mine.rank_position) == (1, 'ranqueado', 'ouro', 2)
-
-
-def test_a_full_page_gives_the_cursor_of_the_next_one(ranking):
-    db = ranking.db
-    rows = [standing(index, index, user_id=40 + index, position='atacante', team_id=None) for index in (1, 2, 3)]
-    db.then('standings', None).then('standings', 30).then('standings', rows)
-    page = results.rankings_page(db, user(), RankingParams(
-        sport='futebol', kind='individual', format='society', position='atacante', limit=2))
-    assert [row.rank_position for row in page.items] == [1, 2] and page.legend_slots == 4
-    assert page.items[0].athlete.id == 41 and page.items[0].goals_for is None and page.items[0].is_mine is False
-    assert page.next_cursor == results._encode_position(2)
-    assert page.mine[0].state == 'sem_jogos' and page.mine[0].team is None
-
-
-def test_tennis_and_running_rankings(ranking):
-    db = ranking.db
-    db.then('standings', standing(5, 1, sport='tenis', format=None, user_id=REP_A, team_id=None))
-    db.then('standings', 1).then('standings', [standing(5, 1, sport='tenis', format=None, user_id=REP_A, team_id=None)])
-    page = results.rankings_page(db, user(), RankingParams(sport='tenis'))
-    assert page.items[0].is_mine and page.mine[0].rank_position == 1
-    # Running reads `standings` like the other rankings: the viewer's line, the classified count and the page.
-    db.then('standings', None).then('standings', 0).then('standings', [])
-    running = results.rankings_page(db, user(), RankingParams(sport='corrida', distance_km=5))
-    assert (running.ranking, running.items, running.classified_count, running.mine[0].state) == (
-        'corrida_5', [], 0, 'sem_marca')
-    assert running.required == 1 and running.legend_slots == 0
-
-
-def test_a_running_ranking_lists_the_best_times_without_goals(ranking):
-    # Contract 0002, 18: `metric_value` is the best time in seconds, `matches_played` the marks, no goals.
-    db = ranking.db
-    mark = standing(7, 1, sport='corrida', format=None, user_id=REP_A, team_id=None, distance_km=5,
-                    metric_value=Decimal(1290), matches_played=2, wins=0, draws=0, losses=0, goals_for=0,
-                    goals_against=0, tier='diamante')
-    other = standing(8, 2, sport='corrida', format=None, user_id=43, team_id=None, distance_km=5,
-                     metric_value=Decimal(1500), matches_played=1, wins=0, draws=0, losses=0, goals_for=0,
-                     goals_against=0, tier='ouro')
-    db.then('standings', mark).then('standings', 2).then('standings', [mark, other])
-    page = results.rankings_page(db, user(), RankingParams(sport='corrida', distance_km=5))
-    assert (page.ranking, page.distance_km, page.classified_count, page.next_cursor) == ('corrida_5', 5, 2, None)
-    assert [(row.rank_position, row.metric_value, row.matches_played, row.goals_for, row.goals_against, row.is_mine)
-            for row in page.items] == [(1, 1290.0, 2, None, None, True), (2, 1500.0, 1, None, None, False)]
-    [mine] = page.mine
-    assert (mine.state, mine.tier, mine.rank_position, mine.metric_value) == ('ranqueado', 'diamante', 1, 1290.0)
-
-
-def test_the_cursor_continues_after_the_last_position(ranking):
-    db = ranking.db
-    db.then('standings', None).then('standings', 3).then('standings', [standing(3, 3, user_id=43, team_id=None,
-                                                                                position='defesa')])
-    page = results.rankings_page(db, user(), RankingParams(
-        sport='futebol', kind='individual', format='society', position='defesa', cursor=results._encode_position(2)))
-    assert [row.rank_position for row in page.items] == [3]
-    assert db.statements.count('standings') == 3
