@@ -1,5 +1,41 @@
 # Situação da fundação do Arena
 
+## Plano do sino global e da tela de notificações (apenas planejamento) — 13 de outubro de 2026
+
+Registrado [plano-notificacoes.md](plano-notificacoes.md), resultado de uma sessão de protótipos em quatro rodadas. O protótipo está num artefato privado do usuário, e a fonte local fica em `artifacts/prototipos-notificacoes/`, fora do versionamento.
+
+Decisões tomadas:
+- O sino fica na barra de cada aba raiz (Início, Ranking, Jogar, Comunidade e Perfil). As subtelas não têm sino.
+- O contador mostra o número de não lidas mais os pedidos para seguir.
+- A tela segue o desenho **Placa e filtros**, com os chips *Tudo · Para responder · Partidas · Times · Eventos*.
+- A lista usa **Pendências fixadas**: o bloco "Para responder" vem no topo, com prazo e botão que leva à tela do aviso.
+- Os pedidos para seguir viram uma linha-resumo que abre uma subtela própria.
+- O Início ganha a placa compacta "Para responder", com as 2 pendências mais urgentes.
+- O backend passa a calcular as pendências (chave de ação, prazo e resolução), e os filtros rodam no servidor.
+- O resumo é recarregado na troca de aba, no retorno ao app e a cada 60 s.
+- O escopo cobre backend, web e Expo.
+
+Divergências encontradas: hoje o contador só é lido quando o Início monta e não inclui os pedidos para seguir. O modelo `Notification` só tem `read_at`, então abrir uma proposta a marca como lida mesmo sem resposta.
+
+Alteração somente documental: nenhum código, dependência ou banco foi alterado e nenhum teste foi executado. Algumas decisões foram tomadas pelo plano e podem ser revistas antes da implementação: a contagem dos chips, a ausência de preenchimento retroativo e a permanência da linha do Menu.
+
+## Plano dos toasts, do aviso de conexão e dos erros de carregamento (apenas planejamento) — 13 de outubro de 2026
+
+Registrado [plano-toasts.md](plano-toasts.md), resultado de uma sessão de protótipos em três rodadas. O protótipo está num artefato privado do usuário, e a fonte local fica em `artifacts/prototipos-toasts/`, fora do versionamento.
+
+Decisões tomadas:
+- Direção visual **Vidro do Coliseu**, com o cartão **Anel** (anel de tempo no ícone, ação em pílula, X sempre visível).
+- Pilha em baralho acima da navegação inferior.
+- Durações: 4 s para sucesso, 5 s para informação e 7 s para aviso. O erro fica até ser fechado.
+- As mensagens se dividem em quatro níveis: toast, aviso de conexão, erro de tela e erro junto ao campo.
+- Sem conexão, a faixa aparece presa à navegação. Uma folha bloqueante só abre quando o usuário tenta uma ação, e depois de dispensada a faixa apenas treme.
+- Na web, a base é o Toast do `@base-ui/react`, sem dependência nova.
+- O escopo cobre web e Expo.
+
+O inventário encontrou três implementações paralelas de toast na web e cerca de 65 arquivos com blocos de retorno parados. Também encontrou variáveis que misturam erro de carregamento, de ação e de campo (por exemplo `AdminReports`, `ArenaPage`, `TeamsPage` e `PlayPage`). No Expo, as folhas usam `Modal` nativo, o que exige um viewport de toast dentro de cada modal. O backend já devolve 503 em falha do banco e tem `/health/ready`, que o plano aproveita.
+
+Alteração somente documental: nenhum código, dependência ou banco foi alterado e nenhum teste foi executado. O comportamento do erro de tela (Coliseu, com uma variante compacta para seções) foi assumido no plano e pode ser revisto antes da implementação.
+
 ## Espera pelo retorno da cópia de Pix nos testes web — 13 de outubro de 2026
 
 O CI do commit `1c7ce14` passou no backend e no Expo nas duas execuções (push e pull request), confirmando a recuperação da compilação do MinIO. A web passou na execução do PR, mas falhou na do push: o teste de Pix encontrou a região `role="status"` ainda vazia, antes da conclusão assíncrona de `navigator.clipboard.writeText`. A presença dessa região não comprova que a mensagem já foi atualizada.
