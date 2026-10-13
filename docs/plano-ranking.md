@@ -1,6 +1,6 @@
 # Plano — tela Ranking: você no centro, cada elo como ranking próprio e Salão dos Lendários (backend + web + Expo)
 
-> Estado: **planejado em 13 de outubro de 2026, ainda não implementado.** Branch de origem: `feat/notifications-ranking`.
+> Estado: **planejado e implementado em 13 de outubro de 2026** (backend, web e Expo), na branch `feat/notifications-ranking`. As quatro decisões tomadas pelo plano foram confirmadas pelo usuário antes da implementação. Registro da entrega e das verificações em [situacao-fundacao.md](situacao-fundacao.md); contrato final na seção 20 da [0002](decisoes/0002-jogar.md).
 
 ## Contexto
 

@@ -1,5 +1,52 @@
 # Situação da fundação do Arena
 
+## Nova tela Ranking por elo, com Salão dos Lendários (backend, web e Expo) — 13 de outubro de 2026
+
+Execução do [plano-ranking.md](plano-ranking.md) em três frentes paralelas (worktrees `orq/ranking-back`, `orq/ranking-web` e `orq/ranking-expo`), mescladas em `feat/notifications-ranking` sem conflitos. Antes de começar, o usuário confirmou as quatro decisões tomadas pelo plano: chips de faixa para quem não tem elo (Bronze por padrão), troca de elo que pula elos vazios, diferenças relativas às pessoas sem expor os cortes, e `rank_position` mantida na API, mas fora da tela.
+
+O que mudou:
+- **Backend.**
+  - A migração `0013` adiciona a `standings` as colunas `recent_form` (até 5 letras V/E/D, com CHECK) e `best_mark_on` (só corrida, com CHECK), além do índice parcial `ix_standings_ranking_tier`.
+  - O recálculo da categoria grava a forma recente (`scoring.recent_form`) e a data da melhor marca. No individual, conta só quem teve presença, e no W.O. só o lado que compareceu. No tênis, só V/D.
+  - O novo comando `python -m app.admin_cli recalculate-rankings` preenche as linhas existentes e pode ser rodado de novo sem mudar nada.
+  - `services/ranking_views.py` é novo, com `rankings_page` movido de `results.py`, e os schemas e o roteador passaram a `schemas/rankings.py` e `routers/rankings.py`, com os mesmos caminhos.
+  - `GET /rankings` ganhou `tier`, `tier_position`, `form`, `best_mark_on` e `tier_counts`.
+  - O novo `GET /rankings/overview` traz a janela de ±3 no elo, as diferenças para o 1º e para o próximo, os times do titular com `team_id` (404 para time alheio ou inativo) e a prévia dos Lendários.
+  - O contrato está na seção 20 da [0002](decisoes/0002-jogar.md), e o passo pós-migração no README.
+- **Web.**
+  - A aba Ranking ganhou barra própria, só com título e sino. Abaixo vêm o cartão Categoria (folha filtrada pelos perfis ativos), os chips dos times, a entrada do Salão dos Lendários e a placa contínua tingida na cor do elo.
+  - A placa traz a troca de elo, a posição no elo, as diferenças e a janela ±2 com borda esmaecida. Ao expandir, a lista carrega o elo inteiro, paginado, e oferece "Mostrar só ao seu redor".
+  - As linhas mostram a forma recente; na corrida, a data da melhor marca.
+  - Sem elo, aparecem a placa de estado e os chips de faixa.
+  - A subtela `legends` é nova. `RankingRows` e `MyRankingPlate` foram removidos.
+  - Tokens novos: `--color-legend` e `--color-tier-*-tint`.
+- **Expo.** O mesmo conjunto em `mobile/src/`, com `LegendsScreen` nova. A borda esmaecida é feita por camadas de opacidade, sem dependência nova. Sem nenhuma modalidade, "Configurar modalidade" leva ao Perfil, porque o Expo não tem tela de modalidades. Uma falha ao ler os perfis esportivos agora vira erro de tela com "Tentar novamente".
+
+Verificações executadas na árvore integrada (`cdbbf85`):
+- **Backend:** `ruff check` sem erros. `pytest -q --cov=app --cov-branch` com `TEST_DATABASE_URL`: 1690 passaram e 1 foi pulado (o envio real ao S3, que só roda quando ligado), com cobertura de 98%. `alembic upgrade head` e `alembic check` sem diferenças, num banco próprio de verificação.
+- **Web:** `npm run lint` e `npm run build` sem erros. O aviso de pacote grande já existia, e o pacote passou de 1.252 kB para 1.327 kB. `npm run test:coverage`: 1221 testes passaram, com 93,68% das instruções cobertas.
+- **Expo:** `npm run lint` e `npm run typecheck` sem erros. `npm run test:coverage`: 1570 testes passaram, com 96,26% das instruções cobertas. `npm run export:android` gerou o pacote.
+- **Navegador, com o backend real:**
+  - O banco próprio (`arena_orq_rk_e2e`) foi populado com contas criadas pela API e partidas pontuadas, e cobriu: cinco elos ocupados, Lendários, um titular com 2 times, titulares em classificação, sem time, sem marca, com 1 modalidade e sem nenhuma, e a corrida com um elo vazio.
+  - A 320, 390 e 1440 px conferiram:
+    - a barra, a folha com 1, 2 e 3 perfis e o estado sem perfil;
+    - a placa, com "Lidera" e "Último";
+    - a troca de elo pulando o elo vazio e a abertura do Salão;
+    - a janela, a expansão com `tier=` e cursor, e a volta à janela;
+    - os chips dos times enviando `team_id`, e os chips de faixa sem elo;
+    - a ausência de overflow horizontal, o foco visível, a rolagem acima da navegação inferior e os mesmos dados depois de recarregar.
+  - As formas exibidas bateram com as partidas do banco: 47 de 47 no society.
+  - `recalculate-rankings` com dados alterou 64 linhas e, rodado de novo, nenhuma.
+
+Limitações e pendências:
+- **Em cada ambiente,** rode `alembic upgrade head` e depois `recalculate-rankings` uma vez. Até isso, as linhas antigas mostram a forma vazia, nunca errada.
+- **Não verificados no navegador:** o erro de conexão ao expandir (coberto só por testes) e o clique num chip de faixa vazio.
+- **Observações menores, sem correção:**
+  - Numa categoria sem classificados, não aparece o cartão "Nenhum Lendário ainda".
+  - O time escolhido continua selecionado ao trocar o formato.
+- **Concorrência:** a contagem por elo e as linhas são lidas em consultas separadas. Se um recálculo cair entre as duas, a posição no elo pode ficar defasada em uma unidade até a próxima leitura (seção 20 da 0002).
+- **Expo:** a paridade visual e o funcionamento em Android ou iOS não foram verificados. O build só comprova que o pacote compila.
+
 ## Plano da nova tela Ranking (apenas planejamento) — 13 de outubro de 2026
 
 Registrado [plano-ranking.md](plano-ranking.md), resultado de uma sessão de protótipos em sete rodadas. O protótipo está num artefato privado do usuário, e a fonte local fica em `artifacts/prototipos-ranking/`, fora do versionamento.
