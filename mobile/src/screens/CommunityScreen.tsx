@@ -45,8 +45,10 @@ function useCollapsingTitle() {
  * `composeOnOpen` (vindo do quadro "Nova foto" do perfil) abre o seletor assim que a tela aparece. O perfil de um atleta
  * abre num `Modal` por cima da Comunidade; as demais telas usam a rota empilhada `user-profile`.
  */
-export default function CommunityScreen({ user, onExpired, composeOnOpen = false, onComposeStarted }: {
+export default function CommunityScreen({ user, onExpired, composeOnOpen = false, onComposeStarted, notificationCount = 0, onOpenNotifications }: {
   user: User; onExpired: () => void; composeOnOpen?: boolean; onComposeStarted?: () => void
+  /** Sino da barra escura: número de novas (não lidas e pedidos para seguir) e a abertura das Notificações; sem `onOpenNotifications`, não aparece. */
+  notificationCount?: number; onOpenNotifications?: () => void
 }) {
   const feed = usePagedList<Post>('/posts', onExpired)
   const [tab, setTab] = useState<CommunityTab>('Publicações')
@@ -166,7 +168,7 @@ export default function CommunityScreen({ user, onExpired, composeOnOpen = false
   return <>
     <View className="grow basis-0 overflow-hidden bg-app" onLayout={event => setHeight(Math.round(event.nativeEvent.layout.height))}>
       <Animated.View style={[frame, { transform: [{ translateY: onFeed ? translateY : 0 }] }]}>
-        <CommunityBar tab={tab} onTab={selectTab} onCompose={compose} query={query} onQuery={setQuery} />
+        <CommunityBar tab={tab} onTab={selectTab} onCompose={compose} query={query} onQuery={setQuery} notificationCount={notificationCount} onOpenNotifications={onOpenNotifications} />
         {error ? <Text accessibilityRole="alert" className={cx(tw.error, 'px-4')}>{error}</Text> : null}
         {notice && onFeed ? <Text accessibilityLiveRegion="polite" className={cx(tw.success, 'px-4')}>{notice}</Text> : null}
         <View className={onFeed ? 'grow basis-0' : 'hidden'}>

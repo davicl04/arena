@@ -9,8 +9,15 @@ import { Icon } from '../Icon'
 import type { IconName } from '../Icon'
 
 /** Ícone dos avisos sem escudo de time: organizador, evento e, nas etapas 3 e 4, a partida, a agenda, o resultado, o W.O. e as quadras. */
-const kindIcon: Record<Exclude<NotificationView['kind'], 'team'>, IconName> = {
+export const kindIcon: Record<Exclude<NotificationView['kind'], 'team'>, IconName> = {
   organizer: 'user', event: 'trophy', match: 'zap', schedule: 'calendar-clock', result: 'clipboard-check', walkover: 'flag', court: 'map-pin', other: 'bell',
+}
+
+/** Escudo do time (iniciais do nome no aviso) ou o ícone do tipo, num quadrado de 38 pt; decorativo. */
+export function NotificationLead({ view }: { view: NotificationView }) {
+  return <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ width: 38, height: 38, alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: view.kind === 'team' ? colors.tile : 'rgba(0,90,54,0.07)' }}>
+    {view.kind === 'team' ? <TeamCrest name={view.teamName ?? 'Time'} size="sm" decorative /> : <Icon name={kindIcon[view.kind]} size={19} color={colors.brand} />}
+  </View>
 }
 
 /** Rótulo lido por leitores de tela: o texto, o tempo e se ainda não foi lida. */
@@ -33,9 +40,7 @@ export function NotificationItem({ notification, busy, isAdmin = false, first = 
   const interactive = unread || Boolean(view.target)
   const time = relativeTime(notification.created_at)
   const content = <>
-    <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ width: 38, height: 38, alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: view.kind === 'team' ? colors.tile : 'rgba(0,90,54,0.07)' }}>
-      {view.kind === 'team' ? <TeamCrest name={view.teamName ?? 'Time'} size="sm" decorative /> : <Icon name={kindIcon[view.kind]} size={19} color={colors.brand} />}
-    </View>
+    <NotificationLead view={view} />
     <View style={{ flex: 1, minWidth: 0 }}>
       <Text style={{ color: unread ? colors.ink : colors['ink-muted'], fontSize: 12, lineHeight: 17, fontWeight: unread ? '700' : '400' }}>{view.text}</Text>
       <Text style={{ color: colors['ink-muted'], fontSize: 10.5, marginTop: 4 }}>{time}</Text>

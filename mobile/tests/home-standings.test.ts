@@ -9,7 +9,7 @@ import { modalityStanding } from '../src/components/arena/modalityStanding'
 import HomeScreen from '../src/screens/HomeScreen'
 import { enableAct } from './support/native'
 import { admin, allText, byId, callsTo, findButton, me, navigationMock, pressButton, render, serve } from './support/review'
-import { ferrugemRef, fromNow, leoesRef, matchCard, sides, standings, teamSide } from './support/play'
+import { emptySummary, ferrugemRef, fromNow, leoesRef, matchCard, notificationSummaryState, sides, standings, teamSide } from './support/play'
 
 vi.mock('react-native', async () => (await import('./support/native')).reactNativeMock())
 vi.mock('react-native-svg', async () => (await import('./support/native')).svgMock())
@@ -18,7 +18,6 @@ vi.mock('../src/api/client', async original => ({ ...await original<typeof impor
 vi.mock('../src/data/sportIcons', () => ({ sportIcons: { futebol: 'futebol.png', tenis: 'tenis.png', corrida: 'corrida.png' } }))
 
 const h = React.createElement
-const UNREAD = '/me/notifications/unread-count'
 const STANDINGS = '/me/standings'
 
 beforeEach(() => {
@@ -48,11 +47,14 @@ function withLines(lines: { society?: StandingLine; tenis?: StandingLine; corrid
   }
 }
 
+const noSummary = () => notificationSummaryState(emptySummary())
+
 function mount(data: unknown, options: { unread?: number; user?: typeof me; matches?: MatchCard[] } = {}) {
   const navigation = navigationMock()
   const onExpired = vi.fn()
-  serve({ [UNREAD]: { unread_count: options.unread ?? 0 }, [STANDINGS]: data })
-  return render(h(HomeScreen, { user: options.user ?? me, navigation, onExpired, matches: options.matches })).then(tree => ({ tree, navigation, onExpired }))
+  serve({ [STANDINGS]: data })
+  const notificationSummary = notificationSummaryState(emptySummary({ unread_count: options.unread ?? 0 }))
+  return render(h(HomeScreen, { user: options.user ?? me, navigation, onExpired, matches: options.matches, notificationSummary })).then(tree => ({ tree, navigation, onExpired }))
 }
 const card = (tree: Awaited<ReturnType<typeof mount>>['tree'], sport: string) => allText({ root: byId(tree, `modality-${sport}`).find(node => typeof node.type === 'string')! } as never)
 
@@ -115,22 +117,22 @@ describe('Início: "Seu elo" por modalidade', () => {
 
   it('falha ao ler a classificação: "Classificação indisponível" sem inventar números; 401 expira a sessão', async () => {
     const failing = vi.fn()
-    serve({ [UNREAD]: { unread_count: 0 }, [STANDINGS]: new ApiError('Não foi possível carregar os dados.', 500) })
-    const tree = await render(h(HomeScreen, { user: me, navigation: navigationMock(), onExpired: failing }))
+    serve({ [STANDINGS]: new ApiError('Não foi possível carregar os dados.', 500) })
+    const tree = await render(h(HomeScreen, { user: me, navigation: navigationMock(), onExpired: failing, notificationSummary: noSummary() }))
     expect(card(tree, 'futebol')).toContain('Classificação indisponível')
     expect(card(tree, 'futebol')).toContain('—')
     expect(failing).not.toHaveBeenCalled()
     const expired = vi.fn()
-    serve({ [UNREAD]: { unread_count: 0 }, [STANDINGS]: new ApiError('Sessão expirada', 401) })
-    await render(h(HomeScreen, { user: me, navigation: navigationMock(), onExpired: expired }))
+    serve({ [STANDINGS]: new ApiError('Sessão expirada', 401) })
+    await render(h(HomeScreen, { user: me, navigation: navigationMock(), onExpired: expired, notificationSummary: noSummary() }))
     expect(expired).toHaveBeenCalled()
   })
 
   it('enquanto lê, o selo mostra o carregamento; uma resposta fora do formato não derruba o Início', async () => {
     let release!: (value: unknown) => void
     const pending = new Promise(resolve => { release = resolve })
-    serve({ [UNREAD]: { unread_count: 0 }, [STANDINGS]: () => pending })
-    const tree = await render(h(HomeScreen, { user: me, navigation: navigationMock(), onExpired: vi.fn() }))
+    serve({ [STANDINGS]: () => pending })
+    const tree = await render(h(HomeScreen, { user: me, navigation: navigationMock(), onExpired: vi.fn(), notificationSummary: noSummary() }))
     expect(tree.root.findAll(node => typeof node.type === 'string' && node.props.accessibilityLabel === 'Carregando classificação').length).toBeGreaterThan(0)
     release({ items: [], next_cursor: null })
     await render(h('View', null))
@@ -176,7 +178,7 @@ describe('Início: o que já existia continua', () => {
     expect(text).toContain('Veja o seu elo em cada modalidade e escolha por onde começar.')
     expect(text).not.toContain('em breve')
     expect(text).toContain('9+')
-    await pressButton(tree, 'Notificações, 12 não lidas')
+    await pressButton(tree, 'Notificações, 12 novas')
     expect(navigation.go).toHaveBeenLastCalledWith('notifications')
     await pressButton(tree, 'Meus times')
     expect(navigation.go).toHaveBeenLastCalledWith('teams')

@@ -1,14 +1,15 @@
 import React from 'react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiError, request as apiRequest } from '../src/api/client'
-import type { Person } from '../src/api/client'
-import type { ArenaNotification } from '../src/api/notifications'
 import { notificationView } from '../src/data/notifications'
-import NotificationsScreen, { openTarget } from '../src/screens/NotificationsScreen'
+import { openTarget } from '../src/navigation/openNotification'
+import type { ScreenProps } from '../src/navigation/screens'
+import NotificationsScreen from '../src/screens/NotificationsScreen'
 import { formatDeadline } from '../src/utils/format'
 import { enableAct } from './support/native'
-import { allText, byId, callsTo, findButton, labelled, me, navigationMock, page, pressButton, render, serve } from './support/events'
-import { playContext } from './support/play'
+import { allText, byId, callsTo, findButton, labelled, me, navigationMock, page, pressButton, render } from './support/events'
+import { FEED_ALL, PENDING_ALL, feedOf, note, pendingNote, pendingOf, resetNotificationIds, serveNotifications, summaryOf } from './support/notifications'
+import { notificationSummaryState, playContext } from './support/play'
 
 vi.mock('react-native', async () => (await import('./support/native')).reactNativeMock())
 vi.mock('react-native-svg', async () => (await import('./support/native')).svgMock())
@@ -16,11 +17,6 @@ vi.mock('expo-secure-store', () => ({ getItemAsync: vi.fn().mockResolvedValue('t
 vi.mock('../src/api/client', async original => ({ ...await original<typeof import('../src/api/client')>(), request: vi.fn() }))
 
 const h = React.createElement
-const person = (name: string): Person => ({ id: 2, name, username: name.toLowerCase().replace(/\s+/g, '.'), avatar_url: null })
-let nextId = 1
-const note = (type: string, payload: Record<string, unknown> = {}, actor: string | null = null, extra: Partial<ArenaNotification> = {}): ArenaNotification => ({
-  id: nextId++, type, payload, actor: actor ? person(actor) : null, created_at: new Date(Date.now() - 5 * 60_000).toISOString(), read_at: null, ...extra,
-})
 const view = (type: string, payload: Record<string, unknown> = {}, actor: string | null = null, viewer = {}) => notificationView(note(type, payload, actor), viewer)
 
 const event = { event_id: 5, event_name: 'Copa Sudoeste' }
@@ -120,52 +116,245 @@ describe('openTarget: abre a tela certa com os parâmetros do aviso', () => {
   })
 })
 
-function mountNotifications(navigation = navigationMock(), onExpired = vi.fn(), user = me) {
-  return render(h(NotificationsScreen, { user, navigation, onUser: vi.fn(), onLogout: vi.fn(), ...playContext(), onExpired, params: undefined, title: 'Notificações' }))
+/* ===== Tela de notificações ===== */
+
+type Mounted = Pick<Awaited<ReturnType<typeof mountNotifications>>, 'tree'>
+async function mountNotifications({ navigation = navigationMock(), onExpired = vi.fn(), user = me, summary = summaryOf(), params }: {
+  navigation?: ReturnType<typeof navigationMock>; onExpired?: () => void; user?: typeof me; summary?: ReturnType<typeof summaryOf> | null; params?: ScreenProps<'notifications'>['params']
+} = {}) {
+  const notificationSummary = notificationSummaryState(summary)
+  const tree = await render(h(NotificationsScreen, { user, navigation, onUser: vi.fn(), onLogout: vi.fn(), ...playContext(), notificationSummary, onExpired, params, title: 'Notificações' }))
+  return { tree, navigation, onExpired, notificationSummary }
 }
-const unreadBadge = (count: number) => ({ unread_count: count })
-const item = (tree: Awaited<ReturnType<typeof mountNotifications>>, startsWith: string) => tree.root.findAll(node => String(node.type) === 'Pressable' && String(node.props.accessibilityLabel).startsWith(startsWith))[0]
-const request = (id: number, approve: boolean) => `PUT /me/follow-requests/${id}?approve=${approve}`
+/** Linha da lista (ou botão do cartão) cujo rótulo começa com `startsWith`. */
+const item = ({ tree }: Mounted, startsWith: string) => tree.root.findAll(node => String(node.type) === 'Pressable' && String(node.props.accessibilityLabel).startsWith(startsWith))[0]
+const proposal = (extra: Record<string, unknown> = {}) => pendingNote('proposta_partida', { match_id: 12, opponent_name: 'Leões da Vila', ...extra }, null, { agoH: 1, leftH: 1.5 })
+const PROPOSAL_TEXT = 'Partida encontrada contra Leões da Vila. Responda em até 2 h'
 
-describe('Notificações: lista, leitura e navegação', () => {
-  beforeEach(() => {
-    enableAct()
-    vi.mocked(apiRequest).mockReset()
-    nextId = 1
+beforeEach(() => {
+  enableAct()
+  vi.mocked(apiRequest).mockReset()
+  resetNotificationIds()
+  // Só o relógio é falso: as leituras simuladas seguem com os temporizadores reais.
+  vi.useFakeTimers({ toFake: ['Date'] })
+  vi.setSystemTime(new Date(2026, 9, 13, 15, 0, 0))
+})
+afterEach(() => { vi.useRealTimers() })
+
+describe('Notificações: placa, resumo e chips', () => {
+  it('mostra a placa com voltar, título, "Ler todas" e a linha de resumo "4 não lidas · 3 pedem sua resposta"', async () => {
+    serveNotifications()
+    const { tree, navigation } = await mountNotifications({ summary: summaryOf({ unread_count: 4, pending_count: 3 }) })
+    expect(byId(tree, 'notifications-plate')).toHaveLength(1)
+    expect(allText(tree)).toContain('Notificações')
+    expect(allText(tree)).toContain('4 não lidas · 3 pedem sua resposta')
+    expect(findButton(tree, 'Ler todas')).toBeTruthy()
+    await pressButton(tree, 'Voltar')
+    expect(navigation.back).toHaveBeenCalled()
   })
 
-  it('mostra as atividades com texto, tempo e o ponto de não lida, e o contador de não lidas', async () => {
-    serve({
-      '/me/follow-requests': page([]), '/me/notifications/unread-count': unreadBadge(2),
-      '/me/notifications': page([note('aviso_evento', event), note('convite_time', { team_id: 3, team_name: 'Ferrugem FC' }, 'Carlos Lima'), note('time_encerrado', { team_name: 'Velho FC' }, null, { read_at: '2026-10-10T10:00:00Z' })]),
+  it('a linha de resumo muda: tudo lido com pendências, uma só, e "Tudo em dia"; sem não lidas não há "Ler todas"', async () => {
+    serveNotifications()
+    const read = await mountNotifications({ summary: summaryOf({ pending_count: 3 }) })
+    expect(allText(read.tree)).toContain('Tudo lido · 3 ainda pedem sua resposta')
+    expect(findButton(read.tree, 'Ler todas')).toBeUndefined()
+    const one = await mountNotifications({ summary: summaryOf({ unread_count: 1, pending_count: 1 }) })
+    expect(allText(one.tree)).toContain('1 não lida · 1 pede sua resposta')
+    const done = await mountNotifications({ summary: summaryOf() })
+    expect(allText(done.tree)).toContain('Tudo em dia')
+    // Sem o resumo (ainda lendo ou com erro) a placa fica sem a linha, sem números e sem "Ler todas".
+    const none = await mountNotifications({ summary: null })
+    expect(allText(none.tree)).not.toMatch(/não lidas?|Tudo lido/)
+    expect(findButton(none.tree, 'Ler todas')).toBeUndefined()
+    expect(findButton(none.tree, 'Para responder')).toBeTruthy()
+  })
+
+  it('os chips são um grupo de escolha única: Para responder mostra o total de pendências; as categorias, as não lidas só quando há; Tudo, nenhum número', async () => {
+    serveNotifications()
+    const { tree } = await mountNotifications({ summary: summaryOf({ pending_count: 3, by: { partidas: 2, times: 0, eventos: 1 } }) })
+    const group = tree.root.findAll(node => node.props.accessibilityRole === 'radiogroup')[0]
+    expect(group.props.accessibilityLabel).toBe('Filtrar notificações')
+    const radios = tree.root.findAll(node => typeof node.type === 'string' && node.props.accessibilityRole === 'radio')
+    expect(radios.map(node => node.props.accessibilityLabel)).toEqual(['Tudo', 'Para responder, 3 pendências', 'Partidas, 2 não lidas', 'Times', 'Eventos, 1 não lida'])
+    expect(radios.map(node => node.props.accessibilityState.selected)).toEqual([true, false, false, false, false])
+    expect(radios.map(node => node.props.accessibilityState.checked)).toEqual([true, false, false, false, false])
+  })
+
+  it('abre já no chip pedido pelo parâmetro (a placa do Início usa "responder") e não lê a lista nesse chip', async () => {
+    serveNotifications({ pending: [proposal()] })
+    const { tree } = await mountNotifications({ params: { filter: 'responder' }, summary: summaryOf({ pending_count: 1 }) })
+    expect(tree.root.findAll(node => typeof node.type === 'string' && node.props.accessibilityRole === 'radio').map(node => node.props.accessibilityState.selected)).toEqual([false, true, false, false, false])
+    expect(allText(tree)).toContain(PROPOSAL_TEXT)
+    expect(callsTo('GET', FEED_ALL)).toHaveLength(0)
+    expect(callsTo('GET', '/me/follow-requests')).toHaveLength(0)
+  })
+})
+
+describe('Notificações: consulta de cada chip', () => {
+  it('Tudo lê o bloco fixado (limit 50) e a lista sem pendências; trocar de chip não relê o resumo', async () => {
+    serveNotifications({
+      pending: [proposal()], feed: [note('aviso_evento', event, null, { category: 'eventos' })],
+      extra: {
+        [pendingOf('partidas')]: { items: [] }, [feedOf('partidas')]: page([note('partida_agendada', { match_id: 14 }, null, { category: 'partidas' })]),
+        [pendingOf('times')]: { items: [] }, [feedOf('times')]: page([]),
+      },
     })
-    const tree = await mountNotifications()
+    const { tree, notificationSummary } = await mountNotifications({ summary: summaryOf({ unread_count: 2, pending_count: 1, by: { partidas: 1, eventos: 1 } }) })
+    expect(callsTo('GET', PENDING_ALL)).toHaveLength(1)
+    expect(callsTo('GET', FEED_ALL)).toHaveLength(1)
     expect(allText(tree)).toContain('Novo aviso em Copa Sudoeste')
-    expect(allText(tree)).toContain('Carlos Lima convidou você para o Ferrugem FC')
-    expect(allText(tree)).toContain('O Velho FC foi encerrado')
-    expect(allText(tree)).toContain('há 5 min')
-    expect(byId(tree, 'unread-dot')).toHaveLength(2)
-    expect(labelled(tree, '2 não lidas')).toHaveLength(1)
-    expect(findButton(tree, 'Marcar todas como lidas')).toBeTruthy()
-    expect(item(tree, 'Novo aviso em Copa Sudoeste').props.accessibilityLabel).toBe('Novo aviso em Copa Sudoeste. há 5 min. Não lida')
-    // A lida e sem destino não é um botão.
-    expect(item(tree, 'O Velho FC foi encerrado')).toBeUndefined()
+
+    // Para responder: só o bloco, que já estava lido; a lista some e nada é pedido de novo.
+    await pressButton(tree, 'Para responder, 1 pendência')
+    expect(callsTo('GET', PENDING_ALL)).toHaveLength(1)
+    expect(callsTo('GET', FEED_ALL)).toHaveLength(1)
+    expect(allText(tree)).toContain(PROPOSAL_TEXT)
+    expect(allText(tree)).not.toContain('Novo aviso em Copa Sudoeste')
+
+    // Categoria: as pendências e a lista da categoria, ambas no servidor.
+    await pressButton(tree, 'Partidas, 1 não lida')
+    expect(callsTo('GET', pendingOf('partidas'))).toHaveLength(1)
+    expect(callsTo('GET', feedOf('partidas'))).toHaveLength(1)
+    expect(allText(tree)).toContain('Partida agendada')
+    expect(allText(tree)).not.toContain('Novo aviso em Copa Sudoeste')
+    await pressButton(tree, 'Times')
+    expect(callsTo('GET', pendingOf('times'))).toHaveLength(1)
+    expect(callsTo('GET', feedOf('times'))).toHaveLength(1)
+
+    // Volta a Tudo e só o resumo da abertura foi pedido (uma vez).
+    await pressButton(tree, 'Tudo')
+    expect(allText(tree)).toContain('Novo aviso em Copa Sudoeste')
+    expect(notificationSummary.reload).toHaveBeenCalledTimes(1)
   })
 
-  it('tocar numa não lida marca como lida e abre a tela do aviso', async () => {
-    const first = note('comprovante_decidido', { ...event, decision: 'aprovado' })
-    serve({
-      '/me/follow-requests': page([]), '/me/notifications/unread-count': unreadBadge(1), '/me/notifications': page([first]),
-      [`PUT /me/notifications/${first.id}/read`]: unreadBadge(0),
+  it('chip sem nada mostra "Nada neste filtro."; Tudo sem nada mostra o estado vazio honesto', async () => {
+    serveNotifications({ extra: { [pendingOf('eventos')]: { items: [] }, [feedOf('eventos')]: page([]) } })
+    const { tree } = await mountNotifications()
+    expect(byId(tree, 'notifications-empty')).toHaveLength(1)
+    expect(allText(tree)).toContain('Convites e pedidos dos seus times, propostas e partidas, inscrições em campeonatos e provas e as respostas da administração aparecem aqui.')
+    expect(byId(tree, 'notifications-filter-empty')).toHaveLength(0)
+    await pressButton(tree, 'Eventos')
+    expect(allText(tree)).toContain('Nada neste filtro.')
+    expect(byId(tree, 'notifications-empty')).toHaveLength(0)
+    const asking = await mountNotifications({ params: { filter: 'responder' } })
+    expect(allText(asking.tree)).toContain('Nada neste filtro.')
+  })
+
+  it('erro com "Tentar novamente" em cada seção e "Carregar mais"', async () => {
+    let failPending = true
+    let failFeed = true
+    serveNotifications({
+      extra: {
+        [PENDING_ALL]: () => (failPending ? new ApiError('Pendências fora do ar', 500) : { items: [proposal()] }),
+        [FEED_ALL]: () => (failFeed ? new ApiError('Lista fora do ar', 500) : page([note('aviso_evento', event, null, { read_at: 'x' })], 'c2')),
+        [`${FEED_ALL}&cursor=c2`]: page([note('reserva_expirada', event, null, { read_at: 'x' })]),
+      },
     })
-    const navigation = navigationMock()
-    const tree = await mountNotifications(navigation)
+    const { tree } = await mountNotifications()
+    expect(allText(tree)).toContain('Pendências fora do ar')
+    expect(allText(tree)).toContain('Lista fora do ar')
+    expect(allText(tree)).not.toContain('Nada neste filtro.')
+    // O botão da lista é o último da tela; o das pendências, o primeiro.
+    failFeed = false
+    await pressButton(tree, 'Tentar novamente')
+    expect(allText(tree)).toContain('Novo aviso em Copa Sudoeste')
+    expect(allText(tree)).not.toContain('Lista fora do ar')
+    expect(allText(tree)).toContain('Pendências fora do ar')
+    failPending = false
+    await pressButton(tree, 'Tentar novamente')
+    expect(allText(tree)).toContain(PROPOSAL_TEXT)
+    expect(allText(tree)).not.toContain('Sua reserva em')
+    await pressButton(tree, 'Carregar mais notificações')
+    expect(allText(tree)).toContain('Sua reserva em Copa Sudoeste expirou')
+    expect(findButton(tree, 'Carregar mais notificações')).toBeUndefined()
+  })
+
+  it('401 em qualquer leitura expira a sessão', async () => {
+    serveNotifications({ extra: { [PENDING_ALL]: new ApiError('Sessão expirada', 401) } })
+    const { onExpired } = await mountNotifications()
+    expect(onExpired).toHaveBeenCalled()
+  })
+})
+
+describe('Notificações: lista agrupada por dia e bloco "Para responder"', () => {
+  it('o bloco fixado vem primeiro; depois Hoje, Ontem, Esta semana e Anteriores, com as linhas de sempre', async () => {
+    const ago = (hours: number) => new Date(Date.now() - hours * 3_600_000).toISOString()
+    serveNotifications({
+      pending: [proposal()],
+      feed: [
+        note('aviso_evento', event, null, { created_at: ago(1) }), note('reserva_expirada', event, null, { created_at: ago(26), read_at: 'x' }),
+        note('time_encerrado', { team_name: 'Velho FC' }, null, { created_at: ago(72), read_at: 'x' }), note('convite_aceito', { team_name: 'Ferrugem FC' }, 'Ana Prado', { created_at: ago(24 * 10), read_at: 'x' }),
+      ],
+    })
+    const mounted = await mountNotifications({ summary: summaryOf({ unread_count: 2, pending_count: 1 }) })
+    const text = allText(mounted.tree)
+    const order = ['PARTIDA ENCONTRADA', 'HOJE', 'Novo aviso em Copa Sudoeste', 'ONTEM', 'Sua reserva em', 'ESTA SEMANA', 'O Velho FC foi encerrado', 'ANTERIORES', 'Ana Prado aceitou o convite']
+    const positions = order.map(part => text.toUpperCase().indexOf(part.toUpperCase()))
+    expect(positions.every(position => position > -1)).toBe(true)
+    expect([...positions].sort((a, b) => a - b)).toEqual(positions)
+    for (const label of ['Hoje', 'Ontem', 'Esta semana', 'Anteriores']) expect(labelled(mounted.tree, label)).toHaveLength(1)
+    expect(item(mounted, 'Novo aviso em Copa Sudoeste').props.accessibilityLabel).toBe('Novo aviso em Copa Sudoeste. há 1 hora. Não lida')
+  })
+
+  it('o cartão mostra rótulo, texto, tempo, prazo e a barra: verde com folga, âmbar com menos de 3 h; sem prazo, sem barra', async () => {
+    const roomy = pendingNote('convite_time', { team_id: 3, team_name: 'Várzea Unida' }, 'Marina Costa', { agoH: 1, leftH: 30 })
+    serveNotifications({ pending: [proposal(), roomy, pendingNote('comprovante_recebido', event, null, { agoH: 2, leftH: null })] })
+    const { tree } = await mountNotifications({ summary: summaryOf({ pending_count: 3 }) })
+    const cards = byId(tree, 'pending-card')
+    expect(cards).toHaveLength(3)
+    const [first, second, third] = cards.map(card => allText({ root: card } as never))
+    expect(first).toContain('PARTIDA ENCONTRADA')
+    expect(first).toContain(PROPOSAL_TEXT)
+    expect(first).toContain('há 1 hora')
+    expect(first).toContain('faltam 1 h 30')
+    expect(first).toContain('Responder proposta')
+    expect(second).toContain('CONVITE DE TIME')
+    expect(second).toContain('Marina Costa convidou você para o Várzea Unida')
+    expect(second).toContain('faltam 1 dia 6 h')
+    expect(second).toContain('Ver convite')
+    expect(third).toContain('COMPROVANTE RECEBIDO')
+    expect(third).toContain('sem prazo')
+    const fill = (card: (typeof cards)[number]) => byId({ root: card } as never, 'deadline-bar')[0]?.children[0] as unknown as { props: { style: { width: string; backgroundColor: string } } } | undefined
+    expect(fill(cards[0])?.props.style).toMatchObject({ width: '60%', backgroundColor: '#d99400' })
+    expect(fill(cards[1])?.props.style).toMatchObject({ width: '97%', backgroundColor: '#1f9d57' })
+    expect(fill(cards[2])).toBeUndefined()
+  })
+
+  it('o botão do cartão marca como lida, leva à tela do aviso e a pendência lida continua no bloco', async () => {
+    const entry = proposal()
+    serveNotifications({ pending: [entry], extra: { [`PUT /me/notifications/${entry.id}/read`]: summaryOf({ pending_count: 1 }) } })
+    const { tree, navigation, notificationSummary } = await mountNotifications({ summary: summaryOf({ unread_count: 1, pending_count: 1 }) })
+    expect(byId(tree, 'unread-dot')).toHaveLength(1)
+    await pressButton(tree, `Responder proposta: ${PROPOSAL_TEXT}`)
+    expect(callsTo('PUT', `/me/notifications/${entry.id}/read`)[0][2]).toEqual({})
+    expect(navigation.go).toHaveBeenCalledWith('play', { matchId: 12 })
+    expect(notificationSummary.setData).toHaveBeenCalledWith(summaryOf({ pending_count: 1 }))
+    expect(byId(tree, 'unread-dot')).toHaveLength(0)
+    expect(byId(tree, 'pending-card')).toHaveLength(1)
+    await pressButton(tree, `Responder proposta: ${PROPOSAL_TEXT}`)
+    expect(callsTo('PUT', `/me/notifications/${entry.id}/read`)).toHaveLength(1)
+    expect(navigation.go).toHaveBeenCalledTimes(2)
+  })
+
+  it('a administração decide na fila: o cartão de W.O. contestado abre a fila de W.O.', async () => {
+    const contested = pendingNote('wo_contestado', { match_id: 12 }, 'Caio Ramos', { agoH: 3, leftH: null })
+    serveNotifications({ pending: [contested], extra: { [`PUT /me/notifications/${contested.id}/read`]: summaryOf() } })
+    const { tree, navigation } = await mountNotifications({ user: { ...me, is_admin: true } })
+    await pressButton(tree, 'Decidir W.O.: Caio Ramos contestou o W.O.')
+    expect(navigation.go).toHaveBeenCalledWith('admin-walkover-disputes')
+  })
+})
+
+describe('Notificações: leitura e navegação das linhas', () => {
+  it('tocar numa não lida marca como lida, atualiza o resumo e abre a tela do aviso; lida e com destino só navega', async () => {
+    const first = note('comprovante_decidido', { ...event, decision: 'aprovado' }, null, { category: 'eventos' })
+    serveNotifications({ feed: [first], extra: { [`PUT /me/notifications/${first.id}/read`]: summaryOf() } })
+    const { tree, navigation, notificationSummary } = await mountNotifications({ summary: summaryOf({ unread_count: 1 }) })
     await pressButton(tree, 'Inscrição confirmada em Copa Sudoeste. há 5 min. Não lida')
     expect(callsTo('PUT', `/me/notifications/${first.id}/read`)[0][2]).toEqual({})
     expect(navigation.go).toHaveBeenCalledWith('event', { eventId: 5 })
+    expect(notificationSummary.setData).toHaveBeenCalledWith(summaryOf())
     expect(byId(tree, 'unread-dot')).toHaveLength(0)
-    expect(findButton(tree, 'Marcar todas como lidas')).toBeUndefined()
-    // Lida e com destino continua sendo um botão, que só navega.
     await pressButton(tree, 'Inscrição confirmada em Copa Sudoeste. há 5 min')
     expect(callsTo('PUT', `/me/notifications/${first.id}/read`)).toHaveLength(1)
     expect(navigation.go).toHaveBeenCalledTimes(2)
@@ -176,166 +365,111 @@ describe('Notificações: lista, leitura e navegação', () => {
       note('comprovante_recebido', event), note('evento_decidido', { ...event, decision: 'aprovado' }), note('devolucao_contestada', event, 'Maria'),
       note('evento_para_aprovar', event, 'Liga Sul'), note('pedido_entrada', { team_id: 3, team_name: 'Ferrugem FC' }, 'Ana'), note('organizador_revogado', { reason: 'x' }),
     ]
-    serve({
-      '/me/follow-requests': page([]), '/me/notifications/unread-count': unreadBadge(6), '/me/notifications': page(list),
-      ...Object.fromEntries(list.map(entry => [`PUT /me/notifications/${entry.id}/read`, unreadBadge(0)])),
-    })
-    const navigation = navigationMock()
-    const tree = await mountNotifications(navigation, vi.fn(), { ...me, is_admin: true })
-    for (const [start] of [['Novo comprovante'], ['Copa Sudoeste foi aprovado'], ['Maria contestou'], ['Liga Sul enviou'], ['Ana pediu'], ['Sua permissão']]) await pressButton(tree, item(tree, start).props.accessibilityLabel)
-    expect(vi.mocked(navigation.go).mock.calls).toEqual([
+    serveNotifications({ feed: list, extra: Object.fromEntries(list.map(entry => [`PUT /me/notifications/${entry.id}/read`, summaryOf()])) })
+    const mounted = await mountNotifications({ user: { ...me, is_admin: true } })
+    for (const start of ['Novo comprovante', 'Copa Sudoeste foi aprovado', 'Maria contestou', 'Liga Sul enviou', 'Ana pediu', 'Sua permissão']) await pressButton(mounted.tree, item(mounted, start).props.accessibilityLabel)
+    expect(vi.mocked(mounted.navigation.go).mock.calls).toEqual([
       ['event-receipts', { eventId: 5 }], ['event-manage', { eventId: 5 }], ['admin-refund-disputes'], ['admin-paid-events'], ['teams', { teamId: 3, requests: true }], ['organizer-request'],
     ])
   })
 
-  it('o tipo do Jogar (sem tela ainda) só marca como lida, com texto genérico', async () => {
+  it('o tipo do Jogar sem tela só marca como lida, com texto genérico', async () => {
     const future = note('partida_proposta', { match_id: 1 })
-    serve({ '/me/follow-requests': page([]), '/me/notifications/unread-count': unreadBadge(1), '/me/notifications': page([future]), [`PUT /me/notifications/${future.id}/read`]: unreadBadge(0) })
-    const navigation = navigationMock()
-    const tree = await mountNotifications(navigation)
-    expect(allText(tree)).toContain('Nova atividade na sua conta')
-    await pressButton(tree, 'Nova atividade na sua conta. há 5 min. Não lida')
+    serveNotifications({ feed: [future], extra: { [`PUT /me/notifications/${future.id}/read`]: summaryOf() } })
+    const mounted = await mountNotifications()
+    expect(allText(mounted.tree)).toContain('Nova atividade na sua conta')
+    await pressButton(mounted.tree, 'Nova atividade na sua conta. há 5 min. Não lida')
     expect(callsTo('PUT', `/me/notifications/${future.id}/read`)).toHaveLength(1)
-    expect(navigation.go).not.toHaveBeenCalled()
-    expect(item(tree, 'Nova atividade na sua conta')).toBeUndefined()
+    expect(mounted.navigation.go).not.toHaveBeenCalled()
+    expect(item(mounted, 'Nova atividade na sua conta')).toBeUndefined()
   })
 
-  it('falha ao marcar como lida: com destino segue para a tela; sem destino mostra o erro', async () => {
+  it('falha ao marcar como lida: com destino segue para a tela; sem destino mostra o erro; 401 expira e não navega', async () => {
     const withTarget = note('aviso_evento', event)
     const without = note('partida_proposta')
-    serve({
-      '/me/follow-requests': page([]), '/me/notifications/unread-count': unreadBadge(2), '/me/notifications': page([withTarget, without]),
-      [`PUT /me/notifications/${withTarget.id}/read`]: new ApiError('Fora do ar', 500), [`PUT /me/notifications/${without.id}/read`]: new ApiError('Fora do ar', 500),
+    serveNotifications({
+      feed: [withTarget, without],
+      extra: { [`PUT /me/notifications/${withTarget.id}/read`]: new ApiError('Fora do ar', 500), [`PUT /me/notifications/${without.id}/read`]: new ApiError('Fora do ar', 500) },
     })
-    const navigation = navigationMock()
-    const tree = await mountNotifications(navigation)
+    const { tree, navigation } = await mountNotifications()
     await pressButton(tree, 'Novo aviso em Copa Sudoeste. há 5 min. Não lida')
     expect(navigation.go).toHaveBeenCalledWith('event', { eventId: 5 })
     expect(allText(tree)).not.toContain('Fora do ar')
     await pressButton(tree, 'Nova atividade na sua conta. há 5 min. Não lida')
     expect(allText(tree)).toContain('Fora do ar')
-  })
 
-  it('401 ao marcar como lida expira a sessão e não navega', async () => {
-    const entry = note('aviso_evento', event)
-    serve({ '/me/follow-requests': page([]), '/me/notifications/unread-count': unreadBadge(1), '/me/notifications': page([entry]), [`PUT /me/notifications/${entry.id}/read`]: new ApiError('Sessão expirada', 401) })
-    const navigation = navigationMock()
-    const onExpired = vi.fn()
-    const tree = await mountNotifications(navigation, onExpired)
-    await pressButton(tree, 'Novo aviso em Copa Sudoeste. há 5 min. Não lida')
-    expect(onExpired).toHaveBeenCalled()
-    expect(navigation.go).not.toHaveBeenCalled()
-  })
-
-  it('"Marcar todas como lidas" zera o contador e anuncia o resultado', async () => {
-    serve({
-      '/me/follow-requests': page([]), '/me/notifications/unread-count': unreadBadge(2), '/me/notifications': page([note('aviso_evento', event), note('reserva_expirada', event)]),
-      'PUT /me/notifications/read-all': unreadBadge(0),
-    })
-    const tree = await mountNotifications()
-    await pressButton(tree, 'Marcar todas como lidas')
-    expect(callsTo('PUT', '/me/notifications/read-all')[0][2]).toEqual({})
-    expect(byId(tree, 'unread-dot')).toHaveLength(0)
-    expect(allText(tree)).toContain('Todas as notificações foram marcadas como lidas.')
-    expect(findButton(tree, 'Marcar todas como lidas')).toBeUndefined()
-    serve({ '/me/follow-requests': page([]), '/me/notifications/unread-count': unreadBadge(1), '/me/notifications': page([note('aviso_evento', event)]), 'PUT /me/notifications/read-all': new ApiError('Sem rede', 500) })
-    const failed = await mountNotifications()
-    await pressButton(failed, 'Marcar todas como lidas')
-    expect(allText(failed)).toContain('Sem rede')
-  })
-
-  it('estado vazio honesto e paginação', async () => {
-    serve({ '/me/follow-requests': page([]), '/me/notifications/unread-count': unreadBadge(0), '/me/notifications': page([]) })
-    const empty = await mountNotifications()
-    expect(byId(empty, 'notifications-empty')).toHaveLength(1)
-    expect(allText(empty)).toContain('Tudo em dia')
-    serve({
-      '/me/follow-requests': page([]), '/me/notifications/unread-count': unreadBadge(0),
-      '/me/notifications': page([note('aviso_evento', event, null, { read_at: 'x' })], 'c2'),
-      '/me/notifications?cursor=c2': page([note('reserva_expirada', event, null, { read_at: 'x' })]),
-    })
-    const paged = await mountNotifications()
-    expect(allText(paged)).not.toContain('Sua reserva em')
-    await pressButton(paged, 'Carregar mais notificações')
-    expect(allText(paged)).toContain('Sua reserva em Copa Sudoeste expirou')
-    expect(findButton(paged, 'Carregar mais notificações')).toBeUndefined()
-  })
-
-  it('erro na lista mostra a mensagem e "Tentar novamente"', async () => {
-    let fail = true
-    serve({
-      '/me/follow-requests': page([]), '/me/notifications/unread-count': unreadBadge(0),
-      '/me/notifications': () => (fail ? new ApiError('Notificações fora do ar', 500) : page([note('aviso_evento', event, null, { read_at: 'x' })])),
-    })
-    const tree = await mountNotifications()
-    expect(allText(tree)).toContain('Notificações fora do ar')
-    fail = false
-    await pressButton(tree, 'Tentar novamente')
-    expect(allText(tree)).toContain('Novo aviso em Copa Sudoeste')
+    const expiring = note('aviso_evento', event)
+    serveNotifications({ feed: [expiring], extra: { [`PUT /me/notifications/${expiring.id}/read`]: new ApiError('Sessão expirada', 401) } })
+    const expired = await mountNotifications()
+    await pressButton(expired.tree, 'Novo aviso em Copa Sudoeste. há 5 min. Não lida')
+    expect(expired.onExpired).toHaveBeenCalled()
+    expect(expired.navigation.go).not.toHaveBeenCalled()
   })
 })
 
-describe('Notificações: solicitações para seguir', () => {
-  beforeEach(() => { enableAct(); vi.mocked(apiRequest).mockReset(); nextId = 1 })
+describe('Notificações: Ler todas', () => {
+  it('marca tudo como lido (lista e bloco), entrega o resumo novo ao shell e anuncia o resultado; falha mostra a mensagem', async () => {
+    serveNotifications({
+      pending: [proposal()], feed: [note('aviso_evento', event), note('reserva_expirada', event)],
+      extra: { 'PUT /me/notifications/read-all': summaryOf({ pending_count: 1 }) },
+    })
+    const { tree, notificationSummary } = await mountNotifications({ summary: summaryOf({ unread_count: 3, pending_count: 1 }) })
+    expect(byId(tree, 'unread-dot')).toHaveLength(3)
+    await pressButton(tree, 'Ler todas')
+    expect(callsTo('PUT', '/me/notifications/read-all')[0][2]).toEqual({})
+    expect(notificationSummary.setData).toHaveBeenCalledWith(summaryOf({ pending_count: 1 }))
+    expect(byId(tree, 'unread-dot')).toHaveLength(0)
+    expect(byId(tree, 'pending-card')).toHaveLength(1)
+    expect(allText(tree)).toContain('Todas as notificações foram marcadas como lidas.')
+
+    serveNotifications({ feed: [note('aviso_evento', event)], extra: { 'PUT /me/notifications/read-all': new ApiError('Sem rede', 500) } })
+    const failed = await mountNotifications({ summary: summaryOf({ unread_count: 1 }) })
+    await pressButton(failed.tree, 'Ler todas')
+    expect(allText(failed.tree)).toContain('Sem rede')
+    expect(failed.notificationSummary.setData).not.toHaveBeenCalled()
+  })
+
+  it('o 401 de Ler todas expira a sessão', async () => {
+    serveNotifications({ feed: [note('aviso_evento', event)], extra: { 'PUT /me/notifications/read-all': new ApiError('Sessão expirada', 401) } })
+    const { tree, onExpired } = await mountNotifications({ summary: summaryOf({ unread_count: 1 }) })
+    await pressButton(tree, 'Ler todas')
+    expect(onExpired).toHaveBeenCalled()
+  })
+})
+
+describe('Notificações: pedidos para seguir', () => {
   const asker = (id: number, name: string) => ({ user: { id, name, username: name.toLowerCase().replace(/\s+/g, '.'), avatar_url: null, cover_url: null, social_public: false, post_count: 0, follower_count: 0, following_count: 0, follows_you: false, follow_state: 'none' as const }, state: 'pendente' })
 
-  it('lista, aprova e recusa pedidos', async () => {
-    serve({
-      '/me/follow-requests': page([asker(10, 'Ana Prado'), asker(11, 'Beto Dias')]), '/me/notifications/unread-count': unreadBadge(0), '/me/notifications': page([]),
-      [request(10, true)]: undefined, [request(11, false)]: undefined,
-    })
-    const tree = await mountNotifications()
-    expect(allText(tree)).toContain('Solicitações para seguir')
-    expect(allText(tree)).toContain('@ana.prado')
-    await pressButton(tree, 'Aprovar solicitação de Ana Prado')
-    expect(callsTo('PUT', '/me/follow-requests/10?approve=true')).toHaveLength(1)
-    expect(allText(tree)).not.toContain('@ana.prado')
-    expect(allText(tree)).toContain('Solicitação de Ana Prado aprovada.')
-    await pressButton(tree, 'Recusar solicitação de Beto Dias')
-    expect(callsTo('PUT', '/me/follow-requests/11?approve=false')).toHaveLength(1)
-    expect(allText(tree)).toContain('Solicitação de Beto Dias recusada.')
+  it('a linha-resumo no topo de Tudo mostra o total do resumo e os nomes, e abre a subtela; nos outros chips não aparece', async () => {
+    serveNotifications({ requests: [asker(10, 'Bruna Alves'), asker(11, 'Diego Souza')], extra: { [pendingOf('times')]: { items: [] }, [feedOf('times')]: page([]) } })
+    const { tree, navigation } = await mountNotifications({ summary: summaryOf({ follow_requests_count: 2 }) })
+    expect(byId(tree, 'follow-requests-line')).toHaveLength(1)
+    expect(allText(tree)).toContain('2 pedidos para seguir')
+    expect(allText(tree)).toContain('Bruna Alves e Diego Souza')
+    await pressButton(tree, '2 pedidos para seguir: Bruna Alves e Diego Souza')
+    expect(navigation.go).toHaveBeenCalledWith('follow-requests')
+    await pressButton(tree, 'Times')
+    expect(byId(tree, 'follow-requests-line')).toHaveLength(0)
   })
 
-  it('"Aprovar todas" esvazia a fila em lotes', async () => {
-    let queue = [asker(10, 'Ana Prado'), asker(11, 'Beto Dias')]
-    serve({
-      '/me/follow-requests': () => page(queue), '/me/notifications/unread-count': unreadBadge(0), '/me/notifications': page([]),
-      [request(10, true)]: () => { queue = queue.filter(entry => entry.user.id !== 10) },
-      [request(11, true)]: () => { queue = queue.filter(entry => entry.user.id !== 11) },
-    })
-    const tree = await mountNotifications()
-    await pressButton(tree, 'Aprovar todas as solicitações')
-    expect(callsTo('PUT', '/me/follow-requests/10?approve=true')).toHaveLength(1)
-    expect(callsTo('PUT', '/me/follow-requests/11?approve=true')).toHaveLength(1)
-    expect(allText(tree)).not.toContain('Solicitações para seguir')
-    expect(byId(tree, 'notifications-empty')).toHaveLength(1)
+  it('com mais de dois pedidos, os nomes dizem "e mais N"; com um só, o singular; sem pedidos, sem linha', async () => {
+    serveNotifications({ requests: [asker(10, 'Bruna Alves'), asker(11, 'Diego Souza'), asker(12, 'Eva Lima')] })
+    const many = await mountNotifications({ summary: summaryOf({ follow_requests_count: 5 }) })
+    expect(allText(many.tree)).toContain('5 pedidos para seguir')
+    expect(allText(many.tree)).toContain('Bruna Alves, Diego Souza e mais 3')
+    serveNotifications({ requests: [asker(10, 'Bruna Alves')] })
+    const one = await mountNotifications({ summary: summaryOf({ follow_requests_count: 1 }) })
+    expect(allText(one.tree)).toContain('1 pedido para seguir')
+    expect(byId(one.tree, 'notifications-empty')).toHaveLength(0)
+    serveNotifications()
+    const none = await mountNotifications()
+    expect(byId(none.tree, 'follow-requests-line')).toHaveLength(0)
   })
 
-  it('"Aprovar todas" para quando a fila não anda (os mesmos pedidos de novo) e avisa, sem rodar sem fim', async () => {
-    const queue = [asker(10, 'Ana Prado'), asker(11, 'Beto Dias')]
-    serve({
-      '/me/follow-requests': () => page(queue), '/me/notifications/unread-count': unreadBadge(0), '/me/notifications': page([]),
-      [request(10, true)]: undefined, [request(11, true)]: undefined,
-    })
-    const tree = await mountNotifications()
-    await pressButton(tree, 'Aprovar todas as solicitações')
-    expect(callsTo('PUT', '/me/follow-requests/10?approve=true')).toHaveLength(1)
-    expect(callsTo('PUT', '/me/follow-requests/11?approve=true')).toHaveLength(1)
-    expect(allText(tree)).toContain('Nem todas as solicitações foram aprovadas.')
-    expect(allText(tree)).not.toContain('Solicitações aprovadas.')
-  })
-
-  it('erros: a resposta falha com mensagem; a seção com erro não esconde as atividades', async () => {
-    serve({
-      '/me/follow-requests': page([asker(10, 'Ana Prado')]), '/me/notifications/unread-count': unreadBadge(0), '/me/notifications': page([note('aviso_evento', event, null, { read_at: 'x' })]),
-      [request(10, true)]: new ApiError('Pedido não encontrado.', 404),
-    })
-    const tree = await mountNotifications()
-    await pressButton(tree, 'Aprovar solicitação de Ana Prado')
-    expect(allText(tree)).toContain('Pedido não encontrado.')
-    serve({ '/me/follow-requests': new ApiError('Fila fora do ar', 500), '/me/notifications/unread-count': unreadBadge(0), '/me/notifications': page([note('aviso_evento', event, null, { read_at: 'x' })]) })
-    const section = await mountNotifications()
-    expect(allText(section)).toContain('Fila fora do ar')
-    expect(allText(section)).toContain('Novo aviso em Copa Sudoeste')
+  it('mesmo se a fila falhar, o total do resumo continua levando à subtela', async () => {
+    serveNotifications({ extra: { '/me/follow-requests': new ApiError('Fila fora do ar', 500) } })
+    const { tree, navigation } = await mountNotifications({ summary: summaryOf({ follow_requests_count: 2 }) })
+    await pressButton(tree, '2 pedidos para seguir')
+    expect(navigation.go).toHaveBeenCalledWith('follow-requests')
   })
 })

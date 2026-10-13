@@ -6,7 +6,8 @@ import type { RankingPage } from '../src/api/results'
 import RankingScreen from '../src/screens/RankingScreen'
 import { enableAct } from './support/native'
 import { allText, byId, callsTo, findButton, flush, labelled, me, navigationMock, page as listPage, pressButton, render, serve } from './support/review'
-import { football as footballProfile, playContext } from './support/play'
+import { football as footballProfile, notificationSummaryState, playContext } from './support/play'
+import { summaryOf } from './support/notifications'
 import { athleteRow, rankingPage, rankingRow } from './support/results'
 
 vi.mock('react-native', async () => (await import('./support/native')).reactNativeMock())
@@ -37,6 +38,20 @@ const teamsPage = (overrides: Partial<RankingPage> = {}) => rankingPage({
 })
 
 describe('Ranking: estrutura e modalidades', () => {
+  it('o sino das Notificações fica no cabeçalho, com o número de novas, e abre a tela', async () => {
+    serve({ [TEAMS]: teamsPage(), [PROFILES]: [] })
+    const navigation = navigationMock()
+    const tree = await render(h(RankingScreen as unknown as React.ComponentType<Record<string, unknown>>, {
+      user: me, navigation, onExpired: vi.fn(), params: undefined, title: 'Ranking', ...playContext(), notificationSummary: notificationSummaryState(summaryOf({ unread_count: 11, follow_requests_count: 1 })),
+    }))
+    expect(labelled(tree, 'Notificações, 12 novas')).toHaveLength(1)
+    expect(allText(tree)).toContain('9+')
+    await pressButton(tree, 'Notificações, 12 novas')
+    expect(navigation.go).toHaveBeenCalledWith('notifications')
+    const quiet = await mount()
+    expect(labelled(quiet.tree, 'Notificações')).toHaveLength(1)
+  })
+
   it('abre em Futebol, Times, Society, com os cinco elos de referência e a lista geral', async () => {
     serve({ [TEAMS]: teamsPage(), [PROFILES]: [] })
     const { tree } = await mount()

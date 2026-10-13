@@ -15,6 +15,7 @@ import Sheet from '../components/Sheet'
 import UsernameForm from '../components/UsernameForm'
 import SportCard from '../components/SportCard'
 import ProfileGallery from '../components/ProfileGallery'
+import { NotificationBell } from '../components/notifications/NotificationBell'
 import { MatchTimeline } from '../components/profile-matches/MatchTimeline'
 import { ProfileStatsBlocks } from '../components/profile-matches/ProfileStatsBlocks'
 import { ProfileTabs } from '../components/ProfileTabs'
@@ -48,8 +49,12 @@ function VisibilityOption({ selected, title, facts, onPress }: { selected: boole
   </Pressable>
 }
 
-export default function ProfileScreen({ user, onUser, onLogout, onExpired, onNewPhoto, menuSections, upcoming, onOpenMatch, onPlay, tab: activeContentTab, onTabChange }: {
+export default function ProfileScreen({ user, onUser, onLogout, onExpired, onNewPhoto, menuSections, upcoming, onOpenMatch, onPlay, tab: activeContentTab, onTabChange, notificationCount = 0, onOpenNotifications }: {
   user: User; onUser: (user: User) => void; onLogout: () => void; onExpired: () => void; onNewPhoto?: () => void; menuSections?: (close: () => void) => ReactNode
+  /** Número do sino (não lidas mais pedidos para seguir), lido pelo shell. */
+  notificationCount?: number
+  /** Abre as Notificações; sem ele, o perfil não mostra o sino e a linha do Menu fica sem ação. */
+  onOpenNotifications?: () => void
   /** Partidas da placa do Jogar (já lidas pelo shell): dela sai a próxima partida da aba Partidas. */
   upcoming?: readonly MatchCard[]
   /** Abre a tela da partida (o mesmo caminho do Jogar e do Início). */
@@ -265,7 +270,11 @@ export default function ProfileScreen({ user, onUser, onLogout, onExpired, onNew
           : <MatchTimeline userId={user.id} own upcoming={upcoming} onOpenMatch={onOpenMatch} onPlay={onPlay} onExpired={onExpired} />}
       </View>
     </ScrollView>
-    <ProfileTopBar condensed={condensed} username={user.username} trailing={<TopBarButton label="Menu" glyph="☰" condensed={condensed} onPress={() => open('menu')} />} />
+    <ProfileTopBar condensed={condensed} username={user.username} trailingWidth={onOpenNotifications ? 96 : 52}
+      trailing={<>
+        {onOpenNotifications ? <NotificationBell tone="cover" condensed={condensed} count={notificationCount} onOpen={onOpenNotifications} /> : null}
+        <TopBarButton label="Menu" glyph="☰" condensed={condensed} onPress={() => open('menu')} />
+      </>} />
 
     {sheet === 'edit' ? <Sheet title="Editar perfil" onClose={() => open(null)} onBack={fromMenu ? () => open('menu') : undefined}>
       {feedback}
@@ -332,7 +341,7 @@ export default function ProfileScreen({ user, onUser, onLogout, onExpired, onNew
       <ListRow label="Minhas modalidades" onPress={() => open(null)} />
       {menuSections?.(() => open(null))}
       <Text className={cx(tw.eyebrow, 'mt-5')}>APP</Text>
-      <ListRow label="Notificações" value="Em breve" />
+      <ListRow label="Notificações" value={notificationCount > 0 ? String(notificationCount) : undefined} onPress={onOpenNotifications && (() => { open(null); onOpenNotifications() })} />
       <ListRow label="Sobre o ARENA" value={`Versão ${appVersion}`} />
       <View className="mt-5"><ListRow tone="danger" label={busy ? 'Aguarde…' : 'Sair da conta'} disabled={busy} onPress={() => void logout()} /></View>
     </Sheet> : null}

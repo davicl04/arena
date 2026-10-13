@@ -8,6 +8,7 @@ import type { ChoiceOption } from '../components/arena/controls'
 import { TierEmblem } from '../components/arena/TierEmblem'
 import { SectionTabs } from '../components/events/SectionTabs'
 import { Icon } from '../components/Icon'
+import { NotificationBell } from '../components/notifications/NotificationBell'
 import type { IconName } from '../components/Icon'
 import { MyRankingPlate, RankingRows } from '../components/ranking/RankingRows'
 import { useRanking } from '../components/ranking/useRanking'
@@ -57,7 +58,7 @@ function EmptyCard({ icon, title, text, action }: { icon: IconName; title: strin
  * ("n de 3 partidas", sem elo). `params` abre já na modalidade (e, na corrida, na distância), como o "Ver ranking" de
  * "Suas marcas" e do Início. Só dados da API: lista vazia é estado vazio, nunca pontos de exemplo.
  */
-export default function RankingScreen({ user, navigation, params, onExpired }: ScreenProps<'ranking'>) {
+export default function RankingScreen({ user, navigation, params, onExpired, notificationSummary }: ScreenProps<'ranking'>) {
   const [sport, setSport] = useState<Sport>(params?.sport ?? 'futebol')
   const [kind, setKind] = useState<Kind>('time')
   const [format, setFormat] = useState<FootballFormat>('society')
@@ -92,8 +93,13 @@ export default function RankingScreen({ user, navigation, params, onExpired }: S
   const classified = page?.classified_count ?? 0
 
   return <ScrollView testID="ranking-screen" contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 6, paddingBottom: 32 }} keyboardShouldPersistTaps="handled">
-    <Text style={{ color: colors.brand, fontSize: 11, fontWeight: '800', letterSpacing: 2 }}>CADA JOGO CONTA</Text>
-    <Text accessibilityRole="header" style={{ marginTop: 3, color: colors.ink, fontSize: 28, fontWeight: '800' }}>Ranking</Text>
+    <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+      <View style={{ flexShrink: 1 }}>
+        <Text style={{ color: colors.brand, fontSize: 11, fontWeight: '800', letterSpacing: 2 }}>CADA JOGO CONTA</Text>
+        <Text accessibilityRole="header" style={{ marginTop: 3, color: colors.ink, fontSize: 28, fontWeight: '800' }}>Ranking</Text>
+      </View>
+      <View style={{ marginRight: -8, marginTop: -4 }}><NotificationBell tone="light" count={notificationSummary.count} onOpen={() => navigation.go('notifications')} /></View>
+    </View>
     <Text style={{ marginTop: 4, marginBottom: 18, color: colors['ink-muted'], fontSize: 12, lineHeight: 19 }}>Reconstrua sua arena a cada elo.</Text>
 
     <View accessibilityLabel="Elos do ranking" style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 10, marginBottom: 20 }}>

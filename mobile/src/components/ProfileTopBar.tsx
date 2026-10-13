@@ -30,12 +30,16 @@ export function TopBarButton({ label, glyph, onPress, condensed }: { label: stri
 }
 
 /** Barra fixa do perfil, posicionada fora do ScrollView. Depois da capa, ganha fundo claro e @usuário. */
-export default function ProfileTopBar({ condensed, username, leading, trailing }: { condensed: boolean; username: string; leading?: ReactNode; trailing?: ReactNode }) {
+export default function ProfileTopBar({ condensed, username, leading, trailing, trailingWidth = 52 }: {
+  condensed: boolean; username: string; leading?: ReactNode; trailing?: ReactNode
+  /** Largura do lado direito: 52 pt para um botão, 96 pt com o sino e o Menu (o @usuário perde um pouco do centro para não truncar em 320 px). */
+  trailingWidth?: number
+}) {
   return <View pointerEvents="box-none" className={cx('absolute top-0 right-0 left-0 z-10 h-14 flex-row items-center border-line px-2', condensed ? 'border-b bg-white elevation-sm' : 'bg-transparent')}>
     <View className="w-[52px] items-start">{leading}</View>
     <View className="grow basis-0 items-center">
       {condensed ? <Text numberOfLines={1} accessibilityRole="header" className="text-[16px] font-bold text-ink"><Text className="text-brand">@</Text>{username}</Text> : null}
     </View>
-    <View className="w-[52px] items-end">{trailing}</View>
+    <View style={{ width: trailingWidth }} className="flex-row items-center justify-end">{trailing}</View>
   </View>
 }

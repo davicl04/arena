@@ -1,5 +1,6 @@
 import type { Sport } from '../api/client'
 import { eventNoun } from '../data/arena'
+import type { NotificationFilter } from '../data/notifications'
 import type { RunDistance } from '../data/arena'
 import type { IconName } from '../components/Icon'
 
@@ -25,7 +26,10 @@ export interface ScreenParams {
   /** Perfil de outro atleta (o `user-profile` da web), empilhado sobre a tela de origem: "Ver perfil" do elenco e das filas. */
   'user-profile': { userId: number }
   /* Atleta: notificações, campeonatos e provas. */
-  notifications: undefined
+  /** `filter`: o chip aberto de início (a placa "Para responder" do Início abre em `responder`); sem ele, `tudo`. */
+  notifications: { filter?: NotificationFilter } | undefined
+  /** Pedidos para seguir (subtela da tela de notificações). */
+  'follow-requests': undefined
   /** Lista E2: a corrida chama os eventos de "Provas". */
   events: { sport?: Sport } | undefined
   /** Detalhe D2; `section: 'tabela'` abre na aba Tabela (notificações da tabela e do encerramento). */
@@ -99,6 +103,7 @@ export const titles: Record<ScreenName, string> = {
   profile: 'Perfil',
   'user-profile': 'Perfil',
   notifications: 'Notificações',
+  'follow-requests': 'Pedidos para seguir',
   events: eventNoun.futebol.many,
   event: eventNoun.futebol.one,
   match: 'Partida',
@@ -144,12 +149,11 @@ const playScreens: readonly ScreenName[] = ['teams', 'team-form', 'team-invite',
 /**
  * Aba acesa na navegação inferior para a tela atual (`root` é a primeira tela da pilha). As telas de Meus times, dos
  * eventos do atleta (o detalhe traz a Tabela do campeonato) e da partida acendem "JOGAR"; as de organizador e
- * administração, inclusive o chaveamento, as partidas e a decisão do campeonato, "Perfil"; Notificações acendem "Início"
- * (o sino) ou "Perfil", quando abertas por ali.
+ * administração, inclusive o chaveamento, as partidas e a decisão do campeonato, "Perfil"; Notificações e Pedidos para seguir
+ * acendem a aba de onde o sino foi tocado (`root`).
  */
 export function activeNavFor(screen: ScreenName, root: ScreenName): TabScreen {
   if (isRootScreen(screen)) return screen
-  if (screen === 'notifications') return root === 'profile' ? 'profile' : 'home'
   if (profileScreens.includes(screen)) return 'profile'
   if (playScreens.includes(screen)) return 'play'
   return isRootScreen(root) ? root : 'home'
@@ -159,11 +163,12 @@ export function activeNavFor(screen: ScreenName, root: ScreenName): TabScreen {
  * Telas que desenham a própria barra de topo e dispensam o cabeçalho claro do shell, como no `ArenaPage` da web: a placa
  * escura de Meus times, do organizador, dos comprovantes e do Criar evento (voltar ou fechar e o título dentro dela), a capa
  * do perfil de outro atleta (voltar e ••• na barra fixa), o cabeçalho da partida (P2) e as telas do campeonato do organizador
- * (chaveamento, partidas e decisão). Entre as abas, o Início (marca e sino) e o Jogar (placa `forest` com o Coliseu) também
+ * (chaveamento, partidas e decisão) e a placa das notificações (voltar, título e filtros; os pedidos para seguir usam o cabeçalho padrão).
+ * Entre as abas, o Início (marca e sino) e o Jogar (placa `forest` com o Coliseu) também
  * trazem o topo, e por isso o shell não põe a faixa "arena." acima delas. Telas novas que não desenhem a barra ficam fora da lista.
  */
 const ownHeaderScreens: readonly ScreenName[] = [
   'home', 'play', 'user-profile', 'teams', 'team-form', 'team-invite', 'join', 'organizer-events', 'event-wizard', 'event-manage', 'event-receipts',
-  'match', 'event-bracket', 'event-matches', 'result-decision',
+  'match', 'event-bracket', 'event-matches', 'result-decision', 'notifications',
 ]
 export const hasOwnHeader = (screen: ScreenName): boolean => ownHeaderScreens.includes(screen)

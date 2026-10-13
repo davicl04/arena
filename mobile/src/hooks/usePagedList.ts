@@ -17,8 +17,11 @@ export interface PagedList<T> {
   setItems: Dispatch<SetStateAction<T[]>>; loadMore: () => Promise<void>; reload: () => void; refresh: () => void
 }
 
-/** Lista paginada por cursor (porta do hook da web). Trocar `path` recarrega a primeira página. */
-export function usePagedList<T>(path: string, onExpired: () => void): PagedList<T> {
+/**
+ * Lista paginada por cursor (porta do hook da web). Trocar `path` recarrega a primeira página. Com `enabled` falso não há leitura
+ * (`loading` é falso e a lista, vazia): a tela de notificações não lê a lista no chip "Para responder".
+ */
+export function usePagedList<T>(path: string, onExpired: () => void, enabled = true): PagedList<T> {
   const [state, setState] = useState<State<T> | null>(null)
   const [attempt, setAttempt] = useState(0)
   const [refreshing, setRefreshing] = useState(false)
@@ -26,6 +29,7 @@ export function usePagedList<T>(path: string, onExpired: () => void): PagedList<
   // `onEndReached` pode disparar várias vezes antes de o estado `busy` chegar à tela.
   const loadingMore = useRef(false)
   useEffect(() => {
+    if (!enabled) return
     const requestGeneration = ++generation.current
     loadingMore.current = false
     request<Page<T>>(path).then(page => {
@@ -39,8 +43,8 @@ export function usePagedList<T>(path: string, onExpired: () => void): PagedList<
       setState({ path, generation: requestGeneration, items: [], cursor: null, error: err instanceof Error ? err : new Error('Não foi possível carregar a lista.'), busy: false, moreError: '' })
     })
     return () => { generation.current = requestGeneration + 1 }
-  }, [path, attempt, onExpired])
-  const current = state && state.path === path ? state : null
+  }, [path, attempt, onExpired, enabled])
+  const current = enabled && state && state.path === path ? state : null
   const setItems: Dispatch<SetStateAction<T[]>> = useCallback(update => {
     setState(old => old ? { ...old, items: typeof update === 'function' ? update(old.items) : update } : old)
   }, [])
@@ -68,7 +72,7 @@ export function usePagedList<T>(path: string, onExpired: () => void): PagedList<
   // Mantém os itens na tela; a nova geração (no efeito) descarta um "carregar mais" ainda pendente.
   const refresh = useCallback(() => { setRefreshing(true); setAttempt(n => n + 1) }, [])
   return {
-    items: current?.items ?? [], loading: !current, error: current?.error ?? null, moreError: current?.moreError ?? '',
+    items: current?.items ?? [], loading: enabled && !current, error: current?.error ?? null, moreError: current?.moreError ?? '',
     total: current?.total, hasMore: Boolean(current?.cursor), busy: current?.busy ?? false, refreshing, setItems, loadMore, reload, refresh,
   }
 }

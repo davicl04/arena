@@ -2,6 +2,7 @@ import { useCallback } from 'react'
 import type { ReactElement } from 'react'
 import type { User } from '../api/client'
 import type { PlayBoard } from '../api/matchmaking'
+import type { NotificationSummaryState } from '../hooks/useNotificationSummary'
 import type { PlayBoardState } from '../hooks/usePlayBoard'
 import OrganizerMenu from '../components/organizer/OrganizerMenu'
 import AdminCourtSuggestionsScreen from '../screens/AdminCourtSuggestionsScreen'
@@ -16,6 +17,7 @@ import EventManageScreen from '../screens/EventManageScreen'
 import EventMatchesScreen from '../screens/EventMatchesScreen'
 import EventScreen from '../screens/EventScreen'
 import EventsScreen from '../screens/EventsScreen'
+import FollowRequestsScreen from '../screens/FollowRequestsScreen'
 import EventWizardScreen from '../screens/EventWizardScreen'
 import HomeScreen from '../screens/HomeScreen'
 import JoinScreen from '../screens/JoinScreen'
@@ -53,6 +55,12 @@ export interface ScreenContext {
   playBoard: PlayBoardState
   /** Relê a placa agora (depois de aceitar, recusar ou cancelar algo), para o ponto e as listas acompanharem; devolve a placa nova. */
   refreshPlayBoard: () => Promise<PlayBoard | null>
+  /**
+   * Resumo das notificações (`GET /me/notifications/summary`) lido uma vez pelo shell: o número do sino de cada aba raiz, a linha
+   * de resumo e os chips da tela de notificações e a placa "Para responder" do Início. `setData` recebe o resumo devolvido por ler
+   * e ler todas; `reload` o relê depois de aprovar ou recusar um pedido para seguir.
+   */
+  notificationSummary: NotificationSummaryState
 }
 export type ScreenProps<S extends ScreenName> = ScreenContext & {
   params: ScreenParams[S]
@@ -62,16 +70,18 @@ export type ScreenProps<S extends ScreenName> = ScreenContext & {
 export type ScreenComponent<S extends ScreenName> = (props: ScreenProps<S>) => ReactElement
 
 
-function CommunityRoute({ user, params, navigation, onExpired }: ScreenProps<'community'>) {
+function CommunityRoute({ user, params, navigation, onExpired, notificationSummary }: ScreenProps<'community'>) {
   // Pedido do quadro "Nova foto" do perfil: a Comunidade abre já na nova publicação e consome o pedido.
   const started = useCallback(() => navigation.setParams('community', { compose: false }), [navigation])
-  return <CommunityScreen user={user} onExpired={onExpired} composeOnOpen={Boolean(params?.compose)} onComposeStarted={started} />
+  return <CommunityScreen user={user} onExpired={onExpired} composeOnOpen={Boolean(params?.compose)} onComposeStarted={started}
+    notificationCount={notificationSummary.count} onOpenNotifications={() => navigation.go('notifications')} />
 }
 
-function ProfileRoute({ user, params, navigation, onUser, onLogout, onExpired, playBoard }: ScreenProps<'profile'>) {
+function ProfileRoute({ user, params, navigation, onUser, onLogout, onExpired, playBoard, notificationSummary }: ScreenProps<'profile'>) {
   const changeTab = useCallback((tab: 'Fotos' | 'Partidas') => navigation.setParams('profile', { tab }), [navigation])
   return <ProfileScreen user={user} onUser={onUser} onLogout={onLogout} onExpired={onExpired}
     tab={params?.tab} onTabChange={changeTab} onNewPhoto={() => navigation.go('community', { compose: true })}
+    notificationCount={notificationSummary.count} onOpenNotifications={() => navigation.go('notifications')}
     upcoming={playBoard.board?.matches} onOpenMatch={matchId => navigation.go('match', { matchId })} onPlay={() => navigation.go('play')}
     menuSections={close => <OrganizerMenu isAdmin={user.is_admin} navigation={navigation} onLeave={close} onExpired={onExpired} />} />
 }
@@ -82,13 +92,14 @@ function ProfileRoute({ user, params, navigation, onUser, onLogout, onExpired, p
  * organizador (a aba Tabela do `event`, o chaveamento, a agenda e a decisão do resultado), o organizador e a administração.
  */
 export const screens: { [S in ScreenName]: ScreenComponent<S> } = {
-  home: ({ user, navigation, onExpired, playBoard }) => <HomeScreen user={user} navigation={navigation} onExpired={onExpired} matches={playBoard.board?.matches} />,
+  home: ({ user, navigation, onExpired, playBoard, notificationSummary }) => <HomeScreen user={user} navigation={navigation} onExpired={onExpired} matches={playBoard.board?.matches} notificationSummary={notificationSummary} />,
   ranking: RankingScreen,
   play: PlayScreen,
   community: CommunityRoute,
   'user-profile': UserProfileScreen,
   profile: ProfileRoute,
   notifications: NotificationsScreen,
+  'follow-requests': FollowRequestsScreen,
   events: EventsScreen,
   event: EventScreen,
   match: MatchScreen,

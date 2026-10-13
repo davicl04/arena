@@ -60,6 +60,20 @@ describe('Comunidade: barra, abas e feed', () => {
   beforeEach(() => { enableAct(); vi.mocked(request).mockReset(); vi.mocked(ImagePicker.launchImageLibraryAsync).mockReset(); scroller.scrollToOffset.mockReset() })
   afterEach(() => { vi.useRealTimers() })
 
+  it('o sino das Notificações é um círculo de vidro na barra escura, antes do "+", com o número de novas', async () => {
+    serve()
+    const onOpenNotifications = vi.fn()
+    const tree = await mount({ notificationCount: 7, onOpenNotifications })
+    expect(byLabel(tree, 'Notificações, 7 novas')).toHaveLength(1)
+    await press(tree, 'Notificações, 7 novas')
+    expect(onOpenNotifications).toHaveBeenCalledTimes(1)
+    const labels = tree.root.findAll(node => String(node.type) === 'Pressable').map(node => node.props.accessibilityLabel)
+    expect(labels.indexOf('Notificações, 7 novas')).toBeLessThan(labels.indexOf('Nova publicação'))
+    // Sem a abertura (a tela fora do shell) a barra não mostra o sino.
+    const bare = await mount()
+    expect(byLabel(bare, 'Notificações')).toHaveLength(0)
+  })
+
   it('mostra a barra com título, + e abas; tocar em Publicações ativa só volta ao topo', async () => {
     serve()
     const tree = await mount()

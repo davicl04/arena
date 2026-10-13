@@ -2,10 +2,12 @@ import React from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { request as apiRequest } from '../src/api/client'
 import type { ArenaNotification } from '../src/api/notifications'
-import NotificationsScreen, { openTarget } from '../src/screens/NotificationsScreen'
+import { openTarget } from '../src/navigation/openNotification'
+import NotificationsScreen from '../src/screens/NotificationsScreen'
 import { enableAct } from './support/native'
-import { allText, callsTo, me, navigationMock, page, pressButton, render, serve } from './support/events'
-import { playContext } from './support/play'
+import { allText, callsTo, me, navigationMock, pressButton, render } from './support/events'
+import { serveNotifications, summaryOf } from './support/notifications'
+import { notificationSummaryState, playContext } from './support/play'
 
 vi.mock('react-native', async () => (await import('./support/native')).reactNativeMock())
 vi.mock('react-native-svg', async () => (await import('./support/native')).svgMock())
@@ -15,7 +17,7 @@ vi.mock('../src/api/client', async original => ({ ...await original<typeof impor
 const h = React.createElement
 let nextId = 100
 const note = (type: string, payload: Record<string, unknown> = {}, actor: ArenaNotification['actor'] = null): ArenaNotification =>
-  ({ id: nextId++, type, payload, actor, created_at: new Date(Date.now() - 5 * 60_000).toISOString(), read_at: null })
+  ({ id: nextId++, type, category: 'partidas', payload, actor, created_at: new Date(Date.now() - 5 * 60_000).toISOString(), read_at: null, pending: false, action_until: null })
 
 beforeEach(() => {
   enableAct()
@@ -56,11 +58,9 @@ describe('openTarget: destinos das etapas 3 a 5', () => {
 
 describe('Notificações do Jogar na tela: tocar marca como lida e abre o destino', () => {
   function mountWith(list: ArenaNotification[], navigation = navigationMock(), user = me) {
-    serve({
-      '/me/follow-requests': page([]), '/me/notifications/unread-count': { unread_count: list.length }, '/me/notifications': page(list),
-      ...Object.fromEntries(list.map(entry => [`PUT /me/notifications/${entry.id}/read`, { unread_count: 0 }])),
-    })
-    return render(h(NotificationsScreen, { user, navigation, onUser: vi.fn(), onLogout: vi.fn(), ...playContext(), onExpired: vi.fn(), params: undefined, title: 'Notificações' })).then(tree => ({ tree, navigation }))
+    serveNotifications({ feed: list, extra: Object.fromEntries(list.map(entry => [`PUT /me/notifications/${entry.id}/read`, summaryOf()])) })
+    const notificationSummary = notificationSummaryState(summaryOf({ unread_count: list.length }))
+    return render(h(NotificationsScreen, { user, navigation, onUser: vi.fn(), onLogout: vi.fn(), ...playContext(), notificationSummary, onExpired: vi.fn(), params: undefined, title: 'Notificações' })).then(tree => ({ tree, navigation }))
   }
   const label = (_entry: ArenaNotification, text: string) => `${text}. há 5 min. Não lida`
 

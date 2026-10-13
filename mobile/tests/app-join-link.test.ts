@@ -139,8 +139,8 @@ describe('App: link do time depois do login', () => {
     const tree = await mountApp()
     await login(tree)
     vi.mocked(request).mockRejectedValue(new ApiError('Sessão expirada', 401))
+    // A troca de aba relê o resumo das notificações, que responde 401 e expira a sessão.
     await press(tree, 'Perfil')
-    await press(tree, 'Início')
     expect(host(tree, 'AuthScreen')).toHaveLength(1)
     await login(tree)
     expect(joins).toEqual([])

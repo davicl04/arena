@@ -20,7 +20,7 @@ describe('entradas tipadas', () => {
 
   it('declara as telas de todas as frentes seguintes, cada uma com título', () => {
     const declared: ScreenName[] = [
-      'home', 'ranking', 'play', 'community', 'profile', 'user-profile', 'notifications', 'events', 'event', 'match',
+      'home', 'ranking', 'play', 'community', 'profile', 'user-profile', 'notifications', 'follow-requests', 'events', 'event', 'match',
       'event-bracket', 'event-matches', 'result-decision',
       'teams', 'team-form', 'team-invite', 'join',
       'organizer-request', 'organizer-events', 'event-wizard', 'event-manage', 'event-receipts',
@@ -38,8 +38,9 @@ describe('entradas tipadas', () => {
 
   it('as telas com placa escura ou capa própria dispensam o cabeçalho do shell; as demais o usam', () => {
     for (const screen of ['home', 'play', 'user-profile', 'teams', 'team-form', 'team-invite', 'join', 'organizer-events', 'event-wizard', 'event-manage', 'event-receipts',
-      'match', 'event-bracket', 'event-matches', 'result-decision'] as const) expect(hasOwnHeader(screen)).toBe(true)
-    for (const screen of ['ranking', 'community', 'profile', 'notifications', 'events', 'event', 'organizer-request', 'moderation', 'admin-paid-events', 'admin-court-suggestions', 'admin-walkover-disputes'] as const) expect(hasOwnHeader(screen)).toBe(false)
+      'match', 'event-bracket', 'event-matches', 'result-decision', 'notifications'] as const) expect(hasOwnHeader(screen)).toBe(true)
+    // A placa das notificações tem voltar e título próprios; os pedidos para seguir usam o cabeçalho padrão do shell.
+    for (const screen of ['ranking', 'community', 'profile', 'follow-requests', 'events', 'event', 'organizer-request', 'moderation', 'admin-paid-events', 'admin-court-suggestions', 'admin-walkover-disputes'] as const) expect(hasOwnHeader(screen)).toBe(false)
   })
 
   it('"Ver perfil" empilha o perfil do atleta; o próprio perfil é a aba Perfil', () => {
@@ -119,10 +120,17 @@ describe('aba acesa e título', () => {
       expect(activeNavFor(screen, 'home')).toBe('profile')
   })
 
-  it('as abas acendem a si mesmas; Notificações acendem Início, ou Perfil quando abertas por ali', () => {
+  it('as abas acendem a si mesmas; Notificações e Pedidos para seguir acendem a aba de onde o sino foi tocado', () => {
     for (const tab of rootScreens) expect(activeNavFor(tab, 'home')).toBe(tab)
-    expect(activeNavFor('notifications', 'home')).toBe('home')
-    expect(activeNavFor('notifications', 'profile')).toBe('profile')
+    for (const screen of ['notifications', 'follow-requests'] as const) {
+      for (const root of ['home', 'ranking', 'play', 'community', 'profile'] as const) expect(activeNavFor(screen, root)).toBe(root)
+    }
+  })
+
+  it('Notificações abre num chip e os Pedidos para seguir têm título próprio', () => {
+    expect(makeEntry('notifications', { filter: 'responder' })).toEqual({ screen: 'notifications', params: { filter: 'responder' } })
+    expect(makeEntry('notifications')).toEqual({ screen: 'notifications' })
+    expect(titleFor(makeEntry('follow-requests'))).toBe('Pedidos para seguir')
   })
 
   it('o título muda na edição de time e de rascunho e chama os eventos da corrida de Provas', () => {

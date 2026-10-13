@@ -11,7 +11,7 @@ import type { PlayBoardState } from '../src/hooks/usePlayBoard'
 import PlayScreen from '../src/screens/PlayScreen'
 import { byLabel, enableAct, press, textOf } from './support/native'
 import {
-  athleteSide, brasilia, football, ferrugemRef, fromNow, leoesRef, matchCard, person, playBoard, proposal, search, slotOffer, standings,
+  athleteSide, brasilia, emptySummary, notificationSummaryState, football, ferrugemRef, fromNow, leoesRef, matchCard, person, playBoard, proposal, search, slotOffer, standings,
   teamSide, tennis,
 } from './support/play'
 import { answer, fakeNavigation, me, TOKEN } from './support/teams'
@@ -37,7 +37,7 @@ let readBoard: () => Promise<PlayBoard | null> = async () => null
 const onExpired = vi.fn()
 const trees: ReactTestRenderer[] = []
 
-interface Options { board?: PlayBoard | null; loading?: boolean; error?: string; hint?: number; sport?: Sport }
+interface Options { board?: PlayBoard | null; loading?: boolean; error?: string; hint?: number; sport?: Sport; unread?: number }
 
 /** A tela como o shell a monta: `playBoard`/`refreshPlayBoard` do `usePlayBoard`, com a placa vinda de `server.board`. */
 function Harness({ options }: { options: Options }) {
@@ -53,7 +53,7 @@ function Harness({ options }: { options: Options }) {
   useEffect(() => { readBoard = reload }, [reload])
   const defer = useCallback((matchId: number) => { deferSpy(matchId); setDeferred(old => [...old, matchId]) }, [])
   const playBoardState: PlayBoardState = { board, loading: options.loading ?? false, error: options.error ?? '', reload, deferred, defer }
-  return h(PlayScreen, { user: me, navigation: nav as never, onUser: vi.fn(), onLogout: vi.fn(), onExpired, playBoard: playBoardState, refreshPlayBoard: reload, params, title: 'Jogar' })
+  return h(PlayScreen, { user: me, navigation: nav as never, onUser: vi.fn(), onLogout: vi.fn(), onExpired, playBoard: playBoardState, refreshPlayBoard: reload, notificationSummary: notificationSummaryState(emptySummary({ unread_count: options.unread ?? 0 })), params, title: 'Jogar' })
 }
 
 async function mount(board: PlayBoard | null = playBoard(), options: Omit<Options, 'board'> = {}): Promise<ReactTestRenderer> {
@@ -100,6 +100,19 @@ afterEach(async () => {
 })
 
 describe('Jogar: a placa', () => {
+  it('o sino das Notificações fica na barra da placa, depois do chip da cidade, com o número de novas', async () => {
+    serve()
+    const tree = await mount(playBoard(), { unread: 3 })
+    expect(byLabel(tree, 'Notificações, 3 novas')).toHaveLength(1)
+    expect(textOf(tree)).toContain('3')
+    const labels = byLabel(tree, 'Notificações, 3 novas')[0]
+    expect(labels.props.accessibilityRole).toBe('button')
+    await act(async () => { labels.props.onPress() })
+    expect(navigation.go).toHaveBeenCalledWith('notifications')
+    const quiet = await mount(playBoard())
+    expect(byLabel(quiet, 'Notificações')).toHaveLength(1)
+  })
+
   it('mostra a cidade do perfil, as abas, o time e o formato; em classificação, sem brasão de elo', async () => {
     serve()
     const tree = await mount()

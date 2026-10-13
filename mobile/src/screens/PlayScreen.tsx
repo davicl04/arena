@@ -9,6 +9,7 @@ import { ArenaMark } from '../components/arena/ArenaMark'
 import { LiveNotice, Notice, TextAction } from '../components/arena/controls'
 import { TeamCrest } from '../components/arena/TeamCrest'
 import { TeamsPlate } from '../components/arena/TeamsPlate'
+import { NotificationBell } from '../components/notifications/NotificationBell'
 import { Icon } from '../components/Icon'
 import { CancelSearchSheet } from '../components/play/CancelSearchSheet'
 import { formatChips } from '../components/play/formatChips'
@@ -65,7 +66,7 @@ type Picked = { kind: 'proposta' | 'oferta'; id: number }
  * `params.matchId` (vindo de notificações) abre a proposta ou a oferta de vaga dessa partida; se ela já não está pendente,
  * abre a própria partida.
  */
-export default function PlayScreen({ navigation, onExpired, playBoard: board, refreshPlayBoard, params }: ScreenProps<'play'>) {
+export default function PlayScreen({ navigation, onExpired, playBoard: board, refreshPlayBoard, params, notificationSummary }: ScreenProps<'play'>) {
   // A modalidade escolhida fica também na entrada da pilha: voltar da partida remonta a tela e retoma a mesma aba.
   const [sport, setSport] = useState<Sport>(params?.sport ?? 'futebol')
   const [mode, setMode] = useState<PlayMode>('time')
@@ -237,6 +238,7 @@ export default function PlayScreen({ navigation, onExpired, playBoard: board, re
             <Icon name="map-pin" size={13} color={colors.mint} />
             <Text numberOfLines={1} style={{ flexShrink: 1, color: 'rgba(255,255,255,0.8)', fontSize: 10.5, fontWeight: '600' }}>{city ? city.name : 'Definir cidade'}</Text>
           </Pressable>
+          <NotificationBell tone="dark" count={notificationSummary.count} onOpen={() => navigation.go('notifications')} />
         </View>
         <SportTabs value={sport} onChange={next => { setSport(next); setNotice(''); navigation.setParams('play', { sport: next }) }} />
         <View style={{ alignItems: 'center', gap: 14, paddingHorizontal: 20, paddingTop: 16 }}>

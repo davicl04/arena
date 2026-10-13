@@ -14,7 +14,7 @@ import { matchCard, playBoard, search } from './support/play'
 
 vi.mock('react-native', async () => (await import('./support/native')).reactNativeMock())
 vi.mock('react-native-svg', async () => (await import('./support/native')).svgMock())
-vi.mock('expo-secure-store', () => ({ getItemAsync: vi.fn(), setItemAsync: vi.fn(), deleteItemAsync: vi.fn() }))
+vi.mock('expo-secure-store', () => ({ getItemAsync: vi.fn().mockResolvedValue(null), setItemAsync: vi.fn(), deleteItemAsync: vi.fn() }))
 vi.mock('../src/api/client', async original => ({ ...await original<typeof import('../src/api/client')>(), request: vi.fn() }))
 // As telas já existentes são testadas à parte; aqui elas só expõem as props que o shell lhes entrega.
 vi.mock('../src/screens/CommunityScreen', async () => {
@@ -64,6 +64,9 @@ const me: User = { id: 1, name: 'Maria Souza', username: 'maria.s', email: 'mari
 const original = { ...screens }
 
 let unread = 0
+let followRequests = 0
+/** Resposta de `GET /me/notifications/summary`. */
+const summaryOf = () => ({ unread_count: unread, follow_requests_count: followRequests, pending_count: 0, unread_by_category: { partidas: 0, times: 0, eventos: 0 } })
 /** Resposta de `GET /me/play`; `null` (sem placa) cai na placa vazia do `normalizeBoard`. */
 let board: ReturnType<typeof playBoard> | null = null
 type ShellProps = Partial<React.ComponentProps<typeof ArenaShell>>
@@ -80,12 +83,13 @@ const back = async () => { let handled = false; await act(async () => { handled 
 beforeEach(() => {
   enableAct()
   unread = 0
+  followRequests = 0
   board = null
   appState.reset()
   hardwareBack.handlers.length = 0
   linking.initial = null
   linking.listeners.length = 0
-  vi.mocked(request).mockReset().mockImplementation(async path => (path === '/me/notifications/unread-count' ? { unread_count: unread } : path === '/me/play' ? board : { items: [], next_cursor: null }) as never)
+  vi.mocked(request).mockReset().mockImplementation(async path => (path === '/me/notifications/summary' ? summaryOf() : path === '/me/play' ? board : { items: [], next_cursor: null }) as never)
 })
 afterEach(() => { Object.assign(screens, original); vi.useRealTimers() })
 
@@ -230,19 +234,24 @@ describe('Início: sino e atalhos', () => {
     const tree = await mount()
     expect(byLabel(tree, 'Notificações')).toHaveLength(1)
     expect(byId(tree, 'unread-indicator')).toHaveLength(0)
-    expect(vi.mocked(request)).toHaveBeenCalledWith('/me/notifications/unread-count')
+    expect(vi.mocked(request)).toHaveBeenCalledWith('/me/notifications/summary')
+    expect(vi.mocked(request)).not.toHaveBeenCalledWith('/me/notifications/unread-count')
   })
 
-  it('anuncia e mostra o contador de não lidas, limitado a 9+', async () => {
-    unread = 3
+  it('anuncia e mostra o contador de novas (não lidas e pedidos para seguir), limitado a 9+', async () => {
+    unread = 2
+    followRequests = 1
     const tree = await mount()
-    expect(byLabel(tree, 'Notificações, 3 não lidas')).toHaveLength(1)
+    expect(byLabel(tree, 'Notificações, 3 novas')).toHaveLength(1)
     expect(byId(tree, 'unread-indicator')).toHaveLength(1)
     expect(textOf(tree)).toContain('3')
     unread = 1
-    expect(byLabel(await mount(), 'Notificações, 1 não lida')).toHaveLength(1)
+    followRequests = 0
+    expect(byLabel(await mount(), 'Notificações, 1 nova')).toHaveLength(1)
     unread = 25
     expect(textOf(await mount())).toContain('9+')
+    // Nenhum contador na navegação inferior.
+    expect(tabs(tree).every(entry => !/[0-9]/.test(String(entry.props.accessibilityLabel)))).toBe(true)
   })
 
   it('o sino abre Notificações (acende o Início); falha de leitura não mostra contador', async () => {
@@ -253,15 +262,16 @@ describe('Início: sino e atalhos', () => {
     vi.mocked(request).mockRejectedValue(new ApiError('Fora do ar', 500))
     const offline = await mount()
     expect(byId(offline, 'unread-indicator')).toHaveLength(0)
+    expect(byLabel(offline, 'Notificações')).toHaveLength(1)
   })
 
   it('401 na leitura do contador expira a sessão', async () => {
     const onExpired = vi.fn()
     vi.mocked(request).mockRejectedValue(new ApiError('Sessão expirada', 401))
     await mount({ onExpired })
-    // O contador do sino e a placa do Jogar (lida pelo shell) respondem 401 juntos; o App trata a expiração de forma idempotente.
+    // O resumo das notificações e a placa do Jogar (lida pelo shell) respondem 401 juntos; o App trata a expiração de forma idempotente.
     expect(onExpired).toHaveBeenCalled()
-    expect(vi.mocked(request)).toHaveBeenCalledWith('/me/notifications/unread-count')
+    expect(vi.mocked(request)).toHaveBeenCalledWith('/me/notifications/summary')
     expect(vi.mocked(request)).toHaveBeenCalledWith('/me/play')
   })
 
@@ -293,6 +303,64 @@ describe('Início: sino e atalhos', () => {
     await act(async () => { host(tree, 'AdminOrganizerRequestsScreen')[0].props.onOpenProfile(me.id) })
     expect(host(tree, 'UserProfileScreen')).toHaveLength(0)
     expect(selectedTab(tree)).toEqual(['Perfil'])
+  })
+})
+
+describe('sino das notificações em cada aba raiz e resumo compartilhado', () => {
+  const summaryReads = () => vi.mocked(request).mock.calls.filter(([path]) => path === '/me/notifications/summary').length
+
+  it('o shell lê o resumo uma vez e o entrega a toda tela; a troca de aba raiz o relê', async () => {
+    unread = 4
+    const tree = await mount()
+    expect(summaryReads()).toBe(1)
+    await press(tree, 'Ranking')
+    expect(summaryReads()).toBe(2)
+    expect(host(tree, 'RankingScreen')[0].props.notificationSummary).toMatchObject({ count: 4, data: summaryOf() })
+    await press(tree, 'JOGAR')
+    expect(summaryReads()).toBe(3)
+    expect(host(tree, 'PlayScreen')[0].props.notificationSummary.count).toBe(4)
+    // Voltar à mesma aba não é troca; abrir uma subtela também não.
+    await press(tree, 'JOGAR')
+    expect(summaryReads()).toBe(3)
+    await act(async () => { host(tree, 'PlayScreen')[0].props.navigation.go('teams') })
+    expect(summaryReads()).toBe(3)
+  })
+
+  it('Comunidade e Perfil recebem o número e a abertura das Notificações, que acendem a aba de origem', async () => {
+    unread = 2
+    followRequests = 1
+    const tree = await mount()
+    await press(tree, 'Comunidade')
+    expect(host(tree, 'CommunityScreen')[0].props.notificationCount).toBe(3)
+    await act(async () => { host(tree, 'CommunityScreen')[0].props.onOpenNotifications() })
+    expect(textOf(tree)).toContain('Notificações')
+    expect(selectedTab(tree)).toEqual(['Comunidade'])
+    await press(tree, 'Voltar')
+    await press(tree, 'Perfil')
+    expect(host(tree, 'ProfileScreen')[0].props.notificationCount).toBe(3)
+    await act(async () => { host(tree, 'ProfileScreen')[0].props.onOpenNotifications() })
+    expect(selectedTab(tree)).toEqual(['Perfil'])
+  })
+
+  it('a tela de Notificações (placa própria, sem o cabeçalho do shell) abre pelo sino e os Pedidos para seguir usam o cabeçalho padrão', async () => {
+    const tree = await mount()
+    await press(tree, 'Notificações')
+    expect(textOf(tree)).toContain('Tudo em dia')
+    // A placa tem o Voltar e o título; o shell não desenha outro.
+    expect(byLabel(tree, 'Voltar')).toHaveLength(1)
+    await press(tree, 'Voltar')
+    expect(textOf(tree)).toContain('Bora jogar, Maria?')
+    await press(tree, 'Ranking')
+    await act(async () => { host(tree, 'RankingScreen')[0].props.navigation.go('follow-requests') })
+    expect(textOf(tree)).toContain('Pedidos para seguir')
+    expect(byLabel(tree, 'Voltar')).toHaveLength(1)
+    expect(selectedTab(tree)).toEqual(['Ranking'])
+  })
+
+  it('nenhum contador na navegação inferior, nem com muitas novidades', async () => {
+    unread = 30
+    const tree = await mount()
+    expect(tabs(tree).map(entry => entry.props.accessibilityLabel)).toEqual(['Início', 'Ranking', 'JOGAR', 'Comunidade', 'Perfil'])
   })
 })
 
@@ -476,7 +544,7 @@ describe('ponto do JOGAR: a placa do Jogar acende o aviso da navegação', () =>
   })
 
   it('falha ao ler a placa não acende o ponto nem derruba o shell', async () => {
-    vi.mocked(request).mockImplementation(async path => { if (path === '/me/play') throw new ApiError('Fora do ar', 500); return { unread_count: 0 } as never })
+    vi.mocked(request).mockImplementation(async path => { if (path === '/me/play') throw new ApiError('Fora do ar', 500); return summaryOf() as never })
     const tree = await mount()
     expect(dot(tree)).toHaveLength(0)
     expect(textOf(tree)).toContain('Bora jogar, Maria?')

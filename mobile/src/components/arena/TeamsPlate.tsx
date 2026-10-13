@@ -9,10 +9,12 @@ const MARK_HEIGHT = 240
 
 /**
  * Placa `forest` com o Coliseu em marca-d'água (.plate), de ponta a ponta no topo de Meus times e de Entrar no time. Os
- * filhos ficam acima da marca-d'água.
+ * filhos ficam acima da marca-d'água. `round` arredonda os quatro cantos com esse raio (a placa "Para responder" do Início); sem
+ * ele, só os de baixo, com 28.
  */
-export function TeamsPlate({ children, bottom = 0 }: { children: ReactNode; bottom?: number }) {
-  return <View testID="teams-plate" style={{ overflow: 'hidden', borderBottomLeftRadius: 28, borderBottomRightRadius: 28, backgroundColor: colors.forest, paddingBottom: bottom }}>
+export function TeamsPlate({ children, bottom = 0, round, testID = 'teams-plate' }: { children: ReactNode; bottom?: number; round?: number; testID?: string }) {
+  const corners = round === undefined ? { borderBottomLeftRadius: 28, borderBottomRightRadius: 28 } : { borderRadius: round }
+  return <View testID={testID} style={{ overflow: 'hidden', ...corners, backgroundColor: colors.forest, paddingBottom: bottom }}>
     <View pointerEvents="none" importantForAccessibility="no-hide-descendants" accessibilityElementsHidden
       style={{ position: 'absolute', bottom: -30, left: '50%', marginLeft: -MARK_WIDTH / 2, width: MARK_WIDTH, height: MARK_HEIGHT, opacity: 0.045 }}>
       <ArenaMark width={MARK_WIDTH} height={MARK_HEIGHT} color="#ffffff" />
