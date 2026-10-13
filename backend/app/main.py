@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -8,28 +9,70 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
+from app.core.access_log import install_access_log_filter
 from app.core.config import get_settings
 from app.core.database import engine
+from app.routers.brackets import router as brackets_router
+from app.routers.courts import router as courts_router
+from app.routers.entries import router as entries_router
+from app.routers.events import router as events_router
 from app.routers.identity import router
+from app.routers.matches import router as matches_router
+from app.routers.matchmaking import router as matchmaking_router
+from app.routers.notifications import router as notifications_router
+from app.routers.organizers import router as organizers_router
+from app.routers.rankings import router as rankings_router
+from app.routers.results import router as results_router
+from app.routers.runs import router as runs_router
+from app.routers.slots import router as slots_router
 from app.routers.social import router as social_router
+from app.routers.teams import router as teams_router
+from app.services.match_rules import RuleError, TransitionError
 
 app = FastAPI(title='Arena API', version='0.1.0')
+# The team link token travels in GET/POST /api/v1/join/{token}: the access log shows /join/*** instead.
+install_access_log_filter()
 app.add_middleware(CORSMiddleware, allow_origins=get_settings().allowed_origins,
                    allow_credentials=True, allow_methods=['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
                    allow_headers=['Content-Type', 'Authorization'])
 
 
-UPLOAD_PATHS = {('PUT', '/api/v1/me/avatar'), ('PUT', '/api/v1/me/cover'), ('POST', '/api/v1/posts')}
+# Multipart uploads as (method, full-path regex, kind): bounded by AvatarBodyLimitMiddleware and exempt from
+# JSON. 'imagem' accepts images only; 'arquivo' accepts an image or a PDF (payment and refund receipts).
+UPLOAD_PATTERNS = (
+    ('PUT', re.compile(r'/api/v1/me/avatar'), 'imagem'),
+    ('PUT', re.compile(r'/api/v1/me/cover'), 'imagem'),
+    ('POST', re.compile(r'/api/v1/posts'), 'imagem'),
+    ('PUT', re.compile(r'/api/v1/teams/[0-9]+/crest'), 'imagem'),
+    ('PUT', re.compile(r'/api/v1/entries/[0-9]+/receipt'), 'arquivo'),
+    ('PUT', re.compile(r'/api/v1/entries/[0-9]+/refund-receipt'), 'arquivo'),
+)
+UPLOAD_MESSAGES = {
+    'imagem': {'too_large': 'A imagem excede o limite de 5 MiB.',
+               'not_multipart': 'Envie uma imagem em multipart/form-data.'},
+    'arquivo': {'too_large': 'O arquivo excede o limite de 5 MiB.',
+                'not_multipart': 'Envie o arquivo (imagem ou PDF) em multipart/form-data.'},
+}
+
+
+def upload_kind(method: str, path: str) -> str | None:
+    return next((kind for allowed, pattern, kind in UPLOAD_PATTERNS
+                 if method == allowed and pattern.fullmatch(path)), None)
+
+
+def is_upload(method: str, path: str) -> bool:
+    return upload_kind(method, path) is not None
 
 
 class AvatarBodyLimitMiddleware:
-    """Bounds multipart image uploads before multipart parsing begins."""
+    """Bounds multipart uploads (images and receipts) before multipart parsing begins."""
 
     def __init__(self, application):
         self.application = application
 
     async def __call__(self, scope, receive, send):
-        if scope['type'] != 'http' or (scope['method'], scope['path']) not in UPLOAD_PATHS:
+        kind = upload_kind(scope['method'], scope['path']) if scope['type'] == 'http' else None
+        if kind is None:
             await self.application(scope, receive, send)
             return
 
@@ -56,7 +99,7 @@ class AvatarBodyLimitMiddleware:
                     break
 
         if too_large:
-            body = json.dumps({'detail': 'A imagem excede o limite de 5 MiB.'}).encode()
+            body = json.dumps({'detail': UPLOAD_MESSAGES[kind]['too_large']}).encode()
             headers = [(b'content-type', b'application/json'),
                        (b'content-length', str(len(body)).encode()),
                        (b'cache-control', b'no-store'), (b'x-content-type-options', b'nosniff')]
@@ -85,7 +128,8 @@ async def origin_protection(request: Request, call_next):
         origin = request.headers.get('origin')
         if origin and origin not in get_settings().allowed_origins:
             return JSONResponse({'detail': 'Origem da solicitação não autorizada.'}, status_code=403)
-        upload = (request.method, request.url.path) in UPLOAD_PATHS
+        kind = upload_kind(request.method, request.url.path)
+        upload = kind is not None
         delete_avatar = request.url.path == '/api/v1/me/avatar' and request.method == 'DELETE'
         bodyless_action = request.method == 'DELETE' or (
             request.method == 'PUT' and any(marker in request.url.path for marker in ('/like', '/follow', '/block'))
@@ -96,7 +140,7 @@ async def origin_protection(request: Request, call_next):
             return JSONResponse({'detail': 'Envie os dados em JSON.'}, status_code=415)
         if upload:
             if content_type != 'multipart/form-data':
-                return JSONResponse({'detail': 'Envie uma imagem em multipart/form-data.'}, status_code=415)
+                return JSONResponse({'detail': UPLOAD_MESSAGES[kind]['not_multipart']}, status_code=415)
     response = await call_next(request)
     response.headers['Cache-Control'] = 'no-store'
     response.headers['X-Content-Type-Options'] = 'nosniff'
@@ -110,6 +154,22 @@ async def invalid_input(request: Request, error: RequestValidationError):
         {'field': '.'.join(str(part) for part in item['loc'][1:]), 'message': item['msg']}
         for item in error.errors()
     ]}, status_code=422)
+
+
+@app.exception_handler(RuleError)
+async def rule_error(request: Request, error: RuleError):
+    """Rule of the product violated (stage 3): `422 { detail, fields }`, the same shape as the input validation.
+
+    The services raise it after checking everything and before writing, so the open transaction is discarded when
+    the request session closes. `fields` names the field when the rule has one (contract 0002, section 7)."""
+    fields = [{'field': error.field, 'message': str(error)}] if error.field else []
+    return JSONResponse({'detail': str(error), 'fields': fields}, status_code=422)
+
+
+@app.exception_handler(TransitionError)
+async def transition_error(request: Request, error: TransitionError):
+    """Action outside the state of the search, match, stat or event: `409 { detail }`."""
+    return JSONResponse({'detail': str(error)}, status_code=409)
 
 
 @app.exception_handler(SQLAlchemyError)
@@ -132,3 +192,16 @@ def ready():
 
 app.include_router(router)
 app.include_router(social_router)
+app.include_router(notifications_router)
+app.include_router(rankings_router)
+app.include_router(teams_router)
+app.include_router(organizers_router)
+app.include_router(events_router)
+app.include_router(entries_router)
+app.include_router(matchmaking_router)
+app.include_router(matches_router)
+app.include_router(courts_router)
+app.include_router(slots_router)
+app.include_router(results_router)
+app.include_router(brackets_router)
+app.include_router(runs_router)

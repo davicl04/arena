@@ -9,6 +9,11 @@ import type {
   Position,
 } from "../api/client";
 import SportIcon from "./SportIcon";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { feedbackVariants } from "@/components/ui/feedback";
+import { IconTile } from "@/components/ui/icon-tile";
 
 export default function SportCard({
   sport,
@@ -55,17 +60,15 @@ export default function SportCard({
   }
   const city = cities.find((c) => c.id === profile?.city_id);
   return (
-    <article className={`sport-card ${sport}`}>
-      <div className="card-top">
-        <span className="sport-icon">
+    <Card as="article" radius="panel" className="p-[17px]">
+      <div className="mb-3 flex items-center justify-between">
+        <IconTile>
           <SportIcon sport={sport} size={30} />
-        </span>
-        <span className="badge">
-          {profile ? "Perfil ativo" : "Comece aqui"}
-        </span>
+        </IconTile>
+        <Badge>{profile ? "Perfil ativo" : "Comece aqui"}</Badge>
       </div>
-      <h3>{label}</h3>
-      <p className="muted">{description}</p>
+      <h3 className="mb-[5px] text-[18px]">{label}</h3>
+      <p className="text-[11px] leading-[1.6] text-ink-muted">{description}</p>
       {editing ? (
         <form onSubmit={save}>
           <fieldset disabled={busy}>
@@ -102,8 +105,9 @@ export default function SportCard({
                 </select>
               </>
             )}
-            <label className="checkbox">
+            <label className="flex items-center gap-[9px] leading-[1.5] font-normal">
               <input
+                className="mt-[3px] mr-[3px] mb-[3px] ml-1 size-[18px] shrink-0 accent-brand"
                 type="checkbox"
                 name="looking_for"
                 defaultChecked={profile?.looking_for}
@@ -111,56 +115,52 @@ export default function SportCard({
               Estou procurando oportunidades
             </label>
             {error && (
-              <p className="error" role="alert">
+              <p className={feedbackVariants()} role="alert">
                 {error}
               </p>
             )}
-            <div className="form-actions">
-              <button className="primary" type="submit">
+            <div className="mt-5 flex gap-2">
+              <Button type="submit">
                 {busy ? "Salvando…" : "Salvar perfil"}
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
-                className="secondary"
+                variant="secondary"
                 onClick={() => setEditing(false)}
               >
                 Cancelar
-              </button>
+              </Button>
             </div>
           </fieldset>
         </form>
       ) : (
         <>
-          <dl>
-            <div>
-              <dt>Cidade</dt>
-              <dd>{city ? `${city.name} · ${city.state}` : "A definir"}</dd>
-            </div>
-            <div>
-              <dt>Nível</dt>
-              <dd>Sem classificação</dd>
-            </div>
+          <dl className="my-[18px]">
+            <Fact
+              term="Cidade"
+              value={city ? `${city.name} · ${city.state}` : "A definir"}
+            />
+            <Fact term="Nível" value="Sem classificação" />
             {profile && (
-              <div>
-                <dt>Disponibilidade</dt>
-                <dd>
-                  {profile.looking_for
+              <Fact
+                term="Disponibilidade"
+                value={
+                  profile.looking_for
                     ? "Procurando oportunidades"
-                    : "Sem procura ativa"}
-                </dd>
-              </div>
+                    : "Sem procura ativa"
+                }
+              />
             )}
             {profile?.position && (
-              <div>
-                <dt>Posição</dt>
-                <dd>
-                  {positions.find((p) => p.value === profile.position)?.label}
-                </dd>
-              </div>
+              <Fact
+                term="Posição"
+                value={positions.find((p) => p.value === profile.position)?.label}
+              />
             )}
           </dl>
-          <button
-            className="secondary card-action"
+          <Button
+            variant="secondary"
+            className="w-full justify-between"
             disabled={!cities.length}
             onClick={() => {
               setEditing(true);
@@ -170,14 +170,24 @@ export default function SportCard({
           >
             {profile ? "Editar perfil" : `Adicionar ${label.toLowerCase()}`}{" "}
             <span aria-hidden="true">↗</span>
-          </button>
+          </Button>
         </>
       )}
       {message && (
-        <p className="success" role="status">
+        <p className={feedbackVariants({ tone: "success" })} role="status">
           {message}
         </p>
       )}
-    </article>
+    </Card>
+  );
+}
+
+/** Linha da ficha do perfil esportivo (termo à esquerda, valor à direita). */
+function Fact({ term, value }: { term: string; value?: string }) {
+  return (
+    <div className="flex justify-between gap-3 border-b border-line py-[9px] text-[11px]">
+      <dt className="text-ink-muted">{term}</dt>
+      <dd className="m-0 text-right">{value}</dd>
+    </div>
   );
 }

@@ -1,14 +1,14 @@
 import { Pressable, Text } from 'react-native'
-
+import { cx } from '../styles'
 // Linha de lista: botão com chevron quando há ação, estática quando não há. A linha 'danger' fica em vermelho e sem chevron.
 export default function ListRow({ label, value, onPress, tone, disabled }: { label: string; value?: string; onPress?: () => void; tone?: 'danger'; disabled?: boolean }) {
   const danger = tone === 'danger'
   const inactive = disabled || !onPress
   return <Pressable accessibilityRole={onPress ? 'button' : undefined} accessibilityState={onPress ? { disabled: Boolean(disabled) } : undefined}
     accessibilityLabel={value ? `${label}: ${value}` : label} disabled={inactive} onPress={onPress}
-    style={{ minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: 10, borderBottomWidth: 1, borderColor: '#edf3ef', opacity: disabled ? 0.5 : 1 }}>
-    <Text style={{ fontWeight: '600', color: danger ? '#b42318' : '#343d39' }}>{label}</Text>
-    <Text numberOfLines={1} style={{ flex: 1, textAlign: 'right', color: '#606965' }}>{value ?? ''}</Text>
-    {onPress && !danger ? <Text style={{ color: '#606965' }}>›</Text> : null}
+    className={cx('min-h-[52px] flex-row items-center gap-2.5 border-b border-brand-soft', disabled && 'opacity-50')}>
+    <Text className={cx('font-semibold', danger ? 'text-danger' : 'text-ink')}>{label}</Text>
+    <Text numberOfLines={1} className="grow basis-0 text-right text-ink-muted">{value ?? ''}</Text>
+    {onPress && !danger ? <Text className="text-ink-muted">›</Text> : null}
   </Pressable>
 }

@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiError, request } from '../src/api/client'
 import type { User } from '../src/api/client'
-import BottomSheet from '../src/components/BottomSheet'
+import { Sheet } from '../src/components/ui/sheet'
 import { CoverSheet, NameSheet, UsernameSheet, VisibilitySheet } from '../src/components/EditSheets'
 
 vi.mock('../src/api/client', async original => ({
@@ -24,14 +24,14 @@ const handlers = () => ({ onUser: vi.fn(), onExpired: vi.fn(), onClose: vi.fn(),
 beforeEach(() => { vi.mocked(request).mockReset() })
 afterEach(() => { cleanup(); vi.useRealTimers() })
 
-describe('BottomSheet', () => {
+describe('Sheet (folhas de Editar perfil)', () => {
   function Harness({ onClose }: { onClose: () => void }) {
     const [open, setOpen] = useState(false)
     return <>
       <button onClick={() => setOpen(true)}>Abrir</button>
-      {open && <BottomSheet title="Exemplo" onClose={() => { onClose(); setOpen(false) }}>
+      {open && <Sheet title="Exemplo" onClose={() => { onClose(); setOpen(false) }}>
         <input aria-label="Campo" data-autofocus /><button>Ação</button>
-      </BottomSheet>}
+      </Sheet>}
     </>
   }
 
@@ -58,7 +58,7 @@ describe('BottomSheet', () => {
   it('fecha ao tocar no fundo e pelo botão Fechar', async () => {
     const onClose = vi.fn()
     const ui = userEvent.setup()
-    render(<BottomSheet title="Exemplo" onClose={onClose}><p>conteúdo</p></BottomSheet>)
+    render(<Sheet title="Exemplo" onClose={onClose}><p>conteúdo</p></Sheet>)
     expect(document.activeElement).toBe(screen.getByRole('dialog'))
     await ui.click(screen.getByTestId('sheet-scrim'))
     await ui.click(screen.getByRole('button', { name: 'Fechar' }))
@@ -92,8 +92,8 @@ describe('UsernameSheet', () => {
     type('.a')
     expect(screen.getByText('Formato inválido. Revise as regras abaixo.')).toBeTruthy()
     const rules = screen.getByRole('list', { name: 'Regras do nome de usuário' })
-    expect(rules.querySelectorAll('li.bad').length).toBe(2)
-    expect(rules.querySelector('li.ok')?.textContent).toContain('Apenas letras minúsculas')
+    expect(rules.querySelectorAll('li[data-state="bad"]').length).toBe(2)
+    expect(rules.querySelector('li[data-state="ok"]')?.textContent).toContain('Apenas letras minúsculas')
     await settle(1000)
     expect(request).not.toHaveBeenCalled()
     expect((screen.getByRole('button', { name: 'Salvar' }) as HTMLButtonElement).disabled).toBe(true)

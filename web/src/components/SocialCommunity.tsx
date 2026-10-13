@@ -1,214 +1,130 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
-import type { Area } from 'react-easy-crop'
-import { MessageCircle, Search, Shield, UserRoundPlus } from 'lucide-react'
-import { request } from '../api/client'
-import type { Page, Post, SocialComment, SocialUser } from '../api/client'
-import { cropImage, validateImageFile } from '../utils/cropImage'
-import ImageCropSheet from './ImageCropSheet'
-import PersonRow from './PersonRow'
-import SocialPostCard from './SocialPostCard'
+import { ArrowDown, Images, Plus, Search, Users } from 'lucide-react'
+import type { Post } from '../api/client'
+import { usePagedList } from '../hooks/usePagedList'
+import { usePullToRefresh } from '../hooks/usePullToRefresh'
+import { ArenaMark } from './Brand'
+import CommunityFeed from './CommunityFeed'
+import CommunityPeople from './CommunityPeople'
+import PostComposer from './PostComposer'
+import { buttonVariants } from '@/components/ui/button-variants'
+import { feedbackVariants } from '@/components/ui/feedback'
+import { Tabs } from '@/components/ui/tabs'
+import { cn } from '@/lib/utils'
 
-export default function SocialCommunity({ onOpenUser, onExpired }: { onOpenUser: (id: number) => void; onExpired: () => void }) {
-  const [feed, setFeed] = useState<Post[]>([])
-  const [feedCursor, setFeedCursor] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
-  const [notice, setNotice] = useState('')
-  const [caption, setCaption] = useState('')
-  const [original, setOriginal] = useState<File | null>(null)
-  const [source, setSource] = useState('')
+const tabs = [
+  { value: 'feed', label: 'Publicações', Icon: Images },
+  { value: 'people', label: 'Atletas', Icon: Users },
+] as const
+type CommunityTab = (typeof tabs)[number]['value']
+/** Altura da linha do título, que recolhe ao rolar para baixo (K2). */
+const TITLE_ROW = 54
+
+/**
+ * Comunidade (F2 + K2): barra escura fixa com o Coliseu, título e nova publicação; abas Publicações | Atletas.
+ * Ao rolar para baixo, o título recolhe e só as abas ficam. O feed atualiza ao ser puxado no topo (com um botão
+ * visível só no foco, para o teclado). A rolagem é a do `main` do app, onde a seção é montada.
+ */
+export default function SocialCommunity({ viewerId, onOpenUser, onExpired, composeOnOpen = false, onComposeStarted }: {
+  viewerId: number
+  onOpenUser: (id: number) => void
+  onExpired: () => void
+  /** Abre direto a nova publicação (quadro "Nova foto" do perfil). */
+  composeOnOpen?: boolean
+  /** Consome o pedido de abertura sem remontar a Comunidade. */
+  onComposeStarted?: () => void
+}) {
+  const [tab, setTab] = useState<CommunityTab>('feed')
+  const [composing, setComposing] = useState(composeOnOpen)
   const [query, setQuery] = useState('')
-  const [searchQuery, setSearchQuery] = useState('')
-  const [peopleCursor, setPeopleCursor] = useState<string | null>(null)
-  const [commentCursors, setCommentCursors] = useState<Record<number, string | null>>({})
-  const [people, setPeople] = useState<SocialUser[]>([])
-  const [comments, setComments] = useState<Record<number, SocialComment[]>>({})
-  const [openComments, setOpenComments] = useState<number | null>(null)
-  const [commentText, setCommentText] = useState<Record<number, string>>({})
+  const [search, setSearch] = useState('')
+  const [notice, setNotice] = useState('')
+  const [tucked, setTucked] = useState(false)
+  const [scroller, setScroller] = useState<HTMLElement | null>(null)
+  const rootRef = useCallback((node: HTMLElement | null) => setScroller(node?.closest('main') ?? null), [])
+  const feed = usePagedList<Post>('/posts', onExpired)
+  const { pull, ready } = usePullToRefresh(scroller, feed.reload, tab === 'feed' && !feed.loading && !composing)
 
-  async function refresh() {
-    setLoading(true); setError('')
-    try { const page = await request<Page<Post>>('/posts'); setFeed(page.items); setFeedCursor(page.next_cursor) }
-    catch (err) { if (isExpired(err)) onExpired(); setError(message(err)) }
-    finally { setLoading(false) }
-  }
   useEffect(() => {
-    let alive = true
-    request<Page<Post>>('/posts').then(page => {
-      if (alive) { setFeed(page.items); setFeedCursor(page.next_cursor) }
-    }).catch(err => {
-      if (alive) { if (isExpired(err)) onExpired(); setError(message(err)) }
-    }).finally(() => { if (alive) setLoading(false) })
-    return () => { alive = false }
-  }, [onExpired])
-  useEffect(() => () => { if (source) URL.revokeObjectURL(source) }, [source])
-  function isExpired(err: unknown) { return Boolean(err && typeof err === 'object' && 'status' in err && err.status === 401) }
-  function message(err: unknown) { return err instanceof Error ? err.message : 'Não foi possível concluir a ação.' }
-  function fail(err: unknown) { if (isExpired(err)) onExpired(); setError(message(err)) }
+    if (composeOnOpen) onComposeStarted?.()
+  }, [composeOnOpen, onComposeStarted])
 
-  function choose(file?: File) {
-    setError(''); setNotice('')
-    if (!file) return
-    const invalid = validateImageFile(file)
-    if (invalid) { setError(invalid); return }
-    if (source) URL.revokeObjectURL(source)
-    setOriginal(file); setSource(URL.createObjectURL(file))
+  // Busca com espera curta enquanto se digita; Enter busca na hora.
+  useEffect(() => {
+    const timer = setTimeout(() => setSearch(query.trim()), 300)
+    return () => clearTimeout(timer)
+  }, [query])
+  useEffect(() => {
+    if (!notice) return
+    const timer = setTimeout(() => setNotice(''), 4000)
+    return () => clearTimeout(timer)
+  }, [notice])
+  useEffect(() => {
+    if (!scroller) return
+    let last = scroller.scrollTop
+    const onScroll = () => {
+      const y = scroller.scrollTop
+      if (y < TITLE_ROW) setTucked(false)
+      else if (Math.abs(y - last) > 6) setTucked(y > last)
+      else return
+      last = y
+    }
+    scroller.addEventListener('scroll', onScroll, { passive: true })
+    return () => scroller.removeEventListener('scroll', onScroll)
+  }, [scroller])
+
+  function changeTab(next: CommunityTab) {
+    if (next === tab) {
+      // Tocar em "Publicações" de novo só volta ao início.
+      if (next === 'feed') scroller?.scrollTo?.({ top: 0, behavior: 'smooth' })
+      return
+    }
+    setTab(next); setTucked(false); scroller?.scrollTo?.({ top: 0 })
   }
-
-  async function publish(cropArea: Area) {
-    if (!original || !source || busy) return
-    setBusy(true); setError(''); setNotice('')
-    try {
-      const image = await cropImage(source, cropArea, { quality: 0.88 })
-      const form = new FormData()
-      form.append('file', image, `${original.name.replace(/\.[^.]+$/, '')}.webp`)
-      form.append('caption', caption)
-      const created = await request<Post>('/posts', 'POST', form)
-      setFeed(old => [created, ...old]); setCaption(''); setOriginal(null); setSource('')
-      setNotice('Publicação compartilhada.')
-    } catch (err) { fail(err) } finally { setBusy(false) }
-  }
-
-  async function loadMore() {
-    if (!feedCursor || busy) return
-    setBusy(true)
-    try { const page = await request<Page<Post>>(`/posts?cursor=${encodeURIComponent(feedCursor)}`); setFeed(old => [...old, ...page.items]); setFeedCursor(page.next_cursor) }
-    catch (err) { fail(err) } finally { setBusy(false) }
-  }
-
-  async function search(event: FormEvent) {
-    event.preventDefault(); setError('')
-    if (!query.trim()) return
-    try { const result = await request<Page<SocialUser>>(`/users?q=${encodeURIComponent(query.trim())}`); setPeople(result.items); setPeopleCursor(result.next_cursor); setSearchQuery(query.trim()) }
-    catch (err) { fail(err) }
-  }
-
-  async function follow(person: SocialUser) {
-    setBusy(true)
-    try {
-      let next: SocialUser['follow_state'] = 'none'
-      if (person.follow_state === 'pending' || person.follow_state === 'approved') await request<void>(`/users/${person.id}/follow`, 'DELETE')
-      else next = (await request<{ state: 'approved' | 'pending' }>(`/users/${person.id}/follow`, 'PUT')).state
-      setPeople(old => old.map(item => item.id === person.id ? { ...item, follow_state: next } : item))
-    } catch (err) { fail(err) } finally { setBusy(false) }
-  }
-
-  async function toggleLike(post: Post) {
-    try {
-      await request<void>(`/posts/${post.id}/like`, post.liked_by_me ? 'DELETE' : 'PUT')
-      const update = (item: Post) => item.id === post.id ? { ...item, liked_by_me: !post.liked_by_me, like_count: item.like_count + (post.liked_by_me ? -1 : 1) } : item
-      setFeed(old => old.map(update))
-    } catch (err) { fail(err) }
-  }
-
-  async function toggleComments(post: Post) {
-    if (openComments === post.id) { setOpenComments(null); return }
-    setOpenComments(post.id)
-    try { const page = await request<Page<SocialComment>>(`/posts/${post.id}/comments`); setComments(old => ({ ...old, [post.id]: page.items })); setCommentCursors(old => ({ ...old, [post.id]: page.next_cursor })) }
-    catch (err) { fail(err) }
-  }
-
-  async function sendComment(event: FormEvent, post: Post) {
+  function submitSearch(event: FormEvent) {
     event.preventDefault()
-    const body = commentText[post.id]?.trim()
-    if (!body || busy) return
-    setBusy(true)
-    try {
-      const added = await request<SocialComment>(`/posts/${post.id}/comments`, 'POST', { body })
-      setComments(old => ({ ...old, [post.id]: [...(old[post.id] ?? []), added] }))
-      setCommentText(old => ({ ...old, [post.id]: '' }))
-      const update = (item: Post) => item.id === post.id ? { ...item, comment_count: item.comment_count + 1 } : item
-      setFeed(old => old.map(update))
-    } catch (err) { fail(err) } finally { setBusy(false) }
+    setSearch(query.trim())
+  }
+  function published(post: Post) {
+    feed.setItems(old => [post, ...old])
+    setComposing(false); setTab('feed'); setNotice('Publicação compartilhada.')
+    scroller?.scrollTo?.({ top: 0 })
   }
 
-  async function report(targetType: string, targetId: number) {
-    const reason = window.prompt('Motivo: spam, assedio, conteudo_inadequado ou outro')
-    if (!reason || !['spam', 'assedio', 'conteudo_inadequado', 'outro'].includes(reason)) return
-    try { await request('/reports', 'POST', { target_type: targetType, target_id: targetId, reason }); setNotice('Denúncia enviada para análise.') }
-    catch (err) { fail(err) }
-  }
+  return <section ref={rootRef} className="min-h-full" aria-label="Comunidade Arena">
+    <div className={cn('sticky z-topbar bg-forest text-white shadow-[0_6px_18px_#0b221833] motion-safe:transition-[top] motion-safe:duration-200',
+      tucked ? '-top-[54px]' : 'top-0')}>
+      <div className="flex h-[54px] items-center gap-2.5 pr-2 pl-[18px]">
+        <ArenaMark className="h-[22px] w-[30px] text-mint" />
+        <h1 className="flex-1 text-[17px] text-white">Comunidade</h1>
+        <button type="button" className="grid size-[38px] place-items-center rounded-full border-0 bg-mint text-night" aria-label="Nova publicação"
+          onClick={() => setComposing(true)}><Plus size={20} /></button>
+      </div>
+      <Tabs variant="dark" items={tabs} value={tab} onChange={changeTab} label="Comunidade" idPrefix="community-tab-" controls="community-panel" />
+      {tab === 'people' && <form role="search" className="px-4 pt-1 pb-3" onSubmit={submitSearch}>
+        <label className="sr-only" htmlFor="community-search">Buscar atletas por nome ou @</label>
+        <div className="relative">
+          <Search size={17} className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-[#ffffffa6]" />
+          <input id="community-search" type="search" autoComplete="off" maxLength={100} value={query} onChange={event => setQuery(event.target.value)}
+            placeholder="Buscar atletas pelo nome ou @" className="min-h-11 border-[#ffffff2e] bg-[#ffffff14] py-2.5 pl-9 text-white placeholder:text-[#ffffff8c]" />
+        </div>
+      </form>}
+    </div>
 
-  async function removePost(post: Post) {
-    if (!window.confirm('Excluir esta publicação?')) return
-    try { await request<void>(`/posts/${post.id}`, 'DELETE'); setFeed(old => old.filter(item => item.id !== post.id)) }
-    catch (err) { fail(err) }
-  }
-
-  async function editCaption(post: Post) {
-    const next = window.prompt('Editar legenda', post.caption)
-    if (next === null || next.length > 2200) return
-    try { const updated = await request<Post>(`/posts/${post.id}`, 'PATCH', { caption: next });
-      const replace = (item: Post) => item.id === post.id ? updated : item
-      setFeed(old => old.map(replace))
-    } catch (err) { fail(err) }
-  }
-
-  async function loadPeople() {
-    if (!peopleCursor || busy) return
-    setBusy(true)
-    try {
-      const page = await request<Page<SocialUser>>(`/users?q=${encodeURIComponent(searchQuery)}&cursor=${encodeURIComponent(peopleCursor)}`)
-      setPeople(old => [...old, ...page.items]); setPeopleCursor(page.next_cursor)
-    } catch (err) { fail(err) } finally { setBusy(false) }
-  }
-
-  async function loadComments(post: Post) {
-    const cursor = commentCursors[post.id]
-    if (!cursor || busy) return
-    setBusy(true)
-    try {
-      const page = await request<Page<SocialComment>>(`/posts/${post.id}/comments?cursor=${encodeURIComponent(cursor)}`)
-      setComments(old => ({ ...old, [post.id]: [...(old[post.id] ?? []), ...page.items] }))
-      setCommentCursors(old => ({ ...old, [post.id]: page.next_cursor }))
-    } catch (err) { fail(err) } finally { setBusy(false) }
-  }
-
-  async function deleteComment(post: Post, comment: SocialComment) {
-    try {
-      await request<void>(`/comments/${comment.id}`, 'DELETE')
-      setComments(old => ({ ...old, [post.id]: (old[post.id] ?? []).filter(item => item.id !== comment.id) }))
-      const update = (item: Post) => item.id === post.id ? { ...item, comment_count: Math.max(0, item.comment_count - 1) } : item
-      setFeed(old => old.map(update))
-    } catch (err) { fail(err) }
-  }
-
-  function renderPost(post: Post) {
-    return <SocialPostCard key={post.id} post={post} comments={comments[post.id] ?? []}
-      open={openComments === post.id} draft={commentText[post.id] ?? ''} busy={busy}
-      commentCursor={commentCursors[post.id] ?? null}
-      onOpenProfile={onOpenUser} onEditCaption={post => void editCaption(post)}
-      onRemovePost={post => void removePost(post)} onReport={(type, id) => void report(type, id)}
-      onToggleLike={post => void toggleLike(post)} onToggleComments={post => void toggleComments(post)}
-      onSendComment={(event, post) => void sendComment(event, post)}
-      onDraftChange={(id, value) => setCommentText(old => ({ ...old, [id]: value }))}
-      onDeleteComment={(post, comment) => void deleteComment(post, comment)} onLoadComments={post => void loadComments(post)} />
-  }
-
-  return <section className="social-community" aria-label="Comunidade Arena">
-    <div className="social-heading"><div><p className="eyebrow">O ESPORTE CONECTA</p><h2>Comunidade</h2></div><button className="secondary" onClick={() => void refresh()} disabled={loading}>Atualizar feed</button></div>
-    {error && <p className="error" role="alert">{error}</p>}{notice && <p className="success" role="status">{notice}</p>}
-    <form className="social-search" onSubmit={event => void search(event)}><label className="visually-hidden" htmlFor="social-search-input">Buscar atletas por nome ou @</label><input id="social-search-input" value={query} onChange={event => setQuery(event.target.value)} maxLength={100} placeholder="Encontre atletas pelo nome ou @" /><button className="secondary" aria-label="Buscar atletas"><Search size={18} /></button></form>
-    {people.length > 0 && <div className="person-list" aria-label="Resultados da busca">{people.map(person => <PersonRow key={person.id} person={person} onOpen={onOpenUser}
-      info={person.social_public ? 'Conta pública' : 'Conta privada'}
-      actions={<button className="secondary compact" onClick={() => void follow(person)} disabled={busy}>{person.follow_state === 'approved' ? 'Seguindo' : person.follow_state === 'pending' ? 'Solicitado' : <><UserRoundPlus size={16} /> Seguir</>}</button>} />)}</div>}
-    {peopleCursor && <button className="secondary full-width" disabled={busy} onClick={() => void loadPeople()}>Carregar mais atletas</button>}
-    <form className="social-composer" onSubmit={(event: FormEvent) => event.preventDefault()}>
-      <h3>Compartilhe sua trajetória</h3><p>Uma foto quadrada por publicação. A imagem original fica no seu dispositivo.</p>
-      <label className="secondary social-file-label" htmlFor="post-image">{original ? 'Trocar foto' : 'Escolher foto'}</label>
-      <input id="post-image" className="visually-hidden" type="file" accept="image/jpeg,image/png,image/webp" disabled={busy} onChange={event => { choose(event.target.files?.[0]); event.target.value = '' }} />
-      {original && <p className="social-file-name">{original.name}</p>}
-      <label htmlFor="post-caption">Legenda (opcional)</label><textarea id="post-caption" value={caption} onChange={event => setCaption(event.target.value)} maxLength={2200} rows={3} placeholder="Conte um pouco sobre esse momento" />
-      <div className="social-compose-footer"><small>{caption.length}/2.200</small><button className="primary" disabled={busy || !original}>{busy ? 'Publicando…' : 'Publicar foto'}</button></div>
-    </form>
-    {source && <ImageCropSheet source={source} title="Enquadrar publicação" description="Arraste a foto e ajuste o zoom para escolher a imagem quadrada." aspect={1}
-      confirmLabel="Confirmar recorte e publicar" busy={busy} error="" onCancel={() => { setSource(''); setOriginal(null) }} onConfirm={area => void publish(area)} />}
-    {loading && <p role="status">Carregando publicações…</p>}
-    {!loading && feed.length === 0 && <div className="empty-state"><span className="empty-icon"><MessageCircle size={26} /></span><h2>Seu feed começa aqui</h2><p>Siga contas públicas ou peça acesso a perfis privados para acompanhar publicações.</p></div>}
-    <div className="social-feed">{feed.map(renderPost)}</div>
-    {feedCursor && <button className="secondary full-width" disabled={busy} onClick={() => void loadMore()}>Carregar mais publicações</button>}
-    <p className="social-privacy-note"><Shield size={15} /> Publicações são exibidas conforme a privacidade da conta e os vínculos aprovados.</p>
+    <div id="community-panel" role="tabpanel" aria-labelledby={`community-tab-${tab}`}>
+      {tab === 'feed' ? <>
+        <button type="button" className={cn(buttonVariants({ variant: 'secondary', size: 'compact' }), 'sr-only focus:not-sr-only focus:mx-4 focus:mt-3')}
+          onClick={feed.reload}>Atualizar feed</button>
+        <div className="grid place-items-center overflow-hidden text-[10.5px] font-semibold text-brand" style={{ height: pull }} aria-hidden={pull === 0}>
+          {pull > 0 && <span className="flex items-center gap-1.5"><ArrowDown size={16} className={cn('motion-safe:transition-transform', ready && 'rotate-180')} />
+            {ready ? 'Solte para atualizar' : 'Puxe para atualizar'}</span>}
+        </div>
+        {notice && <p className={cn(feedbackVariants({ tone: 'success' }), 'mx-4 mt-3')} role="status">{notice}</p>}
+        <CommunityFeed feed={feed} viewerId={viewerId} scroller={scroller} onOpenUser={onOpenUser} onExpired={onExpired}
+          onCompose={() => setComposing(true)} onSearch={() => changeTab('people')} />
+      </> : <CommunityPeople viewerId={viewerId} query={search} onOpenUser={onOpenUser} onExpired={onExpired} />}
+    </div>
+    {composing && <PostComposer onClose={() => setComposing(false)} onPublished={published} onExpired={onExpired} />}
   </section>
 }

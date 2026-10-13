@@ -1,24 +1,22 @@
 import React from 'react'
 import { act, create } from 'react-test-renderer'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { clearToken, request } from '../src/api/client'
+import { ApiError, clearToken, request } from '../src/api/client'
 import CommunityScreen from '../src/screens/CommunityScreen'
 import ProfileScreen from '../src/screens/ProfileScreen'
 import { appVersion } from '../src/utils/appInfo'
+import { searchAthletes } from './support/native'
 
-vi.mock('react-native', async () => {
+vi.mock('react-native', async () => (await import('./support/native')).reactNativeMock())
+vi.mock('react-native-safe-area-context', async () => {
   const ReactModule = await import('react')
-  const element = (name: string) => ({ children, ...props }: Record<string, unknown>) => ReactModule.createElement(name, props, children as React.ReactNode)
-  const FlatList = ({ data = [], renderItem, ListHeaderComponent, ...props }: Record<string, any>) => ReactModule.createElement('FlatList', props,
-    ListHeaderComponent, data.map((item: unknown, index: number) => ReactModule.createElement(ReactModule.Fragment, { key: index }, renderItem({ item }))))
-  return { ActivityIndicator: element('ActivityIndicator'), Alert: { alert: vi.fn() }, FlatList, Image: element('Image'), KeyboardAvoidingView: element('KeyboardAvoidingView'), Modal: element('Modal'), Platform: { OS: 'android' }, Pressable: element('Pressable'), RefreshControl: element('RefreshControl'), ScrollView: element('ScrollView'), Text: element('Text'), TextInput: element('TextInput'), View: element('View') }
+  return { SafeAreaView: ({ children, ...props }: Record<string, unknown>) => ReactModule.createElement('SafeAreaView', props, children as React.ReactNode) }
 })
 vi.mock('expo-image-picker', () => ({ launchImageLibraryAsync: vi.fn(), ImagePickerResult: undefined }))
 vi.mock('../src/components/SportCard', () => ({ default: () => null }))
 vi.mock('../src/components/ui', async () => {
   const ReactModule = await import('react')
   return {
-    styles: {},
     Button: ({ title, ...props }: Record<string, unknown>) => ReactModule.createElement('Button', { ...props, title }, title as React.ReactNode),
     Field: ({ label, ...props }: Record<string, unknown>) => ReactModule.createElement('TextInput', { ...props, accessibilityLabel: label }),
   }
@@ -125,7 +123,8 @@ describe('menu do perfil', () => {
     await act(async () => { tree.unmount() })
   })
 
-  it('mostra o erro e reabilita Sair quando a saída falha', async () => {
+  it('sem rede, a saída vale mesmo assim: apaga o token do aparelho e a conta da memória', async () => {
+    vi.mocked(clearToken).mockClear()
     vi.mocked(request).mockImplementation(async path => {
       if (path === '/auth/logout') throw new Error('Sem conexão.')
       return baseData(path)
@@ -134,7 +133,38 @@ describe('menu do perfil', () => {
     const tree = await mount({ onLogout })
     await press(tree, 'Menu')
     await press(tree, 'Sair da conta')
-    expect(texts(tree)).toContain('Sem conexão.')
+    expect(request).toHaveBeenCalledWith('/auth/logout', 'POST')
+    expect(clearToken).toHaveBeenCalledTimes(1)
+    expect(onLogout).toHaveBeenCalledTimes(1)
+    expect(texts(tree)).not.toContain('Sem conexão.')
+    await act(async () => { tree.unmount() })
+  })
+
+  it('sessão já inválida no servidor (401 ao sair) também sai, sem expirar de novo', async () => {
+    vi.mocked(clearToken).mockClear()
+    vi.mocked(request).mockImplementation(async path => {
+      if (path === '/auth/logout') throw new ApiError('Sessão expirada', 401)
+      return baseData(path)
+    })
+    const onLogout = vi.fn()
+    const onExpired = vi.fn()
+    const tree = await mount({ onLogout, onExpired })
+    await press(tree, 'Menu')
+    await press(tree, 'Sair da conta')
+    expect(clearToken).toHaveBeenCalledTimes(1)
+    expect(onLogout).toHaveBeenCalledTimes(1)
+    expect(onExpired).not.toHaveBeenCalled()
+    await act(async () => { tree.unmount() })
+  })
+
+  it('se o aparelho não consegue apagar o token, mostra o erro, não sai e reabilita Sair', async () => {
+    vi.mocked(clearToken).mockRejectedValueOnce(new Error('Armazenamento seguro indisponível.'))
+    vi.mocked(request).mockImplementation(async path => baseData(path))
+    const onLogout = vi.fn()
+    const tree = await mount({ onLogout })
+    await press(tree, 'Menu')
+    await press(tree, 'Sair da conta')
+    expect(texts(tree)).toContain('Armazenamento seguro indisponível.')
     expect(pressables(tree, 'Sair da conta')[0].props.disabled).toBe(false)
     expect(onLogout).not.toHaveBeenCalled()
     await act(async () => { tree.unmount() })
@@ -148,11 +178,8 @@ describe('menu do perfil', () => {
     })
     let tree!: Tree
     await act(async () => { tree = create(React.createElement(CommunityScreen, { user: me, onExpired: vi.fn() })) })
-    const query = tree.root.findAllByType('TextInput' as never).find(input => input.props.accessibilityLabel === 'Nome ou @')
-    await act(async () => { query!.props.onChangeText('atleta') })
-    const click = async (title: string) => { await act(async () => { tree.root.findAllByType('Button' as never).find(button => button.props.title === title)!.props.onPress() }) }
-    await click('Buscar')
-    await click('Atleta A')
+    await searchAthletes(tree, 'atleta')
+    await press(tree, 'Abrir perfil de Atleta A')
     expect(titles(tree, 'atleta.a').length).toBeGreaterThan(0)
     expect(texts(tree)).toContain('Perfil público')
     await act(async () => { tree.unmount() })

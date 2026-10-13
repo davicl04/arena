@@ -16,13 +16,20 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
+    "@base-ui/react": "1.8.0",
+    "class-variance-authority": "0.7.1",
+    "clsx": "2.1.1",
     "lucide-react": "1.54.0",
+    "qrcode.react": "4.2.0",
     "react": "19.3.0",
+    "react-day-picker": "10.0.2",
     "react-dom": "19.3.0",
-    "react-easy-crop": "^6.2.4"
+    "react-easy-crop": "^6.2.4",
+    "tailwind-merge": "3.7.0"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
+    "@tailwindcss/vite": "4.3.3",
     "@testing-library/react": "16.3.3",
     "@testing-library/user-event": "14.6.7",
     "@types/react": "19.3.0",
@@ -34,6 +41,7 @@
     "eslint-plugin-react-refresh": "0.5.7",
     "globals": "17.13.0",
     "jsdom": "29.1.1",
+    "tailwindcss": "4.3.3",
     "typescript": "6.0.3",
     "typescript-eslint": "8.71.1",
     "vite": "8.3.4",

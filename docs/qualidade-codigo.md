@@ -67,3 +67,64 @@ Ruff, ESLint, TypeScript web/mobile, build web e exportação Android aprovados.
 Todos os pisos existentes foram atendidos, sem reduzi-los ou excluir arquivos. Unidades novas exercitam autorização, dados privados da fila administrativa, cursores, reenvios, auditoria e a distinção entre falha anterior/posterior ao commit do upload. Regressões de integração cobrem bloqueio recebido no feed, acesso revogado à imagem, denúncia privada, aprovação repetida, post preservado após falha de leitura, bloqueios além de 50 itens e reativação auditada sem restaurar sessões. Web testa digitação completa/foco, continuação de listas, sincronização de privacidade e reativação; mobile testa continuação de busca, galeria, comentários e relações.
 
 Checks locais de Ruff, Alembic check, lint/tipos/build/cobertura web e lint/tipos/cobertura/exportação Android aprovados. Seis cenários adicionais em `artifacts/review-plans/` também passaram, incluindo avatares e posts na API com MinIO real em bucket isolado, removido após o ensaio. A conferência no navegador verificou dados existentes e layout em 320/390/1440 px; múltiplas páginas e decisões administrativas foram verificadas automaticamente. CI remoto e aparelhos permanecem sem validação nesta entrega.
+
+## Etapa 3 (Jogar): indicadores — 12 de outubro de 2026
+
+Verificação local da integração da etapa 3 (pareamento, partida, avulso, resultado e ranking), no backend e na web; o Expo não foi tocado e não foi reexecutado.
+
+| Escopo | Aprovados / executados | Cobertura | Piso |
+| --- | --- | --- | --- |
+| Backend somente unidade (`pytest tests/unit -q --cov=app --cov-branch`) | 875 / 875 | 76% (indicador combinado de instruções e ramos: 9118 instruções, 1975 não cobertas; 1998 ramos, 78 parciais) | 60% |
+| Backend suíte completa, com PostgreSQL | 1243 / 1244 (1 pulado: o round-trip S3 real) | 98% (112 instruções não cobertas; 56 ramos parciais) | 85% |
+| Web (`npx vitest run --coverage --maxWorkers=4`) | 733 / 733 em 60 arquivos | 91,79% instruções, 85,01% ramos, 91,42% funções, 94,94% linhas | 30% (instruções, linhas e ramos) e 20% (funções) |
+
+Ruff, `alembic check` (sem migração nova), ESLint e build da web (com o aviso de pacote acima de 500 kB: 1.157 kB minificado) aprovados. As suítes novas ou ampliadas cobrem as visões da partida (relato cego, `declared_slots` e `suggest_court`), a fila e o pareamento, o resultado e o ranking, e, na web, a placa, a tela da partida, o cartão de resultado, o Ranking, as notificações e filas e a navegação entre elas (`stage3-navigation.test.tsx`). Com a CPU disputada, alguns testes da web chegam perto dos 5 s: a execução usa `--maxWorkers=4`; nenhum teste foi desativado nem teve o limite alterado nesta entrega. Os pisos não foram reduzidos, nem arquivos excluídos para melhorar os números. Os testes não substituem a conferência no navegador (registrada em [situação da fundação](situacao-fundacao.md)), e o CI remoto continua sem execução comprovada desta versão.
+
+## Etapas 4 e 5 (campeonatos e corrida): indicadores — 12 de outubro de 2026
+
+Verificação local da integração das etapas 4 e 5 (chaveamento, agenda e decisão do organizador; corrida), no backend e na web; o Expo não foi tocado e não foi reexecutado.
+
+| Escopo | Aprovados / executados | Cobertura | Piso |
+| --- | --- | --- | --- |
+| Backend somente unidade (`pytest tests/unit -q --cov=app --cov-branch`) | 1063 / 1063 | 76% (indicador combinado de instruções e ramos: 10710 instruções, 2374 não cobertas; 2374 ramos, 87 parciais) | 60% |
+| Backend suíte completa, com PostgreSQL | 1519 / 1520 (1 pulado: o round-trip S3 real) | 98% (122 instruções não cobertas; 67 ramos parciais) | 85% |
+| Web (`npx vitest run --coverage --maxWorkers=4`) | 898 / 898 em 72 arquivos | 92,39% instruções, 85,93% ramos, 91,92% funções, 95,45% linhas | 30% (instruções, linhas e ramos) e 20% (funções) |
+
+Ruff, ESLint e build da web (com o aviso de pacote acima de 500 kB: 1.250 kB minificado) aprovados; não há migração nova nesta entrega. As suítes novas cobrem, no backend, as regras do chaveamento, da agenda, da decisão e da corrida (unidade e integração, inclusive com conexões reais para a ordem das travas) e, na web, o chaveamento e a árvore em SVG, as partidas e a folha de agenda, a decisão do organizador, a partida de campeonato, a gestão e o detalhe do evento com a tabela, a corrida (cronômetro, marcas, histórico) e a navegação entre elas (`stage4-navigation.test.tsx`, `run-marks.test.tsx`).
+
+**Estabilidade dos testes da web:** um teste de navegação dependia de um título que só existe durante o carregamento (corrigido na raiz), e os fluxos longos passavam de 5 s com a máquina ocupada. O `vitest.config.ts` passou a ter `testTimeout` e `hookTimeout` de 20 s e `tests/setup.ts` (novo) fixa `asyncUtilTimeout` do Testing Library em 4 s; só falhas de verdade demoram mais para aparecer. Num teste de estresse (12 processos ocupando a CPU e 12 trabalhadores) a suíte falhava de 15 a 23 testes por tempo; com 24 processos ocupando a CPU, depois da mudança, duas execuções seguidas passaram sem falhas. Os pisos não foram reduzidos, nem arquivos excluídos para melhorar os números, e nenhum teste foi desativado. A verificação no navegador (fluxos reais de campeonato e de corrida) está em [`situacao-fundacao.md`](situacao-fundacao.md); CI remoto e aparelhos seguem sem validação.
+
+## Expo (etapa 6): indicadores — 12 de outubro de 2026
+
+Verificação local do Expo com as telas das etapas 1 a 5 (times, organizador, eventos, comprovantes, administração, Jogar, corrida e campeonatos), em `mobile/` (Windows, Node 25.9.0, npm 11.12.1). O backend e a web não foram tocados nem reexecutados nesta entrega; os números deles são os das seções anteriores.
+
+| Escopo | Aprovados / executados | Cobertura | Piso (`mobile/vitest.config.mts`) |
+| --- | --- | --- | --- |
+| Mobile (`npm run test:coverage`) | 1233 / 1233 em 77 arquivos | 94,77% instruções, 89,81% ramos, 94,31% funções, 97,29% linhas | 10% instruções e funções, 15% linhas, 8% ramos |
+| Mobile, clientes da API (`src/api/**/*.ts`) | incluídos acima | 100% instruções, linhas e funções; 99,32% ramos (agregado) | por arquivo: 100% instruções, linhas e funções e 90% ramos |
+
+`npm run lint`, `npm run typecheck` e `npm run export:android` aprovados; `npx expo install --check` aponta só `expo@57.0.27` contra `~57.0.28`, um desvio anterior e conhecido. O escopo da cobertura é `App.tsx` e todo `src/**/*.{ts,tsx}` (256 arquivos), sem exclusões. Os pisos não foram alterados, nenhum arquivo foi excluído e nenhum teste foi desativado. Os pisos globais (10/15/8/10) são os da fundação e ficam muito abaixo do resultado atual: subi-los é uma melhoria pendente, que depende de decisão.
+
+Os testes rodam em Node, com Vitest e `react-test-renderer` (descontinuado no React 19, o que gera um aviso em cada arquivo, sem falhas), simulam `fetch` e usam simulações de `nativewind`, `react-native-svg` e `react-native-safe-area-context` (`mobile/tests/support/`). Não renderizam componentes nativos reais: não provam Android/iOS, câmera, seletor de documento, SecureStore nem leitor de tela. Arquivos com cobertura baixa: `AuthScreen` e `SportCard` (0%), `UsernameForm` (72,41% das linhas) e `ProfileScreen` (77,1%). O CI remoto continua sem execução comprovada desta versão.
+
+## Correções da revisão das etapas 4 e 5: indicadores — 12 de outubro de 2026
+
+Verificação local das correções (backend e web; o Expo não foi tocado).
+
+| Escopo | Aprovados / executados | Cobertura | Piso |
+| --- | --- | --- | --- |
+| Backend suíte completa, com PostgreSQL (`pytest -q --cov=app --cov-branch`) | 1533 / 1534 (1 pulado: o round-trip S3 real) | 98% (121 instruções não cobertas; 66 ramos parciais) | 85% |
+| Web (`npx vitest run --coverage --maxWorkers=4`) | 908 / 908 em 72 arquivos | 92,35% instruções, 85,88% ramos, 91,94% funções, 95,42% linhas | 30% (instruções, linhas e ramos) e 20% (funções) |
+
+Ruff, ESLint e build da web (aviso de pacote acima de 500 kB: 1.251,59 kB minificado) aprovados; sem migração nova. Os 14 testes novos do backend e os 10 da web cobrem a sugestão de quadra repetida na agenda, as mensagens de `409`, a ordem do registro de corrida, o aviso único da divergência e a releitura depois de `404`/`409` nas telas. Os pisos não foram reduzidos, nem arquivos excluídos, nem testes desativados. Uma execução da cobertura do backend feita com a suíte da web rodando ao mesmo tempo mediu `services/courts.py` abaixo do normal (68%); repetida sem a carga, deu os números acima. Detalhes em [situação da fundação](situacao-fundacao.md).
+
+## Correções da revisão do Expo: indicadores — 12 de outubro de 2026
+
+Verificação local das correções, em `mobile/` (Windows, Node 25.9.0, npm 11.12.1). O backend e a web não foram tocados nem reexecutados; os números deles são os das seções anteriores.
+
+| Escopo | Aprovados / executados | Cobertura | Piso (`mobile/vitest.config.mts`) |
+| --- | --- | --- | --- |
+| Mobile (`npm run test:coverage`) | 1280 / 1280 em 78 arquivos (1233 antes) | 94,86% instruções, 90,03% ramos, 94,43% funções, 97,31% linhas | 10% instruções e funções, 15% linhas, 8% ramos |
+| Mobile, clientes da API (`src/api/**/*.ts`) | incluídos acima | 100% instruções, linhas e funções; 99,34% ramos (agregado) | por arquivo: 100% instruções, linhas e funções e 90% ramos |
+
+`npm run lint`, `npm run typecheck` e `npm run export:android` aprovados; `npx expo install --check` não foi reexecutado (sem dependência nova). Os 47 testes a mais (além de alguns ajustados à nova regra de `404`/`409` e de saída) cobrem o desvio de host do Bearer (`apiUrl`, `authSource`, `receiptImageSource` e os cinco componentes de imagem), o estado preso do `ReceiptImage`, o voltar durante o envio do assistente, a releitura depois de `404`/`409` (evento, proposta e oferta), o `401` na releitura, o teto do upload, o laço do "Aprovar todas", o token do link na expiração, a saída sem rede, o voltar do Android com o vidro aberto e o `ErrorBoundary`. Dois testes do assistente foram conferidos desfazendo a correção (falham sem ela). Os pisos não foram alterados, nenhum arquivo foi excluído e nenhum teste foi desativado; os dois arquivos novos (`api/path.ts` e `components/ErrorBoundary.tsx`) entram no escopo da cobertura. `ProfileScreen` ficou em 76,7% das linhas (77,1% antes: a saída ganhou ramos de erro testados, mas o restante da tela segue sem testes), e `AuthScreen` e `SportCard` continuam em 0%. Os testes não provam Android/iOS, SecureStore, o `BackHandler` real nem leitor de tela; o CI remoto continua sem execução comprovada desta versão.

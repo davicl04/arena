@@ -1,5 +1,877 @@
 # Situação da fundação do Arena
 
+## Consolidação da branch para commit — 12 de outubro de 2026
+
+O usuário autorizou incluir todos os arquivos pendentes no commit e enviar a branch `feat/play-page` ao remoto. O conteúdo reúne as cinco correções da revisão, seus testes e contratos, e o plano da aba Partidas do perfil (somente planejamento). Conferência final com `git diff --check` aprovada; as verificações de código são as registradas na entrega das correções abaixo, sem nova execução nesta etapa de Git.
+
+## Plano da aba Partidas do perfil (apenas planejamento) — 12 de outubro de 2026
+
+A pedido do usuário, o plano definido em rodadas de protótipos foi registrado em [docs/plano-perfil-partidas.md](plano-perfil-partidas.md). O plano substitui o "Boletim por modalidade" (P2) por uma **linha do tempo** com:
+
+- topo mínimo com ícone de filtro;
+- próxima partida em cartão forest, só no perfil próprio;
+- registros "Duelo" com faixa de campeonato e "Ausente" no W.O.;
+- corrida comparada ao melhor anterior;
+- canceladas e sem resultado esmaecidas.
+
+Também prevê:
+
+- `GET /users/{id}/timeline`, com a visibilidade das fotos (`_can_view`) e sem próxima partida nem local para o visitante;
+- `GET /me/profile-stats`;
+- a regra de participação "só as partidas que a pessoa jogou", que corrige a dependência da associação atual ao time;
+- a troca de "Pontos de elo" por "Melhor elo".
+
+Somente documentação: nenhum código foi alterado e nenhum teste foi executado. Diff conferido. Sem commit, push ou publicação.
+
+## Correções da revisão da branch `feat/play-page` — 12 de outubro de 2026
+
+Os cinco achados da revisão abaixo foram corrigidos no backend, na web e no Expo, com testes de regressão versionados. Sem dependência nova, migração, commit ou publicação.
+
+- **Estatísticas:** a revisão depois de uma contestação é final também para o representante: novas revisões respondem `409`, sem alterar números ou ranking, e `can_review` fica falso.
+- **Pareamento:** a releitura com trava verifica o titular ativo tanto na busca corrente quanto nos candidatos e nas ofertas de avulso. Conta suspensa ou time encerrado não recebe nova proposta/oferta; a busca conserva seu prazo original.
+- **Moderação:** remover uma mensagem cria, na mesma transação, o evento `mensagem_removida`, com apenas o ID da mensagem no payload. Os clientes apagam o texto carregado ao recebê-lo por cursor, inclusive se uma página antiga chegar depois. Chats que aceitam escrita releem a cada 4 s; os de somente leitura, a cada 30 s, com pausa em segundo plano e leitura ao voltar.
+- **Horários da partida:** web e Expo releem o detalhe no início, no limite de cancelamento e no fim da janela de resultado. A leitura pausa quando a tela fica oculta, confere os limites ao retornar e tenta novamente em 15 s após falha.
+- **Relato cego:** a prévia de pontos usa a mesma visibilidade do placar. Enquanto o relato adversário estiver oculto, `points.result` é nulo e seu valor não entra no total; presença e estatísticas continuam visíveis conforme o contrato.
+
+**Verificações executadas:**
+
+- Backend: `ruff check app migrations tests` e `pytest -q --cov=app --cov-branch` aprovados, com PostgreSQL configurado em `TEST_DATABASE_URL` e schemas aleatórios isolados: **1.538 aprovados e 1 pulado**, cobertura total **98%**.
+- Web: `npm run lint`, `npm run build` e `npm run test:coverage -- --maxWorkers=4` aprovados: **914 testes**, cobertura de **92,36% das instruções e 85,92% dos ramos**. Permanece o aviso do bundle acima de 500 kB.
+- Expo: `npm run lint`, `npm run typecheck`, `npm run test:coverage -- --maxWorkers=4` e `npm run export:android` aprovados: **1.285 testes**, cobertura de **94,86% das instruções e 90,05% dos ramos**.
+- Navegador com API e PostgreSQL reais: o formulário de placar apareceu no horário de início sem interação ou mensagem nova; a remoção administrativa substituiu o texto por "Mensagem removida" na tela aberta. Recarregar preservou a sessão e a remoção, sem erros no console. Contas sintéticas em schema isolado temporário, removido ao terminar, sem alterar dados do usuário. Evidência local em `artifacts/fix-review-browser.jpg` e logs dos checks em `artifacts/fix-review-*.log`.
+- Contrato atualizado em [0002-jogar](decisoes/0002-jogar.md); diff conferido, sem alterações incidentais.
+
+**Limitações:** o teste pulado do backend permanece; não houve validação em aparelho Android/iOS nem execução do CI remoto. A exportação Android e os testes do Expo não comprovam funcionamento em aparelho. Esta entrega não declara o MVP completo.
+
+## Revisão da branch `feat/play-page` — 12 de outubro de 2026
+
+Revisão de `c2d1275` (último commit anterior ao trabalho da branch) até `085fb9f`, cobrindo as etapas de times, eventos, Jogar, campeonatos, corrida e Expo. A revisão inicial não corrigiu a implementação nem criou commit; os achados registrados abaixo foram corrigidos na entrega descrita acima.
+
+**Achados reproduzidos:**
+
+- **Revisão final das estatísticas:** após contestação e revisão do representante, outra chamada a `PUT /matches/{id}/stats/{stat_id}/review` ainda altera os números e retorna `200`. O adversário continua impedido de contestar novamente. A trava da revisão final vale para o envio do atleta, mas falta na revisão do representante e em `can_review` (`services/results.py`).
+- **Busca de conta suspensa:** a varredura pareia uma busca de tênis cujo titular foi suspenso. `matchmaking_queue.try_match` não verifica se o titular da busca corrente está ativo; o filtro de contas ativas só se aplica ao candidato. A proposta prende também a busca do atleta ativo, embora o suspenso não possa responder.
+- **Moderação com chat aberto:** remover uma mensagem grava `removed_at`, mas não produz atualização acessível por `after={último id}`. Os hooks `useMatchChat` da web e do Expo conservam o texto já carregado até reabrir a tela. Reproduzido pela API e pela interface web simulada.
+- **Horário de início com a tela aberta:** sem novo evento no chat, `MatchPage` não relê o detalhe quando `starts_at` chega. O cartão e as permissões do resultado continuam no estado anterior ao início até reabrir a tela. Reproduzido na web com relógio simulado; a mesma ausência de atualização por horário foi identificada por leitura do `MatchScreen` do Expo, sem teste em aparelho.
+- **Relato cego pela prévia:** antes de o lado B informar seu placar, `GET /matches/{id}/stats` devolve os pontos de resultado dos atletas do lado A com base no relato de A. Isso revela vitória, empate ou derrota (3/1/0), apesar de `result.reports.a.score` permanecer oculto. A prévia precisa respeitar a visibilidade do relato para o visitante (`services/results.py`, `lineups_out`).
+
+**Verificações executadas:**
+
+- Backend: `ruff check app migrations tests` aprovado; `pytest -q` com `TEST_DATABASE_URL` obtida da configuração local existente: **1.533 aprovados e 1 pulado**. Os testes usam schemas aleatórios isolados, sem alteração dos dados da conta do usuário. `alembic check` via API do Alembic, sobre outro schema de teste migrado, aprovado.
+- Web: `npm run lint`, `npm run build` e `npm run test:coverage -- --maxWorkers=4` aprovados; **909 testes**, cobertura de 92,35% das instruções e 85,88% dos ramos. O aviso do bundle acima de 500 kB permanece.
+- Expo: `npm run lint`, `npm run typecheck`, `npm run test:coverage -- --maxWorkers=4` e `npm run export:android` aprovados; **1.280 testes**, cobertura de 94,86% das instruções e 90,01% dos ramos.
+- Diagnósticos adicionais, fora das suítes versionadas: quatro cenários de backend reproduziram as falhas de busca suspensa, relato cego, revisão final e moderação; dois cenários de interface web reproduziram a passagem do horário e a mensagem moderada ainda visível. Arquivos temporários em `artifacts/review_branch_diagnostics.py`, `artifacts/review_branch_ui.test.tsx` e `artifacts/review_schema_check.py`.
+
+**Limitações:** os diagnósticos de interface usam API e relógio simulados; não houve validação no navegador contra a API real, em aparelho Android/iOS nem no CI remoto. Aprovação das suítes existentes não cobre os cinco achados. Esta revisão não declara conclusão do MVP nem paridade visual entre clientes.
+
+## Ajustes de Meus times e da folha de cidade — 12 de outubro de 2026
+
+Ajustes pedidos pelo usuário depois de usar a web com o próprio banco.
+
+**O que mudou:**
+- **Meus times sem time (web e Expo):** a placa não mostra mais o carrossel, que só teria o quadro tracejado "Criar time" e repetiria o estado vazio logo abaixo. Agora o único "Criar time" é o do estado vazio. Com pelo menos um time, o carrossel continua com o quadro "Criar time" no fim.
+- **Folha clara sobre página escura (web):** a `Sheet` clara (`components/ui/sheet.tsx`) passou a fixar a cor do texto (`text-ink`). Antes, aberta sobre uma página escura (folha "Cidade do time" no Criar/Editar time), herdava o branco. Assim, o título, o rótulo "Buscar cidade" e as cidades não selecionadas ficavam invisíveis sobre o fundo branco. A folha escura (`tone="dark"`) não muda. O foco laranja do campo é o foco aprovado do projeto e foi mantido.
+
+**Verificações executadas:**
+- Web:
+  - `npm run lint` sem apontamentos e `npm run build` concluído;
+  - `npx vitest run` de `teams-page`, `teams-navigation` e `join-page`: 33 testes aprovados, com um teste novo que confere um único "Criar time" no estado vazio.
+- Expo:
+  - `npm run lint` e `npm run typecheck` sem apontamentos;
+  - `npx vitest run` de `teams-screen` e `teams-view`: 30 testes aprovados, com o teste do estado vazio ajustado.
+- Banco local do usuário: já estava na migração `0011`. A conta 1 recebeu o papel de administradora com `python -m app.admin_cli promote-admin`, a pedido do usuário.
+
+**Não verificado:** conferência visual no navegador feita só pelo usuário, na tela dele; não foi feita no Expo em aparelho.
+
+## Correções da revisão do Expo — 12 de outubro de 2026
+
+Frente RX, sobre `f2b9cf9`: corrige os achados da revisão do Expo. **Só `mobile/` mudou** (mais README e documentação): sem alteração de backend, de contrato, de migração nem de dependência.
+
+**O que mudou:**
+- **Origem do Bearer:** `apiUrl` (`api/client.ts`) só aceita caminho que comece com `/` e não com `//` (`isApiPath`, em `api/path.ts`); `@host/x`, `.host/x`, `//host/x` e URL absoluta lançam erro, porque anexados à base trocariam o servidor que recebe o token. `authSource` (`components/media.tsx`) e `receiptImageSource` devolvem `null` nesses casos: `Avatar`, `Cover`, `PostImage`, `TeamCrest`, `ReportSheet` e `ReceiptImage` mostram o substituto, sem imagem e sem cabeçalho. Os caminhos válidos (`/api/v1/...`) não mudaram. O HTTPS **não** é imposto em código; o README (seção Mobile) diz que `EXPO_PUBLIC_API_URL` precisa ser `https://` fora do desenvolvimento.
+- **`ReceiptImage` presa em "falhou":** o resultado da carga vale só para o par `file_url` + token em que ocorreu; outro arquivo ou outra sessão recomeça em "carregando".
+- **Voltar durante o envio do assistente de evento:** o X e o voltar do Android não saem enquanto grava ou envia (`busy`), e "Sair sem salvar" também espera; depois de desmontado, a resposta tardia do envio não chama `navigation.replace` (substituiria outra tela) nem `back`.
+- **Releitura depois de `404`/`409`:** em `EventScreen` (`enter`, `upload`, `answerRefund`, `giveUp`) a folha fecha, a mensagem do servidor vira o aviso (toast anunciado) e a tela relê o evento e a inscrição; `ProposalSheet` (aceitar e recusar) e `SlotOfferSheet` (aceitar e recusar, que a revisão não citava) avisam `PlayScreen` por `onStale(mensagem)`, que fecha a folha (a proposta não reabre sozinha: vai para "Responder depois"), mostra a mensagem na placa e relê `refreshPlayBoard`. Os demais erros ficam na folha, como antes.
+- **`401` engolido:** a releitura de `EventScreen.refresh` e de `ReceiptsScreen.refresh` chama `onExpired` no `401`; os outros erros seguem silenciosos.
+- **Timeout do upload:** `request` usa `UPLOAD_TIMEOUT_MS` (120 s) quando o corpo é `FormData` e `REQUEST_TIMEOUT_MS` (15 s) nos demais (5 MiB a 1 Mbps levam cerca de 40 s).
+- **"Aprovar todas" sem teto:** `approveAllFollowRequests` (`api/social.ts`), usada em Notificações e no Perfil, para quando uma rodada traz os mesmos pedidos da anterior (a aprovação não os tirou da fila) ou no teto de 500 rodadas, e avisa "Nem todas as solicitações foram aprovadas." em vez de rodar sem fim; a fila de centenas de pedidos continua sendo esvaziada em lotes.
+- **Menores:** (a) no `401`, `ArenaShell` só devolve à memória o token do link do time se a tela `join` for a **atual** (topo da pilha); (b) **Sair da conta** apaga o token do SecureStore e a conta da memória mesmo se `/auth/logout` falhar (sem rede ou `401`); só um erro ao apagar o token mantém a pessoa na tela, com a mensagem; (c) o voltar do Android fecha o `GlassOverlay` (ou volta um passo, quando há `onBack`) em vez de sair da tela de baixo — vale para "Denunciar mensagem" na partida e, pelo componente comum, para as ações de post, os comentários e as ações de conta; (d) `ErrorBoundary` (novo, em `App.tsx`) mostra a placa `forest` com o cartão "Algo deu errado" e "Tentar de novo", que remonta a árvore; sem detalhes técnicos na tela.
+
+**Verificações executadas** (em `mobile/`, Windows):
+- `npm run lint` e `npm run typecheck` sem apontamentos;
+- `npm run test:coverage`: 78 arquivos e **1280 testes aprovados** (1233 antes; 47 a mais, entre novos e ajustados), cobertura de 94,86% das instruções, 90,03% dos ramos, 94,43% das funções e 97,31% das linhas; `src/api/**` com 100% de instruções, linhas e funções e 99,34% dos ramos; pisos atendidos, sem exclusões;
+- `npm run export:android` concluído (bundle de 1726 módulos);
+- testes ajustados por mudança de comportamento: o `409`/`404` ao responder proposta, oferta e as ações do evento agora fecha a folha e relê; sair sem rede agora sai. `npx expo install --check` não foi reexecutado (sem dependências novas).
+
+**Limitações e pendências:**
+- **Não verificado em aparelho, em leitor de tela nem contra a API real:** só testes com `fetch` simulado e o bundle. O voltar do Android e o `BackHandler` foram exercitados apenas pela simulação dos testes.
+- **Sair da conta sem rede** apaga só o lado do aparelho: o servidor mantém a sessão até ela vencer, porque `/auth/logout` não chegou.
+- **Registradas, não corrigidas:** a regex de `utils/joinLink.ts` aceita qualquer host (intencional); o `copyToCacheDirectory: true` do `pickReceiptFile` (`utils/receiptFile.ts`; plausível, não testado em aparelho).
+- O HTTPS depende da configuração de `EXPO_PUBLIC_API_URL` (README); o app não o verifica.
+
+## Correções da revisão das etapas 4 e 5 — 12 de outubro de 2026
+
+Frente R45, sobre `3d3fa9f` (etapas 4 e 5): corrige os achados da revisão. Sem migração nova nem dependência nova; só o backend (serviços) e a web (telas e `useSubmit`) mudaram, mais os contratos [0003, seções 21.5, 21.6 e 21.11](decisoes/0003-times-campeonatos.md#21-etapa-4--chaveamento-agenda-e-decisão-do-organizador-fases-6-e-7) e [0002, 18.6](decisoes/0002-jogar.md#18-fase-6--corrida-marcas-e-elo-por-distância).
+
+**O que mudou:**
+- **Quadra sugerida na agenda (P2):** `championship._resolve_court` reaproveita a sugestão em revisão feita por **qualquer partida do mesmo evento** (antes só a da própria partida): a fila da administração recebe uma linha por lugar, em vez de uma por jogo. O conflito de 2 h passou a comparar também o **nome normalizado da quadra** (`Booking.court_key`, `find_conflict(..., court_key=)`), porque todas as quadras de um evento são da mesma cidade e do mesmo tipo: a sugestão que ainda não existe, ou uma publicada e outra em revisão com o mesmo nome, contam como o mesmo lugar. Duas partidas do mesmo evento com a mesma sugestão a menos de 2 h agora respondem `409` com o `conflict` certo.
+- **Mensagens de `409` (P3):** trocar e confirmar o chaveamento de um evento cancelado ou encerrado respondem "Este evento não aceita mais troca de posições no chaveamento." e "Este evento não aceita mais confirmação do chaveamento."; "O chaveamento já foi confirmado." fica para o evento em andamento.
+- **Ordem do registro de corrida (P3):** `check_run` valida a inscrição e o evento (inscrição não confirmada, prova cancelada, largada futura, evento que não é corrida) **antes** da medida (422), como o 0002 §18.4 manda; a marca já existente (`409`) passou para depois da data e da distância da prova.
+- **Aviso repetido (P3):** `divergencia_para_decidir` sai **uma vez por divergência**; as correções que continuam divergentes não avisam o organizador de novo (os elencos seguem avisados a cada correção).
+- **Web, estado obsoleto depois de erro (P3):** `useSubmit.run` ganhou o terceiro parâmetro `onFailure` e `isStale` (`404`/`409`). Um erro assim faz `BracketPage` (sortear, trocar, confirmar), `EventMatchesPage` (agendar, exceto o conflito de agenda), `ResultDecisionPage` (decidir) e `RunHistorySheet` (remover) **reler o recurso**, mantendo a mensagem do servidor na tela: a folha de agenda fecha se o jogo não aceita mais agendamento, o formulário de decisão cede ao estado atual quando a decisão não cabe mais, e a marca já removida some da lista. "Fechar" do `RunStopwatchDialog` fica desabilitado enquanto salva.
+- **Documentação:** 0002 §18.6 (`down_revision = '0010'`, como o arquivo da migração `0011`), 0003 (regras de 21.5 e 21.6, a linha "Estado velho depois de um erro" e as limitações abaixo na 21.11) e este registro.
+
+**Verificações executadas (backend, na worktree `3d3fa9f` + correções):**
+- `ruff check app migrations tests` sem apontamentos;
+- `pytest -q --cov=app --cov-branch` com `TEST_DATABASE_URL`: 1533 aprovados e 1 pulado (o round-trip S3 real), cobertura combinada de 98% (121 instruções não cobertas; 66 ramos parciais), acima do piso de 85% (uma execução anterior, feita com a suíte da web rodando ao mesmo tempo, mediu `services/courts.py` com 68% e 147 não cobertas; repetida sem a carga, voltou a 98%, e o arquivo só mudou na docstring); testes novos: 2 de integração da agenda (mesma sugestão em duas partidas, conflito por nome com a quadra publicada), 1 de integração das mensagens de `409`, 1 da ordem do registro de corrida, 1 do aviso único, mais os de unidade de `find_conflict`, das mensagens e da ordem de `check_run`;
+- não houve migração nova (`alembic check` não foi reexecutado).
+
+**Verificações executadas (web):**
+- `npm run lint` sem apontamentos e `npm run build` concluído (o aviso de pacote acima de 500 kB continua: 1.251,59 kB);
+- `npx vitest run --coverage --maxWorkers=4`: 72 arquivos e 908 testes aprovados (898 antes; 10 novos, um por caso do achado mais os casos de contraste, como o `422` que não relê); cobertura de 92,35% das instruções, 85,88% dos ramos, 91,94% das funções e 95,42% das linhas.
+
+**Limitações e pendências (registradas, não implementadas):**
+- A trava do conflito de agenda é **por evento**: não há verificação entre eventos do mesmo organizador nem contra amistosos na mesma quadra (0003, 21.11).
+- O evento cujas **duas últimas partidas fecham ao mesmo tempo** só é encerrado pela varredura (`campeonatos_encerrados`) (0003, 21.11).
+- A tela do chaveamento agora relê o sorteio depois de um `404`/`409`, mas continua sem reler sozinha quando as inscrições confirmadas mudam sem erro; o `409 As inscrições confirmadas mudaram desde o sorteio` segue pedindo "Sortear de novo".
+- As correções da web foram conferidas só pelos testes de interface com `fetch` simulado; não houve conferência no navegador contra a API real nem em aparelho, e o Expo não foi tocado por esta frente (as telas equivalentes do app já releem o estado depois de `404`/`409` desde a integração do Expo, registrada abaixo). O CI remoto não foi executado.
+
+## Expo: times, organizador, eventos, comprovantes, administração, Jogar, corrida e campeonatos — 12 de outubro de 2026
+
+Última etapa da execução dos planos de [Times e campeonatos](plano-times-campeonatos.md) e do [Jogar](plano-jogar.md) (decidida em 12 de outubro de 2026: o Expo vem por último, com **todas** as telas, inclusive organizador e administração). O cliente Expo passa a consumir os contratos [0003](decisoes/0003-times-campeonatos.md) e [0002](decisoes/0002-jogar.md) das etapas 1 a 5, os mesmos que a web já consumia. **Só o cliente mudou:** nenhuma alteração de backend, migração ou contrato. O `mobile/` veio da branch `orq/expo` (HEAD `c11c883`), que reuniu as frentes do Expo, e esta entrega registra a verificação final e a documentação. **Não é o MVP completo, e não se declara paridade visual com a web nem funcionamento em aparelho** (veja "Não verificado").
+
+**O que mudou, por área** (`mobile/src/`):
+- **Navegação:** não há mais tela "em breve" (o `ComingSoon` foi removido); todas as rotas de `navigation/routes.ts` têm tela em `navigation/screens.tsx`. A pilha continua por estado, sem biblioteca de navegação (`navigation/`), com `hasOwnHeader` (telas que desenham o próprio cabeçalho, como Meus times e o organizador) e o perfil de outro atleta como rota `user-profile`.
+- **Times:**
+  - **Meus times:** placa, carrossel de carteirinhas, elenco, convites recebidos e pedidos para entrar; criar, editar e encerrar time (com brasão);
+  - **Convidar:** busca de atletas e, na aba Link e QR, o link e o QR do time (`react-native-qrcode-svg`);
+  - **Entrar pelo link:** o app recebe `arena://entrar/{token}` (esquema `arena` do `app.json`, `useJoinLink`) ou o endereço `http(s)://…/entrar/{token}`, ou lê o QR do time com a câmera (`expo-camera`, `QrScanner`), que só é aberta quando necessário (a permissão é pedida no momento do uso). O token fica só em memória e nunca vai a log ou armazenamento;
+  - **Folha do atleta** (elenco e filas) e perfil de outro atleta.
+- **Organizador:** "Seja organizador" (pedido e acompanhamento), Meus eventos, assistente **Criar evento** em `Modal` de tela cheia (uma pergunta por vez, com `DateField` e `TimeField` próprios, sem biblioteca de calendário) e a **gestão do evento (G3)**, com inscritos, avisos, Pix, cancelamento e as seções do campeonato. As entradas ficam no Menu do Perfil (`OrganizerMenu`).
+- **Eventos do atleta:** lista e detalhe de campeonatos e provas (E2 e D2), inscrição, reserva e Pix, envio de comprovante (documento por `expo-document-picker` ou foto da galeria), devolução (confirmar ou contestar) e a aba **Tabela**.
+- **Comprovantes e administração:** comprovantes e devoluções do organizador (A2) e, para a administração, pedidos de organizador, eventos pagos, organizador revogado, devoluções contestadas, sugestões de quadra, W.O. contestados e a moderação (que inclui a denúncia de mensagem de partida, `match_message`).
+- **Jogar:**
+  - **Placa:** busca de time, avulso e tênis, proposta e oferta de vaga;
+  - **Partida:** condições, termos, W.O. e vagas, e chat com leitura periódica que **pausa em segundo plano** (`AppState`) e lê na hora ao voltar;
+  - **Resultado:** placar (futebol e tênis em sets), relato cego, divergência, presença e estatísticas;
+  - **Ranking** real (por modalidade, com "Carregar mais");
+  - **Início:** "Seu elo" por modalidade, "Próxima partida" e "Encontrar partida";
+  - **Notificações** com os destinos novos (partida, placa, tabela, decisão do organizador e filas da administração) e o **ponto menta de atenção** no JOGAR.
+- **Corrida:** registro de marca (K2, com a prévia do efeito), "Suas marcas" (K4), histórico, remoção e "Ver ranking" na corrida e na distância escolhida.
+- **Campeonatos:**
+  - **Chaveamento** desenhado com `react-native-svg` (sorteio, troca de dois lugares, confirmação; no todos contra todos, a tabela cruzada);
+  - **Agenda das partidas** com o conflito de quadra e de horário (`409`) mostrado na folha;
+  - **Decisão do organizador (D3)**;
+  - a tela relê o estado do servidor depois de um `404` ou `409`.
+- **Marca:** `npm run generate:brand` gera `src/assets/brand-svgs.ts` a partir de `web/public/images/brand/*.svg` (o Metro não importa SVG); os ícones das modalidades vêm de `mobile/assets/sports/`.
+- **Unificações** (um dono para cada peça): um só `components/Icon.tsx`; controles compartilhados em `components/arena/controls.tsx`; `ActionSheet` (a folha escura que os fluxos reutilizam); o hook `useSubmit` (estado de ocupado, mensagem de erro e tratamento do `401` de todo envio).
+
+**Desvios em relação à web** (o contrato é o mesmo; muda a apresentação):
+- **Folhas no lugar de diálogos**, no padrão do Expo.
+- **PDF e "salvar arquivo" só na web:** `expo-file-system` e `expo-sharing` foram recusadas pelo usuário. Comprovante em PDF mostra "Abra este comprovante pela web."; imagens aparecem no app.
+- **Copiar Pix ou link viram texto selecionável mais o `Share` do React Native**, porque `expo-clipboard` foi recusada.
+- **Câmera para ler o QR** (a web não lê QR).
+- **Sem as rotas `connections`, `blocked`, `edit-profile`, `menu` e `sports`** que a web tem na pilha: o Perfil do Expo faz esse papel.
+- **Atualização dos dados:** como na web, não há tempo real nem notificação push; o chat e a placa do Jogar releem periodicamente e, no app, a leitura pausa em segundo plano (`AppState`).
+
+**Dependências novas, aprovadas pelo usuário em 12 de outubro de 2026** (`mobile/package.json` e `package-lock.json`): `react-native-svg` 15.15.4, `react-native-qrcode-svg` ^6.3.26, `expo-camera` ~57.0.6 (plugin no `app.json` com o texto da permissão; microfone desligado) e `expo-document-picker` ~57.0.3, além do esquema `arena` e do script `generate:brand`. Recusadas: `expo-clipboard`, `expo-file-system` e `expo-sharing`. Nenhuma outra dependência foi instalada.
+
+**Documentação:** [README](../README.md) (seção Mobile: link `arena://entrar/{token}`, câmera para o QR, dependências novas, `generate:brand` e comandos de verificação), [qualidade do código](qualidade-codigo.md) (números e pisos do Expo), [próximos passos](proximos-passos-jogar.md) (Expo concluído e pendências reais), os avisos de "Expo pendente" de [0002](decisoes/0002-jogar.md) e [0003](decisoes/0003-times-campeonatos.md) (só o estado; o contrato não mudou) e a ressalva de [fidelidade ao Figma](fidelidade-figma.md). Divergência corrigida: o "Estado atual das áreas" (abaixo) e o README ainda diziam que partidas, Ranking, Jogar, chaveamento e corrida não tinham tela, o que já era falso na web desde as etapas 3 a 5.
+
+**Verificações executadas nesta entrega** (Windows, Node 25.9.0 e npm 11.12.1, em `mobile/`, na árvore principal, branch `feat/play-page`):
+- `npm ci`: concluído com o lock novo; o `npm audit` do `npm ci` aponta 27 alertas (7 moderados, 20 altos), todos transitivos de ferramentas Expo/Metro, como já registrado na fundação (eram 22), e o aviso de `text-encoding@0.7.0` descontinuado, trazido por `react-native-qrcode-svg`;
+- `npm run lint`: sem apontamentos;
+- `npm run typecheck`: sem erros;
+- `npm run test:coverage`: **77 arquivos e 1233 testes aprovados**, zero falhas e zero pulados; cobertura de **94,77% das instruções, 89,81% dos ramos, 94,31% das funções e 97,29% das linhas**; em `src/api`, 100% das instruções, das linhas e das funções e 99,32% dos ramos (pisos por arquivo de 100/100/100/90 e pisos gerais atendidos, em [qualidade do código](qualidade-codigo.md));
+- `npm run export:android`: concluído (bundle Hermes de cerca de 5 MB e os três ícones de modalidade);
+- `npx expo install --check`: o único apontamento é `expo@57.0.27` contra `~57.0.28`, um desvio já conhecido e anterior a esta entrega, que não foi alterado;
+- lint e typecheck foram reexecutados depois da única edição feita na verificação: dois comentários desatualizados em `navigation/routes.ts` e `navigation/screens.tsx` (diziam que havia telas por implementar), sem mudança de comportamento.
+
+**Não verificado:**
+- **Aparelho ou emulador Android/iOS:** o app não foi aberto em nenhum; o bundle gerado não comprova usabilidade, SecureStore, câmera, seletor de documento e galeria, `Share`, teclado do sistema, rolagem, nem o deep link `arena://entrar/{token}` e a permissão da câmera;
+- **Leitor de tela (TalkBack e VoiceOver):** rótulos, papéis e anúncios existem no código e em testes de árvore, mas não foram ouvidos com um leitor de tela;
+- **API real:** os testes do Expo simulam o `fetch`; nenhum fluxo (inscrição, comprovante, chaveamento, resultado, corrida) foi percorrido do app até o PostgreSQL e conferido depois de reabrir o app;
+- **Paridade visual** com a web ou com os protótipos: não foi comparada; as telas em 320 e 390 px não foram vistas;
+- **CI remoto** desta versão.
+
+**Pendências:**
+- A rolagem de "Ver inscritos", na gestão do evento, usa o `y` relativo ao contêiner pai, e não o absoluto, então o ponto onde a rolagem para pode não ser o exato; não foi conferido em aparelho.
+- O Ranking carrega mais linhas só pelo botão "Carregar mais" (sem rolagem infinita).
+- Pequenas diferenças visuais vindas das unificações (fontes ±0,5 pt) ainda não foram revistas; **a paridade visual do Expo continua não verificada**.
+- Cobertura baixa fora do que esta entrega tocou: `AuthScreen` e `SportCard` sem teste (0%), `UsernameForm` (63,41% das instruções) e `ProfileScreen` (67,89%). Os testes imprimem o aviso de que `react-test-renderer` está descontinuado no React 19 (não falha nada).
+- Reavaliar com o usuário `expo-clipboard` (copiar de verdade) e `expo-file-system`/`expo-sharing` (abrir e salvar PDF de comprovante no app); hoje o app orienta a abrir pela web.
+- Atualizar o `expo` para `~57.0.28` e rever os alertas do `npm audit` antes de publicar ou assinar builds (decisão do usuário).
+- As pendências do backend e da web seguem as das etapas 1 a 5 (rótulo do jogo no aviso `divergencia_para_decidir`, calibragem dos cortes de elo, agendamento da varredura em produção, prova de corrida paga, entre outras), em [próximos passos](proximos-passos-jogar.md).
+- Execução do CI remoto e validação em aparelhos ficam como o próximo passo natural.
+
+## Etapas 4 e 5 — Campeonatos (chaveamento, agenda e divergência) e corrida: backend e web integrados — 12 de outubro de 2026
+
+Quarta e quinta etapas da execução do [plano de Times e campeonatos](plano-times-campeonatos.md) (fases 6 e 7) e do [plano do Jogar](plano-jogar.md) (fase 6, corrida). Contratos: [0003, seção 21](decisoes/0003-times-campeonatos.md#21-etapa-4--chaveamento-agenda-e-decisão-do-organizador-fases-6-e-7) (campeonatos, com os desvios da web na 21.11), [0002, seção 17](decisoes/0002-jogar.md#17-uso-nas-partidas-de-campeonato-etapa-4) (uso nas partidas de campeonato) e [0002, seção 18](decisoes/0002-jogar.md#18-fase-6--corrida-marcas-e-elo-por-distância) (corrida, com os desvios da web na 18.9). O backend das duas etapas já estava integrado (migrações `0010` e `0011`, conciliado com o da etapa 3); esta entrega integra a **web** das duas frentes (W4, campeonatos; W5, corrida) na branch `orq/etapa4` e confere tudo no navegador contra a API real. O Expo está em andamento e não foi tocado aqui.
+
+**O que mudou:**
+- **Web, campeonatos (W4):**
+  - `api/brackets.ts` (tipos da 21.3 e as sete rotas; `scheduleConflict()` lê o `conflict` do `409`; `ApiError.body` guarda o corpo do erro);
+  - **Chaveamento (B3 + T2):** `BracketPage`, com a árvore espelhada em SVG (`MirrorBracket`, de 2 a 16 lugares, rolagem horizontal só dentro do quadro) e, no todos contra todos, a tabela cruzada e a classificação (`RoundRobinGrid`); sorteio, "Sortear de novo", troca de dois lugares por toque e folha de confirmação com o erro do servidor;
+  - **Partidas (S1):** `EventMatchesPage` e `ScheduleSheet` (Date Picker, horário livre ao minuto, quadra do catálogo ou "Sugerir outra quadra" dentro do agendamento, reagendar, conflito de quadra e de horário do time mostrado na folha);
+  - **Decisão (D3):** `ResultDecisionPage` e `DecisionForm` (linha do tempo, trecho do chat com "Abrir chat", o placar informado por um lado, outro placar ou W.O., justificativa de 5 a 500 caracteres; botões de opção com teclado);
+  - **Detalhe do evento (D2):** aba Tabela com a chave ou a tabela e a classificação final com o bônus do tênis; **gestão (G3):** seções Chaveamento (ou Tabela) e Partidas, cinco "Agora" novos e o alerta `championship.attention` no cartaz e no Menu;
+  - **Partida de campeonato (`MatchPage`):** sem "Propor outra" nem aceite, "Agendar", "Reagendar" e "Decidir resultado" pelas `permissions`, e a etiqueta "Organizador" no chat;
+  - **Notificações:** os 5 tipos novos (`tabela_publicada`, `adversario_definido`, `divergencia_para_decidir`, `decisao_registrada`, `evento_encerrado`), com `NotificationTarget.section: 'tabela'`.
+- **Web, corrida (W5):** `api/runs.ts`; `RunStopwatchDialog` (K2: distância, tempo em h:min:s, ritmo ao vivo, Treino ou Prova do Arena, prévia do efeito); K4 abaixo da placa (`RunMarks`, `RunHistorySheet`, `RunSpark`, `RunSavedCard`); a linha do elo da placa lê `GET /me/run-bests`; o Ranking da corrida mostra o tempo; o Início mostra a distância de maior elo.
+- **Integração (este registro):**
+  - **cherry-picks** sobre `8c7794b`: W5 sem conflito; W4 com dois conflitos, resolvidos por união: `pages/ArenaPage.tsx` (os campos `distance` e `section` de `Entry`, um de cada frente) e `tests/notifications-match.test.tsx` (ficou a correção de raiz do teste instável, abaixo);
+  - **"Ver ranking" (K4):** link no título de "Suas marcas" que abre o Ranking na corrida e na distância escolhida na placa (`Entry.sport` e `Entry.distance` na pilha de `ArenaPage`; `RankingPage` ganhou `initialSport` e `initialDistance`);
+  - **tipos obrigatórios:** `MatchPermissions.schedule_match` e `decide_result` e `OrganizerEventCard.championship` deixaram de ser opcionais (o backend sempre os envia); as três fixtures foram ajustadas; `BracketState` passou a ser `Championship['bracket']` (uma definição só);
+  - **D3 acessível:** as opções viraram `radiogroup` (setas movem a escolha, foco só na opção escolhida) em vez de botões com `aria-pressed`;
+  - **texto do tênis:** o sorteio e a confirmação falam em "atletas", não em "times" (achado no navegador);
+  - **testes instáveis:** ver abaixo.
+- **Documentação:** [0003](decisoes/0003-times-campeonatos.md) (estado e a seção 21.11, com os desvios da web), [0002](decisoes/0002-jogar.md) (estado, seção 17 e a 18.9), [README](../README.md) (como ver as duas etapas pela web), [próximos passos](proximos-passos-jogar.md) e [indicadores de qualidade](qualidade-codigo.md).
+
+**Testes instáveis (causa e correção):**
+- `notifications-match.test.tsx › o aviso de partida abre a tela Partida…` falhava em cerca de metade das execuções do arquivo. **Causa:** o teste esperava `heading` nível 1 de nome "Partida", que só existe no **cabeçalho de carregamento** da tela (some quando o detalhe chega e o título vira "Time A contra Time B"); com o `fetch` simulado respondendo rápido, o título já tinha mudado quando a espera começava. **Correção:** a navegação (síncrona) é conferida pela região principal, que se chama "Partida", e a espera é pelo cabeçalho do detalhe ("Ferrugem FC contra …"); nada do que o teste comprova foi afrouxado. 12 execuções seguidas do arquivo passaram (antes, 2 de 5 falhavam aqui e 4 de 5, na W5).
+- Testes lentos sob carga: com a máquina disputada (vários agentes, Vite, API e Chrome ao mesmo tempo), os fluxos longos (assistentes, `ArenaPage` inteira) passavam de 5 s e as esperas de 1 s do Testing Library estouravam; num teste de estresse (12 processos ocupando a CPU e 12 trabalhadores) a suíte falhou 15, 19 e 23 testes por tempo em três execuções. **Correção:** `testTimeout` e `hookTimeout` de 20 s no `vitest.config.ts` e `asyncUtilTimeout` de 4 s em `tests/setup.ts` (arquivo novo); o que passa não fica mais lento, só uma falha de verdade demora mais a aparecer. Com uma carga ainda maior (24 processos ocupando a CPU), 2 execuções seguidas da suíte inteira passaram sem falhas. O teste de "puxar para atualizar" da Comunidade não foi reproduzido em cerca de 400 execuções (inclusive sob carga); as folgas acima cobrem o que se observou, e a causa específica dele **não foi identificada**.
+
+**Verificações executadas na integração (branch `orq/etapa4`):**
+- **Backend:**
+  - `ruff check app migrations tests` sem apontamentos;
+  - `pytest -q --cov=app --cov-branch` com `TEST_DATABASE_URL`: 1519 aprovados e 1 pulado (o teste do bucket S3 real), cobertura combinada de 98% (10.710 instruções, 122 não cobertas; 2.374 ramos, 67 parciais), acima do piso de 85%;
+  - só a unidade (`pytest tests/unit -q --cov=app --cov-branch`): 1063 aprovados, 76%, acima do piso de 60%;
+  - `alembic check` não foi reexecutado (não há migração nova nesta entrega; o banco da verificação ficou na `0011`).
+- **Web:**
+  - `npm run lint` sem apontamentos;
+  - `npm run build` concluído (com o aviso de pacote acima de 500 kB: 1.250 kB minificado, 1.185 kB antes da W4);
+  - `npx vitest run --coverage --maxWorkers=4`: 72 arquivos e 898 testes aprovados; cobertura de 92,39% das instruções, 85,93% dos ramos, 91,92% das funções e 95,45% das linhas (pisos de 30% e 20% atendidos).
+- **Testes novos desta integração:** "Ver ranking" (`RunMarks`, `PlayPage` e o aplicativo inteiro, até a lista da distância); teclado e `aria-checked` das opções do D3; o texto do tênis na tela do chaveamento; ajustes de fixtures e do teste instável.
+- **Fluxo real no navegador** (Chrome headless pelo CDP contra a API real da árvore):
+  - **Ambiente:** banco `arena_orq_e2e45` (migrações até a `0011`), API na 8231 (`ALLOWED_ORIGINS` e `PUBLIC_WEB_URL` da 5331), Vite na 5331 (configuração auxiliar com cache próprio), Chrome na 9431 e portas auxiliares, uma sessão por conta. Contas: administradora, organizadora (pedido aprovado pela administração) e 16 representantes de times de Brasília, quatro deles também tenistas e doze corredores. Preparação pela API; as datas dos eventos e das partidas foram ajustadas **só no banco da verificação** para dar o tempo por passado.
+  - **Campeonato de futebol com 16 times (eliminação simples):**
+    1. a organizadora sorteia o chaveamento pela gestão, troca dois lugares (o lugar 1 e o 16, conferido) e confirma pela folha; a árvore de 16 lugares (J1 a J15) em 320, 390 e 1440 px, sem overflow da página (a rolagem horizontal fica dentro do quadro);
+    2. agenda: J1 com quadra sugerida (a administração a publica); J2 na mesma quadra a 1 h de J1 recebe o **conflito de quadra** (`409`, mostrado na folha com o jogo em conflito, e o botão fica desabilitado com os mesmos dados); corrigido o horário, salvo e depois **reagendado**;
+    3. resultados pela API: as oitavas sem divergência avançam os vencedores; J2 com placares divergentes gera o aviso `divergencia_para_decidir`; a decisão pela web (D3: opção do placar de um lado, justificativa curta recusada no cliente, justificativa válida) devolve às notificações, e o vencedor aparece na chave e no detalhe do evento; **J10 por W.O.** (a decisão com "Lado ausente", 3 × 0);
+    4. **canal de avisos:** a organizadora publica um aviso e o representante o vê no detalhe do evento e nas notificações;
+    5. lado do atleta (representante do Raio Verde): notificações (tabela, agenda, reagendamento, divergência, decisão e aviso), a aba Tabela do detalhe, a partida agendada **sem "Propor outra" nem aceite** e com a mensagem do organizador marcada "Organizador", e o resultado decidido com a justificativa; a organizadora vê "Reagendar" no cartão da partida e nenhum "Decidir resultado" antes do início;
+    6. o campeonato termina: `evento_encerrado`, o campeão (União Candanga) e a classificação final (1º a 3º); `Meus eventos` mostra o alerta de atenção (`3`) enquanto há o que agendar e decidir, e "Nada pendente" no fim;
+    7. encerramento **pela varredura:** com o evento do tênis devolvido a `em_andamento` e as classificações apagadas no banco da verificação, `python -m app.admin_cli sweep` o encerrou (`campeonatos_encerrados=1`) e gravou a classificação com o bônus.
+  - **Todos contra todos do tênis (4 atletas):** sorteio e confirmação pela web; tabela cruzada com a rodada de cada confronto e, depois, o placar (do ponto de vista da linha); seis jogos pela API; campeão com bônus de +40 no ranking (RN16) e Ranking do tênis com os pontos.
+  - **Evento pago com um comprovante em análise:** com duas inscrições confirmadas, uma em análise e uma só reservada, o sorteio sai (2 times), mas a **confirmação é recusada** pelo servidor e a folha mostra o motivo sem fechar; depois de aprovado o comprovante, o `409 As inscrições confirmadas mudaram desde o sorteio` pede "Sortear de novo", e a chave de 4 lugares com **3 times e 1 folga** é confirmada ("Furacão Sul avança direto"). Com as inscrições abertas, a gestão deixa "Chaveamento" e "Partidas" apagados ("Depois das inscrições").
+  - **Corrida:** "Suas marcas" vazias; treino de 5 km (27:30) pelo cronômetro com a prévia ("Primeira marca nos 5 km", Prata) e o cartão de confirmação; a **Prova do Arena sem seleção automática** (a prova aparece sem marcar, e salvar sem escolher mostra "Escolha a prova para ver o efeito no seu ranking."); salvar a prova (21:50, Diamante, "Antes: 27:30") com a origem "Corrida do Lago 5 km"; **"Ver ranking"** abre o Ranking já em Corrida e 5 km, com 11 classificados, "1 vaga de Lendário" e o **Lendário** no primeiro lugar; o Início mostra "Elo Diamante · 21:50 melhor tempo · nos 5 km". **Saída da janela de 52 semanas:** uma marca foi levada para fora da janela no banco da verificação (com o carimbo do ranking recuado, para simular a passagem do tempo) e a varredura registrou `rankings_janela=1` e o ranking foi de 11 para 10 classificados.
+  - **Layout:** as telas novas (gestão, chaveamento sorteado e confirmado de 16 lugares, tabela do tênis, partidas, folha de agenda com conflito, D3, partida de campeonato, detalhe do evento com a tabela e a classificação final, marcas da corrida e Ranking da corrida) em 320, 390 e 1440 px sem overflow horizontal da página. O quadro da árvore rola na horizontal por dentro, por desenho.
+  - **Teclado:** no D3, a seta para a direita escolhe a opção seguinte e leva o foco, e a seta para a esquerda volta (a opção escolhida é a única na ordem do Tab); o foco aparece com contorno visível.
+  - Capturas em `artifacts/etapa45/integracao/`; scripts e credenciais em `.local/orquestracao/int45/` (não versionados).
+
+**Limitações e pendências:**
+- O Expo não foi tocado nesta entrega (está em andamento), e a paridade visual do Expo não foi verificada; o CI remoto não foi executado; nada foi validado em aparelho.
+- **Não conferido no navegador:** a recusa do sorteio pelo `draw_blocker` com as inscrições abertas (a gestão deixa a seção apagada, então só dá para chegar à tela por outro caminho; coberta por teste), a prova de corrida **paga** (a verificada foi gratuita) e a passagem do dia em Brasília no formulário da corrida (o formulário usa o dia do aparelho e o servidor, o de Brasília).
+- O aviso `divergencia_para_decidir` diz "uma partida de {evento}", sem o jogo (J1…): o payload não traz o rótulo (pendência pequena do backend, [0003, 21.11](decisoes/0003-times-campeonatos.md#2111-desvios-registrados-na-integração-da-web-etapa-4)).
+- Depois de uma mudança nas inscrições confirmadas, a tela do chaveamento continua mostrando o sorteio antigo até a pessoa usar "Sortear de novo" (o `409` explica); não relê sozinha.
+- Cancelar uma partida de campeonato isolada, presença e estatísticas nas partidas decididas pelo organizador e o aviso do organizador quando as 48 h vencem sem divergência seguem como pendências do backend (0003, seção 21.9).
+- Os testes de interface não equivalem a validação em aparelho; os prazos (inscrições, início das partidas, janela de 52 semanas) foram simulados por ajuste de datas **só no banco da verificação**.
+
+## Etapa 3 — Jogar: pareamento, partida, avulso, resultado e ranking (implementação) — 12 de outubro de 2026
+
+Terceira etapa da execução do [plano do Jogar](plano-jogar.md) (fases 2 a 5), no backend e na web. Contrato: [0002, seções 7 a 16](decisoes/0002-jogar.md#7-etapa-3--fases-2-a-5-decisões-esquema-estados-e-tipos). Foi feita em uma fundação (esquema `0009`, regras puras, fila no PostgreSQL, varredura e visões da partida), quatro frentes de backend (pareamento; partida, quadras, chat e W.O.; avulso e vagas; resultado, estatísticas e ranking), a integração do backend, quatro frentes da web (placa, tela da partida, resultado e Ranking, notificações e filas) e esta integração da web. **Não é o MVP completo:** campeonatos (chaveamento, agenda e partidas de campeonato) e corrida ainda não têm tela de partida, e o Expo não foi tocado.
+
+**O que mudou:**
+- **Backend** (já integrado antes desta entrega; resumo): migração `0009` (buscas, partidas, lados, condições, quadras, vagas, relatos de placar, presença e estatísticas, mensagens), fila de pareamento no PostgreSQL com a varredura `python -m app.admin_cli sweep` (buscas de 24 h, propostas e ofertas de 2 h, resultados de 48 h, janela dos rankings), partida com condições e quadras (sugestão em revisão e fila da administração), reserva, cancelamento até 24 h antes, W.O. (3×0 no futebol, 6-0 6-0 no tênis, contestação decidida pela administração), chat com denúncia de mensagem, avulso (oferta de vaga por 2 h), resultado com confirmação pelos dois lados, estatísticas com revisão e contestação, rankings e `GET /me/standings` reais, 17 tipos de notificação e auditoria.
+- **Web:**
+  - **Placa do Jogar (J1):** busca de time (folha "Preparar busca" com formato, "O time está completo?" e vagas por posição), de avulso (posição ou "Qualquer posição") e de tênis; botão que pulsa e cancela; proposta e oferta de vaga em tela cheia dentro da moldura do app (aceitar, recusar, "Responder depois"); "Minhas partidas" (Próximas e Histórico); ponto menta do JOGAR; `Switch` do shadcn e `Sheet` escuro.
+  - **Tela da partida (J2):** cabeçalho com brasões e fase, cartão de condições (propor, aceitar, reserva, vagas para avulsos, cancelar, W.O.), Date Picker, catálogo de quadras com "Sugerir outra quadra", chat de 4 em 4 s com denúncia de mensagem.
+  - **Resultado e Ranking (J3):** cartão de resultado (informar o placar, aguardar, confirmar, divergência, sem resultado, W.O.), placar do tênis em sets com tie-break e super tie-break, presença, "Suas estatísticas", contestação e revisão, Ranking real (Futebol, Tênis e Corrida; Times e Individual) e "Seu elo" do Início.
+  - **Notificações e filas (J4):** os tipos da etapa 3 com texto e destino, filas "Sugestões de quadra" e "W.O. contestados", e a prévia de mensagem do chat na moderação.
+- **Integração (este registro):**
+  - **cherry-pick** das quatro frentes sobre o backend integrado, na ordem J2, J1, J3, J4. Conflitos resolvidos: `hooks/useNow.ts` (três assinaturas diferentes, ficou `useNow(intervalMs = 30_000, enabled = true)`), `data/arena.ts` (o `Screen` `match` e as duas filas), `ArenaPage.tsx` (comentário de `Entry.matchId`, `DialogContainerProvider`, `board`/`openMatch`/`playAttention` da J1 com a tela `match` e as filas) e `AdminReports.tsx` (a prévia da J4 ficou, com o rótulo "Mensagem da partida" da J2);
+  - **tipos únicos:** os tipos comuns da partida passaram a vir só de `web/src/api/matches.ts`; `matchmaking.ts` e `results.ts` perderam as cópias provisórias (`ResultMatch` virou um `Pick` do `MatchDetail`), e `admin.ts` perdeu `AdminCourt`, `Walkover`, `DisputeSide` e `ChatLine` (a fila de W.O. lê o chat e a partida pelas rotas da `matches.ts`);
+  - **helpers e componentes únicos:** `sideName` e `sideOf` (havia quatro cópias, com três textos de reserva) em `data/match.ts`; mapa de fase da partida (`matchPhases`, que a lista da placa duplicava), `slotTotal`, `maxSlots` e vagas vazias; o interruptor da J2 foi trocado pelo `Switch` do shadcn; o resumo de resultado em leitura da J2 saiu, e o estado do W.O. aparece uma vez só (no cartão de resultado), com os botões no cartão de condições;
+  - **ligações:** `ResultArea` renderiza o `MatchResultCard` (com `viewerId`, `onChanged`, que atualiza o detalhe ou o relê, e `onOpenChat`, que leva o foco ao campo do chat); a placa, o Início e as notificações abrem `match` com `matchId`; `proposta_partida`, `vaga_encontrada` e `oferta_retirada` abrem `play` com `matchId`, e a placa mostra a proposta ou a oferta *daquela* partida; a linha "Denúncias" do Menu mostra o contador `queue-counts.reports`; o tipo `oferta_retirada` ganhou o texto e o destino que faltavam;
+  - **Início:** o cartão "Próxima partida" mostra a partida agendada mais próxima (e abre a tela dela) em vez do texto fixo "Nenhuma partida agendada";
+  - **layout da tela da partida:** a área fixa do topo (resultado, estatísticas e condições) ganhou uma borda e, depois do início da partida, até 62% da altura, rolando por dentro.
+- **Ajustes de backend (mínimos, com teste):**
+  - **relato cego** (`services/match_views.py`): `result.reports` só mostra o placar do outro lado depois que o meu lado informou o meu, na divergência ou com o resultado decidido; antes, o relato existe com `score: null` (o `ScoreReportOut.score` ficou opcional); administração e organizador veem os dois; revê a decisão anterior (0002, seções 12.3 e 16.1);
+  - **vagas declaradas:** `MatchSideOut.declared_slots`, só enquanto a partida é `proposta` ou `combinando`; a folha de vagas da web mostra o declarado;
+  - **`permissions.suggest_court`** é falso depois do início da partida, e `POST /courts/suggestions` responde `409 Só dá para sugerir quadra antes do início da partida.` (a matriz de permissões e rotas confere os dois).
+- **Defeitos achados e corrigidos** (no navegador, salvo onde dito):
+  - o cartão de condições repetia o estado do W.O. que o cartão de resultado já mostra (achado ao ligar as pontas): ficou só o do cartão de resultado;
+  - a área fixa do topo da partida cortava o último cartão de forma seca contra o chat: borda e altura maior no cartão de resultado;
+  - a divergência dizia "1 × 1 contra 0 × 2 dos Ferrugem FC": agora "Vocês informaram 1 × 1; Ferrugem FC informou 0 × 2";
+  - o Início dizia "Nenhuma partida agendada" com uma partida agendada: agora mostra a próxima;
+  - `oferta_retirada` caía em "Nova atividade na sua conta", sem destino: texto e destino pela placa;
+  - "Conversar" levava o foco ao log do chat, não ao campo de mensagem (achado pelo teste de navegação ao ligar o cartão de resultado).
+- **Documentação:** [0002](decisoes/0002-jogar.md) (estado, tipos, relato cego, tabela 16.1 e os desvios da web na seção 16.2, com os destinos das notificações e as escolhas visuais do Ranking), [README](../README.md) (abertura e "Demonstrar o Jogar pela web"), [próximos passos](proximos-passos-jogar.md) e [qualidade do código](qualidade-codigo.md).
+
+**Verificações executadas na integração (branch `orq/etapa3`):**
+- **Backend:**
+  - `ruff check app migrations tests` sem apontamentos;
+  - `pytest -q --cov=app --cov-branch` com `TEST_DATABASE_URL`: 1243 aprovados e 1 pulado (o teste do bucket S3 real), cobertura combinada de 98% (9118 instruções, 112 não cobertas; 1998 ramos, 56 parciais), acima do piso de 85%;
+  - só a unidade (`pytest tests/unit -q --cov=app --cov-branch`): 875 aprovados, 76%, acima do piso de 60%;
+  - `alembic check` no banco da verificação, depois do `upgrade head`: sem diferenças (não há migração nova).
+- **Web:**
+  - `npm run lint` sem apontamentos;
+  - `npm run build` concluído, com o aviso de pacote acima de 500 kB (1.157 kB minificado, 924 kB na etapa 2);
+  - `npx vitest run --coverage --maxWorkers=4`: 60 arquivos e 733 testes aprovados; cobertura de 91,79% das instruções, 85,01% dos ramos, 91,42% das funções e 94,94% das linhas.
+- **Testes novos desta integração:**
+  - `stage3-navigation.test.tsx` (8 testes): placa → proposta → partida → resultado (relato cego, envio, divergência e "Conversar"), o botão do W.O. uma vez só, notificações → proposta daquela partida, oferta, partida e fila de W.O., Menu → quadras, W.O. e denúncias (com os contadores), Início → próxima partida;
+  - backend: relato cego (outro lado, membro, administração, divergência e resultado decidido), `declared_slots` (proposta, combinando e agendada) e a sugestão de quadra depois do início (permissão e rota);
+  - web: vagas declaradas na folha de vagas, `oferta_retirada`, divergência com o texto novo e o contador de denúncias no Menu; ajustes nos testes da J2 (cartão de resultado no lugar do resumo), da J3 (relato cego) e da J4 (a tela `match` com o detalhe simulado).
+- **Fluxo real no navegador** (Chrome headless pelo CDP contra a API real da árvore):
+  - **Ambiente:** banco `arena_orq_e2e3` com as migrações aplicadas, bucket `arena-orq-e2e`, API na 8211 (`ALLOWED_ORIGINS` e `PUBLIC_WEB_URL` da 5311), Vite na 5311 (configuração auxiliar com cache próprio), Chrome na 9411 e portas auxiliares, uma sessão por conta. Contas: administradora (`promote-admin`), dois representantes (Ferrugem FC e Tigres do Lago, em Brasília), um membro, um avulso e dois tenistas, criadas pela API como preparação; as partidas 2 a 5 e 7 a 9 tiveram a busca, o aceite e as condições feitos pela API (só o encaminhamento) e o foco de cada fluxo, pela web, e a primeira e a do tênis foram inteiras pela web;
+  - **Conferido pela web em cada passo, com persistência depois de recarregar:**
+    1. os dois times buscam pela placa (a folha com vagas de goleiro e atacante), a proposta abre em tela cheia para os dois, ambos aceitam e chegam à partida (JOGAR aceso);
+    2. condições com quadra sugerida ("Sugestão em revisão"), publicação na fila "Sugestões de quadra", aceite do outro lado (agendada), vagas declaradas viram vagas abertas e a reserva confirmada persiste;
+    3. o avulso busca "Qualquer posição", recebe a oferta ("Vaga de goleiro"), "Quero jogar" e escreve no chat;
+    4. chat entre os lados e o avulso, denúncia pelo `ReportForm`, e a administração remove a mensagem na moderação (contador "1 pendente" no Menu; "Mensagem removida" para os dois lados);
+    5. com `starts_at` no passado **só no banco da verificação:** presença dos dois elencos, relato cego (o servidor devolve o relato do outro lado com `score: null` e a tela diz só "já informou", sem vazar o placar; a administração vê o placar), confirmação pelo segundo envio, estatísticas do membro e do avulso, contestação pelo representante adversário, revisão final pelo representante do atleta, e o Ranking (Bronze, 1º lugar, 9 pontos) e "Seu elo" do Início atualizados;
+    6. segunda partida: placares diferentes (os dois aparecem), "Conversar" leva o foco ao chat, "Corrigir o meu" e confirmação;
+    7. terceira: W.O. registrado, contestado pelo lado ausente e mantido pela administração na fila "W.O. contestados" (3 × 0, 3 pontos);
+    8. cancelamento de uma partida futura (motivo, os dois lados avisados, chat fechado) e a partida a menos de 24 h sem o botão de cancelar;
+    9. tênis com super tie-break (6-4 3-6 10-8): ligado na proposta, o terceiro set vira os pontos do super tie-break, o relato cego vale também aqui, e 10 pontos para o vencedor;
+    10. notificações de cada papel (representantes, membro, avulso, tenista e administração) com a navegação certa e a aba acesa.
+  - **Prazos observados só por ajuste de horário no banco de verificação e pela varredura:** a proposta de 2 h sem resposta expirou (`propostas_expiradas=1`, notificação "A proposta … expirou") e duas partidas passaram das 48 h (uma com placares divergentes e outra com um relato só) e viraram "sem resultado" (`resultados_vencidos=2`), com a notificação e o cartão "Partida sem resultado"; a regra das 24 h do cancelamento foi vista numa partida a 20 h.
+  - **Layout:** as telas da placa, da partida em cada fase (divergente, aguardando, W.O. contestado, confirmada, agendada, relato cego), da folha do elenco, do Ranking, do Início, das Notificações, do tênis e da administração (Menu, quadras, W.O.) em 320, 390 e 1440 px sem overflow horizontal (verificação automática de cada captura); console sem erros (só o `401` esperado do `GET /me` antes do login e o `favicon`).
+  - **Teclado:** na proposta em tela cheia o foco entra no diálogo, Tab e Shift+Tab ficam dentro dele, Esc fecha e o foco volta ao botão da placa; no chat, Enter envia (Shift+Enter não) e o foco fica no campo; na folha de condições, o foco entra, circula e volta ao botão de origem com Esc. O ponto menta acende com busca, proposta ou partida combinando e apaga sem elas.
+  - Capturas em `artifacts/etapa3/integracao/`; scripts e credenciais em `.local/orquestracao/integracao3/` (não versionados).
+
+**Limitações e pendências:**
+- O Expo não foi tocado, e a paridade visual do Expo não foi verificada; o CI remoto não foi executado nesta entrega; nada foi validado em aparelho.
+- Os prazos de 24 h (busca), 2 h (proposta e oferta de vaga) e 48 h (resultado) foram observados **só por ajuste de horário no banco de verificação**; a expiração da busca de 24 h e a da oferta de vaga ao avulso não foram observadas na web (só nos testes do backend).
+- A web relê a placa a cada 15 s (com atenção) e o chat a cada 4 s: não há atualização em tempo real; "Responder depois" guarda a proposta só na memória da sessão.
+- Campeonatos (chaveamento, agenda, partidas de campeonato e a divergência decidida pelo organizador) e corrida na web seguem por vir; a aba Tabela do D2 continua "ainda não definida".
+- A calibragem dos cortes de elo com dados reais (`rank_cuts`, `calc_version = 1`) fica para depois das primeiras partidas reais; o agendamento da varredura em produção, para a implantação.
+- O botão "Configurar modalidade" do Ranking vazio aparece mesmo com o perfil configurado (leva a Suas modalidades); ajuste visual não solicitado, registrado.
+
+## Etapa 2 — Eventos, inscrições, comprovantes e devoluções (implementação) — 12 de outubro de 2026
+
+Segunda etapa da execução dos planos de [Times e campeonatos](plano-times-campeonatos.md) (fases 4 e 5) e do [Jogar](plano-jogar.md) (fase 7, lado do atleta), no backend e na web. Contratos: [0003, seções 10 a 20](decisoes/0003-times-campeonatos.md#10-etapa-2--eventos-inscrições-e-comprovantes-fases-4-e-5) e [0002, seção 6](decisoes/0002-jogar.md#6-fase-7--campeonatos-e-provas-lado-do-atleta). Foi feita em uma fundação (backend e web), duas frentes de backend (organizador e administração; atleta e comprovantes), a conciliação dos backends, três frentes da web (organizador, administração e atleta) e a integração. **Não é o MVP completo:** não há chaveamento, tabela, agenda, partidas, resultados nem ranking calculado, e o Expo não foi tocado.
+
+**O que mudou:**
+- **Esquema (`0008`):** eventos, inscrições, comprovantes (arquivo privado no MinIO, imagem ou PDF) e canal de avisos, com os índices e as restrições dos estados.
+- **Backend:**
+  - **organizador:** rascunho com checklist, publicação direta do gratuito, envio do pago para a aprovação, retirada, cancelamento (as inscrições pagas viram devolução pendente), edição limitada depois de publicar, inscrições do evento, decisão de comprovantes com motivo, avisos no canal e contadores de pendências;
+  - **administração:** fila de eventos pagos (aprovar ou recusar com motivo, com volta a rascunho), revogação de organizador com a decisão "seguir" ou "cancelar" sobre os eventos abertos e devoluções contestadas;
+  - **atleta:** lista e detalhe com elegibilidade (RN18), inscrição (gratuita na hora, paga com reserva de 48 h ou até 12 h antes do início), envio e reenvio do comprovante, desistência, devolução por Pix (envio pelo organizador, confirmação ou contestação do participante) e leitura dos avisos;
+  - **comum:** notificações e auditoria dos tipos novos, ordem global das travas (0003, seção 19.1), `GET /admin/queue-counts` ampliado e a varredura `python -m app.admin_cli sweep [--loop 60]` (reservas vencidas e devoluções sem resposta em 7 dias; README).
+- **Web:**
+  - **Organizador:** Criar evento (V4) com uma pergunta por vez, Date Picker, rascunho e erros da API no campo certo; Meus eventos (O3) e a seção Organizador do Menu; gestão (G3) com o cartão "Agora", Inscritos, Dados do evento, Pagamento e Pix, avisos, edição de local e contato, retirada, cancelamento e exclusão de rascunho; Comprovantes e devoluções (A2) com folha, recusa motivada, "2ª tentativa" e anexo da devolução;
+  - **Administração:** filas "Eventos pagos", "Eventos de organizador revogado" e "Devoluções contestadas" no Menu, com os contadores;
+  - **Atleta:** Campeonatos e Provas na placa do Jogar (E2), Minhas inscrições, detalhe (D2) com Informações, Tabela ou Percurso e Inscritos, inscrição, Pix com cópia, comprovante, desistência, resposta à devolução e avisos;
+  - **Notificações:** os tipos da etapa 2, com o texto e a tela de cada um (0003, seção 17 e 20.2).
+- **Correções da revisão independente da etapa 1 (web):**
+  - a lista de Notificações não cai mais quando `GET /me/follow-requests` falha: o erro fica na seção "Solicitações para seguir", com "Tentar novamente", e as atividades continuam;
+  - Meus times mostra o erro de `GET /me/team-invites` com "Tentar novamente", na página e na folha de convites, que não diz mais "Nenhum convite pendente." quando a lista não chegou;
+  - o token do link (`/entrar/{token}`) volta ao `App` quando a sessão expira com a tela do link aberta, e o próximo login a reabre;
+  - o cartão do organizador, a folha do link e a folha do pedido de organizador relêem o estado depois de um `404` ou `409` (cancelar um pedido já decidido, cancelar um pedido de entrada já decidido, decidir um pedido que já foi decidido: a folha fecha, avisa e a fila recarrega).
+- **Integração (este registro):**
+  - **cherry-pick da frente do atleta** em cima das duas frentes do organizador e da administração; conflitos resolvidos em `data/arena.ts` (`entryStates` com `rejeitada`, "Comprovante recusado" e `devolucao_contestada`, mais `eventPhases`), `ArenaPage.tsx` (telas das três frentes e o layout dos eventos), `events-fixtures.ts` (arquivo criado pelas duas frentes) e `events-format.test.ts`;
+  - **tipos únicos:** cartaz, Pix, inscrição, comprovante, aviso, pendências e bônus do tênis têm uma definição só, em `web/src/api/events.ts`; `receipts.ts` guarda as rotas e as regras de comprovante e `entries.ts`, as formas do atleta. Saíram as cópias de tipos, de `eventReceiptsPath`, `decideReceipt`, `eventEntriesPath` (a do atleta virou `publicEntriesPath`), `listReceipts`, `formatFileSize`, `receiptFileUrl` e dos limites do arquivo; a validação do comprovante segue a ordem do servidor (tamanho, arquivo vazio, tipo; sem tipo vale a extensão);
+  - **helpers únicos:** `plural` em `utils/format.ts` (eram três cópias) e `receiptRefusalSentence` para o motivo da recusa em frases (atleta e notificações);
+  - **testes:** `tests/events-fixtures.ts` passa a reunir os dados do organizador, do atleta, dos comprovantes e da administração (o antigo `receipts-fixtures.ts` saiu);
+  - **ligações:** a seção "Comprovantes" da G3 abre a A2 do evento certo, com o contador na placa e na aba; a notificação `devolucao_contestada` abre a fila "Devoluções contestadas" para a administração (antes caía no Menu); `comprovante_recebido`, `evento_para_aprovar` e os demais tipos abrem a tela do assunto; o organizador no D2 abre a gestão; `tests/stage2-navigation.test.tsx` cobre Menu → O3 → G3 → A2, Menu → filas da administração, Jogar → E2 → D2 → inscrição, o atalho do organizador e as notificações;
+  - **defeitos achados no navegador e corrigidos:** o cartaz da folha da revogação mostrava "Inscrições abertas" com as inscrições suspensas (agora "Inscrições suspensas", como no O3 e no E2); o cartão da contestação repetia o ponto depois das aspas; o limite do comprovante aparecia como "5 MB" no atleta e "5 MiB" no organizador (agora "5 MiB").
+- **Desvios das frentes:** web na seção 20.2 do [0003](decisoes/0003-times-campeonatos.md#202-desvios-registrados-na-integração-da-web-da-etapa-2) e na seção 6.7 do [0002](decisoes/0002-jogar.md#67-desvios-registrados-na-integração-da-web); backend na 20.1 do 0003 e na 6.6 do 0002.
+- **Documentação:** contratos [0003](decisoes/0003-times-campeonatos.md) e [0002](decisoes/0002-jogar.md) (estado, desvios da web e a tabela de estados S1 com os textos reais); [README](../README.md) (abertura, migração `0008` e "Demonstrar eventos e inscrições"); [próximos passos](proximos-passos-jogar.md).
+
+**Verificações executadas na integração (branch `orq/etapa2`):**
+- **Backend** (uma vez, sem mudanças de código nesta integração):
+  - `ruff check app migrations tests` sem apontamentos;
+  - `pytest -q` com `TEST_DATABASE_URL`: 572 aprovados e 1 pulado (o teste do bucket S3 real);
+  - `alembic check` no banco da verificação, depois do `upgrade head`: sem diferenças.
+- **Web:**
+  - `npm run lint` sem apontamentos;
+  - `npm run build` concluído, com o aviso de pacote acima de 500 kB (924 kB minificado, 613 kB na etapa 1);
+  - `npm run test:coverage`: 45 arquivos e 465 testes aprovados; cobertura de 89,77% das instruções, 83,00% dos ramos, 88,89% das funções e 93,16% das linhas. Os pisos foram atendidos.
+- **Testes novos desta integração:**
+  - `stage2-navigation.test.tsx` (10 testes): Menu, O3, G3, A2, filas, Jogar, E2, D2, atalho do organizador e notificações;
+  - os quatro achados da etapa 1: erro só na seção das solicitações; erro e nova tentativa dos convites (página e folha); token do link depois da sessão expirada (com `App`); estado relido depois de `404` e `409` no cartão do organizador, na folha do link e na folha do pedido (e erro de rede que mantém a folha);
+  - rótulos de `activeNavFor`, `receiptRefusalSentence`, extensão do comprovante sem tipo, cartaz suspenso e ponto da contestação.
+  - Três mutações conferidas à mão: trocar o `eventId` do `onReceipts` ou o destino da notificação `devolucao_contestada` quebra o teste de navegação, e não devolver o token ao `App` quebra o teste do token.
+- **Fluxo real no navegador** (Chrome headless pelo CDP contra a API real da árvore principal):
+  - **Ambiente:** banco `arena_orq_e2e2` com as migrações aplicadas, bucket MinIO `arena-orq-e2e`, API na porta 8191 (`ALLOWED_ORIGINS` e `PUBLIC_WEB_URL` da porta 5291), Vite na 5291 (configuração auxiliar com cache próprio), Chrome na 9391 e portas auxiliares.
+  - **Contas:** administradora (`promote-admin`), organizadora (cadastrada pela web, com pedido e aprovação pela web), representante com o time criado pela web (com brasão), atleta de tênis e um membro, estes dois pela API.
+  - **Conferido, pela web em cada passo, com persistência depois de recarregar:**
+    - evento gratuito de tênis no V4, com teclado (Tab, Enter, setas nos calendários), publicado; o atleta se inscreve pelo D2 e vê "Inscrição confirmada" e a aba Inscritos;
+    - evento pago de futebol no V4 com Pix, enviado para a aprovação e aprovado na fila "Eventos pagos" (folha com o Pix informado);
+    - reserva do time, cópia da chave Pix (com clique real, área de transferência conferida) e envio de um PNG;
+    - recusa na A2 com motivo e detalhe, reenvio de um PDF ("2ª tentativa", com a recusa anterior) e aprovação;
+    - aviso no canal, lido pelo inscrito na notificação e no D2;
+    - cancelamento pela G3 (motivo, confirmação), devolução anexada na A2, contestação pelo representante e decisão "Pedir outro" na fila "Devoluções contestadas"; nova devolução, confirmação do recebimento e estado "Devolução recebida";
+    - revogação do organizador pela API: inscrições suspensas no D2, Menu e O3 da organizadora, e a decisão "Seguir evento" na fila de revogados, com a notificação e as inscrições reabertas;
+    - novo pedido de organizador depois da revogação; prova de corrida paga no V4, recusada pela administração com motivo ("Dados do Pix incompletos"), corrigida e reenviada, e aprovada; o atleta (sem perfil de corrida) se inscreve, desiste, se inscreve de novo, envia o comprovante, e a organizadora aprova (inscrição individual);
+    - notificações de cada papel (administração, organizadora, representante) com a navegação e a aba acesa;
+    - link do time com a sessão expirada no meio (cookie apagado): volta ao login com o aviso, o mesmo link reabre depois de entrar, e o pedido é enviado e aprovado; o token não foi para o armazenamento do navegador;
+    - teclado nas abas (D2 e A2: setas, Home e End, tabulação itinerante) e Esc fechando a folha e devolvendo o foco;
+    - 320, 390 e 1440 px em Menu, O3, G3, A2 (as duas abas), E2, D2, Jogar, as três filas da administração e os cinco passos do V4 (calendário, cidade e a folha "Sair sem salvar" incluídos), sem overflow horizontal;
+    - console sem erros além do `401` de `/me` antes do login e do `favicon.ico` ausente, que já faltava antes.
+  - **Reserva vencida:** o prazo de uma reserva foi alterado no banco da verificação; a leitura mostrou "A vaga foi liberada" e a vaga voltou, e `app.admin_cli sweep` gravou a expiração (`reservas_expiradas=1`). Não foi uma expiração ao vivo.
+  - Capturas em `artifacts/etapa2/integracao/` e scripts em `.local/orquestracao/integracao2/`, não versionados.
+
+**Limitações:**
+- O Expo não foi tocado: as telas da etapa 2 (inclusive organizador e administração) entram na última etapa.
+- O CI remoto não foi executado.
+- A expiração de reserva ao vivo (48 h) e a devolução considerada recebida em 7 dias não foram observadas: a primeira foi simulada com o prazo alterado no banco da verificação, e a segunda só tem os testes do backend.
+- Copiar o Pix funciona com clique real; a leitura do QR do link por câmera de aparelho e a execução em dispositivos físicos seguem sem verificação.
+- O atleta não tem tela do histórico de inscrições (a rota `scope=historico` existe); uma inscrição devolvida, expirada ou cancelada sai de "Minhas inscrições".
+- Chaveamento, tabela, partidas e resultados aparecem como "Em breve" na G3 e como "Tabela ainda não definida" no D2.
+- A notificação `devolucao_decidida` e a `devolucao_confirmada` automática abrem o D2 (com o atalho "Abrir gestão" para o organizador), porque não indicam se quem recebe é o organizador ou um participante.
+- O pacote da web passou de 500 kB (924 kB).
+
+**Pendências de integração:**
+- Fases 6 e 7 de Times e campeonatos: chaveamento, rodadas, agendamento, partidas de campeonato e divergência.
+- Lembrete de "reserva expirando" (exigiria um registro de lembrete enviado), fora desta etapa.
+- Agendamento da varredura fora do desenvolvimento, na implantação.
+- Histórico de inscrições do atleta (tela) e a tela Ranking real (ainda sem ler `GET /me/standings`).
+- Divisão do pacote da web, se o tamanho virar problema.
+- Atualizar os diagramas de modelagem (`docs/diagramas/`) e os indicadores de [qualidade do código](qualidade-codigo.md) com a etapa 2.
+- Calibragem dos cortes de elo com dados reais.
+
+## Etapa 1 — Times, link do time, organizador e elos (implementação) — 12 de outubro de 2026
+
+Primeira etapa da execução dos planos de [Times e campeonatos](plano-times-campeonatos.md) (fases 1 a 3) e do [Jogar](plano-jogar.md) (fase 1), no backend e na web. Contratos: [0003](decisoes/0003-times-campeonatos.md) e [0002](decisoes/0002-jogar.md). Foi feita em uma fundação comum, quatro frentes paralelas (A e B no backend, C e D na web) e a integração. **Não é o MVP completo:** não há partidas, eventos, resultados nem ranking calculado, e o Expo não foi tocado.
+
+**O que mudou:**
+- **Esquema (`0005`):** times, elenco com histórico, convites, pedidos de entrada, link do time (nonce e hash; o token é derivado por HMAC com `TEAM_LINK_SECRET`), pedidos de organizador, organizadores, notificações, auditoria e elos (`rank_cuts` com os cortes iniciais e `standings` vazio).
+- **Backend:**
+  - times: criar, editar, brasão (WebP com transparência), elenco, papéis, sair, remover e encerrar;
+  - convites com mensagem e candidatos (quem você segue ou busca);
+  - link e QR, pedido de entrada e "Gerar outro link";
+  - pedido de organizador, fila e decisão da administração, revogação e contadores das filas;
+  - notificações da conta (lista, não lidas, marcar lida), auditoria e `GET /me/standings`.
+- **Web:**
+  - **Meus times:** placa com carrossel de carteirinhas (C5) e grade de elos por formato, elenco em rostos, folha do atleta, pedidos para entrar e convites enviados;
+  - **Criar e editar time:** prévia ao vivo e recorte do brasão;
+  - **Convidar:** "Escolher atleta" ou "Link e QR";
+  - **Convite recebido:** faixa e folha;
+  - **Entrar pelo link:** `/entrar/{token}`, inclusive deslogado;
+  - **Organizador:** cartão P3 e "Seja organizador" no Menu, seção Organizador sem eventos, fila "Pedidos de organizador" da administração (com contador) e revogação;
+  - **Notificações:** atividades da conta junto dos pedidos para seguir, com o contador no sino do Início;
+  - **Placa do Jogar:** abas, "Com meu time | Avulso", chips e a linha do elo (H1), sempre em classificação nesta fase.
+- **Integração (este registro):**
+  - conflitos do cherry-pick da frente C resolvidos: `ArenaPage.tsx` com as telas das duas frentes; `utils/relativeTime.ts` unificado ("há 3 horas", texto vazio para data inválida, mais `shortDate` e `monthYear`);
+  - duplicações removidas: `Person` e `FormatStanding` passam a ter uma definição só (`api/client.ts` e `api/play.ts`); o link do time e o time do convite usam o `useResource` comum;
+  - ligações entre as frentes: o convite abre Meus times com a folha de convites; o pedido para entrar rola até "Pedidos para entrar"; o aceite e o pedido aprovado abrem o time certo no carrossel;
+  - a linha "Notificações" do Menu abre a tela (antes "Em breve"), com "Perfil" aceso;
+  - "Meu time" e "Com meu time" sem time levam a Meus times (já ligados pela frente D, conferidos no fluxo real);
+  - correção: um `409`/`404` na folha do atleta (elenco desatualizado) agora relê o time, e a braçadeira passa a aparecer desabilitada; antes a tela ficava com o dado antigo até recarregar;
+  - a célula de formato ausente na carteirinha sai com `faces_any_level: true`, como no contrato.
+- **Desvios das frentes**, registrados na seção 9.1 do [0003](decisoes/0003-times-campeonatos.md#91-desvios-registrados-na-integração-da-etapa-1):
+  - brasão com `Cache-Control: no-store`;
+  - avatar nulo para conta inativa;
+  - `team_id` na auditoria de papel;
+  - `403 Só representantes podem cancelar convites.`;
+  - link gerado na primeira leitura, sem auditoria;
+  - `queue-counts` com `reports`;
+  - novas mensagens `422` e `409` do organizador;
+  - filas do mais recente para o mais antigo.
+- **Documentação:**
+  - contratos [0003](decisoes/0003-times-campeonatos.md) (estado e seções 1 a 9) e [0002](decisoes/0002-jogar.md) (fase 1 implementada);
+  - [próximos passos](proximos-passos-jogar.md);
+  - README: link do time (`PUBLIC_WEB_URL`, `TEAM_LINK_SECRET`, rota `/entrar/{token}` com `index.html` em produção), brasões na reconciliação e demonstração de times e organizador.
+
+**Verificações executadas na integração (branch `orq/etapa1`):**
+- **Backend:**
+  - `ruff check app migrations tests` sem apontamentos;
+  - `pytest -q --cov=app --cov-branch` com `TEST_DATABASE_URL`: 390 aprovados e 1 pulado (o teste do bucket S3 real); cobertura total de 95%;
+  - o teste pulado, executado à parte com `MEDIA_TEST_S3=1` num bucket MinIO isolado: aprovado;
+  - só unidades: 326 aprovados, cobertura de 66%;
+  - `alembic upgrade head` e `alembic check` num banco próprio (`arena_orq_int1`): cabeça `0005`, sem diferenças.
+- **Web:**
+  - `npm run lint` sem apontamentos;
+  - `npm run build` concluído, com o aviso de pacote acima de 500 kB (613 kB minificado);
+  - `npm run test:coverage`: 32 arquivos e 267 testes aprovados; cobertura de 87,87% das instruções, 81,03% dos ramos, 87,68% das funções e 91,18% das linhas.
+  - Uma execução anterior da suíte, em paralelo com outros processos, terminou com um worker encerrado inesperadamente; a repetição passou inteira.
+- **Fluxo real no navegador** (Chrome headless contra a API real):
+  - **Ambiente:** banco `arena_orq_e2e1` com as migrações aplicadas, bucket MinIO próprio `arena-orq-e2e`, API na porta 8131 e Vite na 5231;
+  - **Contas:** três contas adultas, uma cadastrada pela web e duas pela API, todas com perfil de futebol em Brasília; uma promovida a administradora com `promote-admin`.
+  - **Conferido:**
+    - placa do Jogar em classificação 0/3, sem elo, com o botão desabilitado e honesto, e "MEU TIME" sem time;
+    - criar o time com brasão PNG transparente: lido pela API como WebP 400×400 RGBA, com o canto transparente;
+    - convite com mensagem; a notificação abre a folha, e o convite é aceito;
+    - tornar representante e tirar a braçadeira;
+    - último representante: botão desabilitado e, com dado desatualizado, o `409` do servidor na folha;
+    - remoção do atleta;
+    - link e QR aberto deslogado (endereço limpo após abrir), login e pedido; aprovação pela notificação;
+    - "Gerar outro link", com "Este link não vale mais" no antigo;
+    - organizador: pedido, recusa com motivo "Outro", notificação e cartão recusado no Menu, novo pedido, aprovação e seção Organizador no Menu;
+    - notificações: lista, marcar todas como lidas e navegação;
+    - encerrar o time: o aviso ao membro só marca como lida, e o link deixa de valer;
+    - persistência após recarregar (elenco, organizador e time encerrado);
+    - teclado no carrossel (setas, Home e End) e nas abas do Jogar e do convite, com foco visível;
+    - 320, 390 e 1440 px em Jogar, Meus times, Convidar, Link e QR, Editar time, Notificações e Menu, sem overflow horizontal;
+    - console sem erros além das respostas esperadas: `401` de `/me` antes do login, `404` do link inválido, `409` provocado e o `favicon.ico` ausente, que já faltava antes.
+  - As correções da integração foram conferidas de novo no navegador.
+  - Capturas em `artifacts/etapa1/integracao/` e scripts em `.local/orquestracao/integracao1/`, não versionados.
+
+**Limitações:**
+- O Expo não foi tocado: as telas da etapa 1 entram na última etapa.
+- O CI remoto não foi executado.
+- Copiar e compartilhar o link (`navigator.clipboard`, `navigator.share`) foram cobertos só pelos testes da web, e o QR não foi lido por câmera de aparelho.
+- A troca da própria posição no time não tem tela (a rota existe).
+- O pacote da web passou de 500 kB.
+
+**Pendências de integração:**
+- Fase 4 de Times e campeonatos (eventos): `handle_open_events` da revogação ainda vazio; `ensure_closable` sem as checagens de partidas e inscrições.
+- Calibragem dos cortes de elo com dados reais.
+- Divisão do pacote da web, se o tamanho virar problema.
+- A tela Ranking ainda mostra o estado vazio, sem ler `GET /me/standings`.
+
+## Plano de Times e campeonatos (apenas planejamento) — 12 de outubro de 2026
+
+A etapa 1 dos [próximos passos do Jogar](proximos-passos-jogar.md) foi desenhada em 19 rodadas de protótipos, sem implementação. As decisões estão no [plano de Times e campeonatos](plano-times-campeonatos.md).
+
+**Decisões principais:**
+- **Duas áreas separadas:** **Meus times**, de todo atleta, e **Organizador**, para quem tem a permissão.
+- **Organizador passa a ser uma permissão.** O atleta pede pelo Menu (cartão com etapas e página "Seja organizador"), e a administração aprova ou recusa com motivo.
+- **Meus times:**
+  - carrossel de carteirinhas com a grade de elos por formato;
+  - elenco em grade de rostos;
+  - sempre pelo menos um representante;
+  - convite com prévia e mensagem;
+  - link e QR do time, sem validade, com pedido de entrada aprovado por um representante;
+  - convite recebido numa faixa que abre uma folha;
+  - criar e editar o time com prévia ao vivo.
+- **Organizador:**
+  - eventos em cartazes;
+  - gestão com o cartão "Agora" e seções;
+  - criar evento com uma pergunta por vez e Pix para eventos pagos;
+  - análise de comprovantes em lista e folha, com recusa motivada e reenvio;
+  - chaveamento em árvore espelhada e tabela cruzada no todos contra todos;
+  - agendamento com horário livre e bloqueio de conflito de quadra;
+  - placar divergente decidido com histórico, chat e justificativa.
+- **Partidas de campeonato:** têm chat com o organizador e usam o mesmo cartão de resultado dos amistosos. Isso fecha uma pendência do plano do Jogar.
+- **Administração:** filas "Pedidos de organizador" e "Eventos pagos" no Menu, ao lado de Denúncias.
+
+**Protótipo:** a versão consolidada é um artefato privado do usuário (https://claude.ai/artifact/G3xgALgdMGPsQ4YneJPGv7). A fonte local fica em `artifacts/prototipos/times.src.html`, com as rodadas em `times-r1.src.html` a `times-r19.src.html`, todas não versionadas. Times, pessoas, eventos, Pix e comprovantes do protótipo são exemplos.
+
+**Documentos atualizados:**
+- novo [plano de Times e campeonatos](plano-times-campeonatos.md);
+- [próximos passos](proximos-passos-jogar.md): etapa 1 com desenho e plano concluídos, decisões de 12 de outubro e novas pendências;
+- [plano do Jogar](plano-jogar.md): referências cruzadas, fase 1 sem os times mínimos e pendência das partidas de campeonato resolvida.
+
+**Pendências:**
+- **Perguntas em aberto do plano:** o desenho do chat do campeonato (canal do evento) e a devolução que o participante não confirma.
+- **Dependências do Jogar:** a análise de comprovantes depende da inscrição do atleta (fase 7 do Jogar), e a divergência em campeonato depende do cartão de resultado (fase 5).
+
+**Decisões complementares do mesmo dia:**
+- **Chaveamento:** com menos confirmados, o campeonato segue com folgas.
+- **Conflito de quadra:** 2 h.
+- **Encerrar time:** um representante pode encerrar o time, sem partida agendada nem inscrição ativa, preservando o histórico.
+- **Cancelar evento com inscritos:** devolução por Pix, com comprovante por inscrição, confirmação do participante e aviso no chat do campeonato.
+- **Revogar organizador:** cabe à administração.
+- **QR:** `qrcode.react` na web e `react-native-qrcode-svg` no Expo.
+- **Ordem de implementação recomendada:** intercala os dois planos, registrada nos [próximos passos](proximos-passos-jogar.md).
+
+**Roteiro atualizado:** `docs/roteiro-projeto.docx` recebeu, como requisitos planejados:
+- estado do projeto e público e papéis (organizador por permissão);
+- HU08–HU10, RN01, RN02, RN09, RN19, RN20 e RN21;
+- Tela 3, permissões, a linha de contas e papéis e as limitações.
+
+A edição foi feita no XML, só no texto de 18 parágrafos. O arquivo passou na validação de esquema da skill `docx` (848 parágrafos antes e depois) e abriu no Word com as mesmas 21 páginas, exportado para PDF. A conferência visual página a página não foi possível, por falta de renderizador de PDF no ambiente. A cópia anterior fica em `artifacts/roteiro-projeto-antes-times.docx`, não versionada.
+
+**Estado do código:** backend, web, mobile, esquema e contratos não foram alterados.
+
+**Verificações:** por ser apenas documentação e protótipo, nenhum teste de código foi executado. As 15 telas do protótipo consolidado e cada rodada foram conferidas em Chrome headless a 320 e 390 px, sem overflow horizontal da tela. Os ajustes foram feitos no próprio protótipo: contraste, colisão de classe, quebras de botões e posição do calendário. Sem commit, push ou publicação no repositório.
+
+## Plano da tela Jogar (apenas planejamento) — 11 de outubro de 2026
+
+A pedido do usuário, a tela Jogar foi desenhada em dez rodadas de protótipos, sem implementação. As decisões estão consolidadas no [plano da tela Jogar](plano-jogar.md).
+
+O plano trata de:
+- pareamento por elo igual ou vizinho e formato;
+- atleta avulso;
+- proposta, condições e chat da partida;
+- resultado e contestação;
+- elos com cortes fixos e Lendário no top 15%;
+- corrida por distância;
+- campeonatos e provas com inscrição paga.
+
+O protótipo consolidado é um artefato privado do usuário (https://claude.ai/artifact/U6RqvawwGLiUSPMst8haN4). A fonte local fica em `artifacts/prototipos/jogar.src.html`, não versionada. Os times, pessoas, elos, cortes e eventos do protótipo são exemplos e não entram no produto.
+
+**Decisões posteriores do mesmo dia:**
+- **Rankings, elos e Lendário são gerais.** A cidade serve apenas para o pareamento, e a tela Ranking perde a linha de cidade.
+- **Seções do detalhe do evento usam `Tabs`** em vez do Navigation Menu, com o mesmo visual.
+- **`react-day-picker` aprovado**, para instalar só na implementação.
+- **Pix na inscrição paga:** bloco "Pix do organizador" com chave e botão de copiar só com ícone; "Copiar Pix Copia e Cola"; ícone ⓘ com a folha "Pagamento e informações".
+
+**Fila de pareamento:** o plano passou a detalhar a fila no PostgreSQL. A tabela `match_searches` é a fila; o pareamento roda por evento, com trava `pg_advisory_xact_lock` por balde (modalidade + cidade + formato), e uma varredura periódica pareia o que ficou esperando e expira os prazos. Isso corrige a brecha do `SKIP LOCKED`, em que buscas simultâneas não se enxergavam. A migração para Redis ficou registrada como pergunta em aberto, com os sinais que a justificariam e uma interface de serviço para não travar a troca.
+
+**Decisões de esquema e próximos passos:**
+- **Cancelamento:** qualquer representante cancela a partida agendada até 24 h antes; depois, quem não comparece perde por W.O.
+- **Tênis:** melhor de 3 sets, com tie-break em 6-6 e super tie-break opcional.
+- **Avulso:** aceita qualquer formato e busca por uma posição específica ou por qualquer posição.
+
+O plano e o roteiro (RN05, RN06, RN15, HU07 e o parágrafo de estado) foram ajustados. O roteiro foi validado de novo e conferido renderizado pelo Word.
+
+A ordem de trabalho ficou em [próximos passos da tela Jogar](proximos-passos-jogar.md): primeiro a tela "Times e campeonatos"; depois o desenho de Ranking real, Notificações e revisão de quadras; só então a implementação do Jogar.
+
+**Roteiro atualizado:** `docs/roteiro-projeto.docx` recebeu as regras revistas como requisitos **planejados**:
+- estado do projeto, visão, escopo e Tela 1;
+- HU03, HU06 e HU07;
+- RN04–RN06, RN09–RN11, RN14, RN15, RN17, RN18 e a nova **RN23** (elos);
+- componente de pareamento e tabela de vagas;
+- TU01, TU05, TF01 e TF03;
+- limitações conhecidas.
+
+A edição foi feita no XML, preservando a formatação. O arquivo passou na validação de esquema do pacote `docx` e foi conferido renderizado pelo Word (21 páginas, tabelas de regras intactas).
+
+**Pendências:**
+- As perguntas em aberto do plano: cancelamento e W.O., placar do tênis, chat em partidas de campeonato, moderação do chat e momento do Expo.
+- Os eventos dependem da criação pelo organizador em "Times e campeonatos".
+
+**Estado do código:** backend, web, mobile, esquema e contratos não foram alterados. A tela Jogar continua só preparando os perfis esportivos.
+
+**Verificações:** por ser apenas documentação e protótipo, nenhum teste de código foi executado. As capturas do protótipo foram conferidas no Chrome headless a 430 px; durante as rodadas, foram corrigidos overflows e problemas de contraste do próprio protótipo. Sem commit, push ou publicação no repositório.
+
+## Correções da revisão da branch — 11 de outubro de 2026
+
+Corrigidos os dois achados da revisão de `feat/tailwind-migrate`, com subagentes em paralelo autorizados pelo usuário:
+
+- O pedido de nova publicação vindo de "Nova foto" agora é consumido ao abrir. A Comunidade permanece montada durante o consumo, preservando o compositor e o foco; fechar ou publicar, visitar outro perfil e voltar não reabre o diálogo. Novas aberturas pelo perfil e pelo cabeçalho continuam disponíveis.
+- O `Slider` normaliza valores escalares controlados ou iniciais em um único controle, incluindo zero. Intervalos mantêm controles separados com índices explícitos; sem valor informado, o controle usa o mínimo, conforme o Base UI.
+
+Adicionados nove testes de regressão: seis do slider (incluindo teclado e intervalos), dois de navegação com `StrictMode` (Fechar e Escape, retorno e reabertura) e um de publicação seguida de visita a perfil e retorno. Web: `npm run lint`, `npm run build` e `npm run test:coverage` aprovados, com 129 testes em 19 arquivos; cobertura de 83,82% de statements e 73,78% de branches. A revisão React conferiu callback estável, atualização funcional da pilha e preservação do foco.
+
+O navegador confirmou fechamento, navegação/retorno, reabertura intencional, recorte, zoom por teclado (1 → 1,05) com um único controle e publicação seguida de retorno. Conferidos recorte e ausência de overflow horizontal em 320, 390 e 1440 px. Usadas respostas simuladas apenas no cenário auxiliar `.local/review-branch/`, sem inclusão no produto; evidência visual em `artifacts/review-tailwind/zoom-corrigido.png`.
+
+Limitações: não foram exercitadas a API real nem a persistência nesta correção. Backend, esquema, contratos e mobile não foram alterados; seus checks não foram repetidos. Sem validação em aparelho ou CI remoto. `git diff --check` das alterações locais aprovado. O usuário autorizou o commit das correções em `feat/tailwind-migrate` e, em seguida, a criação de `feat/play-page` a partir dele. Sem push ou publicação.
+
+## Revisão da branch `feat/tailwind-migrate` — 11 de outubro de 2026
+
+Revisados os três commits entre a base `6f1c850` de `origin/main` e `cd6d278`, abrangendo conteúdo do perfil, Tailwind/NativeWind e nova Comunidade. Nenhuma correção funcional foi aplicada nesta revisão.
+
+Dois achados confirmados na web:
+
+- **P2:** o pedido `compose` permanece na pilha de navegação. Depois de abrir "Nova foto", fechar o compositor, visitar outro perfil e voltar, "Nova publicação" abre novamente sem solicitação. O pedido precisa ser consumido ao abrir.
+- **P3:** `Slider` usa `[min, max]` como fallback mesmo quando recebe um `value` escalar. O zoom do compositor monta dois controles sobrepostos, ambos chamados "Zoom", criando uma parada de foco duplicada. Valores escalares devem gerar apenas um controle.
+
+Verificações executadas: web lint, build e cobertura (120 testes aprovados); mobile lint, typecheck, cobertura (107 testes aprovados), exportação Android e `expo install --check`. Duas reproduções isoladas confirmaram os achados; a fonte está em `artifacts/review-tailwind/reproducoes.test.tsx`, sem inclusão na suíte versionada. O navegador também confirmou ambos em uma página isolada com respostas simuladas exclusivamente para teste. Conferidos visualizador, abertura do compositor após rolagem, recorte e passagem à legenda; ausência de overflow horizontal nas larguras 320, 390 e 1440 px. O cenário auxiliar fica em `.local/review-branch/` e não faz parte do produto.
+
+Limitações: a API real e a persistência não foram exercitadas nesta revisão; backend e esquema não foram alterados pela branch. Não houve execução em aparelho/emulador nem CI remoto. `git diff --check origin/main...HEAD` identificou somente uma linha em branco adicional no fim de `web/src/components/ui/button-variants.ts`. A revisão atualizou apenas este registro versionado; sem commit, push ou publicação.
+
+## Nova Comunidade (web e Expo) — 11 de outubro de 2026
+
+Implementado o [plano da Comunidade](plano-comunidade.md), sem mudança de backend, contrato da API, esquema ou dependências. As versões de `package.json` e dos locks não mudaram.
+
+### Web
+
+**Comunidade (`SocialCommunity`, `CommunityFeed`, `CommunityPeople`, `PostComposer`)**
+- Barra escura fixa no topo do `main`, com:
+  - o Coliseu;
+  - o botão "Nova publicação";
+  - as abas Publicações | Atletas, numa nova variante `dark` de `Tabs`.
+- O título recolhe ao rolar para baixo. Tocar em "Publicações" já ativa só volta ao início.
+- Feed:
+  - puxar para atualizar (`usePullToRefresh`: toque e roda do mouse a partir do topo);
+  - botão "Atualizar feed" visível só no foco;
+  - paginação automática;
+  - estados "arquibancada", com barra de progresso indeterminada.
+- Atletas:
+  - busca na barra, com espera de 300 ms;
+  - Seguir/Solicitar/Solicitado/Seguindo;
+  - "Segue você";
+  - fileira de quem você segue (`/users/{id}/following`).
+- Nova publicação em tela cheia escura:
+  - escolher a foto;
+  - recorte com atalhos 1×–3×, Slider, girar, Centralizar e Redefinir;
+  - legenda e "Publicar".
+- `cropImage` passou a aceitar `rotation`.
+- O quadro "Nova foto" do perfil abre a Comunidade já na nova publicação.
+
+**Post (Comunidade e visualizador do perfil)**
+- Foto 1:1.
+- Etiqueta de vidro com avatar sem contorno e `@usuário`.
+- ••• em círculo de vidro.
+- Data no início da legenda.
+- O layout `feed`, o tamanho de avatar `author` e o tom de botão `photo` foram removidos por falta de uso.
+
+**shadcn/ui:** entraram Slider, Toggle Group e Progress, ligados ao Base UI. As correções do que o CLI gerou estão no plano.
+
+### Expo
+
+Mesma estrutura, feita por um agente restrito a `mobile/` e revisada:
+- barra escura com abas e título que recolhe (`Animated`);
+- `RefreshControl`;
+- estados do feed;
+- busca e fileira de quem você segue;
+- post 1:1 com o autor no novo formato;
+- publicação em dois passos: recorte pelo editor nativo e tela escura de legenda;
+- "Nova foto" do perfil abre o seletor.
+
+`usePagedList` ganhou `refresh()`, que relê a primeira página sem esvaziar a lista. Diferenças em relação à web:
+- não há marca do Coliseu nos assets do mobile;
+- o recorte não tem atalhos de zoom, giro nem centralização, porque exigiria dependências novas.
+
+### Verificações executadas
+
+**Web**
+- `npm run lint`, `npm run build` e `npm run test:coverage`: **120 testes aprovados** e pisos atendidos. Cobertura de 83,6% em instruções e 73% em ramos.
+- Testes novos em `tests/community.test.tsx` e `tests/crop-image.test.ts`.
+
+**Navegador** (Chrome headless, ambiente auxiliar: API 8010 com `arena_e2e`, web 5180, conta de teste), em 320, 390 e 1440 px:
+- sem overflow horizontal e sem erros no console;
+- foto 1:1;
+- barra recolhendo e voltando;
+- busca;
+- recorte com 2× e giro;
+- legenda.
+
+Em 390 px também houve uma publicação real: o post persistiu após recarregar e depois foi excluído pela interface. Capturas em `artifacts/comunidade-web/` (não versionado).
+
+O ensaio real revelou que `/users/{id}/following` devolve `{ user, state }`; o código e o mock foram corrigidos.
+
+**Mobile**
+- `npm run lint`, `npm run typecheck` e `npm run test:coverage`: **107 testes aprovados** e pisos atendidos.
+- `npm run export:android`: aprovado.
+
+### Limitações
+- O Expo não foi executado em aparelho ou emulador: o recolhimento da barra, o `RefreshControl`, o Modal com teclado e as datas no Hermes não foram conferidos. Não há paridade visual declarada.
+- O gesto de puxar foi exercitado com eventos simulados no jsdom e com a rolagem no Chrome headless, não com toque real.
+- CI remoto não executado.
+- Durante a sessão, um `npm ci` na web falhou porque os servidores Vite em execução travavam um binário. As dependências foram restauradas com `npm install`, a partir do lock e sem mudanças nele.
+
+Sem commit, push ou publicação.
+
+## Plano da nova Comunidade — 11 de outubro de 2026
+
+A pedido do usuário, a Comunidade foi redesenhada em oito rodadas de protótipos, e as decisões foram registradas em [docs/plano-comunidade.md](plano-comunidade.md):
+
+- Barra escura compacta com o Coliseu e as abas Publicações | Atletas. O título recolhe ao rolar e "Publicações" volta ao início.
+- Puxar para atualizar no lugar do botão "Atualizar feed".
+- Feed igual ao visualizador do perfil.
+- Busca de atletas dentro da barra, com uma fileira de quem você segue.
+- Publicação em tela cheia com painel de vidro e recorte com atalhos de zoom, Slider, girar, Centralizar e Redefinir.
+- Estados do feed "arquibancada".
+- Componentes shadcn/ui: Slider, Toggle Group, Progress e Input Group.
+
+A sessão encontrou uma divergência no código: o servidor exige foto quadrada e o recorte da web é 1:1, mas o `PostItem` exibe o post em 4:5 com `object-cover`, cortando as laterais. O usuário decidiu manter 1:1 e exibir o post quadrado no feed e no perfil.
+
+Depois, o usuário confirmou o Expo nesta entrega e um botão "Atualizar feed", visível só no foco, como alternativa de teclado ao gesto. Seguem em protótipo o fluxo da publicação em dois passos e o autor sobre a foto (@usuário legível, sem contorno branco). O protótipo é um artefato privado do usuário; a fonte local fica em `artifacts/prototipos/`, que não é versionado. Somente documentação: nenhum código foi alterado e nenhum teste foi executado. Diff conferido. Sem commit, push ou publicação.
+
+## Migração do visual para Tailwind (web) e NativeWind (Expo) — 11 de outubro de 2026
+
+A pedido do usuário, foi executado o [plano de migração](plano-migracao-tailwind.md), sem commit. Para o mobile, o usuário autorizou a versão candidata do NativeWind 5. A interface aprovada não mudou e nenhuma funcionalidade foi acrescentada.
+
+### Web
+
+**Rede de segurança (A0)**
+- Roteiro local de capturas em Chrome headless, em `.local/e2e/`: 46 telas × 320/390/1440 px = 138 PNG.
+  - Datas congeladas, animações desligadas e seletores por papel, rótulo e texto.
+  - Comparação por pixel com relatório.
+  - Também há despejo de estilos computados e geometria (`style-dump`, `layout-diff`) e conferência de teclado com teclas reais (`keyboard-check`).
+  - O guia está em `.local/e2e/README-tailwind.md`. Nada disso é versionado.
+- As capturas usam o ambiente auxiliar já documentado: API na porta 8010, banco `arena_e2e` do Compose e Vite na 5180. Nesse banco foram semeadas quatro contas de teste com posts, comentários, solicitações, denúncias e um bloqueio. O banco `arena` de desenvolvimento não foi alterado.
+- **Incidente, já corrigido:** um script de estilos criou uma denúncia real no `arena_e2e`. Ela foi apagada e a sequência restaurada, e os scripts agora bloqueiam escritas não simuladas.
+- Nove consultas de teste por classe CSS passaram a usar papéis, `data-condensed`, `data-state` ou `data-testid`.
+
+**Tokens (A1)**
+- `@theme` em `web/src/ui.css` virou a fonte única:
+  - cores `brand`, `ink`, `ink-muted`, `line`, `app`, `focus`, `danger`, `mint`, `glass` e outras;
+  - fontes `sans`/`display`, raios e sombras;
+  - camadas `--z-index-*`: tabs 12, topbar 15, viewer 19, nav 20, scrim 40, sheet 41 e outras. O valor 25 citado no plano não existia no código.
+  - animações e a variante `app-narrow` (até 430 px).
+- Os `--ui-*` do shadcn apontam para esses tokens.
+
+**Primitivos (A2)**
+- Em `web/src/components/ui/`, com `class-variance-authority`: Button/IconButton, Sheet (com `useDialogFocus`), Tabs, Glass (com escolhas, ações, confirmação e textarea), ListHeading/ListGroup/ListRow, PersonRow/PersonList, Chip, Card, EmptyState, Badge, IconTile, SectionTitle, Eyebrow e variantes de feedback e avatar.
+- Nenhum componente shadcn novo foi adotado: os do preset não reduziriam código nem manteriam o foco atual.
+
+**Migração por área (A3, etapas 1 a 10)**
+- Áreas migradas: casca (`BottomNav` novo), autenticação, Início, Ranking/Jogar, listas do Menu, Editar perfil e folhas, cabeçalho/abas/grade do perfil, post/visualizador/vidros, Comunidade e moderação.
+- As regras de `styles.css` foram apagadas a cada etapa: 2.476 → 0 linhas.
+- Removidos `BottomSheet`, `EmptyState`, `GlassPanel`, `ListRow` e `PersonRow` antigos, substituídos pelos primitivos.
+
+**Encerramento (A4)**
+- Preflight ligado (`@import "tailwindcss"`), `styles.css` removido e a base ARENA levada para `@layer base`.
+- Exceções `:where(:not([data-slot]))` e `[aria-hidden="true"]` removidas. A regra de campos agora exclui `checkbox` e `radio` por tipo.
+- Ajustes pontuais neutralizam o preflight: elos do Ranking, botões da navegação, `legend` da denúncia, caixa de seleção do cartão, `small` da moderação e textarea.
+
+**Mudanças de comportamento**
+- As abas de Conexões ganharam setas, Home e End, o padrão do primitivo de abas.
+- `useDialogFocus` passou a devolver o foco ao botão de origem ao fechar com Esc os vidros de comentários e ••• sobre a foto. A falha já existia antes da migração, conferida no código de `7be7196`. Ganhou teste.
+- Continua igual ao que era: num vidro aberto a partir de outro (••• → Editar legenda → Esc), o foco ainda vai para o corpo da página.
+
+**CSS de produção:** 55.283 B (11,39 kB gzip) → 60.301 B (12,03 kB gzip). A diferença vem da camada base com o preflight, cerca de 5 kB.
+
+### Expo
+
+- **Dependências:**
+  - `nativewind` 5.0.0-rc.0 e `react-native-css` 3.1.0-rc.0 (peer exato da rc);
+  - `react-native-reanimated` 4.5.1 e `react-native-worklets` 0.10.1, via `npx expo install`;
+  - em desenvolvimento, `tailwindcss` e `@tailwindcss/postcss` 4.1.12 (versão testada pelo guia da v5; a web usa 4.3.3), `postcss` 8.5.29 e `lightningcss` 1.30.1, fixado em `@expo/metro-config` por `overrides`.
+- **Arquivos novos:** `metro.config.js`, `postcss.config.mjs`, `global.css` (importado em `App.tsx`), `nativewind-env.d.ts`, `css-modules.d.ts`, `src/theme.ts`, `src/styles.ts` (classes compartilhadas) e `src/components/Screen.tsx`.
+- **Migração:** todas as telas e componentes saíram de `StyleSheet.create` e objetos `style` estáticos. Ficaram em `style` só valores dinâmicos: tamanho do avatar, altura da capa e sombra de texto do post.
+- **Tokens:** mesmos nomes da web, em `global.css` e `theme.ts`, mantidos em sincronia. Os valores preservam o app anterior: `ink` #343d39, `ink-muted` #606965, `line` #cdd4d0 e `danger` #b42318 diferem da web. O mobile continua com fontes do sistema.
+- **Testes:** o Vitest ganhou um stub de `nativewind`. Duas verificações que liam `style` passaram a verificar estrutura e texto.
+
+### Verificações executadas
+
+**Web**, em `web/`, no estado final:
+- `npm run lint` e `npm run build` aprovados.
+- `npm run test:coverage`: 16 arquivos e **107 testes aprovados**. Instruções 78,58%, ramos 70,75%, funções 79,82%, linhas 84,1%; pisos atendidos.
+- Comparação visual completa contra a linha de base, a cada etapa e no fim: nenhuma tela com diferença perceptível. As 9 telas com diferença estão dentro do ruído medido (reamostragem da capa JPEG e borda da sombra do Jogar), com menos de 0,001% dos pixels acima da tolerância.
+- Nenhum overflow horizontal em 320 px.
+- `keyboard-check`: 66/66 em 320, 390 e 1440 px.
+
+**Mobile**, em `mobile/`:
+- `npm run lint` e `npm run typecheck` aprovados.
+- `npm run test:coverage`: 9 arquivos e **89 testes aprovados**. Instruções 69,2%, ramos 63,12%, funções 71,68%, linhas 75,68%.
+- `npx expo install --check`: "Dependencies are up to date".
+- `npm run export:android` aprovado, com 1.171 módulos.
+- O bundle foi inspecionado e aplica as regras compiladas pelo `react-native-css`.
+
+### Limitações e pendências
+
+- **Sem aparelho:** não houve teste em aparelho nem Expo Go. Paridade visual do Expo não verificada: sombras/elevação, bordas de um lado só e `aspect-[4/5]` precisam de conferência.
+- **Versão candidata:** o NativeWind 5 rc não é recomendado para produção pelo próprio projeto. Rever ao sair a versão estável.
+- **Divergências web × mobile:** decidir se a versão do Tailwind (4.3.3 × 4.1.12) e os valores de `ink`, `ink-muted`, `line` e `danger` devem convergir.
+- **`npm audit` no mobile:** subiu de 22 para 27 alertas, herdados de react-native, metro e `@expo/metro-config`.
+- **Navegador:** web conferida só em Chrome headless. O hover dos utilitários vale apenas em dispositivos com hover.
+- **Fluxos que gravam dados** (salvar, publicar, denunciar, moderar) foram conferidos até a confirmação, para não invalidar a linha de base. Os testes automatizados cobrem as gravações.
+- **Ambiente local:** durante a A4, um `git worktree remove` apagou parte de `web/node_modules`. Foi restaurado com `npm install`, sem mudar o `package-lock.json`. Reinicie o `npm run dev` se ele se comportar de forma estranha.
+- **README:** os comandos não mudaram.
+
+## Plano de migração para Tailwind — 11 de outubro de 2026
+
+A pedido do usuário, criada a branch local `feat/tailwind-migrate` a partir de `7be7196` e registrado em [docs/plano-migracao-tailwind.md](plano-migracao-tailwind.md) o plano para substituir `web/src/styles.css` (2.476 linhas, cerca de 435 regras) por utilitários Tailwind sem alterar o visual aprovado. O plano prevê: linha de base de capturas em 320, 390 e 1440 px antes de migrar; tokens únicos no `@theme`, sem a colisão de `--muted`; primitivos reutilizáveis com variantes; dez etapas por área, apagando o CSS correspondente em cada uma; e preflight ligado só ao final. Para o Expo, o plano registra que a adoção exige NativeWind: a versão estável 4.2.7 usa Tailwind 3 e exige Reanimated, Babel e Metro configurados, e a 5.0 (Tailwind 4) ainda é candidata. Recomenda centralizar já os tokens em `mobile/src/theme.ts` e fazer uma prova de conceito isolada com teste em aparelho. Somente documentação: nenhum código foi alterado e nenhum teste foi executado. Versões do NativeWind conferidas no npm e na documentação oficial. Sem commit, push ou publicação.
+
+## Versionamento do conteúdo do perfil — 11 de outubro de 2026
+
+A pedido do usuário, reunidas em um commit na branch `feat/profile-improvement` e enviadas ao remoto as entregas registradas abaixo: conteúdo do perfil, visualizador de posts, denúncias e topo fixo (web e Expo), topo do post sem sombreamento, navegação inferior sobre o visualizador e denúncias com RadioGroup do shadcn/ui, além do plano e da documentação. Credenciais e capturas do ensaio permanecem em `.local/` e `artifacts/`, ignorados. Os checks aprovados nas entregas abaixo não foram repetidos, pois o código não mudou desde a validação; a execução remota do CI não foi verificada.
+
+## Denúncias com RadioGroup do shadcn/ui — 11 de outubro de 2026
+
+A pedido do usuário, os motivos de denúncia (post, comentário e conta) na web passaram a usar o [Radio Group do shadcn/ui](https://ui.shadcn.com/docs/components/base/radio-group), na variante Base UI e no padrão "Choice Card" (`FieldLabel` › `Field` › `FieldContent` + `RadioGroupItem`). O usuário escolheu a integração completa com Tailwind em vez de apenas o primitivo Base UI.
+
+- **Configuração:** Tailwind CSS 4.3.3 com `@tailwindcss/vite`, alias `@/` em Vite, Vitest e TypeScript e `components.json` (preset `base-nova`). Os componentes `radio-group`, `field`, `label` e `separator` foram gerados pelo CLI do shadcn em `web/src/components/ui/`, e `cn` fica em `web/src/lib/utils.ts`.
+- **Dependências novas, com versões exatas:** `@base-ui/react` 1.8.0, `class-variance-authority` 0.7.1, `clsx` 2.1.1, `tailwind-merge` 3.7.0, `tailwindcss` e `@tailwindcss/vite` 4.3.3. O CLI tinha instalado o pacote de terceiros `cn` e reescrito os imports para ele, porque `@/lib/utils` ainda não existia; o pacote foi removido e os imports corrigidos.
+- **Isolamento do visual aprovado:** `src/ui.css` importa apenas o tema e os utilitários do Tailwind, sem preflight. Os tokens do shadcn apontam para variáveis `--ui-*` ligadas à paleta ARENA, com variação `.dark` para o vidro escuro, e não redefinem `--muted`. A regra base de borda do shadcn foi restrita a `[data-slot]`. Em `styles.css`, as regras globais de `label` e `input` deixaram de atingir componentes shadcn e o input oculto do Base UI, com a especificidade preservada. Os estilos do formulário antigo (`.report-option`) foram removidos.
+- **Testes:** o teste de denúncia de post passou a verificar o estado por `aria-checked` e a ordem dos motivos pelos rótulos, pois o rádio do Base UI é um `span role="radio"`.
+
+Verificações: em `web/`, `npm run lint`, `npm run build` e `npm run test:coverage` (**98 aprovados**; instruções 77,22%, linhas 82,65%, ramos 70,15%; pisos atendidos). O CSS de produção não contém preflight e mantém `--muted: #626970`. O servidor Vite local foi reiniciado com o mesmo `--host 0.0.0.0` para carregar a nova configuração. No navegador, com a conta de teste visitante, em 390 e 320 px: o clique no cartão seleciona o motivo e habilita o envio, as setas do teclado movem a seleção e o foco, não há overflow horizontal e o anel de foco aparece no cartão. Nenhuma denúncia nova foi enviada nesse ensaio. Capturas: `artifacts/perfil-conteudo-web/*-shadcn-denuncia-*.png`. O Expo mantém seu `ReportForm` em React Native, pois o shadcn/ui é só para a web. Sem commit, push ou publicação.
+
+## Navegação inferior sobre o visualizador — 10 de outubro de 2026
+
+A pedido do usuário, corrigido o visualizador "Publicações" da web, que cobria a parte superior do botão Jogar da navegação inferior: ele ficava acima da barra (z-index 25 contra 20) e terminava exatamente no topo dela, enquanto o botão sobe 25 px. O visualizador passou a ocupar a altura total do `.arena-app` abaixo da barra (z-index 19), e a rolagem ganhou espaço inferior equivalente ao da barra (com a área segura em telas estreitas), como nas demais telas. Folhas e vidro de tela cheia continuam acima. Verificações: `npm run build` e `vitest run` (98 aprovados). A revisão visual no navegador não foi repetida para este ajuste. Expo não afetado (o visualizador é um `Modal`). Sem commit, push ou publicação.
+
+## Topo do post sem sombreamento — 10 de outubro de 2026
+
+A pedido do usuário, removido o degradê escuro sobre o topo da foto do post (autor, data e •••), que atrapalhava a visualização da imagem. Na web, `.post-top` perdeu o `linear-gradient` e o espaçamento inferior extra; a legibilidade sobre fotos claras passou a vir de `text-shadow` no texto e `drop-shadow` no ícone •••. No Expo, o `PostItem` deixou de pintar a faixa escura semitransparente; o texto já tinha sombra própria. Verificações: `npm run build` na web; `npm run lint`, `npm run typecheck` e `npm test` no mobile (89 aprovados). A revisão visual no navegador não foi repetida para este ajuste. Sem commit, push ou publicação.
+
+## Conteúdo do perfil, visualizador de posts, denúncias e topo fixo — 10 de outubro de 2026
+
+Implementado o [plano do conteúdo do perfil](plano-perfil-conteudo.md) na web e no Expo, sem mudança de backend, contrato da API, esquema ou dependências. Nova camada `api/social.ts` em cada cliente, com as mesmas funções (curtir, editar legenda, excluir post, comentar, excluir comentário, denunciar com `description` e bloquear), motivos de denúncia e limites (legenda 2200, comentário e detalhes 1000).
+
+- **Web:** perfil com abas Fotos | Partidas (Fotos padrão; Atividades saiu do perfil); grade de ponta a ponta com quadro "Nova foto" no perfil próprio, que leva à Comunidade; visualizador "Publicações" que abre no post tocado e carrega mais publicações; post A3 (foto 4:5, autor e data sobrepostos, pílulas de curtir/comentar, legenda abaixo); comentários C4 e menu M3 em vidro sobre a foto; denúncia de post, comentário e conta por `ReportForm`; ações da conta (Bloquear/Denunciar) em vidro de tela cheia; topbar fixa que condensa com @usuário e abas grudadas abaixo. `window.prompt`/`window.confirm` foram eliminados. O feed da Comunidade passou a usar o mesmo post A3. `SocialPostCard.tsx` e `PhotoGrid.tsx` foram removidos; `SocialPhoto` foi movido para arquivo próprio e agora aplica o tamanho de avatar também às fotos reais. Foco, Esc e Tab-trap do `BottomSheet` foram extraídos para `useDialogFocus`, reutilizado pelos vidros. CSS órfão removido.
+- **Expo:** mesmos fluxos com `usePagedList` portado, `PostImage` autenticada por Bearer, vidro como camada escura semitransparente e glifos Unicode com rótulos de acessibilidade. O perfil ganhou rolagem própria, `ProfileTopBar` fixa com ☰ e condensação por rolagem, abas, galeria e Partidas vazio. Na Comunidade, o feed usa `PostItem`, o perfil visitado ganhou topo ‹/•••, ações da conta, abas e galeria, e foram removidos o `Alert` de denúncia/exclusão e o modal de legenda. Curtidas, legendas, comentários e exclusões feitos no perfil visitado refletem no feed, e `comment_count` diminui ao excluir comentário.
+- Comentário novo entra no topo da lista, pois a API lista do mais recente para o mais antigo. Partidas mostra apenas estado vazio; nenhum resultado é simulado.
+
+Verificações executadas: em `web/`, `npm run lint`, `npm run build` e `npm run test:coverage` (**98 testes aprovados** em 15 arquivos; instruções 78,05%, linhas 83,98%, ramos 70,86%). Em `mobile/`, `npm run lint`, `npm run typecheck` e `npm run test:coverage` (**89 testes aprovados** em 9 arquivos; instruções 69,18%, linhas 75,72%, ramos 63,32%), `npm run export:android` e `npx expo install --check` aprovados. `git diff --check` sem problemas. Pisos de cobertura atendidos nos dois clientes. Backend sem alterações; seus testes não foram repetidos.
+
+No navegador (Chrome headless, API e Vite locais já em execução), em 320, 390 e 1440 px, com contas de teste novas (dono e visitante, e-mails `@example.com`): topbar fixa e condensada, abas grudadas, grade sem overflow horizontal, visualizador aberto no post tocado com Esc devolvendo o foco; curtir, comentar, excluir comentário, editar legenda e excluir post persistindo após recarregar; denúncias de post, comentário (com detalhes) e conta, com envio desabilitado sem motivo; bloqueio voltando à Comunidade e conta listada em Contas bloqueadas (depois desbloqueada pela API). As denúncias foram conferidas por consulta somente leitura em `content_reports`, com motivo e descrição; a tela de moderação não foi testada por falta de conta admin. Capturas em `artifacts/perfil-conteudo-web/` e protótipo em `artifacts/prototipos/perfil-conteudo.html` (não versionados). As contas de teste e os dados gerados permanecem no banco local.
+
+Limitações: o Expo não foi executado em aparelho ou Expo Go; a exportação não comprova funcionamento em Android/iOS nem o posicionamento inicial do visualizador sem `getItemLayout`. No Expo as abas não grudam no topo, o vidro não tem desfoque, o foco não volta ao quadro ao fechar o visualizador e o voltar do Android fecha o visualizador inteiro; não há paridade visual com a web. Pendências: domínio e boletim de Partidas (P2), Atividades em Notificações. Sem commit, push ou publicação.
+
+## Plano do conteúdo do perfil — 10 de outubro de 2026
+
+A pedido do usuário, registrado em [docs/plano-perfil-conteudo.md](plano-perfil-conteudo.md) o plano de implementação definido em rodadas de protótipos. Ele cobre: abas Fotos e Partidas no perfil, grade sem espaços em branco, visualizador de posts em feed vertical, post com foto 4:5, comentários e menu de ações em vidro sobre a foto, denúncia de post, comentário e conta com motivo e detalhes, e barra superior fixa que condensa ao rolar (o hambúrguer hoje some com a rolagem). O plano vale para a web e o Expo e também para a Comunidade. Atividades sai do perfil e vai para Notificações em entrega futura; o boletim de Partidas fica só como desenho até existir o domínio. Somente documentação: nenhum código foi alterado e nenhum teste foi executado. Diff conferido. Sem commit, push ou publicação.
+
 ## Versionamento das correções e do acesso local — 10 de outubro de 2026
 
 A pedido do usuário, reunidas em um commit local as correções das aprovações no Expo, a escolha da URL da API na web em desenvolvimento, seus testes e a documentação de acesso pelo celular. Os arquivos `.env` locais e os artefatos de ensaio permanecem ignorados. Diff revisado e verificado; os checks aprovados nas entregas abaixo não foram repetidos, pois o código não mudou desde a validação. Sem push ou publicação. A validação em aparelho e as pendências de integração permanecem conforme os registros abaixo.
@@ -229,10 +1101,11 @@ Atualizar este Markdown a cada entrega ou alteração no projeto, registrando im
 | Foto de perfil (avatar) e capa | Integradas à API e ao armazenamento privado, com recorte, troca e remoção (capa padrão) na web e no mobile. |
 | Edição de perfil e @ | Integradas à API: lista agrupada com folhas, @ único com verificação de disponibilidade, visibilidade, contas bloqueadas e conexões. |
 | Posts, comunidade e perfis sociais | Integrados à API: feed cronológico, foto/legenda, curtidas, comentários, busca, privacidade social, seguidores, bloqueios e denúncias. Painel administrativo web e histórico de decisões implementados. |
-| Partidas, ranking, estatísticas e notificações | Estrutura visual e estados vazios ou indicação de disponibilidade futura; sem dados demonstrativos ou integração de domínio. Notificações exibe, provisoriamente, as solicitações para seguir. |
+| Conteúdo do perfil | Abas Fotos \| Partidas na web e no Expo: grade com visualizador "Publicações", post 4:5, comentários e ações em vidro, denúncias de post/comentário/conta com motivo e detalhes e topo fixo condensado. Partidas (P2) aguarda domínio e mostra estado vazio; Atividades sairá para Notificações em entrega futura. |
+| Partidas, ranking, estatísticas e notificações | Integrados à API na web (etapas 3 e 4) e no Expo (etapa 6): partidas, resultado, estatísticas, Ranking e Notificações com os tipos de times, eventos, partidas e campeonatos, além das solicitações para seguir. Sem partida, evento ou marca, as telas mostram o estado vazio; não há dados demonstrativos. |
 | Moedas e carteira | Removidas da interface web e fora da direção atual do produto; não implementar sem nova solicitação. |
-| Botão Jogar | Abre a preparação dos perfis esportivos; busca e agendamento ainda pendentes. |
-| Cliente Expo | Comunidade e recursos sociais implementados; título @, hambúrguer e folha Menu aplicados; a revisão visual do Figma foi aplicada somente à web. |
+| Botão Jogar | Busca adversário de verdade (times, tênis e avulso), com proposta, partida e agendamento, na web e no Expo; sem perfil esportivo, prepara o perfil. Nunca simula uma partida encontrada. |
+| Cliente Expo | Comunidade e recursos sociais; título @, hambúrguer e folha Menu. Desde a etapa 6, também times, organizador, eventos e inscrições, comprovantes, administração, Jogar (placa, partida, resultado e Ranking), corrida e campeonatos (chaveamento, agenda e decisão), sem tela "em breve". A revisão visual do Figma foi aplicada somente à web; paridade visual do Expo, funcionamento em aparelho, leitor de tela e API real não foram verificados. |
 
 ## Evidências e limites
 
@@ -278,7 +1151,7 @@ HU01, RN01 e a seleção de modalidades em RN02 possuem implementação. RN22 é
 
 O roteiro original contém propostas e diagramas para o MVP completo. Na entrega inicial, a modelagem se limitava a cidades, usuários, sessões e perfis. A entrega de 10 de outubro também implementou as tabelas sociais descritas nesta página e no [diagrama da fundação](diagramas/fundacao.md); as demais propostas do MVP continuam como desenho futuro.
 
-A implementação social ainda exige validação visual em navegador e demonstração em aparelho mobile. Times, vagas, partidas, chat, resultados, rankings, corrida e eventos permanecem fora das entregas realizadas até aqui.
+A implementação social ainda exige validação visual em navegador e demonstração em aparelho mobile. Times, eventos, partidas, chat, resultados, rankings, corrida e campeonatos foram entregues depois, nas etapas 1 a 5 (backend e web) e no Expo (registros no topo desta página); o MVP completo não está declarado, e o Expo segue sem validação em aparelho.
 
 A revisão do arquivo Word ficou pendente: o renderizador da skill de documentos não encontrou o LibreOffice necessário à inspeção visual. O arquivo original foi preservado; este registro e o README descrevem o estado atual e devem orientar a atualização do roteiro quando houver renderização disponível.
 

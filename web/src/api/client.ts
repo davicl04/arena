@@ -60,6 +60,13 @@ export interface City {
   name: string
   state: string
 }
+/** Pessoa resumida dos contratos de times, organizador e notificações; `avatar_url` é null se houver bloqueio. */
+export interface Person {
+  id: number
+  name: string
+  username: string
+  avatar_url: string | null
+}
 export interface ProfileInput {
   city_id: number
   position: Position | null
@@ -71,12 +78,25 @@ export interface Profile extends ProfileInput {
   is_public: boolean
   level: string | null
 }
+/** Campo recusado num `422` (`{ detail, fields: [{ field, message }] }`). */
+export interface FieldError { field: string; message: string }
 export class ApiError extends Error {
   status: number
-  constructor(message: string, status: number) {
+  /** Campos recusados pela validação do servidor (vazio nos demais erros). */
+  fields: FieldError[]
+  /** Corpo do erro quando é um objeto JSON (o `conflict` do `409` da agenda do campeonato); `null` nos demais. */
+  body: Record<string, unknown> | null
+  constructor(message: string, status: number, fields: FieldError[] = [], body: Record<string, unknown> | null = null) {
     super(message)
     this.status = status
+    this.fields = fields
+    this.body = body
   }
+}
+/** Lista `fields` de um corpo de erro, só com itens bem formados. */
+function fieldErrors(value: unknown): FieldError[] {
+  if (!Array.isArray(value)) return []
+  return value.filter((item): item is FieldError => typeof item?.field === 'string' && typeof item?.message === 'string')
 }
 export function apiBaseUrl(configuredUrl: string | undefined, development: boolean, location: Pick<Location, 'protocol' | 'hostname'>) {
   const defaultBase = development ? `${location.protocol}//${location.hostname}:8000` : 'http://localhost:8000'
@@ -111,6 +131,8 @@ export async function request<T>(
         ? data.detail
         : 'Não foi possível concluir a ação.',
       response.status,
+      fieldErrors(data.fields),
+      data && typeof data === 'object' && !Array.isArray(data) ? data : null,
     )
   }
   return response.status === 204 ? (undefined as T) : response.json()

@@ -9,6 +9,14 @@ vi.mock('../src/api/client', async original => ({
   request: vi.fn(),
 }))
 
+/* A tela também lê as atividades da conta; aqui elas ficam vazias para isolar os pedidos para seguir. */
+function activities(path: string) {
+  if (path === '/me/notifications') return { items: [], next_cursor: null }
+  if (path === '/me/notifications/unread-count') return { unread_count: 0 }
+  return null
+}
+const renderPage = () => render(<NotificationsPage onOpenUser={vi.fn()} onNavigate={vi.fn()} onExpired={vi.fn()} />)
+
 function requests(count: number) {
   return Array.from({ length: count }, (_, index) => {
     const id = index + 1
@@ -41,10 +49,11 @@ describe('aprovação de todas as solicitações', () => {
         active -= 1
         return { state: 'approved' } as never
       }
+      if (activities(path)) return activities(path) as never
       expect(path).toBe('/me/follow-requests')
       return { items: pending.slice(0, 20), next_cursor: pending.length > 20 ? 'next' : null } as never
     })
-    render(<NotificationsPage onOpenUser={vi.fn()} onExpired={vi.fn()} />)
+    renderPage()
     fireEvent.click(await screen.findByRole('button', { name: 'Aprovar todas' }))
 
     await screen.findByText('Tudo em dia')
@@ -65,9 +74,10 @@ describe('aprovação de todas as solicitações', () => {
         pending.splice(pending.findIndex(item => item.user.id === id), 1)
         return { state: 'approved' } as never
       }
+      if (activities(path)) return activities(path) as never
       return { items: pending.slice(0, 20), next_cursor: pending.length > 20 ? 'next' : null } as never
     })
-    render(<NotificationsPage onOpenUser={vi.fn()} onExpired={vi.fn()} />)
+    renderPage()
     fireEvent.click(await screen.findByRole('button', { name: 'Aprovar todas' }))
 
     expect((await screen.findByRole('alert')).textContent).toContain('Falha ao aprovar a solicitação.')
@@ -95,11 +105,12 @@ describe('aprovação de todas as solicitações', () => {
         pending.splice(pending.findIndex(item => item.user.id === id), 1)
         return { state: 'approved' } as never
       }
+      if (activities(path)) return activities(path) as never
       reads += 1
       if (reads === 3) throw new ApiError('Não foi possível carregar o próximo lote.', 503)
       return { items: pending.slice(0, 20), next_cursor: pending.length > 20 ? 'next' : null } as never
     })
-    render(<NotificationsPage onOpenUser={vi.fn()} onExpired={vi.fn()} />)
+    renderPage()
     fireEvent.click(await screen.findByRole('button', { name: 'Aprovar todas' }))
 
     await screen.findByText('Atleta 21')

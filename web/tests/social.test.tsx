@@ -29,40 +29,55 @@ describe('SocialCommunity', () => {
       if (path === '/posts/7/comments') return { items: [], next_cursor: null } as never
       return { items: [], next_cursor: null } as never
     })
-    render(<SocialCommunity onOpenUser={vi.fn()} onExpired={vi.fn()} />)
+    render(<SocialCommunity viewerId={1} onOpenUser={vi.fn()} onExpired={vi.fn()} />)
 
-    expect(await screen.findByText(/Treino do dia/)).not.toBeNull()
-    await user.click(screen.getByRole('button', { name: /curtir · 2/i }))
+    expect(await screen.findByText('Treino do dia')).not.toBeNull()
+    const like = screen.getByRole('button', { name: 'Curtir (2)' })
+    expect(like.getAttribute('aria-pressed')).toBe('false')
+    await user.click(like)
     await waitFor(() => expect(request).toHaveBeenCalledWith('/posts/7/like', 'PUT'))
-    expect(screen.getByRole('button', { name: /curtir · 3/i })).not.toBeNull()
+    expect(screen.getByRole('button', { name: 'Curtir (3)' }).getAttribute('aria-pressed')).toBe('true')
 
-    await user.click(screen.getByRole('button', { name: /comentários · 1/i }))
-    const input = await screen.findByLabelText('Escreva um comentário')
-    fireEvent.change(input, { target: { value: 'Boa!' } })
-    await user.click(screen.getByRole('button', { name: 'Publicar' }))
+    const comments = screen.getByRole('button', { name: 'Comentários (1)' })
+    await user.click(comments)
+    expect(comments.getAttribute('aria-expanded')).toBe('true')
+    expect(await screen.findByRole('dialog', { name: 'Comentários' })).not.toBeNull()
+    expect(await screen.findByText('Nenhum comentário ainda. Escreva o primeiro.')).not.toBeNull()
+    const send = screen.getByRole('button', { name: 'Enviar comentário' }) as HTMLButtonElement
+    expect(send.disabled).toBe(true)
+    fireEvent.change(screen.getByLabelText('Escreva um comentário'), { target: { value: 'Boa!' } })
+    await user.click(send)
     await waitFor(() => expect(request).toHaveBeenCalledWith('/posts/7/comments', 'POST', { body: 'Boa!' }))
+    expect(await screen.findByText('Boa!')).not.toBeNull()
+    expect(screen.getByRole('button', { name: 'Comentários (2)' })).not.toBeNull()
+    expect((screen.getByLabelText('Escreva um comentário') as HTMLInputElement).value).toBe('')
   })
 
-  it('encontra uma conta privada, cria e cancela a solicitação e abre o perfil', async () => {
+  it('encontra uma conta privada na aba Atletas, cria e cancela a solicitação e abre o perfil', async () => {
     const user = userEvent.setup()
     const onOpenUser = vi.fn()
     const privatePerson = { ...person, social_public: false }
     vi.mocked(request).mockImplementation(async (path, method) => {
       if (path === '/posts') return { items: [], next_cursor: null } as never
-      if (path === '/users?q=Atleta') return { items: [privatePerson], next_cursor: null } as never
+      if (path === '/users?q=Atleta') return { items: [{ ...privatePerson, follows_you: true }], next_cursor: null } as never
+      if (path === '/users/1/following') return { items: [], next_cursor: null } as never
       if (path === '/users/2/follow' && method === 'PUT') return { state: 'pending' } as never
       return undefined as never
     })
-    render(<SocialCommunity onOpenUser={onOpenUser} onExpired={vi.fn()} />)
-    await screen.findByText('Seu feed começa aqui')
+    render(<SocialCommunity viewerId={1} onOpenUser={onOpenUser} onExpired={vi.fn()} />)
+    await screen.findByText('A arquibancada está vazia')
+    await user.click(screen.getByRole('tab', { name: 'Atletas' }))
+    expect(await screen.findByText('Encontre atletas')).not.toBeNull()
     await user.type(screen.getByLabelText('Buscar atletas por nome ou @'), 'Atleta')
-    await user.click(screen.getByRole('button', { name: 'Buscar atletas' }))
+    // Busca enquanto digita, com espera curta: só o termo completo chega à API.
     expect(await screen.findByText('@atleta.a')).not.toBeNull()
-    await user.click(await screen.findByRole('button', { name: 'Seguir' }))
+    expect(vi.mocked(request).mock.calls.filter(([path]) => path.startsWith('/users?q='))).toEqual([['/users?q=Atleta']])
+    expect(screen.getByText('Conta privada · Segue você')).not.toBeNull()
+    await user.click(await screen.findByRole('button', { name: 'Solicitar' }))
     await waitFor(() => expect(request).toHaveBeenCalledWith('/users/2/follow', 'PUT'))
     await user.click(await screen.findByRole('button', { name: 'Solicitado' }))
     await waitFor(() => expect(request).toHaveBeenCalledWith('/users/2/follow', 'DELETE'))
-    expect(await screen.findByRole('button', { name: 'Seguir' })).not.toBeNull()
+    expect(await screen.findByRole('button', { name: 'Solicitar' })).not.toBeNull()
     await user.click(screen.getByRole('button', { name: 'Abrir perfil de Atleta A' }))
     expect(onOpenUser).toHaveBeenCalledWith(2)
   })
@@ -70,8 +85,8 @@ describe('SocialCommunity', () => {
   it('abre o perfil do autor de uma publicação', async () => {
     const onOpenUser = vi.fn()
     vi.mocked(request).mockImplementation(async path => ({ items: path === '/posts' ? [post] : [], next_cursor: null }) as never)
-    render(<SocialCommunity onOpenUser={onOpenUser} onExpired={vi.fn()} />)
-    await userEvent.setup().click(await screen.findByRole('button', { name: /Atleta A/ }))
+    render(<SocialCommunity viewerId={1} onOpenUser={onOpenUser} onExpired={vi.fn()} />)
+    await userEvent.setup().click(await screen.findByRole('button', { name: 'Abrir perfil de @atleta.a' }))
     expect(onOpenUser).toHaveBeenCalledWith(2)
   })
 })

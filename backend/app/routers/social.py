@@ -1,21 +1,23 @@
 from __future__ import annotations
 
-import base64
 import io
 import logging
 import uuid
-from datetime import datetime
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import Response
 from fastapi.responses import Response as BinaryResponse
 from PIL import Image
-from sqlalchemy import and_, func, or_, select, tuple_
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.database import get_db
+from app.core.pagination import PAGE_DEFAULT, PAGE_MAX
+from app.core.pagination import decode_cursor as _cursor  # noqa: F401
+from app.core.pagination import encode_cursor as _encode_cursor  # noqa: F401
+from app.core.pagination import paginate as _page
 from app.core.security import current_user
 from app.models.identity import (
     AuthSession,
@@ -30,6 +32,7 @@ from app.models.identity import (
     UserBlock,
     utcnow,
 )
+from app.models.matches import MatchMessage
 from app.schemas.social import (
     CaptionInput,
     CommentInput,
@@ -44,36 +47,17 @@ from app.schemas.social import (
     ReportOut,
     SocialUserOut,
 )
+from app.services.match_events import post_event
+from app.services.matches import match_label, reportable_message
 from app.services.media import normalize_post_image, remove_object, require_storage, storage_client
+from app.services.people import block_exists as _blocked_with
+from app.services.people import blocked_between as _blocked
+from app.services.people import user_search_statement
 
+# Pagination, block and search helpers live in app.core.pagination and app.services.people; the private
+# aliases above keep the names used by this module and its tests.
 router = APIRouter(prefix='/api/v1')
-PAGE_DEFAULT = 20
-PAGE_MAX = 50
 logger = logging.getLogger('arena.social')
-
-
-def _cursor(value: str | None) -> tuple[datetime, int] | None:
-    if not value:
-        return None
-    try:
-        raw = base64.urlsafe_b64decode(value + '=' * (-len(value) % 4)).decode()
-        stamp, item_id = raw.rsplit('|', 1)
-        parsed = datetime.fromisoformat(stamp)
-        return parsed, int(item_id)
-    except (ValueError, UnicodeDecodeError):
-        raise HTTPException(422, 'Cursor de paginação inválido.') from None
-
-
-def _encode_cursor(stamp: datetime, item_id: int) -> str:
-    raw = f'{stamp.isoformat()}|{item_id}'.encode()
-    return base64.urlsafe_b64encode(raw).decode().rstrip('=')
-
-
-def _blocked(db: Session, left: int, right: int) -> bool:
-    return db.scalar(select(UserBlock.id).where(or_(
-        and_(UserBlock.blocker_id == left, UserBlock.blocked_id == right),
-        and_(UserBlock.blocker_id == right, UserBlock.blocked_id == left),
-    )).limit(1)) is not None
 
 
 def _can_discover(db: Session, viewer: User, owner: User | None) -> bool:
@@ -88,12 +72,6 @@ def _can_view(db: Session, viewer: User, owner: User | None) -> bool:
     return db.scalar(select(Follow.id).where(
         Follow.follower_id == viewer.id, Follow.followed_id == owner.id, Follow.approved.is_(True)
     ).limit(1)) is not None
-
-
-def _blocked_with(viewer_id: int, other_id_column):
-    return select(UserBlock.id).where(or_(
-        and_(UserBlock.blocker_id == viewer_id, UserBlock.blocked_id == other_id_column),
-        and_(UserBlock.blocker_id == other_id_column, UserBlock.blocked_id == viewer_id))).exists()
 
 
 def _image(media: MediaObject) -> BinaryResponse:
@@ -151,18 +129,6 @@ def _visible_post(db: Session, post_id: int, viewer: User) -> Post:
     return post
 
 
-def _page(statement, cursor: str | None, limit: int, stamp_field, id_field, db: Session):
-    point = _cursor(cursor)
-    if point:
-        statement = statement.where(tuple_(stamp_field, id_field) < tuple_(*point))
-    statement = statement.order_by(stamp_field.desc(), id_field.desc()).limit(limit + 1)
-    rows = list(db.scalars(statement).all())
-    more = len(rows) > limit
-    rows = rows[:limit]
-    next_cursor = _encode_cursor(getattr(rows[-1], stamp_field.key), getattr(rows[-1], id_field.key)) if more and rows else None
-    return rows, next_cursor
-
-
 @router.get('/me/privacy')
 def get_privacy(user: User = Depends(current_user)):
     return {'social_public': user.social_public}
@@ -182,14 +148,7 @@ def put_privacy(data: PrivacyInput, user: User = Depends(current_user), db: Sess
 def search_users(q: str = Query(min_length=1, max_length=100), cursor: str | None = None,
                  limit: int = Query(PAGE_DEFAULT, ge=1, le=PAGE_MAX), user: User = Depends(current_user),
                  db: Session = Depends(get_db)):
-    term = q.strip().removeprefix('@').strip()
-    if not term:
-        raise HTTPException(422, 'Informe ao menos um caractere para buscar.')
-    pattern = '%' + term.replace('!', '!!').replace('%', '!%').replace('_', '!_') + '%'
-    statement = select(User).where(User.active.is_(True), User.id != user.id,
-        or_(User.name.ilike(pattern, escape='!'), User.username.ilike(pattern, escape='!')),
-        ~_blocked_with(user.id, User.id))
-    rows, next_cursor = _page(statement, cursor, limit, User.created_at, User.id, db)
+    rows, next_cursor = _page(user_search_statement(user.id, q), cursor, limit, User.created_at, User.id, db)
     return {'items': [_social_user(db, user, person) for person in rows], 'next_cursor': next_cursor}
 
 
@@ -535,6 +494,10 @@ def unblock_user(user_id: int, user: User = Depends(current_user), db: Session =
 
 @router.post('/reports', status_code=201)
 def report_content(data: ReportInput, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    if data.target_type == 'match_message':
+        # A reader of the match chat reports a text message (event banners and removed texts are not reportable).
+        reportable_message(db, user, data.target_id)
+        return _save_report(db, user, data)
     exists = {'user': lambda: db.get(User, data.target_id),
               'post': lambda: db.get(Post, data.target_id),
               'comment': lambda: db.get(PostComment, data.target_id)}[data.target_type]()
@@ -548,6 +511,10 @@ def report_content(data: ReportInput, user: User = Depends(current_user), db: Se
         allowed = allowed and _can_discover(db, user, db.get(User, exists.user_id))
     if not allowed:
         raise HTTPException(404, 'Conteúdo não encontrado.')
+    return _save_report(db, user, data)
+
+
+def _save_report(db: Session, user: User, data: ReportInput):
     report = ContentReport(reporter_id=user.id, target_type=data.target_type, target_id=data.target_id,
         reason=data.reason.value, description=data.description.strip() if data.description else None)
     db.add(report)
@@ -570,8 +537,12 @@ def admin_reports(cursor: str | None = None, limit: int = Query(PAGE_DEFAULT, ge
     rows, next_cursor = _page(statement, cursor, limit, ContentReport.created_at, ContentReport.id, db)
     items = []
     for report in rows:
-        target = db.get({'user': User, 'post': Post, 'comment': PostComment}[report.target_type], report.target_id)
-        target_user = target if isinstance(target, User) else db.get(User, target.user_id) if target else None
+        target = db.get({'user': User, 'post': Post, 'comment': PostComment,
+                         'match_message': MatchMessage}[report.target_type], report.target_id)
+        if isinstance(target, MatchMessage):
+            target_user = db.get(User, target.author_id) if target.author_id is not None else None
+        else:
+            target_user = target if isinstance(target, User) else db.get(User, target.user_id) if target else None
         preview = None
         is_private_target = False
         if isinstance(target, User):
@@ -588,6 +559,12 @@ def admin_reports(cursor: str | None = None, limit: int = Query(PAGE_DEFAULT, ge
             post_owner = db.get(User, post.user_id) if post else None
             is_private_target = post_owner is None or not post_owner.social_public
             preview = {'body': target.body, 'author': author.name if author else 'Conta indisponível'}
+        elif isinstance(target, MatchMessage):
+            # The chat is private to the match: the text is shown while the report is pending, never afterwards.
+            is_private_target = True
+            preview = {'body': None if target.removed_at else target.body, 'removed': target.removed_at is not None,
+                       'author': target_user.name if target_user else 'Conta indisponível',
+                       'match_id': target.match_id, 'match': match_label(db, target.match_id)}
         if status != 'pending' and is_private_target:
             preview = None
         items.append(ReportOut(id=report.id, target_type=report.target_type, target_id=report.target_id,
@@ -632,6 +609,14 @@ def moderate(report_id: int, data: ModerationInput, user: User = Depends(current
             comment = db.get(PostComment, report.target_id)
             if comment:
                 db.delete(comment)
+        elif report.target_type == 'match_message':
+            # The text disappears for everyone; the row stays as the record (removed_at / removed_by_id).
+            message = db.get(MatchMessage, report.target_id)
+            if message is not None and message.removed_at is None:
+                message.removed_at, message.removed_by_id = utcnow(), user.id
+                post_event(db, message.match_id, 'mensagem_removida',
+                           'Uma mensagem foi removida pela administração.',
+                           payload={'message_id': message.id}, now=message.removed_at)
         else:
             raise HTTPException(422, 'Remoção de conta exige suspensão.')
     elif action in {'suspend', 'reactivate'}:
@@ -642,6 +627,9 @@ def moderate(report_id: int, data: ModerationInput, user: User = Depends(current
         elif report.target_type == 'comment':
             item = db.get(PostComment, report.target_id)
             target_id = item.user_id if item else None
+        elif report.target_type == 'match_message':
+            item = db.get(MatchMessage, report.target_id)
+            target_id = item.author_id if item else None
         target = db.get(User, target_id) if target_id else None
         if target is None:
             raise HTTPException(404, 'Conta alvo não encontrada.')

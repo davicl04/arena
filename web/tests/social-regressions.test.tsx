@@ -23,8 +23,8 @@ afterEach(cleanup)
 it('mantém foco e todos os caracteres enquanto digita comentário', async () => {
   vi.mocked(request).mockImplementation(async path => ({ items: path === '/posts' ? [post] : [], next_cursor: null }) as never)
   const user = userEvent.setup()
-  render(<SocialCommunity onOpenUser={vi.fn()} onExpired={vi.fn()} />)
-  await user.click(await screen.findByRole('button', { name: /Comentários · 0/ }))
+  render(<SocialCommunity viewerId={1} onOpenUser={vi.fn()} onExpired={vi.fn()} />)
+  await user.click(await screen.findByRole('button', { name: 'Comentários (0)' }))
   const input = await screen.findByLabelText('Escreva um comentário')
   await user.type(input, 'Boa!')
   expect((screen.getByLabelText('Escreva um comentário') as HTMLInputElement).value).toBe('Boa!')
@@ -33,10 +33,11 @@ it('mantém foco e todos os caracteres enquanto digita comentário', async () =>
 
 it('lista solicitações para seguir nas notificações e continua na segunda página', async () => {
   vi.mocked(request).mockImplementation(async path => {
+    if (path.startsWith('/me/notifications')) return { items: [], next_cursor: null, unread_count: 0 } as never
     if (path.includes('cursor=')) return { items: [{ user: { ...person, id: 3, name: 'Outra conta' }, state: 'pending' }], next_cursor: null } as never
     return { items: [{ user: person, state: 'pending' }], next_cursor: 'more-requests' } as never
   })
-  render(<NotificationsPage onOpenUser={vi.fn()} onExpired={vi.fn()} />)
+  render(<NotificationsPage onOpenUser={vi.fn()} onNavigate={vi.fn()} onExpired={vi.fn()} />)
   await screen.findByRole('button', { name: 'Aprovar solicitação de Atleta' })
   await userEvent.setup().click(screen.getByRole('button', { name: 'Carregar mais solicitações' }))
   await waitFor(() => expect(request).toHaveBeenCalledWith('/me/follow-requests?cursor=more-requests'))
@@ -49,9 +50,10 @@ it('aprova, recusa e aprova todas as solicitações', async () => {
   let items = [2, 3, 4].map(id => ({ user: { ...person, id, name: `Conta ${id}` }, state: 'pending' }))
   vi.mocked(request).mockImplementation(async (path, method) => {
     if (method === 'PUT') { items = items.filter(item => !path.includes(`/${item.user.id}?`)); return { state: 'approved' } as never }
+    if (path.startsWith('/me/notifications')) return { items: [], next_cursor: null, unread_count: 0 } as never
     return { items, next_cursor: null } as never
   })
-  render(<NotificationsPage onOpenUser={vi.fn()} onExpired={vi.fn()} />)
+  render(<NotificationsPage onOpenUser={vi.fn()} onNavigate={vi.fn()} onExpired={vi.fn()} />)
   await user.click(await screen.findByRole('button', { name: 'Recusar solicitação de Conta 2' }))
   expect(request).toHaveBeenCalledWith('/me/follow-requests/2?approve=false', 'PUT')
   await waitFor(() => expect(screen.queryByText('Conta 2')).toBeNull())
@@ -65,7 +67,7 @@ it('aprova, recusa e aprova todas as solicitações', async () => {
 
 it('mostra o estado vazio quando não há solicitações', async () => {
   vi.mocked(request).mockResolvedValue({ items: [], next_cursor: null } as never)
-  render(<NotificationsPage onOpenUser={vi.fn()} onExpired={vi.fn()} />)
+  render(<NotificationsPage onOpenUser={vi.fn()} onNavigate={vi.fn()} onExpired={vi.fn()} />)
   expect(await screen.findByText('Tudo em dia')).not.toBeNull()
 })
 
@@ -93,34 +95,38 @@ it('mostra estado vazio de contas bloqueadas', async () => {
 
 it('pagina busca e comentários com seus respectivos cursores', async () => {
   vi.mocked(request).mockImplementation(async path => {
+    if (path === '/users/1/following') return { items: [], next_cursor: null } as never
     if (path.startsWith('/users?q=')) return { items: path.includes('cursor=') ? [{ ...person, id: 3, name: 'Outro atleta' }] : [person], next_cursor: path.includes('cursor=') ? null : 'people-next' } as never
     if (path.startsWith('/posts/7/comments')) return { items: [{ id: path.includes('cursor=') ? 12 : 11, author_name: 'Comentarista', author_id: 3, author_avatar_url: null, body: path.includes('cursor=') ? 'Comentário antigo' : 'Comentário recente', created_at: post.created_at, can_delete: false }], next_cursor: path.includes('cursor=') ? null : 'comments-next' } as never
     return { items: [post], next_cursor: null } as never
   })
   const user = userEvent.setup()
-  render(<SocialCommunity onOpenUser={vi.fn()} onExpired={vi.fn()} />)
-  await user.click(await screen.findByRole('button', { name: /Comentários · 0/ }))
+  render(<SocialCommunity viewerId={1} onOpenUser={vi.fn()} onExpired={vi.fn()} />)
+  await user.click(await screen.findByRole('button', { name: 'Comentários (0)' }))
   await user.click(await screen.findByRole('button', { name: 'Carregar mais comentários' }))
   expect(await screen.findByText(/Comentário antigo/)).not.toBeNull()
   expect(request).toHaveBeenCalledWith('/posts/7/comments?cursor=comments-next')
-  await user.type(screen.getByLabelText('Buscar atletas por nome ou @'), 'Atleta')
-  await user.click(screen.getByRole('button', { name: 'Buscar atletas' }))
+  await user.click(screen.getByRole('tab', { name: 'Atletas' }))
+  await user.type(screen.getByLabelText('Buscar atletas por nome ou @'), 'Atleta{Enter}')
   await user.click(await screen.findByRole('button', { name: 'Carregar mais atletas' }))
   expect(await screen.findByRole('button', { name: 'Abrir perfil de Outro atleta' })).not.toBeNull()
   expect(request).toHaveBeenCalledWith('/users?q=Atleta&cursor=people-next')
 })
 
-it('pagina a aba Fotos do próprio perfil e abre as conexões pelas contagens', async () => {
+it('abre o próprio perfil em Fotos, pagina a grade e abre as conexões pelas contagens', async () => {
   vi.mocked(request).mockImplementation(async path => {
     if (path === '/users/1') return { ...person, id: 1, follower_count: 4, following_count: 1, username: 'eu' } as never
     return { items: [{ ...post, id: path.includes('cursor=') ? 8 : 7, caption: path.includes('cursor=') ? 'Foto antiga' : 'Foto recente' }], next_cursor: path.includes('cursor=') ? null : 'own-gallery' } as never
   })
   const go = vi.fn()
+  const onNewPhoto = vi.fn()
   const openConnections = vi.fn()
   const user = userEvent.setup()
-  render(<ProfilePage user={me} profiles={[]} go={go} openConnections={openConnections} onExpired={vi.fn()} />)
+  render(<ProfilePage user={me} profiles={[]} go={go} onNewPhoto={onNewPhoto} openConnections={openConnections} onExpired={vi.fn()} />)
   expect(screen.queryByText('eu@example.com')).toBeNull()
   expect(screen.getByRole('heading', { name: '@eu' })).not.toBeNull()
+  expect(screen.getAllByRole('tab').map(tab => tab.textContent)).toEqual(['Fotos', 'Partidas'])
+  expect(screen.getByRole('tab', { name: 'Fotos' }).getAttribute('aria-selected')).toBe('true')
   await user.click(await screen.findByRole('button', { name: '4 seguidores' }))
   expect(openConnections).toHaveBeenCalledWith(1, 'followers')
   await user.click(screen.getByRole('button', { name: '1 seguindo' }))
@@ -129,10 +135,15 @@ it('pagina a aba Fotos do próprio perfil e abre as conexões pelas contagens', 
   expect(go).toHaveBeenCalledWith('edit-profile')
   await user.click(screen.getByRole('button', { name: 'Menu' }))
   expect(go).toHaveBeenCalledWith('menu')
-  await user.click(screen.getByRole('tab', { name: 'Fotos' }))
   await user.click(await screen.findByRole('button', { name: 'Carregar mais fotos' }))
-  expect(await screen.findByAltText('Foto antiga')).not.toBeNull()
-  expect(screen.getByAltText('Foto recente')).not.toBeNull()
+  expect(await screen.findByRole('button', { name: /Abrir publicação .*: Foto antiga/ })).not.toBeNull()
+  expect(request).toHaveBeenCalledWith('/users/1/posts?cursor=own-gallery')
+  // Duas fotos: o quadro "Nova foto" completa a linha e abre a nova publicação na Comunidade.
+  await user.click(screen.getByRole('button', { name: 'Nova foto' }))
+  expect(onNewPhoto).toHaveBeenCalled()
+  await user.click(screen.getByRole('tab', { name: 'Partidas' }))
+  expect(screen.getByText('Sua história em campo')).not.toBeNull()
+  expect(screen.queryByRole('button', { name: 'Nova foto' })).toBeNull()
 })
 
 it('oferece reativação da conta depois de suspensão pela fila', async () => {

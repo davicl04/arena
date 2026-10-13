@@ -2,7 +2,9 @@ import { useState } from 'react'
 import { Pressable, Switch, Text, View } from 'react-native'
 import { positions } from '../api/client'
 import type { City, Position, Profile, ProfileInput, Sport } from '../api/client'
-import { Button, styles } from './ui'
+import { Button } from './ui'
+import { cx, tw } from '../styles'
+import { colors } from '../theme'
 
 export default function SportCard({ sport, label, profile, cities, onSave }: { sport: Sport; label: string; profile?: Profile; cities: City[]; onSave: (sport: Sport, input: ProfileInput) => Promise<void> }) {
   const [editing, setEditing] = useState(false)
@@ -21,12 +23,12 @@ export default function SportCard({ sport, label, profile, cities, onSave }: { s
   }
   function edit() { setCityId(profile?.city_id || 0); setPosition(profile?.position || null); setLooking(profile?.looking_for || false); setMessage(''); setError(''); setEditing(true) }
   const city = cities.find(c => c.id === profile?.city_id)
-  return <View style={styles.card}><Text style={styles.eyebrow}>{profile ? 'PERFIL ATIVO' : 'COMECE AQUI'}</Text><Text style={styles.heading}>{label}</Text>
-    {editing ? <><Text style={styles.label}>Cidade</Text><View style={styles.row}>{cities.map(c => <Pressable key={c.id} disabled={busy} accessibilityRole="radio" accessibilityState={{ selected: cityId === c.id, disabled: busy }} onPress={() => setCityId(c.id)} style={[styles.chip, cityId === c.id && styles.selected]}><Text style={[styles.chipText, cityId === c.id && styles.buttonText]}>{c.name} · {c.state}</Text></Pressable>)}</View>
-      {sport === 'futebol' ? <><Text style={styles.label}>Posição preferida</Text><View style={styles.row}>{[{ value: null, label: 'Ainda não definida' }, ...positions].map(p => <Pressable key={p.value || 'none'} disabled={busy} accessibilityRole="radio" accessibilityState={{ selected: position === p.value }} onPress={() => setPosition(p.value)} style={[styles.chip, position === p.value && styles.selected]}><Text style={[styles.chipText, position === p.value && styles.buttonText]}>{p.label}</Text></Pressable>)}</View></> : null}
-      <View style={[styles.row, { marginTop: 16 }]}><Switch value={looking} onValueChange={setLooking} disabled={busy} accessibilityLabel="Estou procurando oportunidades" trackColor={{ true: '#005a36' }} /><Text style={styles.body}>Procurando oportunidades</Text></View>
+  return <View className={tw.card}><Text className={tw.eyebrow}>{profile ? 'PERFIL ATIVO' : 'COMECE AQUI'}</Text><Text className={tw.heading}>{label}</Text>
+    {editing ? <><Text className={tw.label}>Cidade</Text><View className={tw.row}>{cities.map(c => <Pressable key={c.id} disabled={busy} accessibilityRole="radio" accessibilityState={{ selected: cityId === c.id, disabled: busy }} onPress={() => setCityId(c.id)} className={cx(tw.chip.base, cityId === c.id ? tw.chip.selected : tw.chip.idle)}><Text className={cityId === c.id ? tw.chipText.selected : tw.chipText.idle}>{c.name} · {c.state}</Text></Pressable>)}</View>
+      {sport === 'futebol' ? <><Text className={tw.label}>Posição preferida</Text><View className={tw.row}>{[{ value: null, label: 'Ainda não definida' }, ...positions].map(p => <Pressable key={p.value || 'none'} disabled={busy} accessibilityRole="radio" accessibilityState={{ selected: position === p.value }} onPress={() => setPosition(p.value)} className={cx(tw.chip.base, position === p.value ? tw.chip.selected : tw.chip.idle)}><Text className={position === p.value ? tw.chipText.selected : tw.chipText.idle}>{p.label}</Text></Pressable>)}</View></> : null}
+      <View className={cx(tw.row, 'mt-4')}><Switch value={looking} onValueChange={setLooking} disabled={busy} accessibilityLabel="Estou procurando oportunidades" trackColor={{ true: colors.brand }} /><Text className={tw.body}>Procurando oportunidades</Text></View>
       <Button title={busy ? 'Salvando…' : 'Salvar perfil'} disabled={busy} onPress={() => void save()} /><Button secondary title="Cancelar" disabled={busy} onPress={() => setEditing(false)} />
-    </> : <><Text style={styles.body}>{city ? `${city.name} · ${city.state}` : 'Cidade a definir'}{'\n'}Sem classificação{profile?.position ? `\n${positions.find(p => p.value === profile.position)?.label}` : ''}{profile ? `\n${profile.looking_for ? 'Procurando oportunidades' : 'Sem procura ativa'}` : ''}</Text><Button secondary title={profile ? 'Editar perfil' : `Adicionar ${label.toLowerCase()}`} onPress={edit} disabled={!cities.length} /></>}
-    {error ? <Text style={styles.error} accessibilityRole="alert">{error}</Text> : null}{message ? <Text style={styles.success} accessibilityLiveRegion="polite">{message}</Text> : null}
+    </> : <><Text className={tw.body}>{city ? `${city.name} · ${city.state}` : 'Cidade a definir'}{'\n'}Sem classificação{profile?.position ? `\n${positions.find(p => p.value === profile.position)?.label}` : ''}{profile ? `\n${profile.looking_for ? 'Procurando oportunidades' : 'Sem procura ativa'}` : ''}</Text><Button secondary title={profile ? 'Editar perfil' : `Adicionar ${label.toLowerCase()}`} onPress={edit} disabled={!cities.length} /></>}
+    {error ? <Text className={tw.error} accessibilityRole="alert">{error}</Text> : null}{message ? <Text className={tw.success} accessibilityLiveRegion="polite">{message}</Text> : null}
   </View>
 }

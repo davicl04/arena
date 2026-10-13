@@ -3,6 +3,18 @@ import type { FormEvent } from 'react'
 import { request } from '../api/client'
 import type { User } from '../api/client'
 import { Logo } from '../components/Brand'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
+import { Eyebrow } from '@/components/ui/eyebrow'
+import { feedbackVariants } from '@/components/ui/feedback'
+
+/** Alternância entre entrar e criar conta. */
+const modes = [
+  { register: false, label: 'Entrar' },
+  { register: true, label: 'Criar conta' },
+] as const
+/** Texto de ajuda abaixo de um campo. */
+const help = 'mt-[7px] text-[10px] leading-[1.6] text-ink-muted'
 
 export default function AuthPage({
   onLogin,
@@ -49,62 +61,66 @@ export default function AuthPage({
     }
   }
   return (
-    <main id="main" className="auth-layout">
-      <section className="intro">
-        <Logo />
-        <p className="eyebrow">SEU ESPORTE, SUA HISTÓRIA</p>
-        <h1>Bora jogar?</h1>
-        <p className="intro-copy">
+    <main
+      id="main"
+      className="m-auto min-h-dvh max-w-[440px] px-6 py-10 app-narrow:px-5 app-narrow:py-7"
+    >
+      <section>
+        <Logo className="mb-9" />
+        <Eyebrow className="mb-2">SEU ESPORTE, SUA HISTÓRIA</Eyebrow>
+        <h1 className="text-[32px] leading-[1.25]">Bora jogar?</h1>
+        <p className="my-3 text-[13px] leading-[1.7] text-ink-muted">
           Futebol, tênis e corrida. Seu próximo encontro começa no Arena.
         </p>
-        <div className="sport-pills">
-          <span>Futebol</span>
-          <span>Tênis</span>
-          <span>Corrida</span>
+        <div className="mt-[18px] mb-6 flex gap-[7px]">
+          {['Futebol', 'Tênis', 'Corrida'].map((sport) => (
+            <span
+              key={sport}
+              className="rounded-[18px] border border-solid border-line px-3 py-[7px] text-[10px] font-semibold"
+            >
+              {sport}
+            </span>
+          ))}
         </div>
       </section>
-      <section className="auth-panel" aria-labelledby="auth-title">
-        <p className="eyebrow">BEM-VINDO AO ARENA</p>
-        <h2 id="auth-title">
+      <Card
+        as="section"
+        className="rounded-[20px] p-[23px] app-narrow:p-[22px]"
+        aria-labelledby="auth-title"
+      >
+        <Eyebrow className="mb-2 text-[9px]">BEM-VINDO AO ARENA</Eyebrow>
+        <h2 id="auth-title" className="mb-2 text-[20px]">
           {register ? 'Comece sua jornada' : 'Bom ter você aqui'}
         </h2>
-        <p className="muted">
+        <p className="text-[12px] leading-[1.6] text-ink-muted">
           {register
             ? 'Uma conta. Três maneiras de se movimentar.'
             : 'Entre para cuidar do seu perfil esportivo.'}
         </p>
-        <div className="switcher">
-          <button
-            type="button"
-            aria-pressed={!register}
-            disabled={busy}
-            onClick={() => {
-              setRegister(false)
-              setError('')
-              setSuccess('')
-            }}
-          >
-            Entrar
-          </button>
-          <button
-            type="button"
-            aria-pressed={register}
-            disabled={busy}
-            onClick={() => {
-              setRegister(true)
-              setError('')
-              setSuccess('')
-            }}
-          >
-            Criar conta
-          </button>
+        <div className="my-5 flex rounded-field bg-app p-1">
+          {modes.map((mode) => (
+            <button
+              key={mode.label}
+              type="button"
+              className="min-h-10 flex-1 rounded-[8px] border-0 bg-transparent text-[12px] font-bold aria-pressed:bg-white aria-pressed:text-brand aria-pressed:shadow-soft"
+              aria-pressed={register === mode.register}
+              disabled={busy}
+              onClick={() => {
+                setRegister(mode.register)
+                setError('')
+                setSuccess('')
+              }}
+            >
+              {mode.label}
+            </button>
+          ))}
         </div>
         {notice && (
-          <div className="notice" role="alert">
+          <div className={feedbackVariants()} role="alert">
             {notice}
-            <button type="button" className="text-button" onClick={onRetry}>
+            <Button variant="text" type="button" onClick={onRetry}>
               Tentar conexão novamente
-            </button>
+            </Button>
           </div>
         )}
         <form onSubmit={submit} key={register ? 'register' : 'login'}>
@@ -130,7 +146,7 @@ export default function AuthPage({
                   max={new Date().toISOString().slice(0, 10)}
                   aria-describedby="age-help"
                 />
-                <small id="age-help">
+                <small id="age-help" className={help}>
                   O Arena é para pessoas com 18 anos completos ou mais.
                 </small>
               </>
@@ -158,31 +174,33 @@ export default function AuthPage({
               placeholder={register ? 'Pelo menos 10 caracteres' : 'Sua senha'}
             />
             {register && (
-              <small id="password-help">Use entre 10 e 128 caracteres.</small>
+              <small id="password-help" className={help}>
+                Use entre 10 e 128 caracteres.
+              </small>
             )}
             {error && (
-              <p className="error" role="alert">
+              <p className={feedbackVariants()} role="alert">
                 {error}
               </p>
             )}
             {success && (
-              <p className="success" role="status">
+              <p className={feedbackVariants({ tone: 'success' })} role="status">
                 {success}
               </p>
             )}
-            <button className="primary" type="submit">
+            <Button type="submit" className="mt-[22px] h-[52px] w-full">
               {busy
                 ? 'Aguarde…'
                 : register
                   ? 'Criar minha conta →'
                   : 'Entrar no Arena →'}
-            </button>
+            </Button>
           </fieldset>
         </form>
-        <p className="privacy-note">
+        <p className="mt-[18px] text-center text-[10px] leading-[1.7] text-ink-muted">
           Seu perfil começa privado. Você controla os dados da sua trajetória.
         </p>
-      </section>
+      </Card>
     </main>
   )
 }

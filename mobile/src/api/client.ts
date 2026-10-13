@@ -1,4 +1,5 @@
 import * as SecureStore from 'expo-secure-store'
+import { isApiPath } from './path'
 
 export type Sport = 'futebol' | 'tenis' | 'corrida'
 export type Position = 'goleiro' | 'defesa' | 'meio_campo' | 'atacante'
@@ -11,21 +12,50 @@ export interface Page<T> { items: T[]; next_cursor: string | null }
 export interface MutualFollowersPage extends Page<SocialUser> { total: number }
 export interface UsernameAvailability { available: boolean; reason: 'invalid' | 'reserved' | 'taken' | 'current' | null; suggestions: string[] }
 export interface City { id: number; name: string; state: string }
+/** Pessoa resumida dos contratos de times, organizador e notificações; `avatar_url` é null se houver bloqueio. */
+export interface Person { id: number; name: string; username: string; avatar_url: string | null }
 export interface ProfileInput { city_id: number; position: Position | null; looking_for: boolean }
 export interface Profile extends ProfileInput { id: number; sport: Sport; is_public: boolean; level: string | null }
+/** Campo recusado num `422` (`{ detail, fields: [{ field, message }] }`). */
+export interface FieldError { field: string; message: string }
 export class ApiError extends Error {
-  constructor(message: string, public status: number) { super(message) }
+  /**
+   * `fields` traz os campos recusados pela validação do servidor (vazio nos demais erros); `body`, o corpo do erro quando é um
+   * objeto JSON (o `conflict` do `409` da agenda do campeonato), e `null` nos demais.
+   */
+  constructor(message: string, public status: number, public fields: FieldError[] = [], public body: Record<string, unknown> | null = null) { super(message) }
+}
+/** Lista `fields` de um corpo de erro, só com itens bem formados. */
+function fieldErrors(value: unknown): FieldError[] {
+  if (!Array.isArray(value)) return []
+  return value.filter((item): item is FieldError => typeof item?.field === 'string' && typeof item?.message === 'string')
+}
+/** Arquivo local escolhido no aparelho (galeria, câmera ou seletor de documentos), enviado em multipart. */
+export interface UploadFile { uri: string; name: string; type: string; size?: number | null }
+/** `FormData` com o arquivo no campo `file`: o React Native lê `{ uri, name, type }` como uma parte de arquivo. */
+export function fileForm(file: UploadFile): FormData {
+  const form = new FormData()
+  form.append('file', { uri: file.uri, name: file.name, type: file.type } as unknown as Blob)
+  return form
 }
 const base = (process.env.EXPO_PUBLIC_API_URL || 'http://10.0.2.2:8000').replace(/\/$/, '')
 const key = 'arena.session.v1'
 export const saveToken = (token: string) => SecureStore.setItemAsync(key, token)
 export const clearToken = () => SecureStore.deleteItemAsync(key)
 export const getToken = () => SecureStore.getItemAsync(key)
-export const apiUrl = (path: string) => `${base}${path}`
+/** Endereço absoluto de um caminho da API (`/api/v1/...`); recusa o que possa desviar o host (ver `isApiPath`). */
+export function apiUrl(path: string): string {
+  if (!isApiPath(path)) throw new TypeError('Caminho fora da API.')
+  return `${base}${path}`
+}
+/** Teto de uma chamada comum: passado ele, a chamada é abortada. */
+export const REQUEST_TIMEOUT_MS = 15_000
+/** Teto do envio de arquivo (multipart): 5 MiB a 1 Mbps levam cerca de 40 s, e o teto comum abortaria o envio no meio. */
+export const UPLOAD_TIMEOUT_MS = 120_000
 export async function request<T>(path: string, method = 'GET', body?: unknown): Promise<T> {
   const token = await SecureStore.getItemAsync(key)
   const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), 15000)
+  const timer = setTimeout(() => controller.abort(), body instanceof FormData ? UPLOAD_TIMEOUT_MS : REQUEST_TIMEOUT_MS)
   let response: Response
   try {
     response = await fetch(`${base}/api/v1${path}`, { method,
@@ -35,8 +65,10 @@ export async function request<T>(path: string, method = 'GET', body?: unknown): 
   } catch { throw new ApiError('Não foi possível conectar ao Arena. Verifique a conexão e tente novamente.', 0) }
   finally { clearTimeout(timer) }
   if (!response.ok) {
-    const data = await response.json().catch(() => ({}))
-    throw new ApiError(typeof data.detail === 'string' ? data.detail : 'Não foi possível concluir a ação.', response.status)
+    const raw: unknown = await response.json().catch(() => null)
+    // Só um objeto JSON vira `body`; texto, lista, `null` ou corpo ilegível ficam sem detalhe.
+    const data = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw as Record<string, unknown> : null
+    throw new ApiError(typeof data?.detail === 'string' ? data.detail : 'Não foi possível concluir a ação.', response.status, fieldErrors(data?.fields), data)
   }
   return response.status === 204 ? undefined as T : response.json()
 }

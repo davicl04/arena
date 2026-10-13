@@ -1,44 +1,53 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import { ActivityIndicator, Pressable, Text, View } from 'react-native'
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native'
 import * as ImagePicker from 'expo-image-picker'
 import { ApiError, clearToken, getToken, request, sports } from '../api/client'
 import type { City, Page, Profile, ProfileInput, SocialUser, Sport, User } from '../api/client'
-import { Button, Field, styles } from '../components/ui'
+import { approveAllFollowRequests } from '../api/social'
+import { Button, Field } from '../components/ui'
+import { cx, tw } from '../styles'
 import { Avatar, Cover } from '../components/media'
 import ListRow from '../components/ListRow'
 import ProfileTitle from '../components/ProfileTitle'
 import Sheet from '../components/Sheet'
 import UsernameForm from '../components/UsernameForm'
 import SportCard from '../components/SportCard'
+import ProfileGallery from '../components/ProfileGallery'
+import { MatchesEmpty, ProfileTabs } from '../components/ProfileTabs'
+import type { ProfileTab } from '../components/ProfileTabs'
+import ProfileTopBar, { TopBarButton, useCondensedTopBar } from '../components/ProfileTopBar'
 import { appVersion } from '../utils/appInfo'
 import { connectionsText } from '../utils/profile'
 
 type Which = 'requests' | 'blocks' | 'followers' | 'following'
 type SheetName = 'edit' | 'avatar' | 'cover' | 'name' | 'username' | 'visibility' | 'blocked' | 'connections' | 'menu'
 const MAX_IMAGE = 5 * 1024 * 1024
+const COVER_HEIGHT = 120
 
 function PersonRow({ person, token, children }: { person: SocialUser; token: string | null; children?: ReactNode }) {
-  return <View style={[styles.row, { flexWrap: 'nowrap', marginVertical: 6 }]}>
+  return <View className="my-1.5 flex-row flex-nowrap items-center gap-2.5">
     <Avatar path={person.avatar_url} name={person.name} token={token} size={40} />
-    <View style={{ flex: 1 }}><Text numberOfLines={1} style={{ fontWeight: '600', color: '#343d39' }}>{person.name}</Text><Text numberOfLines={1} style={{ color: '#606965', fontSize: 13 }}>@{person.username}</Text></View>
+    <View className="grow basis-0"><Text numberOfLines={1} className="font-semibold text-ink">{person.name}</Text><Text numberOfLines={1} className="text-[13px] text-ink-muted">@{person.username}</Text></View>
     {children}
   </View>
 }
 
 function SmallAction({ label, text, onPress, disabled }: { label: string; text: string; onPress: () => void; disabled?: boolean }) {
-  return <Pressable accessibilityRole="button" accessibilityLabel={label} disabled={disabled} onPress={onPress} style={{ minHeight: 44, minWidth: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 8, backgroundColor: '#edf3ef', paddingHorizontal: 12, opacity: disabled ? 0.5 : 1 }}><Text style={{ color: '#005a36', fontWeight: '700' }}>{text}</Text></Pressable>
+  return <Pressable accessibilityRole="button" accessibilityLabel={label} disabled={disabled} onPress={onPress} className={cx('min-h-11 min-w-11 items-center justify-center rounded-control bg-brand-soft px-3', disabled && 'opacity-50')}><Text className="font-bold text-brand">{text}</Text></Pressable>
 }
 
 function VisibilityOption({ selected, title, facts, onPress }: { selected: boolean; title: string; facts: string[]; onPress: () => void }) {
   return <Pressable accessibilityRole="radio" accessibilityState={{ selected }} accessibilityLabel={title} onPress={onPress}
-    style={{ borderWidth: 2, borderColor: selected ? '#005a36' : '#cdd4d0', borderRadius: 12, padding: 14, marginVertical: 6, backgroundColor: selected ? '#edf3ef' : '#fff' }}>
-    <Text style={{ fontWeight: '700', color: '#343d39', marginBottom: 6 }}>{title}</Text>
-    {facts.map(fact => <Text key={fact} style={{ color: '#606965', fontSize: 13, lineHeight: 20 }}>• {fact}</Text>)}
+    className={cx('my-1.5 rounded-lg border-2 p-3.5', selected ? 'border-brand bg-brand-soft' : 'border-line bg-white')}>
+    <Text className="mb-1.5 font-bold text-ink">{title}</Text>
+    {facts.map(fact => <Text key={fact} className="text-[13px] leading-[20px] text-ink-muted">• {fact}</Text>)}
   </Pressable>
 }
 
-export default function ProfileScreen({ user, onUser, onLogout, onExpired }: { user: User; onUser: (user: User) => void; onLogout: () => void; onExpired: () => void }) {
+export default function ProfileScreen({ user, onUser, onLogout, onExpired, onNewPhoto, menuSections }: { user: User; onUser: (user: User) => void; onLogout: () => void; onExpired: () => void; onNewPhoto?: () => void; menuSections?: (close: () => void) => ReactNode }) {
+  const [contentTab, setContentTab] = useState<ProfileTab>('Fotos')
+  const { condensed, onScroll } = useCondensedTopBar(COVER_HEIGHT)
   const [profiles, setProfiles] = useState<Profile[]>([])
   const [cities, setCities] = useState<City[]>([])
   const [loading, setLoading] = useState(true)
@@ -111,7 +120,10 @@ export default function ProfileScreen({ user, onUser, onLogout, onExpired }: { u
   }
   async function logout() {
     setBusy(true); setError('')
-    try { await request('/auth/logout', 'POST'); await clearToken(); onLogout() }
+    // Avisar o servidor é o melhor esforço: sem rede (ou com a sessão já inválida) a pessoa sai mesmo assim, apagando o token
+    // do aparelho e a conta da memória; do contrário ficaria presa na sessão.
+    try { await request('/auth/logout', 'POST') } catch { /* a saída local vale mesmo sem a resposta do servidor */ }
+    try { await clearToken(); onLogout() }
     catch (err) { fail(err) } finally { setBusy(false) }
   }
   async function rename() {
@@ -158,16 +170,11 @@ export default function ProfileScreen({ user, onUser, onLogout, onExpired }: { u
   async function approveAll() {
     if (!startFollowAction()) return
     try {
-      // Cada aprovação tira o item da fila; por isso a primeira página é consultada de novo até esvaziar.
-      while (true) {
-        const page: Page<{ user: SocialUser }> = await request<Page<{ user: SocialUser }>>('/me/follow-requests')
-        if (!page.items.length) break
-        for (const item of page.items) {
-          await request(`/me/follow-requests/${item.user.id}?approve=true`, 'PUT')
-          resolveLocalRequest(item.user.id, true)
-        }
-      }
-      setMessage('Solicitações aprovadas.')
+      // Cada aprovação tira o item da fila; por isso a primeira página é consultada de novo até esvaziar (com teto de rodadas
+      // e parada se a fila não andar).
+      const done = await approveAllFollowRequests(id => resolveLocalRequest(id, true))
+      if (done) setMessage('Solicitações aprovadas.')
+      else setError('Nem todas as solicitações foram aprovadas. Tente de novo em instantes.')
     } catch (err) { fail(err) } finally { await finishFollowAction() }
   }
   async function unblock(id: number) {
@@ -204,58 +211,69 @@ export default function ProfileScreen({ user, onUser, onLogout, onExpired }: { u
   function more(which: Which, label: string) {
     return cursors[which] ? <Button secondary title={`Carregar mais ${label}`} disabled={busy} onPress={() => void loadMore(which)} /> : null
   }
-  const feedback = <>{error ? <Text style={styles.error} accessibilityRole="alert">{error}</Text> : null}{message ? <Text style={styles.success} accessibilityLiveRegion="polite">{message}</Text> : null}</>
+  const feedback = <>{error ? <Text className={tw.error} accessibilityRole="alert">{error}</Text> : null}{message ? <Text className={tw.success} accessibilityLiveRegion="polite">{message}</Text> : null}</>
   const back = () => open('edit')
   const visibilityChanged = draftPublic !== user.social_public
-  return <>
-    <View style={[styles.card, { padding: 0, overflow: 'hidden' }]}>
-      <Cover path={user.cover?.url ?? null} token={token} />
-      <Pressable accessibilityRole="button" accessibilityLabel="Menu" onPress={() => open('menu')} style={{ position: 'absolute', top: 8, right: 8, minHeight: 44, minWidth: 44, borderRadius: 22, backgroundColor: '#ffffffd9', alignItems: 'center', justifyContent: 'center' }}><Text style={{ fontSize: 20, color: '#343d39' }}>☰</Text></Pressable>
-      <View style={{ paddingHorizontal: 22, paddingBottom: 22 }}>
-        <View style={{ marginTop: -36, width: 80 }}>
-          <View style={{ borderWidth: 3, borderColor: '#fff', borderRadius: 40 }}><Avatar path={user.avatar?.url ?? null} name={user.name} token={token} size={74} /></View>
-          <Pressable accessibilityRole="button" accessibilityLabel="Editar perfil" onPress={() => open('edit')} style={{ position: 'absolute', right: -4, bottom: 0, width: 32, height: 32, borderRadius: 16, backgroundColor: '#005a36', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#fff' }}>⚙</Text></Pressable>
+  // A rolagem é própria da tela: a barra superior fica fixa por fora do ScrollView.
+  return <View className="grow basis-0">
+    <ScrollView onScroll={onScroll} scrollEventThrottle={16} keyboardShouldPersistTaps="handled" contentContainerClassName="pb-12">
+      <View className="bg-white">
+        <Cover path={user.cover?.url ?? null} token={token} height={COVER_HEIGHT} />
+        <View className="px-5.5 pb-5.5">
+          <View className="-mt-9 w-20">
+            <View className="rounded-[40px] border-[3px] border-white"><Avatar path={user.avatar?.url ?? null} name={user.name} token={token} size={74} /></View>
+            <Pressable accessibilityRole="button" accessibilityLabel="Editar perfil" onPress={() => open('edit')} className="absolute -right-1 bottom-0 size-8 items-center justify-center rounded-[16px] bg-brand"><Text className="text-white">⚙</Text></Pressable>
+          </View>
+          <View className="mt-2.5"><ProfileTitle name={user.name} username={user.username} /></View>
+          <Text className="mb-2 text-ink-muted">{user.social_public ? 'Conta pública' : 'Conta privada'}</Text>
+          <Pressable accessibilityRole="button" accessibilityLabel={`Conexões: ${connectionsText(counts.followers, counts.following)}`} onPress={() => open('connections')} className="min-h-11 justify-center"><Text className="font-semibold text-ink">{connectionsText(counts.followers, counts.following)}</Text></Pressable>
         </View>
-        <View style={{ marginTop: 10 }}><ProfileTitle name={user.name} username={user.username} /></View>
-        <Text style={{ color: '#606965', marginBottom: 8 }}>{user.social_public ? 'Conta pública' : 'Conta privada'}</Text>
-        <Pressable accessibilityRole="button" accessibilityLabel={`Conexões: ${connectionsText(counts.followers, counts.following)}`} onPress={() => open('connections')} style={{ minHeight: 44, justifyContent: 'center' }}><Text style={{ fontWeight: '600', color: '#343d39' }}>{connectionsText(counts.followers, counts.following)}</Text></Pressable>
       </View>
-    </View>
-    {!sheet ? <>{error ? <><Text style={styles.error} accessibilityRole="alert">{error}</Text><Button secondary title="Recarregar dados" onPress={() => { setError(''); setLoading(true); setAttempt(v => v + 1) }} /></> : null}{message ? <Text style={styles.success} accessibilityLiveRegion="polite">{message}</Text> : null}</> : null}
-    <View style={styles.card}>
-      <Text style={styles.heading}>Notificações</Text>
-      {requests.length ? <>
-        <Text style={styles.body}>Solicitações para seguir ({requests.length}{cursors.requests ? '+' : ''})</Text>
-        {requests.map(person => <PersonRow key={person.id} person={person} token={token}><SmallAction label={`Aprovar ${person.name}`} text="✓" disabled={busy} onPress={() => void resolveRequest(person.id, true)} /><SmallAction label={`Recusar ${person.name}`} text="✕" disabled={busy} onPress={() => void resolveRequest(person.id, false)} /></PersonRow>)}
-        {more('requests', 'solicitações')}
-        <Button title={busy ? 'Aguarde…' : 'Aprovar todas'} disabled={busy} onPress={() => void approveAll()} />
-      </> : <Text style={styles.body}>Nenhuma notificação por enquanto.</Text>}
-    </View>
-    <Text style={styles.heading}>Suas modalidades</Text>{loading ? <ActivityIndicator accessibilityLabel="Carregando modalidades" /> : sports.map(s => <SportCard key={s.value} sport={s.value} label={s.label} cities={cities} profile={profiles.find(p => p.sport === s.value)} onSave={save} />)}
-    {!loading && !profiles.length && !error ? <Text style={styles.body}>Adicione sua primeira modalidade acima.</Text> : null}
+      <View className={tw.content}>
+        {!sheet ? <>{error ? <><Text className={tw.error} accessibilityRole="alert">{error}</Text><Button secondary title="Recarregar dados" onPress={() => { setError(''); setLoading(true); setAttempt(v => v + 1) }} /></> : null}{message ? <Text className={tw.success} accessibilityLiveRegion="polite">{message}</Text> : null}</> : null}
+        <View className={tw.card}>
+          <Text className={tw.heading}>Notificações</Text>
+          {requests.length ? <>
+            <Text className={tw.body}>Solicitações para seguir ({requests.length}{cursors.requests ? '+' : ''})</Text>
+            {requests.map(person => <PersonRow key={person.id} person={person} token={token}><SmallAction label={`Aprovar ${person.name}`} text="✓" disabled={busy} onPress={() => void resolveRequest(person.id, true)} /><SmallAction label={`Recusar ${person.name}`} text="✕" disabled={busy} onPress={() => void resolveRequest(person.id, false)} /></PersonRow>)}
+            {more('requests', 'solicitações')}
+            <Button title={busy ? 'Aguarde…' : 'Aprovar todas'} disabled={busy} onPress={() => void approveAll()} />
+          </> : <Text className={tw.body}>Nenhuma notificação por enquanto.</Text>}
+        </View>
+        <Text className={tw.heading}>Suas modalidades</Text>{loading ? <ActivityIndicator accessibilityLabel="Carregando modalidades" /> : sports.map(s => <SportCard key={s.value} sport={s.value} label={s.label} cities={cities} profile={profiles.find(p => p.sport === s.value)} onSave={save} />)}
+        {!loading && !profiles.length && !error ? <Text className={tw.body}>Adicione sua primeira modalidade acima.</Text> : null}
+      </View>
+      <ProfileTabs value={contentTab} onChange={setContentTab} />
+      <View accessibilityLabel={contentTab} className="min-h-[280px]">
+        {contentTab === 'Fotos'
+          ? <ProfileGallery own userId={user.id} ownerName={user.name} ownerUsername={user.username} viewerId={user.id} token={token} onNewPhoto={onNewPhoto} onExpired={onExpired} />
+          : <MatchesEmpty />}
+      </View>
+    </ScrollView>
+    <ProfileTopBar condensed={condensed} username={user.username} trailing={<TopBarButton label="Menu" glyph="☰" condensed={condensed} onPress={() => open('menu')} />} />
 
     {sheet === 'edit' ? <Sheet title="Editar perfil" onClose={() => open(null)} onBack={fromMenu ? () => open('menu') : undefined}>
       {feedback}
-      <Text style={styles.eyebrow}>PERFIL</Text>
+      <Text className={tw.eyebrow}>PERFIL</Text>
       <ListRow label="Foto" value={user.avatar ? 'Alterar' : 'Adicionar'} onPress={() => open('avatar')} />
       <ListRow label="Foto de capa" value={user.cover ? 'Personalizada' : 'Padrão'} onPress={() => open('cover')} />
       <ListRow label="Nome" value={user.name} onPress={() => { setName(user.name); open('name') }} />
       <ListRow label="Nome de usuário" value={`@${user.username}`} onPress={() => open('username')} />
       <ListRow label="E-mail" value={`${user.email} (somente leitura)`} />
-      <Text style={[styles.eyebrow, { marginTop: 20 }]}>PRIVACIDADE</Text>
+      <Text className={cx(tw.eyebrow, 'mt-5')}>PRIVACIDADE</Text>
       <ListRow label="Visibilidade da conta" value={user.social_public ? 'Pública' : 'Privada'} onPress={() => { setDraftPublic(user.social_public); open('visibility') }} />
       <ListRow label="Contas bloqueadas" value={String(blocks.length) + (cursors.blocks ? '+' : '')} onPress={() => open('blocked')} />
     </Sheet> : null}
     {sheet === 'avatar' ? <Sheet title="Foto de perfil" onClose={() => open(null)} onBack={back}>
       {feedback}
-      <View style={{ alignItems: 'center', marginVertical: 12 }}><Avatar path={user.avatar?.url ?? null} name={user.name} token={token} size={110} /></View>
+      <View className="my-3 items-center"><Avatar path={user.avatar?.url ?? null} name={user.name} token={token} size={110} /></View>
       <Button title={user.avatar ? 'Trocar foto' : 'Adicionar foto'} disabled={busy} onPress={() => void pickImage('avatar')} />
       {user.avatar ? <Button secondary title="Remover foto" disabled={busy} onPress={() => void removeImage('avatar')} /> : null}
     </Sheet> : null}
     {sheet === 'cover' ? <Sheet title="Foto de capa" onClose={() => open(null)} onBack={back}>
       {feedback}
-      <View style={{ borderRadius: 12, overflow: 'hidden', marginVertical: 12 }}><Cover path={user.cover?.url ?? null} token={token} /></View>
-      <Text style={styles.body}>A capa é larga, na proporção 5:2. No iOS o recorte do seletor é quadrado e o servidor centraliza a imagem em 5:2.</Text>
+      <View className="my-3 overflow-hidden rounded-lg"><Cover path={user.cover?.url ?? null} token={token} /></View>
+      <Text className={tw.body}>A capa é larga, na proporção 5:2. No iOS o recorte do seletor é quadrado e o servidor centraliza a imagem em 5:2.</Text>
       <Button title={user.cover ? 'Trocar capa' : 'Enviar capa'} disabled={busy} onPress={() => void pickImage('cover')} />
       {user.cover ? <Button secondary title="Voltar à capa padrão" disabled={busy} onPress={() => void removeImage('cover')} /> : null}
     </Sheet> : null}
@@ -273,34 +291,35 @@ export default function ProfileScreen({ user, onUser, onLogout, onExpired }: { u
         <VisibilityOption selected={draftPublic} title="Pública" facts={['Qualquer pessoa autenticada vê suas publicações', 'Seguir não exige aprovação', 'Nome, @, foto e capa são visíveis']} onPress={() => setDraftPublic(true)} />
         <VisibilityOption selected={!draftPublic} title="Privada" facts={['Só seguidores aprovados veem suas publicações', 'Seguir exige a sua aprovação', 'Nome, @, foto, capa e contagens continuam visíveis']} onPress={() => setDraftPublic(false)} />
       </View>
-      {visibilityChanged ? <Text style={styles.body}>{draftPublic ? 'Ao tornar a conta pública, as solicitações pendentes serão aprovadas.' : 'Ao tornar a conta privada, quem já segue você continua seguindo.'}</Text> : null}
+      {visibilityChanged ? <Text className={tw.body}>{draftPublic ? 'Ao tornar a conta pública, as solicitações pendentes serão aprovadas.' : 'Ao tornar a conta privada, quem já segue você continua seguindo.'}</Text> : null}
       <Button title={busy ? 'Salvando…' : 'Salvar visibilidade'} disabled={busy || !visibilityChanged} onPress={() => void savePrivacy()} />
     </Sheet> : null}
     {sheet === 'blocked' ? <Sheet title="Contas bloqueadas" onClose={() => open(null)} onBack={back}>
       {feedback}
-      {blocks.length ? blocks.map(person => <PersonRow key={person.id} person={person} token={token}><Button secondary title="Desbloquear" onPress={() => void unblock(person.id)} /></PersonRow>) : <Text style={styles.body}>Nenhuma conta bloqueada.</Text>}
+      {blocks.length ? blocks.map(person => <PersonRow key={person.id} person={person} token={token}><Button secondary title="Desbloquear" onPress={() => void unblock(person.id)} /></PersonRow>) : <Text className={tw.body}>Nenhuma conta bloqueada.</Text>}
       {more('blocks', 'contas bloqueadas')}
     </Sheet> : null}
     {sheet === 'connections' ? <Sheet title="Conexões" onClose={() => open(null)}>
       {feedback}
-      <View style={styles.row}>
-        {(['followers', 'following'] as const).map(value => <Pressable key={value} accessibilityRole="tab" accessibilityState={{ selected: tab === value }} onPress={() => setTab(value)} style={[styles.chip, tab === value && styles.selected]}><Text style={[styles.chipText, tab === value && { color: '#fff' }]}>{value === 'followers' ? `Seguidores (${counts.followers})` : `Seguindo (${counts.following})`}</Text></Pressable>)}
+      <View className={tw.row}>
+        {(['followers', 'following'] as const).map(value => <Pressable key={value} accessibilityRole="tab" accessibilityState={{ selected: tab === value }} onPress={() => setTab(value)} className={cx(tw.chip.base, tab === value ? tw.chip.selected : tw.chip.idle)}><Text className={tab === value ? 'text-[13px] text-white' : tw.chipText.idle}>{value === 'followers' ? `Seguidores (${counts.followers})` : `Seguindo (${counts.following})`}</Text></Pressable>)}
       </View>
       {tab === 'followers' ? <>
-        {followers.length ? followers.map(person => <PersonRow key={person.id} person={person} token={token}><Button secondary title="Remover" disabled={busy} onPress={() => void removeFollower(person.id)} /></PersonRow>) : <Text style={styles.body}>Nenhum seguidor.</Text>}{more('followers', 'seguidores')}
+        {followers.length ? followers.map(person => <PersonRow key={person.id} person={person} token={token}><Button secondary title="Remover" disabled={busy} onPress={() => void removeFollower(person.id)} /></PersonRow>) : <Text className={tw.body}>Nenhum seguidor.</Text>}{more('followers', 'seguidores')}
       </> : <>
-        {following.length ? following.map(person => <PersonRow key={person.id} person={person} token={token}><Button secondary title="Deixar de seguir" disabled={busy} onPress={() => void unfollow(person.id)} /></PersonRow>) : <Text style={styles.body}>Você ainda não segue ninguém.</Text>}{more('following', 'contas seguidas')}
+        {following.length ? following.map(person => <PersonRow key={person.id} person={person} token={token}><Button secondary title="Deixar de seguir" disabled={busy} onPress={() => void unfollow(person.id)} /></PersonRow>) : <Text className={tw.body}>Você ainda não segue ninguém.</Text>}{more('following', 'contas seguidas')}
       </>}
     </Sheet> : null}
     {sheet === 'menu' ? <Sheet title="Menu" onClose={() => open(null)}>
       {feedback}
-      <Text style={styles.eyebrow}>CONTA</Text>
+      <Text className={tw.eyebrow}>CONTA</Text>
       <ListRow label="Editar perfil" onPress={editFromMenu} />
       <ListRow label="Minhas modalidades" onPress={() => open(null)} />
-      <Text style={[styles.eyebrow, { marginTop: 20 }]}>APP</Text>
+      {menuSections?.(() => open(null))}
+      <Text className={cx(tw.eyebrow, 'mt-5')}>APP</Text>
       <ListRow label="Notificações" value="Em breve" />
       <ListRow label="Sobre o ARENA" value={`Versão ${appVersion}`} />
-      <View style={{ marginTop: 20 }}><ListRow tone="danger" label={busy ? 'Aguarde…' : 'Sair da conta'} disabled={busy} onPress={() => void logout()} /></View>
+      <View className="mt-5"><ListRow tone="danger" label={busy ? 'Aguarde…' : 'Sair da conta'} disabled={busy} onPress={() => void logout()} /></View>
     </Sheet> : null}
-  </>
+  </View>
 }

@@ -2,7 +2,9 @@ import { useState } from 'react'
 import { AtSign, Camera, Globe, Image as ImageIcon, Lock, Mail, ShieldOff, User as UserIcon } from 'lucide-react'
 import type { User } from '../api/client'
 import Avatar from '../components/Avatar'
-import ListRow from '../components/ListRow'
+import { avatarPreviewVariants } from '@/components/ui/avatar-preview'
+import { feedbackVariants } from '@/components/ui/feedback'
+import { ListGroup, ListHeading, ListRow } from '@/components/ui/list-row'
 import { AvatarSheet, CoverSheet, NameSheet, UsernameSheet, VisibilitySheet } from '../components/EditSheets'
 
 type Sheet = 'avatar' | 'cover' | 'name' | 'username' | 'visibility'
@@ -19,28 +21,28 @@ export default function EditProfilePage({ user, onUser, onExpired, openBlocked }
   const props = { user, onUser, onExpired, onClose: close, onSaved: (text: string) => { setMessage(text); close() } }
   const open = (next: Sheet) => { setMessage(''); setSheet(next) }
   return <>
-    <section className="identity-card" aria-label="Sua identidade">
-      <Avatar key={user.avatar?.id ?? 'initials'} user={user} className="avatar-preview" />
-      <div>
-        <b>{user.name}</b>
-        <span>@{user.username}</span>
-        <p className="profile-counts">{user.social_public ? <Globe size={13} /> : <Lock size={13} />}Conta {user.social_public ? 'pública' : 'privada'}</p>
+    <section className="flex items-center gap-3.5 rounded-card bg-white p-4" aria-label="Sua identidade">
+      <Avatar key={user.avatar?.id ?? 'initials'} user={user} className={avatarPreviewVariants()} />
+      <div className="grid min-w-0 gap-0.5">
+        <b className="text-[15px] wrap-anywhere">{user.name}</b>
+        <span className="text-[12px] font-semibold wrap-anywhere text-brand">@{user.username}</span>
+        <p className="mt-1.5 flex items-center gap-[5px] text-[10px] text-ink-muted">{user.social_public ? <Globe size={13} /> : <Lock size={13} />}Conta {user.social_public ? 'pública' : 'privada'}</p>
       </div>
     </section>
-    {message && <p className="success" role="status">{message}</p>}
-    <h2 className="list-heading">Perfil</h2>
-    <div className="list-group">
+    {message && <p className={feedbackVariants({ tone: 'success' })} role="status">{message}</p>}
+    <ListHeading>Perfil</ListHeading>
+    <ListGroup>
       <ListRow Icon={Camera} label="Foto" value={user.avatar ? 'Alterar' : 'Adicionar'} onClick={() => open('avatar')} />
       <ListRow Icon={ImageIcon} label="Foto de capa" value={user.cover ? 'Personalizada' : 'Padrão'} onClick={() => open('cover')} />
       <ListRow Icon={UserIcon} label="Nome" value={user.name} onClick={() => open('name')} />
       <ListRow Icon={AtSign} label="Nome de usuário" value={`@${user.username}`} onClick={() => open('username')} />
       <ListRow Icon={Mail} label="E-mail" value={user.email} />
-    </div>
-    <h2 className="list-heading">Privacidade</h2>
-    <div className="list-group">
+    </ListGroup>
+    <ListHeading>Privacidade</ListHeading>
+    <ListGroup>
       <ListRow Icon={user.social_public ? Globe : Lock} label="Visibilidade da conta" value={user.social_public ? 'Pública' : 'Privada'} onClick={() => open('visibility')} />
       <ListRow Icon={ShieldOff} label="Contas bloqueadas" value="" onClick={openBlocked} />
-    </div>
+    </ListGroup>
     {sheet === 'avatar' && <AvatarSheet {...props} />}
     {sheet === 'cover' && <CoverSheet {...props} />}
     {sheet === 'name' && <NameSheet {...props} />}

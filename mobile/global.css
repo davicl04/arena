@@ -1,0 +1,60 @@
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/preflight.css" layer(base);
+@import "tailwindcss/utilities.css";
+
+@import "nativewind/theme";
+
+/*
+ * Tokens do app, com os nomes da web e os valores do mobile.
+ * Mantenha sincronizado com src/theme.ts (mesmos nomes e valores).
+ */
+@theme {
+  /* Escala de espaçamento em pontos: p-4 = 16, p-5.5 = 22 (independe do rem nativo, que é 14). */
+  --spacing: 4px;
+
+  --color-brand: #005a36;
+  --color-brand-soft: #edf3ef;
+  --color-ink: #343d39;
+  --color-ink-muted: #606965;
+  --color-ink-soft: #626970;
+  --color-line: #cdd4d0;
+  --color-app: #e2e4e9;
+  --color-field: #fafbfa;
+  --color-placeholder: #727b76;
+  --color-error: #94351e;
+  --color-danger: #b42318;
+  --color-like: #ff8a80;
+  --color-scrim: #0008;
+  --color-glass: rgba(8, 20, 14, 0.92);
+  --color-glass-ink: #08140e;
+  --color-glass-pill: rgba(8, 20, 14, 0.6);
+  --color-glass-light: #ffffffd9;
+  --color-glass-muted: #ffffffb3;
+  --color-glass-line: #ffffff33;
+  --color-glass-field: #ffffff1a;
+  --color-glass-danger: #ffb4a8;
+  --color-glass-accent: #8fe0b4;
+  --color-forest: #0b2218;
+  --color-forest-field: #ffffff14;
+  --color-forest-line: #ffffff2e;
+  --color-glass-tag: rgba(12, 22, 17, 0.6);
+  --color-mint-track: #8fe0b44d;
+  --color-mint: #8fe0b4;
+  --color-night: #08140e;
+  --color-subtle: #f1f2f5;
+  --color-tile: #dfe3e0;
+  --color-line-strong: #a3aaa7;
+  --color-success-bg: #eaf5ed;
+  --color-warning-bg: #fdf3e2;
+  --color-warning: #6f4305;
+  --color-amber: #f6c26b;
+  --color-danger-soft: #ff8a9a;
+
+  --radius-control: 8px;
+  --radius-lg: 12px;
+  --radius-card: 16px;
+  --radius-sheet: 20px;
+
+  /* Elevação Android do vidro (as demais vêm do nativewind/theme: elevation-sm = 3). */
+  --elevation-overlay: 20;
+}

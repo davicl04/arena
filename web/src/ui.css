@@ -1,0 +1,265 @@
+/* Fontes da marca (precisa vir antes das demais regras). */
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sora:wght@600;700;800&display=swap");
+/* Tailwind completo, com o preflight (reset em `@layer base`); a base ARENA no fim deste arquivo neutraliza o que mudaria o visual. */
+@import "tailwindcss";
+/* Testes não geram CSS de produção (strings de classe nos testes não viram utilitários). */
+@source not "../tests";
+
+@custom-variant dark (&:is(.dark *));
+/* Largura do aplicativo: até 430 px ocupa a tela toda. Uso: `app-narrow:rounded-none`. */
+@custom-variant app-narrow (@media (max-width: 430px));
+
+/*
+ * Tokens ARENA: fonte única de cores, fontes, raios, sombras e camadas.
+ * `static` emite todas as variáveis mesmo sem utilitário correspondente: a base abaixo e valores
+ * arbitrários (`bg-(--color-cover)`) as consomem por `var(--color-…)`.
+ * Utilitários gerados: `bg-brand`, `text-ink`, `text-ink-muted`, `border-line`, `bg-app`, `font-display`,
+ * `rounded-card`, `shadow-primary`, `z-nav` etc.
+ */
+@theme static {
+  --font-sans: Inter, system-ui, sans-serif;
+  --font-display: Sora, system-ui, sans-serif;
+
+  --color-brand: #005a36;
+  --color-brand-hover: #00482b;
+  --color-ink: #495057;
+  --color-ink-muted: #626970;
+  --color-line: rgba(73, 80, 87, 0.15);
+  --color-line-strong: #49505755; /* borda do botão secundário e do IconButton outline */
+  --color-app: #e2e4e9;
+  --color-subtle: #f1f2f5;
+  --color-field-border: #49505740;
+  --color-placeholder: #747b82;
+  --color-focus: #b26c08;
+  --color-error: #94351e;
+  --color-error-bg: #fff0eb;
+  --color-success-bg: #eaf5ed;
+  --color-warning: #6f4305;
+  --color-warning-bg: #fdf3e2;
+  --color-danger: #b93749;
+  --color-danger-ink: #b42318;
+  --color-danger-soft: #ff8a9a;
+  --color-mint: #8fe0b4;
+  --color-night: #08140e;
+  --color-glass: #08140ed1;
+  --color-glass-strong: #08140eeb;
+  --color-forest: #0b2218;
+  --color-cover: #2b3a33;
+  --color-tile: #dfe3e0;
+  --color-scrim: #101814b8;
+
+  /* Raios recorrentes (os da escala padrão continuam disponíveis). */
+  --radius-field: 11px; /* campos, avisos */
+  --radius-control: 13px; /* Button primary/secondary */
+  --radius-card: 16px; /* listas agrupadas, cartões, mídia do post */
+  --radius-panel: 18px; /* cartões de modalidade, opções de visibilidade, chips */
+  --radius-sheet: 24px; /* folha inferior (cantos superiores) */
+  --radius-app: 32px; /* painel do app no desktop */
+
+  --shadow-app: 0 24px 70px rgba(73, 80, 87, 0.25);
+  --shadow-primary: 0 7px 18px #005a3633;
+  --shadow-card: 0 3px 12px #0000000d;
+  --shadow-soft: 0 2px 6px #0001;
+  --shadow-sheet: 0 -12px 40px #0003;
+  --shadow-play: 0 5px 14px #005a364d;
+
+  /* Camadas (namespace `--z-index-*` do Tailwind → `z-nav`, `z-sheet`…). */
+  --z-index-photo-glass: 4; /* vidro sobre a foto do post (Glass variant="media") */
+  --z-index-tabs: 12; /* abas fixas do perfil */
+  --z-index-topbar: 15; /* barra fixa do perfil */
+  --z-index-viewer: 19; /* visualizador "Publicações", abaixo da navegação */
+  --z-index-nav: 20; /* navegação inferior */
+  --z-index-glass-screen: 30; /* vidro de tela cheia (ações da conta) */
+  --z-index-skip-link: 30; /* link "Pular para conteúdo" */
+  --z-index-scrim: 40; /* fundo escurecido da folha */
+  --z-index-sheet: 41; /* folha inferior */
+
+  /* Animações (só com prefers-reduced-motion: no-preference → usar `motion-safe:animate-…`). */
+  --animate-glass-in: glass-in 0.2s ease-out;
+  --animate-viewer-in: viewer-in 0.22s ease-out;
+  --animate-indeterminate: indeterminate 1.1s ease-in-out infinite; /* barra de progresso sem valor (Comunidade) */
+  --animate-ripple: ripple 1.8s ease-out infinite; /* ondas do botão redondo do Jogar durante a busca */
+  @keyframes glass-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes ripple {
+    from { transform: scale(1); opacity: 0.7; }
+    to { transform: scale(1.22); opacity: 0; }
+  }
+  @keyframes indeterminate {
+    from { translate: -100% 0; }
+    to { translate: 250% 0; }
+  }
+  @keyframes viewer-in {
+    from { transform: translateX(100%); }
+    to { transform: none; }
+  }
+}
+
+/*
+ * Oculta a barra de rolagem mantendo a rolagem: `scrollbar-width` (Firefox, Chrome) e
+ * `::-webkit-scrollbar` (Safari antigo). O utilitário nativo `scrollbar-none` cobre só o primeiro.
+ */
+@utility scrollbar-hidden {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/*
+ * Tokens do shadcn/ui ligados à identidade ARENA. Os valores ficam em `--ui-*` porque no ARENA "muted"
+ * é cor de texto (`text-ink-muted`) e no shadcn é cor de fundo; aqui só o utilitário usa o nome.
+ * `.dark` é aplicado nos formulários sobre o vidro escuro (ex.: denúncias).
+ */
+@theme inline {
+  --color-background: var(--ui-background);
+  --color-foreground: var(--ui-foreground);
+  --color-primary: var(--ui-primary);
+  --color-primary-foreground: var(--ui-primary-foreground);
+  --color-muted: var(--ui-muted);
+  --color-muted-foreground: var(--ui-muted-foreground);
+  --color-border: var(--ui-border);
+  --color-input: var(--ui-input);
+  --color-ring: var(--ui-ring);
+  --color-destructive: var(--ui-destructive);
+  --radius-lg: 12px;
+}
+
+:root {
+  --ui-background: #ffffff;
+  --ui-foreground: var(--color-ink);
+  --ui-primary: var(--color-brand);
+  --ui-primary-foreground: #ffffff;
+  --ui-muted: var(--color-subtle);
+  --ui-muted-foreground: var(--color-ink-muted);
+  --ui-border: #49505726;
+  --ui-input: var(--color-field-border);
+  --ui-ring: var(--color-focus);
+  --ui-destructive: var(--color-danger);
+}
+
+.dark {
+  --ui-background: var(--color-night);
+  --ui-foreground: #ffffff;
+  --ui-primary: var(--color-mint);
+  --ui-primary-foreground: var(--color-night);
+  --ui-muted: #ffffff1a;
+  --ui-muted-foreground: #ffffffa6;
+  --ui-border: #ffffff2e;
+  --ui-input: #ffffff73;
+  --ui-ring: var(--color-mint);
+  --ui-destructive: #ff8a80;
+  color: var(--ui-foreground);
+}
+
+/*
+ * Base ARENA, depois do preflight (mesma camada; utilitários sempre vencem). Reúne o que antes ficava em
+ * styles.css e repõe o que o preflight mudaria no visual aprovado: altura de linha `normal` (o preflight usa 1.5),
+ * destaque de toque e ajuste de texto padrão do navegador, títulos em negrito (o preflight herda peso), `small` em bloco,
+ * aparência dos campos de texto e foco laranja. Margens, paddings e bordas zerados pelo preflight são repostos
+ * nos componentes (utilitários) onde faziam diferença; aqui só o padding das opções de seletor.
+ */
+@layer base {
+  :root {
+    font-family: var(--font-sans);
+    line-height: normal;
+    color: var(--color-ink);
+    background: var(--color-app);
+    font-synthesis: none;
+    /* Comportamento padrão do navegador no toque e na rotação (o preflight remove o destaque e fixa 100%). */
+    -webkit-tap-highlight-color: initial;
+    -webkit-text-size-adjust: auto;
+    text-size-adjust: auto;
+  }
+  body {
+    min-width: 320px;
+  }
+
+  /* Equivalente à base do shadcn (`* { border-border outline-ring/50 }`), restrito aos seus componentes. */
+  [data-slot] {
+    border-color: var(--ui-border);
+    outline-color: color-mix(in oklab, var(--ui-ring) 50%, transparent);
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    font-weight: 700;
+  }
+  /* Rótulo de campo. O `Label` do shadcn/ui (field-label) define os próprios utilitários e zera a margem. */
+  label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    margin: 18px 0 8px;
+  }
+  small {
+    display: block;
+  }
+  svg {
+    flex-shrink: 0;
+  }
+  fieldset {
+    min-width: 0;
+  }
+
+  button,
+  a,
+  input,
+  select {
+    touch-action: manipulation;
+  }
+  button {
+    cursor: pointer;
+  }
+  button:disabled {
+    cursor: default;
+    opacity: 0.6;
+  }
+  button:focus-visible,
+  a:focus-visible,
+  input:focus-visible,
+  select:focus-visible {
+    outline: 3px solid var(--color-focus);
+    outline-offset: 3px;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    button {
+      transition:
+        background-color 0.15s,
+        box-shadow 0.15s;
+    }
+  }
+
+  /*
+   * Campos de texto e seletores. Caixas de seleção e rádios (inclusive o input oculto do RadioGroup do Base UI)
+   * mantêm a aparência nativa. Variações (zoom, campo @, comentário, moderação) são utilitários no próprio campo.
+   */
+  input:not([type="checkbox"], [type="radio"]),
+  select {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    min-height: 48px;
+    border: 1px solid var(--color-field-border);
+    border-radius: var(--radius-field);
+    background: #fff;
+    color: var(--color-ink);
+    padding: 12px 13px;
+    font-size: 13px;
+  }
+  input[readonly] {
+    background: var(--color-subtle);
+    color: var(--color-ink-muted);
+  }
+  input::placeholder {
+    color: var(--color-placeholder);
+  }
+  /* Espaçamento padrão das opções na lista do seletor (o preflight o zera). */
+  option {
+    padding: 0 2px 1px;
+  }
+}
