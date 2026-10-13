@@ -1,4 +1,5 @@
 import type { Sport } from '../api/client'
+import type { RankingCategory } from '../api/results'
 import { eventNoun } from '../data/arena'
 import type { NotificationFilter } from '../data/notifications'
 import type { RunDistance } from '../data/arena'
@@ -14,6 +15,8 @@ export interface ScreenParams {
   home: undefined
   /** `sport`/`distanceKm`: abre o Ranking já na modalidade (e, na corrida, na distância), como o "Ver ranking" de "Suas marcas". */
   ranking: { sport?: Sport; distanceKm?: RunDistance } | undefined
+  /** Salão dos Lendários de uma categoria do Ranking (subtela escura, com voltar e sem sino). */
+  legends: { category: RankingCategory }
   /**
    * `matchId`: a proposta ou a oferta de vaga dessa partida abre em tela cheia (vindas de notificações). `sport`: a aba
    * escolhida, guardada na entrada da pilha (como `Entry.sport` da web) para voltar da partida na mesma modalidade.
@@ -98,6 +101,7 @@ export const isRootScreen = (screen: ScreenName): screen is TabScreen => rootScr
 export const titles: Record<ScreenName, string> = {
   home: 'Início',
   ranking: 'Ranking',
+  legends: 'Salão dos Lendários',
   play: 'Jogar',
   community: 'Comunidade',
   profile: 'Perfil',
@@ -168,7 +172,7 @@ export function activeNavFor(screen: ScreenName, root: ScreenName): TabScreen {
  * trazem o topo, e por isso o shell não põe a faixa "arena." acima delas. Telas novas que não desenhem a barra ficam fora da lista.
  */
 const ownHeaderScreens: readonly ScreenName[] = [
-  'home', 'play', 'user-profile', 'teams', 'team-form', 'team-invite', 'join', 'organizer-events', 'event-wizard', 'event-manage', 'event-receipts',
+  'home', 'ranking', 'legends', 'play', 'user-profile', 'teams', 'team-form', 'team-invite', 'join', 'organizer-events', 'event-wizard', 'event-manage', 'event-receipts',
   'match', 'event-bracket', 'event-matches', 'result-decision', 'notifications',
 ]
 export const hasOwnHeader = (screen: ScreenName): boolean => ownHeaderScreens.includes(screen)

@@ -136,6 +136,24 @@ describe('cliente do resultado, das estatísticas e do Ranking (contrato 0002, s
     expect(calls()).toEqual([['/rankings?sport=futebol&kind=time&format=futsal']])
   })
 
+  it('o elo entra no caminho do Ranking antes do limite e do cursor', () => {
+    expect(results.rankingPath({ sport: 'tenis', tier: 'ouro', limit: 6 })).toBe('/rankings?sport=tenis&tier=ouro&limit=6')
+    expect(results.rankingPath({ sport: 'futebol', kind: 'time', format: 'society', tier: 'lendario', limit: 20, cursor: 'c1' }))
+      .toBe('/rankings?sport=futebol&kind=time&format=society&tier=lendario&limit=20&cursor=c1')
+  })
+
+  it('lê o overview do Ranking com os parâmetros da categoria e o time opcional (GET /rankings/overview)', async () => {
+    expect(results.rankingOverviewPath({ sport: 'tenis' })).toBe('/rankings/overview?sport=tenis')
+    expect(results.rankingOverviewPath({ sport: 'corrida', distance_km: 10 }, null)).toBe('/rankings/overview?sport=corrida&distance_km=10')
+    expect(results.rankingOverviewPath({ sport: 'futebol', kind: 'time', format: 'campo' }, 7)).toBe('/rankings/overview?sport=futebol&kind=time&format=campo&team_id=7')
+    await results.getRankingOverview({ sport: 'futebol', kind: 'individual', format: 'society', position: 'goleiro' })
+    await results.getRankingOverview({ sport: 'futebol', kind: 'time', format: 'society' }, 3)
+    expect(calls()).toEqual([
+      ['/rankings/overview?sport=futebol&kind=individual&format=society&position=goleiro'],
+      ['/rankings/overview?sport=futebol&kind=time&format=society&team_id=3'],
+    ])
+  })
+
   it('lê as classificações do titular (GET /me/standings)', async () => {
     await play.getMyStandings()
     expect(calls()).toEqual([['/me/standings']])

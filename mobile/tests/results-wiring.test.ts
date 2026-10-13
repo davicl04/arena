@@ -3,6 +3,7 @@ import { screens } from '../src/navigation/screens'
 import type { ScreenProps } from '../src/navigation/screens'
 import AdminCourtSuggestionsScreen from '../src/screens/AdminCourtSuggestionsScreen'
 import AdminWalkoverDisputesScreen from '../src/screens/AdminWalkoverDisputesScreen'
+import LegendsScreen from '../src/screens/LegendsScreen'
 import RankingScreen from '../src/screens/RankingScreen'
 import { admin } from './support/review'
 
@@ -23,6 +24,10 @@ vi.mock('../src/screens/UserProfileScreen', async () => (await import('./support
 describe('registro das telas: Ranking e filas da administração', () => {
   it('a aba Ranking é a RankingScreen', () => {
     expect(screens.ranking).toBe(RankingScreen)
+  })
+
+  it('o Salão dos Lendários é a LegendsScreen', () => {
+    expect(screens.legends).toBe(LegendsScreen)
   })
 
   it.each([

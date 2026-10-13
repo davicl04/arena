@@ -21,6 +21,7 @@ import FollowRequestsScreen from '../screens/FollowRequestsScreen'
 import EventWizardScreen from '../screens/EventWizardScreen'
 import HomeScreen from '../screens/HomeScreen'
 import JoinScreen from '../screens/JoinScreen'
+import LegendsScreen from '../screens/LegendsScreen'
 import MatchScreen from '../screens/MatchScreen'
 import ModerationScreen from '../screens/ModerationScreen'
 import NotificationsScreen from '../screens/NotificationsScreen'
@@ -94,6 +95,7 @@ function ProfileRoute({ user, params, navigation, onUser, onLogout, onExpired, p
 export const screens: { [S in ScreenName]: ScreenComponent<S> } = {
   home: ({ user, navigation, onExpired, playBoard, notificationSummary }) => <HomeScreen user={user} navigation={navigation} onExpired={onExpired} matches={playBoard.board?.matches} notificationSummary={notificationSummary} />,
   ranking: RankingScreen,
+  legends: LegendsScreen,
   play: PlayScreen,
   community: CommunityRoute,
   'user-profile': UserProfileScreen,
