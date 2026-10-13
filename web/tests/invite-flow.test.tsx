@@ -48,7 +48,7 @@ describe('Convidar atleta (I5 + Q2)', () => {
     await ui.type(message, '  Jogamos society às quintas, 20h.  ')
     expect(screen.getByText(/^36\/140/)).toBeTruthy()
     await ui.click(screen.getByRole('button', { name: 'Enviar convite' }))
-    await waitFor(() => expect(screen.getByText('Convite enviado para Rafael Gomes.')).toBeTruthy())
+    expect(await findToast('Convite enviado para Rafael Gomes.')).toBeTruthy()
     expect(api.find('POST', '/teams/10/invites')[0].body).toEqual({ user_id: 14, message: 'Jogamos society às quintas, 20h.' })
     // De volta ao passo 1, a pessoa já aparece como pendente.
     expect(within(screen.getByRole('list', { name: 'Quem você segue' })).queryByRole('button', { name: 'Escolher Rafael Gomes' })).toBeNull()
@@ -107,7 +107,7 @@ describe('Link e QR do time (Q2 + Q5)', () => {
 
     await ui.click(screen.getByRole('button', { name: 'Copiar link' }))
     expect(writeText).toHaveBeenCalledWith(link.url)
-    expect(await screen.findByText('Link copiado.')).toBeTruthy()
+    expect((await findToast('Link copiado.')).closest('[data-tone]')?.getAttribute('data-tone')).toBe('success')
     await ui.click(screen.getByRole('button', { name: 'Compartilhar link' }))
     expect(share).toHaveBeenCalledWith(expect.objectContaining({ url: link.url }))
 
@@ -116,7 +116,7 @@ describe('Link e QR do time (Q2 + Q5)', () => {
     expect(confirm.textContent).toContain('deixam de valer na hora')
     expect(api.find('POST', '/teams/10/invite-link')).toHaveLength(0)
     await ui.click(within(confirm).getByRole('button', { name: 'Gerar outro link' }))
-    expect(await screen.findByText('Novo link gerado. O anterior não vale mais.')).toBeTruthy()
+    expect(await findToast('Novo link gerado. O anterior não vale mais.')).toBeTruthy()
     expect(screen.getByText('localhost:5173/entrar/tokenNovo')).toBeTruthy()
     expect(api.find('POST', '/teams/10/invite-link')[0].body).toEqual({})
 
@@ -135,7 +135,7 @@ describe('Link e QR do time (Q2 + Q5)', () => {
     renderWithToaster(<InviteFlow teamId={10} initialTab="link" onClose={vi.fn()} onExpired={vi.fn()} />)
     expect(screen.queryByRole('button', { name: 'Compartilhar link' })).toBeNull()
     await ui.click(await screen.findByRole('button', { name: 'Copiar link' }))
-    expect(await screen.findByText('Não foi possível copiar. Selecione o link abaixo e copie.')).toBeTruthy()
+    expect((await findToast('Não foi possível copiar. Selecione o link abaixo e copie.')).closest('[data-tone]')?.getAttribute('data-tone')).toBe('warning')
     const field = screen.getByLabelText('Link do time') as HTMLInputElement
     expect(field.value).toBe(link.url)
     expect(field.readOnly).toBe(true)

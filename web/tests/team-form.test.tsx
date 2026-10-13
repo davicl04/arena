@@ -159,7 +159,7 @@ describe('Editar time (F2)', () => {
     expect((await screen.findByRole('alert')).textContent).toBe('Só representantes podem editar o time.')
     cleanup()
     renderForm({ teamId: 11 })
-    expect((await screen.findByRole('alert')).textContent).toBe('Time não encontrado.')
+    expect((await screen.findByRole('alert')).textContent).toContain('Time não encontrado.')
   })
 
   it('recusa arquivo grande demais sem abrir o recorte', () => {

@@ -4,7 +4,6 @@ import type { LucideIcon } from 'lucide-react'
 import { ApiError } from '@/api/client'
 import { removeMember, updateMember } from '@/api/teams'
 import type { TeamCard, TeamMember } from '@/api/teams'
-import { feedbackVariants } from '@/components/ui/feedback'
 import { Sheet } from '@/components/ui/sheet'
 import { useSubmit } from '@/hooks/useSubmit'
 import { cn } from '@/lib/utils'
@@ -32,7 +31,7 @@ function SheetAction({ Icon, label, hint, danger = false, disabled = false, onCl
 /**
  * Folha do atleta (E1): ver perfil; para representantes, tornar representante ou tirar a braçadeira e remover do time
  * (com confirmação); para o próprio atleta, sair do time. O time precisa de pelo menos um representante: a folha já
- * avisa quando a braçadeira é a última, e o servidor tem a palavra final (o erro dele aparece aqui).
+ * avisa quando a braçadeira é a última, e o servidor tem a palavra final (o erro dele aparece num toast).
  */
 export function MemberSheet({ team, member, viewerIsRepresentative, onClose, onOpenProfile, onChanged, onRemoved, onStale, onExpired }: {
   team: TeamCard
@@ -44,12 +43,12 @@ export function MemberSheet({ team, member, viewerIsRepresentative, onClose, onO
   onChanged: (member: TeamMember, message: string) => void
   /** Atleta removido (ou o próprio titular saiu). */
   onRemoved: (member: TeamMember, message: string) => void
-  /** O servidor recusou por estado desatualizado (409/404): a página recarrega o time, e a folha mostra o erro. */
+  /** O servidor recusou por estado desatualizado (409/404): a página recarrega o time, e a mensagem do servidor aparece num aviso. */
   onStale?: () => void
   onExpired: () => void
 }) {
   const [confirm, setConfirm] = useState<'remove' | 'leave' | null>(null)
-  const { busy, error, run } = useSubmit(onExpired)
+  const { busy, run } = useSubmit(onExpired)
   const representative = member.role === 'representante'
   const lastRepresentative = representative && team.representative_count <= 1
   const firstName = member.is_me ? 'Você' : member.first_name
@@ -104,6 +103,5 @@ export function MemberSheet({ team, member, viewerIsRepresentative, onClose, onO
     {confirm === 'leave' && <Confirm confirmLabel="Sair do time" busy={busy} onConfirm={() => void remove()} onCancel={() => setConfirm(null)}>
       <b>Sair do {team.name}?</b><br />Seu histórico com o time continua registrado. Para voltar, é preciso um novo convite ou pedido.
     </Confirm>}
-    {error && <p className={feedbackVariants()} role="alert">{error}</p>}
   </Sheet>
 }

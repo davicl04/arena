@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { ReactNode } from 'react'
 import type { TeamMember } from '@/api/teams'
-import { Button } from '@/components/ui/button'
+import { LoadError } from '@/components/ui/load-error'
 import { SectionTitle } from '@/components/ui/section-title'
 import { positionShort } from '@/data/arena'
 import { MemberFace } from './MemberFace'
@@ -11,10 +11,12 @@ import { positionLabel, ROSTER_LIMIT } from './teamView'
  * Elenco em grade de rostos (E1): braçadeira "C" nos representantes, primeiro nome e posição. Acima de 11 atletas,
  * o "+N" mostra todos. Tocar num rosto abre a folha do atleta.
  */
-export function RosterGrid({ members, loading, error, onRetry, onOpen, action }: {
+export function RosterGrid({ members, loading, error, errorCause, onRetry, onOpen, action }: {
   members: TeamMember[]
   loading: boolean
   error: string
+  /** O erro lançado ao carregar o elenco (para reconhecer a falta de conexão). */
+  errorCause?: unknown
   onRetry: () => void
   onOpen: (member: TeamMember) => void
   /** Ação do título (Convidar, para representantes). */
@@ -27,7 +29,7 @@ export function RosterGrid({ members, loading, error, onRetry, onOpen, action }:
     <SectionTitle title={<span id="roster-title">Elenco{members.length ? ` · ${members.length}` : ''}</span>} action={action} className="mt-[22px] mb-2.5" />
     <div className="rounded-card bg-white shadow-card">
       {loading ? <p role="status" className="px-3.5 py-6 text-center text-[12px] text-ink-muted">Carregando elenco…</p>
-        : error ? <div role="alert" className="px-3.5 py-4 text-[12px] text-error">{error} <Button variant="text" onClick={onRetry}>Tentar novamente</Button></div>
+        : error ? <LoadError size="section" title="Não foi possível carregar o elenco" text={error} cause={errorCause} onRetry={onRetry} />
         : <ul className="m-0 grid list-none grid-cols-4 gap-x-1.5 gap-y-3 px-2.5 py-3.5">
           {shown.map(member => {
             const representative = member.role === 'representante'
