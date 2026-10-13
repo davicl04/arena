@@ -335,29 +335,71 @@ Em `recusado` e `revogado`, o cartão oferece "Enviar novo pedido".
 
 ## 7. Notificações
 
-Infraestrutura comum (implementada). As fases seguintes acrescentam tipos ao registro `NOTIFICATION_TYPES` de `app/services/notifications.py` (etapa 2: seção 17).
+Infraestrutura comum (implementada). As fases seguintes acrescentam tipos ao registro `NOTIFICATION_TYPES` de `app/services/notifications.py`: a etapa 2 está na seção 17, a etapa 4 na seção 21 e os tipos das partidas do Jogar em [0002, seção 13](0002-jogar.md). O registro tem 43 tipos, todos classificados em `NOTIFICATION_CATEGORY` (um teste garante isso).
 
 ```ts
+type NotificationCategory = 'partidas' | 'times' | 'eventos' | 'conta'
+
 interface ArenaNotification {
   id: number
   type: NotificationType
+  category: NotificationCategory     // derivada do tipo (não é coluna)
   payload: Record<string, unknown>   // por tipo, abaixo
   actor: Person | null               // null: administração, sistema, conta inativa ou bloqueada
   created_at: string
   read_at: string | null
+  pending: boolean                   // ação aberta e prazo não vencido (7.1)
+  action_until: string | null        // prazo para responder; null quando não há
+}
+
+interface NotificationSummary {
+  unread_count: number
+  follow_requests_count: number
+  pending_count: number
+  unread_by_category: { partidas: number; times: number; eventos: number }
 }
 ```
 
 | Rota | Corpo | Resposta |
 | --- | --- | --- |
-| `GET /me/notifications?cursor=&limit=` | — | `Page<ArenaNotification>` (mais recentes primeiro) |
-| `GET /me/notifications/unread-count` | — | `{ unread_count: number }` |
-| `PUT /me/notifications/{id}/read` | `{}` | `{ unread_count: number }`; `404 Notificação não encontrada.` para notificação de outra pessoa; idempotente (mantém o primeiro `read_at`) |
-| `PUT /me/notifications/read-all` | `{}` | `{ unread_count: 0 }` |
+| `GET /me/notifications?cursor=&limit=&categoria=&pendente=` | — | `Page<ArenaNotification>` (mais recentes primeiro). `categoria` ∈ `partidas`, `times`, `eventos`; `pendente` ∈ `true`, `false`. Valor inválido, inclusive `categoria=conta`: `422` |
+| `GET /me/notifications/pending?categoria=&limit=` | — | `{ items: ArenaNotification[] }`, sem cursor: as pendências (7.1) por urgência, prazo mais próximo primeiro, sem prazo por último e, depois, as mais recentes. `categoria` como acima; `limit` de 1 a 50, padrão 20 |
+| `GET /me/notifications/summary` | — | `NotificationSummary` |
+| `GET /me/notifications/unread-count` | — | `{ unread_count: number }`, mantida por compatibilidade |
+| `PUT /me/notifications/{id}/read` | `{}` | `NotificationSummary`; `404 Notificação não encontrada.` para notificação de outra pessoa; idempotente (mantém o primeiro `read_at`). Ler não resolve a pendência |
+| `PUT /me/notifications/read-all` | `{}` | `NotificationSummary` (com `unread_count: 0`) |
 
-Os pedidos para seguir continuam em `GET /me/follow-requests` e **não** entram nessa contagem; a tela Notificações mostra as duas fontes.
+O titular de todas as rotas vem da sessão. Os clientes antigos continuam lendo `unread_count`, que as respostas de leitura também devolvem.
 
-**Regras do serviço:** `notify(db, user_id, type_, payload, *, actor_id=None)` e `notify_many(...)` só adicionam linhas (quem chama faz o commit, junto da mudança); recusam tipo desconhecido ou payload sem os campos obrigatórios; ninguém é notificado da própria ação; `notify_many` envia uma vez por pessoa.
+Os pedidos para seguir continuam em `GET /me/follow-requests`. O resumo os conta em `follow_requests_count` (solicitantes ativos, sem bloqueio entre as duas pessoas), e o sino mostra `unread_count + follow_requests_count`.
+
+### 7.1 Pendências
+
+A migração `0012` (`backend/migrations/versions/0012_notification_actions.py`) adiciona à tabela `notifications`:
+
+| Coluna | Tipo | Uso |
+| --- | --- | --- |
+| `action_key` | `String(80)`, nula | Identifica o objeto que pede resposta (ex.: `invite:42`). Nula para avisos informativos |
+| `action_until` | `DateTime(timezone=True)`, nula | Prazo para responder. Nulo quando não há prazo |
+| `resolved_at` | `DateTime(timezone=True)`, nula | Quando a ação foi resolvida, por quem recebeu ou por outro papel |
+
+Os índices parciais, válidos para `resolved_at IS NULL AND action_key IS NOT NULL`, são `ix_notifications_action_open` (em `action_key`, para resolver por chave) e `ix_notifications_user_pending` (em `user_id`, para contar e listar as pendências).
+
+Uma notificação é **pendente** quando `action_key IS NOT NULL AND resolved_at IS NULL AND (action_until IS NULL OR action_until > now())`. O serviço usa a mesma regra em `pending_clause` (consulta) e `is_pending` (objeto).
+
+- **Ler não resolve.** Marcar como lida ou ler todas não muda a pendência: ela deixa de ser pendente só quando a ação é resolvida ou o prazo passa.
+- **Sem preenchimento retroativo.** Notificações anteriores à migração não têm chave e nunca ficam pendentes.
+- **Categoria derivada.** `NOTIFICATION_CATEGORY` define a categoria de cada tipo: **partidas** (propostas, vagas, ofertas, condições, partida agendada ou cancelada, W.O., resultados, estatísticas, remoção da partida, adversário, divergência e decisão); **times** (convites, pedidos de entrada, remoção e encerramento de time); **eventos** (evento, aviso, inscrição, comprovantes, reserva, devoluções, tabela e encerramento); **conta** (pedido de organizador, revogação e quadra decidida). O resumo conta as não lidas só em partidas, times e eventos. `conta` não é filtro da API e só aparece na listagem sem filtro.
+
+**Regras do serviço:** `notify(db, user_id, type_, payload, *, actor_id=None, action_key=None, action_until=None, informative=False)` e `notify_many(...)`, com os mesmos parâmetros e uma notificação por pessoa, só adicionam linhas; quem chama faz o commit, junto da mudança. Recusam tipo desconhecido, payload sem os campos obrigatórios e chave inválida. Ninguém é notificado da própria ação (`notify` devolve `None`).
+
+- Os 14 tipos de `ACTION_TYPES` (7.2) exigem `action_key`. Quem não decide recebe o mesmo tipo com `informative=True`, sem chave.
+- `comprovante_decidido` só exige chave na recusa (`decision == 'recusado'`). Uma recusa com a reserva já vencida é informativa.
+- Erro (`ValueError`): chave em tipo informativo; chave junto com `informative=True`; chave em tipo que não pede ação; chave vazia ou com mais de 80 caracteres.
+- `resolve_actions(db, key, *, user_ids=None)`, `resolve_actions_many(db, keys, *, user_ids=None)` e `resolve_actions_prefix(db, prefix)` gravam `resolved_at` nas ações abertas, de todos os destinatários ou só de `user_ids`. Não fazem commit: rodam na transação da mudança que as resolve. O prefixo fecha de uma vez todas as chaves que começam com ele (ex.: `proposal:{match_id}:` fecha os dois lados de uma proposta).
+- `summary(db, user)` calcula os quatro contadores em consultas agregadas, sem laço por notificação.
+
+**Tipos da etapa 1:**
 
 | Tipo | Destinatário | `actor` | `payload` | Texto sugerido | Ao tocar |
 | --- | --- | --- | --- | --- | --- |
@@ -370,7 +412,36 @@ Os pedidos para seguir continuam em `GET /me/follow-requests` e **não** entram 
 | `pedido_organizador_decidido` | autor do pedido | `null` | `{ request_id, decision: 'aprovado' \| 'recusado', reason_code: OrganizerRefusalReason \| null, reason_detail: string \| null }` | "Seu pedido de organizador foi aprovado" / "…foi recusado: {motivo}" | Menu, cartão do organizador |
 | `organizador_revogado` | organizador | `null` | `{ reason }` | "Sua permissão de organizador foi revogada: {motivo}" | Menu |
 
+Categoria: `times`, exceto `pedido_organizador_decidido` e `organizador_revogado`, que são `conta`.
+
 `team_name` é uma cópia do nome no momento do aviso; a navegação usa `team_id` e mostra os dados atuais. Sem `actor`, o texto usa "Um representante", "Um atleta" ou "A administração". Notificações de times encerrados ou de convites já decididos continuam na lista; ao tocar, a web confere o estado atual.
+
+### 7.2 Tipos com ação
+
+Chaves e prazos conferidos com os construtores `*_key` de `app/services/notifications.py` e com as chamadas dos serviços. Cada linha fica aberta até a resolução indicada; as resoluções rodam na mesma transação da mudança.
+
+| Tipo | Quem recebe a chave | Chave | Prazo (`action_until`) | Resolve quando |
+| --- | --- | --- | --- | --- |
+| `convite_time` | convidado | `invite:{invite_id}` | — | convite aceito, recusado ou cancelado; pedido de entrada do mesmo usuário aprovado; time encerrado |
+| `pedido_entrada` | representantes ativos | `join_request:{request_id}` | — | pedido aprovado, recusado ou cancelado (para todos os representantes); convite do mesmo usuário aceito; time encerrado |
+| `proposta_partida` | representantes de cada lado (ou o atleta de tênis) | `proposal:{match_id}:user:{user_id}` | `proposal_expires_at` | o próprio lado aceita (resolve só os usuários desse lado); os dois lados aceitam, a proposta é recusada ou expira (resolve todos) |
+| `vaga_encontrada` | atleta avulso | `slot:{slot_id}:user:{user_id}` | `offer_expires_at` | oferta aceita, recusada, sem resposta ou devolvida (vaga reduzida ou partida cancelada) |
+| `condicoes_propostas` | representantes do outro lado | `terms:{terms_id}` | horário proposto (`starts_at`) | condições aceitas, substituídas por outra proposta ou canceladas (partida cancelada ou quadra rejeitada) |
+| `wo_registrado` | lado acusado | `wo:{match_id}` | `result_deadline` (fim do prazo para contestar) | W.O. contestado ou retirado; decidido pela administração; no prazo, vira resultado |
+| `resultado_divergente` | os dois lados | `result:{match_id}` | `result_deadline` | placares batem; novo envio divergente substitui o anterior (só o mais recente fica aberto); o prazo encerra a partida amistosa; decisão do organizador; cancelamento das partidas do evento |
+| `comprovante_decidido` (só na recusa) | atleta ou representantes da inscrição | `entry_receipt:{entry_id}` | `reserved_until` | novo comprovante enviado; reserva expirada (varredura ou outra expiração); inscrição cancelada pelo participante; evento cancelado |
+| `devolucao_enviada` | atleta ou representantes do time | `refund:{receipt_id}` | envio + 7 dias (`REFUND_AUTO_CONFIRM_AFTER`) | devolução confirmada, contestada ou confirmada automaticamente |
+| `comprovante_recebido` | organizador do evento | `receipt:{receipt_id}` | — | comprovante decidido; evento cancelado com o comprovante em análise |
+| `divergencia_para_decidir` | organizador do evento | `decision:{match_id}` | `result_deadline` | decisão registrada; placares passam a bater; cancelamento das partidas do evento |
+| `evento_para_aprovar` | administração | `event_review:{event_id}` | — | evento decidido por qualquer conta administrativa (uma decisão recusada com `409`, como aprovar com datas passadas, deixa a ação aberta); evento retirado; organizador revogado |
+| `devolucao_contestada` | administração (o organizador recebe `informative`, uma única vez se também for administrador) | `refund_dispute:{receipt_id}` | — | devolução decidida pela administração (manter ou reabrir) |
+| `wo_contestado` | administração (representantes do lado que registrou recebem `informative`) | `wo_dispute:{match_id}` | — | W.O. decidido pela administração |
+
+**Desvios do plano:**
+
+- `condicoes_propostas` tem prazo: o plano previa sem prazo. Depois do horário proposto, as condições não podem mais ser aceitas (`accept_terms`), e a ação expira junto. Não existe "recusar condições": a proposta só é aceita, substituída ou cancelada.
+- `convite_time` não tem prazo: convites não têm validade no código, e a ação fica aberta até a decisão ou o encerramento do time.
+- `devolucao_enviada` vai ao atleta ou aos representantes do time, como na seção 17, e não a todos os membros.
 
 **Na web (etapa 1):** tocar marca como lida (`PUT /me/notifications/{id}/read`) e navega pela pilha do `ArenaPage`:
 - `convite_time` → Meus times com a folha de convites recebidos (`{ teamId, invites: true }`); um convite já decidido mostra "Nenhum convite pendente".
@@ -380,7 +451,7 @@ Os pedidos para seguir continuam em `GET /me/follow-requests` e **não** entram 
 - `pedido_organizador_decidido` e `organizador_revogado` → Menu, com o cartão do organizador.
 - Tipos desconhecidos (fases seguintes) → texto genérico, sem destino.
 
-A tela Notificações abre pelo sino do Início (com o contador de não lidas) e pela linha "Notificações" do Menu.
+A tela Notificações abre pelo sino presente nas cinco abas raiz (Início, Ranking, Jogar, Comunidade e Perfil próprio), pela placa "Para responder" do Início (no chip *Para responder*) e pela linha "Notificações" do Menu, com o contador. Os filtros por chip são feitos no servidor (`categoria` e `pendente`). O resumo é recarregado na troca de aba raiz, ao voltar ao primeiro plano e a cada 60 s.
 
 ## 8. Auditoria
 
