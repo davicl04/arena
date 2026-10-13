@@ -105,10 +105,6 @@ ACTION_KEY_MAX = 80
 # Value of `payload['decision']` in `comprovante_decidido` when the receipt was refused (the only case with action).
 RECEIPT_REFUSED = 'recusado'
 
-# Transition switch: while False, action types may still be sent without `action_key`. The next stage turns it on
-# once every domain service passes its keys (the other `_check` rules always apply).
-REQUIRE_ACTION_KEYS = False
-
 
 def _needs_key(type_: str, payload: dict) -> bool:
     if type_ == 'comprovante_decidido':
@@ -130,7 +126,7 @@ def _check(type_: str, payload: dict, action_key: str | None = None, informative
             raise ValueError(f'Notificação {type_} não pede ação: não aceita action_key')
         if not action_key or len(action_key) > ACTION_KEY_MAX:
             raise ValueError(f'action_key de {type_} deve ter de 1 a {ACTION_KEY_MAX} caracteres')
-    elif REQUIRE_ACTION_KEYS and not informative and _needs_key(type_, payload):
+    elif not informative and _needs_key(type_, payload):
         raise ValueError(f'Notificação {type_} pede action_key (ou informative=True para quem não decide)')
 
 
@@ -178,6 +174,34 @@ def resolve_actions_many(db: Session, keys: Iterable[str], *, user_ids: Iterable
     statement = update(Notification).where(Notification.action_key.in_(key_list), Notification.resolved_at.is_(None))
     if recipients is not None:
         statement = statement.where(Notification.user_id.in_(recipients))
+    return db.execute(statement.values(resolved_at=utcnow())).rowcount or 0
+
+
+# Action keys (docs/decisoes/0003, section 7). Per-user keys keep one side's answer from closing the other's.
+def invite_key(invite_id: int) -> str: return f'invite:{invite_id}'
+def join_request_key(request_id: int) -> str: return f'join_request:{request_id}'
+def proposal_prefix(match_id: int) -> str: return f'proposal:{match_id}:'
+def proposal_key(match_id: int, user_id: int) -> str: return f'{proposal_prefix(match_id)}user:{user_id}'
+def slot_key(slot_id: int, user_id: int) -> str: return f'slot:{slot_id}:user:{user_id}'
+def terms_key(terms_id: int) -> str: return f'terms:{terms_id}'
+def walkover_key(match_id: int) -> str: return f'wo:{match_id}'
+def result_key(match_id: int) -> str: return f'result:{match_id}'
+def entry_receipt_key(entry_id: int) -> str: return f'entry_receipt:{entry_id}'
+def refund_key(receipt_id: int) -> str: return f'refund:{receipt_id}'
+def receipt_key(receipt_id: int) -> str: return f'receipt:{receipt_id}'
+def decision_key(match_id: int) -> str: return f'decision:{match_id}'
+def event_review_key(event_id: int) -> str: return f'event_review:{event_id}'
+def refund_dispute_key(receipt_id: int) -> str: return f'refund_dispute:{receipt_id}'
+def walkover_dispute_key(match_id: int) -> str: return f'wo_dispute:{match_id}'
+
+
+def resolve_actions_prefix(db: Session, prefix: str) -> int:
+    """Closes every open action whose key starts with `prefix` (e.g. `proposal:17:` closes both sides of a
+    proposal, whoever its recipients were). No commit, as `resolve_actions`."""
+    if not prefix:
+        raise ValueError('Prefixo de chave de ação vazio')
+    statement = update(Notification).where(Notification.action_key.startswith(prefix, autoescape=True),
+                                           Notification.resolved_at.is_(None))
     return db.execute(statement.values(resolved_at=utcnow())).rowcount or 0
 
 

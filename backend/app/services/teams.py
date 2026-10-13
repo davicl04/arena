@@ -396,14 +396,18 @@ def close_team(db: Session, viewer: User, team_id: int) -> None:
     for member in context.roster.values():
         member.left_at, member.left_reason = now, 'time_encerrado'
     automatic = {'team_id': team.id, 'automatico': True}
-    for invite in db.scalars(select(TeamInvite).where(TeamInvite.team_id == team.id, TeamInvite.state == 'pendente')
-                             .with_for_update().execution_options(populate_existing=True)).all():
+    invites = db.scalars(select(TeamInvite).where(TeamInvite.team_id == team.id, TeamInvite.state == 'pendente')
+                         .with_for_update().execution_options(populate_existing=True)).all()
+    notifications.resolve_actions_many(db, [notifications.invite_key(invite.id) for invite in invites])
+    for invite in invites:
         invite.state, invite.decided_at, invite.decided_by_id = 'cancelado', now, viewer.id
         audit.record(db, actor_id=viewer.id, action='convite.cancelado', target_type='team_invite',
                      target_id=invite.id, data={**automatic, 'invitee_id': invite.invitee_id})
-    for request in db.scalars(select(TeamJoinRequest).where(TeamJoinRequest.team_id == team.id,
-                                                            TeamJoinRequest.state == 'pendente')
-                              .with_for_update().execution_options(populate_existing=True)).all():
+    requests = db.scalars(select(TeamJoinRequest).where(TeamJoinRequest.team_id == team.id,
+                                                        TeamJoinRequest.state == 'pendente')
+                          .with_for_update().execution_options(populate_existing=True)).all()
+    notifications.resolve_actions_many(db, [notifications.join_request_key(request.id) for request in requests])
+    for request in requests:
         request.state, request.decided_at, request.decided_by_id = 'cancelado', now, viewer.id
         audit.record(db, actor_id=viewer.id, action='pedido_entrada.cancelado', target_type='team_join_request',
                      target_id=request.id, data={**automatic, 'user_id': request.user_id})

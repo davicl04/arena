@@ -239,9 +239,12 @@ def _store_report(db: Session, match: Match, sides: Mapping[str, MatchSide], acc
         _confirm(db, match, sides, score, names, user, now=now)
     else:
         deadline = _iso(match.result_deadline)
+        # Each divergent report notifies again: only the latest stays open for the two sides.
+        notifications.resolve_actions(db, notifications.result_key(match.id))
         notifications.notify_many(
             db, [*side_actors(db, sides['a']), *side_actors(db, sides['b'])], 'resultado_divergente',
-            {'match_id': match.id, 'deadline': deadline})
+            {'match_id': match.id, 'deadline': deadline}, action_key=notifications.result_key(match.id),
+            action_until=match.result_deadline)
         post_event(db, match.id, 'resultado_divergente',
                    'Os placares informados pelos dois lados não batem. Corrijam até o fim do prazo.', now=now)
         audit.record(db, actor_id=user.id, action='resultado.divergente', target_type='match', target_id=match.id,
@@ -260,6 +263,9 @@ def _confirm(db: Session, match: Match, sides: Mapping[str, MatchSide], score: S
     apply_final_score(match, score, source='confirmacao', now=now)
     match.state = next_match_state(match.state, 'confirmar_resultado')
     db.flush()
+    # Equal scores: no divergence to fix, and the championship organizer no longer has to decide.
+    notifications.resolve_actions_many(db, [notifications.result_key(match.id),
+                                            notifications.decision_key(match.id)])
     championship_lifecycle.lock_following(db, match)       # a match lock, so it comes before the rankings
     recalculate_for_match(db, match, now=now)
     notifications.notify_many(db, audience(db, match, sides=dict(sides)), 'resultado_partida', {

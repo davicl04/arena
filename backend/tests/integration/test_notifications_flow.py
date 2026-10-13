@@ -19,7 +19,8 @@ def test_notifications_are_listed_counted_and_read_only_by_their_owner(client):
     owner, owner_id = register(http, 'notif-owner@example.com', 'Dona Notificações')
     other, other_id = register(http, 'notif-other@example.com', 'Caio Ramos')
     for index in range(3):
-        notify(db, owner_id, 'convite_time', {**TEAM, 'invite_id': index + 1}, actor_id=other_id)
+        notify(db, owner_id, 'convite_time', {**TEAM, 'invite_id': index + 1}, actor_id=other_id,
+               action_key=f'invite:{index + 1}')
     notify(db, other_id, 'time_encerrado', TEAM, actor_id=owner_id)
     db.commit()
 

@@ -308,8 +308,12 @@ def _reject(db: Session, court: Court, match: Match | None, data: CourtDecisionI
                    .values(court_id=duplicate.id))
         db.execute(update(Match).where(Match.court_id == court.id).values(court_id=duplicate.id, updated_at=now))
     else:
-        db.execute(update(MatchTerms).where(MatchTerms.court_id == court.id, MatchTerms.state == 'pendente')
-                   .values(state='cancelada', decided_at=now))
+        cancelled = db.scalars(select(MatchTerms.id).where(MatchTerms.court_id == court.id,
+                                                           MatchTerms.state == 'pendente')).all()
+        if cancelled:
+            notifications.resolve_actions_many(db, [notifications.terms_key(terms_id) for terms_id in cancelled])
+            db.execute(update(MatchTerms).where(MatchTerms.id.in_(cancelled))
+                       .values(state='cancelada', decided_at=now))
     return duplicate
 
 

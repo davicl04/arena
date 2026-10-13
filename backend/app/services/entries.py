@@ -616,6 +616,8 @@ def cancel_entry(db: Session, user: User, entry_id: int) -> None:
     previous = entry.state
     entry.state = next_entry_state(state, 'cancelar', paid=entry.price_cents > 0)
     entry.cancelled_at, entry.cancelled_by_id, entry.cancel_origin = now, user.id, 'participante'
+    # A refused receipt was still waiting for a new one: giving up closes it.
+    notifications.resolve_actions(db, notifications.entry_receipt_key(entry.id))
     audit.record(db, actor_id=user.id, action='inscricao.cancelada', target_type='event_entry', target_id=entry.id,
                  data={'event_id': event.id, 'team_id': entry.team_id, 'previous_state': previous})
     db.commit()
@@ -709,8 +711,11 @@ def store_payment_receipt(db: Session, user: User, entry_id: int, prepared: medi
     def effects(receipt: EntryReceipt) -> None:
         attempt = db.scalar(select(func.count()).select_from(EntryReceipt).where(
             EntryReceipt.entry_id == entry.id, EntryReceipt.kind == 'pagamento'))
+        # A new receipt answers the refusal that asked for it (every representative stops seeing the pending).
+        notifications.resolve_actions(db, notifications.entry_receipt_key(entry.id))
         notifications.notify(db, event.organizer_user_id, 'comprovante_recebido',
-                             _payload(event, entry, receipt_id=receipt.id), actor_id=user.id)
+                             _payload(event, entry, receipt_id=receipt.id), actor_id=user.id,
+                             action_key=notifications.receipt_key(receipt.id))
         audit.record(db, actor_id=user.id, action='comprovante.enviado', target_type='entry_receipt',
                      target_id=receipt.id, data={'entry_id': entry.id, 'event_id': event.id, 'attempt': attempt,
                                                  'file_type': prepared.file_type})
@@ -773,7 +778,9 @@ def store_refund_receipt(db: Session, user: User, entry_id: int, prepared: media
 
     def effects(receipt: EntryReceipt) -> None:
         notifications.notify_many(db, entry_recipients(db, [entry])[entry.id], 'devolucao_enviada',
-                                  _payload(event, entry, receipt_id=receipt.id), actor_id=user.id)
+                                  _payload(event, entry, receipt_id=receipt.id), actor_id=user.id,
+                                  action_key=notifications.refund_key(receipt.id),
+                                  action_until=refund_auto_confirm_at(receipt.created_at))
         audit.record(db, actor_id=user.id, action='devolucao.enviada', target_type='entry_receipt',
                      target_id=receipt.id, data={'entry_id': entry.id, 'event_id': event.id,
                                                  'file_type': prepared.file_type})
@@ -796,6 +803,7 @@ def respond_refund(db: Session, user: User, entry_id: int, response: str, reason
         receipt.participant_response, receipt.responded_at, receipt.responded_by_id = 'confirmada', now, user.id
         entry.state = next_entry_state(entry.state, 'confirmar_devolucao')
         entry.refunded_at = now
+        notifications.resolve_actions(db, notifications.refund_key(receipt.id))
         notifications.notify(db, event.organizer_user_id, 'devolucao_confirmada', {**payload, 'automatic': False},
                              actor_id=user.id)
         audit.record(db, actor_id=user.id, action='devolucao.confirmada', target_type='entry_receipt',
@@ -805,8 +813,14 @@ def respond_refund(db: Session, user: User, entry_id: int, response: str, reason
         receipt.participant_response, receipt.responded_at, receipt.responded_by_id = 'contestada', now, user.id
         receipt.contest_reason = text
         entry.state = next_entry_state(entry.state, 'contestar_devolucao')
-        notifications.notify_many(db, [event.organizer_user_id, *admin_ids(db)], 'devolucao_contestada', payload,
-                                  actor_id=user.id)
+        notifications.resolve_actions(db, notifications.refund_key(receipt.id))
+        # Only the administration decides: the organizer is told, without a pending (once, even when also admin).
+        admins = admin_ids(db)
+        notifications.notify_many(db, admins, 'devolucao_contestada', payload, actor_id=user.id,
+                                  action_key=notifications.refund_dispute_key(receipt.id))
+        if event.organizer_user_id not in admins:
+            notifications.notify(db, event.organizer_user_id, 'devolucao_contestada', payload, actor_id=user.id,
+                                 informative=True)
         audit.record(db, actor_id=user.id, action='devolucao.contestada', target_type='entry_receipt',
                      target_id=receipt.id, data={'entry_id': entry.id, 'event_id': event.id})
     db.commit()
@@ -867,6 +881,8 @@ def decide_refund(db: Session, admin: User, entry_id: int, decision: str, reason
     receipt.resolution, receipt.resolution_reason, receipt.resolved_by_id, receipt.resolved_at = (
         decision, text, admin.id, now)
     event = db.get(Event, entry.event_id)
+    # Any admin's decision closes the dispute for every admin (both outcomes: kept as returned or reopened).
+    notifications.resolve_actions(db, notifications.refund_dispute_key(receipt.id))
     recipients = entry_recipients(db, [entry], scope='membros')[entry.id]
     notifications.notify_many(db, [event.organizer_user_id, *recipients], 'devolucao_decidida',
                               _payload(event, entry, receipt_id=receipt.id, decision=decision))

@@ -94,6 +94,9 @@ def close_due_results(db: Session, now: datetime) -> int:
             touched.update(ranking_keys_for_match(db, match))
             continue
         people = audience(db, match)
+        # The deadline closes the match: neither an uncontested walkover nor a divergence is waiting for an answer.
+        notifications.resolve_actions_many(db, [notifications.walkover_key(match.id),
+                                                notifications.result_key(match.id)])
         if match.walkover_absent_side is not None:
             apply_final_score(match, walkover_score(match.sport, match.walkover_absent_side), source='wo', now=now)
             match.state = next_match_state(match.state, 'confirmar_wo')

@@ -57,6 +57,8 @@ def expire_entries(db: Session, entries: Sequence[EventEntry], now: datetime) ->
         return 0
     events = _events(db, {entry.event_id for entry in entries})
     recipients = entry_recipients(db, entries)
+    # A refused receipt waited for a new one until the deadline: with the entry expired, nothing is left to answer.
+    notifications.resolve_actions_many(db, [notifications.entry_receipt_key(entry.id) for entry in entries])
     for entry in entries:
         entry.state = next_entry_state(entry.state, 'expirar')
         entry.expired_at = now
@@ -89,6 +91,7 @@ def auto_confirm_refunds(db: Session, now: datetime) -> int:
     events = _events(db, {entry.event_id for _, entry in rows})
     # Organizer and participants (0003, section 17): every active member of the team, not only representatives.
     recipients = entry_recipients(db, [entry for _, entry in rows], scope='membros')
+    notifications.resolve_actions_many(db, [notifications.refund_key(receipt.id) for receipt, _ in rows])
     for receipt, entry in rows:
         receipt.participant_response, receipt.responded_at = 'automatica', now
         entry.state = next_entry_state(entry.state, 'devolucao_automatica')

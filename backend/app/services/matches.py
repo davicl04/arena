@@ -122,6 +122,7 @@ def _cancel_pending_terms(db: Session, match: Match, now: datetime) -> None:
     pending = _pending_terms(db, match)
     if pending is not None:
         pending.state, pending.decided_at = 'cancelada', now
+        notifications.resolve_actions(db, notifications.terms_key(pending.id))
 
 
 def get_match(db: Session, user: User, match_id: int, *, now: datetime) -> MatchDetailOut:
@@ -150,6 +151,7 @@ def propose_terms(db: Session, user: User, match_id: int, data: TermsInput, *, n
     pending = _pending_terms(db, match)
     if pending is not None:
         pending.state, pending.decided_at = 'substituida', now
+        notifications.resolve_actions(db, notifications.terms_key(pending.id))
         db.flush()
     side = access.side
     terms = MatchTerms(match_id=match.id, proposed_by_id=user.id, proposed_by_side=side, starts_at=starts_at,
@@ -164,7 +166,9 @@ def propose_terms(db: Session, user: User, match_id: int, data: TermsInput, *, n
     if opponent is not None:
         notifications.notify_many(db, side_actors(db, opponent), 'condicoes_propostas', {
             'match_id': match.id, 'terms_id': terms.id, 'starts_at': iso(starts_at), 'court_name': court.name},
-            actor_id=user.id)
+            actor_id=user.id, action_key=notifications.terms_key(terms.id),
+            # After the proposed time the terms can no longer be accepted (`accept_terms`), so the action lapses then.
+            action_until=starts_at)
     post_event(db, match.id, 'condicoes_propostas',
                f'{side_name(db, sides, side)} propôs condições na quadra {court.name}. O outro lado precisa aceitar.',
                side=side, author_id=user.id, now=now,
@@ -209,6 +213,7 @@ def accept_terms(db: Session, user: User, match_id: int, terms_id: int, *, now: 
         previous.state, previous.decided_at = 'substituida', now
         db.flush()
     terms.state, terms.decided_at = 'aceita', now
+    notifications.resolve_actions(db, notifications.terms_key(terms.id))
 
     booking_changed = (match.starts_at != terms.starts_at or match.court_id != terms.court_id
                        or match.booking_side != terms.booking_side)
@@ -336,7 +341,7 @@ def register_walkover(db: Session, user: User, match_id: int, *, now: datetime) 
     if absent in sides:
         notifications.notify_many(db, side_actors(db, sides[absent]), 'wo_registrado', {
             'match_id': match.id, 'opponent_name': names[side], 'contest_until': iso(match.result_deadline)},
-            actor_id=user.id)
+            actor_id=user.id, action_key=notifications.walkover_key(match.id), action_until=match.result_deadline)
     post_event(db, match.id, 'wo_registrado',
                f'{names[side]} registrou W.O. contra {names[absent]}. {names[absent]} pode contestar até o fim do '
                'prazo de 48 h.', side=side, author_id=user.id, now=now,
@@ -359,6 +364,7 @@ def withdraw_walkover(db: Session, user: User, match_id: int, *, now: datetime) 
     absent = match.walkover_absent_side
     match.walkover_absent_side = match.walkover_registered_by_id = match.walkover_registered_at = None
     match.updated_at = now
+    notifications.resolve_actions(db, notifications.walkover_key(match.id))
     post_event(db, match.id, 'wo_retirado', f'{side_name(db, sides, access.side)} retirou o W.O.',
                side=access.side, author_id=user.id, payload={'absent_side': absent}, now=now)
     audit.record(db, actor_id=user.id, action='partida.wo_retirado', target_type='match', target_id=match.id,
@@ -381,10 +387,17 @@ def contest_walkover(db: Session, user: User, match_id: int, reason: str, *, now
     reason = clean_reason(reason, low=5, high=500, message='Conte o que aconteceu.')
     match.walkover_contested_by_id, match.walkover_contested_at, match.walkover_contest_reason = user.id, now, reason
     match.updated_at = now
+    notifications.resolve_actions(db, notifications.walkover_key(match.id))
     registering = other_side(access.side)
-    recipients = [*(side_actors(db, sides[registering]) if registering in sides else []), *_admin_ids(db)]
-    notifications.notify_many(db, recipients, 'wo_contestado', {'match_id': match.id, 'reason': reason},
-                              actor_id=user.id)
+    admins = _admin_ids(db)
+    payload = {'match_id': match.id, 'reason': reason}
+    # Only the administration decides: it gets the pending action; the side that registered is just told (an admin
+    # who also represents that side receives the single, pending, notification).
+    notifications.notify_many(db, admins, 'wo_contestado', payload, actor_id=user.id,
+                              action_key=notifications.walkover_dispute_key(match.id))
+    informed = [user_id for user_id in (side_actors(db, sides[registering]) if registering in sides else [])
+                if user_id not in admins]
+    notifications.notify_many(db, informed, 'wo_contestado', payload, actor_id=user.id, informative=True)
     post_event(db, match.id, 'wo_contestado',
                f'{side_name(db, sides, access.side)} contestou o W.O. A administração vai decidir.',
                side=access.side, author_id=user.id, payload={'absent_side': access.side}, now=now)
@@ -466,6 +479,9 @@ def decide_walkover(db: Session, admin: User, match_id: int, data: WalkoverDecis
         summary = 'A administração anulou o W.O. A partida ficou sem resultado.'
     match.state = new_state
     match.closed_at = match.updated_at = now
+    # Any administrator's decision closes the dispute for all of them (and the absent side's contest window).
+    notifications.resolve_actions_many(db, [notifications.walkover_dispute_key(match.id),
+                                            notifications.walkover_key(match.id)])
     notifications.notify_many(db, members, 'wo_decidido', {
         'match_id': match.id, 'decision': match.walkover_decision, 'reason': reason})
     guest_payload = ({'match_id': match.id, 'outcome': 'wo', 'score_a': match.score_a, 'score_b': match.score_b,

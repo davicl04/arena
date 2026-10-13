@@ -70,11 +70,11 @@ def test_stage_three_types_navigate_by_match_or_court():
 
 def test_notify_adds_without_commit_and_skips_own_action():
     db = Db()
-    created = notify(db, 5, 'convite_time', {**TEAM, 'invite_id': 9}, actor_id=2)
+    created = notify(db, 5, 'convite_time', {**TEAM, 'invite_id': 9}, actor_id=2, action_key='invite:9')
     assert isinstance(created, Notification) and db.added == [created]
     assert (created.user_id, created.actor_id, created.type, created.read_at) == (5, 2, 'convite_time', None)
     assert created.payload == {**TEAM, 'invite_id': 9}
-    assert notify(db, 2, 'convite_time', {**TEAM, 'invite_id': 9}, actor_id=2) is None
+    assert notify(db, 2, 'convite_time', {**TEAM, 'invite_id': 9}, actor_id=2, action_key='invite:9') is None
     assert len(db.added) == 1
 
 
@@ -89,7 +89,8 @@ def test_notify_rejects_unknown_types_and_missing_payload_fields(type_, payload)
 
 def test_notify_many_sends_once_per_person_and_never_to_the_actor():
     db = Db()
-    created = notify_many(db, [4, 5, 4, 2], 'pedido_entrada', {**TEAM, 'request_id': 1}, actor_id=2)
+    created = notify_many(db, [4, 5, 4, 2], 'pedido_entrada', {**TEAM, 'request_id': 1}, actor_id=2,
+                          action_key='join_request:1')
     assert [item.user_id for item in created] == [4, 5]
     assert notify_many(db, [], 'time_encerrado', TEAM) == []
 
@@ -176,10 +177,7 @@ def test_notify_stores_action_key_and_deadline():
     assert (plain.action_key, plain.action_until) == (None, None)
 
 
-def test_action_key_is_optional_during_the_transition_and_required_afterwards(monkeypatch):
-    assert notifications.REQUIRE_ACTION_KEYS is False
-    assert notify(Db(), 5, 'convite_time', PAYLOADS['convite_time']) is not None
-    monkeypatch.setattr(notifications, 'REQUIRE_ACTION_KEYS', True)
+def test_action_types_require_a_key_unless_sent_as_informative():
     for type_ in notifications.ACTION_TYPES - {'comprovante_decidido'}:
         payload = {key: 1 for key in NOTIFICATION_TYPES[type_]}
         with pytest.raises(ValueError):
@@ -191,8 +189,7 @@ def test_action_key_is_optional_during_the_transition_and_required_afterwards(mo
     assert notify(Db(), 5, 'time_encerrado', TEAM) is not None
 
 
-def test_receipt_decision_only_needs_a_key_when_refused(monkeypatch):
-    monkeypatch.setattr(notifications, 'REQUIRE_ACTION_KEYS', True)
+def test_receipt_decision_only_needs_a_key_when_refused():
     assert notify(Db(), 5, 'comprovante_decidido', receipt_payload('aprovado')) is not None
     with pytest.raises(ValueError):
         notify(Db(), 5, 'comprovante_decidido', receipt_payload('recusado'))
