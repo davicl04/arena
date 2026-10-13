@@ -1,11 +1,12 @@
 """Versioned tier cuts and the materialized, Arena-wide standings (Jogar, fase 1)."""
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 
 from sqlalchemy import (
     CheckConstraint,
+    Date,
     DateTime,
     ForeignKey,
     Index,
@@ -88,6 +89,11 @@ class Standing(Base):
         # GET /rankings: one ranking (category) in position order, classified subjects only.
         Index('ix_standings_ranking', 'sport', 'format', 'position', 'distance_km', 'rank_position',
               postgresql_where=text('rank_position IS NOT NULL')),
+        # GET /rankings?tier= and the window of /rankings/overview: one tier of a category in position order.
+        Index('ix_standings_ranking_tier', 'sport', 'format', 'position', 'distance_km', 'tier', 'rank_position',
+              postgresql_where=text('rank_position IS NOT NULL')),
+        CheckConstraint("recent_form ~ '^[VED]{0,5}$'", name='ck_standings_recent_form'),
+        CheckConstraint("sport = 'corrida' OR best_mark_on IS NULL", name='ck_standings_best_mark'),
     )
     id: Mapped[int] = mapped_column(primary_key=True)
     team_id: Mapped[int | None] = mapped_column(ForeignKey('teams.id', ondelete='CASCADE'), nullable=True, index=True)
@@ -107,6 +113,10 @@ class Standing(Base):
     losses: Mapped[int] = mapped_column(Integer, default=0, server_default=text('0'))
     goals_for: Mapped[int] = mapped_column(Integer, default=0, server_default=text('0'))
     goals_against: Mapped[int] = mapped_column(Integer, default=0, server_default=text('0'))
+    # Last results inside the window (up to 5), oldest first: V (win), E (draw) or D (loss); empty in running.
+    recent_form: Mapped[str] = mapped_column(String(5), default='', server_default='')
+    # Running only: the first day of the best time of the window (`RunRecord.achieved_on`).
+    best_mark_on: Mapped[date | None] = mapped_column(Date, nullable=True)
     rank_position: Mapped[int | None] = mapped_column(Integer, nullable=True)
     # Null while in placement: no tier is ever assigned before classification.
     tier: Mapped[str | None] = mapped_column(String(10), nullable=True)
