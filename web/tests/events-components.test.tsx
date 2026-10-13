@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { FileSearch } from 'lucide-react'
 import { EventPoster, NewEventPoster } from '../src/components/events/EventPoster'
 import { PaymentInfoSheet } from '../src/components/events/PaymentInfoSheet'
@@ -178,6 +178,23 @@ describe('StatusCard', () => {
 })
 
 describe('PixBlock', () => {
+  it.each(['sucesso', 'falha'] as const)('aguarda a área de transferência antes de anunciar %s', async outcome => {
+    let resolveCopy!: () => void
+    let rejectCopy!: (reason: Error) => void
+    const pending = new Promise<void>((resolve, reject) => { resolveCopy = resolve; rejectCopy = reject })
+    stubClipboard(() => pending)
+    render(<PixBlock pix={pix} />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Copiar chave Pix' }))
+    // A região viva já existe enquanto writeText está pendente; encontrar o role não aguarda o texto.
+    expect((await screen.findByRole('status')).textContent).toBe('')
+    expect(screen.getByRole('button', { name: 'Copiar chave Pix' }).querySelector('.lucide-check')).toBeNull()
+
+    await act(async () => { if (outcome === 'sucesso') resolveCopy(); else rejectCopy(new Error('negado')) })
+    await waitFor(() => expect(screen.getByRole('status').textContent).toBe(outcome === 'sucesso'
+      ? 'Chave Pix copiada.' : 'Não foi possível copiar. Selecione a chave e copie manualmente.'))
+  })
+
   it('copia a chave e o Copia e Cola e anuncia o retorno', async () => {
     const writeText = stubClipboard(async () => {})
     const onInfo = vi.fn()
@@ -187,7 +204,7 @@ describe('PixBlock', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Copiar chave Pix' }))
     expect(writeText).toHaveBeenCalledWith(pix.key)
-    expect((await screen.findByRole('status')).textContent).toBe('Chave Pix copiada.')
+    await waitFor(() => expect(screen.getByRole('status').textContent).toBe('Chave Pix copiada.'))
     expect(screen.getByRole('button', { name: 'Copiar chave Pix' }).querySelector('.lucide-check')).toBeTruthy()
 
     fireEvent.click(screen.getByRole('button', { name: /Copiar Pix Copia e Cola · R\$/ }))
@@ -202,7 +219,7 @@ describe('PixBlock', () => {
     stubClipboard(async () => { throw new Error('negado') })
     render(<PixBlock pix={pix} />)
     fireEvent.click(screen.getByRole('button', { name: 'Copiar chave Pix' }))
-    expect((await screen.findByRole('status')).textContent).toBe('Não foi possível copiar. Selecione a chave e copie manualmente.')
+    await waitFor(() => expect(screen.getByRole('status').textContent).toBe('Não foi possível copiar. Selecione a chave e copie manualmente.'))
     expect(window.getSelection()?.getRangeAt(0).toString()).toBe(pix.key)
     expect(screen.queryByRole('textbox')).toBeNull()
 
@@ -222,7 +239,7 @@ describe('PixBlock', () => {
     expect(screen.queryByRole('button', { name: /Copia e Cola/ })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Informações de pagamento' })).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: 'Copiar chave Pix' }))
-    expect((await screen.findByRole('status')).textContent).toContain('Não foi possível copiar')
+    await waitFor(() => expect(screen.getByRole('status').textContent).toContain('Não foi possível copiar'))
   })
 })
 
@@ -249,7 +266,7 @@ describe('PaymentInfoSheet', () => {
 
     fireEvent.click(within(sheet).getByRole('button', { name: 'Copiar Pix Copia e Cola' }))
     expect(writeText).toHaveBeenCalledWith(pix.copyPaste)
-    expect((await within(sheet).findByRole('status')).textContent).toContain('Pix Copia e Cola copiado')
+    await waitFor(() => expect(within(sheet).getByRole('status').textContent).toContain('Pix Copia e Cola copiado'))
     fireEvent.click(within(sheet).getByRole('button', { name: 'Copiar contato' }))
     expect(writeText).toHaveBeenLastCalledWith(pix.contact)
 
@@ -269,7 +286,7 @@ describe('PaymentInfoSheet', () => {
     expect(within(sheet).queryByRole('region', { name: 'Instruções do organizador' })).toBeNull()
 
     fireEvent.click(within(sheet).getByRole('button', { name: 'Copiar chave Pix' }))
-    expect((await within(sheet).findByRole('status')).textContent).toContain('Selecione a chave')
+    await waitFor(() => expect(within(sheet).getByRole('status').textContent).toContain('Selecione a chave'))
     expect(window.getSelection()?.getRangeAt(0).toString()).toBe('7f3c-91aa')
   })
 

@@ -1,5 +1,15 @@
 # Situação da fundação do Arena
 
+## Espera pelo retorno da cópia de Pix nos testes web — 13 de outubro de 2026
+
+O CI do commit `1c7ce14` passou no backend e no Expo nas duas execuções (push e pull request), confirmando a recuperação da compilação do MinIO. A web passou na execução do PR, mas falhou na do push: o teste de Pix encontrou a região `role="status"` ainda vazia, antes da conclusão assíncrona de `navigator.clipboard.writeText`. A presença dessa região não comprova que a mensagem já foi atualizada.
+
+Corrigidas cinco esperas em `events-components.test.tsx` (PixBlock e PaymentInfoSheet) para aguardar o conteúdo esperado com `waitFor`. Acrescentados dois casos com promessa controlada, de sucesso e falha: a mensagem permanece vazia durante a cópia e muda após o retorno. Sem alteração no código do produto, nos timeouts, nas dependências ou no banco.
+
+Verificações locais: os 17 testes do arquivo, lint, build e `npm run test:coverage -- --maxWorkers=4` aprovados: **945 testes em 75 arquivos**, cobertura de **92,5% das instruções e 86,09% dos ramos**. `git diff --check` aprovado. Permanece o aviso existente de bundle acima de 500 kB. Logs em `artifacts/pix-ci-*.log`, fora do versionamento. Backend e Expo não foram retestados localmente nesta alteração exclusiva dos testes web; fluxo no navegador não foi repetido, pois o comportamento do produto não mudou. O CI remoto da nova correção será disparado pelo push solicitado; esses resultados locais não comprovam sua aprovação.
+
+A tela com estatísticas em traços e o texto “Sua história em campo” corresponde ao placeholder de `feat/notifications-ranking`, baseada na `main` anterior ao [PR #3](https://github.com/davicl04/arena/pull/3). Nessa versão, o perfil não solicita a linha do tempo nem as estatísticas. Essas integrações estão em `feat/play-page`; um pull da `main` só as trará depois do merge do PR. Nenhuma falha da API foi constatada pela imagem. A correção dos testes foi preparada em checkout separado de `feat/play-page`, preservando a branch e os servidores locais do usuário.
+
 ## Compilação do MinIO após falha de rede no CI — 13 de outubro de 2026
 
 O log da etapa `Start isolated MinIO` mostrou uma falha HTTP/2 (`INTERNAL_ERROR`) ao consultar `sum.golang.org` para verificar módulos do Go, antes de iniciar o servidor ou executar os testes. O Dockerfile agora repete `go install` até três vezes, com pausa de cinco segundos entre tentativas e reaproveitamento dos downloads da mesma etapa. A versão fixada do MinIO e a verificação de integridade dos módulos foram mantidas; três falhas ainda encerram o build com erro. README atualizado.
