@@ -1,5 +1,5 @@
 import { request } from './client'
-import type { City, Page, Position } from './client'
+import type { City, Page, Position, RequestOptions } from './client'
 import type { TeamRef } from './events'
 import type { FootballFormat, TierKey } from '../data/arena'
 import type { MatchCard, MatchRole, MatchSideOut, MatchSport, OpenSlots, Side } from './matches'
@@ -98,7 +98,8 @@ export const cancelSearch = (id: number) => request<void>(`/matchmaking/searches
 export const getMyProposals = () => request<{ items: Proposal[] }>('/me/proposals')
 export const acceptProposal = (matchId: number) => request<Proposal>(`/matches/${matchId}/accept`, 'PUT', {})
 export const declineProposal = (matchId: number) => request<Proposal>(`/matches/${matchId}/decline`, 'PUT', {})
-export const getPlayBoard = () => request<PlayBoard>('/me/play')
+/** `options.background`: releitura periódica da placa, que nunca abre a folha de conexão. */
+export const getPlayBoard = (options?: RequestOptions) => request<PlayBoard>('/me/play', 'GET', undefined, options)
 export const getMySlotOffers = () => request<{ items: SlotOffer[] }>('/me/slot-offers')
 export const acceptSlotOffer = (slotId: number) => request<AcceptedSlot>(`/match-slots/${slotId}/accept`, 'PUT', {})
 export const declineSlotOffer = (slotId: number) => request<void>(`/match-slots/${slotId}/decline`, 'PUT', {})

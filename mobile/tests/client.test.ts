@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as SecureStore from 'expo-secure-store'
-import { ApiError, apiUrl, clearToken, fileForm, getToken, request, REQUEST_TIMEOUT_MS, saveToken, UPLOAD_TIMEOUT_MS } from '../src/api/client'
+import { ApiError, apiUrl, clearToken, fileForm, getToken, isConnectionStatus, request, REQUEST_TIMEOUT_MS, saveToken, UPLOAD_TIMEOUT_MS } from '../src/api/client'
+import { connection } from '../src/api/connection'
 import { isApiPath } from '../src/api/path'
 
 vi.mock('expo-secure-store', () => ({
@@ -89,6 +90,8 @@ describe('sessão e transporte mobile', () => {
     vi.useFakeTimers()
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('network')))
     await expect(request('/me')).rejects.toBeInstanceOf(ApiError)
+    // A falha de rede liga o aviso de conexão, que agenda a nova tentativa: ela não é o timer da chamada.
+    connection.reset()
     expect(vi.getTimerCount()).toBe(0)
   })
 
@@ -137,6 +140,7 @@ describe('sessão e transporte mobile', () => {
     await vi.advanceTimersByTimeAsync(REQUEST_TIMEOUT_MS)
     await result
     expect(REQUEST_TIMEOUT_MS).toBe(15000)
+    connection.reset()
     expect(vi.getTimerCount()).toBe(0)
   })
 
@@ -170,6 +174,7 @@ describe('sessão e transporte mobile', () => {
     await vi.advanceTimersByTimeAsync(UPLOAD_TIMEOUT_MS)
     await result
     expect(UPLOAD_TIMEOUT_MS).toBe(120_000)
+    connection.reset()
     expect(vi.getTimerCount()).toBe(0)
   })
 
@@ -186,5 +191,93 @@ describe('sessão e transporte mobile', () => {
     for (const path of ['@evil.example/x', '.evil.example/x', '//evil.example/x', 'https://evil.example/x', 'api/v1/x', '']) {
       expect(() => apiUrl(path), path).toThrow('Caminho fora da API.')
     }
+  })
+})
+
+describe('falha de conexão: classificação no cliente (plano de toasts, C2)', () => {
+  const json = (status: number, body: unknown = { detail: 'Falha.' }) => new Response(JSON.stringify(body), { status })
+
+  it('status 0 (rede ou timeout), 502, 503 e 504 são conexão; os demais status, não', () => {
+    expect([0, 502, 503, 504].map(isConnectionStatus)).toEqual([true, true, true, true])
+    expect([200, 400, 401, 403, 404, 409, 413, 422, 500, 501].map(isConnectionStatus)).toEqual(Array(10).fill(false))
+    expect(new ApiError('x', 0).isConnection).toBe(true)
+    expect(new ApiError('x', 503).isConnection).toBe(true)
+    expect(new ApiError('x', 422, [{ field: 'name', message: 'curto' }]).isConnection).toBe(false)
+  })
+
+  it.each([502, 503, 504])('a resposta %i marca o erro como de conexão e liga o aviso (leitura: só a faixa)', async status => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(json(status, { detail: 'Serviço indisponível.' })))
+    await expect(request('/me')).rejects.toMatchObject({ status, message: 'Serviço indisponível.', isConnection: true })
+    expect(connection.getState()).toMatchObject({ status: 'offline', sheetOpen: false })
+  })
+
+  it('502 de proxy, com corpo que não é JSON, também é conexão', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('<html>Bad gateway</html>', { status: 502 })))
+    await expect(request('/me')).rejects.toMatchObject({ status: 502, isConnection: true })
+    expect(connection.getState().status).toBe('offline')
+  })
+
+  it('falha de rede em uma leitura liga só a faixa; em uma ação (método diferente de GET) abre a folha', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('network')))
+    const read = await request('/me').catch(cause => cause)
+    expect(read).toMatchObject({ status: 0, isConnection: true })
+    expect(connection.getState()).toMatchObject({ status: 'offline', sheetOpen: false })
+    await expect(request('/me/profile', 'put', { city_id: 1 })).rejects.toMatchObject({ status: 0 })
+    expect(connection.getState().sheetOpen).toBe(true)
+  })
+
+  it('depois de "Continuar sem conexão", uma nova ação não é enviada e a faixa treme; leitura e entrada seguem tentando', async () => {
+    const fetchMock = vi.fn().mockRejectedValue(new TypeError('network'))
+    vi.stubGlobal('fetch', fetchMock)
+    await request('/me', 'PUT', { name: 'Atleta' }).catch(() => undefined)
+    connection.dismissSheet()
+    fetchMock.mockClear()
+    await expect(request('/me', 'PUT', { name: 'Atleta' })).rejects.toMatchObject({ status: 0, isConnection: true })
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(connection.getState()).toMatchObject({ status: 'offline', sheetOpen: false, nudge: 1 })
+    await request('/me').catch(() => undefined)
+    await request('/auth/login', 'POST', {}).catch(() => undefined)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
+  it.each(['POST', 'PUT', 'PATCH', 'DELETE'])('%s que falha por conexão é ação tentada', async method => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(json(503)))
+    await expect(request('/x', method, {})).rejects.toMatchObject({ status: 503 })
+    expect(connection.getState().sheetOpen).toBe(true)
+  })
+
+  it('a leitura em segundo plano (sondagem do chat e da placa) nunca abre a folha', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('network')))
+    await expect(request('/me/play', 'GET', undefined, { background: true })).rejects.toMatchObject({ status: 0 })
+    await expect(request('/matches/1/messages', 'POST', { body: 'oi' }, { background: true })).rejects.toMatchObject({ status: 0 })
+    expect(connection.getState()).toMatchObject({ status: 'offline', sheetOpen: false, nudge: 0 })
+  })
+
+  it.each([400, 401, 403, 404, 409, 413, 422, 500])('o erro %i prova que há conexão: restabelece e não liga o aviso', async status => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(json(status)))
+    await expect(request('/me', 'POST', {})).rejects.toMatchObject({ status, isConnection: false })
+    expect(connection.getState().status).toBe('online')
+    connection.lost({ mutating: false })
+    await expect(request('/me')).rejects.toMatchObject({ status })
+    expect(connection.getState().status).toBe('restored')
+  })
+
+  it('qualquer resposta de sucesso restabelece o aviso', async () => {
+    connection.lost({ mutating: false })
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(json(200, { id: 1 })))
+    await expect(request('/me')).resolves.toEqual({ id: 1 })
+    expect(connection.getState().status).toBe('restored')
+  })
+
+  it('o /health/ready do aviso fica na base da API, fora de /api/v1, sem Bearer nem corpo', async () => {
+    vi.useFakeTimers()
+    vi.mocked(SecureStore.getItemAsync).mockResolvedValue('test-only-token')
+    const fetchMock = vi.fn().mockRejectedValue(new TypeError('network'))
+    vi.stubGlobal('fetch', fetchMock)
+    await expect(request('/me')).rejects.toMatchObject({ status: 0 })
+    connection.retryNow()
+    expect(fetchMock).toHaveBeenLastCalledWith('http://10.0.2.2:8000/health/ready', expect.objectContaining({ cache: 'no-store' }))
+    expect(fetchMock.mock.lastCall![1].headers).toBeUndefined()
+    await vi.advanceTimersByTimeAsync(0)
   })
 })

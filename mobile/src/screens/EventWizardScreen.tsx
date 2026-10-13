@@ -15,6 +15,7 @@ import { CapacityStep, NameStep, PriceStep, SportStep, WhenStep } from '../compo
 import type { CategoryChange } from '../components/organizer/WizardSteps'
 import Sheet from '../components/Sheet'
 import { Screen } from '../components/Screen'
+import { ToastViewport } from '../components/toast/ToastViewport'
 import { useCities } from '../hooks/useCities'
 import type { ScreenProps } from '../navigation/screens'
 import { makeEntry } from '../navigation/routes'
@@ -258,6 +259,7 @@ export default function EventWizardScreen({ params, navigation, onExpired }: Scr
           </View>
         </Sheet> : null}
       </Screen>
+      <ToastViewport />
     </Modal>
   </View>
 }

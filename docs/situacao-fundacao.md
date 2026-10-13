@@ -17,6 +17,18 @@ Verificações da etapa 1: `npm run lint` e `npm run build` aprovados (permanece
 
 Pendências desta etapa: `getUnreadCount` (contador do sino) ainda não usa `background`, para não colidir com a reescrita paralela das notificações. `NotificationsPage.tsx` (web) e `NotificationsScreen.tsx` (Expo) não serão migradas nesta entrega: a migração fica para a conciliação depois do merge com o plano de notificações.
 
+### Expo, C1 e C2 — primitivos e conexão
+
+- **Toast** (`components/toast/`): `toastStore` com a mesma API da web (`toast.success | info | warning | error`, `dismiss`, limite 4, mesmas durações), temporizadores na loja com pausa quando o app vai para segundo plano (`AppState`) e enquanto o cartão é tocado ou arrastado. `ToastCard` em vidro sólido (`rgba(8, 20, 14, 0.94)`, sem desfoque), linha do tom em gradiente SVG, Coliseu (`ArenaMark`), anel em `react-native-svg`, entrada, saída e pilha com `react-native-reanimated`, reduce motion respeitado, arrastar para baixo dispensa (`PanResponder`), X "Fechar aviso", `announce` no iOS e `accessibilityLiveRegion` no Android (erro `assertive`). `ToastViewport` (`nav`, `screen` e `modal`) montado no `ArenaShell`, na entrada e dentro de cada `Modal` (`Sheet`, `ActionSheet`, `PostComposer`, `PostViewer`, `RunEntrySheet`, `QrScanner`, `VisitedProfile`, `EventWizardScreen`); só o viewport montado por último exibe os toasts. Tokens novos em `theme.ts` e `global.css`; ícone `bang` para o aviso.
+- **Conexão:** `api/connection.ts` com as regras da web (0, 502, 503 e 504; timeout de 15 s e de 120 s no upload); reconexão por `/health/ready` sem Bearer; `ConnectionNotice` no `ArenaShell` com a faixa acima da barra inferior e a folha sobre o `ActionSheet` escuro (o `Sheet` não tem tom escuro); ao voltar do segundo plano com o aviso ligado, tenta de novo. `request` ganhou a opção `background`, usada na sondagem do chat e na placa do Jogar. Não há NetInfo.
+- **Erros:** `useSubmit` e `reportActionError` com as mesmas regras da web; `onFailure` acrescentado ao `run`. `LoadError` nativo (`components/arena/LoadError.tsx`), ainda sem uso nas telas. `useResource` e `usePagedList` recarregam uma vez quando a conexão volta.
+- **Migração mínima:** `MatchResultCard` e `EventScreen` usam `toast.*` ("Vaga reservada." virou aviso com a descrição do comprovante); removidos `results/useToast.ts`, `results/ResultToast.tsx` e o toast próprio do `EventScreen`.
+- **Nos dois clientes:** depois de "Continuar sem conexão", uma nova ação não chega a ser enviada: o cliente recusa na hora e a faixa treme. A entrada (`/auth/`) sempre tenta. A conferência no navegador mostrou que, antes disso, a ação ainda era tentada.
+
+Divergências: o Expo não carrega Sora nem Inter (usa a fonte do sistema com o peso); a pilha de viewports segue a ordem de montagem. Até a migração C3, os blocos `ErrorText` e `Notice` de erro de ação ficam vazios e o `RosterSheet` mostra o `LiveNotice` e o toast ao mesmo tempo.
+
+Verificações do Expo: `npm run lint` e `npm run typecheck` aprovados; `npm run test:coverage` com **1.437 testes em 88 arquivos**, 95,14% das instruções e 89,82% dos ramos; `npm run export:android` aprovado (na primeira execução o npm encerrou com falha de segmentação depois de "Exported: dist"; repetida, saiu com código 0). Sem validação em aparelho Android ou iOS: a sobreposição do toast sobre `Modal` precisa ser conferida em aparelho.
+
 ### Parte B — backend (falha do banco)
 
 Sem mudança de contrato nem de código do app. Acrescentado `backend/tests/unit/test_database_unavailable.py` (11 testes, sem PostgreSQL), com o app real e `TestClient(raise_server_exceptions=False)`, para confirmar que nenhuma falha do banco chega ao cliente como o 500 em texto do Starlette:

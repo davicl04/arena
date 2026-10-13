@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Pressable, RefreshControl, ScrollView, Text, View } from 'react-native'
 import { cancelEntry, confirmRefund, contestRefund, createEntry, getEntry, getEvent, pixInfo, sendReceipt } from '../api/entries'
 import type { EventDetail, MyEntry } from '../api/entries'
@@ -18,20 +18,19 @@ import { Term } from '../components/events/Term'
 import { entryCta, isLocked } from '../components/events/entryCta'
 import { placeText } from '../components/events/eventText'
 import { Icon } from '../components/Icon'
+import { toast } from '../components/toast/toastStore'
 import { Button } from '../components/ui'
 import { eventFormatParts } from '../data/arena'
 import { useResource } from '../hooks/useResource'
-import { useSubmit } from '../hooks/useSubmit'
+import { isStale, useSubmit } from '../hooks/useSubmit'
 import type { ScreenProps } from '../navigation/screens'
 import { colors } from '../theme'
-import { announce } from '../utils/announce'
 import { formatDeadline, parseIso } from '../utils/format'
 
 type Section = 'info' | 'tabela' | 'percurso' | 'inscritos'
 type SheetKind = 'enter' | 'info' | 'receipt' | 'confirm-refund' | 'contest' | 'cancel' | 'contact'
 /** Estados do evento em que o cartaz do detalhe mostra o selo (aberto não precisa de selo). */
 const BADGE_STATES = ['em_andamento', 'encerrado', 'cancelado'] as const
-const TOAST_MS = 6000
 /** Intervalo em que a tela confere se a reserva venceu enquanto está aberta. */
 const EXPIRY_CHECK_MS = 30_000
 
@@ -65,9 +64,7 @@ export default function EventScreen({ params, navigation, onExpired }: ScreenPro
   const [sheet, setSheet] = useState<SheetKind | null>(null)
   const [infoReturn, setInfoReturn] = useState<SheetKind | null>(null)
   const [pickedTeam, setPickedTeam] = useState<number | null>(null)
-  const [toast, setToast] = useState('')
   const [refreshing, setRefreshing] = useState(false)
-  const toastTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const action = useSubmit(onExpired)
   const { setError } = action
   const sport = detail?.sport ?? params.sport ?? 'futebol'
@@ -76,7 +73,6 @@ export default function EventScreen({ params, navigation, onExpired }: ScreenPro
   useEffect(() => {
     if (detail?.sport && params.sport !== detail.sport) navigation.setParams('event', { sport: detail.sport })
   }, [detail?.sport, params.sport, navigation])
-  useEffect(() => () => clearTimeout(toastTimer.current), [])
 
   const setEvent = event.setData
   const setEntry = mine.setData
@@ -111,12 +107,6 @@ export default function EventScreen({ params, navigation, onExpired }: ScreenPro
     return () => clearInterval(id)
   }, [waitsReceipt, reservedUntil, refresh])
 
-  function notify(message: string) {
-    clearTimeout(toastTimer.current)
-    setToast(message)
-    announce(message)
-    toastTimer.current = setTimeout(() => setToast(''), TOAST_MS)
-  }
   function open(kind: SheetKind) {
     setError('')
     setSheet(kind)
@@ -161,29 +151,23 @@ export default function EventScreen({ params, navigation, onExpired }: ScreenPro
 
   /**
    * Roda a ação de uma folha. Se o servidor recusar porque a situação mudou (404 ou 409: vaga liberada, inscrição já decidida
-   * ou cancelada), a folha fecha, a mensagem do servidor vira o aviso e a tela relê o evento e a inscrição, em vez de
-   * seguir com dados velhos. Os outros erros ficam na folha, como antes.
+   * ou cancelada), `useSubmit` mostra a mensagem do servidor como aviso; a folha fecha e a tela relê o evento e a inscrição,
+   * em vez de seguir com dados velhos. Os outros erros viram toast de erro e a folha continua aberta.
    */
-  async function guarded<T>(task: () => Promise<T>, fallback: string): Promise<T | undefined> {
-    let stale = ''
-    const result = await action.run(async () => {
-      try { return await task() } catch (cause) {
-        if (cause instanceof ApiError && (cause.status === 404 || cause.status === 409)) stale = cause.message
-        throw cause
-      }
-    }, fallback)
-    if (result === undefined && stale) {
+  function guarded<T>(task: () => Promise<T>, fallback: string): Promise<T | undefined> {
+    return action.run(task, fallback, async cause => {
+      if (!isStale(cause)) return
       closeSheet()
-      notify(stale)
       await refresh()
-    }
-    return result
+    })
   }
   async function enter(teamId: number | null) {
     const created = await guarded(() => createEntry(current.id, teamId), 'Não foi possível concluir a inscrição.')
     if (!created) return
     setSheet(null)
-    notify(created.state === 'confirmada' ? `Inscrição confirmada em ${current.name}.` : `Vaga reservada. Envie o comprovante até ${formatDeadline(created.reserved_until)}.`)
+    // Reserva sem pagamento ainda: exige o próximo passo (comprovante), então vira aviso.
+    if (created.state === 'confirmada') toast.success(`Inscrição confirmada em ${current.name}.`)
+    else toast.warning('Vaga reservada.', { description: `Envie o comprovante até ${formatDeadline(created.reserved_until)}.` })
     await refresh(created)
   }
   async function upload(file: UploadFile) {
@@ -191,7 +175,7 @@ export default function EventScreen({ params, navigation, onExpired }: ScreenPro
     const updated = await guarded(() => sendReceipt(entry.id, file), 'Não foi possível enviar o comprovante.')
     if (!updated) return
     setSheet(null)
-    notify(`Comprovante enviado. ${current.organizer.display_name} vai analisar o pagamento.`)
+    toast.success(`Comprovante enviado. ${current.organizer.display_name} vai analisar o pagamento.`)
     await refresh(updated)
   }
   async function answerRefund(reason?: string) {
@@ -199,7 +183,7 @@ export default function EventScreen({ params, navigation, onExpired }: ScreenPro
     const updated = await guarded(() => (reason === undefined ? confirmRefund(entry.id) : contestRefund(entry.id, reason)), 'Não foi possível responder à devolução.')
     if (!updated) return
     setSheet(null)
-    notify(reason === undefined ? 'Recebimento da devolução confirmado.' : 'Contestação enviada à administração.')
+    toast.success(reason === undefined ? 'Recebimento da devolução confirmado.' : 'Contestação enviada à administração.')
     await refresh(updated)
   }
   async function giveUp() {
@@ -207,7 +191,7 @@ export default function EventScreen({ params, navigation, onExpired }: ScreenPro
     const done = await guarded(async () => { await cancelEntry(entry.id); return true }, 'Não foi possível cancelar a inscrição.')
     if (!done) return
     setSheet(null)
-    notify('Inscrição cancelada. A vaga ficou livre.')
+    toast.success('Inscrição cancelada. A vaga ficou livre.')
     await refresh()
   }
 
@@ -254,9 +238,6 @@ export default function EventScreen({ params, navigation, onExpired }: ScreenPro
         {shown === 'inscritos' ? <EventEntrants eventId={current.id} sport={sport} myEntryId={entry?.id ?? null} onExpired={onExpired} /> : null}
       </View>
     </ScrollView>
-    <View accessibilityLiveRegion="polite" style={{ paddingHorizontal: 20 }}>
-      {toast ? <Text testID="toast" style={{ borderRadius: 16, backgroundColor: colors.forest, color: '#ffffff', fontSize: 11.5, fontWeight: '600', lineHeight: 17, paddingHorizontal: 14, paddingVertical: 10, marginBottom: 8 }}>{toast}</Text> : null}
-    </View>
     {cta ? <View testID="entry-bar" style={{ flexDirection: 'row', alignItems: 'center', gap: 8, borderTopWidth: 1, borderTopColor: colors.line, backgroundColor: '#ffffff', paddingHorizontal: 20, paddingVertical: 10 }}>
       <Pressable accessibilityRole="button" accessibilityLabel={cta.label} accessibilityState={{ disabled: cta.kind === 'blocked' || action.busy }} disabled={cta.kind === 'blocked' || action.busy}
         onPress={() => (cta.kind === 'teams' ? navigation.go('teams') : open(cta.kind === 'enter' ? 'enter' : 'receipt'))}

@@ -11,6 +11,7 @@ import { RunMarks, cardSummary } from '../src/components/run/RunMarks'
 import { RunSavedCard, savedNotice } from '../src/components/run/RunSavedCard'
 import { RunSpark, sparkLabel, sparkPoints } from '../src/components/run/RunSpark'
 import { enableAct, press, textOf } from './support/native'
+import { toastText } from './support/toast'
 import { allText, byId, callsTo, findButton, findByPrefix, serve } from './support/review'
 import { bests, created, emptyCard, impact, lago, markCard, run, sec } from './support/runs'
 
@@ -317,13 +318,13 @@ describe('RunHistorySheet: histórico paginado e remoção', () => {
     expect(onChanged).toHaveBeenCalledExactlyOnceWith(rows[1])
   })
 
-  it('a marca fora das 52 semanas avisa que não conta para o ranking; um erro ao remover fica na confirmação', async () => {
-    const { tree, onChanged } = await open('5', { [path('5')]: { items: rows, next_cursor: null }, 'DELETE /me/runs/1': new ApiError('Serviço indisponível.', 503) })
+  it('a marca fora das 52 semanas avisa que não conta para o ranking; um erro ao remover vira toast e a confirmação continua', async () => {
+    const { tree, onChanged } = await open('5', { [path('5')]: { items: rows, next_cursor: null }, 'DELETE /me/runs/1': new ApiError('Serviço indisponível.', 500) })
     await press(tree, 'Remover a marca de 26:05 em 1 out 2025')
     expect(within(tree.root.findAll(node => node.props.accessibilityLabel === 'Confirmação')[0])).toContain('Não conta para o ranking.')
     await press(tree, 'Remover marca')
     await tick()
-    expect(textOf(tree)).toContain('Serviço indisponível.')
+    expect(toastText()).toContain('Serviço indisponível.')
     expect(onChanged).not.toHaveBeenCalled()
     expect(byId(tree, 'run-history-1')).toHaveLength(1)
   })

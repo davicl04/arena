@@ -53,8 +53,8 @@ export function RosterSheet({ match, lineups, onLineups, onUpdated, onChanged, o
     && (draft[item.user.id].present !== baseline(item).present || (draft[item.user.id].present && draft[item.user.id].position !== baseline(item).position)))
   const missingPosition = changed.some(item => draft[item.user.id].present && !draft[item.user.id].position)
 
-  // Avisos dentro da folha (o toast do cartão fica atrás dela): a região viva da folha e o toast do cartão recebem o mesmo
-  // texto; o anúncio do iOS vem do toast do cartão (`useToast`).
+  // Avisos dentro da folha: a região viva da folha e o toast (que a folha mostra no próprio viewport) recebem o mesmo texto.
+  // Pendência da migração dos `LiveNotice`: depois dela, só o toast fica.
   const say = useCallback((text: string) => { setNotice(text); notify(text) }, [notify])
 
   async function saveAttendance() {

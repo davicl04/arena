@@ -8,6 +8,7 @@ import type { OrganizerEntry } from '../src/api/events'
 import { entryInfo } from '../src/components/organizer/EventEntries'
 import EventManageScreen from '../src/screens/EventManageScreen'
 import { byLabel, enableAct, press, textOf, type } from './support/native'
+import { toastText } from './support/toast'
 import { calls, card, checklistItems, detail, draftDetail, mount, navigationMock, noPending, page, routeRequest } from './support/organizer'
 
 vi.mock('react-native', async () => (await import('./support/native')).reactNativeMock())
@@ -482,8 +483,9 @@ describe('Gestão do evento (G3): canal de avisos', () => {
     expect(textOf(tree)).toContain('Nenhum aviso ainda.')
     await type(tree, 'Novo aviso', 'Olá')
     await press(tree, 'Publicar aviso')
-    expect(textOf(tree)).toContain('Publique o evento antes de enviar avisos.')
-    expect(textOf(tree)).not.toContain('Aviso publicado.')
+    // 409 de uma situação que mudou: aviso do servidor em toast.
+    expect(toastText()).toContain('Publique o evento antes de enviar avisos.')
+    expect(toastText()).not.toContain('Aviso publicado.')
   })
 
   it('falha ao ler os avisos mostra o erro e tenta de novo', async () => {

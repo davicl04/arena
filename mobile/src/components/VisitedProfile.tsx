@@ -13,6 +13,7 @@ import type { ProfileTab } from './ProfileTabs'
 import ProfileTitle from './ProfileTitle'
 import ProfileTopBar, { TopBarButton, useCondensedTopBar } from './ProfileTopBar'
 import { Screen } from './Screen'
+import { ToastViewport } from './toast/ToastViewport'
 import { Button } from './ui'
 
 const COVER_HEIGHT = 120
@@ -64,5 +65,6 @@ export default function VisitedProfile({ profile, user, token, mutualText, error
   if (!modal) return <View className="grow basis-0 bg-app">{content}</View>
   return <Modal visible animationType="slide" onRequestClose={() => { if (actions) setActions(false); else onClose() }}>
     <Screen className={tw.screen}>{content}</Screen>
+    <ToastViewport />
   </Modal>
 }

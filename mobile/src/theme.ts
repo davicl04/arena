@@ -45,6 +45,12 @@ export const colors = {
   warning: '#6f4305',
   amber: '#f6c26b',
   'danger-soft': '#ff8a9a',
+  /** Tons do toast e do aviso de conexão: aviso e informação (sucesso usa `mint`, erro usa `danger-soft`). */
+  'warning-soft': '#f4c56a',
+  'info-soft': '#c9d6cf',
+  /** Superfície sólida do toast e da faixa de conexão (no Expo o vidro não tem desfoque) e a linha que a contorna. */
+  toast: 'rgba(8,20,14,0.94)',
+  'toast-line': '#ffffff17',
 } as const
 
 /** Raios em pontos (dp). Classes: rounded-control, rounded-lg, rounded-card, rounded-sheet. */

@@ -7,6 +7,7 @@ import { ApiError, request } from '../src/api/client'
 import type { Entry } from '../src/navigation/routes'
 import JoinScreen from '../src/screens/JoinScreen'
 import { byLabel, enableAct, press, textOf } from './support/native'
+import { toastText } from './support/toast'
 import { answer, fakeNavigation, joinRequest, me, preview, team, TOKEN } from './support/teams'
 import type { FakeNavigation, Handler } from './support/teams'
 import { playContext } from './support/play'
@@ -134,7 +135,7 @@ describe('Entrar no time pelo link ou QR', () => {
     const tree = await mount()
     await press(tree, 'Pedir para entrar')
     expect(reads).toBe(2)
-    expect(textOf(tree)).toContain('Você já tem um convite deste time. Responda em Meus times.')
+    expect(toastText()).toContain('Você já tem um convite deste time. Responda em Meus times.')
     expect(byLabel(tree, 'Ver o convite em Meus times')).toHaveLength(1)
   })
 

@@ -5,4 +5,4 @@ import { svgMock } from './native'
 
 const mock = svgMock()
 export default mock.default
-export const { Svg, SvgXml, Circle, Path, Rect, Text } = mock
+export const { Svg, SvgXml, Circle, Path, Rect, Text, Defs, LinearGradient, Stop } = mock

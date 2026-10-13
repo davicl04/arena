@@ -12,6 +12,7 @@ import EventMatchesScreen, { counters } from '../src/screens/EventMatchesScreen'
 import { dayLabel } from '../src/utils/calendar'
 import { combineDateTime } from '../src/utils/dateKey'
 import { enableAct } from './support/native'
+import { toastText } from './support/toast'
 import { matchList, row, score } from './support/brackets'
 import { detail as organizerDetail } from './support/organizer'
 import { court, fromNow } from './support/play'
@@ -249,9 +250,9 @@ describe('agendar', () => {
     await pressPrefix(tree, 'Arena Sudoeste')
     await pressButton(tree, 'Agendar')
     expect(callsTo('GET', MATCHES)).toHaveLength(2)
-    // A folha fecha (o jogo não é mais agendável), a mensagem do servidor fica na tela e a linha mostra o jogo encerrado.
+    // A folha fecha (o jogo não é mais agendável), a mensagem do servidor sai como toast de aviso e a linha mostra o jogo encerrado.
     expect(allText(tree)).not.toContain('Agendar J1')
-    expect(allText(tree)).toContain(message)
+    expect(toastText()).toContain(message)
     expect(byId(tree, 'schedule-conflict')).toHaveLength(0)
     expect(String(byId(tree, 'match-1')[0].props.accessibilityLabel)).toContain('Encerrada')
   })

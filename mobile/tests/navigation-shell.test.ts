@@ -262,7 +262,7 @@ describe('Início: sino e atalhos', () => {
     // O contador do sino e a placa do Jogar (lida pelo shell) respondem 401 juntos; o App trata a expiração de forma idempotente.
     expect(onExpired).toHaveBeenCalled()
     expect(vi.mocked(request)).toHaveBeenCalledWith('/me/notifications/unread-count')
-    expect(vi.mocked(request)).toHaveBeenCalledWith('/me/play')
+    expect(vi.mocked(request)).toHaveBeenCalledWith('/me/play', 'GET', undefined, { background: true })
   })
 
   it('administração só aparece para quem é administrador e cada fila abre a própria tela', async () => {
@@ -434,7 +434,7 @@ describe('Jogar e campeonatos: rotas declaradas (em breve até as frentes)', () 
     screens.match = ((props: { playBoard: unknown; refreshPlayBoard: unknown }) => { probe(props); return h('MatchProbe', {}) }) as unknown as ScreenComponent<'match'>
     board = playBoard({ searches: [search()], matches: [matchCard()] })
     const tree = await mount()
-    expect(vi.mocked(request)).toHaveBeenCalledWith('/me/play')
+    expect(vi.mocked(request)).toHaveBeenCalledWith('/me/play', 'GET', undefined, { background: true })
     await press(tree, 'Meus times')
     await act(async () => { shellNavigation(tree).go('match', { matchId: 50 }) })
     const props = probe.mock.calls.at(-1)![0]
@@ -448,7 +448,7 @@ describe('Jogar e campeonatos: rotas declaradas (em breve até as frentes)', () 
     let reloaded: unknown
     await act(async () => { reloaded = await props.refreshPlayBoard() })
     expect(reloaded).toEqual(next)
-    expect(vi.mocked(request)).toHaveBeenCalledWith('/me/play')
+    expect(vi.mocked(request)).toHaveBeenCalledWith('/me/play', 'GET', undefined, { background: true })
     expect(probe.mock.calls.at(-1)![0].playBoard.board).toEqual(next)
   })
 })

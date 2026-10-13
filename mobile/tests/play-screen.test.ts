@@ -10,6 +10,7 @@ import { brandSvgs } from '../src/assets/brand-svgs'
 import type { PlayBoardState } from '../src/hooks/usePlayBoard'
 import PlayScreen from '../src/screens/PlayScreen'
 import { byLabel, enableAct, press, textOf } from './support/native'
+import { toastText } from './support/toast'
 import {
   athleteSide, brasilia, football, ferrugemRef, fromNow, leoesRef, matchCard, person, playBoard, proposal, search, slotOffer, standings,
   teamSide, tennis,
@@ -400,7 +401,7 @@ describe('Jogar: preparar e iniciar a busca', () => {
     const tree = await mount()
     await press(tree, 'Tênis')
     await press(tree, 'Encontrar partida')
-    expect(has(tree, 'Complete seu perfil de tênis com a cidade para buscar partidas.')).toBe(true)
+    expect(toastText()).toContain('Complete seu perfil de tênis com a cidade para buscar partidas.')
     expect(host(tree, 'play-button')[0].props.disabled).toBe(false)
   })
 
@@ -483,12 +484,12 @@ describe('Jogar: buscando e cancelar', () => {
     await press(tree, 'Cancelar busca')
     server.board = playBoard({ searches: [active()] })
     await press(tree, 'Cancelar busca')
-    expect(has(tree, 'A busca já encontrou uma partida. Responda à proposta.')).toBe(true)
+    expect(toastText()).toContain('A busca já encontrou uma partida. Responda à proposta.')
     expect(has(tree, 'Cancelar a busca?')).toBe(true)
     server.board = playBoard({ searches: [active({ state: 'pareada', match_id: 50 })], proposals: [proposal({ can_respond: false })] })
     await press(tree, 'Cancelar busca')
     expect(has(tree, 'Cancelar a busca?')).toBe(false)
-    expect(has(tree, 'A busca já encontrou uma partida. Responda à proposta.')).toBe(true)
+    expect(toastText()).toContain('A busca já encontrou uma partida. Responda à proposta.')
     expect(host(tree, 'play-button')[0].props.accessibilityLabel).toBe('Ver a proposta, que aguarda o adversário')
   })
 

@@ -5,6 +5,7 @@ import { ApiError, request } from '../api/client'
 import type { Post } from '../api/client'
 import { CAPTION_MAX } from '../api/social'
 import { Screen } from './Screen'
+import { ToastViewport } from './toast/ToastViewport'
 import { cx } from '../styles'
 import { colors } from '../theme'
 
@@ -94,5 +95,6 @@ export default function PostComposer({ initial, onClose, onPublished, onExpired 
         </View>
       </ScrollView>
     </KeyboardAvoidingView></Screen>
+    <ToastViewport />
   </Modal>
 }

@@ -7,6 +7,7 @@ import { brandSvgs } from '../src/assets/brand-svgs'
 import { dayLabel } from '../src/utils/calendar'
 import { combineDateTime } from '../src/utils/dateKey'
 import { enableAct } from './support/native'
+import { toastText, toasts } from './support/toast'
 import { matchRoutes, mountMatch, unmountAll } from './support/match'
 import {
   arranging, athleteSide, caio, court, fromNow, matchDetail, memberPermissions, noPermissions, person, ricardo, scheduled, sides, teamSide, terms, walkover,
@@ -380,7 +381,7 @@ describe('condições: aceitar', () => {
   it('mostra o erro do servidor ao aceitar condições substituídas, sem perder a tela', async () => {
     const { tree, refreshPlayBoard } = await mountMatch(matchRoutes(opponentProposal(), { 'PUT /matches/1/terms/31/accept': new ApiError('Estas condições foram substituídas. Confira a proposta atual.', 409) }))
     await pressButton(tree, 'Aceitar condições')
-    expect(allText(tree)).toContain('Estas condições foram substituídas. Confira a proposta atual.')
+    expect(toastText()).toContain('Estas condições foram substituídas. Confira a proposta atual.')
     expect(findButton(tree, 'Aceitar condições')).toBeTruthy()
     expect(refreshPlayBoard).not.toHaveBeenCalled()
   })
@@ -494,11 +495,11 @@ describe('reserva', () => {
     expect(tree.root.findAll(node => typeof node.type === 'string' && node.props.accessibilityRole === 'switch')).toHaveLength(0)
   })
 
-  it('o erro do servidor aparece no cartão', async () => {
+  it('o erro do servidor aparece como toast', async () => {
     const { tree } = await mountMatch(matchRoutes(booking('a_confirmar', 'a'), { 'PUT /matches/1/booking': new ApiError('A reserva só muda com a partida agendada e antes do início.', 409) }))
     await openCard(tree)
     await pressButton(tree, 'Reserva confirmada')
-    expect(allText(tree)).toContain('A reserva só muda com a partida agendada e antes do início.')
+    expect(toastText()).toContain('A reserva só muda com a partida agendada e antes do início.')
     expect(findButton(tree, 'Reserva confirmada')!.props.accessibilityState.checked).toBe(false)
   })
 })
@@ -775,9 +776,8 @@ describe('resultado: cartão dentro da tela da partida', () => {
     await act(async () => { goals('Gols do Leões do Cerrado')!.props.onAccessibilityAction({ nativeEvent: { actionName: 'increment' } }) })
     await pressButton(tree, 'Enviar placar')
     expect(bodyOf('PUT', '/matches/1/result')).toEqual({ goals_a: 3, goals_b: 1 })
-    // O aviso é do cartão: se a tela o desmontasse ao receber o detalhe novo, ele se perderia.
-    expect(byId(tree, 'result-toast')).toHaveLength(1)
-    expect(allText(tree)).toContain('Placar enviado. Falta o outro lado.')
+    expect(toasts().map(item => item.tone)).toEqual(['success'])
+    expect(toastText()).toContain('Placar enviado. Falta o outro lado.')
     expect(allText(tree)).toContain('Aguardando')
   })
 

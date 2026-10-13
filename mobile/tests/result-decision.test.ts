@@ -8,6 +8,7 @@ import type { MatchDetail } from '../src/api/matches'
 import { reportToInput, justificationOk } from '../src/components/organizer/DecisionForm'
 import ResultDecisionScreen, { timelineOf } from '../src/screens/ResultDecisionScreen'
 import { enableAct } from './support/native'
+import { toastText } from './support/toast'
 import { athleteSide, fromNow, matchDetail, matchEvent, message, messagePage, noPermissions, sides } from './support/play'
 import { ana, beatriz, hiddenReport, report, result, score } from './support/results'
 import { allText, bodyOf, byId, callsTo, findButton, isDisabled, labelled, navigationMock, pressButton, render, serve, typeInto } from './support/review'
@@ -172,7 +173,7 @@ describe('decisão', () => {
     await pressButton(tree, 'Registrar 2 × 1')
     expect(callsTo('GET', MATCH)).toHaveLength(2)
     expect(navigation.back).not.toHaveBeenCalled()
-    expect(allText(tree)).toContain(message)
+    expect(toastText()).toContain(message)
     // O formulário some: não há mais o que decidir.
     expect(findButton(tree, 'Registrar 2 × 1')).toBeUndefined()
     expect(labelled(tree, 'Placar informado por Ferrugem FC: 2 × 1')).toHaveLength(0)
@@ -185,7 +186,7 @@ describe('decisão', () => {
     await justify(tree)
     await pressButton(tree, 'Registrar 2 × 1')
     expect(callsTo('GET', MATCH)).toHaveLength(2)
-    expect(allText(tree)).toContain(message)
+    expect(toastText()).toContain(message)
     expect(findButton(tree, 'Registrar 2 × 1')).toBeTruthy()
     expect(navigation.back).not.toHaveBeenCalled()
   })
@@ -228,7 +229,7 @@ describe('decisão', () => {
     await step(tree, 'Gols do Leões do Cerrado', 1)
     await justify(tree)
     await pressButton(tree, 'Registrar 1 × 1')
-    expect(allText(tree)).toContain(message422)
+    expect(toastText()).toContain(message422)
     expect(navigation.back).not.toHaveBeenCalled()
     expect(radio(tree, 'Outro placar').props.accessibilityState).toMatchObject({ checked: true })
     expect(findButton(tree, 'Registrar 1 × 1')).toBeTruthy()

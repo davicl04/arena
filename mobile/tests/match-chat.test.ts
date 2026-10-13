@@ -199,6 +199,9 @@ describe('leitura periódica', () => {
     await tick(8000)
     expect(callsTo('GET', `${MESSAGES}?after=3`).length).toBeGreaterThan(1)
     expect(callsTo('GET', '/matches/1')).toHaveLength(1)
+    // A leitura periódica é em segundo plano: uma queda de conexão liga só a faixa, nunca a folha.
+    expect(callsTo('GET', MESSAGES)[0][3]).toEqual({ background: true })
+    expect(callsTo('GET', `${MESSAGES}?after=2`)[0][3]).toEqual({ background: true })
   })
 
   it('pausa a leitura com o app em segundo plano e lê na hora ao voltar', async () => {

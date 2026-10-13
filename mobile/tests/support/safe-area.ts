@@ -3,5 +3,5 @@
 // `vi.mock('react-native-safe-area-context', …)` continua trocando por conta própria.
 import { safeAreaMock } from './native'
 
-export const { SafeAreaView } = safeAreaMock()
+export const { SafeAreaView, useSafeAreaInsets } = safeAreaMock()
 export const SafeAreaProvider = ({ children }: { children?: unknown }) => children ?? null

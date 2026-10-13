@@ -10,6 +10,7 @@ import { colors } from '../../theme'
 import { toDateKey } from '../../utils/dateKey'
 import { Icon } from '../Icon'
 import { Screen } from '../Screen'
+import { ToastViewport } from '../toast/ToastViewport'
 import { DateField } from '../arena/DateField'
 import { ActionButton, ChoicePills, FieldError, FieldLabel, FormField, Hint, Notice } from '../arena/controls'
 import type { ChoiceOption } from '../arena/controls'
@@ -213,5 +214,6 @@ export function RunEntrySheet({ initialDistance, onClose, onSaved, onFindRaces, 
         </View>
       </KeyboardAvoidingView>
     </Screen>
+    <ToastViewport />
   </Modal>
 }

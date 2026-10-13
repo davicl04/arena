@@ -5,6 +5,7 @@ import type { PagedList } from '../hooks/usePagedList'
 import PostItem from './PostItem'
 import type { PostUpdate } from './PostItem'
 import { Screen } from './Screen'
+import { ToastViewport } from './toast/ToastViewport'
 import { Button } from './ui'
 import { tw } from '../styles'
 import { colors } from '../theme'
@@ -46,5 +47,6 @@ export default function PostViewer({ list, index, username, viewerId, token, onU
           {list.hasMore && !list.busy ? <Button secondary title="Carregar mais publicações" onPress={() => void list.loadMore()} /> : null}
         </View>} />
     </KeyboardAvoidingView></Screen>
+    <ToastViewport />
   </Modal>
 }

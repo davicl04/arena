@@ -14,7 +14,7 @@ vi.mock('react-native-svg', async () => (await import('./support/native')).svgMo
 vi.mock('react-native-safe-area-context', async () => {
   const ReactModule = await import('react')
   const element = (name: string) => ({ children, ...props }: Record<string, unknown>) => ReactModule.createElement(name, props, children as React.ReactNode)
-  return { SafeAreaProvider: element('SafeAreaProvider'), SafeAreaView: element('SafeAreaView') }
+  return { useSafeAreaInsets: () => ({ top: 0, right: 0, bottom: 0, left: 0 }), SafeAreaProvider: element('SafeAreaProvider'), SafeAreaView: element('SafeAreaView') }
 })
 vi.mock('expo-status-bar', () => ({ StatusBar: () => null }))
 vi.mock('expo-secure-store', () => ({ getItemAsync: vi.fn(), setItemAsync: vi.fn(), deleteItemAsync: vi.fn() }))

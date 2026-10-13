@@ -51,6 +51,12 @@ describe('usePlayBoard: a placa do Jogar (GET /me/play)', () => {
     await act(async () => { tree.unmount() })
   })
 
+  it('a leitura da placa é em segundo plano: uma falha de conexão liga só a faixa, nunca a folha', async () => {
+    const tree = await mount()
+    expect(vi.mocked(request)).toHaveBeenCalledWith('/me/play', 'GET', undefined, { background: true })
+    await act(async () => { tree.unmount() })
+  })
+
   it('sem atenção, não há leitura periódica', async () => {
     const tree = await mount()
     await advance(5 * PLAY_BOARD_POLL_MS)

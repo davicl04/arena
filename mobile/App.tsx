@@ -6,6 +6,7 @@ import { StatusBar } from 'expo-status-bar'
 import { ApiError, clearToken, request } from './src/api/client'
 import type { User } from './src/api/client'
 import { ErrorBoundary } from './src/components/ErrorBoundary'
+import { ToastViewport } from './src/components/toast/ToastViewport'
 import { Button } from './src/components/ui'
 import { Screen } from './src/components/Screen'
 import { useJoinLink } from './src/navigation/useJoinLink'
@@ -38,5 +39,7 @@ export default function App() {
     {loading ? <ScrollView contentContainerClassName={tw.content}><Text className={cx(tw.brand, 'mb-7.5')}>arena.</Text><ActivityIndicator accessibilityLabel="Carregando Arena" color={colors.brand} /></ScrollView> : user
       ? <ArenaShell user={user} onUser={setUser} onLogout={() => setUser(null)} onExpired={expired} joinToken={joinToken} onJoinOpened={joinOpened} />
       : <ScrollView contentContainerClassName={tw.content} keyboardShouldPersistTaps="handled"><Text className={cx(tw.brand, 'mb-7.5')}>arena.</Text>{error ? <><Text className={tw.error} accessibilityRole="alert">{error}</Text><Button secondary title="Tentar conexão novamente" onPress={() => { setError(''); setLoading(true); setAttempt(v => v + 1) }} /></> : null}<AuthScreen onLogin={value => { setUser(value); setError('') }} /></ScrollView>}
+    {/* Sem a área logada (carregando ou tela de entrada): confirmações de cadastro e recuperação, a 16 pt da base. */}
+    {!user ? <ToastViewport placement="screen" /> : null}
   </ErrorBoundary></KeyboardAvoidingView></Screen></SafeAreaProvider>
 }
