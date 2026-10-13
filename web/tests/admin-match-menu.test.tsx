@@ -7,6 +7,7 @@ import AdminReports from '../src/components/AdminReports'
 import ArenaPage from '../src/pages/ArenaPage'
 import { apiError, brasilia, mockApi } from './teams-fixtures'
 import { dispute, suggestion } from './admin-match-fixtures'
+import { findToast, queryToast, renderWithToaster } from './toast-utils'
 
 /*
  * Ligações da administração na etapa 3: o Menu mostra as filas de quadras e de W.O. com os contadores de
@@ -119,7 +120,7 @@ describe('Moderação: denúncia de mensagem do chat', () => {
 
   it('mostra a prévia com o texto, a partida e o autor, e mantém os outros alvos', async () => {
     mockApi(routes())
-    render(<AdminReports onExpired={vi.fn()} />)
+    renderWithToaster(<AdminReports onExpired={vi.fn()} />)
     const preview = await screen.findByRole('group', { name: 'Mensagem denunciada' })
     expect(preview.textContent).toContain('Partida #12 · Ferrugem FC × Tigres do Lago')
     expect(preview.textContent).toContain('Caio Ramos')
@@ -133,7 +134,7 @@ describe('Moderação: denúncia de mensagem do chat', () => {
   it('remover avisa que o texto some para todos e confirma depois da decisão', async () => {
     const api = mockApi(routes({ 'POST /admin/reports/9/decision': { report_id: 9, status: 'resolved', action: 'remove' } }))
     const ui = userEvent.setup()
-    render(<AdminReports onExpired={vi.fn()} />)
+    renderWithToaster(<AdminReports onExpired={vi.fn()} />)
     const preview = await screen.findByRole('group', { name: 'Mensagem denunciada' })
     const article = preview.closest('article') as HTMLElement
     const select = within(article).getByLabelText('Decisão')
@@ -142,10 +143,14 @@ describe('Moderação: denúncia de mensagem do chat', () => {
     await ui.selectOptions(select, 'remove')
     expect(within(article).getByRole('status').textContent).toBe('O texto some para todos na partida; o registro fica guardado com a denúncia.')
     await ui.click(within(article).getByRole('button', { name: 'Registrar decisão' }))
-    expect(screen.getByRole('alert').textContent).toBe('Informe uma justificativa de pelo menos 5 caracteres.')
+    // A validação fica junto ao campo, não em toast.
+    expect(within(article).getByRole('alert').textContent).toBe('Informe uma justificativa de pelo menos 5 caracteres.')
+    expect(within(article).getByLabelText('Justificativa obrigatória').getAttribute('aria-invalid')).toBe('true')
+    expect(queryToast(/justificativa/)).toBeNull()
     await ui.type(within(article).getByLabelText('Justificativa obrigatória'), 'Ofensa direta ao adversário.')
     await ui.click(within(article).getByRole('button', { name: 'Registrar decisão' }))
-    expect((await screen.findByText('Mensagem removida: o texto some para todos na partida e o registro fica guardado.')).getAttribute('role')).toBe('status')
+    expect((await findToast('Mensagem removida: o texto some para todos na partida e o registro fica guardado.')).closest('[data-tone]')?.getAttribute('data-tone')).toBe('success')
+    expect(within(article).queryByRole('alert')).toBeNull()
     expect(api.find('POST', '/admin/reports/9/decision')[0].body).toEqual({ action: 'remove', justification: 'Ofensa direta ao adversário.' })
     expect(screen.queryByRole('group', { name: 'Mensagem denunciada' })).toBeNull()
     expect(screen.getByText('Comentário · #5')).not.toBeNull()
@@ -154,32 +159,73 @@ describe('Moderação: denúncia de mensagem do chat', () => {
   it('dispensar a denúncia da mensagem não mostra o aviso de remoção', async () => {
     const api = mockApi(routes({ 'POST /admin/reports/9/decision': { report_id: 9, status: 'resolved', action: 'dismiss' } }))
     const ui = userEvent.setup()
-    render(<AdminReports onExpired={vi.fn()} />)
+    renderWithToaster(<AdminReports onExpired={vi.fn()} />)
     const article = (await screen.findByRole('group', { name: 'Mensagem denunciada' })).closest('article') as HTMLElement
     await ui.type(within(article).getByLabelText('Justificativa obrigatória'), 'Sem ofensa.')
     await ui.click(within(article).getByRole('button', { name: 'Registrar decisão' }))
     await screen.findByText('Comentário · #5')
     expect(api.find('POST', '/admin/reports/9/decision')[0].body).toEqual({ action: 'dismiss', justification: 'Sem ofensa.' })
-    expect(screen.queryByText(/Mensagem removida/)).toBeNull()
+    expect(queryToast(/Mensagem removida/)).toBeNull()
+    expect((await findToast('Decisão registrada.')).closest('[data-tone]')?.getAttribute('data-tone')).toBe('success')
   })
 
-  it('mensagem que já foi removida mostra o aviso no lugar do texto; o erro do servidor aparece', async () => {
+  it('mensagem que já foi removida mostra o aviso no lugar do texto; o erro do servidor aparece em toast', async () => {
     const removed = { ...message, target_preview: { ...message.target_preview, body: null, removed: true } }
     mockApi({ 'GET /admin/reports?status=pending': page([removed]), 'POST /admin/reports/9/decision': apiError(404, 'Denúncia pendente não encontrada.') })
     const ui = userEvent.setup()
-    render(<AdminReports onExpired={vi.fn()} />)
+    renderWithToaster(<AdminReports onExpired={vi.fn()} />)
     const preview = await screen.findByRole('group', { name: 'Mensagem denunciada' })
     expect(preview.textContent).toContain('Mensagem já removida')
     expect(preview.textContent).not.toContain('Vocês são ridículos.')
     await ui.type(within(preview.closest('article') as HTMLElement).getByLabelText('Justificativa obrigatória'), 'Já tratada.')
     await ui.click(screen.getByRole('button', { name: 'Registrar decisão' }))
-    expect((await screen.findByRole('alert')).textContent).toBe('Denúncia pendente não encontrada.')
+    expect((await findToast('Denúncia pendente não encontrada.')).closest('[data-tone]')?.getAttribute('data-tone')).toBe('warning')
+  })
+
+  it('a falha ao carregar a fila vira erro de seção com "Tentar novamente", sem toast', async () => {
+    let ok = false
+    mockApi({ 'GET /admin/reports?status=pending': () => ok ? page([comment]) : apiError(500, 'Falha ao carregar as denúncias.') })
+    const ui = userEvent.setup()
+    renderWithToaster(<AdminReports onExpired={vi.fn()} />)
+    const alert = await screen.findByRole('alert')
+    expect(alert.getAttribute('data-slot')).toBe('load-error')
+    expect(alert.textContent).toContain('Falha ao carregar as denúncias.')
+    expect(queryToast(/Falha ao carregar/)).toBeNull()
+    ok = true
+    await ui.click(within(alert).getByRole('button', { name: 'Tentar novamente' }))
+    expect(await screen.findByText('Comentário · #5')).not.toBeNull()
+  })
+
+  it('reativar uma conta suspensa valida a justificativa no campo, falha em toast e confirma em toast', async () => {
+    const suspended = { ...message, status: 'resolved', target_preview: null, target_user_active: false }
+    let fail = true
+    const api = mockApi({
+      'GET /admin/reports?status=pending': page([]), 'GET /admin/reports?status=resolved': page([suspended]),
+      'PUT /admin/users/9/status?active=true&justification=Recurso%20aceito.': () => fail ? apiError(500, 'Falha ao reativar.') : { ok: true },
+    })
+    const ui = userEvent.setup()
+    renderWithToaster(<AdminReports onExpired={vi.fn()} />)
+    await ui.selectOptions(await screen.findByLabelText('Estado das denúncias'), 'resolved')
+    const field = await screen.findByLabelText('Justificativa para reativação')
+    await ui.click(screen.getByRole('button', { name: 'Reativar conta' }))
+    expect(screen.getByRole('alert').textContent).toBe('Informe uma justificativa de pelo menos 5 caracteres.')
+    expect(field.getAttribute('aria-invalid')).toBe('true')
+    await ui.type(field, 'Recurso aceito.')
+    expect(screen.queryByRole('alert')).toBeNull()
+    await ui.click(screen.getByRole('button', { name: 'Reativar conta' }))
+    expect((await findToast('Falha ao reativar.')).closest('[data-tone]')?.getAttribute('data-tone')).toBe('error')
+    expect(screen.getByRole('button', { name: 'Reativar conta' })).not.toBeNull()
+    fail = false
+    await ui.click(screen.getByRole('button', { name: 'Reativar conta' }))
+    expect((await findToast('Conta reativada.')).closest('[data-tone]')?.getAttribute('data-tone')).toBe('success')
+    expect(screen.queryByRole('button', { name: 'Reativar conta' })).toBeNull()
+    expect(api.find('PUT', '/admin/users/9/status?active=true&justification=Recurso%20aceito.')).toHaveLength(2)
   })
 
   it('nas resolvidas, a prévia da mensagem (privada) não é devolvida e a denúncia segue legível', async () => {
     mockApi({ 'GET /admin/reports?status=pending': page([]), 'GET /admin/reports?status=resolved': page([{ ...message, status: 'resolved', target_preview: null }]) })
     const ui = userEvent.setup()
-    render(<AdminReports onExpired={vi.fn()} />)
+    renderWithToaster(<AdminReports onExpired={vi.fn()} />)
     await ui.selectOptions(await screen.findByLabelText('Estado das denúncias'), 'resolved')
     expect(await screen.findByText('Mensagem da partida · #44')).not.toBeNull()
     expect(screen.queryByRole('group', { name: 'Mensagem denunciada' })).toBeNull()

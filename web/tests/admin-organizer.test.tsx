@@ -5,7 +5,7 @@ import { ApiError, request } from '../src/api/client'
 import type { AdminOrganizer, AdminOrganizerRequest } from '../src/api/organizer'
 import { refusalError, refusalInput, revokeError } from '../src/api/admin'
 import AdminOrganizerRequests from '../src/components/admin/AdminOrganizerRequests'
-import { queryToast, renderWithToaster } from './toast-utils'
+import { findToast, queryToast, renderWithToaster } from './toast-utils'
 import { connection } from '../src/api/connection'
 
 vi.mock('../src/api/client', async original => ({
@@ -86,7 +86,7 @@ describe('fila de pedidos de organizador (AD1)', () => {
     await ui.click(await screen.findByRole('button', { name: /Liga do Bairro/ }))
     await ui.click(screen.getByRole('button', { name: 'Aprovar organizador' }))
     expect(calls).toContainEqual({ path: '/admin/organizer-requests/1/decision', method: 'POST', body: { decision: 'aprovar' } })
-    expect((await screen.findByRole('status')).textContent).toBe('Liga do Bairro agora é organizador.')
+    expect((await findToast('Liga do Bairro agora é organizador.')).closest('[data-tone]')?.getAttribute('data-tone')).toBe('success')
     expect(screen.queryByRole('dialog')).toBeNull()
     expect(screen.queryByRole('button', { name: /Liga do Bairro/ })).toBeNull()
     expect(screen.getByRole('button', { name: /Assessoria Ritmo/ })).not.toBeNull()
@@ -113,7 +113,7 @@ describe('fila de pedidos de organizador (AD1)', () => {
     await ui.click(within(sheet).getByRole('button', { name: 'Recusar pedido' }))
     expect(calls).toContainEqual({ path: '/admin/organizer-requests/2/decision', method: 'POST',
       body: { decision: 'recusar', reason_code: 'outro', reason_detail: 'Sem eventos na cidade' } })
-    expect((await screen.findByRole('status')).textContent).toBe('Pedido de Assessoria Ritmo recusado.')
+    expect((await findToast('Pedido de Assessoria Ritmo recusado.')).closest('[data-tone]')?.getAttribute('data-tone')).toBe('success')
   })
 
   it('pedido já decidido por outra pessoa: fecha a folha, avisa e recarrega a fila sem o item', async () => {
@@ -125,7 +125,7 @@ describe('fila de pedidos de organizador (AD1)', () => {
     await ui.click(screen.getByRole('button', { name: 'Pouca informação' }))
     await ui.click(screen.getByRole('button', { name: 'Recusar pedido' }))
     expect(calls).toContainEqual({ path: '/admin/organizer-requests/1/decision', method: 'POST', body: { decision: 'recusar', reason_code: 'pouca_informacao' } })
-    expect((await screen.findByRole('status')).textContent).toBe('Este pedido já foi decidido.')
+    expect((await findToast('Este pedido já foi decidido.')).closest('[data-tone]')?.getAttribute('data-tone')).toBe('warning')
     expect(screen.queryByRole('dialog', { name: 'Pedido de organizador' })).toBeNull()
     const list = await screen.findByRole('list', { name: 'Pedidos para analisar' })
     await waitFor(() => expect(within(list).queryByText('Liga do Bairro')).toBeNull())
@@ -173,7 +173,7 @@ describe('fila de pedidos de organizador (AD1)', () => {
     await ui.type(within(sheet).getByLabelText('Motivo da revogação'), '  Eventos sem resposta aos inscritos ')
     await ui.click(within(sheet).getByRole('button', { name: 'Revogar' }))
     expect(calls).toContainEqual({ path: '/admin/organizers/9/revoke', method: 'POST', body: { reason: 'Eventos sem resposta aos inscritos' } })
-    expect((await screen.findByRole('status')).textContent).toBe('Permissão de Liga do Bairro revogada.')
+    expect((await findToast('Permissão de Liga do Bairro revogada.')).closest('[data-tone]')?.getAttribute('data-tone')).toBe('success')
     expect(await screen.findByText('Nenhum organizador ativo')).not.toBeNull()
   })
 

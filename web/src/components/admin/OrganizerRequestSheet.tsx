@@ -1,13 +1,12 @@
 import { useId, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Check, Info, X } from 'lucide-react'
-import { ApiError } from '@/api/client'
 import { decideOrganizerRequest, refusalError, refusalInput } from '@/api/admin'
 import { ORGANIZER_LIMITS, ORGANIZER_REFUSAL_REASONS, refusalText, sportNames } from '@/api/organizer'
 import type { AdminOrganizerRequest, OrganizerRefusalReason } from '@/api/organizer'
 import { SocialPhoto } from '@/components/SocialPhoto'
 import { errorClass, textareaClass } from '@/components/organizer/fieldStyles'
-import { useSubmit } from '@/hooks/useSubmit'
+import { isStale, useSubmit } from '@/hooks/useSubmit'
 import { Button } from '@/components/ui/button'
 import { Chip } from '@/components/ui/chip'
 import { feedbackVariants } from '@/components/ui/feedback'
@@ -38,8 +37,8 @@ export function OrganizerRequestSheet({ item, onClose, onOpenUser, onDecided, on
   onClose: () => void
   onOpenUser: (id: number) => void
   onDecided: (decided: AdminOrganizerRequest, message: string) => void
-  /** O pedido já foi decidido ou cancelado (409/404): a fila recarrega e a folha fecha com a mensagem do servidor. */
-  onStale: (message: string) => void
+  /** O pedido já foi decidido ou cancelado (409/404): o `useSubmit` avisa com a mensagem do servidor; a fila recarrega e a folha fecha. */
+  onStale: () => void
   onExpired: () => void
 }) {
   const id = useId()
@@ -53,16 +52,8 @@ export function OrganizerRequestSheet({ item, onClose, onOpenUser, onDecided, on
   const pending = item.state === 'em_analise'
 
   /** Decide; um pedido que deixou de estar em análise (409/404) avisa a fila em vez de manter o item na lista. */
-  async function decide(input: Parameters<typeof decideOrganizerRequest>[1], fallback: string) {
-    let stale = ''
-    const decided = await run(async () => {
-      try { return await decideOrganizerRequest(item.id, input) } catch (cause) {
-        if (cause instanceof ApiError && (cause.status === 409 || cause.status === 404)) stale = cause.message
-        throw cause
-      }
-    }, fallback)
-    if (!decided && stale) onStale(stale)
-    return decided
+  function decide(input: Parameters<typeof decideOrganizerRequest>[1], fallback: string) {
+    return run(() => decideOrganizerRequest(item.id, input), fallback, cause => { if (isStale(cause)) onStale() })
   }
   async function approve() {
     const decided = await decide({ decision: 'aprovar' }, 'Não foi possível aprovar o pedido.')
@@ -124,6 +115,6 @@ export function OrganizerRequestSheet({ item, onClose, onOpenUser, onDecided, on
         <Button className="bg-danger-ink shadow-none hover:bg-[#9a1e14]" disabled={busy} onClick={() => void refuse()}>{busy ? 'Recusando…' : 'Recusar pedido'}</Button>
       </SheetActions>
     </div>}
-    <div aria-live="polite">{error && <p className={feedbackVariants()} role="alert">{error}</p>}</div>
+    {error && <p className={feedbackVariants()} role="alert">{error}</p>}
   </Sheet>
 }

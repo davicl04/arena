@@ -42,7 +42,7 @@ describe('fila "Eventos pagos" (AD1)', () => {
     expect(within(pixBox).getByText('000201BR.GOV.BCB.PIX')).not.toBeNull()
 
     await ui.click(within(sheet).getByRole('button', { name: 'Aprovar e publicar' }))
-    expect((await screen.findByRole('status')).textContent).toBe('Copa Sudoeste Society foi aprovado e publicado.')
+    expect((await findToast('Copa Sudoeste Society foi aprovado e publicado.')).closest('[data-tone]')?.getAttribute('data-tone')).toBe('success')
     expect(api.find('POST', '/admin/events/4/decision')[0].body).toEqual({ decision: 'aprovar' })
     expect(within(screen.getByRole('list', { name: 'Eventos pagos para aprovar' })).queryByText('Copa Sudoeste Society')).toBeNull()
   })
@@ -63,7 +63,7 @@ describe('fila "Eventos pagos" (AD1)', () => {
     await ui.click(within(sheet).getByRole('button', { name: 'Preço ou datas inconsistentes' }))
     await ui.type(within(sheet).getByLabelText('Detalhe para o organizador (opcional)'), 'Inscrições fecham no dia do evento.')
     await ui.click(within(sheet).getByRole('button', { name: 'Recusar evento' }))
-    expect((await screen.findByRole('status')).textContent).toBe('Torneio Relâmpago Society voltou para rascunho com o motivo.')
+    expect((await findToast('Torneio Relâmpago Society voltou para rascunho com o motivo.')).closest('[data-tone]')?.getAttribute('data-tone')).toBe('success')
     expect(api.find('POST', '/admin/events/5/decision')[0].body).toEqual({
       decision: 'recusar', reason_code: 'preco_ou_datas', reason_detail: 'Inscrições fecham no dia do evento.' })
 
@@ -123,7 +123,7 @@ describe('fila "Eventos de organizador revogado"', () => {
     await ui.click(within(sheet).getByRole('button', { name: 'Seguir evento' }))
     expect(within(sheet).getByText(/O organizador continua gerindo este evento/)).not.toBeNull()
     await ui.click(within(sheet).getByRole('button', { name: 'Confirmar' }))
-    expect((await screen.findByRole('status')).textContent).toBe('Desafio do Lago segue com o organizador.')
+    expect((await findToast('Desafio do Lago segue com o organizador.')).closest('[data-tone]')?.getAttribute('data-tone')).toBe('success')
     expect(api.find('POST', '/admin/events/8/revocation-decision')[0].body).toEqual({ decision: 'seguir' })
   })
 
@@ -140,7 +140,7 @@ describe('fila "Eventos de organizador revogado"', () => {
     expect(api.find('POST', '/admin/events/7/revocation-decision')).toHaveLength(0)
     await ui.type(within(sheet).getByLabelText('Motivo do cancelamento (aparece aos inscritos)'), ' Organizador sem permissão. ')
     await ui.click(within(sheet).getByRole('button', { name: 'Cancelar evento' }))
-    expect((await screen.findByRole('status')).textContent).toBe('Open do Lago foi cancelado. O organizador envia as devoluções.')
+    expect((await findToast('Open do Lago foi cancelado. O organizador envia as devoluções.')).closest('[data-tone]')?.getAttribute('data-tone')).toBe('success')
     expect(api.find('POST', '/admin/events/7/revocation-decision')[0].body).toEqual({ decision: 'cancelar', reason: 'Organizador sem permissão.' })
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
   })
@@ -174,7 +174,7 @@ describe('fila "Devoluções contestadas"', () => {
     expect(within(sheet).getByRole('alert').textContent).toBe('Descreva a decisão, de 5 a 500 caracteres.')
     await ui.type(within(sheet).getByLabelText('Motivo da decisão (o organizador e o participante veem)'), 'Falta a conta de destino.')
     await ui.click(within(sheet).getByRole('button', { name: 'Registrar decisão' }))
-    expect((await screen.findByRole('status')).textContent).toBe('Olga Organizadora vai enviar outro comprovante para Ferrugem FC.')
+    expect((await findToast('Olga Organizadora vai enviar outro comprovante para Ferrugem FC.')).closest('[data-tone]')?.getAttribute('data-tone')).toBe('success')
     expect(api.find('POST', '/admin/entries/7/refund-decision')[0].body).toEqual({ decision: 'pendente', reason: 'Falta a conta de destino.' })
     expect(screen.getByText('Nenhuma devolução contestada')).not.toBeNull()
   })
