@@ -4,6 +4,7 @@ import type { EventMessage } from "@/api/events";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { feedbackVariants } from "@/components/ui/feedback";
+import { LoadError } from "@/components/ui/load-error";
 import { usePagedList } from "@/hooks/usePagedList";
 import { cn } from "@/lib/utils";
 import { formatDeadline } from "@/utils/format";
@@ -26,12 +27,7 @@ export function EventNotices({ eventId, onExpired }: { eventId: number; onExpire
           Carregando avisos…
         </p>
       ) : list.error ? (
-        <div className={cn(feedbackVariants(), "my-0")} role="alert">
-          {list.error.message}{" "}
-          <Button variant="text" className="inline min-h-0 p-0" onClick={list.reload}>
-            Tentar novamente
-          </Button>
-        </div>
+        <LoadError size="section" title="Não foi possível carregar os avisos" text={list.error.message} cause={list.error} onRetry={list.reload} />
       ) : list.items.length === 0 ? (
         <p className="m-0 rounded-card bg-white px-3.5 py-3 text-[11px] leading-normal text-ink-muted">
           Nenhum aviso do organizador por enquanto. Os avisos aparecem aqui e nas suas notificações.

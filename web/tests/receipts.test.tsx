@@ -74,7 +74,7 @@ describe('comprovantes do evento (A2)', () => {
     expect(within(sheet).getByRole('link', { name: /Abrir a imagem em tamanho real/ }).getAttribute('target')).toBe('_blank')
 
     await ui.click(within(sheet).getByRole('button', { name: 'Aprovar' }))
-    expect((await screen.findByRole('status')).textContent).toBe('Inscrição de Ferrugem FC confirmada.')
+    expect((await findToast('Inscrição de Ferrugem FC confirmada.')).closest('[data-tone]')?.getAttribute('data-tone')).toBe('success')
     expect(api.find('POST', '/receipts/101/decision')[0].body).toEqual({ decision: 'aprovar' })
     expect(screen.queryByRole('dialog')).toBeNull()
     expect(within(screen.getByRole('list', { name: 'Comprovantes para analisar' })).queryByText('Ferrugem FC')).toBeNull()
@@ -106,7 +106,7 @@ describe('comprovantes do evento (A2)', () => {
 
     await ui.type(within(sheet).getByLabelText('Detalhe para o time (obrigatório)'), '  Pagamento em nome de outra pessoa  ')
     await ui.click(confirm())
-    expect((await screen.findByRole('status')).textContent).toBe('Comprovante de Leões do Cerrado recusado.')
+    expect(await findToast('Comprovante de Leões do Cerrado recusado.')).toBeTruthy()
     expect(api.find('POST', '/receipts/102/decision')[0].body).toEqual({ decision: 'recusar', reason_code: 'outro', reason_detail: 'Pagamento em nome de outra pessoa' })
   })
 
@@ -244,7 +244,8 @@ describe('devoluções do evento cancelado', () => {
     await ui.click(within(row).getByRole('button', { name: 'Anexar comprovante' }))
     expect(click).toHaveBeenCalled()
     await ui.upload(input, new File(['png'], 'devolucao.png', { type: 'image/png' }))
-    expect((await screen.findByRole('status')).textContent).toBe('Devolução de Ferrugem FC enviada. O participante confirma o recebimento.')
+    expect(await findToast('Devolução de Ferrugem FC enviada.')).toBeTruthy()
+    expect(await findToast('O participante confirma o recebimento.')).toBeTruthy()
     const call = api.find('PUT', '/entries/1/refund-receipt')[0]
     expect(call.body).toBeInstanceOf(FormData)
     expect(((call.body as FormData).get('file') as File).name).toBe('devolucao.png')

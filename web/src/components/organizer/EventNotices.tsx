@@ -6,7 +6,8 @@ import type { EventMessage } from '@/api/events'
 import { textareaClass } from '@/components/organizer/fieldStyles'
 import { teamButton } from '@/components/teams/styles'
 import { Button } from '@/components/ui/button'
-import { feedbackVariants } from '@/components/ui/feedback'
+import { LoadError } from '@/components/ui/load-error'
+import { toast } from '@/components/ui/toast'
 import { usePagedList } from '@/hooks/usePagedList'
 import { useSubmit } from '@/hooks/useSubmit'
 import { cn } from '@/lib/utils'
@@ -38,20 +39,18 @@ export function EventNotices({ eventId, canWrite, onExpired }: {
 }) {
   const list = usePagedList<EventMessage>(eventMessagesPath(eventId), onExpired)
   const [body, setBody] = useState('')
-  const [notice, setNotice] = useState('')
   const { busy, error, setError, run } = useSubmit(onExpired)
   const text = body.trim()
   const max = EVENT_LIMITS.messageMax
 
   async function send(event: FormEvent) {
     event.preventDefault()
-    setNotice('')
     if (!text) { setError('Escreva o aviso (até 1000 caracteres).'); return }
     const sent = await run(() => postEventMessage(eventId, text), 'Não foi possível publicar o aviso.')
     if (!sent) return
     list.setItems(old => [sent, ...old.filter(item => item.id !== sent.id)])
     setBody('')
-    setNotice('Aviso publicado. Os inscritos recebem uma notificação.')
+    toast.success('Aviso publicado.', { description: 'Os inscritos recebem uma notificação.' })
   }
 
   return <section aria-labelledby="notices-title" className="mt-6">
@@ -60,18 +59,15 @@ export function EventNotices({ eventId, canWrite, onExpired }: {
     {canWrite && <form onSubmit={event => void send(event)} noValidate className="mt-3 rounded-card bg-white p-3">
       <label htmlFor="notice-body" className="mt-0 mb-1.5">Novo aviso</label>
       <textarea id="notice-body" className={textareaClass} rows={3} maxLength={max} value={body} placeholder="Ex.: mudamos o horário da primeira rodada para 9h."
-        aria-describedby="notice-body-hint" aria-invalid={Boolean(error) || undefined} onChange={event => { setBody(event.target.value); setError(''); setNotice('') }} />
+        aria-describedby="notice-body-hint" aria-invalid={Boolean(error) || undefined} onChange={event => { setBody(event.target.value); setError('') }} />
       <div className="mt-2 flex items-center justify-between gap-2">
         <small id="notice-body-hint" className="text-[10.5px] text-ink-muted">{body.length}/{max}</small>
         <button type="submit" className={teamButton({ tone: 'brand', size: 'sm' })} disabled={busy || !text}><Send aria-hidden="true" />{busy ? 'Publicando…' : 'Publicar aviso'}</button>
       </div>
-      <div aria-live="polite">
-        {error && <p className="mt-2 text-[11px] text-error" role="alert">{error}</p>}
-        {notice && <p className="mt-2 text-[11px] text-brand" role="status">{notice}</p>}
-      </div>
+      {error && <p className="mt-2 text-[11px] text-error" role="alert">{error}</p>}
     </form>}
     {list.loading && <p role="status" className="mt-3 text-[11.5px] text-ink-muted">Carregando os avisos…</p>}
-    {list.error && <div className={cn(feedbackVariants(), 'mt-3')} role="alert">{list.error.message} <Button variant="text" onClick={list.reload}>Tentar novamente</Button></div>}
+    {list.error && <LoadError size="section" title="Não foi possível carregar os avisos" text={list.error.message} cause={list.error} onRetry={list.reload} className="mt-3" />}
     {!list.loading && !list.error && (list.items.length
       ? <ul className="m-0 mt-3 grid list-none gap-2 p-0" aria-label="Avisos publicados">{list.items.map(message => <Notice key={message.id} message={message} />)}</ul>
       : <p className="mt-3 text-[11.5px] text-ink-muted">Nenhum aviso ainda.</p>)}

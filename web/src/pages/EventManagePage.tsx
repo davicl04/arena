@@ -16,6 +16,8 @@ import { DarkTopBar, TeamsPlate } from '@/components/teams/TeamsPlate'
 import { Button } from '@/components/ui/button'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { feedbackVariants } from '@/components/ui/feedback'
+import { LoadError } from '@/components/ui/load-error'
+import { toast } from '@/components/ui/toast'
 import { eventFormatParts, pixKeyType, tiers } from '@/data/arena'
 import { useResource } from '@/hooks/useResource'
 import { useSubmit } from '@/hooks/useSubmit'
@@ -115,14 +117,13 @@ export default function EventManagePage({ eventId, onBack, onEdit, onReceipts, o
   const resource = useResource(load, onExpired, { fallback: 'Não foi possível carregar o evento.' })
   const [open, setOpen] = useState<Record<SectionKey, boolean>>({ entries: false, data: false, pix: false })
   const [sheet, setSheet] = useState<SheetKind>(null)
-  const [status, setStatus] = useState('')
   const action = useSubmit(onExpired)
   const detail = resource.data
 
   const toggle = (key: SectionKey) => (value: boolean) => setOpen(old => ({ ...old, [key]: value }))
   function update(next: OrganizerEventDetail, message: string) {
     resource.setData(next)
-    setStatus(message)
+    toast.success(message)
   }
 
   if (!detail) {
@@ -130,7 +131,7 @@ export default function EventManagePage({ eventId, onBack, onEdit, onReceipts, o
       <TeamsPlate className="pb-4"><DarkTopBar eyebrow="Organizador" title="Gestão do evento" onBack={onBack} /></TeamsPlate>
       <div className="px-5 pt-4">
         {resource.loading && <p role="status" className="text-[12px] text-ink-muted">Carregando o evento…</p>}
-        {resource.error && <div className={feedbackVariants()} role="alert">{resource.error} <Button variant="text" onClick={resource.reload}>Tentar novamente</Button></div>}
+        {resource.error && <LoadError size="screen" text={resource.error} cause={resource.errorCause} onRetry={resource.reload} />}
       </div>
     </div>
   }
@@ -224,10 +225,7 @@ export default function EventManagePage({ eventId, onBack, onEdit, onReceipts, o
     </TeamsPlate>
 
     <div className="px-5 pt-4">
-      <div aria-live="polite">
-        {status && <p className={cn(feedbackVariants({ tone: 'success' }), 'mb-3')} role="status">{status}</p>}
-        {action.error && <p className={cn(feedbackVariants(), 'mb-3')} role="alert">{action.error}</p>}
-      </div>
+      {action.error && <p className={cn(feedbackVariants(), 'mb-3')} role="alert">{action.error}</p>}
 
       <NextActionCard detail={detail} busy={action.busy} onSubmit={() => void submit()} onWithdraw={() => void withdraw()}
         onFill={step => onEdit(step)} onReceipts={onReceipts} onShowEntries={showEntries} onBracket={onBracket} onMatches={onMatches} />

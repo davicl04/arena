@@ -1,10 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ApiError, request } from '../src/api/client'
 import type { EventDraftInput, OrganizerEventDetail } from '../src/api/events'
 import EventWizard from '../src/pages/EventWizard'
 import { brasilia, draftDetail, fullChecklist } from './events-fixtures'
+import { findToast, renderWithToaster } from './toast-utils'
 
 vi.mock('../src/api/client', async original => ({
   ...await original<typeof import('../src/api/client')>(),
@@ -25,7 +26,7 @@ const question = () => screen.getByRole('heading', { level: 2, name: /\?$/ })
 
 function renderWizard(props: Partial<Parameters<typeof EventWizard>[0]> = {}) {
   const handlers = { onClose: vi.fn(), onDone: vi.fn(), onExpired: vi.fn() }
-  render(<EventWizard cities={[brasilia]} {...handlers} {...props} />)
+  renderWithToaster(<EventWizard cities={[brasilia]} {...handlers} {...props} />)
   return handlers
 }
 
@@ -100,7 +101,7 @@ describe('Criar evento (V4): uma pergunta por vez', () => {
     await user.click(screen.getByRole('button', { name: /Ouro/ }))
     await user.click(screen.getByRole('button', { name: /Prata/ }))
     await user.click(screen.getByRole('button', { name: 'Salvar rascunho' }))
-    await screen.findByText(/Rascunho salvo/)
+    expect(await findToast(/Rascunho salvo/)).toBeTruthy()
     const body = calls('POST')[0][2] as EventDraftInput
     expect(body).toMatchObject({ name: 'Copa Society', sport: 'futebol', format: 'society', competition_type: 'eliminacao_simples', capacity: 8, accepted_tiers: ['prata', 'ouro'] })
   })
@@ -119,7 +120,8 @@ describe('Criar evento (V4): uma pergunta por vez', () => {
 
     await user.type(screen.getByLabelText('Nome do evento'), 'Liga Noturna')
     await user.click(screen.getByRole('button', { name: 'Salvar rascunho' }))
-    expect(await screen.findByText(/Rascunho salvo/)).toBeTruthy()
+    expect((await findToast('Rascunho salvo.')).closest('[data-tone]')?.getAttribute('data-tone')).toBe('success')
+    expect(await findToast(/Ele fica em Meus eventos/)).toBeTruthy()
     expect(calls('POST')[0][0]).toBe('/organizer/events')
     expect(calls('POST')[0][2]).toMatchObject({ name: 'Liga Noturna', sport: null, price_cents: null, accepted_tiers: null })
 
@@ -232,7 +234,7 @@ describe('Criar evento (V4): uma pergunta por vez', () => {
     await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText('Chave Pix')))
   })
 
-  it('checklist recusado no envio leva ao passo do item; conflito aparece como erro geral', async () => {
+  it('checklist recusado no envio leva ao passo do item; falha comum do envio vira toast, sem bloco no formulário', async () => {
     const user = userEvent.setup()
     const loaded = draftDetail({
       starts_at: new Date(2026, 9, 30, 9).toISOString(), registration_closes_at: new Date(2026, 9, 28, 23, 59).toISOString(), city: brasilia,
@@ -254,7 +256,9 @@ describe('Criar evento (V4): uma pergunta por vez', () => {
     submit = new ApiError('Você precisa ser organizador para criar eventos.', 403)
     await user.click(screen.getByRole('button', { name: /Próxima/ }))
     await user.click(screen.getByRole('button', { name: 'Publicar' }))
-    expect((await screen.findByRole('alert')).textContent).toBe('Você precisa ser organizador para criar eventos.')
+    expect((await findToast('Você precisa ser organizador para criar eventos.')).closest('[data-tone]')?.getAttribute('data-tone')).toBe('error')
+    // O resumo do formulário sumiu (nada de campos recusados) e nenhum bloco local repete o erro.
+    expect(screen.queryByText('Complete este passo para publicar.')).toBeNull()
   })
 
   it('fechar com mudanças pergunta antes de sair; sem mudanças, fecha direto', async () => {
@@ -279,6 +283,22 @@ describe('Criar evento (V4): uma pergunta por vez', () => {
     cleanup()
     mockApi(() => new ApiError('Evento não encontrado.', 404))
     renderWizard({ eventId: 9 })
-    expect((await screen.findByRole('alert')).textContent).toBe('Evento não encontrado.')
+    const failed = await screen.findByRole('alert')
+    expect(failed.textContent).toContain('Evento não encontrado.')
+    expect(within(failed).getByRole('button', { name: 'Tentar novamente' })).toBeTruthy()
+  })
+
+  it('falha ao ler o rascunho oferece "Tentar novamente" e abre o assistente', async () => {
+    const user = userEvent.setup()
+    let fail = true
+    mockApi(path => {
+      if (path !== '/organizer/events/9') return undefined
+      return fail ? new ApiError('Falha ao carregar.', 500) : draftDetail()
+    })
+    renderWizard({ eventId: 9 })
+    expect((await screen.findByRole('alert')).textContent).toContain('Falha ao carregar.')
+    fail = false
+    await user.click(screen.getByRole('button', { name: 'Tentar novamente' }))
+    expect(await screen.findByRole('heading', { level: 2, name: /\?$/ })).toBeTruthy()
   })
 })

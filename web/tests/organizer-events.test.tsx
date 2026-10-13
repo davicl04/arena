@@ -98,7 +98,7 @@ describe('Meus eventos (O3)', () => {
     let fail = true
     vi.mocked(request).mockImplementation(async path => {
       if (path === '/me/organizer-request') return approved as never
-      if (fail && path === '/organizer/events?scope=abertos') throw new ApiError('Não foi possível acessar os dados. Tente novamente.', 503)
+      if (fail && path === '/organizer/events?scope=abertos') throw new ApiError('Não foi possível acessar os dados. Tente novamente.', 500)
       return { items: path.includes('abertos') ? [eventCard()] : [], next_cursor: null } as never
     })
     renderPage()
@@ -130,7 +130,8 @@ describe('canal de avisos do evento', () => {
     await user.type(screen.getByLabelText('Novo aviso'), '  Mudamos o horário para 9h.  ')
     expect(screen.getByText('30/1000')).toBeTruthy()
     await user.click(send)
-    expect((await screen.findByText(/Aviso publicado/)).getAttribute('role')).toBe('status')
+    expect((await findToast('Aviso publicado.')).closest('[data-tone]')?.getAttribute('data-tone')).toBe('success')
+    expect(await findToast('Os inscritos recebem uma notificação.')).toBeTruthy()
     expect(request).toHaveBeenCalledWith('/events/5/messages', 'POST', { body: 'Mudamos o horário para 9h.' })
     expect(within(list).getAllByRole('listitem')[0].textContent).toContain('Mudamos o horário para 9h.')
     expect((screen.getByLabelText('Novo aviso') as HTMLTextAreaElement).value).toBe('')

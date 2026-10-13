@@ -137,7 +137,8 @@ describe('agendar', () => {
     await user.click(within(sheet).getByRole('button', { name: 'Agendar' }))
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Agendar J1' })).toBeNull())
     expect(find('PUT', '/organizer/matches/11/schedule')[0].body).toEqual({ starts_at: combineDateTime('2026-10-20', '16:37'), court_id: 7 })
-    expect(screen.getByRole('status').textContent).toMatch(/^J1 agendado para .* em Quadra Central\. Os dois elencos foram avisados\.$/)
+    expect((await findToast(/^J1 agendado para .* em Quadra Central\.$/)).closest('[data-tone]')?.getAttribute('data-tone')).toBe('success')
+    expect(await findToast('Os dois elencos foram avisados.')).toBeTruthy()
     await waitFor(() => expect(reads).toBe(2))
     // O agendado desce para depois dos sem data e a lista foi relida.
     expect(find('GET', '/organizer/events/5/matches')).toHaveLength(2)
@@ -241,7 +242,7 @@ describe('agendar', () => {
     await user.type(within(sheet).getByLabelText('Nome da quadra'), 'Ginásio do Guará')
     await user.type(within(sheet).getByLabelText(/Endereço/), 'QE 25')
     await user.click(within(sheet).getByRole('button', { name: 'Sugerir quadra' }))
-    expect(await within(sheet).findByText(/será sugerida ao agendar: fica em revisão e vale só nesta partida/)).not.toBeNull()
+    expect(await findToast(/será sugerida ao agendar: fica em revisão e vale só nesta partida/)).not.toBeNull()
     expect(within(sheet).getByRole('button', { name: /Ginásio do Guará/ }).getAttribute('aria-pressed')).toBe('true')
     await user.click(within(sheet).getByRole('button', { name: 'Agendar' }))
     await waitFor(() => expect(find('PUT', '/organizer/matches/11/schedule')).toHaveLength(1))

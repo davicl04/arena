@@ -75,7 +75,7 @@ describe('cartão "Organizar no Arena" no Menu', () => {
     await ui.click(within(card).getByRole('button', { name: 'Cancelar pedido' }))
     await ui.click(within(card).getAllByRole('button', { name: 'Cancelar pedido' }).at(-1)!)
     await waitFor(() => expect(request).toHaveBeenCalledWith('/me/organizer-request', 'DELETE'))
-    expect((await screen.findByRole('status')).textContent).toContain('Pedido cancelado')
+    expect(await findToast('Pedido cancelado.')).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Quero organizar' })).not.toBeNull()
   })
 
@@ -199,7 +199,7 @@ describe('cartão "Organizar no Arena" no Menu', () => {
   it('mostra o erro ao carregar o estado do pedido e tenta de novo', async () => {
     let fail = true
     vi.mocked(request).mockImplementation(async () => {
-      if (fail) throw new ApiError('Serviço indisponível.', 503)
+      if (fail) throw new ApiError('Serviço indisponível.', 500)
       return status('sem_pedido') as never
     })
     renderMenu()

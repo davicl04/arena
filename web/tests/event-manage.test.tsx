@@ -1,10 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
+import { cleanup, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ApiError, request } from '../src/api/client'
 import type { OrganizerEventDetail } from '../src/api/events'
 import EventManagePage from '../src/pages/EventManagePage'
 import { draftDetail, eventDetail, fullChecklist, inDays, message, organizerEntry } from './events-fixtures'
+import { findToast, queryToast, renderWithToaster } from './toast-utils'
 
 vi.mock('../src/api/client', async original => ({
   ...await original<typeof import('../src/api/client')>(),
@@ -24,7 +25,7 @@ function mockApi(detail: OrganizerEventDetail, extra: Handler = () => undefined)
 }
 function renderPage(eventId = 5) {
   const props = { onBack: vi.fn(), onEdit: vi.fn(), onReceipts: vi.fn(), onDeleted: vi.fn(), onExpired: vi.fn() }
-  render(<EventManagePage eventId={eventId} {...props} />)
+  renderWithToaster(<EventManagePage eventId={eventId} {...props} />)
   return props
 }
 const agora = () => screen.getByRole('region', { name: (_, element) => element.getAttribute('data-slot') === 'next-action' })
@@ -65,7 +66,7 @@ describe('gestão do evento (G3): cartão "Agora"', () => {
     renderPage(9)
     expect(await screen.findByRole('heading', { name: 'Pronto para publicar' })).toBeTruthy()
     await user.click(screen.getByRole('button', { name: 'Publicar' }))
-    expect((await screen.findByText('Evento publicado: as inscrições estão abertas.')).getAttribute('role')).toBe('status')
+    expect((await findToast('Evento publicado: as inscrições estão abertas.')).closest('[data-tone]')?.getAttribute('data-tone')).toBe('success')
     expect(screen.getByRole('heading', { name: /Inscrições abertas até/ })).toBeTruthy()
     expect(request).toHaveBeenCalledWith('/organizer/events/9/submit', 'POST', {})
   })
@@ -85,6 +86,21 @@ describe('gestão do evento (G3): cartão "Agora"', () => {
     expect(await screen.findByRole('heading', { name: 'Complete o rascunho' })).toBeTruthy()
   })
 
+  it('envio com falha comum vira toast de erro (sem bloco na tela); conexão não mostra mensagem local', async () => {
+    const user = userEvent.setup()
+    const ready = draftDetail({ checklist: fullChecklist, can_submit: true, price_cents: 0, next_action: { kind: 'publicar', count: null, deadline: null } })
+    let status = 500
+    mockApi(ready, (path, method) => path === '/organizer/events/9/submit' && method === 'POST' ? new ApiError(status === 500 ? 'Falha ao publicar o evento.' : 'Sem conexão.', status) : undefined)
+    renderPage(9)
+    await user.click(await screen.findByRole('button', { name: 'Publicar' }))
+    expect((await findToast('Falha ao publicar o evento.')).closest('[data-tone]')?.getAttribute('data-tone')).toBe('error')
+    status = 503
+    await user.click(await screen.findByRole('button', { name: 'Publicar' }))
+    const submits = () => vi.mocked(request).mock.calls.filter(([path]) => path === '/organizer/events/9/submit').length
+    await waitFor(() => expect(submits()).toBe(2))
+    expect(queryToast('Sem conexão.')).toBeNull()
+  })
+
   it('pago em aprovação: aguarda a administração e pode ser retirado', async () => {
     const user = userEvent.setup()
     const waiting = eventDetail({ state: 'em_aprovacao', phase: 'em_aprovacao', submitted_at: '2026-10-12T10:00:00Z', entries_count: 0, editable_fields: [],
@@ -97,7 +113,7 @@ describe('gestão do evento (G3): cartão "Agora"', () => {
     expect(agora().textContent).toContain('Enviado em 12 de out. de 2026.')
     expect(screen.queryByRole('button', { name: 'Cancelar evento' })).toBeNull()
     await user.click(screen.getByRole('button', { name: 'Retirar da aprovação' }))
-    expect(await screen.findByText(/Evento retirado da aprovação/)).toBeTruthy()
+    expect(await findToast(/Evento retirado da aprovação/)).toBeTruthy()
     expect(screen.getByRole('heading', { name: 'Pronto para enviar à aprovação' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Enviar para aprovação' })).toBeTruthy()
   })
@@ -242,7 +258,7 @@ describe('gestão do evento (G3): seções e ações', () => {
     await user.click(within(sheet).getByRole('button', { name: 'Continuar' }))
     await user.click(within(sheet).getByRole('button', { name: 'Cancelar evento' }))
 
-    expect(await screen.findByText(/Evento cancelado. Os inscritos foram avisados/)).toBeTruthy()
+    expect(await findToast(/Evento cancelado. Os inscritos foram avisados/)).toBeTruthy()
     expect(request).toHaveBeenCalledWith('/organizer/events/5/cancel', 'POST', { reason: 'Ok — a quadra foi interditada.' })
     expect(screen.getByRole('heading', { name: '3 devoluções para enviar' })).toBeTruthy()
     expect(screen.getByRole('button', { name: /Devoluções3 para enviar/ })).toBeTruthy()
@@ -270,7 +286,7 @@ describe('gestão do evento (G3): seções e ações', () => {
     expect(within(sheet).getByText('Informe o local com 2 a 120 caracteres.')).toBeTruthy()
     await user.type(within(sheet).getByLabelText('Local'), 'rena Sudoeste, quadra 2')
     await user.click(within(sheet).getByRole('button', { name: 'Salvar' }))
-    expect(await screen.findByText('Dados do evento salvos.')).toBeTruthy()
+    expect(await findToast('Dados do evento salvos.')).toBeTruthy()
     expect(request).toHaveBeenCalledWith('/organizer/events/5', 'PATCH', { venue: 'Arena Sudoeste, quadra 2' })
   })
 

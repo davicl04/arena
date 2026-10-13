@@ -255,7 +255,7 @@ describe('detalhe do evento (D2)', () => {
     expect(within(sheet).getByText('Pix do organizador')).not.toBeNull()
     expect(within(sheet).getByText(/Comprovante até/)).not.toBeNull()
     await ui.click(within(sheet).getByRole('button', { name: 'Copiar chave Pix' }))
-    expect(await within(sheet).findByText('Não foi possível copiar. Selecione a chave e copie manualmente.')).not.toBeNull()
+    expect((await findToast('Não foi possível copiar. Selecione a chave e copie manualmente.')).closest('[data-tone]')?.getAttribute('data-tone')).toBe('warning')
     expect(window.getSelection()?.toString()).toBe('copa.sudoeste@pix.com')
     // ⓘ do bloco Pix abre a folha de pagamento e volta à reserva ao fechar.
     await ui.click(within(sheet).getByRole('button', { name: 'Informações de pagamento' }))

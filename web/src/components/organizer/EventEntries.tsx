@@ -4,10 +4,9 @@ import { SocialPhoto } from '@/components/SocialPhoto'
 import { TeamCrest } from '@/components/arena/TeamCrest'
 import { StateBadge } from '@/components/events/StateBadge'
 import { Button } from '@/components/ui/button'
-import { feedbackVariants } from '@/components/ui/feedback'
+import { LoadError } from '@/components/ui/load-error'
 import { entryState } from '@/data/arena'
 import { usePagedList } from '@/hooks/usePagedList'
-import { cn } from '@/lib/utils'
 import { formatDeadline } from '@/utils/format'
 import { relativeTime } from '@/utils/relativeTime'
 
@@ -36,7 +35,7 @@ export function EventEntries({ eventId, onReceipts, onExpired }: {
 }) {
   const list = usePagedList<OrganizerEntry>(eventEntriesPath(eventId), onExpired)
   if (list.loading) return <p role="status" className="px-1 py-3 text-[11.5px] text-ink-muted">Carregando as inscrições…</p>
-  if (list.error) return <div className={cn(feedbackVariants(), 'mt-2')} role="alert">{list.error.message} <Button variant="text" onClick={list.reload}>Tentar novamente</Button></div>
+  if (list.error) return <LoadError size="section" title="Não foi possível carregar as inscrições" text={list.error.message} cause={list.error} onRetry={list.reload} />
   if (!list.items.length) return <p className="px-1 py-3 text-[11.5px] leading-[1.5] text-ink-muted">Nenhuma inscrição ainda. Quem se inscrever aparece aqui, com o estado do pagamento.</p>
   return <>
     <ul className="m-0 list-none p-0" aria-label="Inscrições do evento">

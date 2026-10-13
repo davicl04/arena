@@ -8,11 +8,11 @@ import { planCompetitors, slotName } from '@/components/brackets/bracketText'
 import { teamButton } from '@/components/teams/styles'
 import { DarkTopBar, TeamsPlate } from '@/components/teams/TeamsPlate'
 import { Button } from '@/components/ui/button'
-import { feedbackVariants } from '@/components/ui/feedback'
+import { LoadError } from '@/components/ui/load-error'
 import { Sheet, SheetActions } from '@/components/ui/sheet'
+import { toast } from '@/components/ui/toast'
 import { useResource } from '@/hooks/useResource'
 import { isStale, useSubmit } from '@/hooks/useSubmit'
-import { cn } from '@/lib/utils'
 import { formatDeadline } from '@/utils/format'
 
 /** Nome de quem ocupa o lugar `place` da primeira fase (para a frase da troca). */
@@ -41,7 +41,6 @@ export default function BracketPage({ eventId, onBack, onMatches, onExpired }: {
   const bracket = resource.data
   const action = useSubmit(onExpired)
   const [picked, setPicked] = useState<number | null>(null)
-  const [status, setStatus] = useState('')
   const [confirming, setConfirming] = useState(false)
 
   const elimination = bracket?.kind === 'eliminacao_simples'
@@ -53,7 +52,7 @@ export default function BracketPage({ eventId, onBack, onMatches, onExpired }: {
       <TeamsPlate className="pb-4"><DarkTopBar eyebrow="Organizador" title="Chaveamento" onBack={onBack} /></TeamsPlate>
       <div className="px-5 pt-4">
         {resource.loading && <p role="status" className="text-[12px] text-ink-muted">Carregando o chaveamento…</p>}
-        {resource.error && <div className={feedbackVariants()} role="alert">{resource.error} <Button variant="text" onClick={resource.reload}>Tentar novamente</Button></div>}
+        {resource.error && <LoadError size="screen" text={resource.error} cause={resource.errorCause} onRetry={resource.reload} />}
       </div>
     </div>
   }
@@ -61,14 +60,13 @@ export default function BracketPage({ eventId, onBack, onMatches, onExpired }: {
   const current: Bracket = bracket
   const { permissions } = current
 
-  /** Um `404`/`409` mostra que o chaveamento mudou (confirmado em outra aba, evento cancelado): relê, sem perder a mensagem do servidor. */
+  /** Um `404`/`409` mostra que o chaveamento mudou (confirmado em outra aba, evento cancelado): relê; a mensagem do servidor já saiu como aviso. */
   async function reread(cause: unknown) {
     if (!isStale(cause)) return
     try {
       const fresh = await getBracket(eventId)
       resource.setData(fresh)
       setPicked(null)
-      setStatus('')
       if (!fresh.permissions.can_confirm) setConfirming(false)
     } catch (failure) {
       if (failure instanceof ApiError && failure.status === 401) onExpired()
@@ -80,18 +78,20 @@ export default function BracketPage({ eventId, onBack, onMatches, onExpired }: {
     if (!next) return
     resource.setData(next)
     setPicked(null)
-    setStatus(current.state === 'sorteado' ? 'Sorteio refeito. As trocas anteriores foram descartadas.' : 'Sorteio feito. Confira e confirme quando estiver pronto.')
+    if (current.state === 'sorteado') toast.success('Sorteio refeito.', { description: 'As trocas anteriores foram descartadas.' })
+    else toast.success('Sorteio feito.', { description: 'Confira e confirme quando estiver pronto.' })
   }
   async function pick(place: number) {
-    if (picked === null) { setPicked(place); setStatus(`${nameAtPlace(current, place)} escolhido. Selecione quem vai trocar de lugar com ele.`); return }
-    if (picked === place) { setPicked(null); setStatus('Troca cancelada.'); return }
+    // A instrução do segundo toque fica na tela (`hint`); só o desfecho vira toast.
+    if (picked === null) { setPicked(place); return }
+    if (picked === place) { setPicked(null); toast.info('Troca cancelada.'); return }
     const first = nameAtPlace(current, picked)
     const second = nameAtPlace(current, place)
     const next = await action.run(() => swapBracket(eventId, picked, place), 'Não foi possível trocar os lugares.', reread)
     setPicked(null)
-    if (!next) { setStatus(''); return }
+    if (!next) return
     resource.setData(next)
-    setStatus(`${first} e ${second} trocaram de lugar.`)
+    toast.success('Troca concluída.', { description: `${first} e ${second} trocaram de lugar.` })
   }
   async function confirm() {
     const next = await action.run(() => confirmBracket(eventId), 'Não foi possível confirmar o chaveamento.', reread)
@@ -99,9 +99,8 @@ export default function BracketPage({ eventId, onBack, onMatches, onExpired }: {
     resource.setData(next)
     setConfirming(false)
     setPicked(null)
-    setStatus(elimination
-      ? `Chaveamento confirmado. As partidas foram criadas e os ${unit} foram avisados.`
-      : `Tabela confirmada. As rodadas foram criadas e os ${unit} foram avisados.`)
+    toast.success(elimination ? 'Chaveamento confirmado.' : 'Tabela confirmada.',
+      { description: `${elimination ? 'As partidas' : 'As rodadas'} foram criadas e os ${unit} foram avisados.` })
   }
 
   const drawn = current.state === 'sorteado'
@@ -117,11 +116,6 @@ export default function BracketPage({ eventId, onBack, onMatches, onExpired }: {
     </TeamsPlate>
 
     <div className="grid grid-cols-[minmax(0,1fr)] gap-3.5 px-4 pt-4">
-      <div aria-live="polite" className="grid gap-2">
-        {status && <p className={cn(feedbackVariants({ tone: 'success' }), 'my-0')} role="status">{status}</p>}
-        {action.error && !confirming && <p className={cn(feedbackVariants(), 'my-0')} role="alert">{action.error}</p>}
-      </div>
-
       {current.state === 'sem_chaveamento' && (
         <div className="grid gap-3 rounded-card bg-white p-3.5">
           <div className="flex items-start gap-3">
@@ -174,7 +168,7 @@ export default function BracketPage({ eventId, onBack, onMatches, onExpired }: {
             <Shuffle aria-hidden="true" />Sortear de novo
           </button>
           <button type="button" className={teamButton({ tone: 'brand', size: 'block' })} disabled={!permissions.can_confirm || action.busy}
-            onClick={() => { action.setError(''); setConfirming(true) }}>
+            onClick={() => setConfirming(true)}>
             <Check aria-hidden="true" />{elimination ? 'Confirmar chaveamento' : 'Confirmar tabela'}
           </button>
           <p className="m-0 flex items-start gap-2 text-[10.5px] leading-[1.5] text-ink-muted">
@@ -201,7 +195,6 @@ export default function BracketPage({ eventId, onBack, onMatches, onExpired }: {
         <div className="grid gap-3 pt-2 text-[12px] leading-[1.55] text-ink">
           <p className="m-0">As partidas são criadas e os {unit} inscritos recebem a {elimination ? 'chave' : 'tabela'}. Depois de confirmar, <b>não dá mais para trocar os lugares nem sortear de novo</b>.</p>
           <p className="m-0 text-ink-muted">Reservas e comprovantes recusados ainda abertos são liberados. Com algum comprovante em análise, a confirmação é recusada até você analisá-lo.</p>
-          {action.error && <p className={cn(feedbackVariants(), 'my-0')} role="alert">{action.error}</p>}
           <SheetActions>
             <Button variant="secondary" disabled={action.busy} onClick={() => setConfirming(false)}>Voltar</Button>
             <Button disabled={action.busy} onClick={() => void confirm()}><Check size={16} aria-hidden="true" />{action.busy ? 'Confirmando…' : 'Confirmar'}</Button>

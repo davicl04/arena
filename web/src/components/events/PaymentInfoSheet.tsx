@@ -6,10 +6,9 @@ import type { Sport } from "@/api/client";
 import { Sheet } from "@/components/ui/sheet";
 import { eventNoun, pixKeyType } from "@/data/arena";
 import { selectText, useClipboard } from "@/hooks/useClipboard";
-import { cn } from "@/lib/utils";
 import { formatDeadline, formatPrice } from "@/utils/format";
 import { CopyIconButton, ManualCopyField } from "./PixBlock";
-import { copyFeedback } from "./pix";
+import { notifyCopy } from "./pix";
 import type { PixCopyItem, PixInfo } from "./pix";
 
 export interface PaymentInfoSheetProps {
@@ -72,7 +71,9 @@ export function PaymentInfoSheet({
 
   /** Copia; se falhar, seleciona o texto visível (o código aparece num campo próprio, já selecionado). */
   async function copyItem(item: PixCopyItem, text: string, target?: RefObject<HTMLElement | null>) {
-    if (!(await copy(item, text)) && target) selectText(target.current);
+    const copied = await copy(item, text);
+    notifyCopy(copied, item);
+    if (!copied && target) selectText(target.current);
   }
 
   return (
@@ -169,13 +170,6 @@ export function PaymentInfoSheet({
       <p className="m-0 flex items-start gap-2 px-0.5 pt-1 text-[10.5px] leading-normal text-ink-muted">
         <ShieldCheck size={15} className="mt-px flex-none text-brand" aria-hidden="true" />
         O Arena não recebe nem guarda pagamentos. Sem comprovante no prazo, a vaga é liberada.
-      </p>
-      <p
-        role="status"
-        aria-live="polite"
-        className={cn("m-0 px-0.5 text-[11px] leading-[1.45]", failed ? "text-error" : "text-brand")}
-      >
-        {copyFeedback(status, copiedKey)}
       </p>
     </Sheet>
   );

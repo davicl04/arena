@@ -4,7 +4,7 @@ import { pixKeyType } from "@/data/arena";
 import { selectText, useClipboard } from "@/hooks/useClipboard";
 import { cn } from "@/lib/utils";
 import { formatPrice } from "@/utils/format";
-import { copyFeedback } from "./pix";
+import { notifyCopy } from "./pix";
 import type { PixInfo } from "./pix";
 
 /** Botão de copiar só com ícone (`.mini.lt`): troca para ✓ depois de copiar. */
@@ -72,18 +72,22 @@ export interface PixBlockProps {
 /**
  * Bloco "Pix do organizador" da folha de inscrição: favorecido, chave em fonte monoespaçada com o botão de
  * copiar só com ícone e "Copiar Pix Copia e Cola". Sem área de transferência, a chave fica selecionada e o
- * código aparece num campo selecionável. O retorno é anunciado em `aria-live`.
+ * código aparece num campo selecionável. O retorno da cópia sai como toast (aviso se falhou).
  */
 export function PixBlock({ pix, priceCents, onInfo, title = "Pix do organizador", className }: PixBlockProps) {
   const { status, key: copiedKey, copy } = useClipboard();
   const keyRef = useRef<HTMLElement>(null);
   const failed = status === "failed";
   const showCode = failed && copiedKey === "codigo" && Boolean(pix.copyPaste);
-  const message = copyFeedback(status, copiedKey);
   const kind = pixKeyType[pix.keyType];
 
   async function copyKey() {
-    if (!(await copy("chave", pix.key))) selectText(keyRef.current);
+    const copied = await copy("chave", pix.key);
+    notifyCopy(copied, "chave");
+    if (!copied) selectText(keyRef.current);
+  }
+  async function copyCode() {
+    notifyCopy(await copy("codigo", pix.copyPaste ?? ""), "codigo");
   }
 
   return (
@@ -129,7 +133,7 @@ export function PixBlock({ pix, priceCents, onInfo, title = "Pix do organizador"
         <>
           <button
             type="button"
-            onClick={() => void copy("codigo", pix.copyPaste ?? "")}
+            onClick={() => void copyCode()}
             className="inline-flex min-h-[34px] w-full items-center justify-center gap-1.5 rounded-field border border-solid border-line-strong bg-white px-[11px] text-[11px] font-bold text-brand hover:bg-subtle"
           >
             {status === "copied" && copiedKey === "codigo" ? (
@@ -146,13 +150,6 @@ export function PixBlock({ pix, priceCents, onInfo, title = "Pix do organizador"
           </small>
         </>
       )}
-      <p
-        role="status"
-        aria-live="polite"
-        className={cn("m-0 text-[11px] leading-[1.45] empty:-mt-2", failed ? "text-error" : "text-brand")}
-      >
-        {message}
-      </p>
     </div>
   );
 }
