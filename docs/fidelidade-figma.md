@@ -101,3 +101,20 @@ Ajuste posterior pedido pelo usuário, decidido em sessão de protótipos e regi
 - **Junto ao campo:** validação de formulário, como antes.
 
 No Expo o vidro é sólido (sem desfoque) e o texto usa a fonte do sistema, sem Sora nem Inter. Não há declaração de paridade visual do Expo nem validação em aparelho.
+
+## Tema claro e escuro "Estádio à noite" — 13 de outubro de 2026
+
+Ajuste posterior pedido pelo usuário, decidido em sessão de protótipos e registrado no [plano](plano-tema.md) e na [decisão 0004](decisoes/0004-tema.md). Não vem do Figma. O claro aprovado não muda: as capturas do claro, antes e depois, ficaram idênticas, exceto o Menu, que ganhou o cartão Aparência. O escuro amplia a paleta:
+
+- **Paleta:**
+  - fundo preto esverdeado (`#040806`) com um holofote suave no topo do painel;
+  - cartões em degradê escuro com a borda acesa (`#ffffff12`) e sem sombra;
+  - menta (`#8fe0b4`) nos botões, links e contadores, com texto escuro (`#04100a`) sobre ela;
+  - dourado dos elos (`#F4DE9A`) nos sobretítulos, nos quadros de ícone e no item selecionado dos segmentados;
+  - títulos em branco.
+- **Placas forest** (Sua posição, Jogar, Salão), vidro, toasts e telas escuras por design ficam iguais nos dois temas.
+- **Navegação inferior:** preta translúcida com desfoque, moldura dourada no item ativo e botão Jogar em menta com brilho.
+- **Controle:** cartão "Luzes do estádio" no Menu do Perfil (seção Aparência), com Dia, Noite e Automático.
+- **Ícones de esporte:** brancos no escuro, pintados por máscara a partir do PNG com alfa.
+
+No Expo, o cartão escuro é chapado (sem degradê) e não há borda acesa onde o claro não tinha borda. Não há declaração de paridade visual do Expo nem validação em aparelho.

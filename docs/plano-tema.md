@@ -1,6 +1,6 @@
 # Plano — tema claro e escuro (web + Expo)
 
-> Estado: **apenas planejamento, 13 de outubro de 2026**. Nenhum código foi alterado.
+> Estado: **implementado na web e no Expo em 13 de outubro de 2026** (decisões e desvios em [0004-tema.md](decisoes/0004-tema.md); verificações em [situação da fundação](situacao-fundacao.md)). O Expo não foi validado em aparelho.
 
 ## Contexto
 

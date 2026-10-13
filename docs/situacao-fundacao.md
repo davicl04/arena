@@ -1,5 +1,50 @@
 # Situação da fundação do Arena
 
+## Tema claro e escuro "Estádio à noite" (web e Expo) — 13 de outubro de 2026
+
+Execução do [plano-tema.md](plano-tema.md). As decisões assumidas pelo plano valem como implementadas: Automático como padrão, preferência no aparelho e escopo web e Expo, com a web primeiro, valendo também nas telas de entrada. A orquestração usou subagentes por área. Os commits são locais em `feat/notifications-ranking`, sem push. Decisões, tokens e contraste estão em [0004-tema.md](decisoes/0004-tema.md).
+
+**O que mudou**
+- **Controle:** cartão "Luzes do estádio" na seção Aparência do Menu do Perfil (web e Expo), com Dia, Noite e Automático. A preferência fica em `arena.tema` no aparelho (`localStorage` na web, SecureStore no Expo). Não há backend, migração nem mudança de contrato.
+- **Web:**
+  - tokens claro/escuro em `ui.css` (`:root[data-theme="dark"]`), tokens novos (`surface`, `sheet`, `field`, `on-brand`, `heading`, `icon-tile`, `eyebrow`, `hover`, `nav`, `surface-edge`) e a variante `noite:`;
+  - script em linha no `index.html`, que aplica o tema antes da primeira pintura, com `theme-color` e `color-scheme`;
+  - `hooks/useTheme.ts`, com o Automático acompanhando o sistema ao vivo e transição só na troca pelo cartão;
+  - primitivos e navegação ajustados;
+  - varredura de todas as áreas;
+  - revisão dos blocos escuros por design (placas forest, Jogar, Salão, vidro, cartaz, assistente), que ficam iguais nos dois temas.
+- **Ícones de esporte:** versões com alfa (`{sport}-alfa.png`, geradas por `web/scripts/gerar-icones-alfa.py`). No escuro, a web pinta o ícone por máscara e o Expo por `tintColor`.
+- **Expo:**
+  - `darkColors` e `useThemeColors()`;
+  - tokens escuros em `global.css` (`@media (prefers-color-scheme: dark)`) aplicados por `Appearance.setColorScheme`;
+  - `app.json` em `automatic`;
+  - `StatusBar` seguindo o tema;
+  - varredura das telas, com cores de props e `style` pelo hook;
+  - tom `danger-fixed` no `ActionButton`, para a folha escura de cancelar a busca;
+  - simulação de `Appearance`/`useColorScheme` e de `expo-secure-store` nos testes.
+- **Documentação:** [0004-tema.md](decisoes/0004-tema.md), seção nova em [fidelidade-figma.md](fidelidade-figma.md), comando dos ícones no README e regra dos dois temas no `AGENTS.md`.
+
+**Verificações executadas**
+- **Web:** `npm run lint`, `npm run build` e `npm run test:coverage` passam (88 arquivos, 1230 testes, entre eles os novos de `tests/theme.test.tsx`: hook, persistência, falha de armazenamento, `matchMedia` ao vivo, transição, cartão com `aria-pressed` e ícone em máscara).
+- **Claro inalterado na web:** capturas de 33 telas em 390 px, antes e depois, idênticas pixel a pixel, exceto o Menu (cartão novo) e um ruído de 10 pixels no desfoque da barra. O diff foi auditado por script.
+- **Escuro na web:** as mesmas 33 telas em 390 px e 7 telas em 320 e 1440 px, revisadas sem overflow horizontal.
+- **Fluxo real no navegador** (web auxiliar 5180):
+  - Noite grava `arena.tema` e troca `data-theme`, `theme-color` e `color-scheme`;
+  - após a recarga, o tema já está aplicado no `DOMContentLoaded`, antes de o React montar, sem piscar;
+  - o Automático acompanha a troca do sistema ao vivo;
+  - Enter no teclado troca a opção, com foco visível;
+  - não há erro de console.
+- **Expo:** `npm run lint`, `npm run typecheck`, `npm run test:coverage` (102 arquivos, 1576 testes, com `tests/theme.test.ts`) e `npm run export:android` passam. `npx expo install --check` aponta só o desvio conhecido `expo@57.0.27` contra `~57.0.28`.
+- **Prova de compilação do NativeWind 5 rc:** o `global.css`, compilado pelo react-native-css, gera as variáveis com a condição `prefers-color-scheme = dark` (ex.: `color-app` `#040806`/`#e2e4e9`), e `bg-app` lê a variável. O diff do Expo foi auditado: os únicos literais do claro trocados são equivalentes (`rgba(0,90,54,0.07)` → `#005a3612`).
+- **Contraste do escuro** conferido por cálculo (valores em 0004).
+
+**Limitações e pendências**
+- **Expo sem aparelho:** não houve validação em Android nem iOS (não há SDK nem emulador nesta máquina). Não estão confirmados em execução: a troca por `Appearance.setColorScheme`, o desempenho da troca e a aparência real das telas. A build não comprova o funcionamento. Não há declaração de paridade visual do Expo.
+- **Telas da web sem captura:** times, eventos, organizador, partida, chaveamento, recibos e Salão foram revisados só por código e auditoria de diff. A API auxiliar em execução (8010) é uma versão antiga e responde 404 a essas rotas. Atualizá-la exigiria migrar o banco `arena_e2e`, o que não foi feito.
+- **Bordas de campo** (`field-border`, `line-strong`) ficam abaixo de 3:1 no escuro, como já acontecia no claro aprovado.
+- **CSP:** não há cabeçalho CSP no projeto. Uma CSP de produção precisará liberar o script em linha do `index.html` por hash.
+- **Ícones de esporte:** se os provisórios forem trocados, as versões com alfa precisam ser regeneradas.
+
 ## Plano do tema claro e escuro (apenas planejamento) — 13 de outubro de 2026
 
 Registrado [plano-tema.md](plano-tema.md), resultado de uma sessão de protótipos em quatro rodadas. O protótipo está num artefato privado do usuário, e a fonte local fica em `artifacts/prototipos-tema/`, fora do versionamento.

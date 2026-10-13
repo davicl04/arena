@@ -169,6 +169,7 @@ O Expo tem as telas das etapas 1 a 5: Meus times, Convidar e Entrar pelo link, o
 - **Copiar Pix e link:** sem `expo-clipboard`, a chave Pix, o Copia e Cola e o link do time aparecem como texto selecionável, com o botão de compartilhar do sistema (`Share`).
 - **Dependências acrescentadas no Expo**, todas aprovadas pelo usuário: `react-native-svg` (chaveamento e marca), `react-native-qrcode-svg` (QR do time), `expo-camera` (ler o QR) e `expo-document-picker` (comprovantes). `expo-clipboard`, `expo-file-system` e `expo-sharing` foram recusadas.
 - **Marca:** `npm run generate:brand` (em `mobile/`) regenera `src/assets/brand-svgs.ts` a partir de `web/public/images/brand/*.svg`; rode depois de alterar esses SVGs. O arquivo gerado é versionado.
+- **Ícones de esporte do tema escuro:** `python -I web/scripts/gerar-icones-alfa.py` (requer Pillow) gera `web/public/images/sports/{futebol,tenis,corrida}-alfa.png`, com o traço opaco e o fundo transparente, e os copia para `mobile/assets/sports/`. Rode depois de trocar os PNGs provisórios. Os arquivos gerados são versionados ([decisão do tema](docs/decisoes/0004-tema.md)).
 - **Verificação:** em `mobile/`, `npm run lint`, `npm run typecheck`, `npm run test:coverage`, `npm run export:android` e `npx expo install --check` (que hoje só aponta `expo@57.0.27` contra `~57.0.28`, um desvio conhecido). Os números e os pisos estão em [qualidade do código](docs/qualidade-codigo.md).
 
 ## Demonstrar a primeira entrega
