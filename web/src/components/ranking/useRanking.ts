@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ApiError, request } from '@/api/client'
+import { connection } from '@/api/connection'
 import { rankingPath } from '@/api/results'
 import type { RankingPage, RankingQuery, RankingRow } from '@/api/results'
 
@@ -13,6 +14,7 @@ interface State {
   items: RankingRow[]
   cursor: string | null
   error: string
+  cause: unknown
   busy: boolean
   moreError: string
 }
@@ -20,7 +22,8 @@ interface State {
 /**
  * Lista geral do Ranking (`GET /rankings`) paginada por cursor. Trocar a categoria recarrega a primeira página; a
  * primeira resposta guarda os totais e as linhas do titular (`mine`), e "carregar mais" só acrescenta linhas. 401 chama
- * `onExpired`; respostas antigas são descartadas.
+ * `onExpired`; respostas antigas são descartadas. `errorCause` é o erro lançado (para o `LoadError`); se a primeira página
+ * falhou por conexão, relê uma única vez quando ela volta.
  */
 export function useRanking(query: Omit<RankingQuery, 'cursor' | 'limit'>, onExpired: () => void) {
   const path = rankingPath({ ...query, limit: RANKING_PAGE_SIZE })
@@ -32,11 +35,11 @@ export function useRanking(query: Omit<RankingQuery, 'cursor' | 'limit'>, onExpi
     const current = ++generation.current
     request<RankingPage>(path).then(page => {
       if (generation.current === current)
-        setState({ path, generation: current, page, items: page.items, cursor: page.next_cursor, error: '', busy: false, moreError: '' })
+        setState({ path, generation: current, page, items: page.items, cursor: page.next_cursor, error: '', cause: null, busy: false, moreError: '' })
     }).catch((cause: unknown) => {
       if (generation.current !== current) return
       if (cause instanceof ApiError && cause.status === 401) onExpired()
-      setState({ path, generation: current, page: null, items: [], cursor: null, busy: false, moreError: '',
+      setState({ path, generation: current, page: null, items: [], cursor: null, busy: false, moreError: '', cause,
         error: cause instanceof Error && cause.message ? cause.message : 'Não foi possível carregar o ranking.' })
     })
     return () => { generation.current = current + 1 }
@@ -61,9 +64,16 @@ export function useRanking(query: Omit<RankingQuery, 'cursor' | 'limit'>, onExpi
     }
   }, [current, path, onExpired])
 
+  const reload = useCallback(() => { generation.current++; setState(null); setAttempt(n => n + 1) }, [])
+  const connectionError = current?.cause instanceof ApiError && current.cause.isConnection
+  useEffect(() => {
+    if (!connectionError) return
+    return connection.onRestored(reload)
+  }, [connectionError, reload])
+
   return {
-    loading: !current, error: current?.error ?? '', page: current?.page ?? null, items: current?.items ?? [],
+    loading: !current, error: current?.error ?? '', errorCause: current?.cause ?? null, page: current?.page ?? null, items: current?.items ?? [],
     hasMore: Boolean(current?.cursor), busy: current?.busy ?? false, moreError: current?.moreError ?? '',
-    loadMore, reload: () => { generation.current++; setState(null); setAttempt(n => n + 1) },
+    loadMore, reload,
   }
 }

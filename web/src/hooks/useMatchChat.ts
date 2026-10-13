@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ApiError } from '../api/client'
+import { connection } from '../api/connection'
 import { CHAT_POLL_MS, getMessages, sendMessage } from '../api/matches'
 import type { MatchMessageOut } from '../api/matches'
 
@@ -24,12 +25,16 @@ const messageOf = (cause: unknown, fallback: string) => cause instanceof Error &
  * Chat da partida (contrato 0002, 11.1): lê as últimas mensagens ao abrir e depois só as novas, com `after={último id}`,
  * a cada 4 s com escrita aberta ou 30 s em somente leitura (pausa com a aba oculta; ao voltar, lê na hora). Carrega as anteriores com
  * `before`. O envio acrescenta a mensagem devolvida sem mexer no cursor da leitura, para não pular mensagens do outro
- * lado que chegaram antes.
+ * lado que chegaram antes. Falha ao enviar por falta de conexão não deixa mensagem local (o aviso de conexão cuida; o texto
+ * digitado continua no campo); as demais ficam em `sendError`, junto ao campo. `error`/`errorCause` são só do carregamento
+ * (o `LoadError` do chat, com `reload`).
  */
 export function useMatchChat(matchId: number, enabled: boolean, onExpired: () => void, onEvent?: () => void, live = true) {
   const [items, setItems] = useState<MatchMessageOut[]>([])
   const [ready, setReady] = useState(false)
   const [error, setError] = useState('')
+  const [errorCause, setErrorCause] = useState<unknown>(null)
+  const [attempt, setAttempt] = useState(0)
   const [offline, setOffline] = useState(false)
   const [hasOlder, setHasOlder] = useState(false)
   const [loadingOlder, setLoadingOlder] = useState(false)
@@ -72,6 +77,7 @@ export function useMatchChat(matchId: number, enabled: boolean, onExpired: () =>
           }
           setOffline(false)
           setError('')
+          setErrorCause(null)
           setReady(true)
         }
       } catch (cause) {
@@ -81,13 +87,14 @@ export function useMatchChat(matchId: number, enabled: boolean, onExpired: () =>
           // Chat fechado para quem lê (403/404): não adianta insistir.
           stopped = true
           setError(messageOf(cause, 'Não foi possível carregar o chat.'))
+          setErrorCause(cause)
           setReady(true)
           return
         }
         // Falha de rede: avisa e tenta de novo no próximo ciclo.
         setOffline(true)
         setReady(true)
-        if (!loaded) setError(messageOf(cause, 'Não foi possível carregar o chat.'))
+        if (!loaded) { setError(messageOf(cause, 'Não foi possível carregar o chat.')); setErrorCause(cause) }
       } finally {
         busy = false
         schedule()
@@ -111,7 +118,15 @@ export function useMatchChat(matchId: number, enabled: boolean, onExpired: () =>
       window.clearTimeout(timer)
       document.removeEventListener('visibilitychange', onVisibility)
     }
-  }, [matchId, enabled])
+  }, [matchId, enabled, attempt])
+
+  /** "Tentar novamente" do carregamento: recomeça a leitura (a lista volta ao estado de carregando). */
+  const reload = useCallback(() => {
+    setError('')
+    setErrorCause(null)
+    setReady(false)
+    setAttempt(count => count + 1)
+  }, [])
 
   const loadOlder = useCallback(async () => {
     const first = items[0]
@@ -139,12 +154,13 @@ export function useMatchChat(matchId: number, enabled: boolean, onExpired: () =>
       return true
     } catch (cause) {
       if (cause instanceof ApiError && cause.status === 401) onExpiredRef.current()
-      if (alive.current) setSendError(messageOf(cause, 'Não foi possível enviar a mensagem.'))
+      else if (cause instanceof ApiError && cause.isConnection) connection.attempted(cause)
+      else if (alive.current) setSendError(messageOf(cause, 'Não foi possível enviar a mensagem.'))
       return false
     } finally {
       if (alive.current) setSending(false)
     }
   }, [matchId])
 
-  return { items, loading: enabled && !ready, error, offline, hasOlder, loadingOlder, loadOlder, sending, sendError, send }
+  return { items, loading: enabled && !ready, error, errorCause, reload, offline, hasOlder, loadingOlder, loadOlder, sending, sendError, send }
 }

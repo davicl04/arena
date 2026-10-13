@@ -8,7 +8,7 @@ import { TeamCrest } from "@/components/arena/TeamCrest";
 import { SocialPhoto } from "@/components/SocialPhoto";
 import { Button, IconButton } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
-import { feedbackVariants } from "@/components/ui/feedback";
+import { LoadError } from "@/components/ui/load-error";
 import { eventWhen, sideOf, shortName } from "@/data/match";
 import { useMatchChat } from "@/hooks/useMatchChat";
 import { cn } from "@/lib/utils";
@@ -281,11 +281,7 @@ export function MatchChat({
                 Carregando o chat…
               </p>
             )}
-            {chat.error && !chat.items.length && (
-              <p className={cn(feedbackVariants(), "my-0")} role="alert">
-                {chat.error}
-              </p>
-            )}
+            {chat.error && !chat.items.length && <LoadError size="section" text={chat.error} cause={chat.errorCause} onRetry={chat.reload} />}
             {!chat.loading && !chat.error && rows.length === 0 && (
               <p className="m-0 py-4 text-center text-[12px] leading-normal text-ink-muted">Nenhuma mensagem ainda. Combinem dia, horário e quadra por aqui.</p>
             )}

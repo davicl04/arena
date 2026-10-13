@@ -138,7 +138,22 @@ describe('lados, agrupamento e braçadeira', () => {
     expect(await screen.findByText('Nenhuma mensagem ainda. Combinem dia, horário e quadra por aqui.')).not.toBeNull()
     cleanup()
     renderChat(matchDetail(), { 'GET /matches/1/messages': apiError(403, 'O chat abre quando os dois lados aceitam a proposta.') })
-    expect((await screen.findAllByRole('alert'))[0].textContent).toBe('O chat abre quando os dois lados aceitam a proposta.')
+    const alert = (await screen.findAllByRole('alert'))[0]
+    expect(alert.textContent).toContain('O chat abre quando os dois lados aceitam a proposta.')
+    expect(within(alert).getByRole('button', { name: 'Tentar novamente' })).not.toBeNull()
+  })
+
+  it('falha de conexão no carregamento fala em conexão e "Tentar novamente" lê de novo', async () => {
+    const user = userEvent.setup()
+    let reads = 0
+    const { find } = renderChat(matchDetail(), {
+      'GET /matches/1/messages': () => (++reads === 1 ? apiError(503, 'Serviço indisponível.') : page([message(1, { body: 'Chegou' })])),
+    })
+    const alert = await screen.findByRole('alert')
+    expect(alert.textContent).toContain('Sem conexão com a ARENA')
+    await user.click(within(alert).getByRole('button', { name: 'Tentar novamente' }))
+    expect(await screen.findByText('Chegou')).not.toBeNull()
+    expect(find('GET', '/matches/1/messages')).toHaveLength(2)
   })
 
   it('separa os dias com "Hoje" e "Ontem" e agrupa pelo lado', () => {
@@ -362,6 +377,21 @@ describe('envio', () => {
     expect((field as HTMLTextAreaElement).value.trim()).toBe('Oi')
   })
 
+  it('falha de conexão ao enviar não escreve mensagem no campo e guarda o texto para tentar de novo', async () => {
+    const user = userEvent.setup()
+    renderChat(matchDetail(), {
+      'GET /matches/1/messages': page([]),
+      'POST /matches/1/messages': apiError(503, 'Serviço indisponível.'),
+    })
+    const field = await screen.findByLabelText('Mensagem')
+    const live = field.getAttribute('aria-describedby')!
+    await user.type(field, 'Oi')
+    await user.click(screen.getByRole('button', { name: 'Enviar mensagem' }))
+    await waitFor(() => expect((screen.getByRole('button', { name: 'Enviar mensagem' }) as HTMLButtonElement).disabled).toBe(false))
+    expect(document.getElementById(live)!.textContent).toBe('')
+    expect((field as HTMLTextAreaElement).value).toBe('Oi')
+  })
+
   it('o campo respeita o limite de 1000 caracteres', async () => {
     renderChat(matchDetail(), { 'GET /matches/1/messages': page([]) })
     expect((await screen.findByLabelText('Mensagem')).getAttribute('maxlength')).toBe('1000')
@@ -397,7 +427,7 @@ describe('denúncia', () => {
     expect(screen.queryByRole('dialog', { name: 'Denunciar mensagem' })).toBeNull()
   })
 
-  it('o erro da denúncia fica no formulário, que continua aberto', async () => {
+  it('o erro da denúncia vira aviso e o formulário continua aberto', async () => {
     const user = userEvent.setup()
     renderChat(matchDetail(), {
       'GET /matches/1/messages': page([message(12, { body: 'Mensagem' })]),
@@ -407,7 +437,8 @@ describe('denúncia', () => {
     const glass = await screen.findByRole('dialog', { name: 'Denunciar mensagem' })
     await user.click(within(glass).getByRole('radio', { name: /Assédio/ }))
     await user.click(within(glass).getByRole('button', { name: 'Enviar denúncia' }))
-    expect(await within(glass).findByText('Conteúdo não encontrado.')).not.toBeNull()
+    expect(await findToast('Conteúdo não encontrado.')).not.toBeNull()
+    expect(screen.getByRole('dialog', { name: 'Denunciar mensagem' })).toBeTruthy()
     await user.click(within(glass).getByRole('button', { name: 'Fechar' }))
     expect(screen.queryByRole('dialog', { name: 'Denunciar mensagem' })).toBeNull()
   })

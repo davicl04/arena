@@ -33,6 +33,7 @@ export function TermsSheet({
 }: {
   detail: MatchDetail;
   busy: boolean;
+  /** Recusa do servidor às condições (`422`/`409` com conflito): as demais falhas de ação saem em toast. */
   error: string;
   onSubmit: (input: TermsInput) => void;
   onClose: () => void;
@@ -112,9 +113,14 @@ export function TermsSheet({
           Quem propõe já aceita. A partida só é agendada quando o outro lado também aceitar estas condições.
         </p>
 
-        {(problem || error) && (
+        {problem && (
           <p className={cn(feedbackVariants(), "my-0")} role="alert">
-            {problem || error}
+            {problem}
+          </p>
+        )}
+        {error && !problem && (
+          <p className={cn(feedbackVariants(), "my-0")} role="alert">
+            {error}
           </p>
         )}
         <Button type="submit" className="w-full" disabled={busy}>

@@ -186,7 +186,7 @@ describe('RunHistorySheet: histórico paginado e remoção', () => {
     await ui.click(screen.getByRole('button', { name: 'Remover a marca de 25:31 em 27 set' }))
     await ui.click(within(screen.getByRole('group', { name: 'Confirmação' })).getByRole('button', { name: 'Remover marca' }))
     await waitFor(() => expect(screen.queryByText('25:31')).toBeNull())
-    expect(screen.getByRole('status', { name: '' }).textContent).toBe('Marca removida.')
+    expect((await findToast('Marca removida.')).closest('[data-tone]')?.getAttribute('data-tone')).toBe('success')
     expect(api.find('DELETE', '/me/runs/2')).toHaveLength(1)
     expect(onChanged).toHaveBeenCalledTimes(1)
     expect(within(sheet()).getAllByRole('listitem')).toHaveLength(2)
@@ -243,8 +243,10 @@ describe('RunHistorySheet: histórico paginado e remoção', () => {
   })
 
   it('erro de leitura oferece tentar de novo; Esc fecha a folha', async () => {
-    const { ui, onClose } = open('5', { [path('5')]: apiError(503, 'Serviço indisponível.') })
-    expect((await screen.findByRole('alert')).textContent).toContain('Serviço indisponível.')
+    const { ui, onClose } = open('5', { [path('5')]: apiError(500, 'Erro ao ler o histórico.') })
+    const alert = await screen.findByRole('alert')
+    expect(alert.textContent).toContain('Erro ao ler o histórico.')
+    expect(within(alert).getByRole('button', { name: 'Tentar novamente' })).not.toBeNull()
     await ui.keyboard('{Escape}')
     expect(onClose).toHaveBeenCalled()
   })
@@ -420,9 +422,9 @@ describe('placa da corrida (K2 + K4 na PlayPage)', () => {
   })
 
   it('erro ao ler as marcas: o alerta oferece tentar de novo e o botão REGISTRAR continua disponível', async () => {
-    const { ui } = renderPlay({ 'GET /me/run-bests': apiError(503, 'Serviço indisponível.') })
+    const { ui } = renderPlay({ 'GET /me/run-bests': apiError(500, 'Erro ao ler as marcas.') })
     await openRunning(ui)
-    expect((await screen.findAllByRole('alert')).map(item => item.textContent).join(' ')).toContain('Serviço indisponível.')
+    expect((await screen.findAllByRole('alert')).map(item => item.textContent).join(' ')).toContain('Erro ao ler as marcas.')
     expect(runButton().disabled).toBe(false)
     expect(screen.queryByText('Sem marca nos 5 km')).toBeNull() // sem leitura, nada de "sem marca"
   })

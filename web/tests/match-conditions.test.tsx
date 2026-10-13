@@ -238,7 +238,7 @@ describe('condições: propor', () => {
     const option = await within(sheet).findByRole('button', { name: /Quadra Nova/ })
     expect(option.getAttribute('aria-pressed')).toBe('true')
     expect(within(option).getByText('Sugestão em revisão')).not.toBeNull()
-    expect(within(sheet).getByText('Quadra Nova foi sugerida: fica em revisão e vale só nesta partida.')).not.toBeNull()
+    expect((await findToast('Quadra Nova foi sugerida: fica em revisão e vale só nesta partida.')).closest('[data-tone]')?.getAttribute('data-tone')).toBe('success')
 
     await pickDay(user, '20')
     fireEvent.change(within(sheet).getByLabelText('Horário'), { target: { value: '20:00' } })
@@ -247,6 +247,21 @@ describe('condições: propor', () => {
     // No cartão, a quadra segue com o selo "Sugestão em revisão".
     expect(await screen.findByText('Sugestão em revisão')).not.toBeNull()
     expect(screen.getByText('vale só para esta partida')).not.toBeNull()
+  })
+
+  it('uma falha ao sugerir a quadra vira toast de erro e o formulário da sugestão continua aberto', async () => {
+    const { user } = renderMatch(matchDetail(), {
+      'GET /courts?city_id=5300108&kind=society&match_id=1': { items: [] },
+      'POST /courts/suggestions': apiError(500, 'Não foi possível registrar a sugestão agora.'),
+    })
+    await user.click(await screen.findByRole('button', { name: 'Propor condições' }))
+    const sheet = await screen.findByRole('dialog', { name: 'Propor condições' })
+    await user.click(await within(sheet).findByRole('button', { name: /Sugerir outra quadra/ }))
+    await user.type(within(sheet).getByLabelText('Nome da quadra'), 'Quadra Nova')
+    await user.click(within(sheet).getByRole('button', { name: 'Sugerir quadra' }))
+    expect((await findToast('Não foi possível registrar a sugestão agora.')).closest('[data-tone]')?.getAttribute('data-tone')).toBe('error')
+    expect(within(sheet).queryByRole('alert')).toBeNull()
+    expect(within(sheet).getByLabelText('Nome da quadra')).not.toBeNull()
   })
 
   it('sem permissão para sugerir, a folha não oferece "Sugerir outra quadra"', async () => {
@@ -263,6 +278,7 @@ describe('condições: propor', () => {
     await user.click(await screen.findByRole('button', { name: 'Propor condições' }))
     const sheet = await screen.findByRole('dialog', { name: 'Propor condições' })
     expect(await within(sheet).findByText('Catálogo indisponível.')).not.toBeNull()
+    expect(within(sheet).getByRole('button', { name: 'Tentar novamente' })).not.toBeNull()
     expect(within(sheet).getByRole('button', { name: /Sugerir outra quadra/ })).not.toBeNull()
   })
 

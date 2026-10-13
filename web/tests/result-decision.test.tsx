@@ -300,9 +300,23 @@ describe('sem o que decidir', () => {
     expect((await screen.findByRole('note')).textContent).toContain('A partida ainda não começou')
   })
 
+  it('o chat que não carregou vira erro de seção com "Tentar novamente", sem esconder a decisão', async () => {
+    let fails = true
+    renderPage(divergent(), { 'GET /matches/11/messages?limit=20': () => (fails ? apiError(500, 'Chat fora do ar.') : page([message(1, { body: 'Voltou o chat.', author: ricardo, side: 'a', author_role: 'representante' })])) })
+    const alert = await screen.findByRole('alert')
+    expect(alert.getAttribute('data-size')).toBe('section')
+    expect(alert.textContent).toContain('Chat fora do ar.')
+    expect(screen.getByLabelText('Justificativa (obrigatória)')).not.toBeNull()
+    fails = false
+    await userEvent.setup().click(within(alert).getByRole('button', { name: 'Tentar novamente' }))
+    expect(await screen.findByText('Voltou o chat.')).not.toBeNull()
+  })
+
   it('erro de carregamento, 401 e voltar', async () => {
     const first = renderPage(divergent(), { 'GET /matches/11': apiError(404, 'Partida não encontrada.') })
-    expect((await screen.findByRole('alert')).textContent).toContain('Partida não encontrada.')
+    const alert = await screen.findByRole('alert')
+    expect(alert.getAttribute('data-size')).toBe('screen')
+    expect(alert.textContent).toContain('Partida não encontrada.')
     await first.user.click(screen.getByRole('button', { name: 'Voltar' }))
     expect(first.onBack).toHaveBeenCalled()
     cleanup()

@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 import { ChevronRight, Users } from 'lucide-react'
 import { reportResult } from '@/api/results'
 import type { ResultInput, ResultMatch } from '@/api/results'
-import { Button } from '@/components/ui/button'
+import { LoadError } from '@/components/ui/load-error'
 import { useSubmit } from '@/hooks/useSubmit'
 import { toast } from '@/components/ui/toast'
 import { otherSide, outcomeFor } from './format'
@@ -119,9 +119,7 @@ export function MatchResultCard<T extends ResultMatch = ResultMatch>({
         </button>
       )}
       {football && lineups.error && (
-        <p className="m-0 text-[11px] text-ink-muted" role="status">
-          {lineups.error} <Button type="button" variant="link" className="text-[11px]" onClick={lineups.reload}>Tentar novamente</Button>
-        </p>
+        <LoadError size="section" title="Não foi possível carregar o elenco" text={lineups.error} cause={lineups.errorCause} onRetry={lineups.reload} />
       )}
 
       {football && (match.permissions.send_stats || mine?.stat) && (

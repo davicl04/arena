@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ApiError } from '../api/client'
+import { connection } from '../api/connection'
 import { getPlayBoard, normalizeBoard } from '../api/matchmaking'
 import type { PlayBoard } from '../api/matchmaking'
 
@@ -14,6 +15,8 @@ export interface PlayBoardState {
   loading: boolean
   /** Mensagem da última leitura que falhou (a placa anterior continua valendo). */
   error: string
+  /** O erro lançado pela última leitura que falhou (para o `LoadError` reconhecer a falta de conexão). */
+  errorCause?: unknown
   /** Lê de novo agora e devolve a placa; `null` se a leitura falhar ou for superada por outra mais nova. */
   reload: () => Promise<PlayBoard | null>
   /** Propostas que a pessoa deixou para "Responder depois": não reabrem sozinhas em tela cheia (só na memória da sessão). */
@@ -30,6 +33,7 @@ export function usePlayBoard(onExpired: () => void, active: boolean): PlayBoardS
   const [board, setBoard] = useState<PlayBoard | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [errorCause, setErrorCause] = useState<unknown>(null)
   const [deferred, setDeferred] = useState<readonly number[]>([])
   const defer = useCallback((matchId: number) => setDeferred(old => old.includes(matchId) ? old : [...old, matchId]), [])
   const generation = useRef(0)
@@ -45,12 +49,14 @@ export function usePlayBoard(onExpired: () => void, active: boolean): PlayBoardS
       const next = normalizeBoard(raw)
       setBoard(next)
       setError('')
+      setErrorCause(null)
       setLoading(false)
       return next
     }, (cause: unknown) => {
       if (generation.current !== mine) return null
       if (cause instanceof ApiError && cause.status === 401) expired.current()
       setError(cause instanceof Error && cause.message ? cause.message : 'Não foi possível carregar a placa.')
+      setErrorCause(cause)
       setLoading(false)
       return null
     })
@@ -61,6 +67,13 @@ export function usePlayBoard(onExpired: () => void, active: boolean): PlayBoardS
   }, [reload])
 
   useEffect(() => { void reload() }, [reload])
+
+  /* Se a última leitura falhou por conexão, relê uma única vez quando ela volta (como `useResource`). */
+  const retryOnRestore = useRef(false)
+  useEffect(() => { retryOnRestore.current = errorCause instanceof ApiError && errorCause.isConnection }, [errorCause])
+  useEffect(() => connection.onRestored(() => {
+    if (retryOnRestore.current) { retryOnRestore.current = false; void reload() }
+  }), [reload])
 
   useEffect(() => {
     const onVisible = () => { if (!document.hidden) refresh() }
@@ -85,5 +98,5 @@ export function usePlayBoard(onExpired: () => void, active: boolean): PlayBoardS
     return () => window.clearInterval(id)
   }, [attention, reload])
 
-  return { board, loading, error, reload, deferred, defer }
+  return { board, loading, error, errorCause, reload, deferred, defer }
 }

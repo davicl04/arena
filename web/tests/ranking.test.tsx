@@ -238,8 +238,8 @@ describe('Ranking geral (GET /rankings)', () => {
 
   it('mostra o erro com nova tentativa e chama onExpired quando a sessão cai', async () => {
     let fails = true
-    const { onExpired } = setup({ [`GET ${society}`]: () => (fails ? apiError(503, 'Serviço fora do ar.') : rankingPage({ items: [rankingRow(1, 'Ferrugem FC')] })) })
-    expect((await screen.findByRole('alert')).textContent).toContain('Serviço fora do ar.')
+    const { onExpired } = setup({ [`GET ${society}`]: () => (fails ? apiError(500, 'Erro ao montar o ranking.') : rankingPage({ items: [rankingRow(1, 'Ferrugem FC')] })) })
+    expect((await screen.findByRole('alert')).textContent).toContain('Erro ao montar o ranking.')
     fails = false
     await userEvent.setup().click(screen.getByRole('button', { name: 'Tentar novamente' }))
     expect(await screen.findByText('Ferrugem FC')).not.toBeNull()
@@ -247,6 +247,13 @@ describe('Ranking geral (GET /rankings)', () => {
     cleanup()
     const expired = setup({ [`GET ${society}`]: apiError(401, 'Sua sessão expirou. Entre novamente.') })
     await waitFor(() => expect(expired.onExpired).toHaveBeenCalled())
+  })
+
+  it('a falha de conexão ao carregar o ranking fala em conexão e oferece tentar de novo', async () => {
+    setup({ [`GET ${society}`]: apiError(503, 'Serviço fora do ar.') })
+    const alert = await screen.findByRole('alert')
+    expect(alert.textContent).toContain('Sem conexão com a ARENA')
+    expect(within(alert).getByRole('button', { name: 'Tentar novamente' })).not.toBeNull()
   })
 
   it('o botão "Configurar modalidade" continua levando a Suas modalidades', async () => {

@@ -7,6 +7,7 @@ import { Card } from '@/components/ui/card'
 import { SectionTitle } from '@/components/ui/section-title'
 import { Tabs } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
+import { LoadError } from '@/components/ui/load-error'
 import { usePagedList } from '@/hooks/usePagedList'
 import { SideMark } from './SideBadge'
 import { matchPhases } from '@/data/match'
@@ -42,9 +43,7 @@ function History({ sport, onOpen, onExpired }: { sport: MatchCard['sport']; onOp
   const list = usePagedList<MatchCard>(MY_MATCHES_HISTORY_PATH, onExpired)
   const items = list.items.filter(card => card.sport === sport)
   if (list.loading) return <p role="status" className="m-0 py-4 text-center text-[11.5px] text-ink-muted">Carregando o histórico…</p>
-  if (list.error) return <p role="alert" className="m-0 py-4 text-center text-[11.5px] text-error">
-    {list.error.message} <Button variant="text" className="inline min-h-0 p-0" onClick={list.reload}>Tentar novamente</Button>
-  </p>
+  if (list.error) return <LoadError size="section" text={list.error.message} cause={list.error} onRetry={list.reload} />
   return <>
     {items.length
       ? items.map(card => <MatchRow key={card.id} card={card} onOpen={onOpen} />)

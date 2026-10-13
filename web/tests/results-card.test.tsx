@@ -535,13 +535,18 @@ describe('Revisar elenco', () => {
 
   it('o erro da leitura do elenco aparece com nova tentativa; 401 chama onExpired', async () => {
     let fails = true
-    const api = mockApi({ 'GET /matches/7/stats': () => (fails ? apiError(503, 'Serviço fora do ar.') : { items: lineups() }) })
+    const api = mockApi({ 'GET /matches/7/stats': () => (fails ? apiError(500, 'Erro ao ler o elenco.') : { items: lineups() }) })
     renderWithToaster(<MatchResultCard match={football({ result: confirmed(3, 1, 3) })} viewerId={11} onChanged={vi.fn()} onExpired={vi.fn()} />)
-    expect(await screen.findByText(/Serviço fora do ar\./)).not.toBeNull()
+    const alert = await screen.findByRole('alert')
+    expect(alert.textContent).toContain('Erro ao ler o elenco.')
     fails = false
     await userEvent.setup().click(button('Tentar novamente'))
     expect(await screen.findByRole('button', { name: /Elenco e estatísticas/ })).not.toBeNull()
     expect(api.find('GET', '/matches/7/stats')).toHaveLength(2)
+    cleanup()
+    mockApi({ 'GET /matches/7/stats': apiError(503, 'Serviço fora do ar.') })
+    renderWithToaster(<MatchResultCard match={football({ result: confirmed(3, 1, 3) })} viewerId={11} onChanged={vi.fn()} onExpired={vi.fn()} />)
+    expect((await screen.findByRole('alert')).textContent).toContain('Sem conexão com a ARENA')
     cleanup()
     mockApi({ 'GET /matches/7/stats': apiError(401, 'Sua sessão expirou.') })
     const onExpired = vi.fn()

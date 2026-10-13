@@ -4,7 +4,9 @@ import type { Run, RunFilter } from '@/api/runs'
 import { ConfirmBox } from '@/components/teams/ConfirmBox'
 import { teamButton } from '@/components/teams/styles'
 import { Button } from '@/components/ui/button'
+import { LoadError } from '@/components/ui/load-error'
 import { Sheet } from '@/components/ui/sheet'
+import { toast } from '@/components/ui/toast'
 import { runDistances } from '@/data/arena'
 import { usePagedList } from '@/hooks/usePagedList'
 import { isStale, useSubmit } from '@/hooks/useSubmit'
@@ -15,6 +17,7 @@ import { formatDuration } from './tierLines'
  * Histórico de uma distância (K4), em folha: as marcas do titular da mais recente para a mais antiga, paginadas por
  * cursor (`GET /me/runs?distance=`). "Remover" pede confirmação na própria linha, apaga a marca e avisa quem chamou
  * (`onChanged`), que relê os cartões e a placa. `outra` lista as marcas fora das cinco distâncias, que ficam só aqui.
+ * "Marca removida." e a falha ao remover saem em toast.
  */
 export function RunHistorySheet({ filter, onClose, onAdd, onChanged, onExpired }: {
   filter: RunFilter
@@ -27,11 +30,10 @@ export function RunHistorySheet({ filter, onClose, onAdd, onChanged, onExpired }
   const list = usePagedList<Run>(runsPath(filter), onExpired)
   const remove = useSubmit(onExpired)
   const [confirming, setConfirming] = useState<number | null>(null)
-  const [notice, setNotice] = useState('')
   const other = filter === 'outra'
   const label = other ? '' : runDistances.find(item => `${item.value}` === filter)?.label ?? `${filter} km`
 
-  /** `404`/`409` ao remover: a marca já não existe (ou mudou) no servidor. Relê a lista e os cartões; a mensagem fica no alto da folha. */
+  /** `404`/`409` ao remover: a marca já não existe (ou mudou) no servidor. Relê a lista e os cartões; a mensagem do servidor sai em toast de aviso. */
   function reread(cause: unknown) {
     if (!isStale(cause)) return
     setConfirming(null)
@@ -44,19 +46,15 @@ export function RunHistorySheet({ filter, onClose, onAdd, onChanged, onExpired }
     if (!done) return
     list.setItems(items => items.filter(item => item.id !== run.id))
     setConfirming(null)
-    setNotice('Marca removida.')
+    toast.success('Marca removida.')
     onChanged()
   }
 
   return <Sheet eyebrow="Suas marcas" title={other ? 'Outras distâncias' : `Histórico dos ${label}`} onClose={onClose}
     description={other ? 'Marcas fora de 3, 5, 10, 21 e 42 km (com 2% de tolerância). Ficam só aqui, sem ranking.' : 'Da mais recente para a mais antiga.'}>
     <div className="mt-2" data-slot="run-history">
-      <p role="status" className="m-0 text-[11.5px] leading-normal text-brand empty:hidden">{notice}</p>
-      {remove.error && confirming === null && <p role="alert" className="m-0 mt-2 text-[11.5px] leading-normal text-danger-ink">{remove.error}</p>}
       {list.loading && <p role="status" className="m-0 py-6 text-center text-[12px] text-ink-muted">Carregando o histórico…</p>}
-      {list.error && <div role="alert" className="my-3 rounded-field bg-error-bg p-3 text-[12px] leading-[1.6] text-error">
-        {list.error.message} <Button variant="text" className="inline min-h-0 py-0" onClick={list.reload}>Tentar novamente</Button>
-      </div>}
+      {list.error && <LoadError size="section" text={list.error.message} cause={list.error} onRetry={list.reload} />}
       {!list.loading && !list.error && !list.items.length && <div className="py-6 text-center">
         <p className="m-0 text-[12.5px] font-bold">{other ? 'Nenhuma marca fora das cinco distâncias.' : `Nenhuma marca nos ${label}.`}</p>
         <p className="mx-auto mt-1.5 mb-0 max-w-[280px] text-[11.5px] leading-[1.6] text-ink-muted">
@@ -82,7 +80,7 @@ export function RunHistorySheet({ filter, onClose, onAdd, onChanged, onExpired }
               </div>
               <button type="button" aria-label={`Remover a marca de ${time} em ${day}`} disabled={remove.busy}
                 className="min-h-9 flex-none border-0 bg-transparent px-1 text-[11px] font-bold text-danger-ink"
-                onClick={() => { remove.setError(''); setNotice(''); setConfirming(run.id) }}>
+                onClick={() => setConfirming(run.id)}>
                 Remover
               </button>
             </div>
@@ -92,7 +90,6 @@ export function RunHistorySheet({ filter, onClose, onAdd, onChanged, onExpired }
                 <span className="mt-1 block">
                   {run.counts_for_ranking ? 'Ela sai do histórico e o ranking da distância é recalculado.' : 'Ela sai do histórico. Não conta para o ranking.'}
                 </span>
-                {remove.error && <span role="alert" className="mt-1.5 block text-danger-ink">{remove.error}</span>}
               </ConfirmBox>
             </div>}
           </li>

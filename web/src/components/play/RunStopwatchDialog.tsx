@@ -11,6 +11,7 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { runDistances } from '@/data/arena'
 import type { RunDistance } from '@/data/arena'
 import { useResource } from '@/hooks/useResource'
+import { reportActionError } from '@/hooks/useSubmit'
 import { cn } from '@/lib/utils'
 import { toDateKey } from '@/utils/dateKey'
 import { PlateChips } from './PlateChips'
@@ -35,7 +36,10 @@ const sourceOptions = [
 const MEASURE_RANGE = 'A distância deve ficar entre 1 km e 100 km.'
 const label = 'text-[10px] font-bold tracking-[0.1em] text-white/65 uppercase'
 
-/** O que o servidor recusou, por campo (`422`), mais o que não pertence a um campo. `blocked`: repetir não adianta. */
+/**
+ * O que o servidor recusou, por campo (`422`), mais o que não pertence a um campo (a falha da prévia, que fica junto a ela).
+ * `blocked`: repetir não adianta. O erro de salvar que não é de campo sai em toast e não passa por aqui.
+ */
 interface Problems { distance_m?: string; duration_s?: string; date?: string; entry_id?: string; general?: string; blocked: boolean }
 /** Resposta da prévia (ou do salvar) para as entradas identificadas por `key`. */
 interface Outcome { key: string; preview?: RunPreview; problems?: Problems }
@@ -43,6 +47,8 @@ interface Outcome { key: string; preview?: RunPreview; problems?: Problems }
 const fieldNames = ['distance_m', 'duration_s', 'date', 'entry_id'] as const
 function problemsOf(cause: unknown, fallback: string): Problems {
   if (!(cause instanceof ApiError)) return { general: fallback, blocked: false }
+  // Sem conexão: o aviso de conexão cuida, sem mensagem local.
+  if (cause.isConnection) return { blocked: false }
   const problems: Problems = { blocked: cause.status >= 400 && cause.status < 500 }
   const rest: string[] = []
   for (const item of cause.fields) {
@@ -125,8 +131,10 @@ export function RunStopwatchDialog({ initialDistance, onClose, onSaved, onFindRa
     try {
       onSaved(await createRun(input))
     } catch (cause) {
-      if (cause instanceof ApiError && cause.status === 401) onExpired()
-      setOutcome(old => ({ key, preview: old?.key === key ? old.preview : undefined, problems: problemsOf(cause, 'Não foi possível salvar a corrida.') }))
+      // Só a recusa de campo (`422`) fica na tela; o resto vira toast (ou o aviso de conexão) e o botão segue disponível.
+      const report = reportActionError(cause, 'Não foi possível salvar a corrida.', onExpired)
+      if (report.kind === 'form')
+        setOutcome(old => ({ key, preview: old?.key === key ? old.preview : undefined, problems: problemsOf(cause, 'Não foi possível salvar a corrida.') }))
     } finally {
       setBusy(false)
     }
@@ -204,7 +212,7 @@ export function RunStopwatchDialog({ initialDistance, onClose, onSaved, onFindRa
             </div>
             : <div className="grid gap-1.5">
               <span className={label}>Prova</span>
-              <RunRaces races={raceList} loading={races.loading} error={races.error} selected={race ? race.entry_id : null}
+              <RunRaces races={raceList} loading={races.loading} error={races.error} errorCause={races.errorCause} selected={race ? race.entry_id : null}
                 describedBy={problems?.entry_id ? ids.races : undefined} onRetry={races.reload} onFind={onFindRaces}
                 onSelect={next => { setRaceId(next?.entry_id ?? null); if (next) setChoice(next.distance_km) }} />
               <Problem id={ids.races}>{problems?.entry_id}</Problem>
