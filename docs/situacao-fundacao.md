@@ -1,5 +1,25 @@
 # Situação da fundação do Arena
 
+## Plano da nova tela Ranking (apenas planejamento) — 13 de outubro de 2026
+
+Registrado [plano-ranking.md](plano-ranking.md), resultado de uma sessão de protótipos em sete rodadas. O protótipo está num artefato privado do usuário, e a fonte local fica em `artifacts/prototipos-ranking/`, fora do versionamento.
+
+Decisões tomadas:
+- **Estrutura "Você no centro"**: barra só com título e sino, sem voltar, seguida do cartão Categoria, da entrada do Salão dos Lendários e de uma placa contínua tingida na cor do elo. Saem os cinco cartões fixos de elos, o título repetido e o "Configurar modalidade" fixo.
+- **A lista mostra o elo do titular**, e cada elo é um ranking próprio (1º ao último do elo, com o 1º no topo). A tela não mostra a posição geral nem "Top %".
+- **Janela**: o titular com 2 acima e 2 abaixo. Quem está fora aparece com a borda esmaecida e um botão com seta e número, que carrega o elo inteiro.
+- **Lendários**: o Salão dos Lendários é uma entrada compacta que abre uma subtela escura própria.
+- **Categoria**: folha de filtros só com as modalidades em que o titular tem perfil ativo. Sem nenhum perfil, a tela mostra o estado vazio com "Configurar modalidade".
+- **Linha da lista** com a forma recente (últimos 5 resultados; na corrida, a data da melhor marca).
+- **Vários times**: a placa abre num time, e chips trocam entre os times ativos do titular.
+- **API**: `GET /rankings` ganha o filtro `tier`, a posição no elo, a forma recente e a contagem por elo. O novo `GET /rankings/overview` traz a janela, as diferenças e a prévia dos Lendários.
+- **Forma recente gravada no banco**, por decisão do usuário. As colunas `recent_form` e `best_mark_on` em `standings` são preenchidas pelo mesmo recálculo que atualiza pontos e elo. A migração cria as colunas e um índice, e o novo comando `admin_cli recalculate-rankings` preenche as linhas existentes.
+- **Escopo**: backend, web e Expo.
+
+Divergências encontradas: a aba raiz Ranking usa a barra de subtela, com voltar, e repete o título. A API pagina só a partir do 1º lugar e não sabe buscar por elo, contar por elo nem montar a janela ao redor do titular.
+
+Alteração somente documental: nenhum código, dependência ou banco foi alterado e nenhum teste foi executado. Algumas decisões foram tomadas pelo plano e podem ser revistas antes da implementação: os chips de faixa para quem ainda não tem elo, a troca de elo que pula elos vazios, e as diferenças relativas às pessoas (sem expor os cortes).
+
 ## Conciliação dos toasts com as notificações — 13 de outubro de 2026
 
 Fechamento do merge das branches `orq/toasts` e `orq/notificacoes` em `feat/notifications-ranking`: conflitos resolvidos, migração das telas de notificações para o novo padrão de mensagens e correção dos testes quebrados pela conciliação. Não muda contrato da API nem esquema; o backend não foi alterado.
