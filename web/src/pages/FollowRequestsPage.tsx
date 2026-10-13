@@ -1,13 +1,15 @@
 import { useState } from 'react'
 import { Check, UserCheck, X } from 'lucide-react'
-import { ApiError, request } from '../api/client'
+import { request } from '../api/client'
 import type { Page, SocialUser } from '../api/client'
 import { Button, IconButton } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { feedbackVariants } from '@/components/ui/feedback'
+import { LoadError } from '@/components/ui/load-error'
 import { PersonList, PersonRow } from '@/components/ui/person-row'
 import type { NotificationSummaryState } from '../hooks/useNotificationSummary'
 import { usePagedList } from '../hooks/usePagedList'
+import { reportActionError } from '../hooks/useSubmit'
 
 type FollowRequest = { user: SocialUser; state: string }
 
@@ -23,23 +25,18 @@ export default function FollowRequestsPage({ summary, onOpenUser, onExpired }: {
 }) {
   const list = usePagedList<FollowRequest>('/me/follow-requests', onExpired)
   const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
 
-  function failed(cause: unknown, fallback: string) {
-    if (cause instanceof ApiError && cause.status === 401) onExpired()
-    setError(cause instanceof Error && cause.message ? cause.message : fallback)
-  }
   async function resolve(person: SocialUser, approve: boolean) {
-    setBusy(true); setError('')
+    setBusy(true)
     try {
       await request(`/me/follow-requests/${person.id}?approve=${approve}`, 'PUT')
       list.setItems(old => old.filter(item => item.user.id !== person.id))
     } catch (cause) {
-      failed(cause, 'Não foi possível responder à solicitação.')
+      reportActionError(cause, 'Não foi possível responder à solicitação.', onExpired)
     } finally { setBusy(false); void summary.reload() }
   }
   async function approveAll() {
-    setBusy(true); setError('')
+    setBusy(true)
     try {
       // Aprovar remove itens da fila: cada lote começa novamente na primeira página.
       while (true) {
@@ -51,15 +48,14 @@ export default function FollowRequestsPage({ summary, onOpenUser, onExpired }: {
         }
       }
     } catch (cause) {
-      failed(cause, 'Não foi possível aprovar todas as solicitações.')
+      reportActionError(cause, 'Não foi possível aprovar todas as solicitações.', onExpired)
     } finally { list.reload(); setBusy(false); void summary.reload() }
   }
 
   if (list.loading) return <p role="status">Carregando pedidos…</p>
   return <>
-    <div aria-live="polite">{error && <p className={feedbackVariants()} role="alert">{error}</p>}</div>
     {list.error
-      ? <div className={feedbackVariants()} role="alert">{list.error.message} <Button variant="text" onClick={list.reload}>Tentar novamente</Button></div>
+      ? <LoadError size="section" title="Não foi possível carregar os pedidos" text={list.error.message} cause={list.error} onRetry={list.reload} />
       : list.items.length === 0 && busy
       ? <p role="status">Aprovando solicitações…</p>
       : list.items.length === 0

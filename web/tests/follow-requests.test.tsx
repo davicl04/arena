@@ -4,6 +4,8 @@ import userEvent from '@testing-library/user-event'
 import { ApiError, request } from '../src/api/client'
 import type { SocialUser } from '../src/api/client'
 import FollowRequestsPage from '../src/pages/FollowRequestsPage'
+import { Toaster } from '../src/components/ui/toast'
+import { findToast } from './toast-utils'
 
 vi.mock('../src/api/client', async original => ({
   ...await original<typeof import('../src/api/client')>(),
@@ -11,7 +13,7 @@ vi.mock('../src/api/client', async original => ({
 }))
 
 const reload = vi.fn(async () => {})
-const renderPage = () => render(<FollowRequestsPage summary={{ data: null, count: 0, error: '', reload, setData: vi.fn() }} onOpenUser={vi.fn()} onExpired={vi.fn()} />)
+const renderPage = () => render(<><FollowRequestsPage summary={{ data: null, count: 0, error: '', reload, setData: vi.fn() }} onOpenUser={vi.fn()} onExpired={vi.fn()} /><Toaster /></>)
 
 function requests(count: number) {
   return Array.from({ length: count }, (_, index) => {
@@ -64,7 +66,7 @@ describe('aprovação de todas as solicitações', () => {
     vi.mocked(request).mockImplementation(async (path, method) => {
       if (method === 'PUT') {
         const id = Number(path.match(/requests\/(\d+)/)?.[1])
-        if (id === 21 && fail) throw new ApiError('Falha ao aprovar a solicitação.', 503)
+        if (id === 21 && fail) throw new ApiError('Falha ao aprovar a solicitação.', 500)
         approved.push(id)
         pending.splice(pending.findIndex(item => item.user.id === id), 1)
         return { state: 'approved' } as never
@@ -74,7 +76,7 @@ describe('aprovação de todas as solicitações', () => {
     renderPage()
     fireEvent.click(await screen.findByRole('button', { name: 'Aprovar todas' }))
 
-    expect((await screen.findByRole('alert')).textContent).toContain('Falha ao aprovar a solicitação.')
+    expect(await findToast('Falha ao aprovar a solicitação.')).not.toBeNull()
     await screen.findByText('Atleta 21')
     expect(screen.queryByText('Atleta 1')).toBeNull()
     expect(screen.queryByText('Tudo em dia')).toBeNull()
@@ -85,7 +87,7 @@ describe('aprovação de todas as solicitações', () => {
     fail = false
     fireEvent.click(screen.getByRole('button', { name: 'Aprovar todas' }))
     await screen.findByText('Tudo em dia')
-    expect(screen.queryByRole('alert')).toBeNull()
+    expect(screen.queryByText('Não foi possível carregar os pedidos')).toBeNull()
     expect(pending).toHaveLength(0)
     expect(approved).toEqual(Array.from({ length: 45 }, (_, index) => index + 1))
   })
@@ -100,14 +102,14 @@ describe('aprovação de todas as solicitações', () => {
         return { state: 'approved' } as never
       }
       reads += 1
-      if (reads === 3) throw new ApiError('Não foi possível carregar o próximo lote.', 503)
+      if (reads === 3) throw new ApiError('Não foi possível carregar o próximo lote.', 500)
       return { items: pending.slice(0, 20), next_cursor: pending.length > 20 ? 'next' : null } as never
     })
     renderPage()
     fireEvent.click(await screen.findByRole('button', { name: 'Aprovar todas' }))
 
     await screen.findByText('Atleta 21')
-    expect(screen.getByRole('alert').textContent).toContain('Não foi possível carregar o próximo lote.')
+    expect(await findToast('Não foi possível carregar o próximo lote.')).not.toBeNull()
     expect(screen.queryByText('Tudo em dia')).toBeNull()
     expect(pending).toHaveLength(1)
     expect((screen.getByRole('button', { name: 'Aprovar todas' }) as HTMLButtonElement).disabled).toBe(false)

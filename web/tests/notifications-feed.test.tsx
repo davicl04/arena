@@ -1,10 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ApiError, request } from '../src/api/client'
+import { connection } from '../src/api/connection'
 import type { ArenaNotification, NotificationFilterCategory } from '../src/api/notifications'
 import { listed, noteOf, summaryOf } from './notifications-fixtures'
 import { NotificationsHarness } from './notifications-harness'
+import { findToast } from './toast-utils'
 
 vi.mock('../src/api/client', async original => ({
   ...await original<typeof import('../src/api/client')>(),
@@ -47,13 +49,14 @@ interface Options {
   failRead?: boolean
   failFeed?: number
   failPending?: number
+  failPendingStatus?: number
   failFollow?: number
 }
 let calls: { path: string; method?: string; body?: unknown }[]
 const paths = () => calls.map(call => call.path)
 
 /** Servidor simulado: o resumo é calculado dos dados, como o backend, e ler uma notificação a tira das não lidas. */
-function mockServer({ items = [], pending = [], follow = [], followTotal = follow.length, next = null, failRead = false, failFeed = 0, failPending = 0, failFollow = 0 }: Options = {}) {
+function mockServer({ items = [], pending = [], follow = [], followTotal = follow.length, next = null, failRead = false, failFeed = 0, failPending = 0, failPendingStatus = 500, failFollow = 0 }: Options = {}) {
   calls = []
   const all = [...items, ...pending]
   const unread = new Set(all.filter(item => !item.read_at).map(item => item.id))
@@ -69,11 +72,11 @@ function mockServer({ items = [], pending = [], follow = [], followTotal = follo
     const category = url.searchParams.get('categoria')
     if (path === '/me/notifications/summary') return summary() as never
     if (url.pathname === '/me/notifications/pending') {
-      if (failures.pending-- > 0) throw new ApiError('Não foi possível carregar as pendências.', 500)
+      if (failures.pending-- > 0) throw new ApiError('Não foi possível carregar as pendências.', failPendingStatus)
       return { items: pending.filter(item => !category || item.category === category) } as never
     }
     if (url.pathname === '/me/notifications') {
-      if (failures.feed-- > 0) throw new ApiError('Serviço indisponível.', 503)
+      if (failures.feed-- > 0) throw new ApiError('Serviço indisponível.', 500)
       if (url.searchParams.has('cursor')) return { items: [noteOf(40, 'time_encerrado', { team_id: 8, team_name: 'Ferrugem FC' }, { category: 'times', read_at: minutesAgo(1) })], next_cursor: null } as never
       return { items: items.filter(item => !category || item.category === category), next_cursor: next } as never
     }
@@ -301,7 +304,7 @@ describe('Notificações: pendências fixadas e lista por dia', () => {
     await waitFor(() => expect(document.querySelector('header p')?.textContent).toBe('3 não lidas · 1 pede sua resposta'))
     await userEvent.setup().click(screen.getByRole('button', { name: 'Ler todas' }))
     expect(calls).toContainEqual({ path: '/me/notifications/read-all', method: 'PUT', body: {} })
-    expect((await screen.findByRole('status')).textContent).toBe('Todas as notificações foram marcadas como lidas.')
+    expect(await findToast('Todas as notificações foram marcadas como lidas.')).not.toBeNull()
     await waitFor(() => expect(document.querySelector('header p')?.textContent).toBe('Tudo lido · 1 ainda pede sua resposta'))
     expect(document.querySelectorAll('[data-unread]')).toHaveLength(0)
     expect(screen.queryByRole('button', { name: 'Ler todas' })).toBeNull()
@@ -318,7 +321,7 @@ describe('Notificações: pendências fixadas e lista por dia', () => {
       throw new Error(`rota inesperada ${path}`)
     })
     await ui.click(screen.getByRole('button', { name: 'Ler todas' }))
-    expect((await screen.findByRole('alert')).textContent).toBe('Falha ao marcar.')
+    expect((await findToast('Falha ao marcar.')).closest('[data-tone]')?.getAttribute('data-tone')).toBe('error')
   })
 })
 
@@ -366,7 +369,7 @@ describe('Notificações: linhas', () => {
     const onNavigate = vi.fn()
     render(<NotificationsHarness onNavigate={onNavigate} />)
     await userEvent.setup().click(await screen.findByRole('button', { name: /removido do/ }))
-    expect((await screen.findByRole('alert')).textContent).toBe('Notificação não encontrada.')
+    expect((await findToast('Notificação não encontrada.')).closest('[data-tone]')?.getAttribute('data-tone')).toBe('warning')
     expect(onNavigate).not.toHaveBeenCalled()
   })
 
@@ -396,6 +399,18 @@ describe('Notificações: linhas', () => {
     expect(screen.getAllByRole('listitem')).toHaveLength(1)
     await userEvent.setup().click(within(section).getByRole('button', { name: 'Tentar novamente' }))
     expect(await screen.findByRole('article')).not.toBeNull()
+  })
+})
+
+describe('Notificações: pendências sem conexão', () => {
+  it('mostra o aviso de falta de conexão na seção e relê sozinho quando a conexão volta', async () => {
+    mockServer({ items: [accepted], pending: [proposal], failPending: 1, failPendingStatus: 503 })
+    render(<NotificationsHarness />)
+    const section = await screen.findByRole('region', { name: 'Para responder' })
+    expect(within(section).getByRole('alert').textContent).toContain('Sem conexão com a ARENA')
+    act(() => { connection.lost({ mutating: false }); connection.reached() })
+    expect(await screen.findByRole('article')).not.toBeNull()
+    expect(paths().filter(path => path.startsWith('/me/notifications/pending'))).toHaveLength(2)
   })
 })
 

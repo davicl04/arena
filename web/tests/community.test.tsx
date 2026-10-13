@@ -143,9 +143,12 @@ describe('Atualizar o feed', () => {
     const { main } = renderInMain()
     await screen.findByText('Treino do dia')
     const calls = postCalls()
-    fireEvent.touchStart(main, { touches: [{ clientY: 100 }] })
-    fireEvent.touchMove(main, { touches: [{ clientY: 140 }] })
-    expect(screen.getByText('Puxe para atualizar')).not.toBeNull()
+    // Os ouvintes do gesto entram num efeito depois de o feed aparecer: sob carga, o primeiro toque pode chegar antes.
+    await waitFor(() => {
+      fireEvent.touchStart(main, { touches: [{ clientY: 100 }] })
+      fireEvent.touchMove(main, { touches: [{ clientY: 140 }] })
+      expect(screen.getByText('Puxe para atualizar')).not.toBeNull()
+    })
     fireEvent.touchEnd(main)
     expect(postCalls()).toBe(calls)
 

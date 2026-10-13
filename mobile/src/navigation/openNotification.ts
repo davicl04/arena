@@ -2,6 +2,7 @@ import { ApiError } from '../api/client'
 import { markNotificationRead } from '../api/notifications'
 import type { ArenaNotification, NotificationSummary } from '../api/notifications'
 import { notificationView } from '../data/notifications'
+import { reportActionError } from '../hooks/useSubmit'
 import type { NotificationTarget } from '../data/notifications'
 import type { Navigation } from './useNavigation'
 
@@ -29,24 +30,23 @@ export function openTarget(navigation: Navigation, target: NotificationTarget) {
 /**
  * Toque numa notificação (linha, cartão de pendência ou linha da placa do Início): marca como lida, se ainda não está, e leva à
  * tela do aviso. `onRead` recebe o resumo devolvido pelo servidor para quem chama atualizar o sino e as listas. Falha ao marcar:
- * com destino, a navegação segue (ler é secundário); sem destino, devolve a mensagem para a tela mostrar. 401 expira a sessão e
- * não navega. A pendência lida continua pendente: só a ação na tela de destino ou o prazo a resolvem.
+ * com destino, a navegação segue (ler é secundário); sem destino, a falha passa por `reportActionError` (toast ou aviso de
+ * conexão). 401 expira a sessão e não navega. A pendência lida continua pendente: só a ação na tela de destino ou o prazo a resolvem.
  */
 export async function openNotification(notification: ArenaNotification, { navigation, isAdmin, onRead, onExpired }: {
   navigation: Navigation
   isAdmin: boolean
   onRead: (summary: NotificationSummary) => void
   onExpired: () => void
-}): Promise<string> {
+}): Promise<void> {
   const { target } = notificationView(notification, { isAdmin })
   if (!notification.read_at) {
     try {
       onRead(await markNotificationRead(notification.id))
     } catch (cause) {
-      if (cause instanceof ApiError && cause.status === 401) { onExpired(); return '' }
-      if (!target) return cause instanceof Error && cause.message ? cause.message : 'Não foi possível marcar a notificação como lida.'
+      if (cause instanceof ApiError && cause.status === 401) { onExpired(); return }
+      if (!target) { reportActionError(cause, 'Não foi possível marcar a notificação como lida.', onExpired); return }
     }
   }
   if (target) openTarget(navigation, target)
-  return ''
 }

@@ -26,7 +26,7 @@ describe('cliente das notificações com pendências (contrato 0003, seção 7)'
     await markNotificationRead(7)
     await markAllNotificationsRead()
     expect(vi.mocked(request).mock.calls).toEqual([
-      ['/me/notifications/summary'],
+      ['/me/notifications/summary', 'GET', undefined, { background: true }],
       ['/me/notifications/pending'],
       ['/me/notifications/pending?limit=2'],
       ['/me/notifications/pending?categoria=eventos'],

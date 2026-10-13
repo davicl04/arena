@@ -10,6 +10,7 @@ import { dispute, fromNow } from './admin-match-fixtures'
 import { matchDetail, page } from './match-fixtures'
 import { listed, summaryOf } from './notifications-fixtures'
 import { NotificationsHarness } from './notifications-harness'
+import { findToast } from './toast-utils'
 
 /*
  * Notificações da etapa 3 (0002-jogar, seção 13): texto e destino dos 16 tipos do Jogar e a navegação até a partida
@@ -172,7 +173,7 @@ describe('tela Notificações com os tipos da etapa 3', () => {
     render(<NotificationsHarness />)
     await listed()
     await ui.click(screen.getByRole('button', { name: 'Ler todas' }))
-    expect((await screen.findByRole('status')).textContent).toBe('Todas as notificações foram marcadas como lidas.')
+    expect(await findToast('Todas as notificações foram marcadas como lidas.')).not.toBeNull()
     expect(calls.find('PUT', '/me/notifications/read-all')).toHaveLength(1)
     expect(screen.queryByRole('button', { name: 'Ler todas' })).toBeNull()
   })

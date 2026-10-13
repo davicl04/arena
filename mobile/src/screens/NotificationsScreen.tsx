@@ -1,21 +1,22 @@
 import { useEffect, useState } from 'react'
 import { ScrollView, Text, View } from 'react-native'
-import { ApiError } from '../api/client'
 import { markAllNotificationsRead, notificationsPath } from '../api/notifications'
 import type { ArenaNotification } from '../api/notifications'
-import { Notice } from '../components/arena/controls'
+import { LoadError } from '../components/arena/LoadError'
 import { Icon } from '../components/Icon'
 import type { FollowRequest } from '../components/notifications/FollowRequestList'
 import { FollowRequestsLine } from '../components/notifications/FollowRequestsLine'
 import { NotificationItem } from '../components/notifications/NotificationItem'
 import { NotificationsPlate } from '../components/notifications/NotificationsPlate'
 import { PendingCard } from '../components/notifications/PendingCard'
+import { toast } from '../components/toast/toastStore'
 import { Button } from '../components/ui'
 import { groupByDay } from '../data/notifications'
 import type { NotificationFilter } from '../data/notifications'
 import { useNow } from '../hooks/useNow'
 import { usePagedList } from '../hooks/usePagedList'
 import { usePendingNotifications } from '../hooks/usePendingNotifications'
+import { reportActionError } from '../hooks/useSubmit'
 import { openNotification } from '../navigation/openNotification'
 import type { ScreenProps } from '../navigation/screens'
 import { colors } from '../theme'
@@ -53,8 +54,6 @@ export default function NotificationsScreen({ user, navigation, onExpired, notif
   // Só "Tudo" mostra a linha dos pedidos para seguir; as fotos e os nomes vêm da primeira página da fila.
   const requests = usePagedList<FollowRequest>('/me/follow-requests', onExpired, filter === 'tudo')
   const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
-  const [notice, setNotice] = useState('')
   const summary = notificationSummary.data
   // Ao abrir a tela o resumo é relido uma vez (o sino pode estar até 60 s defasado); trocar de chip não o relê.
   const { reload: reloadSummary } = notificationSummary
@@ -62,9 +61,9 @@ export default function NotificationsScreen({ user, navigation, onExpired, notif
 
   const markRead = (items: ArenaNotification[], readAt: string) => items.map(item => item.read_at ? item : { ...item, read_at: readAt })
   async function open(notification: ArenaNotification) {
-    setError(''); setNotice(''); setBusy(true)
+    setBusy(true)
     try {
-      const failure = await openNotification(notification, {
+      await openNotification(notification, {
         navigation, isAdmin: user.is_admin, onExpired,
         onRead: result => {
           const readAt = new Date().toISOString()
@@ -74,21 +73,19 @@ export default function NotificationsScreen({ user, navigation, onExpired, notif
           notificationSummary.setData(result)
         },
       })
-      if (failure) setError(failure)
     } finally { setBusy(false) }
   }
   async function readAll() {
-    setBusy(true); setError(''); setNotice('')
+    setBusy(true)
     try {
       const result = await markAllNotificationsRead()
       const readAt = new Date().toISOString()
       feed.setItems(old => markRead(old, readAt))
       pending.setItems(old => markRead(old, readAt))
       notificationSummary.setData(result)
-      setNotice('Todas as notificações foram marcadas como lidas.')
+      toast.success('Todas as notificações foram marcadas como lidas.')
     } catch (cause) {
-      if (cause instanceof ApiError && cause.status === 401) onExpired()
-      setError(cause instanceof Error && cause.message ? cause.message : 'Não foi possível marcar as notificações como lidas.')
+      reportActionError(cause, 'Não foi possível marcar as notificações como lidas.', onExpired)
     } finally { setBusy(false) }
   }
 
@@ -97,31 +94,21 @@ export default function NotificationsScreen({ user, navigation, onExpired, notif
   const failed = Boolean(pending.error || (feedOn && feed.error))
   const nothing = !loading && !failed && pending.items.length === 0 && (!feedOn || feed.items.length === 0) && requestsTotal === 0
   return <ScrollView testID="notifications-screen" contentContainerStyle={{ paddingBottom: 32 }}>
-    <NotificationsPlate summary={summary} filter={filter} onFilter={next => { setFilter(next); setError(''); setNotice('') }} busy={busy}
+    <NotificationsPlate summary={summary} filter={filter} onFilter={setFilter} busy={busy}
       onBack={navigation.back} onReadAll={() => void readAll()} />
     <View style={{ paddingHorizontal: 20, paddingTop: 16 }}>
-      <View accessibilityLiveRegion="polite">
-        {error ? <Notice tone="error">{error}</Notice> : null}
-        {notice ? <Notice tone="success">{notice}</Notice> : null}
-      </View>
       {loading ? <Text accessibilityLiveRegion="polite" style={{ color: colors['ink-muted'], fontSize: 14, marginTop: 8 }}>Carregando notificações…</Text> : null}
       {requestsTotal > 0 ? <View style={{ marginBottom: 14 }}>
         <FollowRequestsLine people={requests.items.map(item => item.user)} total={requestsTotal} onOpen={() => navigation.go('follow-requests')} />
       </View> : null}
-      {pending.error ? <View style={{ marginBottom: 12 }}>
-        <Text accessibilityRole="alert" style={{ ...feedback, color: colors.error }}>{pending.error}</Text>
-        <Button secondary title="Tentar novamente" onPress={pending.reload} />
-      </View> : null}
+      {pending.error ? <LoadError size="section" title="Não foi possível carregar as pendências" text={pending.error} cause={pending.errorCause} onRetry={pending.reload} /> : null}
       {pending.items.length > 0 ? <View accessibilityLabel="Para responder" style={{ marginBottom: 14 }}>
         <SectionTitle count={pending.items.length}>Para responder</SectionTitle>
         <View style={{ gap: 8 }}>
           {pending.items.map(item => <PendingCard key={item.id} notification={item} now={now} busy={busy} isAdmin={user.is_admin} onOpen={notification => void open(notification)} />)}
         </View>
       </View> : null}
-      {feedOn && feed.error ? <View>
-        <Text accessibilityRole="alert" style={{ ...feedback, color: colors.error }}>{feed.error.message}</Text>
-        <Button secondary title="Tentar novamente" onPress={feed.reload} />
-      </View> : null}
+      {feedOn && feed.error ? <LoadError size="section" title="Não foi possível carregar as notificações" text={feed.error.message} cause={feed.error} onRetry={feed.reload} /> : null}
       {feedOn ? groupByDay(feed.items, now).map(group => <View key={group.label} accessibilityLabel={group.label} style={{ marginBottom: 12 }}>
         <Text accessibilityRole="header" style={{ marginHorizontal: 4, marginBottom: 6, color: colors['ink-soft'], fontSize: 10, fontWeight: '700', letterSpacing: 0.8, textTransform: 'uppercase' }}>{group.label}</Text>
         <View style={{ overflow: 'hidden', borderRadius: 16, backgroundColor: '#ffffff' }}>

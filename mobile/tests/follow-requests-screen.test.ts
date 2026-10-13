@@ -6,6 +6,7 @@ import { enableAct } from './support/native'
 import { allText, byId, callsTo, me, navigationMock, page, pressButton, render, serve } from './support/events'
 import { notificationSummaryState, playContext } from './support/play'
 import { summaryOf } from './support/notifications'
+import { toasts, toastText } from './support/toast'
 
 vi.mock('react-native', async () => (await import('./support/native')).reactNativeMock())
 vi.mock('react-native-svg', async () => (await import('./support/native')).svgMock())
@@ -34,11 +35,11 @@ describe('Pedidos para seguir (subtela das Notificações)', () => {
     await pressButton(tree, 'Aprovar solicitação de Ana Prado')
     expect(callsTo('PUT', '/me/follow-requests/10?approve=true')).toHaveLength(1)
     expect(allText(tree)).not.toContain('@ana.prado')
-    expect(allText(tree)).toContain('Solicitação de Ana Prado aprovada.')
+    expect(toastText()).toContain('Solicitação de Ana Prado aprovada.')
     expect(notificationSummary.reload).toHaveBeenCalledTimes(1)
     await pressButton(tree, 'Recusar solicitação de Beto Dias')
     expect(callsTo('PUT', '/me/follow-requests/11?approve=false')).toHaveLength(1)
-    expect(allText(tree)).toContain('Solicitação de Beto Dias recusada.')
+    expect(toastText()).toContain('Solicitação de Beto Dias recusada.')
     expect(notificationSummary.reload).toHaveBeenCalledTimes(2)
     expect(byId(tree, 'follow-requests-empty')).toHaveLength(1)
   })
@@ -64,15 +65,17 @@ describe('Pedidos para seguir (subtela das Notificações)', () => {
     const { tree } = await mountRequests()
     await pressButton(tree, 'Aprovar todas as solicitações')
     expect(callsTo('PUT', '/me/follow-requests/10?approve=true')).toHaveLength(1)
-    expect(allText(tree)).toContain('Nem todas as solicitações foram aprovadas.')
-    expect(allText(tree)).not.toContain('Solicitações aprovadas.')
+    expect(toasts().map(item => item.tone)).toEqual(['warning'])
+    expect(toastText()).toContain('Nem todas as solicitações foram aprovadas.')
+    expect(toastText()).not.toContain('Solicitações aprovadas.')
   })
 
   it('erros: a ação mostra a mensagem e mantém a lista; 401 expira; a fila fora do ar tem "Tentar novamente"; vazio honesto', async () => {
     serve({ '/me/follow-requests': page([asker(10, 'Ana Prado')]), [request(10, true)]: new ApiError('Pedido não encontrado.', 404), [request(10, false)]: new ApiError('Sessão expirada', 401) })
     const { tree, onExpired, notificationSummary } = await mountRequests()
     await pressButton(tree, 'Aprovar solicitação de Ana Prado')
-    expect(allText(tree)).toContain('Pedido não encontrado.')
+    expect(toasts().map(item => item.tone)).toEqual(['warning'])
+    expect(toastText()).toContain('Pedido não encontrado.')
     expect(allText(tree)).toContain('@ana.prado')
     expect(notificationSummary.reload).not.toHaveBeenCalled()
     await pressButton(tree, 'Recusar solicitação de Ana Prado')
@@ -82,6 +85,7 @@ describe('Pedidos para seguir (subtela das Notificações)', () => {
     serve({ '/me/follow-requests': () => (fail ? new ApiError('Fila fora do ar', 500) : page([])) })
     const offline = await mountRequests()
     expect(allText(offline.tree)).toContain('Fila fora do ar')
+    expect(byId(offline.tree, 'load-error-section')).toHaveLength(1)
     fail = false
     await pressButton(offline.tree, 'Tentar novamente')
     expect(allText(offline.tree)).toContain('Nenhum pedido para seguir por enquanto.')
@@ -94,6 +98,7 @@ describe('Pedidos para seguir (subtela das Notificações)', () => {
     await pressButton(tree, 'Carregar mais solicitações')
     expect(allText(tree)).toContain('@beto.dias')
     await pressButton(tree, 'Aprovar todas as solicitações')
-    expect(allText(tree)).toContain('Sem rede')
+    expect(toasts().map(item => item.tone)).toEqual(['error'])
+    expect(toastText()).toContain('Sem rede')
   })
 })

@@ -1,5 +1,38 @@
 # Situação da fundação do Arena
 
+## Conciliação dos toasts com as notificações — 13 de outubro de 2026
+
+Fechamento do merge das branches `orq/toasts` e `orq/notificacoes` em `feat/notifications-ranking`: conflitos resolvidos, migração das telas de notificações para o novo padrão de mensagens e correção dos testes quebrados pela conciliação. Não muda contrato da API nem esquema; o backend não foi alterado.
+
+**Merge e conflitos resolvidos:**
+- `usePagedList` (web e Expo): a versão final combina `path` nulo na web e `enabled` no Expo (a tela de notificações não lê a lista no chip *Para responder* nem a fila de pedidos fora de *Tudo*) com `connectionError` e a releitura única quando a conexão volta.
+- `ArenaPage` e `ArenaShell`: o resumo das notificações, o sino e as subtelas convivem com o `Toaster`, a faixa e a folha de conexão.
+- `CommunityScreen` e `ProfileScreen` do Expo: o `ProfileScreen` ficou sem o cartão interno de pedidos para seguir (que agora só existe na subtela) e com o `LoadError` nativo.
+- Testes dos dois lados e esta própria seção.
+
+**Leituras em segundo plano:** `getUnreadCount` e `getNotificationSummary` (web e Expo) chamam `request(path, 'GET', undefined, { background: true })`. O contador do sino e o resumo nunca abrem a folha de conexão; uma falha só liga a faixa.
+
+**Migração das telas de notificações:**
+- **Web:** `NotificationsPage` e `FollowRequestsPage` perderam os estados `error` e `notice`, o `aria-live` e os blocos `feedbackVariants`. "Todas as notificações foram marcadas como lidas." é `toast.success`; os erros de ação (ler uma notificação sem destino, "Ler todas", aprovar e recusar pedidos, "Aprovar todas") passam por `reportActionError` (404/409 viram aviso, o resto erro, conexão cai na faixa e 401 expira a sessão). Marcar como lida falhando numa notificação com destino continua deixando a navegação seguir, só o 401 interrompe. Os erros de carregamento dos pedidos para seguir, das pendências e da lista usam `LoadError size="section"` com "Tentar novamente" e `cause`. "Carregar mais" que falhou continua no rodapé. O tom `success` de `feedbackVariants` ficou sem uso e foi removido; o tom `error` permanece.
+- **Expo:** `NotificationsScreen` e `FollowRequestsScreen` seguem o mesmo desenho, com o `LoadError` nativo. "Solicitação de X aprovada/recusada." e "Solicitações aprovadas." são `toast.success`; a aprovação parcial de "Aprovar todas" ("Nem todas as solicitações foram aprovadas. Tente de novo em instantes.") é `toast.warning`, como o `ProfileScreen` fazia. `openNotification` (compartilhado com o Início) passou a chamar `reportActionError` quando marcar como lida falha numa notificação sem destino, em vez de devolver o texto; o Início, que ignorava o retorno, agora também avisa.
+- `usePendingNotifications` (web e Expo) devolve `errorCause` e relê uma única vez quando a conexão volta, como `useResource` e `usePagedList`.
+- `HomePage`, `HomeScreen` e `components/notifications/*` foram conferidos: não restava bloco de sucesso nem de erro de ação no padrão antigo. A placa do Início continua sem mostrar erro.
+- Na web, "Aprovar todas" não tinha confirmação e continua sem (a fila vazia mostra "Tudo em dia").
+
+**Testes:**
+- Web: `NotificationsHarness` monta o `Toaster`; os testes de notificações, de "Ler todas" e de pedidos para seguir procuram o texto na região do toast (`findToast`) e conferem o tom (erro, aviso). Os casos de erro passaram a usar 500 onde queriam a mensagem do servidor, porque 503 é falta de conexão e vira faixa. Novo teste: a seção de pendências sem conexão mostra o aviso do `LoadError` e relê sozinha quando a conexão volta. `tests/organizer-api.test.ts` espera `{ background: true }`.
+- Expo: `follow-requests-screen` e `notifications` usam `toasts()` e `toastText()`; o caso de falha de conexão da fila confere o `load-error-section`; `api-notifications`, `api-organizer-admin` e `navigation-shell` esperam `{ background: true }` (o mock de `request` do `navigation-shell` compara os argumentos). Novo teste no hook de pendências: causa do erro e releitura única ao voltar a conexão.
+- `community.test.tsx` > "atualiza ao puxar o feed no topo além do limite, mas não com um puxão curto" falhou uma vez na suíte completa depois do merge e passou isolada, em oito execuções simultâneas e na suíte completa seguinte; não foi reproduzida. A causa provável é uma corrida do próprio teste: os ouvintes de toque entram num efeito (`usePullToRefresh`) depois de o feed aparecer, e sob carga o primeiro `touchStart` pode chegar antes. O hook e o `SocialCommunity` não mudaram no merge além do toast no lugar do aviso de publicação. O teste agora repete o puxão curto dentro de `waitFor` até o gesto estar armado, sem mudar o que verifica (puxão curto não atualiza, puxão longo atualiza uma vez).
+
+**Banco de desenvolvimento:** a migração `0012_notification_actions` está aplicada no banco `arena` (`alembic current` em `0012 (head)`); `alembic check` sem diferenças.
+
+**Verificações executadas:**
+- Web: `npm run lint` e `npm run build` aprovados (permanece o aviso de bundle acima de 500 kB); `npm run test:coverage` aprovado com **1.192 testes em 86 arquivos**, 93,54% das instruções e 87,47% dos ramos.
+- Expo: `npm run lint`, `npm run typecheck` e `npm run test:coverage` aprovados, com **1.534 testes em 99 arquivos**, 96,19% das instruções e 91,10% dos ramos.
+- Não executados: `export:android`, backend (sem alteração) e conferência no navegador ou em aparelho; a conciliação foi validada só por testes.
+
+**Limitações:** sem validação em aparelho Android/iOS (o toast sobre os `Modal`, a faixa e a folha de conexão do Expo seguem pendentes de conferência em aparelho); CI remoto não executado.
+
 ## Sino global, pendências e tela de notificações (backend, web e Expo) — 13 de outubro de 2026
 
 Implementado o [plano de notificações](plano-notificacoes.md) no backend, na web e no Expo. Contrato em [0003, seção 7](decisoes/0003-times-campeonatos.md#7-notificações): pendências (7.1) e tipos com ação (7.2).
@@ -25,7 +58,6 @@ Implementado o [plano de notificações](plano-notificacoes.md) no backend, na w
 
 **Limitações e pendências:**
 - Sem validação em aparelho Android/iOS nem conferência visual do Expo; o build do Expo não comprova funcionamento em aparelho.
-- O sistema de toasts ([plano-toasts.md](plano-toasts.md)) não existe nesta branch: "Ler todas" usa o bloco de sucesso atual, a conciliar depois do merge.
 - Sem preenchimento retroativo: notificações anteriores à migração nunca aparecem como pendentes.
 - Divergências do plano:
   - `condicoes_propostas` tem prazo no horário proposto (o plano previa sem prazo), porque as condições não podem ser aceitas depois dele;
@@ -41,9 +73,7 @@ Implementado o [plano de notificações](plano-notificacoes.md) no backend, na w
 
 Implementação do [plano-toasts.md](plano-toasts.md) na branch local `orq/toasts`, em etapas com commit local cada uma (web, backend e Expo), sem push. Não muda contrato da API, migração nem dependência.
 
-Pendências desta entrega:
-- `NotificationsPage.tsx` (web) e `NotificationsScreen.tsx` (Expo) não foram migradas, porque o plano de notificações as reescreve em paralelo; a migração fica para a conciliação depois do merge. Até lá, o tom `success` de `feedbackVariants` continua existindo só para a `NotificationsPage`, e o contador do sino (`getUnreadCount`) ainda não usa a opção `background`.
-- `HomePage.tsx` e `HomeScreen.tsx` só receberam o mínimo, pelo mesmo motivo.
+Pendências desta entrega (a migração das telas de notificações e do "Ler todas" foi concluída na conciliação):
 - Expo sem validação em aparelho; CI remoto não executado.
 - Os commits intermediários por área foram separados a partir do mesmo conjunto de mudanças; a suíte completa de cada cliente foi executada no estado final de cada etapa, não em cada commit intermediário.
 
@@ -58,7 +88,7 @@ Pendências desta entrega:
 
 Verificações da etapa 1: `npm run lint` e `npm run build` aprovados (permanece o aviso de bundle acima de 500 kB); `npm run test:coverage` aprovado com **1.053 testes em 81 arquivos**, 92,69% das instruções e 85,98% dos ramos; suíte repetida pelo orquestrador: 1.053 aprovados. No navegador (API própria na porta 8002, web na 5175 e conta sintética local): os quatro tons, a pilha com 6 toasts (4 visíveis), a abertura em lista e a pausa com o ponteiro, o X, a ação, F6, Tab e Esc conferidos; o erro não some sozinho e os demais saem em cerca de 4, 5 e 7 s. O toast fica dentro do painel, acima da navegação e por cima de uma folha aberta, sem overflow em 320, 390 e 1440 px. Com a API derrubada: só a faixa ao navegar, a folha ao salvar (foco preso), o tremor depois de "Continuar sem conexão" e a volta automática com "Conexão restabelecida" por 2,5 s e recarga da seção que falhou. Com a API apontada para um banco inválido, `/health/ready` deu 503 e o app mostrou o aviso de conexão, não toast de erro. `LoadError` de tela conferido no evento e na partida. Correção feita na verificação: o cartão de trás do baralho rolava 16 px ao receber foco por teclado (`overflow-hidden` → `overflow-clip`). Também se viu que a ação ainda era enviada depois de "Continuar sem conexão"; o cliente passou a recusá-la sem enviar (veja a seção do Expo). Limitação: o painel do navegador estava oculto, então a animação em si não foi vista rodando e parte dos cliques foi feita por script; a pausa com a janela em segundo plano só foi testada em unidade.
 
-Pendências desta etapa: `getUnreadCount` (contador do sino) ainda não usa `background`, para não colidir com a reescrita paralela das notificações. `NotificationsPage.tsx` (web) e `NotificationsScreen.tsx` (Expo) não serão migradas nesta entrega: a migração fica para a conciliação depois do merge com o plano de notificações.
+Os pontos que esta etapa deixou para a conciliação (o contador do sino em segundo plano e a migração de `NotificationsPage.tsx` e `NotificationsScreen.tsx`) foram resolvidos na seção "Conciliação dos toasts com as notificações".
 
 ### Ajustes decididos pelo usuário depois da entrega
 
@@ -72,7 +102,7 @@ Verificações dos ajustes: web com `npm run lint` e `npm run build` aprovados e
 - **Eventos e organizador:** publicar, enviar para aprovação, retirar, cancelar e salvar o evento, agendar partida ("Os dois elencos foram avisados."), sorteio, troca e confirmação do chaveamento ("Troca cancelada." como informação), aprovar e recusar comprovante, devolução, aviso publicado e cancelamento do pedido de organizador viraram toast. A cópia do Pix e da chave passa por `notifyCopy` (sucesso ou aviso), preservando a espera do retorno assíncrono da área de transferência e o campo de cópia manual. O `EventWizard` separou o resumo do formulário (`summary`), o estado não editável e a falha de carga (`LoadError` escuro com nova tentativa); "Rascunho salvo." virou toast. A instrução do segundo toque no chaveamento e o conflito de agenda continuam na tela. As telas e seções de eventos, inscritos, avisos, recibos, devoluções, chaveamento e pedido de organizador usam `LoadError`.
 - **Administração:** `AdminReports` passou a usar `usePagedList` e `useSubmit` e separou carga (`LoadError`), justificativa (junto ao campo, por denúncia), decisão e reativação (toast; "Decisão registrada." e "Conta reativada." são confirmações novas). As filas de organizador, quadras, eventos pagos, revogados, devoluções e W.O. mostram sucesso em toast, avisos de item já decidido pelo `useSubmit` e `LoadError` nas listas, no histórico e no trecho do chat.
 - **Entrada:** `App.tsx` separou `bootError` (falha do `/me`, com "Tentar conexão novamente") de `sessionExpired` ("Sua sessão expirou. Entre novamente para continuar."). A confirmação do cadastro virou toast ("Conta criada."); os erros de login e cadastro continuam no formulário. Não há fluxo de recuperação de senha na web, então só o cadastro foi migrado. Sem folha de conexão na entrada.
-- **Limpeza:** saíram a variante `notice` de `glassMessageVariants` e o tom `success` de `darkNotice`. O tom `success` de `feedbackVariants` continua apenas porque a `NotificationsPage` ainda o usa.
+- **Limpeza:** saíram a variante `notice` de `glassMessageVariants` e o tom `success` de `darkNotice`. O tom `success` de `feedbackVariants` ficou para a conciliação, quando a `NotificationsPage` foi migrada, e foi removido.
 
 Verificações das etapas 2 e 3 (web): `npm run lint` e `npm run build` aprovados (aviso de bundle já existente); `npm run test:coverage` com **1.091 testes em 82 arquivos**, 93,46% das instruções e 87,42% dos ramos. No navegador, com API própria (porta 8002), web na 5175 e seis contas sintéticas locais (`toasts.verif+N@example.com`, uma promovida a administradora e uma aprovada como organizadora pela fila): nome, perfil esportivo e privacidade com toast e persistência após recarregar; nome de usuário em uso junto ao campo; curtir, comentar, excluir comentário, buscar e seguir sem bloco antigo; "Busca cancelada." no Jogar; `LoadError` do histórico e folha de conexão com a API derrubada, recarga ao voltar; time criado e persistido, falha ao copiar o link como aviso com o campo manual, "Novo link gerado"; aprovação de organizador pela fila e "Rascunho salvo." no assistente; `LoadError` das sugestões de quadra sem conexão; cadastro com toast na entrada, erro de login no formulário e falha do `/me` com "Tentar conexão novamente", sem folha. Sem overflow em 320, 375, 390 e 1440 px; toast acima da navegação e por cima de folha aberta; console sem erros de JS. Não conferido: o `LoadError` escuro da própria placa do Jogar (a placa não relê ao trocar de aba) e a decisão de denúncias (só havia dados reais da base de desenvolvimento). Ficaram na base de desenvolvimento as contas sintéticas, um time e um rascunho de evento. Capturas em `artifacts/toasts-etapa1/` e `artifacts/toasts-areas/`, fora do versionamento.
 

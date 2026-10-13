@@ -12,11 +12,14 @@ import type { NotificationFilter, NotificationTarget } from '../data/notificatio
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { feedbackVariants } from '@/components/ui/feedback'
+import { LoadError } from '@/components/ui/load-error'
 import { ListHeading } from '@/components/ui/list-row'
+import { toast } from '@/components/ui/toast'
 import type { NotificationSummaryState } from '../hooks/useNotificationSummary'
 import { useNow } from '../hooks/useNow'
 import { usePagedList } from '../hooks/usePagedList'
 import { usePendingNotifications } from '../hooks/usePendingNotifications'
+import { reportActionError } from '../hooks/useSubmit'
 
 type FollowRequest = { user: SocialUser; state: string }
 const countPill = 'ml-1.5 inline-grid h-[19px] min-w-[19px] place-items-center rounded-[10px] bg-[#005a3612] px-1 align-middle text-[10px] font-bold tracking-normal text-brand'
@@ -54,20 +57,13 @@ export default function NotificationsPage({ isAdmin = false, summary, filter, on
   const feed = usePagedList<ArenaNotification>(filter === 'responder' ? null : notificationsPath({ categoria, pendente: false }), onExpired)
   const follow = usePagedList<FollowRequest>(filter === 'tudo' && followCount > 0 ? '/me/follow-requests' : null, onExpired)
   const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
-  const [notice, setNotice] = useState('')
   /** Leituras feitas nesta tela: valem sobre as listas já carregadas, sem esperar nova consulta. */
   const [readAt, setReadAt] = useState<Record<number, string>>({})
   const [allReadAt, setAllReadAt] = useState<string | null>(null)
   const withRead = (item: ArenaNotification): ArenaNotification => item.read_at ? item : { ...item, read_at: readAt[item.id] ?? allReadAt }
 
-  function failed(cause: unknown, fallback: string) {
-    if (cause instanceof ApiError && cause.status === 401) onExpired()
-    setError(cause instanceof Error && cause.message ? cause.message : fallback)
-  }
   async function open(notification: ArenaNotification) {
     const { target } = notificationView(notification, { isAdmin })
-    setError(''); setNotice('')
     if (!withRead(notification).read_at) {
       setBusy(true)
       try {
@@ -75,22 +71,23 @@ export default function NotificationsPage({ isAdmin = false, summary, filter, on
         setReadAt(old => ({ ...old, [notification.id]: new Date().toISOString() }))
         summary.setData(result)
       } catch (cause) {
-        // Sem destino, o erro fica na tela; com destino, a navegação segue (marcar como lida é secundário).
-        if (cause instanceof ApiError && cause.status === 401) { onExpired(); return }
-        if (!target) failed(cause, 'Não foi possível marcar a notificação como lida.')
+        // Sem destino, o erro vira toast; com destino, a navegação segue (marcar como lida é secundário), exceto sessão expirada.
+        if (target) {
+          if (cause instanceof ApiError && cause.status === 401) { onExpired(); return }
+        } else reportActionError(cause, 'Não foi possível marcar a notificação como lida.', onExpired)
       } finally { setBusy(false) }
     }
     if (target) onNavigate(target)
   }
   async function readAll() {
-    setBusy(true); setError(''); setNotice('')
+    setBusy(true)
     try {
       const result = await markAllNotificationsRead()
       setAllReadAt(new Date().toISOString())
       summary.setData(result)
-      setNotice('Todas as notificações foram marcadas como lidas.')
+      toast.success('Todas as notificações foram marcadas como lidas.')
     } catch (cause) {
-      failed(cause, 'Não foi possível marcar as notificações como lidas.')
+      reportActionError(cause, 'Não foi possível marcar as notificações como lidas.', onExpired)
     } finally { setBusy(false) }
   }
 
@@ -102,10 +99,6 @@ export default function NotificationsPage({ isAdmin = false, summary, filter, on
   return <div className="min-h-full">
     <NotificationsPlate summary={summary.data} filter={filter} busy={busy} onFilter={onFilter} onBack={onBack} onReadAll={() => void readAll()} />
     <div className="px-4 pt-1">
-      <div aria-live="polite">
-        {error && <p className={feedbackVariants()} role="alert">{error}</p>}
-        {notice && <p className={feedbackVariants({ tone: 'success' })} role="status">{notice}</p>}
-      </div>
       {loading
         ? <p role="status" className="mt-4">Carregando notificações…</p>
         : nothing
@@ -114,10 +107,10 @@ export default function NotificationsPage({ isAdmin = false, summary, filter, on
           : <p className="mt-6 text-center text-[12px] text-ink-muted">Nada neste filtro.</p>
         : <>
           {hasFollow && follow.items.length > 0 && <div className="mt-3.5"><FollowRequestsLine people={follow.items.map(item => item.user)} count={followCount} onOpen={onOpenFollowRequests} /></div>}
-          {hasFollow && follow.error && <div className={feedbackVariants()} role="alert">{follow.error.message} <Button variant="text" onClick={follow.reload}>Tentar novamente</Button></div>}
+          {hasFollow && follow.error && <LoadError size="section" title="Não foi possível carregar os pedidos para seguir" text={follow.error.message} cause={follow.error} onRetry={follow.reload} />}
           {pending.error && <section aria-label="Para responder">
             <ListHeading>Para responder</ListHeading>
-            <div className={feedbackVariants()} role="alert">{pending.error} <Button variant="text" onClick={pending.reload}>Tentar novamente</Button></div>
+            <LoadError size="section" title="Não foi possível carregar as pendências" text={pending.error} cause={pending.errorCause} onRetry={pending.reload} />
           </section>}
           {pendingItems.length > 0 && <section aria-label="Para responder">
             <ListHeading>Para responder<span className={countPill}>{pendingItems.length}</span></ListHeading>
@@ -127,7 +120,7 @@ export default function NotificationsPage({ isAdmin = false, summary, filter, on
           </section>}
           {feed.error && <section aria-label="Notificações da conta">
             <ListHeading>Notificações</ListHeading>
-            <div className={feedbackVariants()} role="alert">{feed.error.message} <Button variant="text" onClick={feed.reload}>Tentar novamente</Button></div>
+            <LoadError size="section" title="Não foi possível carregar as notificações" text={feed.error.message} cause={feed.error} onRetry={feed.reload} />
           </section>}
           {groups.map(group => <section key={group.label} aria-label={group.label}>
             <ListHeading>{group.label}</ListHeading>

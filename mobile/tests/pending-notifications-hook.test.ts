@@ -3,6 +3,7 @@ import { act, create } from 'react-test-renderer'
 import type { ReactTestRenderer } from 'react-test-renderer'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiError, request } from '../src/api/client'
+import { connection } from '../src/api/connection'
 import type { NotificationFilterCategory } from '../src/api/notifications'
 import { usePendingNotifications } from '../src/hooks/usePendingNotifications'
 import type { PendingNotificationsState } from '../src/hooks/usePendingNotifications'
@@ -88,6 +89,21 @@ describe('usePendingNotifications: pendências abertas (GET /me/notifications/pe
     expect(request).not.toHaveBeenCalled()
     expect(current.loading).toBe(false)
     await act(async () => { off.unmount() })
+  })
+
+  it('guarda a causa do erro e, se foi falta de conexão, relê uma única vez quando a conexão volta', async () => {
+    vi.mocked(request).mockRejectedValueOnce(new ApiError('Sem conexão.', 0))
+    const tree = await mount()
+    expect(current.error).toBe('Sem conexão.')
+    expect(current.errorCause).toBeInstanceOf(ApiError)
+    await act(async () => { connection.lost({ mutating: false }); connection.reached() })
+    expect(reads('/me/notifications/pending')).toBe(2)
+    expect(current.error).toBe('')
+    expect(current.errorCause).toBeNull()
+    expect(current.items).toHaveLength(1)
+    await act(async () => { connection.lost({ mutating: false }); connection.reached() })
+    expect(reads('/me/notifications/pending')).toBe(2)
+    await act(async () => { tree.unmount() })
   })
 
   it('uma resposta fora do formato vira lista vazia', async () => {

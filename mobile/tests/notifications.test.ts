@@ -10,6 +10,7 @@ import { enableAct } from './support/native'
 import { allText, byId, callsTo, findButton, labelled, me, navigationMock, page, pressButton, render } from './support/events'
 import { FEED_ALL, PENDING_ALL, feedOf, note, pendingNote, pendingOf, resetNotificationIds, serveNotifications, summaryOf } from './support/notifications'
 import { notificationSummaryState, playContext } from './support/play'
+import { toasts, toastText } from './support/toast'
 
 vi.mock('react-native', async () => (await import('./support/native')).reactNativeMock())
 vi.mock('react-native-svg', async () => (await import('./support/native')).svgMock())
@@ -396,9 +397,10 @@ describe('Notificações: leitura e navegação das linhas', () => {
     const { tree, navigation } = await mountNotifications()
     await pressButton(tree, 'Novo aviso em Copa Sudoeste. há 5 min. Não lida')
     expect(navigation.go).toHaveBeenCalledWith('event', { eventId: 5 })
-    expect(allText(tree)).not.toContain('Fora do ar')
+    expect(toastText()).not.toContain('Fora do ar')
     await pressButton(tree, 'Nova atividade na sua conta. há 5 min. Não lida')
-    expect(allText(tree)).toContain('Fora do ar')
+    expect(toasts().map(item => item.tone)).toEqual(['error'])
+    expect(toastText()).toContain('Fora do ar')
 
     const expiring = note('aviso_evento', event)
     serveNotifications({ feed: [expiring], extra: { [`PUT /me/notifications/${expiring.id}/read`]: new ApiError('Sessão expirada', 401) } })
@@ -422,12 +424,14 @@ describe('Notificações: Ler todas', () => {
     expect(notificationSummary.setData).toHaveBeenCalledWith(summaryOf({ pending_count: 1 }))
     expect(byId(tree, 'unread-dot')).toHaveLength(0)
     expect(byId(tree, 'pending-card')).toHaveLength(1)
-    expect(allText(tree)).toContain('Todas as notificações foram marcadas como lidas.')
+    expect(toasts().map(item => item.tone)).toEqual(['success'])
+    expect(toastText()).toContain('Todas as notificações foram marcadas como lidas.')
 
     serveNotifications({ feed: [note('aviso_evento', event)], extra: { 'PUT /me/notifications/read-all': new ApiError('Sem rede', 500) } })
     const failed = await mountNotifications({ summary: summaryOf({ unread_count: 1 }) })
     await pressButton(failed.tree, 'Ler todas')
-    expect(allText(failed.tree)).toContain('Sem rede')
+    expect(toasts().map(item => item.tone)).toEqual(['success', 'error'])
+    expect(toastText()).toContain('Sem rede')
     expect(failed.notificationSummary.setData).not.toHaveBeenCalled()
   })
 

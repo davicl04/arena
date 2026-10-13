@@ -234,7 +234,7 @@ describe('Início: sino e atalhos', () => {
     const tree = await mount()
     expect(byLabel(tree, 'Notificações')).toHaveLength(1)
     expect(byId(tree, 'unread-indicator')).toHaveLength(0)
-    expect(vi.mocked(request)).toHaveBeenCalledWith('/me/notifications/summary')
+    expect(vi.mocked(request)).toHaveBeenCalledWith('/me/notifications/summary', 'GET', undefined, { background: true })
     expect(vi.mocked(request)).not.toHaveBeenCalledWith('/me/notifications/unread-count')
   })
 
