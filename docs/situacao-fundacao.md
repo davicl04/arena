@@ -38,8 +38,10 @@ Verificações executadas na árvore integrada (`cdbbf85`):
   - As formas exibidas bateram com as partidas do banco: 47 de 47 no society.
   - `recalculate-rankings` com dados alterou 64 linhas e, rodado de novo, nenhuma.
 
+Aplicação no ambiente local do usuário: com a API em `--reload` já no código novo e o banco `arena` ainda na `0012`, toda leitura de `standings` falhava por falta de `recent_form`. Por isso o Ranking mostrava "Sem conexão" e "Suas estatísticas" aparecia com traços. A pedido do usuário, a `0013` foi aplicada no banco `arena` e o `recalculate-rankings` foi rodado: 3 linhas alteradas e, na segunda vez, nenhuma. Depois disso, `/me/standings` e `/rankings/overview` (tênis e corrida) voltaram a responder 200.
+
 Limitações e pendências:
-- **Em cada ambiente,** rode `alembic upgrade head` e depois `recalculate-rankings` uma vez. Até isso, as linhas antigas mostram a forma vazia, nunca errada.
+- **Em cada ambiente,** rode `alembic upgrade head` e depois `recalculate-rankings` uma vez. Até a migração, as leituras de `standings` falham com o código novo. Até o recálculo, as linhas antigas mostram a forma vazia, nunca errada.
 - **Não verificados no navegador:** o erro de conexão ao expandir (coberto só por testes) e o clique num chip de faixa vazio.
 - **Observações menores, sem correção:**
   - Numa categoria sem classificados, não aparece o cartão "Nenhum Lendário ainda".
