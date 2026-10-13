@@ -1,5 +1,21 @@
 # Situação da fundação do Arena
 
+## Toasts, aviso de conexão e erros de carregamento (implementação em andamento) — 13 de outubro de 2026
+
+Implementação do [plano-toasts.md](plano-toasts.md) na branch local `orq/toasts`, em etapas com commit local cada uma. Esta seção é atualizada a cada etapa.
+
+### Parte B — backend (falha do banco)
+
+Sem mudança de contrato nem de código do app. Acrescentado `backend/tests/unit/test_database_unavailable.py` (11 testes, sem PostgreSQL), com o app real e `TestClient(raise_server_exceptions=False)`, para confirmar que nenhuma falha do banco chega ao cliente como o 500 em texto do Starlette:
+- `get_db` levantando `OperationalError` na abertura (função comum e gerador), em rotas públicas e autenticadas (`/me`, `/me/sports-profiles`, contador de notificações);
+- falha no flush e no commit (`POST /auth/logout`);
+- falha no fechamento da sessão depois de a rota responder: com FastAPI 0.143/Starlette 1.7 a saída do `yield` roda depois do envio, então o cliente recebe a resposta da rota (o teste aceita essa resposta ou 503 em JSON);
+- `GET /health/ready` com `engine.connect()` e com a consulta falhando: 503 em JSON; `GET /health/live` continua 200 sem tocar no banco.
+
+Todos os casos devolveram 503 com `{"detail": "Não foi possível acessar os dados. Tente novamente."}`; nenhum handler novo foi necessário, por isso [decisoes/0001-fundacao.md](decisoes/0001-fundacao.md) não mudou. Não há `with SessionLocal()` direto em rotas: só em scripts de linha de comando.
+
+Verificações: `ruff check app migrations tests` aprovado; `pytest -q` com `TEST_DATABASE_URL` (PostgreSQL local, schemas aleatórios): **1.597 aprovados e 1 pulado** (o já existente que exige `MEDIA_TEST_S3=1`).
+
 ## Plano do sino global e da tela de notificações (apenas planejamento) — 13 de outubro de 2026
 
 Registrado [plano-notificacoes.md](plano-notificacoes.md), resultado de uma sessão de protótipos em quatro rodadas. O protótipo está num artefato privado do usuário, e a fonte local fica em `artifacts/prototipos-notificacoes/`, fora do versionamento.
