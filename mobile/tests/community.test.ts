@@ -102,10 +102,10 @@ describe('CommunityScreen', () => {
     await act(async () => { tree.unmount() })
   })
 
-  it.each(['requests', 'blocks', 'followers', 'following'] as const)('pagina %s no perfil sem perder itens carregados', async which => {
+  it.each(['blocks', 'followers', 'following'] as const)('pagina %s no perfil sem perder itens carregados', async which => {
     ;(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true
-    const paths = { requests: '/me/follow-requests', blocks: '/me/blocks', followers: '/users/1/followers', following: '/users/1/following' }
-    const labels = { requests: 'solicitações', blocks: 'contas bloqueadas', followers: 'seguidores', following: 'contas seguidas' }
+    const paths = { blocks: '/me/blocks', followers: '/users/1/followers', following: '/users/1/following' }
+    const labels = { blocks: 'contas bloqueadas', followers: 'seguidores', following: 'contas seguidas' }
     vi.mocked(request).mockImplementation(async path => {
       if (path === '/cities' || path === '/me/sports-profiles') return [] as never
       if (path.startsWith(paths[which])) {
@@ -117,7 +117,7 @@ describe('CommunityScreen', () => {
     })
     let tree!: ReturnType<typeof create>
     await act(async () => { tree = create(React.createElement(ProfileScreen, { user: { id: 1, name: 'Eu', username: 'eu.atleta', email: 'eu@example.com', birth_date: '1995-01-01', social_public: false, is_admin: false, avatar: null, cover: null }, onExpired: vi.fn(), onLogout: vi.fn(), onUser: vi.fn() })) })
-    if (which !== 'requests') {
+    {
       const trigger = tree.root.findAllByType('Pressable' as never).find(entry => String(entry.props.accessibilityLabel).startsWith(which === 'blocks' ? 'Editar perfil' : 'Conexões'))
       await act(async () => { trigger!.props.onPress() })
       if (which === 'blocks') {
@@ -147,10 +147,10 @@ describe('CommunityScreen', () => {
   const textOf = (tree: ReturnType<typeof create>) => tree.root.findAllByType('Text' as never).map(entry => JSON.stringify(entry.props.children)).join(' ')
   const me = { id: 1, name: 'Eu', username: 'eu.atleta', email: 'eu@example.com', birth_date: '1995-01-01', social_public: false, is_admin: false, avatar: null, cover: null }
 
-  async function mountFollowRequests(total: number, options: { failId?: number; failRead?: number; failRefresh?: boolean; followers?: number } = {}) {
+  /** Monta o perfil com `total` pedidos pendentes no servidor; tornar a conta pública os aprova todos. */
+  async function mountFollowRequests(total: number) {
     let pending = Array.from({ length: total }, (_, index) => ({ ...athlete, id: index + 2, name: `Pessoa ${index + 2}` }))
-    let approved = Array.from({ length: options.followers ?? 0 }, (_, index) => ({ ...athlete, id: index + 1000, name: `Seguidor ${index}` }))
-    let reads = 0
+    let approved: typeof pending = []
     const page = (people: typeof pending, cursor?: string) => {
       const offset = Number(cursor ?? 0)
       return { items: people.slice(offset, offset + 20).map(user => ({ user })), next_cursor: people.length > offset + 20 ? String(offset + 20) : null }
@@ -159,19 +159,6 @@ describe('CommunityScreen', () => {
       if (path === '/cities' || path === '/me/sports-profiles') return [] as never
       if (path === '/users/1') return { ...athlete, id: 1, follower_count: approved.length, following_count: 0 } as never
       if (path.startsWith('/users/1/followers')) return page(approved, path.split('cursor=')[1]) as never
-      if (path.startsWith('/me/follow-requests/') && method === 'PUT') {
-        const id = Number(path.split('/')[3].split('?')[0])
-        if (id === options.failId) throw new Error('Falha na aprovação')
-        const person = pending.find(entry => entry.id === id)
-        if (person && path.endsWith('approve=true')) approved.unshift(person)
-        pending = pending.filter(entry => entry.id !== id)
-        return { state: path.endsWith('approve=true') ? 'approved' : 'rejected' } as never
-      }
-      if (path === '/me/follow-requests') {
-        reads += 1
-        if (reads === options.failRead || (options.failRefresh && reads > 2)) throw new Error('Falha ao atualizar solicitações')
-        return page(pending) as never
-      }
       if (path === '/me/privacy' && method === 'PUT') {
         approved = [...pending, ...approved]; pending = []
         return { social_public: true } as never
@@ -185,111 +172,17 @@ describe('CommunityScreen', () => {
     return { tree, onUser, pending: () => pending, approved: () => approved }
   }
 
-  const approveCalls = () => vi.mocked(request).mock.calls.filter(([path, method]) => method === 'PUT' && path.startsWith('/me/follow-requests/'))
   const expectFollowerCount = (tree: ReturnType<typeof create>, count: number) => {
     expect(tree.root.findAllByType('Pressable' as never).some(entry => entry.props.accessibilityLabel === `Conexões: ${count} ${count === 1 ? 'seguidor' : 'seguidores'} · 0 seguindo`)).toBe(true)
   }
 
-  it('aprova 401 solicitações, além de vinte lotes, e mantém os seguidores paginados', async () => {
-    const { tree, pending, approved } = await mountFollowRequests(401)
-    await press(tree, 'Button', props => props.title === 'Aprovar todas')
-    expect(pending()).toHaveLength(0)
-    expect(approved()).toHaveLength(401)
-    expect(approveCalls()).toHaveLength(401)
-    expectFollowerCount(tree, 401)
-    expect(textOf(tree)).toContain('Nenhuma notificação por enquanto.')
-    await press(tree, 'Pressable', props => String(props.accessibilityLabel).startsWith('Conexões:'))
-    expect(textOf(tree)).toContain('Pessoa 402')
-    await press(tree, 'Button', props => props.title === 'Carregar mais seguidores')
-    expect(request).toHaveBeenCalledWith('/users/1/followers?cursor=20')
-    expect(textOf(tree)).toContain('Pessoa 382')
-    await act(async () => { tree.unmount() })
-  })
-
-  it('se a aprovação não tira os pedidos da fila, o laço para depois da primeira rodada e avisa em vez de rodar sem fim', async () => {
-    const { tree } = await mountFollowRequests(2)
-    let reads = 0
-    vi.mocked(request).mockImplementation(async (path, method) => {
-      if (path === '/me/follow-requests') { reads += 1; return { items: [2, 3].map(id => ({ user: { ...athlete, id } })), next_cursor: null } as never }
-      if (path.startsWith('/me/follow-requests/') && method === 'PUT') return { state: 'approved' } as never
-      if (path === '/users/1') return { ...athlete, id: 1, follower_count: 0, following_count: 0 } as never
-      return { items: [], next_cursor: null } as never
-    })
-    await press(tree, 'Button', props => props.title === 'Aprovar todas')
-    expect(approveCalls().map(([path]) => path)).toEqual(['/me/follow-requests/2?approve=true', '/me/follow-requests/3?approve=true'])
-    // Duas leituras do laço (a segunda trouxe os mesmos pedidos) e uma da atualização final.
-    expect(reads).toBe(3)
-    expect(textOf(tree)).toContain('Nem todas as solicitações foram aprovadas.')
-    expect(textOf(tree)).not.toContain('Solicitações aprovadas.')
-    await act(async () => { tree.unmount() })
-  })
-
-  it('mantém só os pendentes após falha parcial e retoma sem reaprovar nem contar duas vezes', async () => {
-    const options = { failId: 3 }
-    const { tree, pending } = await mountFollowRequests(2, options)
-    await press(tree, 'Button', props => props.title === 'Aprovar todas')
-    expect(pending().map(person => person.id)).toEqual([3])
-    expect(textOf(tree)).toContain('Falha na aprovação')
-    expect(tree.root.findAllByType('Pressable' as never).some(entry => entry.props.accessibilityLabel === 'Aprovar Pessoa 2')).toBe(false)
-    expectFollowerCount(tree, 1)
-    options.failId = -1
-    await press(tree, 'Button', props => props.title === 'Aprovar todas')
-    expect(pending()).toHaveLength(0)
-    expect(approveCalls().filter(([path]) => path === '/me/follow-requests/2?approve=true')).toHaveLength(1)
-    expectFollowerCount(tree, 2)
-    await press(tree, 'Pressable', props => String(props.accessibilityLabel).startsWith('Conexões:'))
-    expect(textOf(tree)).toContain('Pessoa 2')
-    expect(textOf(tree)).toContain('Pessoa 3')
-    await act(async () => { tree.unmount() })
-  })
-
-  it('recupera o próximo lote quando sua leitura falha após vinte aprovações', async () => {
-    const { tree, pending } = await mountFollowRequests(21, { failRead: 3 })
-    await press(tree, 'Button', props => props.title === 'Aprovar todas')
-    expect(pending()).toHaveLength(1)
-    expectFollowerCount(tree, 20)
-    expect(textOf(tree)).toContain('Falha ao atualizar solicitações')
-    expect(tree.root.findAllByType('Pressable' as never).some(entry => entry.props.accessibilityLabel === 'Aprovar Pessoa 22')).toBe(true)
-    await press(tree, 'Button', props => props.title === 'Aprovar todas')
-    expect(pending()).toHaveLength(0)
-    expect(approveCalls()).toHaveLength(21)
-    expectFollowerCount(tree, 21)
-    await act(async () => { tree.unmount() })
-  })
-
-  it('preserva o progresso local se a releitura da fila também falha após uma aprovação parcial', async () => {
-    const { tree } = await mountFollowRequests(2, { failId: 3, failRefresh: true })
-    await press(tree, 'Button', props => props.title === 'Aprovar todas')
-    expectFollowerCount(tree, 1)
-    expect(tree.root.findAllByType('Pressable' as never).some(entry => entry.props.accessibilityLabel === 'Aprovar Pessoa 2')).toBe(false)
-    expect(tree.root.findAllByType('Pressable' as never).some(entry => entry.props.accessibilityLabel === 'Aprovar Pessoa 3')).toBe(true)
-    expect(textOf(tree)).toContain('Falha ao atualizar solicitações')
-    await act(async () => { tree.unmount() })
-  })
-
-  it.each([true, false])('sincroniza lista e contagem após responder individualmente (aprovar=%s)', async approve => {
-    const { tree, pending } = await mountFollowRequests(1)
-    await press(tree, 'Pressable', props => props.accessibilityLabel === `${approve ? 'Aprovar' : 'Recusar'} Pessoa 2`)
-    expect(pending()).toHaveLength(0)
-    expectFollowerCount(tree, approve ? 1 : 0)
-    await press(tree, 'Pressable', props => String(props.accessibilityLabel).startsWith('Conexões:'))
-    expect(textOf(tree)).toContain(approve ? 'Pessoa 2' : 'Nenhum seguidor.')
-    await act(async () => { tree.unmount() })
-  })
-
-  it('reinicia a paginação de seguidores após aprovação individual com páginas já carregadas', async () => {
-    const { tree } = await mountFollowRequests(1, { followers: 21 })
-    await press(tree, 'Pressable', props => String(props.accessibilityLabel).startsWith('Conexões:'))
-    await press(tree, 'Button', props => props.title === 'Carregar mais seguidores')
-    expect(textOf(tree)).toContain('Seguidor 20')
-    await press(tree, 'Pressable', props => props.accessibilityLabel === 'Fechar')
-    await press(tree, 'Pressable', props => props.accessibilityLabel === 'Aprovar Pessoa 2')
-    expectFollowerCount(tree, 22)
-    await press(tree, 'Pressable', props => String(props.accessibilityLabel).startsWith('Conexões:'))
-    expect(textOf(tree)).toContain('Pessoa 2')
-    expect(textOf(tree)).not.toContain('Seguidor 20')
-    await press(tree, 'Button', props => props.title === 'Carregar mais seguidores')
-    expect(textOf(tree)).toContain('Seguidor 20')
+  it('o perfil não tem mais o cartão interno "Notificações" nem lê os pedidos para seguir', async () => {
+    const { tree } = await mountFollowRequests(3)
+    expect(textOf(tree)).not.toContain('Solicitações para seguir')
+    expect(textOf(tree)).not.toContain('Nenhuma notificação por enquanto.')
+    expect(tree.root.findAllByType('Button' as never).some(entry => entry.props.title === 'Aprovar todas')).toBe(false)
+    expect(tree.root.findAllByType('Pressable' as never).some(entry => String(entry.props.accessibilityLabel).startsWith('Aprovar '))).toBe(false)
+    expect(vi.mocked(request).mock.calls.filter(([path]) => String(path).startsWith('/me/follow-requests'))).toHaveLength(0)
     await act(async () => { tree.unmount() })
   })
 
@@ -303,7 +196,6 @@ describe('CommunityScreen', () => {
     expect(pending()).toHaveLength(0)
     expectFollowerCount(tree, 45)
     await press(tree, 'Pressable', props => props.accessibilityLabel === 'Fechar')
-    expect(textOf(tree)).toContain('Nenhuma notificação por enquanto.')
     await press(tree, 'Pressable', props => String(props.accessibilityLabel).startsWith('Conexões:'))
     expect(textOf(tree)).toContain('Pessoa 2')
     await press(tree, 'Button', props => props.title === 'Carregar mais seguidores')
@@ -311,39 +203,19 @@ describe('CommunityScreen', () => {
     await act(async () => { tree.unmount() })
   })
 
-  it('impede duas aprovações simultâneas e desabilita ações durante a sincronização', async () => {
-    const { tree } = await mountFollowRequests(2)
-    const serve = vi.mocked(request).getMockImplementation()!
-    let release!: () => void
-    const held = new Promise<void>(resolve => { release = resolve })
-    vi.mocked(request).mockImplementation(async (...args) => {
-      if (args[0] === '/me/follow-requests/2?approve=true') await held
-      return serve(...args)
-    })
-    const action = tree.root.findAllByType('Pressable' as never).find(entry => entry.props.accessibilityLabel === 'Aprovar Pessoa 2')!
-    await act(async () => { action.props.onPress(); action.props.onPress() })
-    expect(approveCalls()).toHaveLength(1)
-    const otherAction = tree.root.findAllByType('Pressable' as never).find(entry => entry.props.accessibilityLabel === 'Aprovar Pessoa 3')!
-    expect(otherAction.props.disabled).toBe(true)
-    expect(tree.root.findAllByType('Button' as never).find(entry => entry.props.title === 'Aguarde…')!.props.disabled).toBe(true)
-    await act(async () => { release() })
-    expectFollowerCount(tree, 1)
-    expect(approveCalls()).toHaveLength(1)
-    expect(tree.root.findAllByType('Pressable' as never).find(entry => entry.props.accessibilityLabel === 'Aprovar Pessoa 3')!.props.disabled).toBe(false)
-    await act(async () => { tree.unmount() })
-  })
-
-  it('trata expiração na leitura de contagens mesmo se a leitura da fila também falhar', async () => {
+  it('trata expiração ao reler as contagens depois de salvar a visibilidade', async () => {
     const { tree } = await mountFollowRequests(1)
     const serve = vi.mocked(request).getMockImplementation()!
     const expired = vi.fn()
     await act(async () => { tree.update(React.createElement(ProfileScreen, { user: me, onExpired: expired, onLogout: vi.fn(), onUser: vi.fn() })) })
     vi.mocked(request).mockImplementation(async (...args) => {
-      if (args[0] === '/me/follow-requests') throw new Error('Falha de conexão')
       if (args[0] === '/users/1') throw new ApiError('Sessão expirada', 401)
       return serve(...args)
     })
-    await press(tree, 'Pressable', props => props.accessibilityLabel === 'Aprovar Pessoa 2')
+    await press(tree, 'Pressable', props => props.accessibilityLabel === 'Editar perfil')
+    await press(tree, 'Pressable', props => String(props.accessibilityLabel).startsWith('Visibilidade da conta'))
+    await press(tree, 'Pressable', props => props.accessibilityLabel === 'Pública')
+    await press(tree, 'Button', props => props.title === 'Salvar visibilidade')
     expect(expired).toHaveBeenCalledOnce()
     expect(textOf(tree)).toContain('Sessão expirada')
     await act(async () => { tree.unmount() })

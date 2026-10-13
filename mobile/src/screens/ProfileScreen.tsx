@@ -5,7 +5,6 @@ import * as ImagePicker from 'expo-image-picker'
 import { ApiError, clearToken, getToken, request, sports } from '../api/client'
 import type { MatchCard } from '../api/matches'
 import type { City, Page, Profile, ProfileInput, SocialUser, Sport, User } from '../api/client'
-import { approveAllFollowRequests } from '../api/social'
 import { Button, Field } from '../components/ui'
 import { cx, tw } from '../styles'
 import { Avatar, Cover } from '../components/media'
@@ -24,7 +23,7 @@ import ProfileTopBar, { TopBarButton, useCondensedTopBar } from '../components/P
 import { appVersion } from '../utils/appInfo'
 import { connectionsText } from '../utils/profile'
 
-type Which = 'requests' | 'blocks' | 'followers' | 'following'
+type Which = 'blocks' | 'followers' | 'following'
 type SheetName = 'edit' | 'avatar' | 'cover' | 'name' | 'username' | 'visibility' | 'blocked' | 'connections' | 'menu'
 const MAX_IMAGE = 5 * 1024 * 1024
 const COVER_HEIGHT = 120
@@ -35,10 +34,6 @@ function PersonRow({ person, token, children }: { person: SocialUser; token: str
     <View className="grow basis-0"><Text numberOfLines={1} className="font-semibold text-ink">{person.name}</Text><Text numberOfLines={1} className="text-[13px] text-ink-muted">@{person.username}</Text></View>
     {children}
   </View>
-}
-
-function SmallAction({ label, text, onPress, disabled }: { label: string; text: string; onPress: () => void; disabled?: boolean }) {
-  return <Pressable accessibilityRole="button" accessibilityLabel={label} disabled={disabled} onPress={onPress} className={cx('min-h-11 min-w-11 items-center justify-center rounded-control bg-brand-soft px-3', disabled && 'opacity-50')}><Text className="font-bold text-brand">{text}</Text></Pressable>
 }
 
 function VisibilityOption({ selected, title, facts, onPress }: { selected: boolean; title: string; facts: string[]; onPress: () => void }) {
@@ -82,14 +77,13 @@ export default function ProfileScreen({ user, onUser, onLogout, onExpired, onNew
   const [tab, setTab] = useState<'followers' | 'following'>('followers')
   const [draftPublic, setDraftPublic] = useState(user.social_public)
   const [counts, setCounts] = useState({ followers: 0, following: 0 })
-  const [requests, setRequests] = useState<SocialUser[]>([])
   const [blocks, setBlocks] = useState<SocialUser[]>([])
   const [followers, setFollowers] = useState<SocialUser[]>([])
   const [following, setFollowing] = useState<SocialUser[]>([])
-  const [cursors, setCursors] = useState<Record<Which, string | null>>({ requests: null, blocks: null, followers: null, following: null })
+  const [cursors, setCursors] = useState<Record<Which, string | null>>({ blocks: null, followers: null, following: null })
   useEffect(() => {
     let alive = true
-    Promise.all([request<Profile[]>('/me/sports-profiles'), request<City[]>('/cities'), request<Page<{ user: SocialUser }>>('/me/follow-requests'), request<Page<SocialUser>>('/me/blocks'), request<Page<{ user: SocialUser }>>(`/users/${user.id}/followers`), request<Page<{ user: SocialUser }>>(`/users/${user.id}/following`), request<SocialUser>(`/users/${user.id}`)]).then(([p, c, r, b, followersPage, followingPage, me]) => { if (alive) { setProfiles(p); setCities(c); setRequests(r.items.map(item => item.user)); setBlocks(b.items); setFollowers(followersPage.items.map(item => item.user)); setFollowing(followingPage.items.map(item => item.user)); setCounts({ followers: me.follower_count, following: me.following_count }); setCursors({ requests: r.next_cursor, blocks: b.next_cursor, followers: followersPage.next_cursor, following: followingPage.next_cursor }) } })
+    Promise.all([request<Profile[]>('/me/sports-profiles'), request<City[]>('/cities'), request<Page<SocialUser>>('/me/blocks'), request<Page<{ user: SocialUser }>>(`/users/${user.id}/followers`), request<Page<{ user: SocialUser }>>(`/users/${user.id}/following`), request<SocialUser>(`/users/${user.id}`)]).then(([p, c, b, followersPage, followingPage, me]) => { if (alive) { setProfiles(p); setCities(c); setBlocks(b.items); setFollowers(followersPage.items.map(item => item.user)); setFollowing(followingPage.items.map(item => item.user)); setCounts({ followers: me.follower_count, following: me.following_count }); setCursors({ blocks: b.next_cursor, followers: followersPage.next_cursor, following: followingPage.next_cursor }) } })
       .catch(err => { if (alive) { setError(err.message); if (err instanceof ApiError && err.status === 401) onExpired() } })
       .finally(() => { if (alive) setLoading(false) })
     return () => { alive = false }
@@ -103,27 +97,18 @@ export default function ProfileScreen({ user, onUser, onLogout, onExpired, onNew
     setBusy(true); setError(''); setMessage('')
     return true
   }
-  function resolveLocalRequest(id: number, approve: boolean) {
-    setRequests(old => old.filter(person => person.id !== id))
-    if (approve) setCounts(old => ({ ...old, followers: old.followers + 1 }))
-  }
   async function finishFollowAction() {
-    // Recarrega a primeira página e seu cursor: aprovações mudam a ordem e o tamanho das listas.
-    const [pending, connections, summary] = await Promise.allSettled([
-      request<Page<{ user: SocialUser }>>('/me/follow-requests'),
+    // Recarrega a primeira página e seu cursor: mudanças de privacidade e de seguidores alteram as listas.
+    const [connections, summary] = await Promise.allSettled([
       request<Page<{ user: SocialUser }>>(`/users/${user.id}/followers`),
       request<SocialUser>(`/users/${user.id}`),
     ])
-    if (pending.status === 'fulfilled') {
-      setRequests(pending.value.items.map(item => item.user))
-      setCursors(old => ({ ...old, requests: pending.value.next_cursor }))
-    }
     if (connections.status === 'fulfilled') {
       setFollowers(connections.value.items.map(item => item.user))
       setCursors(old => ({ ...old, followers: connections.value.next_cursor }))
     }
     if (summary.status === 'fulfilled') setCounts({ followers: summary.value.follower_count, following: summary.value.following_count })
-    const results = [pending, connections, summary]
+    const results = [connections, summary]
     const failure = results.find(result => result.status === 'rejected' && result.reason instanceof ApiError && result.reason.status === 401)
       ?? results.find(result => result.status === 'rejected')
     if (failure?.status === 'rejected') fail(failure.reason)
@@ -175,25 +160,7 @@ export default function ProfileScreen({ user, onUser, onLogout, onExpired, onNew
     try {
       const value = await request<{ social_public: boolean }>('/me/privacy', 'PUT', { social_public: draftPublic })
       onUser({ ...user, social_public: value.social_public }); setDraftPublic(value.social_public)
-      if (value.social_public) { setRequests([]); setCursors(old => ({ ...old, requests: null })) }
       setMessage(value.social_public ? 'Conta pública. As solicitações pendentes foram aprovadas.' : 'Conta privada. Quem já segue continua seguindo.')
-    } catch (err) { fail(err) } finally { await finishFollowAction() }
-  }
-  async function resolveRequest(id: number, approve: boolean) {
-    if (!startFollowAction()) return
-    try {
-      await request(`/me/follow-requests/${id}?approve=${approve}`, 'PUT')
-      resolveLocalRequest(id, approve)
-    } catch (err) { fail(err) } finally { await finishFollowAction() }
-  }
-  async function approveAll() {
-    if (!startFollowAction()) return
-    try {
-      // Cada aprovação tira o item da fila; por isso a primeira página é consultada de novo até esvaziar (com teto de rodadas
-      // e parada se a fila não andar).
-      const done = await approveAllFollowRequests(id => resolveLocalRequest(id, true))
-      if (done) setMessage('Solicitações aprovadas.')
-      else setError('Nem todas as solicitações foram aprovadas. Tente de novo em instantes.')
     } catch (err) { fail(err) } finally { await finishFollowAction() }
   }
   async function unblock(id: number) {
@@ -213,15 +180,14 @@ export default function ProfileScreen({ user, onUser, onLogout, onExpired, onNew
     if (!cursor || busy) return
     setBusy(true); setError('')
     try {
-      const path = which === 'requests' ? '/me/follow-requests' : which === 'blocks' ? '/me/blocks' : `/users/${user.id}/${which}`
+      const path = which === 'blocks' ? '/me/blocks' : `/users/${user.id}/${which}`
       if (which === 'blocks') {
         const page = await request<Page<SocialUser>>(`${path}?cursor=${encodeURIComponent(cursor)}`)
         setBlocks(old => [...old, ...page.items]); setCursors(old => ({ ...old, blocks: page.next_cursor }))
       } else {
         const page = await request<Page<{ user: SocialUser }>>(`${path}?cursor=${encodeURIComponent(cursor)}`)
         const people = page.items.map(item => item.user)
-        if (which === 'requests') setRequests(old => [...old, ...people])
-        else if (which === 'followers') setFollowers(old => [...old, ...people])
+        if (which === 'followers') setFollowers(old => [...old, ...people])
         else setFollowing(old => [...old, ...people])
         setCursors(old => ({ ...old, [which]: page.next_cursor }))
       }
@@ -250,15 +216,6 @@ export default function ProfileScreen({ user, onUser, onLogout, onExpired, onNew
       </View>
       <View className={tw.content}>
         {!sheet ? <>{error ? <><Text className={tw.error} accessibilityRole="alert">{error}</Text><Button secondary title="Recarregar dados" onPress={() => { setError(''); setLoading(true); setAttempt(v => v + 1) }} /></> : null}{message ? <Text className={tw.success} accessibilityLiveRegion="polite">{message}</Text> : null}</> : null}
-        <View className={tw.card}>
-          <Text className={tw.heading}>Notificações</Text>
-          {requests.length ? <>
-            <Text className={tw.body}>Solicitações para seguir ({requests.length}{cursors.requests ? '+' : ''})</Text>
-            {requests.map(person => <PersonRow key={person.id} person={person} token={token}><SmallAction label={`Aprovar ${person.name}`} text="✓" disabled={busy} onPress={() => void resolveRequest(person.id, true)} /><SmallAction label={`Recusar ${person.name}`} text="✕" disabled={busy} onPress={() => void resolveRequest(person.id, false)} /></PersonRow>)}
-            {more('requests', 'solicitações')}
-            <Button title={busy ? 'Aguarde…' : 'Aprovar todas'} disabled={busy} onPress={() => void approveAll()} />
-          </> : <Text className={tw.body}>Nenhuma notificação por enquanto.</Text>}
-        </View>
         <Text className={tw.heading}>Suas modalidades</Text>{loading ? <ActivityIndicator accessibilityLabel="Carregando modalidades" /> : sports.map(s => <SportCard key={s.value} sport={s.value} label={s.label} cities={cities} profile={profiles.find(p => p.sport === s.value)} onSave={save} />)}
         {!loading && !profiles.length && !error ? <Text className={tw.body}>Adicione sua primeira modalidade acima.</Text> : null}
       </View>
