@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { Text, View } from 'react-native'
-import { request, saveToken } from '../api/client'
+import { ApiError, request, saveToken } from '../api/client'
 import type { User } from '../api/client'
 import { toast } from '../components/toast/toastStore'
 import { Button, Field } from '../components/ui'
 import { tw } from '../styles'
 
-export default function AuthScreen({ onLogin }: { onLogin: (user: User) => void }) {
+/** `onConnectionFailure`: entrar ou criar conta falhou por conexão; o aplicativo liga o bloco "Não foi possível conectar" e o formulário não repete a mensagem. */
+export default function AuthScreen({ onLogin, onConnectionFailure }: { onLogin: (user: User) => void; onConnectionFailure: (cause: ApiError) => void }) {
   const [register, setRegister] = useState(false)
   const [name, setName] = useState('')
   const [birth, setBirth] = useState('')
@@ -28,7 +29,10 @@ export default function AuthScreen({ onLogin }: { onLogin: (user: User) => void 
       }
       const session = await request<{ user: User; token: string }>('/auth/login', 'POST', { email: email.trim(), password })
       await saveToken(session.token); onLogin(session.user)
-    } catch (err) { setError(err instanceof Error ? err.message : 'Tente novamente.') }
+    } catch (err) {
+      if (err instanceof ApiError && err.isConnection) onConnectionFailure(err)
+      else setError(err instanceof Error ? err.message : 'Tente novamente.')
+    }
     finally { setBusy(false) }
   }
   return <><Text className={tw.eyebrow}>SEU ESPORTE, SUA HISTÓRIA</Text><Text className={tw.title}>Encontre seu próximo começo.</Text><Text className={tw.body}>Futebol, tênis e corrida. Sua trajetória começa aqui.</Text><View className={tw.card}><Text className={tw.heading}>{register ? 'Crie sua conta' : 'Bom ter você aqui'}</Text>

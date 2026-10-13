@@ -22,7 +22,7 @@ function fillLogin() {
 it('entrega a conta autenticada ao aplicativo após login', async () => {
   vi.mocked(request).mockResolvedValue({ user })
   const onLogin = vi.fn()
-  render(<AuthPage onLogin={onLogin} notice="" onRetry={vi.fn()} />)
+  render(<AuthPage onLogin={onLogin} notice="" onRetry={vi.fn()} onConnectionFailure={vi.fn()} />)
   fillLogin()
   await userEvent.click(screen.getByRole('button', { name: 'Entrar no Arena →' }))
   await waitFor(() => expect(onLogin).toHaveBeenCalledWith(user))
@@ -32,7 +32,7 @@ it('entrega a conta autenticada ao aplicativo após login', async () => {
 it('retorna ao login após cadastro, sem autenticar implicitamente', async () => {
   vi.mocked(request).mockResolvedValue(user)
   const onLogin = vi.fn()
-  render(<AuthPage onLogin={onLogin} notice="" onRetry={vi.fn()} />)
+  render(<AuthPage onLogin={onLogin} notice="" onRetry={vi.fn()} onConnectionFailure={vi.fn()} />)
   await userEvent.click(screen.getByRole('button', { name: 'Criar conta', exact: true }))
   fillLogin()
   fireEvent.change(screen.getByLabelText('Nome completo'), { target: { value: user.name } })
@@ -50,7 +50,7 @@ it('retorna ao login após cadastro, sem autenticar implicitamente', async () =>
 
 it('apresenta falha do login e permite nova tentativa', async () => {
   vi.mocked(request).mockRejectedValue(new ApiError('E-mail ou senha inválidos.', 401))
-  render(<AuthPage onLogin={vi.fn()} notice="" onRetry={vi.fn()} />)
+  render(<AuthPage onLogin={vi.fn()} notice="" onRetry={vi.fn()} onConnectionFailure={vi.fn()} />)
   fillLogin()
   await userEvent.click(screen.getByRole('button', { name: 'Entrar no Arena →' }))
   expect(await screen.findByRole('alert')).toHaveProperty('textContent', 'E-mail ou senha inválidos.')
@@ -78,12 +78,56 @@ it('permite repetir a conexão quando o bootstrap falha', async () => {
 })
 
 it('a sessão expirada e a falha de conexão do /me são estados separados na tela de entrada', () => {
-  const { rerender } = render(<AuthPage onLogin={vi.fn()} expired notice="" onRetry={vi.fn()} />)
+  const { rerender } = render(<AuthPage onLogin={vi.fn()} expired notice="" onRetry={vi.fn()} onConnectionFailure={vi.fn()} />)
   const expired = screen.getByRole('alert')
   expect(expired.textContent).toBe('Sua sessão expirou. Entre novamente para continuar.')
   expect(screen.queryByRole('button', { name: 'Tentar conexão novamente' })).toBeNull()
-  rerender(<AuthPage onLogin={vi.fn()} notice="Falha de conexão" onRetry={vi.fn()} />)
+  rerender(<AuthPage onLogin={vi.fn()} notice="Falha de conexão" onRetry={vi.fn()} onConnectionFailure={vi.fn()} />)
   expect(screen.getByRole('alert').textContent).toContain('Falha de conexão')
   expect(screen.queryByText(/Sua sessão expirou/)).toBeNull()
   expect(screen.getByRole('button', { name: 'Tentar conexão novamente' })).toBeTruthy()
+})
+
+it('falha de conexão ao entrar vai para o aplicativo e o formulário não repete a mensagem', async () => {
+  vi.mocked(request).mockRejectedValue(new ApiError('Não foi possível conectar à ARENA.', 0))
+  const onConnectionFailure = vi.fn()
+  render(<AuthPage onLogin={vi.fn()} notice="" onRetry={vi.fn()} onConnectionFailure={onConnectionFailure} />)
+  fillLogin()
+  await userEvent.click(screen.getByRole('button', { name: 'Entrar no Arena →' }))
+  await waitFor(() => expect(onConnectionFailure).toHaveBeenCalledWith('Não foi possível conectar à ARENA.'))
+  expect(screen.queryByRole('alert')).toBeNull()
+  expect(screen.getByRole('button', { name: 'Entrar no Arena →' })).toHaveProperty('disabled', false)
+})
+
+it('com a API fora do ar, a mensagem de conexão aparece uma só vez e Tentar conexão novamente recupera', async () => {
+  const down = new ApiError('Não foi possível conectar à ARENA.', 503)
+  vi.mocked(request).mockRejectedValueOnce(new ApiError('Sem sessão', 401)).mockRejectedValueOnce(down)
+    .mockRejectedValueOnce(new ApiError('Sem sessão', 401))
+  render(<App />)
+  expect(await screen.findByRole('button', { name: 'Entrar no Arena →' })).toBeTruthy()
+  // O /me funcionou (401): nenhum bloco de conexão ainda.
+  expect(screen.queryByRole('alert')).toBeNull()
+  fillLogin()
+  await userEvent.click(screen.getByRole('button', { name: 'Entrar no Arena →' }))
+  const alerts = await screen.findAllByRole('alert')
+  expect(alerts).toHaveLength(1)
+  expect(alerts[0].textContent).toContain('Não foi possível conectar à ARENA.')
+  expect(screen.getAllByText(/Não foi possível conectar à ARENA\./)).toHaveLength(1)
+  await userEvent.click(screen.getByRole('button', { name: 'Tentar conexão novamente' }))
+  await waitFor(() => expect(request).toHaveBeenCalledTimes(3))
+  await waitFor(() => expect(screen.queryByRole('alert')).toBeNull())
+  expect(await screen.findByRole('button', { name: 'Entrar no Arena →' })).toBeTruthy()
+})
+
+it('credenciais inválidas continuam no formulário, sem acionar o bloco de conexão', async () => {
+  vi.mocked(request).mockRejectedValueOnce(new ApiError('Sem sessão', 401))
+    .mockRejectedValueOnce(new ApiError('E-mail ou senha inválidos.', 401))
+  render(<App />)
+  expect(await screen.findByRole('button', { name: 'Entrar no Arena →' })).toBeTruthy()
+  fillLogin()
+  await userEvent.click(screen.getByRole('button', { name: 'Entrar no Arena →' }))
+  const alerts = await screen.findAllByRole('alert')
+  expect(alerts).toHaveLength(1)
+  expect(alerts[0].textContent).toBe('E-mail ou senha inválidos.')
+  expect(screen.queryByRole('button', { name: 'Tentar conexão novamente' })).toBeNull()
 })

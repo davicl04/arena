@@ -13,10 +13,11 @@ vi.mock('../src/components/ui', async () => (await import('./support/native')).u
 vi.mock('../src/api/client', async original => ({ ...await original<typeof import('../src/api/client')>(), request: vi.fn(), saveToken: vi.fn() }))
 
 const onLogin = vi.fn()
+const onConnectionFailure = vi.fn()
 
 async function mount(): Promise<ReactTestRenderer> {
   let tree!: ReactTestRenderer
-  await act(async () => { tree = create(React.createElement(AuthScreen, { onLogin })) })
+  await act(async () => { tree = create(React.createElement(AuthScreen, { onLogin, onConnectionFailure })) })
   return tree
 }
 const field = (tree: ReactTestRenderer, label: string) => tree.root.findAllByType('TextInput' as never).find(node => node.props.accessibilityLabel === label)!
@@ -58,6 +59,19 @@ describe('Entrada: cadastro e login', () => {
     await typeInto(tree, 'Senha', 'errada')
     await click(tree, 'Entrar no Arena')
     expect(textOf(tree)).toContain('E-mail ou senha inválidos.')
+    expect(toasts()).toEqual([])
+    expect(onLogin).not.toHaveBeenCalled()
+  })
+
+  it('falha de conexão ao entrar sobe para o aplicativo e o formulário não repete a mensagem', async () => {
+    const down = new ApiError('Não foi possível conectar à ARENA.', 503)
+    vi.mocked(request).mockRejectedValue(down)
+    const tree = await mount()
+    await typeInto(tree, 'E-mail', 'maria@example.com')
+    await typeInto(tree, 'Senha', 'qualquer')
+    await click(tree, 'Entrar no Arena')
+    expect(onConnectionFailure).toHaveBeenCalledWith(down)
+    expect(textOf(tree)).not.toContain('Não foi possível conectar à ARENA.')
     expect(toasts()).toEqual([])
     expect(onLogin).not.toHaveBeenCalled()
   })

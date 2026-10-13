@@ -71,6 +71,7 @@ export default function App() {
           }}
           expired={sessionExpired}
           notice={bootError}
+          onConnectionFailure={setBootError}
           onRetry={() => {
             setBootError('')
             setLoading(true)

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
-import { request } from '../api/client'
+import { ApiError, request } from '../api/client'
 import type { User } from '../api/client'
 import { Logo } from '../components/Brand'
 import { Button } from '@/components/ui/button'
@@ -23,13 +23,15 @@ const SESSION_EXPIRED_TEXT = 'Sua sessão expirou. Entre novamente para continua
  * Estados da tela de entrada, separados: `expired` (a sessão acabou no meio do uso: só o aviso, a pessoa entra de novo) e
  * `notice` (a leitura de `/me` ao abrir o aplicativo falhou: a mensagem e "Tentar conexão novamente", que refaz a leitura).
  * Os erros de entrar e criar conta ficam no formulário; só a confirmação do cadastro vira toast. Esta tela não tem a folha
- * nem a faixa de conexão: o próprio "Tentar conexão novamente" cobre a falha.
+ * nem a faixa de conexão: o próprio "Tentar conexão novamente" cobre a falha. A falha de conexão do login ou do cadastro
+ * (`isConnection`) não repete a mensagem no formulário: sobe por `onConnectionFailure` e liga o mesmo bloco de `notice`.
  */
 export default function AuthPage({
   onLogin,
   expired = false,
   notice,
   onRetry,
+  onConnectionFailure,
 }: {
   onLogin: (user: User) => void
   /** A sessão expirou: mostra o aviso, sem nova tentativa de conexão. */
@@ -37,6 +39,8 @@ export default function AuthPage({
   /** Falha de conexão (ou outro erro) ao ler `/me` na abertura; vazio se não houve. */
   notice: string
   onRetry: () => void
+  /** Entrar ou criar conta falhou por conexão: o aplicativo liga o bloco `notice`, e o formulário não repete a mensagem. */
+  onConnectionFailure: (message: string) => void
 }) {
   const [register, setRegister] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -66,6 +70,10 @@ export default function AuthPage({
       })
       onLogin(session.user)
     } catch (err) {
+      if (err instanceof ApiError && err.isConnection) {
+        onConnectionFailure(err.message)
+        return
+      }
       setError(err instanceof Error ? err.message : 'Tente novamente.')
     } finally {
       setBusy(false)

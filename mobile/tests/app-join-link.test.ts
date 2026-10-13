@@ -84,6 +84,19 @@ describe('App: falha ao conferir a sessão', () => {
     await act(async () => { retry!.props.onPress() })
     expect(textOf(tree)).toContain('Bora jogar, Maria?')
   })
+  it('login que falha por conexão liga o mesmo bloco de conexão, uma só vez, e Tentar novamente o limpa', async () => {
+    const tree = await mountApp()
+    expect(textOf(tree)).not.toContain('Não foi possível conectar')
+    const down = new ApiError('Sem conexão com a ARENA.', 0)
+    await act(async () => { host(tree, 'AuthScreen')[0].props.onConnectionFailure(down) })
+    expect(textOf(tree)).toContain('Não foi possível conectar')
+    expect(textOf(tree).split('Sem conexão com a ARENA.')).toHaveLength(2)
+    vi.mocked(request).mockImplementation(async path => (path === '/me' ? me : { unread_count: 0 }) as never)
+    const retry = tree.root.findAllByType('Pressable' as never).find(node => textWithin(node) === 'Tentar novamente')
+    expect(retry).toBeTruthy()
+    await act(async () => { retry!.props.onPress() })
+    expect(textOf(tree)).toContain('Bora jogar, Maria?')
+  })
 })
 
 describe('App: link do time depois do login', () => {
