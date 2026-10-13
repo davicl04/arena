@@ -3,17 +3,16 @@ import type { ReactNode } from 'react'
 import { ChevronRight, Users } from 'lucide-react'
 import { reportResult } from '@/api/results'
 import type { ResultInput, ResultMatch } from '@/api/results'
-import { Button } from '@/components/ui/button'
+import { LoadError } from '@/components/ui/load-error'
 import { useSubmit } from '@/hooks/useSubmit'
+import { toast } from '@/components/ui/toast'
 import { otherSide, outcomeFor } from './format'
 import { sideName, sideOf } from '@/data/match'
 import { MyStatsCard } from './MyStatsCard'
 import { ResultStatus } from './ResultStatus'
-import { ResultToast } from './ResultToast'
 import { RosterSheet } from './RosterSheet'
 import { ScoreEntry } from './ScoreEntry'
 import { useLineups } from './useLineups'
-import { useToast } from './useToast'
 
 /*
  * Cartão de resultado da partida (R4 + S1; docs/decisoes/0002-jogar.md, seções 10.1 e 12): depois do horário vira "Informe
@@ -24,7 +23,7 @@ import { useToast } from './useToast'
  *
  * É independente da tela da partida: recebe o detalhe (`MatchDetail`) por props e avisa por `onChanged` quando algo muda
  * (a resposta de `PUT /result` vem como argumento; quem prefere recarrega o detalhe). Sem `result` (antes do início ou
- * partida cancelada), não renderiza nada. Os toasts ficam no painel do app; mantenha o cartão montado ao recarregar.
+ * partida cancelada), não renderiza nada. Os avisos saem pelo `toast` global (components/ui/toast.tsx).
  */
 export interface MatchResultCardProps<T extends ResultMatch = ResultMatch> {
   /** Detalhe da partida (`MatchDetail`): `result`, `permissions`, lados e prazos. */
@@ -48,7 +47,6 @@ export function MatchResultCard<T extends ResultMatch = ResultMatch>({
   const football = match.sport === 'futebol'
   const [editing, setEditing] = useState(false)
   const [roster, setRoster] = useState(false)
-  const { toast, show } = useToast()
   const score = useSubmit(onExpired)
 
   // O elenco e as estatísticas voltam a ser lidos quando o estado do resultado muda (confirmação, divergência, prazo).
@@ -81,9 +79,9 @@ export function MatchResultCard<T extends ResultMatch = ResultMatch>({
     if (!detail) return
     setEditing(false)
     const state = detail.result?.state
-    if (state === 'confirmado') show('Placar confirmado pelos dois lados')
-    else if (state === 'divergente') show('Placar enviado. Os placares não bateram.', 'info')
-    else show('Placar enviado. Falta o outro lado.')
+    if (state === 'confirmado') toast.success('Placar confirmado pelos dois lados')
+    else if (state === 'divergente') toast.warning('Placar enviado. Os placares não bateram.')
+    else toast.success('Placar enviado. Falta o outro lado.')
     if (football) lineups.reload()
     onChanged(detail)
   }
@@ -121,9 +119,7 @@ export function MatchResultCard<T extends ResultMatch = ResultMatch>({
         </button>
       )}
       {football && lineups.error && (
-        <p className="m-0 text-[11px] text-ink-muted" role="status">
-          {lineups.error} <Button type="button" variant="link" className="text-[11px]" onClick={lineups.reload}>Tentar novamente</Button>
-        </p>
+        <LoadError size="section" title="Não foi possível carregar o elenco" text={lineups.error} cause={lineups.errorCause} onRetry={lineups.reload} />
       )}
 
       {football && (match.permissions.send_stats || mine?.stat) && (
@@ -132,7 +128,7 @@ export function MatchResultCard<T extends ResultMatch = ResultMatch>({
           match={match} lineup={mine} outcome={outcome} onExpired={onExpired}
           onSaved={saved => {
             lineups.replaceOne(saved.lineup)
-            show('Estatísticas enviadas')
+            toast.success('Estatísticas enviadas')
             onChanged()
           }}
         />
@@ -141,10 +137,9 @@ export function MatchResultCard<T extends ResultMatch = ResultMatch>({
       {roster && (
         <RosterSheet
           match={match} lineups={items} onLineups={lineups.replaceAll} onUpdated={lineups.replaceOne} onChanged={() => onChanged()}
-          onClose={() => setRoster(false)} onExpired={onExpired} notify={show}
+          onClose={() => setRoster(false)} onExpired={onExpired} notify={message => toast.success(message)}
         />
       )}
-      <ResultToast toast={toast} />
     </div>
   )
 }

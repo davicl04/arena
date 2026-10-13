@@ -90,3 +90,14 @@ O protótipo foi rejeitado na versão de barra clara mínima, considerada "muito
 - (Estado de 11 de outubro) Sem marca do Coliseu nos assets do mobile: a barra mostra só o título, e o estado vazio usa um glifo. Desde 12 de outubro o Expo tem os SVGs da marca e dos elos (`npm run generate:brand`); a conferência visual da Comunidade com eles não foi feita.
 - O recorte é o editor nativo do seletor de fotos, sem os controles de zoom, giro e centralização da web.
 - Não há declaração de paridade visual nem validação em aparelho.
+
+## Mensagens de retorno: toasts, aviso de conexão e erro de carregamento — 13 de outubro de 2026
+
+Ajuste posterior pedido pelo usuário, decidido em sessão de protótipos e registrado no [plano](plano-toasts.md). Não vem do Figma. Substitui os blocos de retorno parados na página:
+
+- **Toast "Vidro do Coliseu", cartão "Anel":** vidro escuro com a linha e o Coliseu na cor do tom, anel de tempo em volta do glifo, ação em pílula e X sempre visível. Tons: sucesso (menta), informação (`--color-info-soft`), aviso (`--color-warning-soft`) e erro (`--color-danger-soft`). Pilha em baralho acima da navegação inferior; sucesso 4 s, informação 5 s, aviso 7 s e erro até ser fechado.
+- **Aviso de conexão:** faixa presa à navegação ("Sem conexão com a ARENA", contagem e "Tentar agora") e folha escura que só abre quando o usuário tenta uma ação.
+- **Erro de carregamento (`LoadError`):** Coliseu grande, título, texto e "Tentar novamente" nas telas; variante compacta nas seções.
+- **Junto ao campo:** validação de formulário, como antes.
+
+No Expo o vidro é sólido (sem desfoque) e o texto usa a fonte do sistema, sem Sora nem Inter. Não há declaração de paridade visual do Expo nem validação em aparelho.

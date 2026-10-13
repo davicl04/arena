@@ -7,6 +7,7 @@ import { ApiError, request } from '../src/api/client'
 import type { Bracket } from '../src/api/brackets'
 import BracketScreen from '../src/screens/BracketScreen'
 import { enableAct } from './support/native'
+import { toastText, toasts } from './support/toast'
 import { competitor, confirmed, eightTeams, eliminationBracket, roundRobinBracket, score, sixTeams, undrawn } from './support/brackets'
 import { allText, bodyOf, byId, callsTo, findButton, findByPrefix, flush, isDisabled, labelled, navigationMock, pressButton, pressPrefix, render, serve } from './support/review'
 
@@ -59,7 +60,7 @@ describe('sem sorteio', () => {
     await pressButton(tree, 'Sortear chaveamento')
     expect(callsTo('POST', ORG)).toHaveLength(1)
     expect(bodyOf('POST', ORG)).toEqual({})
-    expect(allText(tree)).toContain('Sorteio feito. Confira e confirme quando estiver pronto.')
+    expect(toastText()).toContain('Sorteio feito. Confira e confirme quando estiver pronto.')
     expect(allText(tree)).toContain('Os times só veem a chave depois que você confirmar.')
     expect(allText(tree)).toContain('Eliminação simples · chave de 8')
     // A árvore é uma imagem; os confrontos estão na lista por rodada, que o leitor de tela lê.
@@ -85,7 +86,7 @@ describe('sem sorteio', () => {
     serve({ [BRACKET]: undrawn(), [`POST ${ORG}`]: new ApiError('Confirme pelo menos 2 inscrições para sortear o campeonato.', 409) })
     const tree = await mount()
     await pressButton(tree, 'Sortear chaveamento')
-    expect(allText(tree)).toContain('Confirme pelo menos 2 inscrições para sortear o campeonato.')
+    expect(toastText()).toContain('Confirme pelo menos 2 inscrições para sortear o campeonato.')
     expect(matchupLabels(tree)).toHaveLength(0)
     expect(findButton(tree, 'Confirmar chaveamento')).toBeUndefined()
   })
@@ -165,13 +166,14 @@ describe('trocar lugares', () => {
     const tree = await mount()
     expect(allText(tree)).toContain('Toque em dois times para trocá-los de lugar.')
     await pressPrefix(tree, 'Novo Horizonte, lugar 1 da chave')
-    expect(allText(tree)).toContain('Novo Horizonte escolhido. Toque em quem vai trocar de lugar com ele.')
+    // Os passos da troca são instrução na tela, não toast.
+    expect(toasts()).toEqual([])
     expect(allText(tree)).toContain('Agora toque no time que vai para o lugar de Novo Horizonte.')
     expect(findByPrefix(tree, 'Novo Horizonte, lugar 1 da chave, escolhido')!.props.accessibilityState.selected).toBe(true)
     expect(callsTo('PATCH', ORG)).toHaveLength(0)
     await pressPrefix(tree, 'Bola Murcha FC, lugar 2 da chave')
     expect(bodyOf('PATCH', ORG)).toEqual({ a: 0, b: 1 })
-    expect(allText(tree)).toContain('Novo Horizonte e Bola Murcha FC trocaram de lugar.')
+    expect(toastText()).toContain('Novo Horizonte e Bola Murcha FC trocaram de lugar.')
     // A lista por rodada já mostra o confronto na nova ordem, e a escolha foi solta.
     expect(matchupLabels(tree)[0]).toContain('J1: Bola Murcha FC contra Novo Horizonte')
     expect(findByPrefix(tree, 'Novo Horizonte, lugar 2 da chave')!.props.accessibilityState.selected).toBe(false)
@@ -184,7 +186,8 @@ describe('trocar lugares', () => {
     expect(byId(tree, 'draw-blocker')).toHaveLength(0)
     await pressPrefix(tree, 'Atlético Guará, lugar 3 da chave')
     await pressPrefix(tree, 'Atlético Guará, lugar 3 da chave, escolhido')
-    expect(allText(tree)).toContain('Troca cancelada.')
+    expect(toasts()).toEqual([])
+    expect(allText(tree)).toContain('Toque em dois times para trocá-los de lugar.')
     expect(callsTo('PATCH', ORG)).toHaveLength(0)
     // Um time pode ocupar o lugar de uma folga (a folga está no lugar 2).
     await pressPrefix(tree, 'Novo Horizonte, lugar 1 da chave')
@@ -197,7 +200,7 @@ describe('trocar lugares', () => {
     const tree = await mount()
     await pressPrefix(tree, 'Novo Horizonte, lugar 1 da chave')
     await pressPrefix(tree, 'Atlético Guará, lugar 3 da chave')
-    expect(allText(tree)).toContain('Essa troca deixaria um jogo sem nenhum time. Escolha outros lugares.')
+    expect(toastText()).toContain('Essa troca deixaria um jogo sem nenhum time. Escolha outros lugares.')
     expect(findByPrefix(tree, 'Novo Horizonte, lugar 1 da chave')!.props.accessibilityState.selected).toBe(false)
     expect(findByPrefix(tree, 'Atlético Guará, lugar 3 da chave')).toBeTruthy()
   })
@@ -208,7 +211,7 @@ describe('trocar lugares', () => {
     await pressPrefix(tree, 'Novo Horizonte, lugar 1 da chave')
     await pressButton(tree, 'Sortear de novo')
     expect(callsTo('POST', ORG)).toHaveLength(1)
-    expect(allText(tree)).toContain('Sorteio refeito. As trocas anteriores foram descartadas.')
+    expect(toastText()).toContain('Sorteio refeito. As trocas anteriores foram descartadas.')
     expect(allText(tree)).toContain('Sorteio nº 2')
     expect(findByPrefix(tree, 'Novo Horizonte, lugar 1 da chave, escolhido')).toBeUndefined()
   })
@@ -237,7 +240,7 @@ describe('confirmar', () => {
     expect(callsTo('POST', `${ORG}/confirm`)).toHaveLength(0)
     await pressButton(tree, 'Confirmar')
     expect(bodyOf('POST', `${ORG}/confirm`)).toEqual({})
-    expect(allText(tree)).toContain('Chaveamento confirmado. As partidas foram criadas e os times foram avisados.')
+    expect(toastText()).toContain('Chaveamento confirmado. As partidas foram criadas e os times foram avisados.')
     expect(allText(tree)).not.toContain('não dá mais para trocar')
     // Confirmado: sem sortear de novo, com o atalho das partidas e os vencedores avançando sozinhos.
     expect(findButton(tree, 'Sortear de novo')).toBeUndefined()
@@ -268,8 +271,9 @@ describe('confirmar', () => {
     await pressButton(tree, 'Confirmar chaveamento')
     await pressButton(tree, 'Confirmar')
     expect(callsTo('GET', BRACKET)).toHaveLength(2)
-    // A folha fecha (a confirmação não cabe mais), o aviso fica na tela e os botões seguem o estado de agora.
-    expect(allText(tree)).toContain(message)
+    // A folha fecha (a confirmação não cabe mais), o aviso do servidor sai como toast e os botões seguem o estado de agora.
+    expect(toastText()).toContain(message)
+    expect(toasts().map(item => item.tone)).toEqual(['warning'])
     expect(allText(tree)).not.toContain('não dá mais para trocar')
     expect(findButton(tree, 'Confirmar chaveamento')).toBeUndefined()
     expect(findButton(tree, 'Sortear de novo')).toBeUndefined()
@@ -287,7 +291,7 @@ describe('confirmar', () => {
     await pressPrefix(tree, 'Novo Horizonte, lugar 1 da chave')
     await pressPrefix(tree, 'Bola Murcha FC, lugar 2 da chave')
     expect(callsTo('GET', BRACKET)).toHaveLength(2)
-    expect(allText(tree)).toContain(message)
+    expect(toastText()).toContain(message)
     expect(findByPrefix(tree, 'Novo Horizonte, lugar 1 da chave')).toBeUndefined()
     expect(findButton(tree, 'Sortear de novo')).toBeUndefined()
     expect(findButton(tree, 'Ver e agendar partidas')).toBeTruthy()
@@ -303,7 +307,7 @@ describe('confirmar', () => {
     const tree = await mount()
     await pressButton(tree, 'Sortear de novo')
     expect(callsTo('GET', BRACKET)).toHaveLength(2)
-    expect(allText(tree)).toContain(message)
+    expect(toastText()).toContain(message)
     expect(findButton(tree, 'Sortear de novo')).toBeUndefined()
     expect(findButton(tree, 'Confirmar chaveamento')).toBeUndefined()
   })

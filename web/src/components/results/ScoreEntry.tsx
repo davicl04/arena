@@ -24,6 +24,7 @@ export interface ScoreEntryProps {
   /** O placar que o meu lado já informou (corrigir o meu). */
   initial?: ScoreOut
   busy: boolean
+  /** Recusa do servidor ao placar (`422`): as demais falhas de envio saem em toast. */
   error: string
   /** "3/7 estatísticas": o andamento do elenco, só no futebol. */
   summary?: string
@@ -84,7 +85,8 @@ export function ScoreEntry({ match, initial, busy, error, summary, notice, onRos
       )}
 
       <div aria-live="polite">
-        {(error || (attempted && problem)) && <p className={cn(feedbackVariants(), 'my-0')} role="alert">{error || problem}</p>}
+        {attempted && problem && <p className={cn(feedbackVariants(), 'my-0')} role="alert">{problem}</p>}
+        {error && !(attempted && problem) && <p className={cn(feedbackVariants(), 'my-0')} role="alert">{error}</p>}
       </div>
       <div className="flex flex-wrap gap-2 *:flex-1">
         {onRoster && !initial && (

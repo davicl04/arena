@@ -4,10 +4,8 @@ import { getOrganizerStatus } from '../api/organizer'
 import { listOpenOrganizerEvents } from '../api/events'
 import { OrganizerCard, OrganizerEvents } from '../components/organizer/OrganizerCard'
 import { useResource } from '../hooks/useResource'
-import { Button } from '@/components/ui/button'
-import { feedbackVariants } from '@/components/ui/feedback'
+import { LoadError } from '@/components/ui/load-error'
 import { ListGroup, ListHeading, ListRow } from '@/components/ui/list-row'
-import { cn } from '@/lib/utils'
 import { appVersion } from '../data/arena'
 
 /** Contador de pendências da fila (AD1). */
@@ -78,10 +76,10 @@ export default function MenuPage({ isAdmin, busy, onEditProfile, onSports, onMod
       <ListRow Icon={Trophy} label="Minhas modalidades" onClick={onSports} />
     </ListGroup>
     {organizer.loading && <p role="status" className="mx-1 mt-5 text-[11px] text-ink-muted">Carregando a área do organizador…</p>}
-    {organizer.error && <div className={cn(feedbackVariants(), 'mt-5')} role="alert">{organizer.error} <Button variant="text" onClick={organizer.reload}>Tentar novamente</Button></div>}
+    {organizer.error && <LoadError size="section" className="mt-5" title="Não foi possível carregar a área do organizador" text={organizer.error} cause={organizer.errorCause} onRetry={organizer.reload} />}
     {status && status.state !== 'aprovado' && <OrganizerCard status={status} onRequest={onOrganizerRequest} onChange={organizer.setData} onExpired={onExpired} />}
     {showEvents && <OrganizerEvents status={status} events={eventItems} loading={events.loading} error={status?.state === 'aprovado' ? events.error : ''}
-      onReload={events.reload} onOpenList={onOrganizerEvents} onOpenEvent={onOpenEvent} onCreate={onNewEvent} />}
+      errorCause={events.errorCause} onReload={events.reload} onOpenList={onOrganizerEvents} onOpenEvent={onOpenEvent} onCreate={onNewEvent} />}
     {isAdmin && <>
       <ListHeading>Administração</ListHeading>
       <ListGroup>

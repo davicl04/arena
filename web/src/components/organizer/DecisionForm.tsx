@@ -74,7 +74,8 @@ function ChoiceGroup<T extends string>({ label, items, value, disabled, onChange
 /**
  * Decisão do organizador (D3): o placar informado por um dos times, outro placar (contadores no futebol, sets no tênis) ou
  * W.O. (o lado ausente), e a justificativa obrigatória (5 a 500 caracteres), registrada e visível aos dois times. O servidor
- * decide se vale: na eliminação não há empate, e a mensagem dele aparece aqui sem fechar o formulário.
+ * decide se vale: na eliminação não há empate, e a mensagem dele sai como aviso de erro (toast) sem fechar o formulário;
+ * `error` só traz o que pertence ao formulário (campos recusados), e a validação local fica junto ao botão.
  */
 export function DecisionForm({ match, busy, error, onSubmit }: {
   match: MatchDetail
@@ -198,10 +199,8 @@ export function DecisionForm({ match, busy, error, onSubmit }: {
         </small>
       </div>
 
-      <div aria-live="polite" className="grid gap-2">
-        {error && <p className={cn(feedbackVariants(), 'my-0')} role="alert">{error}</p>}
-        {attempted && problem && !error && <p className={cn(feedbackVariants(), 'my-0')} role="alert">{problem}</p>}
-      </div>
+      {error && <p className={cn(feedbackVariants(), 'my-0')} role="alert">{error}</p>}
+      {attempted && problem && !error && <p className={cn(feedbackVariants(), 'my-0')} role="alert">{problem}</p>}
 
       <Button type="button" className="w-full" disabled={busy} onClick={submit}>
         <Gavel size={16} aria-hidden="true" />{busy ? 'Registrando…' : `Registrar ${summary}`}

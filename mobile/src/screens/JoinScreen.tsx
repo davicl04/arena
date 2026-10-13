@@ -6,10 +6,12 @@ import type { JoinPreview } from '../api/teams'
 import { TeamIdCard } from '../components/teams/TeamIdCard'
 import { DarkTopBar, TeamsPlate } from '../components/arena/TeamsPlate'
 import { athletes } from '../components/teams/teamView'
-import { ActionButton, ErrorText, LiveNotice } from '../components/arena/controls'
+import { ActionButton, LiveNotice } from '../components/arena/controls'
+import { LoadError } from '../components/arena/LoadError'
+import { toast } from '../components/toast/toastStore'
 import { TeamTokenContext } from '../components/teams/ui'
 import { useSessionToken } from '../hooks/useSessionToken'
-import { useSubmit } from '../hooks/useSubmit'
+import { isStale, useSubmit } from '../hooks/useSubmit'
 import type { ScreenProps } from '../navigation/screens'
 import { colors } from '../theme'
 import { showTeams } from './teamsNavigation'
@@ -26,17 +28,17 @@ export default function JoinScreen({ navigation, onExpired, params }: ScreenProp
   const session = useSessionToken()
   const [preview, setPreview] = useState<JoinPreview | null>(null)
   const [invalid, setInvalid] = useState(false)
-  const [loadError, setLoadError] = useState('')
+  const [loadError, setLoadError] = useState<{ message: string; cause: unknown } | null>(null)
   const [attempt, setAttempt] = useState(0)
   const action = useSubmit(onExpired)
 
   useEffect(() => {
     let alive = true
-    joinPreview(token).then(value => { if (alive) { setPreview(value); setInvalid(false); setLoadError('') } }).catch((cause: unknown) => {
+    joinPreview(token).then(value => { if (alive) { setPreview(value); setInvalid(false); setLoadError(null) } }).catch((cause: unknown) => {
       if (!alive) return
       if (cause instanceof ApiError && cause.status === 401) onExpired()
       if (cause instanceof ApiError && cause.status === 404) setInvalid(true)
-      else setLoadError(cause instanceof Error && cause.message ? cause.message : 'Não foi possível abrir o link do time.')
+      else setLoadError({ message: cause instanceof Error && cause.message ? cause.message : 'Não foi possível abrir o link do time.', cause })
     })
     return () => { alive = false }
   }, [token, attempt, onExpired])
@@ -49,30 +51,19 @@ export default function JoinScreen({ navigation, onExpired, params }: ScreenProp
   }, [member, memberTeamId, navigation])
 
   async function ask() {
-    let stale = false
-    const created = await action.run(async () => {
-      try { return await requestJoin(token) } catch (cause) {
-        // Já no elenco, convite pendente ou link trocado: a tela confere de novo o estado atual.
-        stale = cause instanceof ApiError && (cause.status === 409 || cause.status === 404)
-        throw cause
-      }
-    }, 'Não foi possível enviar o pedido.')
-    if (created && preview) setPreview({ ...preview, my_status: 'pedido_pendente', request_id: created.id })
-    else if (stale) setAttempt(n => n + 1)
+    // Já no elenco, convite pendente ou link trocado (404/409): o toast de aviso mostra a mensagem e a tela confere de novo o estado atual.
+    const created = await action.run(() => requestJoin(token), 'Não foi possível enviar o pedido.', cause => { if (isStale(cause)) setAttempt(n => n + 1) })
+    if (created && preview) {
+      setPreview({ ...preview, my_status: 'pedido_pendente', request_id: created.id })
+      toast.success('Pedido enviado.', { description: 'Aguardando um representante.' })
+    }
   }
   async function cancel() {
     if (!preview?.request_id) return
     const requestId = preview.request_id
-    let stale = false
-    const done = await action.run(async () => {
-      try { await cancelJoinRequest(requestId); return true } catch (cause) {
-        // Pedido já decidido por um representante (ou cancelado em outro lugar): confere o estado atual do link.
-        stale = cause instanceof ApiError && (cause.status === 404 || cause.status === 409)
-        throw cause
-      }
-    }, 'Não foi possível cancelar o pedido.')
+    // Pedido já decidido por um representante (ou cancelado em outro lugar): o aviso mostra a mensagem e a tela confere o estado atual do link.
+    const done = await action.run(async () => { await cancelJoinRequest(requestId); return true }, 'Não foi possível cancelar o pedido.', cause => { if (isStale(cause)) setAttempt(n => n + 1) })
     if (done) setPreview({ ...preview, my_status: 'disponivel', request_id: null })
-    else if (stale) setAttempt(n => n + 1)
   }
 
   const team = preview?.team
@@ -95,7 +86,7 @@ export default function JoinScreen({ navigation, onExpired, params }: ScreenProp
       <TeamsPlate bottom={20}><DarkTopBar eyebrow="Convite por link" title="Entrar no time" icon="close" onBack={navigation.back} /></TeamsPlate>
       <View style={{ paddingHorizontal: 16, paddingTop: 16 }}>
         {loadError
-          ? <View><ErrorText>{loadError}</ErrorText><ActionButton tone="brand" title="Tentar novamente" onPress={() => setAttempt(n => n + 1)} fit /></View>
+          ? <LoadError size="screen" title="Não foi possível abrir o link" text={loadError.message} cause={loadError.cause} onRetry={() => { setLoadError(null); setAttempt(n => n + 1) }} />
           : <View accessibilityLabel="Abrindo o link do time" accessibilityLiveRegion="polite" style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
             <ActivityIndicator color={colors.brand} />
             <Text style={{ color: colors['ink-muted'], fontSize: 12.5 }}>Abrindo o link do time…</Text>
@@ -130,11 +121,9 @@ export default function JoinScreen({ navigation, onExpired, params }: ScreenProp
         </View>
       </TeamsPlate>
       <View style={{ paddingHorizontal: 16 }}>
-        {/* O pedido enviado já aparece na carteirinha; o aviso falado repete para leitores de tela. */}
-        <LiveNotice text={status === 'pedido_pendente' ? 'Pedido enviado · aguardando um representante.'
-          : status === 'membro' ? `Você já está no elenco do ${team.name}. Abrindo Meus times…`
+        {/* O pedido enviado fica na carteirinha (o resultado passageiro é um toast); o estado de quem já é do elenco ou tem convite continua aqui. */}
+        <LiveNotice text={status === 'membro' ? `Você já está no elenco do ${team.name}. Abrindo Meus times…`
           : status === 'convite_pendente' ? `Você já tem um convite do ${team.name}. Responda em Meus times.` : ''} />
-        {action.error ? <ErrorText>{action.error}</ErrorText> : null}
         {status === 'disponivel' || status === 'pedido_pendente' ? <View style={{ marginTop: 16, flexDirection: 'row', alignItems: 'flex-start', gap: 10, borderRadius: 14, backgroundColor: 'rgba(143,224,180,0.18)', padding: 12 }}>
           <View style={{ marginTop: 1 }}><Icon name="info" size={16} color={colors.brand} /></View>
           <Text style={{ flex: 1, color: colors.ink, fontSize: 11.5, lineHeight: 17 }}>Um representante do {team.name} aprova seu pedido, e a resposta chega nas notificações. Se aprovado, você entra no elenco como membro, e sua posição preferida do futebol aparece no elenco.</Text>

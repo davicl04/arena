@@ -16,6 +16,7 @@ import { court, ferrugemRef, fromNow, leoesRef, matchCard, matchDetail, messageP
 import { confirmed as confirmedResult, report, result as resultOf } from './support/results'
 import { allText, bodyOf, byId, callsTo, findByPrefix, flush, me, pressButton, pressPrefix, serve, typeInto } from './support/review'
 import type { Route } from './support/review'
+import { toastText } from './support/toast'
 
 vi.mock('react-native', async () => (await import('./support/native')).reactNativeMock())
 vi.mock('react-native-svg', async () => (await import('./support/native')).svgMock())
@@ -111,7 +112,7 @@ describe('G3 → Chaveamento', () => {
     await pressButton(tree, 'Confirmar chaveamento')
     await pressButton(tree, 'Confirmar')
     expect(bodyOf('POST', `${ORG_BRACKET}/confirm`)).toEqual({})
-    expect(allText(tree)).toContain('Chaveamento confirmado. As partidas foram criadas e os times foram avisados.')
+    expect(toastText()).toContain('Chaveamento confirmado. As partidas foram criadas e os times foram avisados.')
     const reads = callsTo('GET', EVENT).length
     await pressButton(tree, 'Voltar')
     // A gestão volta relida: o chaveamento está confirmado e a próxima ação é agendar.

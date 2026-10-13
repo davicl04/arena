@@ -3,6 +3,7 @@ import type { RunBest, RunFilter } from '@/api/runs'
 import { ArenaMark } from '@/components/Brand'
 import { TierEmblem } from '@/components/arena/TierEmblem'
 import { Button } from '@/components/ui/button'
+import { LoadError } from '@/components/ui/load-error'
 import { SectionTitle } from '@/components/ui/section-title'
 import { runDistances, shownTier, tiers } from '@/data/arena'
 import type { RunDistance } from '@/data/arena'
@@ -60,10 +61,12 @@ function Card({ card, selected, onAdd, onOpen }: {
   </article>
 }
 
-export function RunMarks({ items, loading, error, selected, onAdd, onOpen, onRetry, onOpenRanking }: {
+export function RunMarks({ items, loading, error, errorCause, selected, onAdd, onOpen, onRetry, onOpenRanking }: {
   items: RunBest[]
   loading: boolean
   error: string
+  /** O erro lançado pelo carregamento (para o `LoadError` reconhecer a falta de conexão). */
+  errorCause?: unknown
   /** Distância escolhida nos chips da placa: o cartão ganha o contorno verde. */
   selected: RunDistance
   onAdd: (distance: RunDistance) => void
@@ -75,9 +78,7 @@ export function RunMarks({ items, loading, error, selected, onAdd, onOpen, onRet
   return <section aria-label="Suas marcas" data-slot="run-marks" className="px-5">
     <SectionTitle title="Suas marcas" action={<Button variant="link" onClick={() => onOpenRanking(selected)}>Ver ranking</Button>} />
     {loading && !items.length && <p role="status" className="m-0 text-[12px] text-ink-muted">Carregando suas marcas…</p>}
-    {error && !items.length && <p role="alert" className="m-0 text-[12px] leading-[1.6] text-error">
-      {error} <Button variant="text" className="inline min-h-0 py-0" onClick={onRetry}>Tentar novamente</Button>
-    </p>}
+    {error && !items.length && <LoadError size="section" text={error} cause={errorCause} onRetry={onRetry} />}
     {/* Duas colunas a partir de 360 px; em telas mais estreitas, um cartão por linha, para o nome e o elo não se espremerem. */}
     {items.length > 0 && <div className="grid grid-cols-1 gap-2.5 min-[360px]:grid-cols-2">
       {items.map(card => <Card key={card.distance_km} card={card} selected={card.distance_km === selected} onAdd={onAdd} onOpen={onOpen} />)}

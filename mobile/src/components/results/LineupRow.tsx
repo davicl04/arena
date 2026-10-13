@@ -9,6 +9,7 @@ import { StateBadge } from '../arena/StateBadge'
 import { ActionButton, ChoicePills, ErrorText, FormField, MultiPills } from '../arena/controls'
 import { Icon } from '../Icon'
 import { Avatar } from '../media'
+import { toast } from '../toast/toastStore'
 import { positionAbbreviation, positionStat, statFieldLabel, statFields, statSummary } from './format'
 import { Stepper } from './Stepper'
 import { Muted, positionChoices } from './ui'
@@ -24,7 +25,7 @@ const REASON = { min: 5, max: 300 }
 
 export interface LineupAttendance { present: boolean; position: Position | null }
 
-export function LineupRow({ matchId, lineup, attendance, onAttendance, onUpdated, onExpired, notify, token }: {
+export function LineupRow({ matchId, lineup, attendance, onAttendance, onUpdated, onExpired, token }: {
   matchId: number
   lineup: Lineup
   /** Rascunho da presença deste atleta (só quando o representante registra a presença do próprio lado). */
@@ -32,7 +33,6 @@ export function LineupRow({ matchId, lineup, attendance, onAttendance, onUpdated
   onAttendance?: (change: LineupAttendance) => void
   onUpdated: (lineup: Lineup) => void
   onExpired: () => void
-  notify: (text: string) => void
   /** Token da sessão para a foto; sem ele (ou nulo), as iniciais. */
   token?: string | null
 }) {
@@ -92,11 +92,11 @@ export function LineupRow({ matchId, lineup, attendance, onAttendance, onUpdated
       : null}
     {panel === 'review' && stat
       ? <ReviewPanel matchId={matchId} lineup={lineup} onClose={() => setPanel(null)}
-        onDone={updated => { setPanel(null); onUpdated(updated); notify('Estatísticas revisadas') }} onExpired={onExpired} />
+        onDone={updated => { setPanel(null); onUpdated(updated); toast.success('Estatísticas revisadas') }} onExpired={onExpired} />
       : null}
     {panel === 'contest' && stat
       ? <ContestPanel matchId={matchId} lineup={lineup} onClose={() => setPanel(null)}
-        onDone={updated => { setPanel(null); onUpdated(updated); notify('Contestação enviada') }} onExpired={onExpired} />
+        onDone={updated => { setPanel(null); onUpdated(updated); toast.success('Contestação enviada') }} onExpired={onExpired} />
       : null}
   </View>
 }

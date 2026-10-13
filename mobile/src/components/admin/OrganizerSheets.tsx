@@ -12,6 +12,7 @@ import { ReasonPanel } from '../review/ReasonPanel'
 import { ActionButton, BusyStatus, ErrorText, Hint } from '../arena/controls'
 import { ActionRow, InfoGrid, InfoText } from '../review/ui'
 import Sheet from '../Sheet'
+import { toast } from '../toast/toastStore'
 
 const stateLabels = { em_analise: 'Em análise', aprovado: 'Aprovado', recusado: 'Recusado', cancelado: 'Cancelado pelo autor' } as const
 const firstNameOf = (name: string) => name.trim().split(/\s+/)[0]
@@ -34,19 +35,17 @@ function ProfileLink({ firstName, onPress }: { firstName: string; onPress: () =>
   </Pressable>
 }
 
-/** Link do pedido: abre no navegador do aparelho (só http e https), com falha avisada. */
+/** Link do pedido: abre no navegador do aparelho (só http e https), com falha avisada num toast. */
 function RequestLink({ link }: { link: string }) {
-  const [failed, setFailed] = useState(false)
   const safe = /^https?:\/\//i.test(link)
   async function open() {
-    try { await Linking.openURL(link); setFailed(false) } catch { setFailed(true) }
+    try { await Linking.openURL(link) } catch { toast.error('Não foi possível abrir o link.') }
   }
   if (!safe) return <Text selectable style={{ color: colors.ink, fontSize: 12.5, fontWeight: '600' }}>{link}</Text>
   return <View>
     <Pressable accessibilityRole="link" accessibilityLabel={`Abrir o link do pedido: ${link}`} onPress={() => void open()} style={{ minHeight: 44, justifyContent: 'center' }}>
       <Text style={{ color: colors.brand, fontSize: 12.5, fontWeight: '600', textDecorationLine: 'underline' }}>{link}</Text>
     </Pressable>
-    {failed ? <Text accessibilityRole="alert" style={{ color: colors.error, fontSize: 11 }}>Não foi possível abrir o link.</Text> : null}
   </View>
 }
 

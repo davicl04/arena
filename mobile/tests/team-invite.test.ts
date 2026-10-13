@@ -8,6 +8,7 @@ import { ApiError, request } from '../src/api/client'
 import { linkShareContent } from '../src/components/teams/TeamLinkPanel'
 import TeamInviteScreen from '../src/screens/TeamInviteScreen'
 import { byLabel, enableAct, hardwareBack, press, textOf, type } from './support/native'
+import { toastText } from './support/toast'
 import { answer, candidate, fakeNavigation, me, team, TOKEN } from './support/teams'
 import type { Handler } from './support/teams'
 import { playContext } from './support/play'
@@ -155,7 +156,7 @@ describe('Convidar: escolher atleta (I5)', () => {
     expect(callsTo('/teams/10/invites')[0]).toEqual(['/teams/10/invites', 'POST', { user_id: 5, message: 'Jogamos society às quintas.' }])
     // Volta ao passo 1 com o aviso e a pessoa já como Pendente.
     expect(textOf(tree)).toContain('Passo 1 de 2')
-    expect(textOf(tree)).toContain('Convite enviado para Ana Lima.')
+    expect(toastText()).toContain('Convite enviado para Ana Lima.')
     expect(byLabel(tree, 'Ana Lima: Pendente')).toHaveLength(1)
     await act(async () => { tree.unmount() })
   })
@@ -170,7 +171,7 @@ describe('Convidar: escolher atleta (I5)', () => {
     await press(tree, 'Escolher Ana Lima')
     await press(tree, 'Enviar convite')
     expect(callsTo('/teams/10/invites')[0]).toEqual(['/teams/10/invites', 'POST', { user_id: 5, message: null }])
-    expect(textOf(tree)).toContain('Este atleta já está no elenco.')
+    expect(toastText()).toContain('Este atleta já está no elenco.')
     expect(textOf(tree)).toContain('Passo 2 de 2')
     let handled = false
     await act(async () => { handled = hardwareBack.press() })
@@ -214,10 +215,10 @@ describe('Convidar: Link e QR (Q2/Q5)', { timeout: 20000 }, () => {
     const tree = await mountLink()
     await press(tree, 'Compartilhar link do time')
     expect(Share.share).toHaveBeenCalledWith({ title: 'Entrar no Ferrugem FC', message: `Peça para entrar no Ferrugem FC no Arena. ${URL_ONE}` })
-    expect(textOf(tree)).not.toContain('Não foi possível compartilhar')
+    expect(toastText()).not.toContain('Não foi possível compartilhar')
     vi.mocked(Share.share).mockRejectedValueOnce(new Error('indisponível'))
     await press(tree, 'Compartilhar link do time')
-    expect(textOf(tree)).toContain('Não foi possível compartilhar. Toque e segure o link para copiá-lo.')
+    expect(toastText()).toContain('Não foi possível compartilhar. Toque e segure o link para copiá-lo.')
     await act(async () => { tree.unmount() })
   })
 
@@ -238,24 +239,24 @@ describe('Convidar: Link e QR (Q2/Q5)', { timeout: 20000 }, () => {
     await press(tree, 'Gerar outro link')
     expect(callsTo('/teams/10/invite-link')).toContainEqual(['/teams/10/invite-link', 'POST', {}])
     expect(tree.root.findAllByType('QRCode' as never)[0].props.value).toBe(URL_TWO)
-    expect(textOf(tree)).toContain('Novo link gerado. O anterior não vale mais.')
+    expect(toastText()).toContain('Novo link gerado. O anterior não vale mais.')
     expect(textOf(tree)).not.toContain('O link e o QR atuais deixam de valer na hora.')
     await act(async () => { tree.unmount() })
   })
 
-  it('erro ao gerar outro link fica na confirmação; erro ao carregar oferece tentar de novo', async () => {
+  it('erro ao gerar outro link vira toast; erro ao carregar oferece tentar de novo', async () => {
     serve((path, method) => { if (path === '/teams/10/invite-link' && method === 'POST') throw new ApiError('Só representantes podem ver ou gerar o link do time.', 403); return undefined })
     const tree = await mountLink()
     await press(tree, 'Gerar outro link')
     await press(tree, 'Gerar outro link')
-    expect(textOf(tree)).toContain('Só representantes podem ver ou gerar o link do time.')
+    expect(toastText()).toContain('Só representantes podem ver ou gerar o link do time.')
     expect(tree.root.findAllByType('QRCode' as never)[0].props.value).toBe(URL_ONE)
     await act(async () => { tree.unmount() })
 
     let fail = true
-    serve(path => { if (path === '/teams/10/invite-link' && fail) throw new ApiError('Sem conexão.', 0); return undefined })
+    serve(path => { if (path === '/teams/10/invite-link' && fail) throw new ApiError('Link indisponível.', 500); return undefined })
     const failing = await mount({ teamId: 10, link: true })
-    await until(() => expect(textOf(failing)).toContain('Sem conexão.'))
+    await until(() => expect(textOf(failing)).toContain('Link indisponível.'))
     fail = false
     await press(failing, 'Tentar novamente')
     await until(() => expect(failing.root.findAllByType('QRCode' as never)).toHaveLength(1))

@@ -5,12 +5,13 @@ import type { TeamCard, TeamInviteReceived } from '@/api/teams'
 import { PlacementBadge } from '@/components/arena/PlacementMeter'
 import { TeamCrest } from '@/components/arena/TeamCrest'
 import { TierEmblem } from '@/components/arena/TierEmblem'
+import { LoadError } from '@/components/ui/load-error'
 import { Sheet } from '@/components/ui/sheet'
 import { useSubmit } from '@/hooks/useSubmit'
 import { footballFormat, shownTier } from '@/data/arena'
 import { cn } from '@/lib/utils'
 import { relativeTime } from '@/utils/relativeTime'
-import { darkNotice, teamButton } from './styles'
+import { teamButton } from './styles'
 import { RosterStack } from './TeamIdCard'
 import { playedFormats } from './teamView'
 
@@ -59,12 +60,14 @@ function InviteCard({ invite, busy, onDecide }: { invite: TeamInviteReceived; bu
 
 /**
  * Folha escura dos convites recebidos (R2 + K1). Aceitar põe o time no carrossel como membro; recusar só tira o convite.
- * Um convite que deixou de valer (409) some da lista com a mensagem do servidor.
+ * Um convite que deixou de valer (409) some da lista, com a mensagem do servidor num aviso.
  */
-export function InviteSheet({ invites, loadError = '', onRetry, onClose, onAccepted, onDeclined, onStale, onExpired }: {
+export function InviteSheet({ invites, loadError = '', loadCause, onRetry, onClose, onAccepted, onDeclined, onStale, onExpired }: {
   invites: TeamInviteReceived[]
   /** Falha ao carregar os convites: a folha não diz "nenhum convite" quando a lista não chegou. */
   loadError?: string
+  /** O erro lançado ao carregar os convites (para reconhecer a falta de conexão). */
+  loadCause?: unknown
   onRetry?: () => void
   onClose: () => void
   onAccepted: (invite: TeamInviteReceived, team: TeamCard | null) => void
@@ -73,7 +76,7 @@ export function InviteSheet({ invites, loadError = '', onRetry, onClose, onAccep
   onStale: () => void
   onExpired: () => void
 }) {
-  const { busy, error, run } = useSubmit(onExpired)
+  const { busy, run } = useSubmit(onExpired)
   async function decide(invite: TeamInviteReceived, decision: 'aceitar' | 'recusar') {
     let stale = false
     const result = await run(async () => {
@@ -88,9 +91,7 @@ export function InviteSheet({ invites, loadError = '', onRetry, onClose, onAccep
   }
   return <Sheet title={invites.length > 1 ? `Convites para times · ${invites.length}` : 'Convite para time'} onClose={() => { if (!busy) onClose() }}
     className="bg-forest text-white [&_[data-slot=sheet-title]]:text-white">
-    {error && <p className={darkNotice({ tone: 'error' })} role="alert">{error}</p>}
-    {loadError && <div className={darkNotice({ tone: 'error' })} role="alert">{loadError}
-      {onRetry && <button type="button" className="ml-1 border-0 bg-transparent p-0 font-bold text-mint underline" onClick={onRetry}>Tentar novamente</button>}</div>}
+    {loadError && onRetry && <LoadError size="section" tone="dark" title="Não foi possível carregar os convites" text={loadError} cause={loadCause} onRetry={onRetry} />}
     {invites.length
       ? <div className="mt-2 grid gap-3">{invites.map(invite => <InviteCard key={invite.id} invite={invite} busy={busy} onDecide={decision => void decide(invite, decision)} />)}</div>
       : !loadError && <p className="py-3.5 text-center text-[11.5px] text-white/66">Nenhum convite pendente.</p>}

@@ -11,6 +11,7 @@ import {
 } from './support/review'
 import { athleteSide } from './support/play'
 import { chatLine, court, dispute, disputeMatch, ferrugem, fromNow, rafa, suggestion, team, tigres } from './support/admin-match'
+import { toastText, toasts } from './support/toast'
 
 vi.mock('react-native', async () => (await import('./support/native')).reactNativeMock())
 vi.mock('react-native-svg', async () => (await import('./support/native')).svgMock())
@@ -128,7 +129,7 @@ describe('Sugestões de quadra', () => {
     expect(hasField(tree, 'Nome da quadra')).toBe(true)
     await pressButton(tree, 'Publicar quadra')
     expect(bodyOf('POST', '/admin/court-suggestions/41/decision')).toEqual({ decision: 'publicar' })
-    expect(allText(tree)).toContain('Arena Sul entrou no catálogo de Brasília.')
+    expect(toastText()).toContain('Arena Sul entrou no catálogo de Brasília.')
     expect(findButton(tree, 'Publicar quadra')).toBeUndefined()
     expect(allText(tree)).not.toContain('SGAS 910, Asa Sul')
   })
@@ -169,7 +170,7 @@ describe('Sugestões de quadra', () => {
     await typeInto(tree, 'Motivo da recusa (obrigatório)', '  Endereço não existe  ')
     await pressButton(tree, 'Rejeitar sugestão')
     expect(bodyOf('POST', '/admin/court-suggestions/41/decision')).toEqual({ decision: 'rejeitar', reason: 'Endereço não existe' })
-    expect(allText(tree)).toContain('Sugestão Arena Sul rejeitada.')
+    expect(toastText()).toContain('Sugestão Arena Sul rejeitada.')
   })
 
   it('rejeitar como duplicada aponta a quadra do catálogo e dispensa o motivo; "Não é duplicada" volta ao motivo obrigatório', async () => {
@@ -185,7 +186,7 @@ describe('Sugestões de quadra', () => {
     expect(hasField(tree, 'Motivo da recusa (opcional)')).toBe(true)
     await pressButton(tree, 'Rejeitar sugestão')
     expect(bodyOf('POST', '/admin/court-suggestions/42/decision')).toEqual({ decision: 'rejeitar', duplicate_of_id: 55 })
-    expect(allText(tree)).toContain('Quadra do Lago rejeitada como duplicada de Arena Sul Oficial.')
+    expect(toastText()).toContain('Quadra do Lago rejeitada como duplicada de Arena Sul Oficial.')
   })
 
   it('motivo opcional da duplicada, se informado, tem de 5 a 300 caracteres', async () => {
@@ -221,7 +222,8 @@ describe('Sugestões de quadra', () => {
     await typeInto(tree, 'Motivo da recusa (obrigatório)', 'Duplicada de outra')
     state.open = [state.open[1]]
     await pressButton(tree, 'Rejeitar sugestão')
-    expect(allText(tree)).toContain(message)
+    expect(toastText()).toContain(message)
+    expect(toasts().map(item => item.tone)).toEqual(['warning'])
     expect(findButton(tree, 'Rejeitar sugestão')).toBeUndefined()
     expect(callsTo('GET', PENDING)).toHaveLength(2)
     expect(allText(tree)).not.toContain('SGAS 910, Asa Sul')
@@ -269,7 +271,7 @@ describe('Sugestões de quadra', () => {
     release(suggestion({ court: court({ state: 'publicada', provisional: false }) }))
     await pending
     // A resposta chega depois do toque: espera a tela assentar em vez de depender de um único ciclo (a leitura era instável).
-    await vi.waitFor(async () => { await flush(); expect(allText(tree)).toContain('entrou no catálogo') })
+    await vi.waitFor(async () => { await flush(); expect(toastText()).toContain('entrou no catálogo') })
   })
 })
 
@@ -359,7 +361,7 @@ describe('W.O. contestados', () => {
     await typeInto(tree, 'Justificativa da decisão (os dois lados veem)', '  Registro do árbitro confere  ')
     await pressButton(tree, 'Manter o W.O.')
     expect(bodyOf('POST', '/admin/matches/12/walkover-decision')).toEqual({ decision: 'manter', reason: 'Registro do árbitro confere' })
-    expect(allText(tree)).toContain('W.O. mantido: vitória de Ferrugem FC por 3 × 0.')
+    expect(toastText()).toContain('W.O. mantido: vitória de Ferrugem FC por 3 × 0.')
     expect(allText(tree)).not.toContain('Registrado por Rafa Nunes')
     expect(allText(tree)).toContain('Nenhum W.O. contestado')
   })
@@ -376,7 +378,7 @@ describe('W.O. contestados', () => {
     await typeInto(tree, 'Justificativa da decisão (os dois lados veem)', 'A quadra estava fechada')
     await pressButton(tree, 'Anular o W.O.')
     expect(bodyOf('POST', '/admin/matches/12/walkover-decision')).toEqual({ decision: 'anular', reason: 'A quadra estava fechada' })
-    expect(allText(tree)).toContain('W.O. anulado: Ferrugem FC × Tigres do Lago ficou sem resultado.')
+    expect(toastText()).toContain('W.O. anulado: Ferrugem FC × Tigres do Lago ficou sem resultado.')
   })
 
   it('no tênis vale 6-0 6-0 para quem compareceu', async () => {
@@ -403,7 +405,8 @@ describe('W.O. contestados', () => {
     await typeInto(tree, 'Justificativa da decisão (os dois lados veem)', 'Vale o registro')
     state.open = []
     await pressButton(tree, 'Manter o W.O.')
-    expect(allText(tree)).toContain(message)
+    expect(toastText()).toContain(message)
+    expect(toasts().map(item => item.tone)).toEqual(['warning'])
     expect(findButton(tree, 'Manter o W.O.')).toBeUndefined()
     expect(callsTo('GET', DISPUTES)).toHaveLength(2)
     expect(allText(tree)).toContain('Nenhum W.O. contestado')

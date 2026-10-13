@@ -4,12 +4,14 @@ import { ApiError } from '../../api/client'
 import type { OrganizerEventCard } from '../../api/events'
 import { cancelOrganizerRequest, getOrganizerStatus, refusalText, sentence } from '../../api/organizer'
 import type { OrganizerState, OrganizerStatus } from '../../api/organizer'
-import { useSubmit } from '../../hooks/useSubmit'
+import { isStale, useSubmit } from '../../hooks/useSubmit'
 import { colors } from '../../theme'
 import { plural } from '../../utils/format'
 import { shortDate } from '../../utils/relativeTime'
 import { EventPoster } from '../arena/EventPoster'
-import { ActionButton, MenuRow, Notice, Situation, TextAction } from '../arena/controls'
+import { ActionButton, MenuRow, Situation } from '../arena/controls'
+import { LoadError } from '../arena/LoadError'
+import { toast } from '../toast/toastStore'
 import { alertCount, posterProps } from './eventView'
 import { Icon } from '../Icon'
 
@@ -58,29 +60,20 @@ export function OrganizerCard({ status, onRequest, onChange, onExpired }: {
   onExpired: () => void
 }) {
   const [confirming, setConfirming] = useState(false)
-  const [notice, setNotice] = useState('')
-  const { busy, error, setError, run } = useSubmit(onExpired)
+  const { busy, run } = useSubmit(onExpired)
   if (status.state === 'aprovado' || !(status.state in stagesFor)) return null
   const state = status.state
 
   async function cancel() {
-    let stale = false
-    const done = await run(async () => {
-      try { await cancelOrganizerRequest(); return true } catch (cause) {
-        // Pedido já decidido (ou cancelado em outro lugar): o cartão confere o estado atual em vez de manter o antigo.
-        stale = cause instanceof ApiError && (cause.status === 404 || cause.status === 409)
-        throw cause
-      }
-    }, 'Não foi possível cancelar o pedido.')
-    if (!done) {
-      if (stale) {
-        setConfirming(false)
-        getOrganizerStatus().then(onChange).catch((cause: unknown) => { if (cause instanceof ApiError && cause.status === 401) onExpired() })
-      }
-      return
-    }
+    const done = await run(async () => { await cancelOrganizerRequest(); return true }, 'Não foi possível cancelar o pedido.', cause => {
+      // Pedido já decidido (ou cancelado em outro lugar; o toast de aviso mostra a mensagem): o cartão confere o estado atual em vez de manter o antigo.
+      if (!isStale(cause)) return
+      setConfirming(false)
+      getOrganizerStatus().then(onChange).catch((failure: unknown) => { if (failure instanceof ApiError && failure.status === 401) onExpired() })
+    })
+    if (!done) return
     setConfirming(false)
-    setNotice('Pedido cancelado. Você pode enviar um novo quando quiser.')
+    toast.success('Pedido cancelado.', { description: 'Você pode enviar um novo quando quiser.' })
     onChange({ state: 'sem_pedido', request: null, organizer: null, revocation: null })
   }
   const sent = status.request?.created_at ? shortDate(status.request.created_at) : ''
@@ -105,11 +98,11 @@ export function OrganizerCard({ status, onRequest, onChange, onExpired }: {
             <Text style={{ color: '#ffffff', fontSize: 13, fontWeight: '700' }}>Cancelar o pedido em análise?</Text>
             <Text style={[cardText, { marginTop: 4, marginBottom: 12 }]}>A administração deixa de analisá-lo. Você pode enviar outro depois.</Text>
             <View style={{ flexDirection: 'row', gap: 8 }}>
-              <ActionButton tone="line" title="Manter pedido" disabled={busy} onPress={() => { setConfirming(false); setError('') }} />
+              <ActionButton tone="line" title="Manter pedido" disabled={busy} onPress={() => setConfirming(false)} />
               <ActionButton tone="danger" title={busy ? 'Cancelando…' : 'Cancelar pedido'} accessibilityLabel="Cancelar pedido" busy={busy} onPress={() => void cancel()} />
             </View>
           </View>
-          : <ActionButton block tone="line" title="Cancelar pedido" onPress={() => { setConfirming(true); setNotice('') }} />}
+          : <ActionButton block tone="line" title="Cancelar pedido" onPress={() => setConfirming(true)} />}
       </View>
     </> : null}
     {state === 'recusado' ? <>
@@ -120,8 +113,6 @@ export function OrganizerCard({ status, onRequest, onChange, onExpired }: {
       <Situation surface="dark" tone="bad" icon="circle-x" title="Permissão revogada">{`Motivo: ${sentence(status.revocation?.reason || 'não informado')} Você pode enviar um novo pedido.`}</Situation>
       <View style={{ marginTop: 10 }}><ActionButton block tone="mint" icon="rotate-ccw" title="Enviar novo pedido" onPress={onRequest} /></View>
     </> : null}
-    {error ? <Notice surface="dark">{error}</Notice> : null}
-    {notice ? <Notice surface="dark" tone="success">{notice}</Notice> : null}
   </View>
 }
 
@@ -130,12 +121,14 @@ export function OrganizerCard({ status, onRequest, onChange, onExpired }: {
  * cartazes compactos (os dois primeiros, por data) e o acesso à área do organizador (O3). Sem eventos, o estado vazio leva
  * a criar o primeiro.
  */
-export function OrganizerEvents({ status, events, loading, error, onReload, onOpenList, onOpenEvent, onCreate }: {
+export function OrganizerEvents({ status, events, loading, error, errorCause, onReload, onOpenList, onOpenEvent, onCreate }: {
   status: OrganizerStatus | null
   /** Eventos em aberto (`GET /organizer/events?scope=abertos`). */
   events: OrganizerEventCard[]
   loading: boolean
   error: string
+  /** A causa da falha (para o `LoadError` reconhecer a falta de conexão). */
+  errorCause?: unknown
   onReload: () => void
   /** Abre a área do organizador (O3). */
   onOpenList: () => void
@@ -152,7 +145,7 @@ export function OrganizerEvents({ status, events, loading, error, onReload, onOp
     : 'Nenhum evento em aberto.'
   return <View accessibilityLabel="Organizador">
     {loading ? <Text accessibilityLiveRegion="polite" style={{ marginBottom: 8, color: colors['ink-muted'], fontSize: 11 }}>Carregando os seus eventos…</Text> : null}
-    {error ? <View><Notice>{error}</Notice><TextAction title="Tentar novamente" onPress={onReload} /></View> : null}
+    {error ? <LoadError size="section" title="Não foi possível carregar os seus eventos" text={error} cause={errorCause} onRetry={onReload} /> : null}
     {preview.length ? <View accessibilityLabel="Próximos eventos" style={{ marginBottom: 10, flexDirection: 'row', gap: 10 }}>
       {preview.map(event => <View key={event.id} style={{ flex: 1, minWidth: 0 }}>
         <EventPoster {...posterProps(event)} pendingCount={alertCount(event)} showSport onPress={() => onOpenEvent(event.id)} />

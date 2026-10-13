@@ -2,8 +2,10 @@ import { useCallback, useEffect, useRef } from 'react'
 import { Text, View } from 'react-native'
 import type { User } from '../api/client'
 import BottomNav from '../components/BottomNav'
+import { ConnectionNotice } from '../components/ConnectionNotice'
 import ScreenHeader from '../components/ScreenHeader'
 import { useNotificationSummary } from '../hooks/useNotificationSummary'
+import { ToastViewport } from '../components/toast/ToastViewport'
 import { usePlayBoard } from '../hooks/usePlayBoard'
 import { screens } from '../navigation/screens'
 import type { ScreenComponent } from '../navigation/screens'
@@ -60,5 +62,8 @@ export default function ArenaShell({ user, onUser, onLogout, onExpired: expireSe
     <View className="grow basis-0"><Body key={`${stack.length}-${current.screen}`} user={user} navigation={navigation} onUser={onUser} onLogout={onLogout} onExpired={onExpired}
       playBoard={playBoard} refreshPlayBoard={playBoard.reload} notificationSummary={notificationSummary} params={current.params as never} title={title} /></View>
     <BottomNav active={activeNavFor(current.screen, root)} onGo={tab => navigation.go(tab)} playAttention={Boolean(playBoard.board?.attention)} />
+    {/* Faixa e folha de "Sem conexão" e os toasts: absolutos sobre a navegação inferior (o toast sobe com a faixa). */}
+    <ConnectionNotice />
+    <ToastViewport placement="nav" />
   </>
 }

@@ -11,7 +11,9 @@ import { useResource } from '@/hooks/useResource'
 import { useSubmit } from '@/hooks/useSubmit'
 import { Button } from '@/components/ui/button'
 import { feedbackVariants } from '@/components/ui/feedback'
+import { LoadError } from '@/components/ui/load-error'
 import { Sheet, SheetActions } from '@/components/ui/sheet'
+import { toast } from '@/components/ui/toast'
 import type { StateTone } from '@/data/arena'
 import { formatDeadline, formatPrice } from '@/utils/format'
 import { relativeTime } from '@/utils/relativeTime'
@@ -44,7 +46,7 @@ function History({ entryId, currentId, name, onExpired }: { entryId: number; cur
   return <section aria-label="Histórico da inscrição">
     <p className={eyebrow}>Histórico</p>
     {history.loading && <p role="status" className="mt-1 text-[11.5px] text-ink-muted">Carregando o histórico…</p>}
-    {history.error && <p role="alert" className="mt-1 text-[11.5px] text-error">{history.error} <Button variant="text" className="inline min-h-0" onClick={history.reload}>Tentar novamente</Button></p>}
+    {history.error && <LoadError size="section" title="Não foi possível carregar o histórico" text={history.error} cause={history.errorCause} onRetry={history.reload} />}
     {history.data && !items.length && <p className="mt-1 text-[11.5px] text-ink-muted">Nenhum outro envio.</p>}
     {items.length > 0 && <ol className="mt-1.5 grid gap-1.5">
       {items.map(item => {
@@ -117,7 +119,7 @@ function DisputeSheet({ dispute, onClose, onDecided, onExpired }: {
         ? 'A inscrição fica como devolvida e o caso é encerrado.'
         : 'A inscrição volta para "Devolução pendente" e o organizador envia outro comprovante.'}
       confirmLabel="Registrar decisão" busyLabel="Registrando…" busy={busy} onConfirm={() => void decide()} onCancel={back} />}
-    <div aria-live="polite">{error && <p className={feedbackVariants()} role="alert">{error}</p>}</div>
+    {error && <p className={feedbackVariants()} role="alert">{error}</p>}
   </Sheet>
 }
 
@@ -125,16 +127,14 @@ function DisputeSheet({ dispute, onClose, onDecided, onExpired }: {
 export default function AdminRefundDisputes({ onExpired }: { onExpired: () => void }) {
   const list = usePagedList<RefundDispute>(REFUND_DISPUTES_PATH, onExpired)
   const [open, setOpen] = useState<RefundDispute | null>(null)
-  const [notice, setNotice] = useState('')
   return <section aria-label="Devoluções contestadas">
     <p className="mb-3 flex items-start gap-2 text-[11.5px] leading-[1.5] text-ink-muted"><Scale size={16} className="mt-px flex-none text-brand" aria-hidden="true" />
       O participante disse que a devolução não chegou. Confira o comprovante e o motivo; o Arena não movimenta dinheiro.</p>
-    <div aria-live="polite">{notice && <p className={feedbackVariants({ tone: 'success' })} role="status">{notice}</p>}</div>
     <ListState loading={list.loading} error={list.error} onRetry={list.reload} empty={!list.items.length}
       emptyTitle="Nenhuma devolução contestada" emptyText="Quando um participante contestar uma devolução, ela aparece aqui e nas notificações." />
     {!list.loading && !list.error && list.items.length > 0 && <ul className="grid gap-2" aria-label="Devoluções para decidir">
       {list.items.map(item => <AdminEventRow key={item.entry.id} event={{ name: subjectName(item.entry.subject), starts_at: item.event.starts_at }}
-        onOpen={() => { setOpen(item); setNotice('') }}
+        onOpen={() => setOpen(item)}
         text={`${item.event.name} · ${formatPrice(item.entry.price_cents)} · contestada ${relativeTime(item.contested_at)}`} />)}
     </ul>}
     {list.moreError && <p className={feedbackVariants()} role="alert">{list.moreError}</p>}
@@ -143,7 +143,7 @@ export default function AdminRefundDisputes({ onExpired }: { onExpired: () => vo
       onDecided={(decided, message) => {
         list.setItems(old => old.filter(item => item.entry.id !== decided.entry.id))
         setOpen(null)
-        setNotice(message)
+        toast.success(message)
       }} />}
   </section>
 }

@@ -8,6 +8,7 @@ import type { CourtOut } from '../src/api/matches'
 import { CourtPicker, DEFERRED_COURT_ID } from '../src/components/match/CourtPicker'
 import type { CourtPickerMatch } from '../src/components/match/CourtPicker'
 import { enableAct } from './support/native'
+import { toastText, toasts } from './support/toast'
 import { brasilia, court } from './support/play'
 import { allText, bodyOf, callsTo, findButton, findByPrefix, flush, hasField, pressButton, pressPrefix, render, serve, typeInto } from './support/review'
 
@@ -95,17 +96,19 @@ describe('CourtPicker: sugerir quadra', () => {
     await pressButton(tree, 'Sugerir quadra')
     expect(bodyOf('POST', '/courts/suggestions')).toEqual({ match_id: 12, name: 'Quadra Nova', address: null })
     expect(onChosen).toHaveBeenCalledWith(suggested)
-    expect(allText(tree)).toContain('Quadra Nova foi sugerida: fica em revisão e vale só nesta partida.')
+    expect(toasts().map(item => [item.tone, item.title])).toEqual([['warning', 'Quadra Nova foi sugerida.']])
+    expect(toastText()).toContain('até a aprovação da administração')
     expect(hasField(tree, 'Nome da quadra')).toBe(false)
   })
 
-  it('o erro do servidor fica no formulário, que continua aberto; o 401 volta ao login', async () => {
+  it('o erro do servidor sai em toast e o formulário continua aberto; o 401 volta ao login sem toast', async () => {
     serve({ [COURTS]: { items: [] }, 'POST /courts/suggestions': new ApiError('Esta partida já tem 3 sugestões de quadra em revisão.', 409) })
     const { tree } = await mount()
     await pressButton(tree, 'Sugerir outra quadra')
     await typeInto(tree, 'Nome da quadra', 'Quadra Nova')
     await pressButton(tree, 'Sugerir quadra')
-    expect(allText(tree)).toContain('Esta partida já tem 3 sugestões de quadra em revisão.')
+    // 409 sem conflito de agenda: o recurso mudou, então é aviso; o formulário não perde o que foi digitado.
+    expect(toasts().map(item => [item.tone, item.title])).toEqual([['warning', 'Esta partida já tem 3 sugestões de quadra em revisão.']])
     expect(hasField(tree, 'Nome da quadra')).toBe(true)
     serve({ [COURTS]: { items: [] }, 'POST /courts/suggestions': new ApiError('Sessão expirada.', 401) })
     const expired = await mount()
@@ -113,6 +116,7 @@ describe('CourtPicker: sugerir quadra', () => {
     await typeInto(expired.tree, 'Nome da quadra', 'Quadra Nova')
     await pressButton(expired.tree, 'Sugerir quadra')
     expect(expired.onExpired).toHaveBeenCalledOnce()
+    expect(toasts()).toHaveLength(1)
   })
 
   it('deferSuggestion (agenda do campeonato): não chama a API; devolve uma quadra provisória que segue no agendamento', async () => {
@@ -128,7 +132,7 @@ describe('CourtPicker: sugerir quadra', () => {
     expect(callsTo('POST', '/courts/suggestions')).toHaveLength(0)
     expect(onChosen).toHaveBeenCalledWith({ id: DEFERRED_COURT_ID, name: 'Ginásio do Guará', address: 'QE 12', kind: 'society', city: brasilia, state: 'em_revisao', provisional: true })
     expect(DEFERRED_COURT_ID).toBe(0)
-    expect(allText(tree)).toContain('Ginásio do Guará será sugerida ao agendar: fica em revisão e vale só nesta partida.')
+    expect(toasts().map(item => [item.tone, item.title])).toEqual([['info', 'Ginásio do Guará será sugerida ao agendar: fica em revisão e vale só nesta partida.']])
     expect(findByPrefix(tree, 'Ginásio do Guará')!.props.accessibilityState.checked).toBe(true)
   })
 

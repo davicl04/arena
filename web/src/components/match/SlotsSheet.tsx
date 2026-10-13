@@ -28,6 +28,7 @@ export function SlotsSheet({
 }: {
   detail: MatchDetail;
   busy: boolean;
+  /** Recusa do servidor ao formulário (`422`/`409` com conflito): as demais falhas de ação saem em toast. */
   error: string;
   onSave: (slots: OpenSlots) => void;
   onRemove: (slot: MatchSlotOut) => void;

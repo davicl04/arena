@@ -151,6 +151,6 @@ export function ReceiptSheet({ review, pix, locked = false, onClose, onDecided, 
         <Button className="bg-danger-ink shadow-none hover:bg-[#9a1e14]" disabled={busy} onClick={() => void refuse()}>{busy ? 'Recusando…' : 'Recusar'}</Button>
       </SheetActions>
     </div>}
-    <div aria-live="polite">{error && <p className={feedbackVariants()} role="alert">{error}</p>}</div>
+    {error && <p className={feedbackVariants()} role="alert">{error}</p>}
   </Sheet>
 }

@@ -1,9 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
+import { cleanup, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import ReceiptsPage from '../src/pages/ReceiptsPage'
 import { apiError, mockApi } from './teams-fixtures'
 import { entry, fromNow, receipt, receiptsEvent, review } from './events-fixtures'
+import { findToast, renderWithToaster } from './toast-utils'
 
 /*
  * Comprovantes do evento (A2) e devoluções do organizador, com a API simulada pelo `fetch`. O arquivo do comprovante é
@@ -17,7 +18,7 @@ const pdf = receipt(102, { file_type: 'pdf', size_bytes: 26_000 })
 const PENDING = 'GET /organizer/events/1/receipts?tab=para_analisar'
 
 function renderPage(onExpired = vi.fn()) {
-  render(<ReceiptsPage eventId={1} onBack={vi.fn()} onExpired={onExpired} />)
+  renderWithToaster(<ReceiptsPage eventId={1} onBack={vi.fn()} onExpired={onExpired} />)
   return onExpired
 }
 const routes = (extra: Record<string, unknown> = {}) => ({
@@ -73,7 +74,7 @@ describe('comprovantes do evento (A2)', () => {
     expect(within(sheet).getByRole('link', { name: /Abrir a imagem em tamanho real/ }).getAttribute('target')).toBe('_blank')
 
     await ui.click(within(sheet).getByRole('button', { name: 'Aprovar' }))
-    expect((await screen.findByRole('status')).textContent).toBe('Inscrição de Ferrugem FC confirmada.')
+    expect((await findToast('Inscrição de Ferrugem FC confirmada.')).closest('[data-tone]')?.getAttribute('data-tone')).toBe('success')
     expect(api.find('POST', '/receipts/101/decision')[0].body).toEqual({ decision: 'aprovar' })
     expect(screen.queryByRole('dialog')).toBeNull()
     expect(within(screen.getByRole('list', { name: 'Comprovantes para analisar' })).queryByText('Ferrugem FC')).toBeNull()
@@ -105,7 +106,7 @@ describe('comprovantes do evento (A2)', () => {
 
     await ui.type(within(sheet).getByLabelText('Detalhe para o time (obrigatório)'), '  Pagamento em nome de outra pessoa  ')
     await ui.click(confirm())
-    expect((await screen.findByRole('status')).textContent).toBe('Comprovante de Leões do Cerrado recusado.')
+    expect(await findToast('Comprovante de Leões do Cerrado recusado.')).toBeTruthy()
     expect(api.find('POST', '/receipts/102/decision')[0].body).toEqual({ decision: 'recusar', reason_code: 'outro', reason_detail: 'Pagamento em nome de outra pessoa' })
   })
 
@@ -117,7 +118,7 @@ describe('comprovantes do evento (A2)', () => {
     await ui.click(within(list).getByRole('button', { name: /Ferrugem FC/ }))
     const sheet = screen.getByRole('dialog', { name: 'Ferrugem FC' })
     await ui.click(within(sheet).getByRole('button', { name: 'Aprovar' }))
-    expect((await within(sheet).findByRole('alert')).textContent).toBe('Este comprovante já foi decidido.')
+    expect(await findToast('Este comprovante já foi decidido.')).toBeTruthy()
     expect(screen.getByRole('dialog', { name: 'Ferrugem FC' })).not.toBeNull()
   })
 
@@ -226,7 +227,7 @@ describe('devoluções do evento cancelado', () => {
     const api = mockApi(refundRoutes({ 'PUT /entries/1/refund-receipt': sent }))
     // Sem filtrar pelo `accept`, para conferir a validação do próprio cliente.
     const ui = userEvent.setup({ applyAccept: false })
-    const { container } = render(<ReceiptsPage eventId={1} onBack={vi.fn()} onExpired={vi.fn()} />)
+    const { container } = renderWithToaster(<ReceiptsPage eventId={1} onBack={vi.fn()} onExpired={vi.fn()} />)
     const row = await findRow('Para enviar e aguardando', 'Ferrugem FC')
     const input = picker(container, 1)
     expect(input.accept).toBe('image/jpeg,image/png,image/webp,application/pdf')
@@ -243,7 +244,8 @@ describe('devoluções do evento cancelado', () => {
     await ui.click(within(row).getByRole('button', { name: 'Anexar comprovante' }))
     expect(click).toHaveBeenCalled()
     await ui.upload(input, new File(['png'], 'devolucao.png', { type: 'image/png' }))
-    expect((await screen.findByRole('status')).textContent).toBe('Devolução de Ferrugem FC enviada. O participante confirma o recebimento.')
+    expect(await findToast('Devolução de Ferrugem FC enviada.')).toBeTruthy()
+    expect(await findToast('O participante confirma o recebimento.')).toBeTruthy()
     const call = api.find('PUT', '/entries/1/refund-receipt')[0]
     expect(call.body).toBeInstanceOf(FormData)
     expect(((call.body as FormData).get('file') as File).name).toBe('devolucao.png')
@@ -261,12 +263,12 @@ describe('devoluções do evento cancelado', () => {
       'PUT /entries/4/refund-receipt': apiError(409, 'A devolução já foi enviada; aguarde a resposta do participante.'),
     }))
     const ui = userEvent.setup()
-    const { container } = render(<ReceiptsPage eventId={1} onBack={vi.fn()} onExpired={vi.fn()} />)
+    const { container } = renderWithToaster(<ReceiptsPage eventId={1} onBack={vi.fn()} onExpired={vi.fn()} />)
     const row = await findRow('Para enviar e aguardando', 'Ferrugem FC')
     expect(within(row).getByText('Outro comprovante')).not.toBeNull()
     expect(within(row).getByText('A administração pediu outro comprovante: Falta a conta de destino.')).not.toBeNull()
     expect(within(row).getByRole('button', { name: 'Anexar outro comprovante' })).not.toBeNull()
     await ui.upload(picker(container, 4), new File(['%PDF-'], 'devolucao.pdf', { type: 'application/pdf' }))
-    expect((await within(row).findByRole('alert')).textContent).toBe('A devolução já foi enviada; aguarde a resposta do participante.')
+    expect(await findToast('A devolução já foi enviada; aguarde a resposta do participante.')).toBeTruthy()
   })
 })

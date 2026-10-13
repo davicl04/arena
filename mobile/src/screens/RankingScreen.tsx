@@ -12,6 +12,7 @@ import { NotificationBell } from '../components/notifications/NotificationBell'
 import type { IconName } from '../components/Icon'
 import { MyRankingPlate, RankingRows } from '../components/ranking/RankingRows'
 import { useRanking } from '../components/ranking/useRanking'
+import { LoadError } from '../components/arena/LoadError'
 import { LoadState } from '../components/review/ui'
 import { footballFormat, footballFormats, positionOptions, rankingTiers, runDistances } from '../data/arena'
 import type { FootballFormat, RunDistance } from '../data/arena'
@@ -120,9 +121,11 @@ export default function RankingScreen({ user, navigation, params, onExpired, not
       {running ? <ChoicePills label="Distância" options={distanceChoices} value={distance} onChange={setDistance} /> : null}
 
       <View testID="ranking-panel" accessibilityLabel={`Ranking de ${category}`} style={{ gap: 12 }}>
-        {ranking.loading || ranking.error
-          ? <LoadState loading={ranking.loading} error={ranking.error || null} onRetry={ranking.reload} loadingText="Carregando ranking…" />
-          : page
+        {ranking.loading
+          ? <LoadState loading error={null} onRetry={ranking.reload} loadingText="Carregando ranking…" />
+          : ranking.error
+            ? <LoadError size="screen" title="Não foi possível carregar o ranking" text={ranking.error} cause={ranking.errorCause} onRetry={ranking.reload} />
+            : page
             ? <>
               <MyRankingPlate lines={page.mine ?? []} ranking={key}
                 empty={football && kind === 'time'

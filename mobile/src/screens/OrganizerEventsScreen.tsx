@@ -4,6 +4,7 @@ import type { OrganizerEventCard } from '../api/events'
 import { getOrganizerStatus } from '../api/organizer'
 import { EventPoster } from '../components/arena/EventPoster'
 import { ActionButton, Notice, TextAction } from '../components/arena/controls'
+import { LoadError } from '../components/arena/LoadError'
 import { DarkTopBar, TeamsPlate } from '../components/arena/TeamsPlate'
 import { alertCount, posterProps } from '../components/organizer/eventView'
 import { NewEventPoster, PosterGrid } from '../components/organizer/PosterGrid'
@@ -45,7 +46,7 @@ export default function OrganizerEventsScreen({ navigation, onExpired }: ScreenP
     </View> : null}
 
     {open.loading ? <Text accessibilityLiveRegion="polite" style={{ marginTop: 14, color: colors['ink-muted'], fontSize: 12 }}>Carregando os seus eventos…</Text> : null}
-    {open.error ? <View><Notice>{open.error}</Notice><TextAction title="Tentar novamente" onPress={open.reload} /></View> : null}
+    {open.error ? <LoadError size="screen" title="Não foi possível carregar os seus eventos" text={open.error} cause={open.errorCause} onRetry={open.reload} /> : null}
 
     {empty ? <View accessibilityLabel="Seu primeiro evento" style={{ alignItems: 'center', paddingHorizontal: 12, paddingVertical: 32 }}>
       <View style={{ width: 56, height: 56, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,90,54,0.07)' }}><Icon name="trophy" size={26} color={colors.brand} /></View>
@@ -71,7 +72,7 @@ export default function OrganizerEventsScreen({ navigation, onExpired }: ScreenP
       {closed.moreError ? <Notice>{closed.moreError}</Notice> : null}
       {closed.hasMore ? <TextAction title={closed.busy ? 'Carregando…' : 'Carregar mais'} disabled={closed.busy} onPress={() => void closed.loadMore()} /> : null}
     </View> : null}
-    {closed.error ? <View><Notice>{closed.error.message}</Notice><TextAction title="Tentar novamente" onPress={closed.reload} /></View> : null}
+    {closed.error ? <LoadError size="section" title="Não foi possível carregar os eventos encerrados" text={closed.error.message} cause={closed.error} onRetry={closed.reload} /> : null}
     </View>
   </ScrollView>
 }

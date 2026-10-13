@@ -167,11 +167,19 @@ describe('placa do Jogar (fase 1)', () => {
   })
 
   it('mostra o erro do elo e tenta de novo', async () => {
-    renderPlay(new ApiError('Serviço indisponível.', 503))
-    expect((await screen.findByRole('alert')).textContent).toContain('Serviço indisponível.')
+    renderPlay(new ApiError('Erro interno.', 500))
+    expect((await screen.findByRole('alert')).textContent).toContain('Erro interno.')
     vi.mocked(request).mockResolvedValue(standings() as never)
     await userEvent.setup().click(screen.getByRole('button', { name: 'Tentar novamente' }))
     expect(await screen.findByText('Você ainda não representa um time.')).not.toBeNull()
+  })
+
+  it('o erro do elo por falta de conexão fala em conexão, não na mensagem do servidor', async () => {
+    renderPlay(new ApiError('Serviço indisponível.', 503))
+    const alert = await screen.findByRole('alert')
+    expect(alert.textContent).toContain('Sem conexão com a ARENA')
+    expect(alert.textContent).not.toContain('Serviço indisponível.')
+    expect(within(alert).getByRole('button', { name: 'Tentar novamente' })).not.toBeNull()
   })
 
   it('substitui o antigo bloco do Jogar no ArenaPage, sem cabeçalho de voltar', async () => {

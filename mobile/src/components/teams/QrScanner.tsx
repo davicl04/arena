@@ -4,6 +4,7 @@ import { CameraView, useCameraPermissions } from 'expo-camera'
 import { colors } from '../../theme'
 import { joinTokenFromUrl } from '../../utils/joinLink'
 import { Screen } from '../Screen'
+import { ToastViewport } from '../toast/ToastViewport'
 import { ActionButton } from '../arena/controls'
 import { onDark } from './ui'
 import { Icon } from '../Icon'
@@ -78,5 +79,6 @@ export function QrScanner({ onToken, onClose }: { onToken: (token: string) => vo
         <ActionButton tone="line" block title="Cancelar" onPress={onClose} />
       </View>
     </Screen>
+    <ToastViewport />
   </Modal>
 }

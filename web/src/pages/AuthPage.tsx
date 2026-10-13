@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
-import { request } from '../api/client'
+import { ApiError, request } from '../api/client'
 import type { User } from '../api/client'
 import { Logo } from '../components/Brand'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Eyebrow } from '@/components/ui/eyebrow'
 import { feedbackVariants } from '@/components/ui/feedback'
+import { toast, Toaster } from '@/components/ui/toast'
 
 /** Alternância entre entrar e criar conta. */
 const modes = [
@@ -16,19 +17,34 @@ const modes = [
 /** Texto de ajuda abaixo de um campo. */
 const help = 'mt-[7px] text-[10px] leading-[1.6] text-ink-muted'
 
+const SESSION_EXPIRED_TEXT = 'Sua sessão expirou. Entre novamente para continuar.'
+
+/*
+ * Estados da tela de entrada, separados: `expired` (a sessão acabou no meio do uso: só o aviso, a pessoa entra de novo) e
+ * `notice` (a leitura de `/me` ao abrir o aplicativo falhou: a mensagem e "Tentar conexão novamente", que refaz a leitura).
+ * Os erros de entrar e criar conta ficam no formulário; só a confirmação do cadastro vira toast. Esta tela não tem a folha
+ * nem a faixa de conexão: o próprio "Tentar conexão novamente" cobre a falha. A falha de conexão do login ou do cadastro
+ * (`isConnection`) não repete a mensagem no formulário: sobe por `onConnectionFailure` e liga o mesmo bloco de `notice`.
+ */
 export default function AuthPage({
   onLogin,
+  expired = false,
   notice,
   onRetry,
+  onConnectionFailure,
 }: {
   onLogin: (user: User) => void
+  /** A sessão expirou: mostra o aviso, sem nova tentativa de conexão. */
+  expired?: boolean
+  /** Falha de conexão (ou outro erro) ao ler `/me` na abertura; vazio se não houve. */
   notice: string
   onRetry: () => void
+  /** Entrar ou criar conta falhou por conexão: o aplicativo liga o bloco `notice`, e o formulário não repete a mensagem. */
+  onConnectionFailure: (message: string) => void
 }) {
   const [register, setRegister] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const form = new FormData(event.currentTarget)
@@ -36,7 +52,6 @@ export default function AuthPage({
     const password = String(form.get('password'))
     setBusy(true)
     setError('')
-    setSuccess('')
     try {
       if (register) {
         await request('/auth/register', 'POST', {
@@ -46,7 +61,7 @@ export default function AuthPage({
           birth_date: form.get('birth_date'),
         })
         setRegister(false)
-        setSuccess('Conta criada. Entre com seu e-mail e senha.')
+        toast.success('Conta criada.', { description: 'Entre com seu e-mail e senha.' })
         return
       }
       const session = await request<{ user: User }>('/auth/login', 'POST', {
@@ -55,12 +70,17 @@ export default function AuthPage({
       })
       onLogin(session.user)
     } catch (err) {
+      if (err instanceof ApiError && err.isConnection) {
+        onConnectionFailure(err.message)
+        return
+      }
       setError(err instanceof Error ? err.message : 'Tente novamente.')
     } finally {
       setBusy(false)
     }
   }
   return (
+    <>
     <main
       id="main"
       className="m-auto min-h-dvh max-w-[440px] px-6 py-10 app-narrow:px-5 app-narrow:py-7"
@@ -108,13 +128,17 @@ export default function AuthPage({
               onClick={() => {
                 setRegister(mode.register)
                 setError('')
-                setSuccess('')
               }}
             >
               {mode.label}
             </button>
           ))}
         </div>
+        {expired && (
+          <p className={feedbackVariants()} role="alert">
+            {SESSION_EXPIRED_TEXT}
+          </p>
+        )}
         {notice && (
           <div className={feedbackVariants()} role="alert">
             {notice}
@@ -183,11 +207,6 @@ export default function AuthPage({
                 {error}
               </p>
             )}
-            {success && (
-              <p className={feedbackVariants({ tone: 'success' })} role="status">
-                {success}
-              </p>
-            )}
             <Button type="submit" className="mt-[22px] h-[52px] w-full">
               {busy
                 ? 'Aguarde…'
@@ -202,5 +221,7 @@ export default function AuthPage({
         </p>
       </Card>
     </main>
+    <Toaster />
+    </>
   )
 }

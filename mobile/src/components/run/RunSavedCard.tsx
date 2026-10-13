@@ -13,7 +13,7 @@ const labelOf = ({ run }: RunCreated) => (run.standard_distance_km ? `${run.stan
 const touchesRanking = (created: RunCreated) => created.impact.kind === 'novo_melhor' || created.impact.kind === 'primeira_marca'
 
 /**
- * Aviso lido pelo leitor de tela depois de salvar (`LiveNotice`): o que a marca fez. Só diz que o ranking mudou quando
+ * Texto do toast de sucesso depois de salvar: o que a marca fez. Só diz que o ranking mudou quando
  * mudou; a palavra "autodeclarado" nunca aparece.
  */
 export function savedNotice(created: RunCreated): string {

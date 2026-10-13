@@ -10,6 +10,7 @@ import { RunEntrySheet } from '../src/components/run/RunEntrySheet'
 import { RunMarksSection } from '../src/components/run/RunMarksSection'
 import { RunPlateActions } from '../src/components/run/RunPlateActions'
 import { enableAct, press, textOf, type } from './support/native'
+import { toasts, toastText } from './support/toast'
 import { byId, callsTo, findByPrefix, navigationMock, serve } from './support/review'
 import { bests, created, impact, lagoRace, markCard, preview, run, sec } from './support/runs'
 
@@ -109,9 +110,7 @@ describe('placa: "Registrar corrida" e o cartão de salvo', () => {
     expect(textOf(tree)).toContain('Novo melhor tempo · 5 km')
     expect(textOf(tree)).toContain('23:48 · 4:46/km · treino')
     expect(textOf(tree)).toContain('−0:24 · Sobe para Diamante nos 5 km. Antes: 24:12.')
-    expect(textOf(tree)).toContain('Marca salva. O ranking dos 5 km foi atualizado.')
-    const notice = tree.root.findAll(node => String(node.type) === 'Text' && node.props.children === 'Marca salva. O ranking dos 5 km foi atualizado.')[0]
-    expect(notice.props.accessibilityLiveRegion).toBe('polite')
+    expect(toasts().map(item => [item.tone, item.title])).toEqual([['success', 'Marca salva. O ranking dos 5 km foi atualizado.']])
     // As marcas são relidas no lugar: o cartão mostra o tempo novo e o elo novo, sem recarregar a tela.
     expect(callsTo('GET', '/me/run-bests')).toHaveLength(2)
     expect(inside(markCardOf(tree, 5))).toContain('23:48')
@@ -194,7 +193,7 @@ describe('marcas: "+" na distância, histórico, "Ver ranking" e estados', () =>
     // O cartão aparece onde a ação começou: acima dos cartões (a placa não mostra um segundo).
     expect(savedCards(tree)).toHaveLength(1)
     expect(textOf(tree)).toContain('Corrida registrada · 7 km')
-    expect(textOf(tree)).toContain('Marca salva no histórico.')
+    expect(toastText()).toContain('Marca salva no histórico.')
     // A placa continua na distância escolhida pelo "+", e as marcas foram relidas.
     expect(textOf(tree)).toContain('chips:21')
     expect(callsTo('GET', '/me/run-bests')).toHaveLength(2)

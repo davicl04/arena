@@ -93,6 +93,7 @@ export interface ConditionsCardProps {
   /** Campeonato: "Decidir resultado" (o organizador), que abre a decisão (D3). */
   onDecide?: () => void;
   busy: boolean;
+  /** Recusa do servidor que pertence ao cartão (o `409` com conflito de agenda): as demais falhas de ação saem em toast. */
   error: string;
   onPropose: () => void;
   onAccept: (terms: MatchTermsOut) => void;

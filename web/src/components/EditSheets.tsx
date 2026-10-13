@@ -99,7 +99,8 @@ export function UsernameSheet({ user, onUser, onExpired, onClose, onSaved }: She
     const saved = await run(async () => {
       try { onUser(await request<User>('/me', 'PATCH', { username: value })); return true }
       catch (cause) {
-        if (cause instanceof ApiError && cause.status === 409) setChecked({ for: value, result: { available: false, reason: 'taken', suggestions: [] } })
+        // Nome em uso é validação do campo: aparece na linha de status do nome, não como toast.
+        if (cause instanceof ApiError && cause.status === 409) { setChecked({ for: value, result: { available: false, reason: 'taken', suggestions: [] } }); return false }
         throw cause
       }
     }, 'Não foi possível atualizar o nome de usuário.')

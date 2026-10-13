@@ -2,18 +2,24 @@ import { useEffect, useId, useState } from "react";
 import type { KeyboardEvent } from "react";
 import { MapPin, Plus, Search } from "lucide-react";
 import { ApiError } from "@/api/client";
+import { connection } from "@/api/connection";
 import { listCourts, suggestCourt } from "@/api/matches";
 import type { CourtOut, MatchDetail } from "@/api/matches";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { feedbackVariants } from "@/components/ui/feedback";
+import { LoadError } from "@/components/ui/load-error";
+import { toast } from "@/components/ui/toast";
 import { courtKindOf } from "@/data/match";
+import { reportActionError } from "@/hooks/useSubmit";
 import { cn } from "@/lib/utils";
 
 /*
  * Quadra da proposta (RN07): busca no catálogo da cidade (`GET /courts`, com as sugestões em revisão desta partida
  * primeiro) ou "Sugerir outra quadra" (nome e endereço), que fica "em revisão" e vale só nesta partida.
- * O catálogo começa vazio: sem quadras publicadas, a sugestão é o caminho.
+ * O catálogo começa vazio: sem quadras publicadas, a sugestão é o caminho. A sugestão enviada (ou a existente que foi
+ * escolhida) é confirmada em toast; a lista que não carregou é um `LoadError`; só a validação do nome e a recusa de campo
+ * do servidor ficam no formulário da sugestão.
  */
 
 const SEARCH_DELAY_MS = 300;
@@ -64,12 +70,13 @@ export function CourtPicker({
   const [query, setQuery] = useState("");
   const [courts, setCourts] = useState<CourtOut[] | null>(null);
   const [failure, setFailure] = useState("");
+  const [failureCause, setFailureCause] = useState<unknown>(null);
+  const [attempt, setAttempt] = useState(0);
   const [suggesting, setSuggesting] = useState(false);
   const [name, setName] = useState("");
   const [address, setAddress] = useState("");
   const [busy, setBusy] = useState(false);
   const [suggestError, setSuggestError] = useState("");
-  const [notice, setNotice] = useState("");
 
   useEffect(() => {
     let alive = true;
@@ -80,11 +87,13 @@ export function CourtPicker({
             if (!alive) return;
             setCourts(page.items);
             setFailure("");
+            setFailureCause(null);
           })
           .catch((cause: unknown) => {
             if (!alive) return;
             if (cause instanceof ApiError && cause.status === 401) onExpired();
             setFailure(cause instanceof Error && cause.message ? cause.message : "Não foi possível carregar as quadras.");
+            setFailureCause(cause);
             setCourts([]);
           });
       },
@@ -94,7 +103,21 @@ export function CourtPicker({
       alive = false;
       window.clearTimeout(timer);
     };
-  }, [detail.city.id, detail.id, kind, query, onExpired]);
+  }, [detail.city.id, detail.id, kind, query, onExpired, attempt]);
+
+  /* Se a lista falhou por conexão, lê de novo uma única vez quando ela volta (como `useResource`). */
+  const connectionFailure = failureCause instanceof ApiError && failureCause.isConnection;
+  useEffect(() => {
+    if (!connectionFailure) return;
+    return connection.onRestored(() => setAttempt((count) => count + 1));
+  }, [connectionFailure]);
+
+  function retry() {
+    setFailure("");
+    setFailureCause(null);
+    setCourts(null);
+    setAttempt((count) => count + 1);
+  }
 
   async function suggest() {
     if (busy) return;
@@ -115,7 +138,7 @@ export function CourtPicker({
         provisional: true,
       };
       onSelect(court);
-      setNotice(`${cleanName} será sugerida ao agendar: fica em revisão e vale só nesta partida.`);
+      toast.info(`${cleanName} será sugerida ao agendar: fica em revisão e vale só nesta partida.`);
       setSuggesting(false);
       setName("");
       setAddress("");
@@ -126,18 +149,15 @@ export function CourtPicker({
     try {
       const result = await suggestCourt({ match_id: detail.id, name: cleanName, address: address.trim() || null });
       onSelect(result.court);
-      setNotice(
-        result.existing
-          ? `${result.court.name} já estava no catálogo ou nesta partida e foi selecionada.`
-          : `${result.court.name} foi sugerida: fica em revisão e vale só nesta partida.`,
-      );
+      if (result.existing) toast.info(`${result.court.name} já estava no catálogo ou nesta partida e foi selecionada.`);
+      else toast.warning(`${result.court.name} foi sugerida.`, { description: 'Fica em revisão e vale só nesta partida até a aprovação da administração.' });
       setSuggesting(false);
       setName("");
       setAddress("");
       setCourts((old) => (old && !old.some((item) => item.id === result.court.id) ? [result.court, ...old] : old));
     } catch (cause) {
-      if (cause instanceof ApiError && cause.status === 401) onExpired();
-      setSuggestError(cause instanceof Error && cause.message ? cause.message : "Não foi possível sugerir a quadra.");
+      const report = reportActionError(cause, "Não foi possível sugerir a quadra.", onExpired);
+      if (report.kind === "form") setSuggestError(report.message);
     } finally {
       setBusy(false);
     }
@@ -183,11 +203,7 @@ export function CourtPicker({
             Buscando quadras…
           </p>
         )}
-        {failure && (
-          <p className={cn(feedbackVariants(), "my-0")} role="alert">
-            {failure}
-          </p>
-        )}
+        {failure && <LoadError size="section" text={failure} cause={failureCause} onRetry={retry} />}
         {rest.map((court) => (
           <CourtOption key={court.id} court={court} selected={false} onSelect={() => onSelect(court)} />
         ))}
@@ -202,10 +218,7 @@ export function CourtPicker({
         <button
           type="button"
           className={cn(optionClass, "border-dashed")}
-          onClick={() => {
-            setSuggesting(true);
-            setNotice("");
-          }}
+          onClick={() => setSuggesting(true)}
         >
           <span className="grid size-8 flex-none place-items-center rounded-[10px] bg-tile text-brand">
             <Plus size={16} aria-hidden="true" />
@@ -244,9 +257,6 @@ export function CourtPicker({
           </div>
         </div>
       )}
-      <p role="status" aria-live="polite" className={cn("m-0 text-[10.5px] leading-normal text-brand", !notice && "sr-only")}>
-        {notice}
-      </p>
     </div>
   );
 }

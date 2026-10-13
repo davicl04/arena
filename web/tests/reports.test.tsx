@@ -5,6 +5,7 @@ import { ApiError, request } from '../src/api/client'
 import type { Post, SocialUser } from '../src/api/client'
 import AccountActions from '../src/components/AccountActions'
 import PostItem from '../src/components/PostItem'
+import { findToast, queryToast, renderWithToaster } from './toast-utils'
 
 vi.mock('../src/api/client', async original => ({
   ...await original<typeof import('../src/api/client')>(),
@@ -26,7 +27,7 @@ beforeEach(() => {
 })
 afterEach(cleanup)
 
-const renderPost = () => render(<PostItem post={post} viewerId={1} onUpdate={vi.fn()} onRemoved={vi.fn()} onExpired={vi.fn()} />)
+const renderPost = () => renderWithToaster(<PostItem post={post} viewerId={1} onUpdate={vi.fn()} onRemoved={vi.fn()} onExpired={vi.fn()} />)
 
 describe('denúncias', () => {
   it('denuncia uma publicação de outra pessoa pelo menu •••, só depois de escolher o motivo', async () => {
@@ -47,7 +48,7 @@ describe('denúncias', () => {
     expect(send.disabled).toBe(false)
     await user.click(send)
     expect(request).toHaveBeenCalledWith('/reports', 'POST', { target_type: 'post', target_id: 7, reason: 'conteudo_inadequado' })
-    expect((await screen.findByRole('status')).textContent).toBe('Denúncia enviada para análise.')
+    expect(await findToast('Denúncia enviada para análise.')).toBeTruthy()
     expect(screen.queryByRole('dialog')).toBeNull()
   })
 
@@ -62,25 +63,48 @@ describe('denúncias', () => {
     await user.type(within(glass).getByLabelText('Detalhes da denúncia (opcional)'), 'Ofensa direta ao atleta')
     await user.click(within(glass).getByRole('button', { name: 'Enviar denúncia' }))
     expect(request).toHaveBeenCalledWith('/reports', 'POST', { target_type: 'comment', target_id: 11, reason: 'assedio', description: 'Ofensa direta ao atleta' })
-    const comments = await screen.findByRole('dialog', { name: 'Comentários' })
-    expect(within(comments).getByRole('status').textContent).toBe('Denúncia do comentário enviada para análise.')
+    expect(await screen.findByRole('dialog', { name: 'Comentários' })).toBeTruthy()
+    const toast = await findToast('Denúncia do comentário enviada para análise.')
+    expect(toast.closest('[data-tone]')?.getAttribute('data-tone')).toBe('success')
   })
 
-  it('volta aos comentários sem enviar e mostra o erro da API sem fechar o formulário', async () => {
+  it('volta aos comentários sem enviar; a falha do envio vira toast e a sessão expirada só chama onExpired, sem fechar o formulário', async () => {
     const user = userEvent.setup()
     const onExpired = vi.fn()
-    render(<PostItem post={post} viewerId={1} onUpdate={vi.fn()} onRemoved={vi.fn()} onExpired={onExpired} />)
+    renderWithToaster(<PostItem post={post} viewerId={1} onUpdate={vi.fn()} onRemoved={vi.fn()} onExpired={onExpired} />)
     await user.click(screen.getByRole('button', { name: 'Comentários (1)' }))
     await user.click(await screen.findByRole('button', { name: 'Denunciar comentário de Outra Pessoa' }))
     await user.click(screen.getByRole('button', { name: 'Voltar aos comentários' }))
     expect(screen.getByRole('dialog', { name: 'Comentários' })).not.toBeNull()
     await user.click(screen.getByRole('button', { name: 'Denunciar comentário de Outra Pessoa' }))
-    vi.mocked(request).mockRejectedValueOnce(new ApiError('Sessão expirada.', 401))
     await user.click(screen.getByRole('radio', { name: /Spam/ }))
+    vi.mocked(request).mockRejectedValueOnce(new ApiError('Não foi possível registrar agora.', 500))
     await user.click(screen.getByRole('button', { name: 'Enviar denúncia' }))
-    expect((await screen.findByRole('alert')).textContent).toBe('Sessão expirada.')
-    expect(onExpired).toHaveBeenCalled()
+    const failure = await findToast('Não foi possível registrar agora.')
+    expect(failure.closest('[data-tone]')?.getAttribute('data-tone')).toBe('error')
+    expect(onExpired).not.toHaveBeenCalled()
+    vi.mocked(request).mockRejectedValueOnce(new ApiError('Sessão expirada.', 401))
+    await user.click(screen.getByRole('button', { name: 'Enviar denúncia' }))
+    await waitFor(() => expect(onExpired).toHaveBeenCalled())
+    expect(queryToast('Sessão expirada.')).toBeNull()
     expect(screen.getByRole('dialog', { name: 'Denunciar comentário' })).not.toBeNull()
+  })
+
+  it('a legenda recusada pelo servidor (422) fica na folha; outra falha vira toast e a folha segue aberta', async () => {
+    const user = userEvent.setup()
+    renderWithToaster(<PostItem post={{ ...post, can_edit: true }} viewerId={1} onUpdate={vi.fn()} onRemoved={vi.fn()} onExpired={vi.fn()} />)
+    await user.click(screen.getByRole('button', { name: 'Ações da publicação' }))
+    await user.click(screen.getByRole('button', { name: 'Editar legenda' }))
+    vi.mocked(request).mockRejectedValueOnce(new ApiError('Legenda inválida.', 422, [{ field: 'caption', message: 'Legenda inválida.' }]))
+    await user.click(screen.getByRole('button', { name: 'Salvar' }))
+    const dialog = screen.getByRole('dialog', { name: 'Editar legenda' })
+    expect((await within(dialog).findByRole('alert')).textContent).toBe('Legenda inválida.')
+    expect(queryToast('Legenda inválida.')).toBeNull()
+    vi.mocked(request).mockRejectedValueOnce(new ApiError('Falha ao salvar.', 500))
+    await user.click(screen.getByRole('button', { name: 'Salvar' }))
+    expect(await findToast('Falha ao salvar.')).toBeTruthy()
+    expect(within(dialog).queryByText('Legenda inválida.')).toBeNull()
+    expect(screen.getByRole('dialog', { name: 'Editar legenda' })).toBeTruthy()
   })
 
   it('denuncia a conta com detalhes pelo vidro de tela cheia', async () => {

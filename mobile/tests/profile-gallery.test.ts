@@ -7,6 +7,7 @@ import ProfileGallery from '../src/components/ProfileGallery'
 import CommunityScreen from '../src/screens/CommunityScreen'
 import ProfileScreen from '../src/screens/ProfileScreen'
 import { button, byLabel, click, enableAct, press, textOf, type } from './support/native'
+import { toasts } from './support/toast'
 
 vi.mock('react-native', async () => (await import('./support/native')).reactNativeMock())
 vi.mock('react-native-safe-area-context', async () => (await import('./support/native')).safeAreaMock())
@@ -155,8 +156,9 @@ describe('galeria do perfil e visualizador "Publicações"', () => {
     expect(byLabel(tree, 'Carregando fotos')).toHaveLength(1)
     await act(async () => { resolve() })
     expect(textOf(tree)).toContain('Fotos indisponíveis.')
+    expect(tree.root.findAll(node => typeof node.type === 'string' && node.props.testID === 'load-error-section')).toHaveLength(1)
     fail = false
-    await click(tree, 'Tentar novamente')
+    await press(tree, 'Tentar novamente')
     await act(async () => { resolve() })
     expect(textOf(tree)).toContain('Esta conta ainda não publicou fotos.')
     expect(button(tree, 'Publicar foto')).toBeUndefined()
@@ -237,8 +239,9 @@ describe('telas com abas, topo fixo e ações da conta', () => {
     await press(tree, 'Outro motivo')
     await click(tree, 'Enviar denúncia')
     expect(request).toHaveBeenCalledWith('/reports', 'POST', { target_type: 'user', target_id: 2, reason: 'outro' })
-    await click(tree, 'Concluir')
-    expect(textOf(tree)).not.toContain('Denúncia da conta enviada.')
+    // A denúncia avisa em toast e fecha as ações da conta; não há passo "Concluir".
+    expect(toasts().map(item => [item.tone, item.title])).toEqual([['success', 'Denúncia da conta enviada.']])
+    expect(byLabel(tree, 'Ações da conta').length).toBeGreaterThan(0)
     await press(tree, 'Voltar')
     expect(tree.root.findAllByType('Modal' as never)).toHaveLength(0)
     await act(async () => { tree.unmount() })

@@ -7,6 +7,7 @@ import { useSubmit } from '@/hooks/useSubmit'
 import { Button } from '@/components/ui/button'
 import { feedbackVariants } from '@/components/ui/feedback'
 import { Sheet, SheetActions } from '@/components/ui/sheet'
+import { toast } from '@/components/ui/toast'
 import { eventRefusalReasons } from '@/data/arena'
 import type { EventRefusalReason } from '@/data/arena'
 import { formatPrice } from '@/utils/format'
@@ -49,7 +50,7 @@ function PaidEventSheet({ event, onClose, onDecided, onExpired }: {
       error={problem} note="O evento volta para rascunho com o motivo; o organizador corrige e reenvia."
       confirmLabel="Recusar evento" busyLabel="Recusando…" busy={busy} onConfirm={() => void refuse()}
       onCancel={() => { setRefusing(false); setAttempted(false); setError('') }} />}
-    <div aria-live="polite">{error && <p className={feedbackVariants()} role="alert">{error}</p>}</div>
+    {error && <p className={feedbackVariants()} role="alert">{error}</p>}
   </Sheet>
 }
 
@@ -60,15 +61,13 @@ function PaidEventSheet({ event, onClose, onDecided, onExpired }: {
 export default function AdminPaidEvents({ onExpired }: { onExpired: () => void }) {
   const list = usePagedList<AdminEvent>(adminEventsPath('em_aprovacao'), onExpired)
   const [open, setOpen] = useState<AdminEvent | null>(null)
-  const [notice, setNotice] = useState('')
   return <section aria-label="Eventos pagos">
     <p className="mb-3 flex items-start gap-2 text-[11.5px] leading-[1.5] text-ink-muted"><Banknote size={16} className="mt-px flex-none text-brand" aria-hidden="true" />
       Confira o Pix, o preço e as datas antes de publicar. O organizador recebe a decisão nas notificações.</p>
-    <div aria-live="polite">{notice && <p className={feedbackVariants({ tone: 'success' })} role="status">{notice}</p>}</div>
     <ListState loading={list.loading} error={list.error} onRetry={list.reload} empty={!list.items.length}
       emptyTitle="Nada para aprovar" emptyText="Quando um organizador enviar um evento pago, ele aparece aqui e nas notificações." />
     {!list.loading && !list.error && list.items.length > 0 && <ul className="grid gap-2" aria-label="Eventos pagos para aprovar">
-      {list.items.map(item => <AdminEventRow key={item.id} event={item} onOpen={() => { setOpen(item); setNotice('') }}
+      {list.items.map(item => <AdminEventRow key={item.id} event={item} onOpen={() => setOpen(item)}
         text={`${item.organizer.display_name} · ${formatPrice(item.price_cents)}${item.submitted_at ? ` · ${relativeTime(item.submitted_at)}` : ''}`} />)}
     </ul>}
     {list.moreError && <p className={feedbackVariants()} role="alert">{list.moreError}</p>}
@@ -77,7 +76,7 @@ export default function AdminPaidEvents({ onExpired }: { onExpired: () => void }
       onDecided={(decided, message) => {
         list.setItems(old => old.filter(item => item.id !== decided.id))
         setOpen(null)
-        setNotice(message)
+        toast.success(message)
       }} />}
   </section>
 }

@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, View } from 'react-native'
 import { colors } from '../../theme'
 import { Icon } from '../Icon'
+import { ToastViewport } from '../toast/ToastViewport'
 
 /**
  * Folha inferior das ações e confirmações de Meus times e do Jogar: clara (atleta, sair do time, encerrar) ou escura
@@ -28,5 +29,6 @@ export function ActionSheet({ title, onClose, dark = false, locked = false, chil
         </View>
       </View>
     </KeyboardAvoidingView>
+    <ToastViewport />
   </Modal>
 }

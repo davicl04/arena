@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { feedbackVariants } from "@/components/ui/feedback";
+import { LoadError } from "@/components/ui/load-error";
 import { eventNoun } from "@/data/arena";
 import { usePagedList } from "@/hooks/usePagedList";
 import { cn } from "@/lib/utils";
@@ -30,15 +31,7 @@ export function EventEntrants({ eventId, sport, myEntryId, onOpenUser, onExpired
         Carregando inscritos…
       </p>
     );
-  if (list.error)
-    return (
-      <div className={cn(feedbackVariants(), "my-0")} role="alert">
-        {list.error.message}{" "}
-        <Button variant="text" className="inline min-h-0 p-0" onClick={list.reload}>
-          Tentar novamente
-        </Button>
-      </div>
-    );
+  if (list.error) return <LoadError size="section" title="Não foi possível carregar os inscritos" text={list.error.message} cause={list.error} onRetry={list.reload} />;
   if (list.items.length === 0)
     return (
       <EmptyState

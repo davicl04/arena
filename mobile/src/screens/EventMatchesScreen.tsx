@@ -4,10 +4,11 @@ import { listEventMatches, scheduleConflict, scheduleMatch } from '../api/bracke
 import type { EventMatchList, EventMatchRow, ScheduleConflict, ScheduleInput } from '../api/brackets'
 import { ApiError } from '../api/client'
 import { getOrganizerEvent } from '../api/events'
-import { ErrorText, LiveNotice, Notice, TextAction } from '../components/arena/controls'
+import { LoadError } from '../components/arena/LoadError'
 import { StateBadge } from '../components/arena/StateBadge'
 import { DarkTopBar, TeamsPlate } from '../components/arena/TeamsPlate'
 import { Icon } from '../components/Icon'
+import { toast } from '../components/toast/toastStore'
 import { TeamMark } from '../components/match/TeamMark'
 import { ScheduleSheet } from '../components/organizer/ScheduleSheet'
 import { rowBadge, rowNames, rowSubtitle } from '../components/organizer/scheduleRows'
@@ -16,7 +17,6 @@ import { useResource } from '../hooks/useResource'
 import { useSubmit } from '../hooks/useSubmit'
 import type { ScreenProps } from '../navigation/screens'
 import { colors } from '../theme'
-import { announce } from '../utils/announce'
 import { plural } from '../utils/format'
 
 /** Os contadores do alto da lista, na ordem do que o organizador faz primeiro. */
@@ -82,7 +82,6 @@ export default function EventMatchesScreen({ params, navigation, onExpired }: Sc
   const action = useSubmit(onExpired)
   const [selected, setSelected] = useState<number | null>(params.matchId ?? null)
   const [conflict, setConflict] = useState<ScheduleConflict | null>(null)
-  const [status, setStatus] = useState('')
   const consumed = useRef(false)
   const { setData } = matches
 
@@ -106,27 +105,16 @@ export default function EventMatchesScreen({ params, navigation, onExpired }: Sc
   async function save(input: ScheduleInput) {
     if (!row) return
     setConflict(null)
-    let found: ScheduleConflict | null = null
-    let stale = false
-    const saved = await action.run(async () => {
-      try {
-        return await scheduleMatch(row.card.id, input)
-      } catch (cause) {
-        found = scheduleConflict(cause)
-        // 409 que não é conflito de agenda ("resultado já definido", "já começou"): a lista estava velha.
-        stale = cause instanceof ApiError && cause.status === 409 && found === null
-        throw cause
-      }
-    }, 'Não foi possível agendar a partida.')
-    if (!saved) {
+    // O conflito de agenda (409 com o jogo que conflita) fica na folha, como instrução. Um 409 que não é conflito ("resultado
+    // já definido", "já começou") mostra o aviso do servidor (toast) e relê a lista, que estava velha.
+    const saved = await action.run(() => scheduleMatch(row.card.id, input), 'Não foi possível agendar a partida.', async cause => {
+      const found = scheduleConflict(cause)
       setConflict(found)
-      if (stale) await reload()
-      return
-    }
+      if (cause instanceof ApiError && cause.status === 409 && found === null) await reload()
+    })
+    if (!saved) return
     setSelected(null)
-    const message = `${saved.label} ${row.card.starts_at ? 'reagendado' : 'agendado'} para ${whenText(saved.card.starts_at)}${saved.card.court ? ` em ${saved.card.court.name}` : ''}. Os dois elencos foram avisados.`
-    setStatus(message)
-    announce(message)
+    toast.success(`${saved.label} ${row.card.starts_at ? 'reagendado' : 'agendado'} para ${whenText(saved.card.starts_at)}${saved.card.court ? ` em ${saved.card.court.name}` : ''}.`, { description: 'Os dois elencos foram avisados.' })
     if (!await reload()) setData(old => old ? { ...old, items: old.items.map(item => item.card.id === saved.card.id ? saved : item) } : old)
   }
   /** Relê a lista sem esconder a tela; devolve se deu certo (a falha mantém a lista que já estava na tela). */
@@ -152,7 +140,7 @@ export default function EventMatchesScreen({ params, navigation, onExpired }: Sc
       {header}
       <View style={{ padding: 20 }}>
         {matches.loading ? <Text accessibilityLiveRegion="polite" style={{ color: colors['ink-muted'], fontSize: 12 }}>Carregando as partidas…</Text> : null}
-        {matches.error ? <View><Notice>{matches.error}</Notice><TextAction title="Tentar novamente" onPress={matches.reload} /></View> : null}
+        {matches.error ? <LoadError size="screen" title="Não foi possível carregar as partidas" text={matches.error} cause={matches.errorCause} onRetry={matches.reload} /> : null}
       </View>
     </View>
   }
@@ -163,9 +151,6 @@ export default function EventMatchesScreen({ params, navigation, onExpired }: Sc
     <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 48 }}>
       {header}
       <View style={{ padding: 16, gap: 12 }}>
-        <LiveNotice text={status} />
-        {action.error && !row ? <ErrorText>{action.error}</ErrorText> : null}
-
         {list.items.length === 0
           ? <View style={{ alignItems: 'center', borderRadius: 16, backgroundColor: '#ffffff', padding: 20 }}>
             <Icon name="calendar-days" size={24} color={colors['ink-muted']} />

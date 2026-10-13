@@ -10,6 +10,7 @@ import { brandSvgs } from '../src/assets/brand-svgs'
 import type { PlayBoardState } from '../src/hooks/usePlayBoard'
 import PlayScreen from '../src/screens/PlayScreen'
 import { byLabel, enableAct, press, textOf } from './support/native'
+import { findToast, renderWithToasts, toasts, toastText, unmountToastTrees } from './support/toast'
 import {
   athleteSide, brasilia, emptySummary, notificationSummaryState, football, ferrugemRef, fromNow, leoesRef, matchCard, person, playBoard, proposal, search, slotOffer, standings,
   teamSide, tennis,
@@ -95,6 +96,7 @@ beforeEach(() => {
   vi.mocked(request).mockReset()
 })
 afterEach(async () => {
+  await unmountToastTrees()
   for (const tree of trees) await act(async () => { tree.unmount() })
   vi.useRealTimers()
 })
@@ -254,30 +256,45 @@ describe('Jogar: carregamento e erros', () => {
   it('elo que não carrega: mensagem do servidor e tentar de novo', async () => {
     let fail = true
     serve(path => {
-      if (path === '/me/standings' && fail) throw new ApiError('Serviço indisponível.', 503)
+      if (path === '/me/standings' && fail) throw new ApiError('Serviço indisponível.', 500)
       return undefined
     })
     const tree = await mount()
+    // Erro de carregamento (LoadError de seção, escuro), não toast.
+    expect(host(tree, 'load-error-section')).toHaveLength(1)
     expect(has(tree, 'Serviço indisponível.')).toBe(true)
-    expect(has(tree, 'Não foi possível carregar seus times. Tente novamente.')).toBe(true)
+    expect(has(tree, 'Não foi possível carregar')).toBe(true)
+    expect(toasts()).toEqual([])
     fail = false
-    await press(tree, 'Tentar carregar o elo novamente')
+    await press(tree, 'Tentar novamente')
     expect(has(tree, 'Serviço indisponível.')).toBe(false)
+    expect(host(tree, 'load-error-section')).toHaveLength(0)
     expect(has(tree, '0 de 3 partidas')).toBe(true)
+  })
+
+  it('o elo que falha por conexão diz que está sem conexão, em vez da mensagem do servidor', async () => {
+    serve(path => {
+      if (path === '/me/standings') throw new ApiError('Sem resposta do servidor.', 503)
+      return undefined
+    })
+    const tree = await mount()
+    expect(has(tree, 'Sem conexão com a ARENA. Vamos tentar de novo assim que voltar.')).toBe(true)
+    expect(has(tree, 'Sem resposta do servidor.')).toBe(false)
+    expect(host(tree, 'load-error-section')).toHaveLength(1)
   })
 
   it('modalidades que não carregam: erro e tentar de novo', async () => {
     let fail = true
     serve(path => {
-      if (path === '/me/sports-profiles' && fail) throw new ApiError('Sem conexão.', 0)
+      if (path === '/me/sports-profiles' && fail) throw new ApiError('Perfis indisponíveis.', 500)
       return undefined
     })
     const tree = await mount()
-    expect(has(tree, 'Sem conexão.')).toBe(true)
-    expect(has(tree, 'Não foi possível carregar suas modalidades.')).toBe(true)
+    expect(has(tree, 'Perfis indisponíveis.')).toBe(true)
+    expect(host(tree, 'load-error-section').length).toBeGreaterThan(0)
     fail = false
     await press(tree, 'Tentar novamente')
-    expect(has(tree, 'Sem conexão.')).toBe(false)
+    expect(has(tree, 'Perfis indisponíveis.')).toBe(false)
     expect(host(tree, 'play-button')[0].props.accessibilityLabel).toBe('Encontrar partida')
   })
 
@@ -413,7 +430,7 @@ describe('Jogar: preparar e iniciar a busca', () => {
     const tree = await mount()
     await press(tree, 'Tênis')
     await press(tree, 'Encontrar partida')
-    expect(has(tree, 'Complete seu perfil de tênis com a cidade para buscar partidas.')).toBe(true)
+    expect(toastText()).toContain('Complete seu perfil de tênis com a cidade para buscar partidas.')
     expect(host(tree, 'play-button')[0].props.disabled).toBe(false)
   })
 
@@ -482,7 +499,7 @@ describe('Jogar: buscando e cancelar', () => {
     expect(lastCall('DELETE')).toEqual(['/matchmaking/searches/55', 'DELETE'])
     expect(reloadSpy).toHaveBeenCalledOnce()
     expect(has(tree, 'Cancelar a busca?')).toBe(false)
-    expect(has(tree, 'Busca cancelada.')).toBe(true)
+    expect(toasts().map(item => [item.tone, item.title])).toEqual([['success', 'Busca cancelada.']])
     expect(host(tree, 'play-button')[0].props.accessibilityLabel).toBe('Encontrar partida')
     expect(byLabel(tree, 'Cancelar busca')).toHaveLength(0)
   })
@@ -496,12 +513,12 @@ describe('Jogar: buscando e cancelar', () => {
     await press(tree, 'Cancelar busca')
     server.board = playBoard({ searches: [active()] })
     await press(tree, 'Cancelar busca')
-    expect(has(tree, 'A busca já encontrou uma partida. Responda à proposta.')).toBe(true)
+    expect(toastText()).toContain('A busca já encontrou uma partida. Responda à proposta.')
     expect(has(tree, 'Cancelar a busca?')).toBe(true)
     server.board = playBoard({ searches: [active({ state: 'pareada', match_id: 50 })], proposals: [proposal({ can_respond: false })] })
     await press(tree, 'Cancelar busca')
     expect(has(tree, 'Cancelar a busca?')).toBe(false)
-    expect(has(tree, 'A busca já encontrou uma partida. Responda à proposta.')).toBe(true)
+    expect(toastText()).toContain('A busca já encontrou uma partida. Responda à proposta.')
     expect(host(tree, 'play-button')[0].props.accessibilityLabel).toBe('Ver a proposta, que aguarda o adversário')
   })
 
@@ -577,7 +594,7 @@ describe('Jogar: proposta', () => {
     expect(lastCall('PUT')).toEqual(['/matches/50/decline', 'PUT', {}])
     expect(reloadSpy).toHaveBeenCalledOnce()
     expect(has(tree, 'Adversário encontrado · Society')).toBe(false)
-    expect(has(tree, 'Proposta recusada.')).toBe(true)
+    expect(toasts().map(item => [item.tone, item.title])).toEqual([['success', 'Proposta recusada.']])
     expect(navigation.go).not.toHaveBeenCalled()
   })
 
@@ -589,7 +606,7 @@ describe('Jogar: proposta', () => {
     expect(deferSpy).toHaveBeenCalledWith(50)
     expect(calls('PUT')).toHaveLength(0)
     expect(has(tree, 'Adversário encontrado · Society')).toBe(false)
-    expect(has(tree, 'A proposta continua na placa e nas notificações até o prazo.')).toBe(true)
+    expect(toasts().map(item => [item.tone, item.title])).toEqual([['info', 'A proposta continua na placa e nas notificações até o prazo.']])
     // Adiada, a proposta não abre sozinha de novo, mas o cartão da placa a mostra.
     expect(host(tree, 'proposal-card')).toHaveLength(1)
     expect(has(tree, 'Os dois lados precisam aceitar em até 2 h. A proposta expira se ninguém responder.')).toBe(true)
@@ -638,7 +655,7 @@ describe('Jogar: proposta', () => {
   })
 
   it.each([['Aceitar partida', 'accept', 409], ['Recusar', 'decline', 404]] as const)(
-    'proposta que mudou ao responder (%s, %s): fecha a folha, mostra a mensagem do servidor na placa e relê a placa',
+    'proposta que mudou ao responder (%s, %s): fecha a folha, avisa com a mensagem do servidor e relê a placa',
     async (label, route, status) => {
       serve((path, method) => {
         if (path === `/matches/50/${route}` && method === 'PUT') throw new ApiError('Esta proposta não está mais aberta.', status)
@@ -650,7 +667,7 @@ describe('Jogar: proposta', () => {
       await press(tree, label)
       expect(reloadSpy).toHaveBeenCalledOnce()
       expect(has(tree, 'Adversário encontrado · Society')).toBe(false)
-      expect(has(tree, 'Esta proposta não está mais aberta.')).toBe(true)
+      expect(toasts().map(item => [item.tone, item.title])).toEqual([['warning', 'Esta proposta não está mais aberta.']])
       expect(deferSpy).toHaveBeenCalledWith(50)
       expect(host(tree, 'proposal-card')).toHaveLength(0)
     })
@@ -723,13 +740,13 @@ describe('Jogar: oferta de vaga', () => {
     server.board = playBoard()
     await press(tree, 'Agora não')
     expect(lastCall('PUT')).toEqual(['/match-slots/9/decline', 'PUT', {}])
-    expect(has(tree, 'Vaga recusada. Sua busca terminou.')).toBe(true)
+    expect(toasts().map(item => [item.tone, item.title])).toEqual([['info', 'Vaga recusada. Sua busca terminou.']])
     expect(has(tree, 'Vaga encontrada')).toBe(false)
     expect(navigation.go).not.toHaveBeenCalled()
   })
 
   it.each([['Quero jogar', 409, 'Esta vaga não está mais reservada para você.'], ['Agora não', 404, 'O prazo para aceitar esta vaga acabou.']] as const)(
-    'oferta que mudou ao responder (%s, %s): fecha a folha, mostra a mensagem do servidor na placa e relê a placa',
+    'oferta que mudou ao responder (%s, %s): fecha a folha, avisa com a mensagem do servidor e relê a placa',
     async (label, status, message) => {
       serve((path, method) => {
         if (path.startsWith('/match-slots/9') && method === 'PUT') throw new ApiError(message, status)
@@ -741,7 +758,7 @@ describe('Jogar: oferta de vaga', () => {
       await press(tree, label)
       expect(reloadSpy).toHaveBeenCalledOnce()
       expect(has(tree, 'Vaga encontrada · Society')).toBe(false)
-      expect(has(tree, message)).toBe(true)
+      expect(toasts().map(item => [item.tone, item.title])).toEqual([['warning', message]])
       expect(host(tree, 'slot-offer-card')).toHaveLength(0)
     })
 
@@ -927,8 +944,9 @@ describe('Jogar: corrida', () => {
     const tree = await mount()
     await press(tree, 'Corrida')
     expect(has(tree, 'Marcas indisponíveis.')).toBe(true)
+    expect(host(tree, 'load-error-section').length).toBeGreaterThan(0)
     fail = false
-    await press(tree, 'Tentar carregar o elo novamente')
+    await press(tree, 'Tentar novamente')
     expect(has(tree, 'Sem marca nos 5 km')).toBe(true)
   })
 })
@@ -952,10 +970,16 @@ describe('Jogar: acessibilidade', () => {
     expect(small.map(node => node.props.accessibilityLabel)).toEqual(['Fechar folha'])
   })
 
-  it('os avisos de envio ficam numa região viva que já está montada', async () => {
-    serve()
+  it('a confirmação sai pelo viewport de toasts (o anúncio é dele), sem região viva vazia fixa na tela', async () => {
+    serve((path, method) => (path === '/matchmaking/searches/55' && method === 'DELETE' ? null : undefined))
+    const viewport = await renderWithToasts(h('View'))
     const tree = await mount(playBoard({ searches: [search({ started_at: fromNow(-0.05) })] }))
     const live = tree.root.findAll(node => String(node.type) === 'Text' && node.props.accessibilityLiveRegion === 'polite' && node.props.children === '')
-    expect(live.length).toBeGreaterThan(0)
+    expect(live).toHaveLength(0)
+    await press(tree, 'Buscando. Toque para cancelar a busca')
+    server.board = playBoard()
+    await press(tree, 'Cancelar busca')
+    const card = findToast(viewport, 'Busca cancelada.')
+    expect(card?.props.testID).toBe('toast-success')
   })
 })

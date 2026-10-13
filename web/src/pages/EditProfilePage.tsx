@@ -3,7 +3,7 @@ import { AtSign, Camera, Globe, Image as ImageIcon, Lock, Mail, ShieldOff, User 
 import type { User } from '../api/client'
 import Avatar from '../components/Avatar'
 import { avatarPreviewVariants } from '@/components/ui/avatar-preview'
-import { feedbackVariants } from '@/components/ui/feedback'
+import { toast } from '@/components/ui/toast'
 import { ListGroup, ListHeading, ListRow } from '@/components/ui/list-row'
 import { AvatarSheet, CoverSheet, NameSheet, UsernameSheet, VisibilitySheet } from '../components/EditSheets'
 
@@ -16,10 +16,9 @@ export default function EditProfilePage({ user, onUser, onExpired, openBlocked }
   openBlocked: () => void
 }) {
   const [sheet, setSheet] = useState<Sheet | null>(null)
-  const [message, setMessage] = useState('')
   const close = () => setSheet(null)
-  const props = { user, onUser, onExpired, onClose: close, onSaved: (text: string) => { setMessage(text); close() } }
-  const open = (next: Sheet) => { setMessage(''); setSheet(next) }
+  const props = { user, onUser, onExpired, onClose: close, onSaved: (text: string) => { toast.success(text); close() } }
+  const open = (next: Sheet) => setSheet(next)
   return <>
     <section className="flex items-center gap-3.5 rounded-card bg-white p-4" aria-label="Sua identidade">
       <Avatar key={user.avatar?.id ?? 'initials'} user={user} className={avatarPreviewVariants()} />
@@ -29,7 +28,6 @@ export default function EditProfilePage({ user, onUser, onExpired, openBlocked }
         <p className="mt-1.5 flex items-center gap-[5px] text-[10px] text-ink-muted">{user.social_public ? <Globe size={13} /> : <Lock size={13} />}Conta {user.social_public ? 'pública' : 'privada'}</p>
       </div>
     </section>
-    {message && <p className={feedbackVariants({ tone: 'success' })} role="status">{message}</p>}
     <ListHeading>Perfil</ListHeading>
     <ListGroup>
       <ListRow Icon={Camera} label="Foto" value={user.avatar ? 'Alterar' : 'Adicionar'} onClick={() => open('avatar')} />

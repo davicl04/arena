@@ -8,6 +8,7 @@ import { useSubmit } from '@/hooks/useSubmit'
 import { Button } from '@/components/ui/button'
 import { feedbackVariants } from '@/components/ui/feedback'
 import { Sheet, SheetActions } from '@/components/ui/sheet'
+import { toast } from '@/components/ui/toast'
 import { entryStates } from '@/data/arena'
 import { plural } from '@/utils/format'
 import { AdminEventInfo, AdminEventRow, AdminPoster, ReasonPanel } from './AdminEventParts'
@@ -89,7 +90,7 @@ function RevokedEventSheet({ event, onClose, onDecided, onExpired }: {
         ? `${plural(confirmed, 'inscrição paga vira', 'inscrições pagas viram')} devolução pendente; o organizador devolve por Pix e anexa os comprovantes.`
         : 'Os inscritos recebem o aviso de cancelamento com o motivo.'}
       confirmLabel="Cancelar evento" busyLabel="Cancelando…" busy={busy} onConfirm={() => void cancel()} onCancel={back} />}
-    <div aria-live="polite">{error && <p className={feedbackVariants()} role="alert">{error}</p>}</div>
+    {error && <p className={feedbackVariants()} role="alert">{error}</p>}
   </Sheet>
 }
 
@@ -100,15 +101,13 @@ function RevokedEventSheet({ event, onClose, onDecided, onExpired }: {
 export default function AdminRevokedEvents({ onExpired }: { onExpired: () => void }) {
   const list = usePagedList<AdminEvent>(adminEventsPath('revogacao'), onExpired)
   const [open, setOpen] = useState<AdminEvent | null>(null)
-  const [notice, setNotice] = useState('')
   return <section aria-label="Eventos de organizador revogado">
     <p className="mb-3 flex items-start gap-2 text-[11.5px] leading-[1.5] text-ink-muted"><ShieldOff size={16} className="mt-px flex-none text-brand" aria-hidden="true" />
       Decida se cada evento segue ou é cancelado. Enquanto isso, as inscrições ficam suspensas e a gestão só lê os dados.</p>
-    <div aria-live="polite">{notice && <p className={feedbackVariants({ tone: 'success' })} role="status">{notice}</p>}</div>
     <ListState loading={list.loading} error={list.error} onRetry={list.reload} empty={!list.items.length}
       emptyTitle="Nada para decidir" emptyText="Quando um organizador com eventos abertos for revogado, os eventos aparecem aqui." />
     {!list.loading && !list.error && list.items.length > 0 && <ul className="grid gap-2" aria-label="Eventos aguardando decisão">
-      {list.items.map(item => <AdminEventRow key={item.id} event={item} onOpen={() => { setOpen(item); setNotice('') }}
+      {list.items.map(item => <AdminEventRow key={item.id} event={item} onOpen={() => setOpen(item)}
         text={`${item.organizer.display_name} · ${plural(item.entries_count, 'inscrição', 'inscrições')}`}
         badge={item.pending.total > 0 ? <StateBadge tone="pending">{plural(item.pending.total, 'pendência', 'pendências')}</StateBadge> : undefined} />)}
     </ul>}
@@ -118,7 +117,7 @@ export default function AdminRevokedEvents({ onExpired }: { onExpired: () => voi
       onDecided={(decided, message) => {
         list.setItems(old => old.filter(item => item.id !== decided.id))
         setOpen(null)
-        setNotice(message)
+        toast.success(message)
       }} />}
   </section>
 }

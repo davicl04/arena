@@ -5,6 +5,7 @@ import type { City } from '../../api/client'
 import { fieldMessage } from '../../api/events'
 import { ORGANIZER_LIMITS, organizerRequestInput, sendOrganizerRequest, validateOrganizerRequest } from '../../api/organizer'
 import type { OrganizerRequest, OrganizerRequestDraft, OrganizerRequestErrors } from '../../api/organizer'
+import { reportActionError } from '../../hooks/useSubmit'
 import { colors } from '../../theme'
 import { ActionButton, CheckRow, CityField, FieldLabel, FormField, MultiPills, Notice, sportChoices } from '../arena/controls'
 
@@ -68,10 +69,13 @@ export function OrganizerRequestForm({ cities, defaultCityId, onSent, onExpired 
     try {
       onSent(await sendOrganizerRequest(organizerRequestInput(draft)))
     } catch (cause) {
-      if (cause instanceof ApiError && cause.status === 401) onExpired()
+      // Campo recusado pelo servidor: junto ao campo. Os demais erros seguem a regra única (sessão, conexão ou toast).
       const mapped = serverFieldErrors(cause)
       setServerErrors(mapped)
-      setGeneral(Object.keys(mapped).length ? '' : cause instanceof Error && cause.message ? cause.message : 'Não foi possível enviar o pedido.')
+      if (Object.keys(mapped).length === 0) {
+        const report = reportActionError(cause, 'Não foi possível enviar o pedido.', onExpired)
+        if (report.kind === 'form') setGeneral(report.message)
+      }
     } finally {
       setBusy(false)
     }

@@ -34,7 +34,7 @@ export function ProposalDialog({ proposal, onLater, onAnswer, onOpenMatch, onEla
   /** Elemento que recebe o foco quando o diálogo fecha (o botão redondo da placa). */
   returnFocus?: RefObject<HTMLElement | null>
 }) {
-  const { busy, error, run } = useSubmit(onExpired)
+  const { busy, run } = useSubmit(onExpired)
   const popup = useRef<HTMLDivElement>(null)
   const mine = proposal.sides.find(side => side.side === proposal.my_side)
   const other = proposal.sides.find(side => side.side !== proposal.my_side)
@@ -90,7 +90,6 @@ export function ProposalDialog({ proposal, onLater, onAnswer, onOpenMatch, onEla
           {!open && proposal.state !== 'combinando' && <p role="status" className="m-0 text-[12px] leading-normal text-white/80">
             {proposal.state === 'recusada' ? 'A proposta foi recusada.' : 'O prazo da proposta terminou.'}
           </p>}
-          {error && <p role="alert" className="m-0 text-[11.5px] leading-normal text-danger-soft">{error}</p>}
           <Button variant="glass-link" className="justify-self-center self-center" disabled={busy} onClick={onLater}>
             {open && proposal.can_respond ? 'Responder depois' : 'Fechar'}
           </Button>

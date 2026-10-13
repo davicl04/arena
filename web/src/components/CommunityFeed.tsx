@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react'
 import { Progress as ProgressPrimitive } from '@base-ui/react/progress'
-import { Camera, RotateCw, Shield, WifiOff } from 'lucide-react'
+import { Camera, Shield } from 'lucide-react'
 import type { Post } from '../api/client'
 import type { usePagedList } from '../hooks/usePagedList'
 import { ArenaMark } from './Brand'
@@ -8,6 +8,7 @@ import PostItem from './PostItem'
 import type { PostUpdate } from './PostItem'
 import { Button } from '@/components/ui/button'
 import { feedbackVariants } from '@/components/ui/feedback'
+import { LoadError } from '@/components/ui/load-error'
 import { ProgressIndicator, ProgressTrack } from '@/components/ui/progress'
 import { cn } from '@/lib/utils'
 
@@ -27,12 +28,12 @@ function PostSkeleton() {
   </div>
 }
 
-/* Estado centralizado (vazio e erro): arte ou ícone, título, texto e ações. */
+/* Estado centralizado do feed vazio: arte, título, texto e ações. */
 const stateBox = 'mx-6 mt-10 grid justify-items-center gap-1 text-center'
 const stateText = 'mt-1 mb-3.5 max-w-[270px] text-[11.5px] leading-[1.6] text-ink-muted'
 
 /**
- * Feed da Comunidade com os estados "arquibancada" (J4): carregando, vazio, erro, carregando mais e fim.
+ * Feed da Comunidade com os estados "arquibancada" (J4): carregando, vazio, erro (`LoadError`), carregando mais e fim.
  * Os posts usam o mesmo `PostItem` do visualizador do perfil; a paginação continua sozinha perto do fim.
  */
 export default function CommunityFeed({ feed, viewerId, scroller, onOpenUser, onExpired, onCompose, onSearch }: {
@@ -67,12 +68,7 @@ export default function CommunityFeed({ feed, viewerId, scroller, onOpenUser, on
 
   if (loading) return <div><FeedProgress label="Carregando publicações" />
     <div className="opacity-45"><PostSkeleton /><PostSkeleton /></div></div>
-  if (error) return <div className={stateBox} role="alert">
-    <span className="mb-3 grid size-14 place-items-center rounded-[18px] bg-white text-error shadow-soft"><WifiOff size={26} /></span>
-    <h2 className="text-[16px]">Feed indisponível</h2>
-    <p className={stateText}>Não foi possível carregar as publicações. Verifique sua conexão.</p>
-    <Button type="button" onClick={reload}><RotateCw size={16} />Tentar de novo</Button>
-  </div>
+  if (error) return <LoadError size="screen" title="Feed indisponível" text="Não foi possível carregar as publicações." cause={error} onRetry={reload} />
   if (items.length === 0) return <div className={stateBox}>
     <span className="mb-4 grid size-[120px] place-items-center rounded-full bg-forest shadow-[0_0_0_8px_#0b221814]"><ArenaMark className="h-[54px] w-[72px] text-mint" /></span>
     <h2 className="text-[16px]">A arquibancada está vazia</h2>

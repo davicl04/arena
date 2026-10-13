@@ -30,7 +30,7 @@ const describedBy = (id: string, error?: string, hint = true) => error ? `${id}-
 
 /**
  * Formulário do pedido de organizador (P5): nome, cidade do catálogo, modalidades, experiência, contato, link
- * e aceite. Valida no cliente com as mesmas regras do servidor, mostra os erros da API e anuncia o envio.
+ * e aceite. Valida no cliente com as mesmas regras do servidor e mostra os campos recusados pela API; as outras falhas de envio saem como toast.
  */
 export function OrganizerRequestForm({ cities, defaultCityId, onSent, onExpired }: {
   cities: City[]
@@ -115,7 +115,7 @@ export function OrganizerRequestForm({ cities, defaultCityId, onSent, onExpired 
       <span>Entendo que o pagamento das inscrições é feito fora do Arena, que analiso os comprovantes e resolvo as divergências dos meus eventos, e que eventos pagos passam pela administração.</span>
     </label>
     {errors.accept_terms && <p id={`${fid('accept_terms')}-error`} className={errorClass}>{errors.accept_terms}</p>}
-    <div id={`${id}-status`} aria-live="polite">
+    <div id={`${id}-status`}>
       {invalid && <p className={feedbackVariants()} role="alert">Revise os campos destacados.</p>}
       {!invalid && error && <p className={feedbackVariants()} role="alert">{error}</p>}
       {busy && <p className="sr-only" role="status">Enviando pedido…</p>}

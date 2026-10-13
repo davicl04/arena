@@ -4,6 +4,7 @@ import type { RunCreated } from '../../api/runs'
 import type { RunDistance } from '../../data/arena'
 import type { useRunBests } from '../../hooks/useRunBests'
 import type { Navigation } from '../../navigation/useNavigation'
+import { toast } from '../toast/toastStore'
 import { RunEntrySheet } from './RunEntrySheet'
 import { savedNotice } from './RunSavedCard'
 
@@ -27,17 +28,16 @@ const clearOthers = (except?: string) => parts.forEach((clear, id) => { if (id !
 
 /**
  * O registro de corrida de uma parte da tela (K2): abre a tela cheia na distância pedida, grava, mostra o cartão de salvo
- * com o aviso para leitores de tela e relê as marcas. Cada parte (`RunPlateActions` na placa e `RunMarksSection` abaixo
- * dela) usa a sua própria instância, sem provedor: só uma folha fica aberta por vez, e o aviso aparece onde a ação começou.
+ * e o toast de confirmação, e relê as marcas. Cada parte (`RunPlateActions` na placa e `RunMarksSection` abaixo
+ * dela) usa a sua própria instância, sem provedor: só uma folha fica aberta por vez, e o cartão aparece onde a ação começou.
  */
 export function useRunEntry({ bests, navigation, onExpired }: Pick<RunPartProps, 'bests' | 'navigation' | 'onExpired'>) {
   const id = useId()
   const [entry, setEntry] = useState<RunDistance | null>(null)
   const [saved, setSaved] = useState<RunCreated | null>(null)
-  const [notice, setNotice] = useState('')
   const { refresh } = bests
 
-  const dismiss = useCallback(() => { setSaved(null); setNotice('') }, [])
+  const dismiss = useCallback(() => setSaved(null), [])
   useEffect(() => {
     parts.set(id, dismiss)
     return () => { parts.delete(id) }
@@ -47,7 +47,7 @@ export function useRunEntry({ bests, navigation, onExpired }: Pick<RunPartProps,
     clearOthers(id)
     setEntry(null)
     setSaved(created)
-    setNotice(savedNotice(created))
+    toast.success(savedNotice(created))
     void refresh()
   }
   /** Uma marca foi removida do histórico: os cartões de salvo ficam desatualizados e as marcas são relidas. */
@@ -59,5 +59,5 @@ export function useRunEntry({ bests, navigation, onExpired }: Pick<RunPartProps,
     : <RunEntrySheet initialDistance={entry} onClose={() => setEntry(null)} onSaved={done} onExpired={onExpired}
       onFindRaces={() => { setEntry(null); navigation.go('events', { sport: 'corrida' }) }} />
 
-  return { open: setEntry, sheet, saved, notice, dismiss, removed }
+  return { open: setEntry, sheet, saved, dismiss, removed }
 }

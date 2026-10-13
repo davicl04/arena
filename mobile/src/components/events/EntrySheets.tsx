@@ -27,7 +27,6 @@ export interface EnterSheetProps {
   onTeam: (teamId: number) => void
   pix: PixInfo | null
   busy: boolean
-  error: string
   onConfirm: (teamId: number | null) => void
   onPaymentInfo: () => void
   onClose: () => void
@@ -38,7 +37,7 @@ export interface EnterSheetProps {
  * valor, o prazo do comprovante e o bloco "Pix do organizador" em destaque. No futebol, escolhe o time quando quem se
  * inscreve representa mais de um time elegível.
  */
-export function EnterSheet({ detail, teams, teamId, onTeam, pix, busy, error, onConfirm, onPaymentInfo, onClose }: EnterSheetProps) {
+export function EnterSheet({ detail, teams, teamId, onTeam, pix, busy, onConfirm, onPaymentInfo, onClose }: EnterSheetProps) {
   const football = detail.sport === 'futebol'
   const paid = (detail.price_cents ?? 0) > 0
   const team = teams.find(item => item.team.id === teamId)?.team ?? null
@@ -71,7 +70,6 @@ export function EnterSheet({ detail, teams, teamId, onTeam, pix, busy, error, on
       {pix ? <PixBlock pix={pix} priceCents={detail.price_cents ?? 0} onInfo={onPaymentInfo} />
         : <Text style={hint}>O organizador ainda não informou o Pix deste evento.</Text>}
     </View> : null}
-    {error ? <ErrorText>{error}</ErrorText> : null}
     <BusyStatus text={busy ? (paid ? 'Reservando vaga…' : 'Confirmando inscrição…') : ''} />
     <Button title={busy ? (paid ? 'Reservando…' : 'Confirmando…') : paid ? 'Reservar vaga' : 'Confirmar inscrição'} disabled={busy || (football && !team)} onPress={() => onConfirm(football ? teamId : null)} />
     {paid ? <Text style={[hint, { marginTop: 6 }]}>A vaga fica guardada até o prazo. Pague pelo Pix e volte para enviar o comprovante.</Text> : null}
@@ -115,13 +113,12 @@ export function ReceiptSheet({ entry, eventName, busy, error, onSend, onClose }:
 }
 
 /** Confirmação do recebimento da devolução: só quando o valor já voltou para a conta. */
-export function ConfirmRefundSheet({ entry, busy, error, onConfirm, onClose }: { entry: MyEntry; busy: boolean; error: string; onConfirm: () => void; onClose: () => void }) {
+export function ConfirmRefundSheet({ entry, busy, onConfirm, onClose }: { entry: MyEntry; busy: boolean; onConfirm: () => void; onClose: () => void }) {
   return <Sheet title="Confirmar recebimento" onClose={onClose}>
     <Text style={{ color: colors['ink-muted'], fontSize: 12, marginBottom: 8 }}>{entry.event.name}</Text>
     <Text style={{ color: colors.ink, fontSize: 12, lineHeight: 18 }}>
       Confirme só se <Strong>{formatPrice(entry.price_cents, { compact: true })}</Strong> já voltou para a sua conta. Depois de confirmar, a devolução fica registrada como recebida.
     </Text>
-    {error ? <ErrorText>{error}</ErrorText> : null}
     <BusyStatus text={busy ? 'Confirmando recebimento…' : ''} />
     <Button title={busy ? 'Confirmando…' : 'Confirmar recebimento'} disabled={busy} onPress={onConfirm} />
   </Sheet>
@@ -153,14 +150,13 @@ export function ContestRefundSheet({ entry, busy, error, onContest, onClose }: {
 }
 
 /** Desistir da inscrição (gratuita antes do início; paga só enquanto reservada ou recusada). */
-export function CancelEntrySheet({ entry, busy, error, onConfirm, onClose }: { entry: MyEntry; busy: boolean; error: string; onConfirm: () => void; onClose: () => void }) {
+export function CancelEntrySheet({ entry, busy, onConfirm, onClose }: { entry: MyEntry; busy: boolean; onConfirm: () => void; onClose: () => void }) {
   const paid = entry.price_cents > 0
   return <Sheet title="Desistir da inscrição" onClose={onClose}>
     <Text style={{ color: colors['ink-muted'], fontSize: 12, marginBottom: 8 }}>{entry.event.name}</Text>
     <Text style={{ color: colors.ink, fontSize: 12, lineHeight: 18 }}>
       {paid ? 'A reserva é cancelada e a vaga fica livre. Se você já pagou, combine a devolução com o organizador.' : 'A inscrição é cancelada e a vaga fica livre para outra pessoa.'}
     </Text>
-    {error ? <ErrorText>{error}</ErrorText> : null}
     <BusyStatus text={busy ? 'Cancelando inscrição…' : ''} />
     <Button title={busy ? 'Cancelando…' : 'Desistir'} disabled={busy} onPress={onConfirm} />
   </Sheet>

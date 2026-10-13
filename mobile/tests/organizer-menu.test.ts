@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiError, request } from '../src/api/client'
 import OrganizerMenu from '../src/components/organizer/OrganizerMenu'
 import { byLabel, enableAct, press, textOf } from './support/native'
+import { toastText, toasts } from './support/toast'
 import { approved, calls, card, mount, navigationMock, organizerRequest, page, routeRequest, status } from './support/organizer'
 
 vi.mock('react-native', async () => (await import('./support/native')).reactNativeMock())
@@ -63,7 +64,7 @@ describe('Menu do Perfil: cartão "Organizar no Arena" (P3)', () => {
     await press(tree, 'Cancelar pedido')
     await press(tree, 'Cancelar pedido')
     expect(calls('DELETE', '/me/organizer-request')).toHaveLength(1)
-    expect(textOf(tree)).toContain('Pedido cancelado. Você pode enviar um novo quando quiser.')
+    expect(toastText()).toContain('Pedido cancelado. Você pode enviar um novo quando quiser.')
     expect(textOf(tree)).toContain('Quero organizar')
     expect(byLabel(tree, 'Pedir: etapa atual')).toHaveLength(1)
   })
@@ -81,7 +82,9 @@ describe('Menu do Perfil: cartão "Organizar no Arena" (P3)', () => {
     await press(tree, 'Cancelar pedido')
     await press(tree, 'Cancelar pedido')
     expect(textOf(tree)).toContain('Pedido recusado')
-    expect(textOf(tree)).toContain('Nenhum pedido em análise.')
+    // 404 de algo que outra pessoa já decidiu: aviso, e o cartão relê o estado atual.
+    expect(toastText()).toContain('Nenhum pedido em análise.')
+    expect(toasts().map(item => item.tone)).toEqual(['warning'])
   })
 
   it('erro ao cancelar mostra a mensagem e mantém o pedido; 401 expira a sessão', async () => {
@@ -92,7 +95,7 @@ describe('Menu do Perfil: cartão "Organizar no Arena" (P3)', () => {
     const tree = await menu()
     await press(tree, 'Cancelar pedido')
     await press(tree, 'Cancelar pedido')
-    expect(textOf(tree)).toContain('Fora do ar')
+    expect(toastText()).toContain('Fora do ar')
     expect(textOf(tree)).toContain('Cancelar o pedido em análise?')
     expect(onExpired).not.toHaveBeenCalled()
     routeRequest({

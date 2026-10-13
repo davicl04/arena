@@ -96,8 +96,8 @@ export function notificationsPath({ categoria, pendente }: NotificationsQuery = 
   return text ? `${NOTIFICATIONS_PATH}?${text}` : NOTIFICATIONS_PATH
 }
 
-export const getUnreadCount = () => request<UnreadCount>('/me/notifications/unread-count')
-export const getNotificationSummary = () => request<NotificationSummary>('/me/notifications/summary')
+export const getUnreadCount = () => request<UnreadCount>('/me/notifications/unread-count', 'GET', undefined, { background: true })
+export const getNotificationSummary = () => request<NotificationSummary>('/me/notifications/summary', 'GET', undefined, { background: true })
 /** Pendências abertas por urgência, sem cursor (`limit` de 1 a 50; o servidor usa 20 se omitido). */
 export function listPendingNotifications({ categoria, limit }: { categoria?: NotificationFilterCategory; limit?: number } = {}) {
   const query = new URLSearchParams()

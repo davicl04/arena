@@ -49,6 +49,10 @@
   --color-warning: #6f4305;
   --color-amber: #f6c26b;
   --color-danger-soft: #ff8a9a;
+  --color-warning-soft: #f4c56a;
+  --color-info-soft: #c9d6cf;
+  --color-toast: rgba(8, 20, 14, 0.94);
+  --color-toast-line: #ffffff17;
 
   --radius-control: 8px;
   --radius-lg: 12px;

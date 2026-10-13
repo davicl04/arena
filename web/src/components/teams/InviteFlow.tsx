@@ -3,7 +3,9 @@ import type { FormEvent } from 'react'
 import { Check, QrCode, Search, SendHorizontal, UserPlus } from 'lucide-react'
 import { getTeam, inviteCandidatesPath, sendInvite } from '@/api/teams'
 import type { InviteCandidate, TeamStatus } from '@/api/teams'
+import { LoadError } from '@/components/ui/load-error'
 import { Tabs } from '@/components/ui/tabs'
+import { toast } from '@/components/ui/toast'
 import { usePagedList } from '@/hooks/usePagedList'
 import { useResource } from '@/hooks/useResource'
 import { useSubmit } from '@/hooks/useSubmit'
@@ -40,7 +42,7 @@ function CandidateRow({ candidate, onChoose }: { candidate: InviteCandidate; onC
 /**
  * Convidar (I5 + Q2 + Q5), tela `team-invite`. Passo 1: abas Escolher atleta | Link e QR; a busca (nome ou @, espera de
  * 300 ms) parte de quem você segue. Passo 2: a carteirinha como o convidado vai ver e a mensagem opcional (até 140).
- * Depois de enviar, volta ao passo 1 com o aviso, para convidar mais gente.
+ * Depois de enviar, volta ao passo 1 com um aviso (toast), para convidar mais gente.
  */
 export function InviteFlow({ teamId, initialTab = 'pessoa', onClose, onExpired }: {
   teamId: number
@@ -48,13 +50,13 @@ export function InviteFlow({ teamId, initialTab = 'pessoa', onClose, onExpired }
   onClose: () => void
   onExpired: () => void
 }) {
-  const { data: team, error: loadError } = useResource(useCallback(() => getTeam(teamId), [teamId]), onExpired, { fallback: 'Não foi possível carregar o time.' })
+  const loadedTeam = useResource(useCallback(() => getTeam(teamId), [teamId]), onExpired, { fallback: 'Não foi possível carregar o time.' })
+  const team = loadedTeam.data
   const [tab, setTab] = useState<InviteTab>(initialTab)
   const [query, setQuery] = useState('')
   const [search, setSearch] = useState('')
   const [chosen, setChosen] = useState<InviteCandidate | null>(null)
   const [message, setMessage] = useState('')
-  const [notice, setNotice] = useState('')
   const send = useSubmit(onExpired)
   const candidates = usePagedList<InviteCandidate>(inviteCandidatesPath(teamId, search), onExpired)
 
@@ -75,7 +77,7 @@ export function InviteFlow({ teamId, initialTab = 'pessoa', onClose, onExpired }
     const sent = await send.run(() => sendInvite(teamId, chosen.person.id, text || null), 'Não foi possível enviar o convite.')
     if (!sent) return
     candidates.setItems(items => items.map(item => item.person.id === chosen.person.id ? { ...item, team_status: 'convite_pendente' } : item))
-    setNotice(`Convite enviado para ${chosen.person.name}.`)
+    toast.success(`Convite enviado para ${chosen.person.name}.`)
     setChosen(null); setMessage('')
   }
 
@@ -104,7 +106,9 @@ export function InviteFlow({ teamId, initialTab = 'pessoa', onClose, onExpired }
                 </>} />
             </div>
           </div>
-          : <p role="status" className="text-[12px] text-white/66">{loadError || 'Carregando o time…'}</p>}
+          : loadedTeam.error
+            ? <LoadError size="section" tone="dark" title="Não foi possível carregar o time" text={loadedTeam.error} cause={loadedTeam.errorCause} onRetry={loadedTeam.reload} />
+            : <p role="status" className="text-[12px] text-white/66">Carregando o time…</p>}
         <label htmlFor="invite-message" className={cn(groupLabel, 'mt-[18px] mb-2 text-mint')}>Mensagem (opcional)</label>
         <textarea id="invite-message" value={message} maxLength={MESSAGE_MAX} rows={3} aria-describedby="invite-message-count"
           placeholder="Ex.: jogamos society às quintas, 20h, no Sudoeste." onChange={event => setMessage(event.target.value)}
@@ -125,7 +129,6 @@ export function InviteFlow({ teamId, initialTab = 'pessoa', onClose, onExpired }
     <div className="px-4 pb-4">
       {team && <p className="mt-2 truncate text-[10.5px] text-white/56">Para o {team.name}</p>}
       <Tabs variant="pill" className="mt-3" items={tabs} value={tab} onChange={setTab} label="Como convidar" idPrefix="invite-tab-" controls="invite-panel" />
-      <p role="status" aria-live="polite" className={cn(notice ? darkNotice() : 'sr-only')}>{notice}</p>
       <div id="invite-panel" role="tabpanel" aria-labelledby={`invite-tab-${tab}`}>
         {tab === 'link'
           ? <TeamLinkPanel teamId={teamId} teamName={team?.name ?? 'time'} onExpired={onExpired} />
@@ -140,12 +143,11 @@ export function InviteFlow({ teamId, initialTab = 'pessoa', onClose, onExpired }
             </form>
             <p className={cn(groupLabel, 'text-white/56')}>{search ? 'Resultados' : 'Quem você segue'}</p>
             {candidates.loading ? <p role="status" className="py-3.5 text-[12px] text-white/66">Carregando atletas…</p>
-              : candidates.error ? <div role="alert" className={darkNotice({ tone: 'error' })}>{candidates.error.message}
-                <button type="button" className="ml-1 border-0 bg-transparent p-0 font-bold text-mint underline" onClick={candidates.reload}>Tentar novamente</button></div>
+              : candidates.error ? <LoadError size="section" tone="dark" title="Não foi possível carregar os atletas" text={candidates.error.message} cause={candidates.error} onRetry={candidates.reload} />
               : candidates.items.length === 0
                 ? <p className="py-3.5 text-[11.5px] leading-[1.5] text-white/66">{search ? 'Ninguém com esse nome ou @usuário.' : 'Você ainda não segue ninguém aqui. Busque pelo nome ou @usuário.'}</p>
                 : <ul className="m-0 list-none p-0" aria-label={search ? 'Resultados da busca' : 'Quem você segue'}>
-                  {candidates.items.map(candidate => <CandidateRow key={candidate.person.id} candidate={candidate} onChoose={() => { setNotice(''); send.setError(''); setChosen(candidate) }} />)}
+                  {candidates.items.map(candidate => <CandidateRow key={candidate.person.id} candidate={candidate} onChoose={() => { send.setError(''); setChosen(candidate) }} />)}
                 </ul>}
             {candidates.moreError && <p className={darkNotice({ tone: 'error' })} role="alert">{candidates.moreError}</p>}
             {candidates.hasMore && <button type="button" className={cn(teamButton({ tone: 'line', size: 'md' }), 'mt-3 w-full')} disabled={candidates.busy}

@@ -89,7 +89,7 @@ describe('cliente da busca, da proposta e da placa (contrato 0002, seções 9 e 
       ['/me/proposals'],
       ['/matches/50/accept', 'PUT', {}],
       ['/matches/50/decline', 'PUT', {}],
-      ['/me/play'],
+      ['/me/play', 'GET', undefined, undefined],
       ['/me/slot-offers'],
       ['/match-slots/9/accept', 'PUT', {}],
       ['/match-slots/9/decline', 'PUT', {}],
@@ -259,5 +259,16 @@ describe('filas da administração do Jogar (contrato 0002, seções 10.4 e 10.7
     expect(admin.courtRejectError('', true)).toBeNull()
     expect(admin.courtRejectError('abc', true)).toBe('O motivo, se informado, tem de 5 a 300 caracteres.')
     expect(admin.courtRejectError('Mesmo endereço', true)).toBeNull()
+  })
+})
+
+describe('leituras em segundo plano (plano de toasts, C2)', () => {
+  it('a placa e o chat repassam `background` ao cliente, que nunca abre a folha de conexão por elas', async () => {
+    await matchmaking.getPlayBoard({ background: true })
+    await matches.getMessages(1, { after: 3 }, { background: true })
+    expect(calls()).toEqual([
+      ['/me/play', 'GET', undefined, { background: true }],
+      ['/matches/1/messages?after=3', 'GET', undefined, { background: true }],
+    ])
   })
 })

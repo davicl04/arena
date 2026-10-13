@@ -39,6 +39,12 @@ export const appState = {
   set(state: string) { this.current = state; for (const listener of [...this.listeners]) listener(state) },
   reset() { this.current = 'active'; this.listeners.length = 0 },
 }
+// Arrastar o toast: cada `PanResponder.create` registra a configuração; o teste chama `panResponder.last().onPanResponderMove(…)`.
+export const panResponder = {
+  configs: [] as Record<string, (...args: any[]) => any>[],
+  last() { return this.configs[this.configs.length - 1] },
+  reset() { this.configs.length = 0 },
+}
 // Leitor de tela: os anúncios ficam em `accessibility.announcements`.
 export const accessibility = {
   announcements: [] as string[],
@@ -77,6 +83,7 @@ export function reactNativeMock() {
       },
     },
     Share: { share: vi.fn(), sharedAction: 'sharedAction', dismissedAction: 'dismissedAction' },
+    PanResponder: { create: (config: Record<string, (...args: any[]) => any>) => { panResponder.configs.push(config); return { panHandlers: {} } } },
     Modal: element('Modal'), Platform: { OS: 'android' }, Pressable: element('Pressable'), RefreshControl: element('RefreshControl'), ScrollView: element('ScrollView'),
     Text: element('Text'), TextInput: element('TextInput'), View: element('View'), useWindowDimensions: () => ({ width: 390, height: 844, scale: 2, fontScale: 1 }),
   }
@@ -87,10 +94,11 @@ export const svgMock = () => {
   const Svg = element('Svg')
   return {
     __esModule: true, default: Svg, Svg, SvgXml: element('SvgXml'), Circle: element('Circle'), Path: element('Path'), Rect: element('Rect'), Text: element('SvgText'),
+    Defs: element('Defs'), LinearGradient: element('LinearGradient'), Stop: element('Stop'),
   }
 }
 
-export const safeAreaMock = () => ({ SafeAreaView: element('SafeAreaView') })
+export const safeAreaMock = () => ({ SafeAreaView: element('SafeAreaView'), useSafeAreaInsets: () => ({ top: 0, right: 0, bottom: 0, left: 0 }) })
 
 export const uiMock = () => ({
   Button: ({ title, ...props }: Record<string, unknown>) => React.createElement('Button', { ...props, title }, title as React.ReactNode),

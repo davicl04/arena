@@ -103,6 +103,7 @@ export function MyStatsCard({ match, lineup, outcome, onSaved, onExpired }: {
       <Muted>{summary}</Muted>
     </View>
 
+    {/* Só a recusa de campo do servidor (`422`); as demais falhas de envio saem em toast. */}
     {error ? <ErrorText>{error}</ErrorText> : null}
     {editable
       ? <ActionButton tone="brand" block title={busy ? 'Enviando…' : stat ? 'Atualizar estatísticas' : 'Enviar estatísticas'}

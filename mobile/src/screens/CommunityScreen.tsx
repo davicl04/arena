@@ -1,15 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Animated, RefreshControl, Text, View } from 'react-native'
 import type { FlatList } from 'react-native'
-import { ApiError, getToken } from '../api/client'
+import { getToken } from '../api/client'
 import type { Post, SocialUser, User } from '../api/client'
 import { toggleFollow } from '../api/social'
 import type { FollowState } from '../api/social'
 import { useAthleteSearch } from '../hooks/useAthleteSearch'
 import { usePagedList } from '../hooks/usePagedList'
-import { useVisitedProfile } from '../hooks/useVisitedProfile'
+import { reportActionError } from '../hooks/useSubmit'
+import { toastReadFailure, useVisitedProfile } from '../hooks/useVisitedProfile'
 import { Button } from '../components/ui'
-import { cx, tw } from '../styles'
+import { tw } from '../styles'
 import { colors } from '../theme'
 import CommunityBar, { TITLE_ROW_HEIGHT } from '../components/CommunityBar'
 import type { CommunityTab } from '../components/CommunityBar'
@@ -20,8 +21,7 @@ import type { PhotoAsset } from '../components/PostComposer'
 import PostItem from '../components/PostItem'
 import type { PostUpdate } from '../components/PostItem'
 import VisitedProfile from '../components/VisitedProfile'
-
-const NOTICE_MS = 4000
+import { toast } from '../components/toast/toastStore'
 
 /**
  * Rolagem do feed → deslocamento da barra: ao descer, a linha do título recolhe (até a sua altura);
@@ -58,8 +58,6 @@ export default function CommunityScreen({ user, onExpired, composeOnOpen = false
   const followedInSearch = useCallback((id: number, state: FollowState) => updateSearch(id, item => ({ ...item, follow_state: state })), [updateSearch])
   const visited = useVisitedProfile(user.id, onExpired, followedInSearch)
   const [following, setFollowing] = useState<number[]>([])
-  const [error, setError] = useState('')
-  const [notice, setNotice] = useState('')
   const [token, setToken] = useState<string | null>(null)
   const [draft, setDraft] = useState<PhotoAsset | null>(null)
   const [height, setHeight] = useState(0)
@@ -74,12 +72,6 @@ export default function CommunityScreen({ user, onExpired, composeOnOpen = false
     return () => { alive = false }
   }, [])
 
-  useEffect(() => {
-    if (!notice) return
-    const timer = setTimeout(() => setNotice(''), NOTICE_MS)
-    return () => clearTimeout(timer)
-  }, [notice])
-
   const { setItems: setFeedItems, reload: reloadFeed } = feed
   const updatePost: PostUpdate = useCallback((id, change) => setFeedItems(old => old.map(post => post.id === id ? change(post) : post)), [setFeedItems])
   const removePost = useCallback((id: number) => setFeedItems(old => old.filter(post => post.id !== id)), [setFeedItems])
@@ -87,20 +79,14 @@ export default function CommunityScreen({ user, onExpired, composeOnOpen = false
   const { postRemoved } = visited
   const removeProfilePost = useCallback((id: number) => { removePost(id); postRemoved() }, [removePost, postRemoved])
 
-  function fail(err: unknown, fallback: string) {
-    if (err instanceof ApiError && err.status === 401) onExpired()
-    setError(err instanceof Error ? err.message : fallback)
-  }
-
   // Passo 1: recorte 1:1 no editor nativo. Cancelar não muda nada; com a foto, abre o passo 2.
   const startCompose = useCallback(async () => {
     if (picking.current) return
     picking.current = true
     try {
       const asset = await pickSquarePhoto()
-      setError('')
       if (asset) setDraft(asset)
-    } catch (err) { setError(err instanceof Error ? err.message : 'Não foi possível abrir as fotos.') }
+    } catch (err) { toast.error(err instanceof Error && err.message ? err.message : 'Não foi possível abrir as fotos.') }
     finally { picking.current = false }
   }, [])
 
@@ -117,30 +103,28 @@ export default function CommunityScreen({ user, onExpired, composeOnOpen = false
     setDraft(null)
     setFeedItems(old => [post, ...old.filter(item => item.id !== post.id)])
     setTab('Publicações')
-    setNotice('Publicação compartilhada.')
+    toast.success('Publicação compartilhada.')
     toTop()
   }
 
   function selectTab(next: CommunityTab) {
     // Tocar na aba já ativa só volta ao início do feed (não recarrega).
     if (next === tab) { if (next === 'Publicações') toTop(); return }
-    setError('')
     setTab(next)
   }
 
-  /** Abre o perfil de `id` num `Modal`; sem perfil aberto, a falha aparece no topo da Comunidade. */
+  /** Abre o perfil de `id` num `Modal`; sem perfil aberto, a falha sai em toast (a conexão e a sessão têm aviso próprio). */
   async function openProfile(id: number) {
-    setError('')
-    const message = await visited.open(id)
-    if (message) setError(message)
+    const failure = await visited.open(id)
+    if (failure) toastReadFailure(failure)
   }
 
   async function followFromList(person: SocialUser) {
     if (followBusy.current.has(person.id)) return
     followBusy.current.add(person.id)
-    setFollowing(old => [...old, person.id]); setError('')
+    setFollowing(old => [...old, person.id])
     try { followedInSearch(person.id, await toggleFollow(person)) }
-    catch (err) { fail(err, 'Não foi possível atualizar o vínculo.') }
+    catch (err) { reportActionError(err, 'Não foi possível atualizar o vínculo.', onExpired) }
     finally { followBusy.current.delete(person.id); setFollowing(old => old.filter(id => id !== person.id)) }
   }
 
@@ -153,7 +137,7 @@ export default function CommunityScreen({ user, onExpired, composeOnOpen = false
 
   const onFeed = tab === 'Publicações'
   const compose = () => void startCompose()
-  const feedEmpty = feed.loading ? <FeedLoading /> : feed.error ? <FeedError onRetry={reloadFeed} /> : <FeedEmpty onPublish={compose} onSearch={() => selectTab('Atletas')} />
+  const feedEmpty = feed.loading ? <FeedLoading /> : feed.error ? <FeedError onRetry={reloadFeed} cause={feed.error} /> : <FeedEmpty onPublish={compose} onSearch={() => selectTab('Atletas')} />
   const feedFooter = feed.items.length ? <View>
     {feed.busy ? <View className="py-3"><ProgressBar label="Carregando mais publicações" /></View> : null}
     {feed.moreError ? <View className="px-4">
@@ -169,8 +153,6 @@ export default function CommunityScreen({ user, onExpired, composeOnOpen = false
     <View className="grow basis-0 overflow-hidden bg-app" onLayout={event => setHeight(Math.round(event.nativeEvent.layout.height))}>
       <Animated.View style={[frame, { transform: [{ translateY: onFeed ? translateY : 0 }] }]}>
         <CommunityBar tab={tab} onTab={selectTab} onCompose={compose} query={query} onQuery={setQuery} notificationCount={notificationCount} onOpenNotifications={onOpenNotifications} />
-        {error ? <Text accessibilityRole="alert" className={cx(tw.error, 'px-4')}>{error}</Text> : null}
-        {notice && onFeed ? <Text accessibilityLiveRegion="polite" className={cx(tw.success, 'px-4')}>{notice}</Text> : null}
         <View className={onFeed ? 'grow basis-0' : 'hidden'}>
           <Animated.FlatList ref={listRef} data={feed.items} keyExtractor={(item: Post) => String(item.id)} keyboardShouldPersistTaps="handled"
             renderItem={({ item }: { item: Post }) => <PostItem post={item} viewerId={user.id} token={token} onUpdate={updatePost} onRemove={removePost} onOpenProfile={id => void openProfile(id)} onExpired={onExpired} />}
@@ -185,7 +167,7 @@ export default function CommunityScreen({ user, onExpired, composeOnOpen = false
       </Animated.View>
     </View>
     {draft ? <PostComposer key={draft.uri} initial={draft} onClose={() => setDraft(null)} onPublished={published} onExpired={onExpired} /> : null}
-    {visited.profile ? <VisitedProfile modal profile={visited.profile} user={user} token={token} mutualText={visited.mutualText} error={visited.error} onClose={visited.close} onFollow={person => void visited.follow(person)}
+    {visited.profile ? <VisitedProfile modal profile={visited.profile} user={user} token={token} mutualText={visited.mutualText} onClose={visited.close} onFollow={person => void visited.follow(person)}
       onBlocked={blocked} onPostUpdate={updatePost} onPostRemove={removeProfilePost} onExpired={onExpired} /> : null}
   </>
 }

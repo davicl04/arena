@@ -7,9 +7,10 @@ import { teamButton } from '@/components/teams/styles'
 import { TeamIdCard } from '@/components/teams/TeamIdCard'
 import { DarkTopBar, TeamsPlate } from '@/components/teams/TeamsPlate'
 import { athletes } from '@/components/teams/teamView'
-import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { feedbackVariants } from '@/components/ui/feedback'
+import { LoadError } from '@/components/ui/load-error'
+import { toast } from '@/components/ui/toast'
 import { useSubmit } from '@/hooks/useSubmit'
 import { cn } from '@/lib/utils'
 
@@ -29,17 +30,17 @@ export default function JoinPage({ token, onClose, onOpenTeams, onExpired }: {
 }) {
   const [preview, setPreview] = useState<JoinPreview | null>(null)
   const [invalid, setInvalid] = useState(false)
-  const [loadError, setLoadError] = useState('')
+  const [loadFailure, setLoadFailure] = useState<{ message: string; cause: unknown } | null>(null)
   const [attempt, setAttempt] = useState(0)
   const action = useSubmit(onExpired)
 
   useEffect(() => {
     let alive = true
-    joinPreview(token).then(value => { if (alive) { setPreview(value); setLoadError('') } }).catch((cause: unknown) => {
+    joinPreview(token).then(value => { if (alive) { setPreview(value); setLoadFailure(null) } }).catch((cause: unknown) => {
       if (!alive) return
       if (cause instanceof ApiError && cause.status === 401) onExpired()
       if (cause instanceof ApiError && cause.status === 404) setInvalid(true)
-      else setLoadError(cause instanceof Error ? cause.message : 'Não foi possível abrir o link do time.')
+      else setLoadFailure({ message: cause instanceof Error && cause.message ? cause.message : 'Não foi possível abrir o link do time.', cause })
     })
     return () => { alive = false }
   }, [token, attempt, onExpired])
@@ -53,7 +54,10 @@ export default function JoinPage({ token, onClose, onOpenTeams, onExpired }: {
         throw cause
       }
     }, 'Não foi possível enviar o pedido.')
-    if (created && preview) setPreview({ ...preview, my_status: 'pedido_pendente', request_id: created.id })
+    if (created && preview) {
+      setPreview({ ...preview, my_status: 'pedido_pendente', request_id: created.id })
+      toast.success('Pedido enviado.', { description: `Um representante do ${preview.team.name} vai responder, e a resposta chega nas notificações.` })
+    }
     else if (stale) setAttempt(n => n + 1)
   }
   async function cancel() {
@@ -90,8 +94,8 @@ export default function JoinPage({ token, onClose, onOpenTeams, onExpired }: {
     return <section aria-label="Entrar no time" className="min-h-full">
       <TeamsPlate className="pb-5">{top}</TeamsPlate>
       <div className="px-4 pt-4">
-        {loadError
-          ? <div className={feedbackVariants()} role="alert">{loadError} <Button variant="text" onClick={() => setAttempt(n => n + 1)}>Tentar novamente</Button></div>
+        {loadFailure
+          ? <LoadError size="screen" title="Não foi possível abrir o link" text={loadFailure.message} cause={loadFailure.cause} onRetry={() => { setLoadFailure(null); setAttempt(n => n + 1) }} />
           : <p role="status" className="text-[12px] text-ink-muted">Abrindo o link do time…</p>}
       </div>
     </section>
@@ -120,13 +124,10 @@ export default function JoinPage({ token, onClose, onOpenTeams, onExpired }: {
       </div>
     </TeamsPlate>
     <div className="px-4">
-      {/* O pedido enviado já aparece na carteirinha; o aviso falado repete para leitores de tela. */}
-      <p role="status" aria-live="polite" className={cn(status === 'membro' || status === 'convite_pendente' ? feedbackVariants({ tone: 'success' }) : 'sr-only')}>
-        {status === 'pedido_pendente' ? 'Pedido enviado · aguardando um representante.'
-          : status === 'membro' ? `Você já está no elenco do ${team.name}.`
-          : status === 'convite_pendente' ? `Você já tem um convite do ${team.name}. Responda em Meus times.` : ''}
-      </p>
-      {action.error && <p className={feedbackVariants()} role="alert">{action.error}</p>}
+      {/* Estado do link (não é resposta a uma ação): quem já é membro ou tem convite continua vendo o aviso na tela. */}
+      {(status === 'membro' || status === 'convite_pendente') && <p role="status" className={cn(feedbackVariants(), 'bg-success-bg text-brand')}>
+        {status === 'membro' ? `Você já está no elenco do ${team.name}.` : `Você já tem um convite do ${team.name}. Responda em Meus times.`}
+      </p>}
       {(status === 'disponivel' || status === 'pedido_pendente') && <p className={tip}>
         <Info size={16} className="mt-px flex-none text-brand" aria-hidden="true" />
         <span>Um representante do {team.name} aprova seu pedido, e a resposta chega nas notificações. Se aprovado, você entra no elenco como membro, e sua posição preferida do futebol aparece no elenco.</span>

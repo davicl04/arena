@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { Text, TextInput, View } from 'react-native'
-import { ApiError } from '../api/client'
 import type { Post } from '../api/client'
 import { CAPTION_MAX, deletePost, updateCaption } from '../api/social'
+import { reportActionError } from '../hooks/useSubmit'
 import GlassOverlay, { GlassRow } from './GlassOverlay'
 import ReportForm from './ReportForm'
 import { Button } from './ui'
@@ -16,9 +16,13 @@ export default function PostActions({ post, onClose, onUpdated, onDeleted, onExp
   const [step, setStep] = useState<Step>('menu')
   const [caption, setCaption] = useState(post.caption)
   const [busy, setBusy] = useState(false)
+  // Só a recusa de validação do servidor (legenda) fica no vidro; os outros erros viram toast ou aviso de conexão.
   const [error, setError] = useState('')
   function go(next: Step) { setError(''); setCaption(post.caption); setStep(next) }
-  function fail(err: unknown, fallback: string) { if (err instanceof ApiError && err.status === 401) onExpired(); setError(err instanceof Error ? err.message : fallback) }
+  function fail(err: unknown, fallback: string) {
+    const report = reportActionError(err, fallback, onExpired)
+    if (report.kind === 'form') setError(report.message)
+  }
   async function save() {
     if (busy) return
     setBusy(true); setError('')

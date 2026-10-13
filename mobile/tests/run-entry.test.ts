@@ -9,6 +9,7 @@ import { brandSvgs } from '../src/assets/brand-svgs'
 import { MEASURE_RANGE, PREVIEW_DELAY_MS, RunEntrySheet, problemsOf } from '../src/components/run/RunEntrySheet'
 import { dayLabel } from '../src/utils/calendar'
 import { byLabel, enableAct, press, textOf, type } from './support/native'
+import { toasts } from './support/toast'
 import { allText, byId, callsTo, findButton, serve } from './support/review'
 import { created, impact, lago, lagoRace, preview, run, sec } from './support/runs'
 
@@ -252,14 +253,24 @@ describe('K2: prévia do servidor', () => {
     expect(saveButton(tree).props.disabled).toBe(true)
   })
 
-  it('erro sem campo (servidor fora do ar): aviso em alerta, e Salvar continua possível para tentar de novo', async () => {
-    const { tree } = await open({ [PREVIEW]: new ApiError('Serviço indisponível.', 503) })
+  it('erro sem campo (servidor com problema): aviso em alerta, e Salvar continua possível para tentar de novo', async () => {
+    const { tree } = await open({ [PREVIEW]: new ApiError('Serviço indisponível.', 500) })
     await setTime(tree, 0, 24, 0)
     await tick(PREVIEW_DELAY_MS)
     const alert = tree.root.findAll(node => String(node.type) === 'View' && node.props.accessibilityRole === 'alert')
     expect(alert).toHaveLength(1)
     expect(textOf(tree)).toContain('Serviço indisponível.')
-    // 503 não é recusa do pedido: repetir pode dar certo.
+    // 500 não é recusa do pedido: repetir pode dar certo.
+    expect(saveButton(tree).props.disabled).toBe(false)
+  })
+
+  it('prévia sem conexão (503): nenhuma mensagem local, o aviso de conexão cuida, e Salvar continua possível', async () => {
+    const { tree } = await open({ [PREVIEW]: new ApiError('Serviço indisponível.', 503) })
+    await setTime(tree, 0, 24, 0)
+    await tick(PREVIEW_DELAY_MS)
+    expect(tree.root.findAll(node => String(node.type) === 'View' && node.props.accessibilityRole === 'alert')).toHaveLength(0)
+    expect(textOf(tree)).not.toContain('Serviço indisponível.')
+    expect(toasts()).toEqual([])
     expect(saveButton(tree).props.disabled).toBe(false)
   })
 
@@ -330,17 +341,28 @@ describe('K2: salvar', () => {
     expect(saveButton(tree).props.disabled).toBe(true)
   })
 
-  it('conflito (409) vira alerta no rodapé e bloqueia repetir o mesmo pedido; mudar o tempo é outro pedido', async () => {
+  it('409 ao salvar vira aviso em toast (o recurso mudou) e o formulário continua como estava', async () => {
     const { tree } = await open({ [PREVIEW]: preview(), [SAVE]: new ApiError('Você já registrou a marca desta prova.', 409) })
     await setTime(tree, 0, 24, 12)
     await tick(PREVIEW_DELAY_MS)
     await act(async () => { saveButton(tree).props.onPress() })
     await tick()
-    expect(textOf(tree)).toContain('Você já registrou a marca desta prova.')
-    expect(saveButton(tree).props.disabled).toBe(true)
-    await type(tree, 'Segundos', '30')
-    expect(textOf(tree)).not.toContain('Você já registrou a marca desta prova.')
+    expect(toasts().map(item => [item.tone, item.title])).toEqual([['warning', 'Você já registrou a marca desta prova.']])
+    // Não é recusa de campo: nada fica no formulário (o alerta do rodapé não existe).
+    expect(tree.root.findAll(node => String(node.type) === 'View' && node.props.accessibilityRole === 'alert')).toHaveLength(0)
     expect(saveButton(tree).props.disabled).toBe(false)
+  })
+
+  it('erro comum ao salvar (500) sai em toast de erro, sem mensagem no formulário', async () => {
+    const { tree, onSaved } = await open({ [PREVIEW]: preview(), [SAVE]: new ApiError('Não foi possível gravar agora.', 500) })
+    await setTime(tree, 0, 24, 12)
+    await tick(PREVIEW_DELAY_MS)
+    await act(async () => { saveButton(tree).props.onPress() })
+    await tick()
+    expect(toasts().map(item => [item.tone, item.title])).toEqual([['error', 'Não foi possível gravar agora.']])
+    expect(tree.root.findAll(node => String(node.type) === 'View' && node.props.accessibilityRole === 'alert')).toHaveLength(0)
+    expect(saveButton(tree).props.disabled).toBe(false)
+    expect(onSaved).not.toHaveBeenCalled()
   })
 
   it('queda de conexão ao salvar deixa tentar de novo; a sessão expirada chama onExpired', async () => {
@@ -349,7 +371,9 @@ describe('K2: salvar', () => {
     await tick(PREVIEW_DELAY_MS)
     await act(async () => { saveButton(tree).props.onPress() })
     await tick()
-    expect(textOf(tree)).toContain('Serviço indisponível.')
+    // Sem conexão: nenhuma mensagem local (o aviso de conexão cuida), e repetir continua possível.
+    expect(textOf(tree)).not.toContain('Serviço indisponível.')
+    expect(toasts()).toEqual([])
     expect(saveButton(tree).props.disabled).toBe(false)
     expect(onExpired).not.toHaveBeenCalled()
     serve({ [PREVIEW]: preview(), [SAVE]: new ApiError('Entre na sua conta para continuar.', 401) })
@@ -429,11 +453,12 @@ describe('K2: Prova do Arena', () => {
   })
 
   it('erro ao ler as provas: aviso, tentar de novo e a data de volta em Treino', async () => {
-    let answer: unknown = new ApiError('Serviço indisponível.', 503)
+    let answer: unknown = new ApiError('Serviço indisponível.', 500)
     const { tree } = await open({ [RACES]: () => answer })
     await press(tree, 'Prova do Arena')
     await tick()
     expect(textOf(tree)).toContain('Serviço indisponível.')
+    expect(byId(tree, 'load-error-section')).toHaveLength(1)
     expect(textOf(tree)).not.toContain('Nenhuma prova para registrar') // sem leitura, nada de "sem prova"
     answer = { items: [lagoRace()] }
     await press(tree, 'Tentar novamente')

@@ -4,9 +4,8 @@ import { ApiError } from '@/api/client'
 import { getBracket } from '@/api/brackets'
 import type { TennisBonus } from '@/api/events'
 import { BracketView } from '@/components/brackets/BracketView'
-import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
-import { feedbackVariants } from '@/components/ui/feedback'
+import { LoadError } from '@/components/ui/load-error'
 import { useResource } from '@/hooks/useResource'
 
 /** Texto honesto de quem não lê a tabela (sem inscrição ativa) ou ainda não tem o que ver (antes de confirmar). */
@@ -59,7 +58,7 @@ export function EventBracketPanel({ eventId, canRead, bonus, onExpired }: {
   }
   if (resource.loading) return <p role="status" className="m-0 text-[12px] text-ink-muted">Carregando a tabela…</p>
   const bracket = resource.data
-  if (resource.error) return <div className={feedbackVariants()} role="alert">{resource.error} <Button variant="text" className="inline min-h-0 p-0" onClick={resource.reload}>Tentar novamente</Button></div>
+  if (resource.error) return <LoadError size="section" title="Não foi possível carregar a tabela" text={resource.error} cause={resource.errorCause} onRetry={resource.reload} />
   if (!bracket) return <Notice title="A tabela é dos inscritos" text="Quem está inscrito acompanha aqui a árvore ou a tabela e os resultados." />
   if (bracket.state !== 'confirmado') {
     return <>

@@ -1,8 +1,8 @@
 import { useId, useState } from 'react'
 import type { FormEvent } from 'react'
-import { ApiError } from '../api/client'
 import { REPORT_DETAILS_MAX, REPORT_REASONS, sendReport } from '../api/social'
 import type { ReportReason, ReportTarget } from '../api/social'
+import { reportActionError } from '../hooks/useSubmit'
 import { Button } from '@/components/ui/button'
 import { Field, FieldContent, FieldDescription, FieldLabel, FieldLegend, FieldSet, FieldTitle } from '@/components/ui/field'
 import { GlassTextarea } from '@/components/ui/glass'
@@ -21,18 +21,19 @@ export default function ReportForm({ target, targetId, title = 'Por que você qu
   const [reason, setReason] = useState<ReportReason | null>(null)
   const [details, setDetails] = useState('')
   const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
+  // Só a recusa de validação do servidor fica junto ao formulário; os outros erros viram toast ou aviso de conexão.
+  const [formError, setFormError] = useState('')
 
   async function submit(event: FormEvent) {
     event.preventDefault()
     if (!reason || busy) return
-    setBusy(true); setError('')
+    setBusy(true); setFormError('')
     try {
       await sendReport({ target_type: target, target_id: targetId, reason, description: details })
       onSent()
     } catch (cause) {
-      if (cause instanceof ApiError && cause.status === 401) onExpired()
-      setError(cause instanceof Error && cause.message ? cause.message : 'Não foi possível enviar a denúncia.')
+      const report = reportActionError(cause, 'Não foi possível enviar a denúncia.', onExpired)
+      if (report.kind === 'form') setFormError(report.message)
       setBusy(false)
     }
   }
@@ -57,7 +58,7 @@ export default function ReportForm({ target, targetId, title = 'Por que você qu
     <label className="sr-only" htmlFor={`${id}-details`}>Detalhes da denúncia (opcional)</label>
     <GlassTextarea id={`${id}-details`} className="min-h-12" value={details} maxLength={REPORT_DETAILS_MAX} rows={2}
       placeholder="Detalhes (opcional)" onChange={event => setDetails(event.target.value)} />
-    {error && <p className={glassMessageVariants()} role="alert">{error}</p>}
+    {formError && <p className={glassMessageVariants()} role="alert">{formError}</p>}
     <Button type="submit" variant="glass" className="mt-0.5 justify-self-end" disabled={!reason || busy}>{busy ? 'Enviando…' : 'Enviar denúncia'}</Button>
   </form>
 }

@@ -7,6 +7,8 @@ import { useSubmit } from '../../hooks/useSubmit'
 import { colors } from '../../theme'
 import { relativeTime } from '../../utils/relativeTime'
 import { ActionButton, FormField, Notice, TextAction } from '../arena/controls'
+import { LoadError } from '../arena/LoadError'
+import { toast } from '../toast/toastStore'
 import { Icon } from '../Icon'
 
 /** Um aviso: o automático do cancelamento em destaque (vermelho, com o selo "Evento cancelado"). */
@@ -38,19 +40,17 @@ export function EventNotices({ eventId, canWrite, onExpired }: {
 }) {
   const list = usePagedList<EventMessage>(eventMessagesPath(eventId), onExpired)
   const [body, setBody] = useState('')
-  const [notice, setNotice] = useState('')
   const { busy, error, setError, run } = useSubmit(onExpired)
   const text = body.trim()
   const max = EVENT_LIMITS.messageMax
 
   async function send() {
-    setNotice('')
     if (!text) { setError(`Escreva o aviso (até ${max} caracteres).`); return }
     const sent = await run(() => postEventMessage(eventId, text), 'Não foi possível publicar o aviso.')
     if (!sent) return
     list.setItems(old => [sent, ...old.filter(item => item.id !== sent.id)])
     setBody('')
-    setNotice('Aviso publicado. Os inscritos recebem uma notificação.')
+    toast.success('Aviso publicado.', { description: 'Os inscritos recebem uma notificação.' })
   }
 
   return <View accessibilityLabel="Avisos do evento" style={{ marginTop: 24 }}>
@@ -60,14 +60,13 @@ export function EventNotices({ eventId, canWrite, onExpired }: {
     </View>
     <Text style={{ marginTop: 4, color: colors['ink-muted'], fontSize: 11, lineHeight: 17 }}>Só você escreve. Os inscritos (atletas ou elencos dos times) leem aqui e recebem a notificação.</Text>
     {canWrite ? <View style={{ marginTop: 12, borderRadius: 16, backgroundColor: '#ffffff', padding: 12 }}>
-      <FormField label="Novo aviso" value={body} onChangeText={value => { setBody(value); setError(''); setNotice('') }} multiline maxLength={max}
+      <FormField label="Novo aviso" value={body} onChangeText={value => { setBody(value); setError('') }} multiline maxLength={max}
         placeholder="Ex.: mudamos o horário da primeira rodada para 9h." hint={`${body.length}/${max}`} />
       <View style={{ marginTop: 10 }}><ActionButton block icon="send" title={busy ? 'Publicando…' : 'Publicar aviso'} accessibilityLabel="Publicar aviso" disabled={!text} busy={busy} onPress={() => void send()} /></View>
       {error ? <Notice>{error}</Notice> : null}
-      {notice ? <Notice tone="success">{notice}</Notice> : null}
     </View> : null}
     {list.loading ? <Text accessibilityLiveRegion="polite" style={{ marginTop: 12, color: colors['ink-muted'], fontSize: 11.5 }}>Carregando os avisos…</Text> : null}
-    {list.error ? <View style={{ marginTop: 12 }}><Notice>{list.error.message}</Notice><TextAction title="Tentar novamente" onPress={list.reload} /></View> : null}
+    {list.error ? <LoadError size="section" title="Não foi possível carregar os avisos" text={list.error.message} cause={list.error} onRetry={list.reload} /> : null}
     {!list.loading && !list.error ? (list.items.length
       ? <View accessibilityLabel="Avisos publicados" style={{ marginTop: 12, gap: 8 }}>{list.items.map(message => <NoticeItem key={message.id} message={message} />)}</View>
       : <Text style={{ marginTop: 12, color: colors['ink-muted'], fontSize: 11.5 }}>Nenhum aviso ainda.</Text>) : null}

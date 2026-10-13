@@ -1,11 +1,11 @@
 import { useId, useState } from 'react'
 import { Swords } from 'lucide-react'
-import { ApiError } from '@/api/client'
 import { createSearch } from '@/api/matchmaking'
 import type { SearchCreated } from '@/api/matchmaking'
 import type { OpenSlots } from '@/api/matches'
 import { Sheet } from '@/components/ui/sheet'
 import { Switch } from '@/components/ui/switch'
+import { reportActionError } from '@/hooks/useSubmit'
 import type { FootballFormat } from '@/data/arena'
 import { cn } from '@/lib/utils'
 import { formatChips } from './formatChips'
@@ -21,7 +21,8 @@ const none: Problems = { general: '', format: '', open_slots: '' }
 /**
  * Preparar busca (V2): a folha `forest` que o botão "Encontrar partida" abre no "Com meu time". Escolhe o formato e
  * diz se o time está completo; se não está, abre vagas por posição para avulsos (no máximo um goleiro e o formato
- * menos um). A busca dura 24 h. Os erros do servidor (`422 { detail, fields }`) aparecem no campo que nomeiam.
+ * menos um). A busca dura 24 h. Os erros do servidor (`422 { detail, fields }`) aparecem no campo que nomeiam; as demais
+ * falhas saem em toast e a folha fica aberta para tentar de novo.
  * Só o representante chega aqui; o servidor confere de novo.
  */
 export function PrepareSearchSheet({ team, eyebrow, format, onFormat, hint, onCreated, onClose, onExpired }: {
@@ -53,16 +54,17 @@ export function PrepareSearchSheet({ team, eyebrow, format, onFormat, hint, onCr
         sport: 'futebol', team_id: team.id, format, team_complete: complete, open_slots: complete ? null : slots,
       }))
     } catch (cause) {
-      if (cause instanceof ApiError && cause.status === 401) onExpired()
-      const next = { ...none }
-      const fields = cause instanceof ApiError ? cause.fields : []
-      for (const field of fields) {
-        if (field.field === 'open_slots') next.open_slots = field.message
-        else if (field.field === 'format') next.format = field.message
+      const report = reportActionError(cause, 'Não foi possível iniciar a busca.', onExpired)
+      if (report.kind === 'form') {
+        const next = { ...none }
+        for (const field of report.fields) {
+          if (field.field === 'open_slots') next.open_slots = field.message
+          else if (field.field === 'format') next.format = field.message
+        }
+        // Recusa do servidor sem campo conhecido: fica no formulário, acima do botão.
+        if (!next.open_slots && !next.format) next.general = report.message
+        setProblems(next)
       }
-      if (!next.open_slots && !next.format)
-        next.general = cause instanceof Error && cause.message ? cause.message : 'Não foi possível iniciar a busca.'
-      setProblems(next)
     } finally {
       setBusy(false)
     }

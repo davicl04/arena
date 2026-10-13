@@ -69,11 +69,12 @@ const h2 = { color: colors.ink, fontSize: 15, fontWeight: '700' } as const
 /**
  * Decisão do organizador (D3): o placar informado por um dos times, outro placar (contadores no futebol, sets no tênis) ou
  * W.O. (o lado ausente), e a justificativa obrigatória (5 a 500 caracteres), registrada e visível aos dois times. O servidor
- * decide se vale: na eliminação não há empate, e a mensagem dele aparece aqui sem fechar o formulário.
+ * decide se vale: na eliminação não há empate, e a mensagem dele sai em toast (ou junto ao campo, se nomear um) sem fechar o formulário.
  */
 export function DecisionForm({ match, busy, error, onSubmit }: {
   match: MatchDetail
   busy: boolean
+  /** Recusa do servidor que fica no formulário (`422` com campos): as demais falhas de ação saem em toast. */
   error: string
   onSubmit: (input: ResultDecisionInput) => void
 }) {

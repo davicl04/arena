@@ -11,7 +11,8 @@ import { ActionSheet } from '../components/arena/ActionSheet'
 import { DarkEyebrow, DarkScreen, DarkTopBar } from '../components/arena/TeamsPlate'
 import { normalizeTeamName, TEAM_NAME_MAX, TEAM_NAME_MIN } from '../components/teams/teamView'
 import type { TeamCardView } from '../components/teams/teamView'
-import { ActionButton, CitySheet, ConfirmBox, ErrorText, Notice } from '../components/arena/controls'
+import { ActionButton, CitySheet, ConfirmBox, Notice } from '../components/arena/controls'
+import { LoadError } from '../components/arena/LoadError'
 import { TeamTokenContext, onDark } from '../components/teams/ui'
 import { loadPlaces } from '../hooks/useCities'
 import { useSessionToken } from '../hooks/useSessionToken'
@@ -29,7 +30,9 @@ type CrestChange = { kind: 'keep' } | { kind: 'upload'; file: UploadFile } | { k
 const CREST_TYPES = ['image/jpeg', 'image/png', 'image/webp']
 export const CREST_TYPE_ERROR = 'Use uma imagem JPEG, PNG ou WebP.'
 
-/** Catálogo de cidades e perfis esportivos, lidos juntos ao abrir o formulário. */
+/** Falha de um carregamento: a mensagem e a causa (para o `LoadError` reconhecer a falta de conexão). */
+interface LoadFailure { message: string; cause: unknown }
+const failure = (cause: unknown, fallback: string): LoadFailure => ({ message: cause instanceof Error && cause.message ? cause.message : fallback, cause })
 
 const fieldLabel = { marginTop: 14, marginBottom: 6, color: 'rgba(255,255,255,0.56)', fontSize: 10.5, fontWeight: '700', letterSpacing: 0.6, textTransform: 'uppercase' } as const
 
@@ -51,10 +54,11 @@ export default function TeamFormScreen({ user, navigation, onExpired, params }: 
   const teamId = params?.teamId
   const token = useSessionToken()
   const [data, setData] = useState<{ profiles: Profile[]; cities: City[] } | null>(null)
-  const [dataError, setDataError] = useState('')
+  const [dataError, setDataError] = useState<LoadFailure | null>(null)
   const [dataAttempt, setDataAttempt] = useState(0)
   const [team, setTeam] = useState<TeamCard | null>(null)
-  const [loadError, setLoadError] = useState('')
+  const [loadError, setLoadError] = useState<LoadFailure | null>(null)
+  const [teamAttempt, setTeamAttempt] = useState(0)
   const [name, setName] = useState('')
   const [cityId, setCityId] = useState<number | null>(null)
   const [crest, setCrest] = useState<CrestChange>({ kind: 'keep' })
@@ -75,25 +79,25 @@ export default function TeamFormScreen({ user, navigation, onExpired, params }: 
 
   useEffect(() => {
     let alive = true
-    loadPlaces().then(([nextProfiles, nextCities]) => { if (alive) { setData({ profiles: nextProfiles, cities: nextCities }); setDataError('') } })
+    loadPlaces().then(([nextProfiles, nextCities]) => { if (alive) { setData({ profiles: nextProfiles, cities: nextCities }); setDataError(null) } })
       .catch((cause: unknown) => {
         if (!alive) return
         if (cause instanceof ApiError && cause.status === 401) onExpired()
-        setDataError(cause instanceof Error && cause.message ? cause.message : 'Não foi possível carregar as cidades.')
+        setDataError(failure(cause, 'Não foi possível carregar as cidades.'))
       })
     return () => { alive = false }
   }, [dataAttempt, onExpired])
   useEffect(() => {
     if (!teamId) return
     let alive = true
-    getTeam(teamId).then(value => { if (alive) { setTeam(value); setName(value.name); setCityId(value.city.id) } })
+    getTeam(teamId).then(value => { if (alive) { setTeam(value); setName(value.name); setCityId(value.city.id); setLoadError(null) } })
       .catch((cause: unknown) => {
         if (!alive) return
         if (cause instanceof ApiError && cause.status === 401) onExpired()
-        setLoadError(cause instanceof Error && cause.message ? cause.message : 'Não foi possível carregar o time.')
+        setLoadError(failure(cause, 'Não foi possível carregar o time.'))
       })
     return () => { alive = false }
-  }, [teamId, onExpired])
+  }, [teamId, teamAttempt, onExpired])
   // Criar: a cidade do perfil de futebol vem sugerida, a menos que a pessoa já tenha escolhido outra.
   const footballCityId = football?.city_id ?? null
   useEffect(() => {
@@ -133,6 +137,7 @@ export default function TeamFormScreen({ user, navigation, onExpired, params }: 
       if (!CREST_TYPES.includes(type)) { setCropError(CREST_TYPE_ERROR); return }
       setCrest({ kind: 'upload', file: { uri: asset.uri, name: asset.fileName ?? 'brasao.jpg', type, size: asset.fileSize } })
     } catch (cause) {
+      // Validação do arquivo (tamanho, tipo) e falha do seletor ficam junto do campo do brasão.
       setCropError(cause instanceof Error && cause.message ? cause.message : 'Não foi possível abrir as fotos.')
     } finally { pickLock.current = false; setPicking(false) }
   }
@@ -155,9 +160,11 @@ export default function TeamFormScreen({ user, navigation, onExpired, params }: 
         if (crest.kind === 'upload') saved = await uploadCrest(saved.id, crest.file)
         else if (crest.kind === 'remove') { await removeCrest(saved.id); saved = { ...saved, crest_url: null } }
       } catch (cause) {
-        // O time já existe (ou foi salvo): a tela passa a editar esse time, com o brasão ainda pendente.
+        // O time já existe (ou foi salvo): a tela passa a editar esse time, com o brasão ainda pendente. Sem conexão, o aviso
+        // de conexão cuida (a falha segue como está); nos demais casos o toast de erro explica o que foi salvo.
+        if (cause instanceof ApiError && cause.isConnection) throw cause
         const reason = cause instanceof Error ? cause.message : 'Tente novamente.'
-        throw new ApiError(`${teamId ? 'Dados salvos' : 'Time criado'}, mas o brasão não foi salvo: ${reason}`, cause instanceof ApiError ? cause.status : 0)
+        throw new ApiError(`${teamId ? 'Dados salvos' : 'Time criado'}, mas o brasão não foi salvo: ${reason}`, cause instanceof ApiError ? cause.status : 500)
       }
       return saved
     }, teamId ? 'Não foi possível salvar o time.' : 'Não foi possível criar o time.')
@@ -174,7 +181,7 @@ export default function TeamFormScreen({ user, navigation, onExpired, params }: 
     return <DarkScreen>
       {topBar}
       <View style={{ paddingHorizontal: 16, paddingTop: 12 }}>
-        {loadError ? <Notice surface="dark" tone="error">{loadError}</Notice>
+        {loadError ? <LoadError size="screen" tone="dark" title="Não foi possível carregar o time" text={loadError.message} cause={loadError.cause} onRetry={() => { setLoadError(null); setTeamAttempt(n => n + 1) }} />
           : <Text accessibilityLiveRegion="polite" style={{ marginTop: 6, color: onDark.soft, fontSize: 12 }}>Carregando o time…</Text>}
       </View>
     </DarkScreen>
@@ -228,7 +235,7 @@ export default function TeamFormScreen({ user, navigation, onExpired, params }: 
             <Text style={{ color: colors.mint, fontSize: 12, fontWeight: '700' }}>{city ? 'Trocar' : 'Escolher'}</Text>
           </Pressable>
         </View>
-        {dataError ? <View><Notice surface="dark" tone="error">{dataError}</Notice><ActionButton tone="line" title="Tentar novamente" onPress={() => setDataAttempt(n => n + 1)} fit /></View> : null}
+        {dataError ? <LoadError size="section" tone="dark" title="Não foi possível carregar as cidades" text={dataError.message} cause={dataError.cause} onRetry={() => { setDataError(null); setDataAttempt(n => n + 1) }} /> : null}
         <Text style={{ marginTop: 6, color: 'rgba(255,255,255,0.56)', fontSize: 10.5, lineHeight: 15 }}>
           {!editing && football && cityId === football.city_id ? 'Vem do seu perfil de futebol. ' : ''}O pareamento usa a cidade do time.
         </Text>
@@ -259,7 +266,6 @@ export default function TeamFormScreen({ user, navigation, onExpired, params }: 
           Os {team.member_count} {team.member_count === 1 ? 'atleta deixa' : 'atletas deixam'} o elenco e são avisados; convites, pedidos e o link deixam de valer.
           O histórico de partidas e o ranking continuam registrados. Não dá para desfazer.
         </ConfirmBox>
-        {close.error ? <ErrorText>{close.error}</ErrorText> : null}
       </ActionSheet> : null}
     </DarkScreen>
   </TeamTokenContext.Provider>

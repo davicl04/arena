@@ -1,4 +1,5 @@
 import * as SecureStore from 'expo-secure-store'
+import { connection } from './connection'
 import { isApiPath } from './path'
 
 export type Sport = 'futebol' | 'tenis' | 'corrida'
@@ -23,7 +24,16 @@ export class ApiError extends Error {
    * `fields` traz os campos recusados pela validação do servidor (vazio nos demais erros); `body`, o corpo do erro quando é um
    * objeto JSON (o `conflict` do `409` da agenda do campeonato), e `null` nos demais.
    */
-  constructor(message: string, public status: number, public fields: FieldError[] = [], public body: Record<string, unknown> | null = null) { super(message) }
+  constructor(message: string, public status: number, public fields: FieldError[] = [], public body: Record<string, unknown> | null = null) {
+    super(message)
+    this.isConnection = isConnectionStatus(status)
+  }
+  /** Falha de conexão: rede ou timeout (status 0) ou servidor/banco fora do ar (502, 503, 504). Aciona o aviso de conexão. */
+  readonly isConnection: boolean
+}
+/** Status que o cliente trata como "sem conexão com a ARENA": 0 (rede ou timeout), 502, 503 e 504. */
+export function isConnectionStatus(status: number): boolean {
+  return status === 0 || status === 502 || status === 503 || status === 504
 }
 /** Lista `fields` de um corpo de erro, só com itens bem formados. */
 function fieldErrors(value: unknown): FieldError[] {
@@ -39,6 +49,8 @@ export function fileForm(file: UploadFile): FormData {
   return form
 }
 const base = (process.env.EXPO_PUBLIC_API_URL || 'http://10.0.2.2:8000').replace(/\/$/, '')
+// A volta da conexão é confirmada em `GET /health/ready` (consulta o banco), fora de `/api/v1` e sem Bearer.
+connection.configure({ healthUrl: `${base}/health/ready` })
 const key = 'arena.session.v1'
 export const saveToken = (token: string) => SecureStore.setItemAsync(key, token)
 export const clearToken = () => SecureStore.deleteItemAsync(key)
@@ -52,7 +64,18 @@ export function apiUrl(path: string): string {
 export const REQUEST_TIMEOUT_MS = 15_000
 /** Teto do envio de arquivo (multipart): 5 MiB a 1 Mbps levam cerca de 40 s, e o teto comum abortaria o envio no meio. */
 export const UPLOAD_TIMEOUT_MS = 120_000
-export async function request<T>(path: string, method = 'GET', body?: unknown): Promise<T> {
+/** Opções de `request`. `background`: leitura em segundo plano (sondagem do chat e da placa), que nunca abre a folha de conexão. */
+export interface RequestOptions { background?: boolean }
+export async function request<T>(path: string, method = 'GET', body?: unknown, { background = false }: RequestOptions = {}): Promise<T> {
+  const mutating = method.toUpperCase() !== 'GET'
+  // Depois de "Continuar sem conexão", uma nova ação não é enviada: a faixa treme (plano de toasts). A entrada
+  // (`/auth/`) não tem o aviso de conexão e sempre tenta.
+  const offline = connection.getState()
+  if (mutating && !background && offline.status === 'offline' && offline.sheetDismissed && !path.startsWith('/auth/')) {
+    const failure = new ApiError('Não foi possível conectar ao Arena. Verifique a conexão e tente novamente.', 0)
+    connection.lost({ mutating, background, cause: failure })
+    throw failure
+  }
   const token = await SecureStore.getItemAsync(key)
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), body instanceof FormData ? UPLOAD_TIMEOUT_MS : REQUEST_TIMEOUT_MS)
@@ -62,13 +85,20 @@ export async function request<T>(path: string, method = 'GET', body?: unknown): 
       headers: { ...(body ? (body instanceof FormData ? {} : { 'Content-Type': 'application/json' }) : {}), ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       body: body ? (body instanceof FormData ? body : JSON.stringify(body)) as BodyInit : undefined, signal: controller.signal,
     })
-  } catch { throw new ApiError('Não foi possível conectar ao Arena. Verifique a conexão e tente novamente.', 0) }
-  finally { clearTimeout(timer) }
+  } catch {
+    const failure = new ApiError('Não foi possível conectar ao Arena. Verifique a conexão e tente novamente.', 0)
+    connection.lost({ mutating, background, cause: failure })
+    throw failure
+  } finally { clearTimeout(timer) }
+  // Qualquer resposta do servidor prova que há conexão, exceto 502/503/504 (o servidor ou o banco não responde).
+  if (!isConnectionStatus(response.status)) connection.reached()
   if (!response.ok) {
     const raw: unknown = await response.json().catch(() => null)
     // Só um objeto JSON vira `body`; texto, lista, `null` ou corpo ilegível ficam sem detalhe.
     const data = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw as Record<string, unknown> : null
-    throw new ApiError(typeof data?.detail === 'string' ? data.detail : 'Não foi possível concluir a ação.', response.status, fieldErrors(data?.fields), data)
+    const failure = new ApiError(typeof data?.detail === 'string' ? data.detail : 'Não foi possível concluir a ação.', response.status, fieldErrors(data?.fields), data)
+    if (failure.isConnection) connection.lost({ mutating, background, cause: failure })
+    throw failure
   }
   return response.status === 204 ? undefined as T : response.json()
 }

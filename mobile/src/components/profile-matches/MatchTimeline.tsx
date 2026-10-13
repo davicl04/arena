@@ -8,6 +8,7 @@ import { usePagedList } from '../../hooks/usePagedList'
 import { useNow } from '../../hooks/useNow'
 import { colors } from '../../theme'
 import { ActionButton } from '../arena/controls'
+import { LoadError } from '../arena/LoadError'
 import { nextScheduledMatch } from '../play/matchView'
 import { NextMatchNode } from './NextMatchNode'
 import { TimelineHeader } from './TimelineHeader'
@@ -52,10 +53,7 @@ export function MatchTimeline({ userId, own, upcoming = [], onOpenMatch, onPlay,
   if (failed) {
     return <View>
       {header}
-      <View style={{ paddingHorizontal: 20, paddingVertical: 16, gap: 8 }}>
-        <Text accessibilityRole="alert" style={{ ...message, color: colors.error }}>{list.error?.message || 'Não foi possível carregar as partidas.'}</Text>
-        <ActionButton tone="outline" title="Tentar novamente" onPress={list.reload} />
-      </View>
+      <LoadError size="section" title="Não foi possível carregar as partidas" text={list.error?.message || 'Não foi possível carregar as partidas.'} cause={list.error} onRetry={list.reload} />
     </View>
   }
   const empty = hidden || list.items.length === 0

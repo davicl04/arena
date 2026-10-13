@@ -83,8 +83,8 @@ export interface NotificationSummary {
 }
 
 export const NOTIFICATIONS_PATH = '/me/notifications'
-export const getUnreadCount = () => request<UnreadCount>('/me/notifications/unread-count')
-export const getNotificationSummary = () => request<NotificationSummary>('/me/notifications/summary')
+export const getUnreadCount = () => request<UnreadCount>('/me/notifications/unread-count', 'GET', undefined, { background: true })
+export const getNotificationSummary = () => request<NotificationSummary>('/me/notifications/summary', 'GET', undefined, { background: true })
 export const markNotificationRead = (id: number) => request<NotificationSummary>(`/me/notifications/${id}/read`, 'PUT', {})
 export const markAllNotificationsRead = () => request<NotificationSummary>('/me/notifications/read-all', 'PUT', {})
 

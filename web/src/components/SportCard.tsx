@@ -8,11 +8,13 @@ import type {
   Sport,
   Position,
 } from "../api/client";
+import { reportActionError } from "../hooks/useSubmit";
 import SportIcon from "./SportIcon";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { feedbackVariants } from "@/components/ui/feedback";
+import { toast } from "@/components/ui/toast";
 import { IconTile } from "@/components/ui/icon-tile";
 
 export default function SportCard({
@@ -22,6 +24,7 @@ export default function SportCard({
   profile,
   cities,
   onSave,
+  onExpired,
 }: {
   sport: Sport;
   label: string;
@@ -30,17 +33,16 @@ export default function SportCard({
   profile?: Profile;
   cities: City[];
   onSave: (sport: Sport, input: ProfileInput) => Promise<void>;
+  onExpired: () => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [message, setMessage] = useState("");
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     setBusy(true);
     setError("");
-    setMessage("");
     try {
       await onSave(sport, {
         city_id: Number(form.get("city_id")),
@@ -51,9 +53,11 @@ export default function SportCard({
         looking_for: form.get("looking_for") === "on",
       });
       setEditing(false);
-      setMessage("Perfil salvo.");
+      toast.success("Perfil salvo.");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Tente novamente.");
+      // Só a recusa de campos (422) fica no formulário; o resto vira toast ou aviso de conexão.
+      const report = reportActionError(err, "Não foi possível salvar o perfil. Tente novamente.", onExpired);
+      if (report.kind === "form") setError(report.message);
     } finally {
       setBusy(false);
     }
@@ -164,7 +168,6 @@ export default function SportCard({
             disabled={!cities.length}
             onClick={() => {
               setEditing(true);
-              setMessage("");
               setError("");
             }}
           >
@@ -172,11 +175,6 @@ export default function SportCard({
             <span aria-hidden="true">↗</span>
           </Button>
         </>
-      )}
-      {message && (
-        <p className={feedbackVariants({ tone: "success" })} role="status">
-          {message}
-        </p>
       )}
     </Card>
   );

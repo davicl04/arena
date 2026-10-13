@@ -9,6 +9,7 @@ import { OrganizerRequestForm } from '../components/organizer/OrganizerRequestFo
 import { useResource } from '../hooks/useResource'
 import { Button } from '@/components/ui/button'
 import { feedbackVariants } from '@/components/ui/feedback'
+import { LoadError } from '@/components/ui/load-error'
 import { SectionTitle } from '@/components/ui/section-title'
 
 const rules: [LucideIcon, string, string][] = [
@@ -51,7 +52,7 @@ export default function OrganizerRequestPage({ cities, profiles, onBack, onExpir
     </section>
 
     {status.loading && <p role="status" className="mt-4 text-[12px]">Carregando…</p>}
-    {status.error && <div className={feedbackVariants()} role="alert">{status.error} <Button variant="text" onClick={status.reload}>Tentar novamente</Button></div>}
+    {status.error && <LoadError size="screen" text={status.error} cause={status.errorCause} onRetry={status.reload} />}
 
     {sent ? <div className="mt-4" role="status">
       <Situation Icon={Hourglass} tone="wait" title="Pedido enviado" text={`O pedido de ${sent.display_name} está em análise. A resposta chega nas notificações.`} />

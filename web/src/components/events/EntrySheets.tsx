@@ -16,10 +16,10 @@ import { selectText, useClipboard } from "@/hooks/useClipboard";
 import { CopyIconButton, PixBlock } from "./PixBlock";
 import { Term } from "./EventFacts";
 import { refusalText, reservationDeadline } from "./eventText";
-import { copyFeedback } from "./pix";
+import { notifyCopy } from "./pix";
 import type { PixInfo } from "./pix";
 
-/** Mensagem de erro de envio dentro da folha. */
+/** Erro de formulário dentro da folha (campos recusados pelo servidor); as demais falhas de envio saem como toast. */
 function SheetError({ message }: { message: string }) {
   return message ? (
     <p className={cn(feedbackVariants(), "mb-0")} role="alert">
@@ -308,7 +308,9 @@ export function ContactSheet({ name, contact, onClose }: { name: string; contact
   const { status, copy } = useClipboard();
   const text = useRef<HTMLElement>(null);
   async function copyContact() {
-    if (!(await copy("contato", contact))) selectText(text.current);
+    const copied = await copy("contato", contact);
+    notifyCopy(copied, "contato");
+    if (!copied) selectText(text.current);
   }
   return (
     <Sheet title="Contato do organizador" description={name} onClose={onClose}>
@@ -321,9 +323,6 @@ export function ContactSheet({ name, contact, onClose }: { name: string; contact
       </div>
       <p className="m-0 mt-1 px-0.5 text-[10.5px] leading-normal text-ink-muted">
         Dúvidas sobre o evento, o pagamento ou a devolução são combinadas com o organizador, fora do Arena.
-      </p>
-      <p role="status" aria-live="polite" className={cn("m-0 px-0.5 text-[11px]", status === "failed" ? "text-error" : "text-brand")}>
-        {copyFeedback(status, "contato")}
       </p>
     </Sheet>
   );

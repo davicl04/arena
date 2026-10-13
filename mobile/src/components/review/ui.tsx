@@ -5,6 +5,7 @@ import { colors } from '../../theme'
 import { Icon } from '../Icon'
 import type { IconName } from '../Icon'
 import { Button, Field } from '../ui'
+import { LoadError } from '../arena/LoadError'
 
 /*
  * Primitivos das telas de análise (comprovantes, devoluções, filas da administração e denúncias): linha de botões,
@@ -60,8 +61,14 @@ export function LongField({ label, value, onChangeText, max, disabled = false, i
     textAlignVertical="top" accessibilityHint={invalid ? 'Campo com erro' : undefined} style={{ minHeight: 88, ...(invalid ? { borderColor: colors.error } : {}) }} />
 }
 
-/** Carregando (com texto e indicador) ou erro com "Tentar novamente"; nada quando já há dados. */
-export function LoadState({ loading, error, onRetry, loadingText }: { loading: boolean; error: string | null; onRetry: () => void; loadingText: string }) {
+/**
+ * Carregando (com texto e indicador) ou erro de carregamento com "Tentar novamente" (`LoadError`: `size="section"` por
+ * padrão, `"screen"` quando a falha deixa a tela sem conteúdo; `cause` é o erro lançado, para reconhecer a falta de
+ * conexão); nada quando já há dados.
+ */
+export function LoadState({ loading, error, onRetry, loadingText, cause, size = 'section', title }: {
+  loading: boolean; error: string | null; onRetry: () => void; loadingText: string; cause?: unknown; size?: 'screen' | 'section'; title?: string
+}) {
   if (loading) {
     return <View accessibilityLiveRegion="polite" style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 16 }}>
       <ActivityIndicator accessibilityLabel={loadingText} color={colors.brand} />
@@ -69,10 +76,7 @@ export function LoadState({ loading, error, onRetry, loadingText }: { loading: b
     </View>
   }
   if (error) {
-    return <View style={{ paddingVertical: 8 }}>
-      <Text accessibilityRole="alert" style={{ color: colors.error, fontSize: 13, lineHeight: 19 }}>{error}</Text>
-      <Button secondary title="Tentar novamente" onPress={onRetry} />
-    </View>
+    return <LoadError size={size} title={title} text={error} cause={cause} onRetry={onRetry} />
   }
   return null
 }
@@ -87,7 +91,7 @@ export function ListMessage({ list, loadingText, emptyTitle, emptyText }: {
   emptyTitle: string
   emptyText: string
 }) {
-  if (list.loading || list.error) return <LoadState loading={list.loading} error={list.error?.message ?? null} onRetry={list.reload} loadingText={loadingText} />
+  if (list.loading || list.error) return <LoadState loading={list.loading} error={list.error?.message ?? null} cause={list.error} onRetry={list.reload} loadingText={loadingText} />
   if (!list.items.length) {
     return <View testID="list-empty" style={{ alignItems: 'center', gap: 6, borderRadius: 16, backgroundColor: '#ffffff', padding: 22, marginTop: 8 }}>
       <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 22, backgroundColor: colors['success-bg'] }}><Icon name="check" size={22} color={colors.brand} /></View>
@@ -102,12 +106,12 @@ export function ListMessage({ list, loadingText, emptyTitle, emptyText }: {
 export function ListMessageInline({ list, loadingText, emptyText }: {
   list: Pick<PagedList<unknown>, 'loading' | 'error' | 'items' | 'reload'>; loadingText: string; emptyText: string
 }) {
-  if (list.loading || list.error) return <LoadState loading={list.loading} error={list.error?.message ?? null} onRetry={list.reload} loadingText={loadingText} />
+  if (list.loading || list.error) return <LoadState loading={list.loading} error={list.error?.message ?? null} cause={list.error} onRetry={list.reload} loadingText={loadingText} />
   if (!list.items.length) return <Text style={{ marginHorizontal: 4, color: colors['ink-muted'], fontSize: 12, lineHeight: 18 }}>{emptyText}</Text>
   return null
 }
 
-/** Rodapé da lista: erro ao carregar mais e "Carregar mais …". */
+/** Rodapé da lista: erro ao carregar mais (continua no rodapé, é a trava da rolagem) e "Carregar mais …". */
 export function LoadMore({ list, label }: { list: Pick<PagedList<unknown>, 'moreError' | 'hasMore' | 'busy' | 'loadMore'>; label: string }) {
   return <>
     {list.moreError ? <Text accessibilityRole="alert" style={{ marginTop: 10, color: colors.error, fontSize: 12.5 }}>{list.moreError}</Text> : null}

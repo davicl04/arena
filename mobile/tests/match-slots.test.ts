@@ -4,6 +4,7 @@ import * as SecureStore from 'expo-secure-store'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiError, request } from '../src/api/client'
 import { enableAct } from './support/native'
+import { toastText } from './support/toast'
 import { matchRoutes, mountMatch, unmountAll } from './support/match'
 import { arranging, fromNow, marcos, matchDetail, memberPermissions, noPermissions, scheduled, sides, slot } from './support/play'
 import { allText, bodyOf, byId, callsTo, findButton, pressButton, pressPrefix } from './support/review'
@@ -100,7 +101,7 @@ describe('vagas para avulsos', () => {
     expect(findButton(tree, 'Salvar vagas')!.props.disabled).toBe(false)
     await pressButton(tree, 'Salvar vagas')
     expect(bodyOf('PUT', '/matches/1/slots')).toEqual({ open_slots: { goleiro: 0, defesa: 2, meio_campo: 0, atacante: 0 } })
-    expect(allText(tree)).toContain('Vagas para avulsos atualizadas.')
+    expect(toastText()).toContain('Vagas para avulsos atualizadas.')
     expect(findButton(tree, 'Salvar vagas')).toBeUndefined()
     expect(refreshPlayBoard).not.toHaveBeenCalled()
   })
@@ -131,7 +132,7 @@ describe('vagas para avulsos', () => {
     await pressButton(tree, 'Remover Marcos Ribeiro da partida')
     await pressButton(tree, 'Remover')
     expect(callsTo('DELETE', '/matches/1/guests/5')).toHaveLength(1)
-    expect(allText(tree)).toContain('Marcos Ribeiro saiu da partida.')
+    expect(toastText()).toContain('Marcos Ribeiro saiu da partida.')
     expect(findButton(tree, 'Remover')).toBeUndefined()
     expect(callsTo('GET', '/matches/1')).toHaveLength(2)
   })

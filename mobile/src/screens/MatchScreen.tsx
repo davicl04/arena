@@ -6,7 +6,8 @@ import {
   acceptTerms, cancelMatch, contestWalkover, getMatch, proposeTerms, registerWalkover, removeGuest, setBooking, updateSlots, withdrawWalkover,
 } from '../api/matches'
 import type { MatchDetail, MatchMessageOut, MatchSlotOut, OpenSlots, TermsInput } from '../api/matches'
-import { ActionButton, LiveNotice } from '../components/arena/controls'
+import { ActionButton } from '../components/arena/controls'
+import { LoadError } from '../components/arena/LoadError'
 import GlassOverlay from '../components/GlassOverlay'
 import { Icon } from '../components/Icon'
 import { ConditionsCard } from '../components/match/ConditionsCard'
@@ -19,6 +20,7 @@ import { walkoverScoreText } from '../components/results/format'
 import { MatchResultCard } from '../components/results/MatchResultCard'
 import ReportForm from '../components/ReportForm'
 import { LoadState } from '../components/review/ui'
+import { toast } from '../components/toast/toastStore'
 import { nameOf, orderedSides, sideName } from '../data/match'
 import { useResource } from '../hooks/useResource'
 import { useMatchDeadlines } from '../hooks/useMatchDeadlines'
@@ -26,17 +28,15 @@ import { useSessionToken } from '../hooks/useSessionToken'
 import { useSubmit } from '../hooks/useSubmit'
 import type { ScreenProps } from '../navigation/screens'
 import { colors } from '../theme'
-import { announce } from '../utils/announce'
 import { formatDeadline } from '../utils/format'
 
 type SheetKind = 'terms' | 'cancel' | 'wo' | 'wo-withdraw' | 'wo-contest' | 'slots'
-/** Quanto tempo o aviso de sucesso fica na tela. */
-const NOTICE_MS = 6000
 
 /**
  * Tela da partida (P2 + C1): cabeçalho com os brasões, o cartão de resultado (`MatchResultCard`), o cartão de
  * condições fixo e recolhível e o chat dos dois elencos. Tudo o que a pessoa pode fazer vem de `detail.permissions`; as folhas
- * (propor condições, cancelar, W.O., vagas) abrem sobre a tela e mostram os erros do servidor sem fechar. A tela relê o
+ * (propor condições, cancelar, W.O., vagas) abrem sobre a tela e ficam abertas quando a ação falha: a recusa que pertence ao
+ * formulário (`422` com campos, conflito de agenda) aparece nela e as demais falhas saem em toast. A tela relê o
  * detalhe quando chega um evento novo no chat (aceite do outro lado, cancelamento…) e relê a placa do Jogar depois de
  * ações que a mudam (aceitar, propor, cancelar, W.O.). Na partida de campeonato não há proposta nem aceite: "Agendar" e
  * "Decidir resultado" (organizador) levam às telas do campeonato.
@@ -62,12 +62,9 @@ export default function MatchScreen({ user, params, navigation, onExpired, refre
   const { setError } = action
   const [sheet, setSheet] = useState<SheetKind | null>(null)
   const [reporting, setReporting] = useState<MatchMessageOut | null>(null)
-  const [notice, setNotice] = useState('')
-  const noticeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const composer = useRef<TextInput | null>(null)
   const latest = useRef<MatchDetail | null>(null)
   useEffect(() => { latest.current = detail }, [detail])
-  useEffect(() => () => clearTimeout(noticeTimer.current), [])
 
   /** Guarda o detalhe novo; se a fase da partida mudou, a placa do Jogar (ponto menta, listas) também é relida. */
   const take = useCallback((next: MatchDetail) => {
@@ -91,12 +88,6 @@ export default function MatchScreen({ user, params, navigation, onExpired, refre
   /** "Conversar", no cartão de resultado: leva o foco ao campo de mensagem do chat. */
   const focusChat = useCallback(() => composer.current?.focus(), [])
 
-  function say(message: string) {
-    clearTimeout(noticeTimer.current)
-    setNotice(message)
-    announce(message)
-    noticeTimer.current = setTimeout(() => setNotice(''), NOTICE_MS)
-  }
   function open(kind: SheetKind) {
     setError('')
     setSheet(kind)
@@ -111,7 +102,7 @@ export default function MatchScreen({ user, params, navigation, onExpired, refre
     if (!next) return false
     setDetail(next)
     setSheet(null)
-    say(typeof success === 'function' ? success(next) : success)
+    toast.success(typeof success === 'function' ? success(next) : success)
     if (board) void refreshPlayBoard()
     return true
   }
@@ -124,7 +115,7 @@ export default function MatchScreen({ user, params, navigation, onExpired, refre
     if (!done) return false
     setDetail(done)
     setSheet(null)
-    say(success)
+    toast.success(success)
     if (board) void refreshPlayBoard()
     return true
   }
@@ -145,7 +136,7 @@ export default function MatchScreen({ user, params, navigation, onExpired, refre
           <Text style={{ color: colors['ink-muted'], fontSize: 12.5, lineHeight: 18, textAlign: 'center' }}>Ela não existe ou você não participa dela.</Text>
           <View style={{ marginTop: 10, alignSelf: 'stretch' }}><ActionButton block tone="outline" title="Voltar" onPress={navigation.back} /></View>
         </View>
-        : <View style={{ paddingHorizontal: 20 }}><LoadState loading={false} error={match.error} onRetry={match.reload} loadingText="Carregando partida…" /></View>}
+        : <LoadError size="screen" title="Não foi possível carregar a partida" text={match.error} cause={match.errorCause} onRetry={match.reload} />}
     </View>
   }
 
@@ -196,9 +187,6 @@ export default function MatchScreen({ user, params, navigation, onExpired, refre
         <MatchChat detail={current} onExpired={onExpired} onReport={setReporting} onPropose={() => open('terms')} onEvent={() => void refresh()} composerRef={composer} token={token} />
       </>}
 
-    {/* O aviso de sucesso é uma região viva sobre o fim do chat: o leitor de tela o anuncia e ele some sozinho. */}
-    <View pointerEvents="none" style={{ position: 'absolute', left: 12, right: 12, bottom: 96 }}><LiveNotice text={notice} /></View>
-
     {sheet === 'terms' ? <TermsSheet detail={current} busy={action.busy} error={action.error} onClose={close} onExpired={onExpired}
       onSubmit={(input: TermsInput) => void apply(() => proposeTerms(current.id, input), `Proposta enviada. ${nameOf(current, opponent?.side)} precisa aceitar.`, 'Não foi possível enviar a proposta.')} /> : null}
     {sheet === 'cancel' ? <ReasonSheet title="Cancelar partida" description={versus}
@@ -235,7 +223,7 @@ export default function MatchScreen({ user, params, navigation, onExpired, refre
       </View>
       <Text style={{ marginBottom: 10, color: colors['glass-muted'], fontSize: 12 }}>A administração vê a mensagem, a partida e o autor.</Text>
       <ReportForm target="match_message" targetId={reporting.id} title="Por que você quer denunciar esta mensagem?" onExpired={onExpired}
-        onDone={() => { setReporting(null); say('Denúncia enviada para análise.') }} />
+        onDone={() => setReporting(null)} />
     </GlassOverlay> : null}
   </View>
 }

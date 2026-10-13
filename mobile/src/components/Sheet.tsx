@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, View } from 'react-native'
 import { Button } from './ui'
+import { ToastViewport } from './toast/ToastViewport'
 import { cx, tw } from '../styles'
 
 // Folha inferior: monte-a apenas enquanto estiver aberta.
@@ -19,5 +20,6 @@ export default function Sheet({ title, onClose, onBack, children }: { title: str
         </View>
       </View>
     </KeyboardAvoidingView>
+    <ToastViewport />
   </Modal>
 }

@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { Flag, Pencil, Trash2 } from 'lucide-react'
-import { ApiError } from '../api/client'
 import type { Post } from '../api/client'
 import { CAPTION_MAX, deletePost, updateCaption } from '../api/social'
+import { reportActionError } from '../hooks/useSubmit'
 import ReportForm from './ReportForm'
 import { Button } from '@/components/ui/button'
 import { Glass, GlassActions, GlassChoice, GlassChoices, GlassConfirm, GlassTextarea } from '@/components/ui/glass'
@@ -24,23 +24,24 @@ export default function PostActions({ post, onClose, onChange, onRemoved, onRepo
   const [step, setStep] = useState<Step>('menu')
   const [caption, setCaption] = useState(post.caption)
   const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
+  // Só a recusa de validação do servidor (legenda) fica na folha; os outros erros viram toast ou aviso de conexão.
+  const [formError, setFormError] = useState('')
 
-  function go(next: Step) { setError(''); setStep(next) }
+  function go(next: Step) { setFormError(''); setStep(next) }
   function fail(cause: unknown, fallback: string) {
-    if (cause instanceof ApiError && cause.status === 401) onExpired()
-    setError(cause instanceof Error && cause.message ? cause.message : fallback)
+    const report = reportActionError(cause, fallback, onExpired)
+    if (report.kind === 'form') setFormError(report.message)
   }
   async function save(event: FormEvent) {
     event.preventDefault()
     if (busy) return
-    setBusy(true); setError('')
+    setBusy(true); setFormError('')
     try { onChange(await updateCaption(post.id, caption)); onClose() }
     catch (cause) { fail(cause, 'Não foi possível salvar a legenda.'); setBusy(false) }
   }
   async function remove() {
     if (busy) return
-    setBusy(true); setError('')
+    setBusy(true); setFormError('')
     try { await deletePost(post.id); onRemoved(post.id) }
     catch (cause) { fail(cause, 'Não foi possível excluir a publicação.'); setBusy(false) }
   }
@@ -68,6 +69,6 @@ export default function PostActions({ post, onClose, onChange, onRemoved, onRepo
       <Button type="button" variant="glass-danger" disabled={busy} onClick={() => void remove()}>{busy ? 'Excluindo…' : 'Excluir'}</Button>
     </>}>A foto, as curtidas e os comentários saem do perfil. Não dá para desfazer.</GlassConfirm>}
     {step === 'report' && <ReportForm target="post" targetId={post.id} onSent={onReported} onExpired={onExpired} />}
-    {error && <p className={glassMessageVariants()} role="alert">{error}</p>}
+    {formError && <p className={glassMessageVariants()} role="alert">{formError}</p>}
   </Glass>
 }

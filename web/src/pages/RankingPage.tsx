@@ -10,6 +10,7 @@ import { Chip } from "@/components/ui/chip";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Eyebrow } from "@/components/ui/eyebrow";
 import { feedbackVariants } from "@/components/ui/feedback";
+import { LoadError } from "@/components/ui/load-error";
 import { Tabs } from "@/components/ui/tabs";
 import {
   footballFormat,
@@ -162,12 +163,7 @@ export default function RankingPage({
         {ranking.loading ? (
           <p role="status">Carregando ranking…</p>
         ) : ranking.error ? (
-          <div className={feedbackVariants()} role="alert">
-            {ranking.error}
-            <Button variant="text" onClick={ranking.reload}>
-              Tentar novamente
-            </Button>
-          </div>
+          <LoadError size="screen" title="Não foi possível carregar o ranking" text={ranking.error} cause={ranking.errorCause} onRetry={ranking.reload} />
         ) : (
           page && (
             <>

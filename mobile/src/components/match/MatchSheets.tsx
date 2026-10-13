@@ -7,8 +7,8 @@ import Sheet from '../Sheet'
 
 /*
  * Folhas de confirmação da partida: cancelar (motivo opcional), registrar ou retirar o W.O. e contestar o W.O. (motivo de 5 a
- * 500 caracteres). Os erros do servidor aparecem dentro da folha, que fica aberta para tentar de novo; o "Fechar" da folha
- * desiste sem enviar nada.
+ * 500 caracteres). A folha fica aberta para tentar de novo: a recusa do formulário pelo servidor (`error`) aparece dentro dela
+ * e as demais falhas de ação saem em toast. O "Fechar" da folha desiste sem enviar nada.
  */
 
 const body = { color: colors.ink, fontSize: 12.5, lineHeight: 19 } as const

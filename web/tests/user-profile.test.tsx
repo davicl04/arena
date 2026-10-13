@@ -1,10 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
+import { cleanup, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ApiError, request } from '../src/api/client'
 import type { SocialUser } from '../src/api/client'
 import ConnectionsPage from '../src/pages/ConnectionsPage'
 import UserProfilePage from '../src/pages/UserProfilePage'
+import { findToast, renderWithToaster } from './toast-utils'
 
 vi.mock('../src/api/client', async original => ({
   ...await original<typeof import('../src/api/client')>(),
@@ -32,7 +33,7 @@ function mockProfile(person: SocialUser, mutual: unknown = mutualPage) {
 }
 const renderProfile = (overrides: Partial<React.ComponentProps<typeof UserProfilePage>> = {}) => {
   const props = { userId: 2, ownUserId: 1, onBack: vi.fn(), onOpenConnections: vi.fn(), onExpired: vi.fn(), ...overrides }
-  render(<UserProfilePage {...props} />)
+  renderWithToaster(<UserProfilePage {...props} />)
   return props
 }
 
@@ -47,7 +48,7 @@ describe('UserProfilePage', () => {
     expect(screen.getByText(/Esta conta é privada\. Solicite acesso/)).not.toBeNull()
     expect(request).not.toHaveBeenCalledWith('/users/2/posts')
     await userEvent.setup().click(screen.getByRole('button', { name: '12 seguidores' }))
-    expect(screen.getByRole('status').textContent).toContain('Esta conta é privada')
+    expect((await findToast(/Esta conta é privada\. Só quem a segue/)).closest('[data-tone]')?.getAttribute('data-tone')).toBe('info')
     expect(props.onOpenConnections).not.toHaveBeenCalled()
   })
 
@@ -95,7 +96,7 @@ describe('UserProfilePage', () => {
     await ui.click(screen.getByRole('radio', { name: /Spam/ }))
     await ui.click(send)
     await waitFor(() => expect(request).toHaveBeenCalledWith('/reports', 'POST', { target_type: 'user', target_id: 2, reason: 'spam' }))
-    expect(await screen.findByText('Denúncia enviada para análise.')).not.toBeNull()
+    expect((await findToast('Denúncia enviada para análise.')).closest('[data-tone]')?.getAttribute('data-tone')).toBe('success')
     expect(screen.queryByRole('dialog')).toBeNull()
 
     await ui.click(screen.getByRole('button', { name: 'Ações da conta' }))
@@ -107,6 +108,23 @@ describe('UserProfilePage', () => {
     await ui.click(screen.getByRole('button', { name: 'Bloquear' }))
     await waitFor(() => expect(request).toHaveBeenCalledWith('/users/2/block', 'PUT'))
     await waitFor(() => expect(props.onBack).toHaveBeenCalled())
+  })
+
+  it('mostra a falha ao seguir como toast de erro e a de recurso mudado como aviso', async () => {
+    let failure = new ApiError('Não foi possível seguir agora.', 500)
+    mockProfile({ ...base, social_public: true })
+    const ordinary = vi.mocked(request).getMockImplementation()!
+    vi.mocked(request).mockImplementation(async (path, method) => {
+      if (path === '/users/2/follow' && method === 'PUT') throw failure
+      return ordinary(path, method)
+    })
+    renderProfile()
+    const ui = userEvent.setup()
+    await ui.click(await screen.findByRole('button', { name: 'Seguir' }))
+    expect((await findToast('Não foi possível seguir agora.')).closest('[data-tone]')?.getAttribute('data-tone')).toBe('error')
+    failure = new ApiError('Esta conta mudou. Atualize a tela.', 409)
+    await ui.click(screen.getByRole('button', { name: 'Seguir' }))
+    expect((await findToast('Esta conta mudou. Atualize a tela.')).closest('[data-tone]')?.getAttribute('data-tone')).toBe('warning')
   })
 
   it('fecha o vidro da conta com Esc e devolve o foco ao botão •••', async () => {
@@ -124,7 +142,9 @@ describe('UserProfilePage', () => {
   it('mostra o erro quando o perfil está indisponível e permite voltar', async () => {
     vi.mocked(request).mockImplementation(async () => { throw new ApiError('Perfil não encontrado.', 404) })
     const props = renderProfile()
-    expect((await screen.findByRole('alert')).textContent).toBe('Perfil não encontrado.')
+    const alert = await screen.findByRole('alert')
+    expect(alert.textContent).toContain('Perfil não encontrado.')
+    expect(within(alert).getByRole('button', { name: 'Tentar novamente' })).not.toBeNull()
     await userEvent.setup().click(screen.getByRole('button', { name: 'Voltar' }))
     expect(props.onBack).toHaveBeenCalled()
   })
@@ -134,7 +154,7 @@ describe('ConnectionsPage', () => {
   const entry = (person: SocialUser) => ({ user: person, state: 'approved' })
   const renderList = (props: Partial<React.ComponentProps<typeof ConnectionsPage>> = {}) => {
     const all = { ownUserId: 1, userId: 1, tab: 'followers' as const, mutual: false, onTab: vi.fn(), onOpenUser: vi.fn(), onExpired: vi.fn(), ...props }
-    render(<ConnectionsPage {...all} />)
+    renderWithToaster(<ConnectionsPage {...all} />)
     return all
   }
 
@@ -156,6 +176,24 @@ describe('ConnectionsPage', () => {
     await ui.click(screen.getByRole('button', { name: 'Deixar de seguir' }))
     expect(request).toHaveBeenCalledWith('/users/3/follow', 'DELETE')
     expect(props.onTab).not.toHaveBeenCalled()
+  })
+
+  it('mostra a falha ao remover como toast e o erro de carregamento com Tentar novamente', async () => {
+    vi.mocked(request).mockImplementation(async (path, method) => {
+      if (method === 'DELETE') throw new ApiError('Não foi possível remover agora.', 500)
+      return { items: [entry(friend(2, 'Ana Lima'))], next_cursor: null } as never
+    })
+    const ui = userEvent.setup()
+    renderList()
+    await ui.click(await screen.findByRole('button', { name: 'Remover' }))
+    expect((await findToast('Não foi possível remover agora.')).closest('[data-tone]')?.getAttribute('data-tone')).toBe('error')
+    expect(screen.getByText('Ana Lima')).not.toBeNull()
+    cleanup()
+    vi.mocked(request).mockImplementation(async () => { throw new ApiError('Falha ao listar.', 500) })
+    renderList()
+    const alert = await screen.findByRole('alert')
+    expect(alert.textContent).toContain('Falha ao listar.')
+    expect(within(alert).getByRole('button', { name: 'Tentar novamente' })).not.toBeNull()
   })
 
   it('troca de aba e abre o perfil de uma pessoa', async () => {

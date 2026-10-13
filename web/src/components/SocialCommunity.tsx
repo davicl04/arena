@@ -10,8 +10,8 @@ import CommunityPeople from './CommunityPeople'
 import { NotificationBell } from './notifications/NotificationBell'
 import PostComposer from './PostComposer'
 import { buttonVariants } from '@/components/ui/button-variants'
-import { feedbackVariants } from '@/components/ui/feedback'
 import { Tabs } from '@/components/ui/tabs'
+import { toast } from '@/components/ui/toast'
 import { cn } from '@/lib/utils'
 
 const tabs = [
@@ -44,7 +44,6 @@ export default function SocialCommunity({ viewerId, onOpenUser, onExpired, notif
   const [composing, setComposing] = useState(composeOnOpen)
   const [query, setQuery] = useState('')
   const [search, setSearch] = useState('')
-  const [notice, setNotice] = useState('')
   const [tucked, setTucked] = useState(false)
   const [scroller, setScroller] = useState<HTMLElement | null>(null)
   const rootRef = useCallback((node: HTMLElement | null) => setScroller(node?.closest('main') ?? null), [])
@@ -60,11 +59,6 @@ export default function SocialCommunity({ viewerId, onOpenUser, onExpired, notif
     const timer = setTimeout(() => setSearch(query.trim()), 300)
     return () => clearTimeout(timer)
   }, [query])
-  useEffect(() => {
-    if (!notice) return
-    const timer = setTimeout(() => setNotice(''), 4000)
-    return () => clearTimeout(timer)
-  }, [notice])
   useEffect(() => {
     if (!scroller) return
     let last = scroller.scrollTop
@@ -93,7 +87,7 @@ export default function SocialCommunity({ viewerId, onOpenUser, onExpired, notif
   }
   function published(post: Post) {
     feed.setItems(old => [post, ...old])
-    setComposing(false); setTab('feed'); setNotice('Publicação compartilhada.')
+    setComposing(false); setTab('feed'); toast.success('Publicação compartilhada.')
     scroller?.scrollTo?.({ top: 0 })
   }
 
@@ -126,7 +120,6 @@ export default function SocialCommunity({ viewerId, onOpenUser, onExpired, notif
           {pull > 0 && <span className="flex items-center gap-1.5"><ArrowDown size={16} className={cn('motion-safe:transition-transform', ready && 'rotate-180')} />
             {ready ? 'Solte para atualizar' : 'Puxe para atualizar'}</span>}
         </div>
-        {notice && <p className={cn(feedbackVariants({ tone: 'success' }), 'mx-4 mt-3')} role="status">{notice}</p>}
         <CommunityFeed feed={feed} viewerId={viewerId} scroller={scroller} onOpenUser={onOpenUser} onExpired={onExpired}
           onCompose={() => setComposing(true)} onSearch={() => changeTab('people')} />
       </> : <CommunityPeople viewerId={viewerId} query={search} onOpenUser={onOpenUser} onExpired={onExpired} />}
