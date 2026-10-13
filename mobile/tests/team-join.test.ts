@@ -7,7 +7,7 @@ import { ApiError, request } from '../src/api/client'
 import type { Entry } from '../src/navigation/routes'
 import JoinScreen from '../src/screens/JoinScreen'
 import { byLabel, enableAct, press, textOf } from './support/native'
-import { toastText } from './support/toast'
+import { textWithin, toastText, toasts } from './support/toast'
 import { answer, fakeNavigation, joinRequest, me, preview, team, TOKEN } from './support/teams'
 import type { FakeNavigation, Handler } from './support/teams'
 import { playContext } from './support/play'
@@ -33,6 +33,12 @@ function serve(extra: Handler = () => undefined, state: Parameters<typeof previe
   }))
 }
 const calls = () => vi.mocked(request).mock.calls
+/** Toca no botão (sem rótulo de acessibilidade) cujo texto é exatamente `text`, como o "Tentar novamente" do `LoadError`. */
+async function pressText(tree: ReactTestRenderer, text: string) {
+  const target = tree.root.findAllByType('Pressable' as never).find(node => textWithin(node) === text)
+  expect(target, `Pressable "${text}"`).toBeTruthy()
+  await act(async () => { target!.props.onPress() })
+}
 async function mount(): Promise<ReactTestRenderer> {
   let tree!: ReactTestRenderer
   await act(async () => { tree = create(h(JoinScreen, { user: me, navigation, onUser: vi.fn(), onLogout: vi.fn(), ...playContext(), onExpired, params: { token: link }, title: 'Entrar no time' })) })
@@ -66,6 +72,9 @@ describe('Entrar no time pelo link ou QR', () => {
     expect(textOf(tree)).toContain('Um representante do Ferrugem FC aprova seu pedido')
     await press(tree, 'Pedir para entrar')
     expect(calls()).toContainEqual([`/join/${link}`, 'POST', {}])
+    // O resultado passageiro é um toast; o estado continua visível na carteirinha.
+    expect(toasts().map(item => item.tone)).toEqual(['success'])
+    expect(toastText()).toContain('Pedido enviado. Aguardando um representante.')
     expect(textOf(tree)).toContain('Pedido enviado · aguardando um representante')
     expect(byLabel(tree, 'Pedir para entrar')).toHaveLength(0)
     expect(navigation.replace).not.toHaveBeenCalled()
@@ -79,6 +88,7 @@ describe('Entrar no time pelo link ou QR', () => {
     }))
     const tree = await mount()
     expect(textOf(tree)).toContain('Pedido enviado · aguardando um representante')
+    expect(toasts()).toEqual([])
     await press(tree, 'Cancelar pedido')
     expect(calls()).toContainEqual(['/team-join-requests/77', 'DELETE'])
     expect(byLabel(tree, 'Pedir para entrar')).toHaveLength(1)
@@ -113,11 +123,11 @@ describe('Entrar no time pelo link ou QR', () => {
   })
 
   it('erro de rede oferece tentar de novo; 401 expira a sessão (o App guarda o link)', async () => {
-    serve(path => { if (path === `/join/${link}`) throw new ApiError('Sem conexão.', 0); return undefined })
+    serve(path => { if (path === `/join/${link}`) throw new ApiError('Link indisponível.', 500); return undefined })
     const tree = await mount()
-    expect(textOf(tree)).toContain('Sem conexão.')
+    expect(textOf(tree)).toContain('Link indisponível.')
     serve()
-    await press(tree, 'Tentar novamente')
+    await pressText(tree, 'Tentar novamente')
     expect(textOf(tree)).toContain('Ferrugem FC')
     await act(async () => { tree.unmount() })
     serve(path => { if (path === `/join/${link}`) throw new ApiError('Sessão expirada.', 401); return undefined })

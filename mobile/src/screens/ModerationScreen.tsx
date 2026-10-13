@@ -8,12 +8,12 @@ import { ReportSheet } from '../components/admin/ReportSheet'
 import { SectionTabs } from '../components/events/SectionTabs'
 import { Icon } from '../components/Icon'
 import { LeadRow, RowList } from '../components/review/Rows'
-import { Hint, LiveNotice } from '../components/arena/controls'
+import { Hint } from '../components/arena/controls'
+import { toast } from '../components/toast/toastStore'
 import { ListMessage, LoadMore } from '../components/review/ui'
 import { usePagedList } from '../hooks/usePagedList'
 import { useSessionToken } from '../hooks/useSessionToken'
 import { colors } from '../theme'
-import { announce } from '../utils/announce'
 import { relativeTime } from '../utils/relativeTime'
 
 const tabs: { value: ReportStatus; label: string }[] = [{ value: 'pending', label: 'Pendentes' }, { value: 'resolved', label: 'Resolvidas' }]
@@ -31,15 +31,12 @@ function Reports({ onExpired }: { onExpired: () => void }) {
   const [status, setStatus] = useState<ReportStatus>('pending')
   const list = usePagedList<AdminReport>(adminReportsPath(status), onExpired)
   const [open, setOpen] = useState<AdminReport | null>(null)
-  const [notice, setNotice] = useState('')
-  const say = (text: string) => { setNotice(text); announce(text) }
   const pending = status === 'pending'
   return <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 48 }} keyboardShouldPersistTaps="handled">
     <Hint>Decida cada denúncia com uma justificativa; a decisão fica registrada.</Hint>
     <View style={{ marginTop: 10 }}>
-      <SectionTabs label="Estado das denúncias" items={tabs} value={status} onChange={value => { setStatus(value); setNotice('') }} />
+      <SectionTabs label="Estado das denúncias" items={tabs} value={status} onChange={setStatus} />
     </View>
-    <LiveNotice text={notice} />
     <View style={{ paddingTop: 8 }}>
       <ListMessage list={list} loadingText="Carregando denúncias…" emptyTitle={pending ? 'Nenhuma denúncia pendente' : 'Nenhuma denúncia resolvida'}
         emptyText={pending ? 'Quando alguém denunciar uma publicação, um comentário ou uma conta, ela aparece aqui.' : 'As denúncias decididas aparecem aqui.'} />
@@ -49,7 +46,7 @@ function Reports({ onExpired }: { onExpired: () => void }) {
           text={[reportReasonLabel(report.reason), relativeTime(report.created_at), snippet(report)].filter(Boolean).join(' · ')}
           lead={<View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: colors['warning-bg'] }}>
             <Icon name="alert" size={20} color={colors.warning} />
-          </View>} onPress={() => { setOpen(report); setNotice('') }} />)}
+          </View>} onPress={() => setOpen(report)} />)}
       </RowList> : null}
       <LoadMore list={list} label="Carregar mais denúncias" />
     </View>
@@ -57,13 +54,13 @@ function Reports({ onExpired }: { onExpired: () => void }) {
       onDecided={(decided, message) => {
         list.setItems(old => old.filter(item => item.id !== decided.id))
         setOpen(null)
-        say(message)
+        toast.success(message)
       }}
       onReactivated={reactivated => {
         // A conta volta ao ar em todas as denúncias do mesmo responsável.
         list.setItems(old => old.map(item => item.target_user_id === reactivated.target_user_id ? { ...item, target_user_active: true } : item))
         setOpen(null)
-        say('Conta reativada.')
+        toast.success('Conta reativada.')
       }} /> : null}
   </ScrollView>
 }

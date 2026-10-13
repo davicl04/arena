@@ -12,6 +12,7 @@ import { playContext } from './support/play'
 import {
   allText, bodyOf, byId, callsTo, entry, eventDetail, findButton, hasField, inHours, me, navigationMock, page, person, pressButton, pressPrefix, receipt, render, review, serve, typeInto,
 } from './support/review'
+import { toastText } from './support/toast'
 
 vi.mock('react-native', async () => (await import('./support/native')).reactNativeMock())
 vi.mock('react-native-svg', async () => (await import('./support/native')).svgMock())
@@ -114,7 +115,7 @@ describe('Comprovantes (A2): fila Para analisar', () => {
     await pressButton(tree, 'Aprovar')
     expect(bodyOf('POST', '/receipts/70/decision')).toEqual({ decision: 'aprovar' })
     const after = allText(tree)
-    expect(after).toContain('Inscrição de Ferrugem FC confirmada.')
+    expect(toastText()).toContain('Inscrição de Ferrugem FC confirmada.')
     expect(after).toContain('Para analisar (1)')
     expect(findButton(tree, 'Aprovar')).toBeUndefined()
     expect(after).not.toContain('Ferrugem FC: enviado')
@@ -141,7 +142,7 @@ describe('Comprovantes (A2): fila Para analisar', () => {
     await typeInto(tree, 'Detalhe para o time (obrigatório)', '  Foto cortada  ')
     await pressButton(tree, 'Recusar')
     expect(bodyOf('POST', '/receipts/70/decision')).toEqual({ decision: 'recusar', reason_code: 'outro', reason_detail: 'Foto cortada' })
-    expect(allText(tree)).toContain('Comprovante de Ferrugem FC recusado.')
+    expect(toastText()).toContain('Comprovante de Ferrugem FC recusado.')
     expect(findButton(tree, 'Recusar')).toBeUndefined()
   })
 
@@ -199,7 +200,7 @@ describe('Comprovantes (A2): fila Para analisar', () => {
     const tree = await mount({ eventId: 5 }, expired)
     await pressPrefix(tree, 'Ferrugem FC:')
     await pressButton(tree, 'Aprovar')
-    expect(allText(tree)).toContain('Este comprovante já foi decidido.')
+    expect(toastText()).toContain('Este comprovante já foi decidido.')
     expect(findButton(tree, 'Aprovar')).toBeTruthy()
     expect(expired).not.toHaveBeenCalled()
     world({}, { 'POST /receipts/70/decision': new ApiError('Sessão expirada.', 401) })
@@ -218,7 +219,7 @@ describe('Comprovantes (A2): fila Para analisar', () => {
     await pressPrefix(tree, 'Ferrugem FC:')
     await pressButton(tree, 'Aprovar')
     expect(reads).toBe(2)
-    expect(allText(tree)).toContain('Inscrição de Ferrugem FC confirmada.')
+    expect(toastText()).toContain('Inscrição de Ferrugem FC confirmada.')
     expect(expired).toHaveBeenCalledTimes(1)
 
     reads = 0
@@ -229,7 +230,7 @@ describe('Comprovantes (A2): fila Para analisar', () => {
     await pressPrefix(again, 'Ferrugem FC:')
     await pressButton(again, 'Aprovar')
     expect(reads).toBe(2)
-    expect(allText(again)).toContain('Inscrição de Ferrugem FC confirmada.')
+    expect(toastText()).toContain('Inscrição de Ferrugem FC confirmada.')
     expect(allText(again)).toContain('Para analisar (2)')
     expect(quiet).not.toHaveBeenCalled()
   })

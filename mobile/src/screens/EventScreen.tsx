@@ -6,6 +6,7 @@ import { ApiError } from '../api/client'
 import type { UploadFile } from '../api/client'
 import { TextAction } from '../components/arena/controls'
 import { EventPoster } from '../components/arena/EventPoster'
+import { LoadError } from '../components/arena/LoadError'
 import { BracketPanel } from '../components/brackets/BracketPanel'
 import { EntryStatus } from '../components/events/EntryStatus'
 import { CancelEntrySheet, ConfirmRefundSheet, ContactSheet, ContestRefundSheet, EnterSheet, ReceiptSheet } from '../components/events/EntrySheets'
@@ -19,7 +20,6 @@ import { entryCta, isLocked } from '../components/events/entryCta'
 import { placeText } from '../components/events/eventText'
 import { Icon } from '../components/Icon'
 import { toast } from '../components/toast/toastStore'
-import { Button } from '../components/ui'
 import { eventFormatParts } from '../data/arena'
 import { useResource } from '../hooks/useResource'
 import { isStale, useSubmit } from '../hooks/useSubmit'
@@ -126,10 +126,7 @@ export default function EventScreen({ params, navigation, onExpired }: ScreenPro
   }
 
   if (event.loading) return <View style={{ flex: 1, padding: 24 }}><Text accessibilityLiveRegion="polite" style={{ color: colors['ink-muted'], fontSize: 14 }}>Carregando evento…</Text></View>
-  if (!detail) return <View style={{ flex: 1, padding: 24 }}>
-    <Text accessibilityRole="alert" style={{ color: colors.error, fontSize: 14, lineHeight: 21 }}>{event.error}</Text>
-    <Button title="Tentar novamente" onPress={event.reload} />
-  </View>
+  if (!detail) return <View style={{ flex: 1 }}><LoadError size="screen" title="Não foi possível carregar o evento" text={event.error} cause={event.errorCause} onRetry={event.reload} /></View>
 
   const current: EventDetail = detail
   const paid = (current.price_cents ?? 0) > 0
@@ -212,10 +209,7 @@ export default function EventScreen({ params, navigation, onExpired }: ScreenPro
         </Pressable>
       </View> : null}
       {summaryId !== null && !entry && mine.loading ? <Text accessibilityLiveRegion="polite" style={{ color: colors['ink-muted'], fontSize: 11, paddingHorizontal: 4 }}>Carregando sua inscrição…</Text> : null}
-      {summaryId !== null && !entry && mine.error ? <View>
-        <Text accessibilityRole="alert" style={{ color: colors.error, fontSize: 12, lineHeight: 17 }}>{mine.error}</Text>
-        <Button secondary title="Tentar novamente" onPress={mine.reload} />
-      </View> : null}
+      {summaryId !== null && !entry && mine.error ? <LoadError size="section" title="Não foi possível carregar a sua inscrição" text={mine.error} cause={mine.errorCause} onRetry={mine.reload} /> : null}
       {entry ? <EntryStatus entry={entry} detail={current} hasPix={Boolean(pix)} busy={action.busy} onPayment={() => openInfo(null)} onConfirmRefund={() => open('confirm-refund')} onContestRefund={() => open('contest')} /> : null}
       {entry?.can_cancel ? <TextAction title="Desistir da inscrição" onPress={() => open('cancel')} /> : null}
       {showLock ? <Banner icon="lock" tone="danger" title={current.eligibility.reason === 'sem_time' ? 'Inscrição por time' : 'Fora da faixa'}>
@@ -248,13 +242,13 @@ export default function EventScreen({ params, navigation, onExpired }: ScreenPro
       </Pressable>
       {paid && pix && cta.kind !== 'teams' ? <PaymentInfoButton onPress={() => openInfo(null)} /> : null}
     </View> : null}
-    {sheet === 'enter' && cta?.kind === 'enter' ? <EnterSheet detail={current} teams={cta.teams} teamId={enterTeam} onTeam={setPickedTeam} pix={pix} busy={action.busy} error={action.error} onConfirm={teamId => void enter(teamId)} onPaymentInfo={() => openInfo('enter')} onClose={closeSheet} /> : null}
+    {sheet === 'enter' && cta?.kind === 'enter' ? <EnterSheet detail={current} teams={cta.teams} teamId={enterTeam} onTeam={setPickedTeam} pix={pix} busy={action.busy} onConfirm={teamId => void enter(teamId)} onPaymentInfo={() => openInfo('enter')} onClose={closeSheet} /> : null}
     {sheet === 'info' && pix ? <PaymentInfoSheet eventName={current.name} priceCents={current.price_cents ?? 0} sport={sport} pix={pix} receiptDeadline={entry?.reserved_until}
       onClose={closeSheet} onBack={infoReturn ? backFromInfo : undefined} /> : null}
     {sheet === 'receipt' && entry ? <ReceiptSheet entry={entry} eventName={current.name} busy={action.busy} error={action.error} onSend={file => void upload(file)} onClose={closeSheet} /> : null}
-    {sheet === 'confirm-refund' && entry ? <ConfirmRefundSheet entry={entry} busy={action.busy} error={action.error} onConfirm={() => void answerRefund()} onClose={closeSheet} /> : null}
+    {sheet === 'confirm-refund' && entry ? <ConfirmRefundSheet entry={entry} busy={action.busy} onConfirm={() => void answerRefund()} onClose={closeSheet} /> : null}
     {sheet === 'contest' && entry ? <ContestRefundSheet entry={entry} busy={action.busy} error={action.error} onContest={reason => void answerRefund(reason)} onClose={closeSheet} /> : null}
-    {sheet === 'cancel' && entry ? <CancelEntrySheet entry={entry} busy={action.busy} error={action.error} onConfirm={() => void giveUp()} onClose={closeSheet} /> : null}
+    {sheet === 'cancel' && entry ? <CancelEntrySheet entry={entry} busy={action.busy} onConfirm={() => void giveUp()} onClose={closeSheet} /> : null}
     {sheet === 'contact' && current.contact ? <ContactSheet name={current.organizer.display_name} contact={current.contact} onClose={closeSheet} /> : null}
   </View>
 }

@@ -78,7 +78,7 @@ export function DeleteDraftSheet({ detail, onDeleted, onClose, onExpired }: {
   onClose: () => void
   onExpired: () => void
 }) {
-  const { busy, error, run } = useSubmit(onExpired)
+  const { busy, run } = useSubmit(onExpired)
   async function confirm() {
     const done = await run(async () => { await deleteEvent(detail.id); return true }, 'Não foi possível excluir o rascunho.')
     if (done) onDeleted()
@@ -88,7 +88,6 @@ export function DeleteDraftSheet({ detail, onDeleted, onClose, onExpired }: {
     <ConfirmBox confirmLabel="Excluir rascunho" cancelLabel="Manter rascunho" busy={busy} onConfirm={() => void confirm()} onCancel={onClose}>
       <Text style={{ fontWeight: '700' }}>Excluir o rascunho “{detail.name}”?</Text>{'\n'}Os dados preenchidos se perdem. Não dá para desfazer.
     </ConfirmBox>
-    {error ? <Notice>{error}</Notice> : null}
   </Sheet>
 }
 

@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useState } from 'react'
 import { ScrollView, View } from 'react-native'
 import type { User } from '../api/client'
 import { ADMIN_ORGANIZERS_PATH, organizerRequestsPath } from '../api/admin'
@@ -10,12 +10,12 @@ import { OrganizerRequestSheet, OrganizerSheet } from '../components/admin/Organ
 import { StateBadge } from '../components/arena/StateBadge'
 import { SectionTabs } from '../components/events/SectionTabs'
 import { PersonRow, RowList } from '../components/review/Rows'
-import { Hint, LiveNotice } from '../components/arena/controls'
+import { Hint } from '../components/arena/controls'
+import { toast } from '../components/toast/toastStore'
 import { ListMessage, LoadMore } from '../components/review/ui'
 import { usePagedList } from '../hooks/usePagedList'
 import { useSessionToken } from '../hooks/useSessionToken'
 import type { StateTone } from '../data/arena'
-import { announce } from '../utils/announce'
 import { relativeTime, shortDate } from '../utils/relativeTime'
 
 type AdminTab = OrganizerQueue | 'organizadores'
@@ -31,10 +31,10 @@ const stateBadge: Record<AdminOrganizerRequest['state'], [string, StateTone]> = 
   cancelado: ['Cancelado', 'closed'],
 }
 
-type Shared = { token: string | null; onOpenProfile?: (userId: number) => void; onNotice: (text: string) => void; onExpired: () => void }
+type Shared = { token: string | null; onOpenProfile?: (userId: number) => void; onExpired: () => void }
 
 /** Fila "Para analisar" ou "Decididos" (`GET /admin/organizer-requests`). */
-function RequestQueue({ queue, token, onOpenProfile, onNotice, onExpired }: Shared & { queue: OrganizerQueue }) {
+function RequestQueue({ queue, token, onOpenProfile, onExpired }: Shared & { queue: OrganizerQueue }) {
   const list = usePagedList<AdminOrganizerRequest>(organizerRequestsPath(queue), onExpired)
   const [open, setOpen] = useState<AdminOrganizerRequest | null>(null)
   const pending = queue === 'em_analise'
@@ -52,19 +52,18 @@ function RequestQueue({ queue, token, onOpenProfile, onNotice, onExpired }: Shar
       onDecided={(decided, message) => {
         list.setItems(old => old.filter(item => item.id !== decided.id))
         setOpen(null)
-        onNotice(message)
+        toast.success(message)
       }}
-      onStale={message => {
-        // Já decidido ou cancelado em outro lugar: a folha fecha e a fila confere o estado atual.
+      onStale={() => {
+        // Já decidido ou cancelado em outro lugar (o toast de aviso mostra a mensagem): a folha fecha e a fila confere o estado atual.
         setOpen(null)
-        onNotice(message)
         list.reload()
       }} /> : null}
   </>
 }
 
 /** Organizadores ativos (`GET /admin/organizers`), com a revogação na folha. */
-function OrganizerList({ token, onOpenProfile, onNotice, onExpired }: Shared) {
+function OrganizerList({ token, onOpenProfile, onExpired }: Shared) {
   const list = usePagedList<AdminOrganizer>(ADMIN_ORGANIZERS_PATH, onExpired)
   const [open, setOpen] = useState<AdminOrganizer | null>(null)
   return <>
@@ -78,7 +77,7 @@ function OrganizerList({ token, onOpenProfile, onNotice, onExpired }: Shared) {
       onRevoked={() => {
         list.setItems(old => old.filter(item => item.id !== open.id))
         setOpen(null)
-        onNotice(`Permissão de ${open.display_name} revogada.`)
+        toast.success(`Permissão de ${open.display_name} revogada.`)
       }} /> : null}
   </>
 }
@@ -86,18 +85,15 @@ function OrganizerList({ token, onOpenProfile, onNotice, onExpired }: Shared) {
 function OrganizerQueues({ onOpenProfile, onExpired }: Pick<Shared, 'onOpenProfile' | 'onExpired'>) {
   const token = useSessionToken()
   const [tab, setTab] = useState<AdminTab>('em_analise')
-  const [notice, setNotice] = useState('')
-  const say = useCallback((text: string) => { setNotice(text); announce(text) }, [])
   return <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 48 }} keyboardShouldPersistTaps="handled">
     <Hint>Aprove quem pode criar campeonatos e provas. A pessoa recebe a decisão nas notificações.</Hint>
     <View style={{ marginTop: 10 }}>
-      <SectionTabs label="Filas do organizador" items={tabs} value={tab} onChange={value => { setTab(value); setNotice('') }} />
+      <SectionTabs label="Filas do organizador" items={tabs} value={tab} onChange={setTab} />
     </View>
-    <LiveNotice text={notice} />
     <View style={{ paddingTop: 8 }}>
       {tab === 'organizadores'
-        ? <OrganizerList token={token} onOpenProfile={onOpenProfile} onNotice={say} onExpired={onExpired} />
-        : <RequestQueue key={tab} queue={tab} token={token} onOpenProfile={onOpenProfile} onNotice={say} onExpired={onExpired} />}
+        ? <OrganizerList token={token} onOpenProfile={onOpenProfile} onExpired={onExpired} />
+        : <RequestQueue key={tab} queue={tab} token={token} onOpenProfile={onOpenProfile} onExpired={onExpired} />}
     </View>
   </ScrollView>
 }

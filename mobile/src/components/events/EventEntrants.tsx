@@ -10,6 +10,7 @@ import { formatShortDate, parseIso } from '../../utils/format'
 import { TeamCrest } from '../arena/TeamCrest'
 import { Avatar } from '../media'
 import { Button } from '../ui'
+import { LoadError } from '../arena/LoadError'
 
 /** Aba Inscritos do D2: só as inscrições confirmadas, na ordem da confirmação, com o selo "Você" na de quem vê. */
 export function EventEntrants({ eventId, sport, myEntryId, onExpired }: { eventId: number; sport: Sport; myEntryId: number | null; onExpired: () => void }) {
@@ -17,10 +18,7 @@ export function EventEntrants({ eventId, sport, myEntryId, onExpired }: { eventI
   const token = useSessionToken()
   const noun = eventNoun[sport]
   if (list.loading) return <Text accessibilityLiveRegion="polite" style={{ color: colors['ink-muted'], fontSize: 11, paddingHorizontal: 4 }}>Carregando inscritos…</Text>
-  if (list.error) return <View>
-    <Text accessibilityRole="alert" style={{ color: colors.error, fontSize: 12, lineHeight: 17 }}>{list.error.message}</Text>
-    <Button secondary title="Tentar novamente" onPress={list.reload} />
-  </View>
+  if (list.error) return <LoadError size="section" title="Não foi possível carregar os inscritos" text={list.error.message} cause={list.error} onRetry={list.reload} />
   if (list.items.length === 0) return <View style={{ alignItems: 'center', borderRadius: 16, backgroundColor: '#ffffff', padding: 20 }}>
     <Text accessibilityRole="header" style={{ color: colors.ink, fontSize: 14, fontWeight: '700' }}>Nenhuma inscrição confirmada</Text>
     <Text style={{ color: colors['ink-muted'], fontSize: 12, lineHeight: 18, marginTop: 4, textAlign: 'center' }}>Os {noun.entrants} aparecem aqui quando a inscrição é confirmada.</Text>

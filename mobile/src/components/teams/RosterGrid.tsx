@@ -6,17 +6,19 @@ import { positionShort } from '../../data/arena'
 import { colors } from '../../theme'
 import { MemberFace } from './MemberFace'
 import { positionLabel, ROSTER_LIMIT } from './teamView'
-import { TextAction } from '../arena/controls'
+import { LoadError } from '../arena/LoadError'
 import { SectionTitle } from './ui'
 
 /**
  * Elenco em grade de rostos (E1): braçadeira "C" nos representantes, primeiro nome e posição, quatro por linha. Acima de
  * 11 atletas, o "+N" mostra todos. Tocar num rosto abre a folha do atleta.
  */
-export function RosterGrid({ members, loading, error, onRetry, onOpen, action }: {
+export function RosterGrid({ members, loading, error, errorCause, onRetry, onOpen, action }: {
   members: TeamMember[]
   loading: boolean
   error: string
+  /** A causa da falha (para o `LoadError` reconhecer a falta de conexão). */
+  errorCause?: unknown
   onRetry: () => void
   onOpen: (member: TeamMember) => void
   /** Ação do título (Convidar, para representantes). */
@@ -29,10 +31,7 @@ export function RosterGrid({ members, loading, error, onRetry, onOpen, action }:
     <SectionTitle title={`Elenco${members.length ? ` · ${members.length}` : ''}`} action={action} />
     <View style={{ borderRadius: 16, backgroundColor: '#ffffff', paddingHorizontal: 6, paddingVertical: 10 }}>
       {loading ? <View accessibilityLabel="Carregando elenco" style={{ paddingVertical: 24, alignItems: 'center' }}><ActivityIndicator color={colors.brand} /><Text style={{ marginTop: 8, color: colors['ink-muted'], fontSize: 12 }}>Carregando elenco…</Text></View>
-        : error ? <View style={{ paddingHorizontal: 8, paddingVertical: 8 }}>
-          <Text accessibilityRole="alert" style={{ color: colors.error, fontSize: 12.5, lineHeight: 18 }}>{error}</Text>
-          <TextAction title="Tentar novamente" onPress={onRetry} />
-        </View>
+        : error ? <LoadError size="section" title="Não foi possível carregar o elenco" text={error} cause={errorCause} onRetry={onRetry} />
         : <View style={{ flexDirection: 'row', flexWrap: 'wrap', rowGap: 8 }}>
           {shown.map(member => {
             const representative = member.role === 'representante'

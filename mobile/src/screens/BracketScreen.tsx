@@ -3,17 +3,18 @@ import { ScrollView, Text, View } from 'react-native'
 import { confirmBracket, drawBracket, getBracket, swapBracket } from '../api/brackets'
 import type { Bracket } from '../api/brackets'
 import { ApiError } from '../api/client'
-import { ActionButton, BusyStatus, ErrorText, LiveNotice, Notice, TextAction } from '../components/arena/controls'
+import { ActionButton, BusyStatus } from '../components/arena/controls'
+import { LoadError } from '../components/arena/LoadError'
 import { DarkTopBar, TeamsPlate } from '../components/arena/TeamsPlate'
 import { BracketView } from '../components/brackets/BracketView'
 import { planCompetitors, slotName } from '../components/brackets/bracketText'
 import { Icon } from '../components/Icon'
 import Sheet from '../components/Sheet'
+import { toast } from '../components/toast/toastStore'
 import { useResource } from '../hooks/useResource'
 import { useSubmit } from '../hooks/useSubmit'
 import type { ScreenProps } from '../navigation/screens'
 import { colors } from '../theme'
-import { announce } from '../utils/announce'
 import { formatDeadline } from '../utils/format'
 
 /** Nome de quem ocupa o lugar `place` da primeira fase (para a frase da troca). */
@@ -56,7 +57,6 @@ export default function BracketScreen({ params, navigation, onExpired }: ScreenP
   const bracket = resource.data
   const action = useSubmit(onExpired)
   const [picked, setPicked] = useState<number | null>(null)
-  const [status, setStatus] = useState('')
   const [confirming, setConfirming] = useState(false)
   /** O chaveamento relido depois de um `409`: a tela decide com ele, não com o estado velho do fechamento. */
   const reread = useRef<Bracket | null>(null)
@@ -66,17 +66,12 @@ export default function BracketScreen({ params, navigation, onExpired }: ScreenP
   const one = bracket?.sport === 'tenis' ? 'atleta' : 'time'
   const title = bracket && !elimination ? 'Tabela' : 'Chaveamento'
 
-  function say(message: string) {
-    setStatus(message)
-    announce(message)
-  }
-
   if (!bracket) {
     return <View style={{ flex: 1 }}>
       <TeamsPlate bottom={16}><DarkTopBar eyebrow="Organizador" title="Chaveamento" onBack={navigation.back} /></TeamsPlate>
       <View style={{ padding: 20 }}>
         {resource.loading ? <Text accessibilityLiveRegion="polite" style={{ color: colors['ink-muted'], fontSize: 12 }}>Carregando o chaveamento…</Text> : null}
-        {resource.error ? <View><Notice>{resource.error}</Notice><TextAction title="Tentar novamente" onPress={resource.reload} /></View> : null}
+        {resource.error ? <LoadError size="screen" title="Não foi possível carregar o chaveamento" text={resource.error} cause={resource.errorCause} onRetry={resource.reload} /> : null}
       </View>
     </View>
   }
@@ -110,18 +105,20 @@ export default function BracketScreen({ params, navigation, onExpired }: ScreenP
     if (!next) return
     resource.setData(next)
     setPicked(null)
-    say(current.state === 'sorteado' ? 'Sorteio refeito. As trocas anteriores foram descartadas.' : 'Sorteio feito. Confira e confirme quando estiver pronto.')
+    if (current.state === 'sorteado') toast.success('Sorteio refeito.', { description: 'As trocas anteriores foram descartadas.' })
+    else toast.success('Sorteio feito.', { description: 'Confira e confirme quando estiver pronto.' })
   }
   async function pick(place: number) {
-    if (picked === null) { setPicked(place); say(`${nameAtPlace(current, place)} escolhido. Toque em quem vai trocar de lugar com ele.`); return }
-    if (picked === place) { setPicked(null); say('Troca cancelada.'); return }
+    // Os passos da troca são instrução na tela (a dica abaixo da árvore); só o resultado vira toast.
+    if (picked === null) { setPicked(place); return }
+    if (picked === place) { setPicked(null); return }
     const first = nameAtPlace(current, picked)
     const second = nameAtPlace(current, place)
     const next = await action.run(() => guarded(() => swapBracket(eventId, picked, place)), 'Não foi possível trocar os lugares.')
     setPicked(null)
-    if (!next) { setStatus(''); return }
+    if (!next) return
     resource.setData(next)
-    say(`${first} e ${second} trocaram de lugar.`)
+    toast.success(`${first} e ${second} trocaram de lugar.`)
   }
   async function confirm() {
     reread.current = null
@@ -135,9 +132,8 @@ export default function BracketScreen({ params, navigation, onExpired }: ScreenP
     resource.setData(next)
     setConfirming(false)
     setPicked(null)
-    say(elimination
-      ? `Chaveamento confirmado. As partidas foram criadas e os ${unit} foram avisados.`
-      : `Tabela confirmada. As rodadas foram criadas e os ${unit} foram avisados.`)
+    toast.success(elimination ? 'Chaveamento confirmado.' : 'Tabela confirmada.',
+      { description: `${elimination ? 'As partidas foram criadas' : 'As rodadas foram criadas'} e os ${unit} foram avisados.` })
   }
 
   const drawn = current.state === 'sorteado'
@@ -153,9 +149,6 @@ export default function BracketScreen({ params, navigation, onExpired }: ScreenP
       <TeamsPlate bottom={16}><DarkTopBar eyebrow={current.event_name} title={title} onBack={navigation.back} /></TeamsPlate>
 
       <View style={{ padding: 16, gap: 14 }}>
-        <LiveNotice text={status} />
-        {action.error && !confirming ? <ErrorText>{action.error}</ErrorText> : null}
-
         {current.state === 'sem_chaveamento' ? <View style={card}>
           <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
             <View style={{ marginTop: 1 }}><Icon name="shuffle" size={22} color={colors.brand} /></View>
@@ -193,7 +186,7 @@ export default function BracketScreen({ params, navigation, onExpired }: ScreenP
         {drawn ? <View style={{ gap: 8 }}>
           <ActionButton block tone="outline" icon="shuffle" title="Sortear de novo" disabled={!permissions.can_draw} busy={action.busy} onPress={() => void draw()} />
           <ActionButton block tone="brand" icon="check" title={confirmLabel} disabled={!permissions.can_confirm || action.busy}
-            onPress={() => { action.setError(''); setConfirming(true) }} />
+            onPress={() => setConfirming(true)} />
           <Info icon="info">{`Depois de confirmar, os ${unit} veem ${elimination ? 'a chave' : 'a tabela'} e você agenda as partidas.`}</Info>
         </View> : null}
 
@@ -206,7 +199,7 @@ export default function BracketScreen({ params, navigation, onExpired }: ScreenP
       </View>
     </ScrollView>
 
-    {confirming ? <Sheet title={confirmLabel} onClose={() => { action.setError(''); setConfirming(false) }}>
+    {confirming ? <Sheet title={confirmLabel} onClose={() => setConfirming(false)}>
       <Text style={{ color: colors['ink-muted'], fontSize: 12, marginBottom: 8 }}>{current.event_name}</Text>
       <Text style={{ color: colors.ink, fontSize: 12.5, lineHeight: 19 }}>
         {`As partidas são criadas e os ${unit} inscritos recebem ${elimination ? 'a chave' : 'a tabela'}. Depois de confirmar, `}
@@ -215,7 +208,6 @@ export default function BracketScreen({ params, navigation, onExpired }: ScreenP
       <Text style={{ marginTop: 8, color: colors['ink-muted'], fontSize: 12, lineHeight: 18 }}>
         Reservas e comprovantes recusados ainda abertos são liberados. Com algum comprovante em análise, a confirmação é recusada até você analisá-lo.
       </Text>
-      {action.error ? <ErrorText>{action.error}</ErrorText> : null}
       <BusyStatus text={action.busy ? 'Confirmando o chaveamento…' : ''} />
       <View style={{ marginTop: 14 }}>
         <ActionButton block tone="brand" icon="check" title={action.busy ? 'Confirmando…' : 'Confirmar'} accessibilityLabel="Confirmar" busy={action.busy} onPress={() => void confirm()} />

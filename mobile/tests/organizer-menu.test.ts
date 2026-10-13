@@ -64,7 +64,7 @@ describe('Menu do Perfil: cartão "Organizar no Arena" (P3)', () => {
     await press(tree, 'Cancelar pedido')
     await press(tree, 'Cancelar pedido')
     expect(calls('DELETE', '/me/organizer-request')).toHaveLength(1)
-    expect(textOf(tree)).toContain('Pedido cancelado. Você pode enviar um novo quando quiser.')
+    expect(toastText()).toContain('Pedido cancelado. Você pode enviar um novo quando quiser.')
     expect(textOf(tree)).toContain('Quero organizar')
     expect(byLabel(tree, 'Pedir: etapa atual')).toHaveLength(1)
   })

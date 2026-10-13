@@ -11,6 +11,7 @@ import { StateBadge } from '../arena/StateBadge'
 import { TeamCrest } from '../arena/TeamCrest'
 import { Avatar } from '../media'
 import { ActionButton, Notice, TextAction } from '../arena/controls'
+import { LoadError } from '../arena/LoadError'
 
 /** Linha secundária da inscrição: quando entrou, o prazo da reserva ou o estado do comprovante e da devolução. */
 export function entryInfo(entry: OrganizerEntry): string {
@@ -34,7 +35,7 @@ export function EventEntries({ eventId, onReceipts, onExpired }: { eventId: numb
   const list = usePagedList<OrganizerEntry>(eventEntriesPath(eventId), onExpired)
   const token = useSessionToken()
   if (list.loading) return <Text accessibilityLiveRegion="polite" style={{ paddingVertical: 12, color: colors['ink-muted'], fontSize: 11.5 }}>Carregando as inscrições…</Text>
-  if (list.error) return <View><Notice>{list.error.message}</Notice><TextAction title="Tentar novamente" onPress={list.reload} /></View>
+  if (list.error) return <LoadError size="section" title="Não foi possível carregar as inscrições" text={list.error.message} cause={list.error} onRetry={list.reload} />
   if (!list.items.length) return <Text style={{ paddingVertical: 12, color: colors['ink-muted'], fontSize: 11.5, lineHeight: 17 }}>Nenhuma inscrição ainda. Quem se inscrever aparece aqui, com o estado do pagamento.</Text>
   return <View>
     <View accessibilityLabel="Inscrições do evento">

@@ -5,6 +5,7 @@ import { usePagedList } from '../../hooks/usePagedList'
 import { colors } from '../../theme'
 import { relativeTime } from '../../utils/relativeTime'
 import { Icon } from '../Icon'
+import { LoadError } from '../arena/LoadError'
 import { Button } from '../ui'
 
 /**
@@ -19,10 +20,7 @@ export function EventNotices({ eventId, onExpired }: { eventId: number; onExpire
       <Text accessibilityRole="header" style={{ color: colors.ink, fontSize: 13, fontWeight: '700' }}>Avisos do organizador</Text>
     </View>
     {list.loading ? <Text accessibilityLiveRegion="polite" style={{ color: colors['ink-muted'], fontSize: 11, paddingHorizontal: 4 }}>Carregando avisos…</Text>
-      : list.error ? <View>
-        <Text accessibilityRole="alert" style={{ color: colors.error, fontSize: 12, lineHeight: 17 }}>{list.error.message}</Text>
-        <Button secondary title="Tentar novamente" onPress={list.reload} />
-      </View>
+      : list.error ? <LoadError size="section" title="Não foi possível carregar os avisos" text={list.error.message} cause={list.error} onRetry={list.reload} />
         : list.items.length === 0 ? <Text style={{ borderRadius: 16, backgroundColor: '#ffffff', paddingHorizontal: 14, paddingVertical: 12, color: colors['ink-muted'], fontSize: 11, lineHeight: 16 }}>
           Nenhum aviso do organizador por enquanto. Os avisos aparecem aqui e nas suas notificações.
         </Text>

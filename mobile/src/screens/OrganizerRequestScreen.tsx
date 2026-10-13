@@ -3,7 +3,8 @@ import { KeyboardAvoidingView, Platform, ScrollView, Text, View } from 'react-na
 import { getOrganizerStatus, refusalText, sentence } from '../api/organizer'
 import type { OrganizerRequest } from '../api/organizer'
 import { ArenaMark } from '../components/arena/ArenaMark'
-import { ActionButton, Notice, Situation, TextAction } from '../components/arena/controls'
+import { ActionButton, Notice, Situation } from '../components/arena/controls'
+import { LoadError } from '../components/arena/LoadError'
 import { OrganizerRequestForm } from '../components/organizer/OrganizerRequestForm'
 import { loadProfiles, useCities } from '../hooks/useCities'
 import { useResource } from '../hooks/useResource'
@@ -44,8 +45,8 @@ export default function OrganizerRequestScreen({ navigation, onExpired }: Screen
       </View>
 
       {status.loading ? <Text accessibilityLiveRegion="polite" style={{ marginTop: 16, color: colors.ink, fontSize: 12 }}>Carregando…</Text> : null}
-      {status.error ? <View><Notice>{status.error}</Notice><TextAction title="Tentar novamente" onPress={status.reload} /></View> : null}
-      {cities.error && !status.error ? <View><Notice>{cities.error}</Notice><TextAction title="Tentar novamente" onPress={cities.reload} /></View> : null}
+      {status.error ? <LoadError size="screen" title="Não foi possível conferir o seu pedido" text={status.error} cause={status.errorCause} onRetry={status.reload} /> : null}
+      {cities.error && !status.error ? <LoadError size="section" title="Não foi possível carregar as cidades" text={cities.error} cause={cities.errorCause} onRetry={cities.reload} /> : null}
 
       {sent ? <View style={{ marginTop: 16 }} accessibilityLiveRegion="polite">
         <Situation tone="wait" icon="hourglass" title="Pedido enviado">{`O pedido de ${sent.display_name} está em análise. A resposta chega nas notificações.`}</Situation>

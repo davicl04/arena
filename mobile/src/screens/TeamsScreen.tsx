@@ -11,10 +11,12 @@ import { TeamCardCarousel } from '../components/teams/TeamCardCarousel'
 import { ActionSheet } from '../components/arena/ActionSheet'
 import { DarkTopBar, TeamsPlate } from '../components/arena/TeamsPlate'
 import { JoinRequestsList, SentInvitesList } from '../components/teams/TeamRequestLists'
-import { ActionButton, ConfirmBox, ErrorText, LiveNotice, TextAction } from '../components/arena/controls'
+import { ActionButton, ConfirmBox, TextAction } from '../components/arena/controls'
+import { LoadError } from '../components/arena/LoadError'
+import { toast } from '../components/toast/toastStore'
 import { TeamTokenContext } from '../components/teams/ui'
 import { useSessionToken } from '../hooks/useSessionToken'
-import { useSubmit } from '../hooks/useSubmit'
+import { reportActionError, useSubmit } from '../hooks/useSubmit'
 import { openUser } from '../navigation/openUser'
 import type { ScreenProps } from '../navigation/screens'
 import { colors } from '../theme'
@@ -24,13 +26,13 @@ import { Icon } from '../components/Icon'
 const QrScanner = lazy(() => import('../components/teams/QrScanner').then(module => ({ default: module.QrScanner })))
 
 type SheetState = { kind: 'member'; member: TeamMember } | { kind: 'invites' } | { kind: 'leave'; team: TeamCard } | null
-interface RosterState { teamId: number; items: TeamMember[]; error: string }
+interface RosterState { teamId: number; items: TeamMember[]; error: string; cause?: unknown }
 interface RepresentativeLists { teamId: number; requests: JoinRequest[]; invites: TeamInviteSent[] }
 
-/** Quanto tempo o aviso de sucesso fica na tela. */
-export const NOTICE_MS = 5000
-
 const messageOf = (cause: unknown, fallback: string) => cause instanceof Error && cause.message ? cause.message : fallback
+/** Falha de um carregamento: a mensagem e a causa (para o `LoadError` reconhecer a falta de conexão). */
+interface LoadFailure { message: string; cause: unknown }
+const failure = (cause: unknown, fallback: string): LoadFailure => ({ message: messageOf(cause, fallback), cause })
 
 /**
  * Meus times (M3 + C5 + E1 + R2): placa escura com a faixa de convites e o carrossel de carteirinhas; abaixo, o elenco
@@ -43,17 +45,16 @@ export default function TeamsScreen({ user, navigation, onExpired, params }: Scr
   const showRequests = Boolean(params?.requests)
   const token = useSessionToken()
   const [teams, setTeams] = useState<TeamCard[] | null>(null)
-  const [loadError, setLoadError] = useState('')
+  const [loadError, setLoadError] = useState<LoadFailure | null>(null)
   const [invites, setInvites] = useState<TeamInviteReceived[]>([])
-  const [invitesError, setInvitesError] = useState('')
+  const [invitesError, setInvitesError] = useState<LoadFailure | null>(null)
   const [attempt, setAttempt] = useState(0)
   const [roster, setRoster] = useState<RosterState | null>(null)
   const [rosterAttempt, setRosterAttempt] = useState(0)
   const [lists, setLists] = useState<RepresentativeLists | null>(null)
   const [sheet, setSheet] = useState<SheetState>(openInvites ? { kind: 'invites' } : null)
   const [scanning, setScanning] = useState(false)
-  const [notice, setNotice] = useState('')
-  const [listError, setListError] = useState('')
+  const [listError, setListError] = useState<LoadFailure | null>(null)
   const [busyItem, setBusyItem] = useState<number | null>(null)
   const [bodyY, setBodyY] = useState(0)
   const [requestsY, setRequestsY] = useState<number | null>(null)
@@ -71,10 +72,10 @@ export default function TeamsScreen({ user, navigation, onExpired, params }: Scr
   // Times e convites recebidos; recarregados depois de cada mudança de elenco.
   useEffect(() => {
     let alive = true
-    myTeams().then(items => { if (alive) { setTeams(items); setLoadError('') } })
-      .catch((cause: unknown) => { if (alive) { fail(cause); setLoadError(messageOf(cause, 'Não foi possível carregar seus times.')) } })
-    myInvites().then(items => { if (alive) { setInvites(items); setInvitesError('') } })
-      .catch((cause: unknown) => { if (alive) { fail(cause); setInvitesError(messageOf(cause, 'Não foi possível carregar os convites recebidos.')) } })
+    myTeams().then(items => { if (alive) { setTeams(items); setLoadError(null) } })
+      .catch((cause: unknown) => { if (alive) { fail(cause); setLoadError(failure(cause, 'Não foi possível carregar seus times.')) } })
+    myInvites().then(items => { if (alive) { setInvites(items); setInvitesError(null) } })
+      .catch((cause: unknown) => { if (alive) { fail(cause); setInvitesError(failure(cause, 'Não foi possível carregar os convites recebidos.')) } })
     return () => { alive = false }
   }, [attempt, fail])
   const reload = () => setAttempt(n => n + 1)
@@ -88,7 +89,7 @@ export default function TeamsScreen({ user, navigation, onExpired, params }: Scr
     if (selectedId === undefined) return
     let alive = true
     teamMembers(selectedId).then(items => { if (alive) setRoster({ teamId: selectedId, items, error: '' }) })
-      .catch((cause: unknown) => { if (alive) { fail(cause); setRoster({ teamId: selectedId, items: [], error: messageOf(cause, 'Não foi possível carregar o elenco.') }) } })
+      .catch((cause: unknown) => { if (alive) { fail(cause); setRoster({ teamId: selectedId, items: [], error: messageOf(cause, 'Não foi possível carregar o elenco.'), cause }) } })
     return () => { alive = false }
   }, [selectedId, attempt, rosterAttempt, fail])
 
@@ -99,16 +100,10 @@ export default function TeamsScreen({ user, navigation, onExpired, params }: Scr
     if (selectedId === undefined || (!wantsRequests && !wantsInvites)) return
     let alive = true
     Promise.all([wantsRequests ? joinRequests(selectedId) : [], wantsInvites ? sentInvites(selectedId) : []])
-      .then(([requests, sent]) => { if (alive) setLists({ teamId: selectedId, requests, invites: sent }) })
-      .catch((cause: unknown) => { if (alive) { fail(cause); setListError(messageOf(cause, 'Não foi possível carregar pedidos e convites.')) } })
+      .then(([requests, sent]) => { if (alive) { setLists({ teamId: selectedId, requests, invites: sent }); setListError(null) } })
+      .catch((cause: unknown) => { if (alive) { fail(cause); setListError(failure(cause, 'Não foi possível carregar pedidos e convites.')) } })
     return () => { alive = false }
   }, [selectedId, wantsRequests, wantsInvites, attempt, fail])
-
-  useEffect(() => {
-    if (!notice) return
-    const timer = setTimeout(() => setNotice(''), NOTICE_MS)
-    return () => clearTimeout(timer)
-  }, [notice])
 
   // Ao recarregar o mesmo time, o elenco anterior continua na tela até a resposta chegar.
   const currentRoster = roster && roster.teamId === selectedId ? roster : null
@@ -128,28 +123,29 @@ export default function TeamsScreen({ user, navigation, onExpired, params }: Scr
     navigation.setParams('teams', { requests: false })
   }, [showRequests, requestsReady, hasRequests, requestsY, bodyY, navigation])
 
-  function announce(message: string) { setListError(''); setNotice(message) }
+  /** Confirmação passageira da ação (toast de sucesso). */
+  const announce = (message: string) => { toast.success(message) }
   const selectTeam = (teamId: number) => navigation.setParams('teams', { teamId })
   async function decide(request: JoinRequest, decision: 'aprovar' | 'recusar') {
-    setBusyItem(request.id); setListError('')
+    setBusyItem(request.id)
     try {
       await decideJoinRequest(request.id, decision)
       setLists(old => old && { ...old, requests: old.requests.filter(item => item.id !== request.id) })
       announce(decision === 'aprovar' ? `${request.requester.name} entrou no elenco.` : `Pedido de ${request.requester.name} recusado.`)
       if (decision === 'aprovar') reload()
     } catch (cause) {
-      fail(cause); setListError(messageOf(cause, 'Não foi possível responder ao pedido.'))
+      reportActionError(cause, 'Não foi possível responder ao pedido.', onExpired)
       if (cause instanceof ApiError && cause.status === 409) reload()
     } finally { setBusyItem(null) }
   }
   async function cancel(invite: TeamInviteSent) {
-    setBusyItem(invite.id); setListError('')
+    setBusyItem(invite.id)
     try {
       await cancelInvite(invite.id)
       setLists(old => old && { ...old, invites: old.invites.filter(item => item.id !== invite.id) })
       announce(`Convite para ${invite.invitee.name} cancelado.`)
     } catch (cause) {
-      fail(cause); setListError(messageOf(cause, 'Não foi possível cancelar o convite.'))
+      reportActionError(cause, 'Não foi possível cancelar o convite.', onExpired)
       if (cause instanceof ApiError && cause.status === 409) reload()
     } finally { setBusyItem(null) }
   }
@@ -171,7 +167,7 @@ export default function TeamsScreen({ user, navigation, onExpired, params }: Scr
         <TeamsPlate bottom={24}>{topRow}</TeamsPlate>
         <View style={{ paddingHorizontal: 16, paddingTop: 16 }}>
           {loadError
-            ? <View><ErrorText>{loadError}</ErrorText><ActionButton tone="brand" title="Tentar novamente" onPress={reload} fit /></View>
+            ? <LoadError size="screen" title="Não foi possível carregar seus times" text={loadError.message} cause={loadError.cause} onRetry={reload} />
             : <View accessibilityLabel="Carregando seus times" accessibilityLiveRegion="polite" style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
               <ActivityIndicator color={colors.brand} />
               <Text style={{ color: colors['ink-muted'], fontSize: 12.5 }}>Carregando seus times…</Text>
@@ -193,9 +189,8 @@ export default function TeamsScreen({ user, navigation, onExpired, params }: Scr
       </TeamsPlate>
 
       <View style={{ paddingHorizontal: 16 }} onLayout={event => setBodyY(event.nativeEvent.layout.y)}>
-        <LiveNotice text={notice} />
-        {invitesError ? <View><ErrorText>{invitesError}</ErrorText><TextAction title="Tentar novamente" onPress={reload} /></View> : null}
-        {listError ? <ErrorText>{listError}</ErrorText> : null}
+        {invitesError ? <LoadError size="section" title="Não foi possível carregar os convites" text={invitesError.message} cause={invitesError.cause} onRetry={reload} /> : null}
+        {listError ? <LoadError size="section" title="Não foi possível carregar pedidos e convites" text={listError.message} cause={listError.cause} onRetry={reload} /> : null}
         {!selected
           ? <View style={{ marginTop: 18, alignItems: 'center', borderRadius: 16, backgroundColor: '#ffffff', padding: 22 }}>
             <Icon name="shield" size={36} color={colors.brand} />
@@ -209,7 +204,7 @@ export default function TeamsScreen({ user, navigation, onExpired, params }: Scr
             </View>
           </View>
           : <>
-            <RosterGrid key={selected.id} members={members} loading={!currentRoster} error={currentRoster?.error ?? ''}
+            <RosterGrid key={selected.id} members={members} loading={!currentRoster} error={currentRoster?.error ?? ''} errorCause={currentRoster?.cause}
               onRetry={() => setRosterAttempt(n => n + 1)} onOpen={member => setSheet({ kind: 'member', member })}
               action={representative ? <TextAction title="Convidar" accessibilityLabel="Convidar atletas" onPress={() => invite(selected)} /> : undefined} />
             {representative && selected.member_count <= 1
@@ -243,7 +238,7 @@ export default function TeamsScreen({ user, navigation, onExpired, params }: Scr
         setRoster(old => old && { ...old, items: old.items.filter(item => item.user_id !== member.user_id) })
         setSheet(null); announce(message); reload()
       }} /> : null}
-    {sheet?.kind === 'invites' ? <InviteSheet invites={invites} loadError={invitesError} onRetry={reload} onClose={() => setSheet(null)} onExpired={onExpired}
+    {sheet?.kind === 'invites' ? <InviteSheet invites={invites} loadError={invitesError?.message ?? ''} loadCause={invitesError?.cause} onRetry={reload} onClose={() => setSheet(null)} onExpired={onExpired}
       onAccepted={(accepted, team) => {
         setInvites(old => old.filter(item => item.id !== accepted.id))
         if (invites.length <= 1) setSheet(null)
@@ -261,7 +256,6 @@ export default function TeamsScreen({ user, navigation, onExpired, params }: Scr
       <ConfirmBox title={`Sair do ${sheet.team.name}?`} confirmLabel="Sair do time" busy={leave.busy} onConfirm={() => void leaveTeam(sheet.team)} onCancel={() => setSheet(null)}>
         Seu histórico com o time continua registrado. Para voltar, é preciso um novo convite ou pedido pelo link.
       </ConfirmBox>
-      {leave.error ? <ErrorText>{leave.error}</ErrorText> : null}
     </ActionSheet> : null}
     {scanner}
   </TeamTokenContext.Provider>

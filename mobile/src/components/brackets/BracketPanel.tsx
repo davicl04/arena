@@ -5,7 +5,7 @@ import { ApiError } from '../../api/client'
 import type { TennisBonus } from '../../api/events'
 import { useResource } from '../../hooks/useResource'
 import { colors } from '../../theme'
-import { TextAction } from '../arena/controls'
+import { LoadError } from '../arena/LoadError'
 import { Icon } from '../Icon'
 import { BracketView } from './BracketView'
 
@@ -64,10 +64,7 @@ export function BracketPanel({ eventId, canRead, bonus, onExpired, bleed }: {
   }
   if (resource.loading) return <Text accessibilityLiveRegion="polite" style={{ color: colors['ink-muted'], fontSize: 12 }}>Carregando a tabela…</Text>
   if (resource.error) {
-    return <View>
-      <Text accessibilityRole="alert" style={{ color: colors.error, fontSize: 12.5, lineHeight: 18 }}>{resource.error}</Text>
-      <TextAction title="Tentar novamente" onPress={resource.reload} />
-    </View>
+    return <LoadError size="section" title="Não foi possível carregar a tabela" text={resource.error} cause={resource.errorCause} onRetry={resource.reload} />
   }
   const bracket = resource.data
   if (!bracket) return <TableNote title="A tabela é dos inscritos" text="Quem está inscrito acompanha aqui a árvore ou a tabela e os resultados." />

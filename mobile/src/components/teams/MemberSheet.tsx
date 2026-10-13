@@ -1,15 +1,14 @@
 import { useState } from 'react'
 import { Pressable, Text, View } from 'react-native'
-import { ApiError } from '../../api/client'
 import { removeMember, updateMember } from '../../api/teams'
 import type { TeamCard, TeamMember } from '../../api/teams'
-import { useSubmit } from '../../hooks/useSubmit'
+import { isStale, useSubmit } from '../../hooks/useSubmit'
 import { colors } from '../../theme'
 import { monthYear } from '../../utils/relativeTime'
 import { MemberFace } from './MemberFace'
 import { ActionSheet } from '../arena/ActionSheet'
 import { positionLabel } from './teamView'
-import { ConfirmBox, ErrorText } from '../arena/controls'
+import { ConfirmBox } from '../arena/controls'
 import { Icon } from '../Icon'
 import type { IconName } from '../Icon'
 
@@ -27,7 +26,7 @@ function SheetAction({ icon, label, hint, danger = false, disabled = false, onPr
 /**
  * Folha do atleta (E1): ver perfil; para representantes, tornar representante ou tirar a braçadeira e remover do time
  * (com confirmação); para o próprio atleta, sair do time. O time precisa de pelo menos um representante: a folha já
- * avisa quando a braçadeira é a última, e o servidor tem a palavra final (o erro dele aparece aqui).
+ * avisa quando a braçadeira é a última, e o servidor tem a palavra final (o erro dele aparece num toast).
  */
 export function MemberSheet({ team, member, viewerIsRepresentative, onClose, onOpenProfile, onChanged, onRemoved, onStale, onExpired }: {
   team: TeamCard
@@ -39,27 +38,19 @@ export function MemberSheet({ team, member, viewerIsRepresentative, onClose, onO
   onChanged: (member: TeamMember, message: string) => void
   /** Atleta removido (ou o próprio titular saiu). */
   onRemoved: (member: TeamMember, message: string) => void
-  /** O servidor recusou por estado desatualizado (409/404): a tela recarrega o time, e a folha mostra o erro. */
+  /** O servidor recusou por estado desatualizado (409/404): a tela recarrega o time, e um toast de aviso mostra a mensagem. */
   onStale?: () => void
   onExpired: () => void
 }) {
   const [confirm, setConfirm] = useState<'remove' | 'leave' | null>(null)
-  const { busy, error, run } = useSubmit(onExpired)
+  const { busy, run } = useSubmit(onExpired)
   const representative = member.role === 'representante'
   const lastRepresentative = representative && team.representative_count <= 1
   const firstName = member.is_me ? 'Você' : member.first_name
 
-  /** Executa a ação; um 409/404 indica que o elenco mudou desde a leitura, e a tela recarrega. */
-  async function attempt<T>(action: () => Promise<T>, fallback: string) {
-    let stale = false
-    const result = await run(async () => {
-      try { return await action() } catch (cause) {
-        stale = cause instanceof ApiError && (cause.status === 409 || cause.status === 404)
-        throw cause
-      }
-    }, fallback)
-    if (result === undefined && stale) onStale?.()
-    return result
+  /** Executa a ação; um 409/404 indica que o elenco mudou desde a leitura (o toast de aviso mostra a mensagem), e a tela recarrega. */
+  function attempt<T>(action: () => Promise<T>, fallback: string) {
+    return run(action, fallback, cause => { if (isStale(cause)) onStale?.() })
   }
   async function toggleRole() {
     const role = representative ? 'membro' : 'representante'
@@ -99,6 +90,5 @@ export function MemberSheet({ team, member, viewerIsRepresentative, onClose, onO
     {confirm === 'leave' ? <ConfirmBox title={`Sair do ${team.name}?`} confirmLabel="Sair do time" busy={busy} onConfirm={() => void remove()} onCancel={() => setConfirm(null)}>
       Seu histórico com o time continua registrado. Para voltar, é preciso um novo convite ou pedido.
     </ConfirmBox> : null}
-    {error ? <ErrorText>{error}</ErrorText> : null}
   </ActionSheet>
 }

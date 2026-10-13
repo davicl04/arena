@@ -1,9 +1,8 @@
 import { Text, View } from 'react-native'
-import { ApiError } from '../../api/client'
 import { decideInvite } from '../../api/teams'
 import type { TeamCard, TeamInviteReceived } from '../../api/teams'
 import { footballFormat, shownTier, tiers } from '../../data/arena'
-import { useSubmit } from '../../hooks/useSubmit'
+import { isStale, useSubmit } from '../../hooks/useSubmit'
 import { colors } from '../../theme'
 import { relativeTime } from '../../utils/relativeTime'
 import { PlacementBadge } from '../arena/PlacementMeter'
@@ -12,7 +11,8 @@ import { TierEmblem } from '../arena/TierEmblem'
 import { RosterStack } from './TeamIdCard'
 import { ActionSheet } from '../arena/ActionSheet'
 import { playedFormats } from './teamView'
-import { ActionButton, Notice } from '../arena/controls'
+import { ActionButton } from '../arena/controls'
+import { LoadError } from '../arena/LoadError'
 import { onDark, useTeamToken } from './ui'
 import { Icon } from '../Icon'
 
@@ -61,11 +61,13 @@ function InviteCard({ invite, busy, onDecide }: { invite: TeamInviteReceived; bu
  * Folha escura dos convites recebidos (R2 + K1). Aceitar põe o time no carrossel como membro; recusar só tira o convite.
  * Um convite que deixou de valer (409) some da lista com a mensagem do servidor.
  */
-export function InviteSheet({ invites, loadError = '', onRetry, onClose, onAccepted, onDeclined, onStale, onExpired }: {
+export function InviteSheet({ invites, loadError = '', loadCause, onRetry, onClose, onAccepted, onDeclined, onStale, onExpired }: {
   invites: TeamInviteReceived[]
   /** Falha ao carregar os convites: a folha não diz "nenhum convite" quando a lista não chegou. */
   loadError?: string
-  onRetry?: () => void
+  /** A causa da falha de carregamento (para o `LoadError` reconhecer a falta de conexão). */
+  loadCause?: unknown
+  onRetry: () => void
   onClose: () => void
   onAccepted: (invite: TeamInviteReceived, team: TeamCard | null) => void
   onDeclined: (invite: TeamInviteReceived) => void
@@ -73,25 +75,15 @@ export function InviteSheet({ invites, loadError = '', onRetry, onClose, onAccep
   onStale: () => void
   onExpired: () => void
 }) {
-  const { busy, error, run } = useSubmit(onExpired)
+  const { busy, run } = useSubmit(onExpired)
   async function decide(invite: TeamInviteReceived, decision: 'aceitar' | 'recusar') {
-    let stale = false
-    const result = await run(async () => {
-      try { return await decideInvite(invite.id, decision) } catch (cause) {
-        stale = cause instanceof ApiError && (cause.status === 404 || cause.status === 409)
-        throw cause
-      }
-    }, 'Não foi possível responder ao convite.')
+    // 404/409: o toast de aviso já mostrou a mensagem do servidor; a tela relê a lista.
+    const result = await run(() => decideInvite(invite.id, decision), 'Não foi possível responder ao convite.', cause => { if (isStale(cause)) onStale() })
     if (result?.state === 'aceito') onAccepted(invite, result.team)
     else if (result) onDeclined(invite)
-    else if (stale) onStale()
   }
   return <ActionSheet dark locked={busy} onClose={onClose} title={invites.length > 1 ? `Convites para times · ${invites.length}` : 'Convite para time'}>
-    {error ? <Notice surface="dark" tone="error">{error}</Notice> : null}
-    {loadError ? <View>
-      <Notice surface="dark" tone="error">{loadError}</Notice>
-      {onRetry ? <ActionButton tone="line" title="Tentar novamente" onPress={onRetry} fit /> : null}
-    </View> : null}
+    {loadError ? <LoadError size="section" tone="dark" title="Não foi possível carregar os convites" text={loadError} cause={loadCause} onRetry={onRetry} /> : null}
     {invites.length
       ? <View style={{ marginTop: 8, gap: 12 }}>{invites.map(invite => <InviteCard key={invite.id} invite={invite} busy={busy} onDecide={decision => void decide(invite, decision)} />)}</View>
       : !loadError ? <Text style={{ paddingVertical: 14, textAlign: 'center', color: onDark.soft, fontSize: 11.5 }}>Nenhum convite pendente.</Text> : null}

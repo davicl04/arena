@@ -12,13 +12,12 @@ import { ReceiptSheet } from '../components/receipts/ReceiptSheet'
 import { RefundList } from '../components/receipts/RefundList'
 import { receiptSummary } from '../components/receipts/receiptView'
 import { LeadRow, RowList } from '../components/review/Rows'
-import { LiveNotice } from '../components/arena/controls'
+import { toast } from '../components/toast/toastStore'
 import { Banner, ListMessage, LoadMore, LoadState } from '../components/review/ui'
 import { usePagedList } from '../hooks/usePagedList'
 import { useResource } from '../hooks/useResource'
 import { useSessionToken } from '../hooks/useSessionToken'
 import type { ScreenProps } from '../navigation/screens'
-import { announce } from '../utils/announce'
 import { formatPrice } from '../utils/format'
 import { relativeTime } from '../utils/relativeTime'
 
@@ -70,14 +69,12 @@ export default function ReceiptsScreen({ params, navigation, onExpired }: Screen
   const load = useCallback(() => getReceiptsEvent(eventId), [eventId])
   const event = useResource(load, onExpired, { fallback: 'Não foi possível carregar o evento.' })
   const [chosen, setChosen] = useState<PageTab | null>(null)
-  const [notice, setNotice] = useState('')
   const data = event.data
   const cancelled = data?.state === 'cancelado'
   const first: PageTab = cancelled ? 'devolucoes' : 'para_analisar'
   const tab: PageTab = chosen === 'decididos' ? 'decididos' : first
   const { setData } = event
 
-  const say = useCallback((message: string) => { setNotice(message); announce(message) }, [])
   /** Atualiza os contadores da placa e das abas depois de uma decisão ou envio, sem recarregar a tela. */
   const refresh = useCallback(() => {
     // Falha de rede ou do servidor: os contadores seguem como estavam. Sessão expirada (401) volta ao login.
@@ -97,18 +94,17 @@ export default function ReceiptsScreen({ params, navigation, onExpired }: Screen
       {data ? <Text style={{ paddingHorizontal: 18, paddingTop: 8, color: 'rgba(255,255,255,0.72)', fontSize: 12, lineHeight: 18 }}>{receiptSummary(data)}</Text> : null}
     </TeamsPlate>
     <View style={{ paddingHorizontal: 20, paddingTop: 14 }}>
-      <LoadState loading={event.loading} error={event.error || null} onRetry={event.reload} loadingText="Carregando o evento…" />
+      <LoadState size="screen" title="Não foi possível carregar o evento" loading={event.loading} error={event.error || null} cause={event.errorCause} onRetry={event.reload} loadingText="Carregando o evento…" />
       {data ? <>
         {data.revocation_pending ? <Banner>A administração está decidindo se o evento segue. A análise dos comprovantes fica em espera; as devoluções continuam.</Banner> : null}
         <View style={{ marginTop: 12 }}>
-          <SectionTabs label="Comprovantes do evento" items={tabs} value={tab} onChange={value => { setChosen(value); setNotice('') }} />
+          <SectionTabs label="Comprovantes do evento" items={tabs} value={tab} onChange={setChosen} />
         </View>
-        <LiveNotice text={notice} />
         <View style={{ paddingTop: 8 }}>
           {tab === 'devolucoes'
             ? <RefundList eventId={data.id} token={token} onExpired={onExpired}
-              onSent={entry => { say(`Devolução de ${subjectName(entry.subject)} enviada. O participante confirma o recebimento.`); refresh() }} />
-            : <ReceiptQueue key={tab} event={data} tab={tab} token={token} onExpired={onExpired} onDecided={message => { say(message); refresh() }} />}
+              onSent={entry => { toast.success(`Devolução de ${subjectName(entry.subject)} enviada. O participante confirma o recebimento.`); refresh() }} />
+            : <ReceiptQueue key={tab} event={data} tab={tab} token={token} onExpired={onExpired} onDecided={message => { toast.success(message); refresh() }} />}
         </View>
       </> : null}
     </View>

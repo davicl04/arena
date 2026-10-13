@@ -159,7 +159,8 @@ describe('Campeonatos e provas (E2): lista', () => {
     })
     const tree = await mountScreen()
     expect(allText(tree)).toContain('Eventos fora do ar')
-    expect(allText(tree)).toContain('Não foi possível carregar as suas inscrições. Inscrições fora do ar')
+    expect(allText(tree)).toContain('Não foi possível carregar as suas inscrições')
+    expect(allText(tree)).toContain('Inscrições fora do ar')
     fail = false
     await pressButton(tree, 'Tentar novamente')
     expect(cards(tree)).toHaveLength(1)

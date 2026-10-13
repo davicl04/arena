@@ -6,6 +6,7 @@ import { eventsPath, myEntriesPath } from '../api/entries'
 import type { EventCard, MyEntry } from '../api/entries'
 import { EventPoster } from '../components/arena/EventPoster'
 import { ChoicePills, sportChoices } from '../components/arena/controls'
+import { LoadError } from '../components/arena/LoadError'
 import { StateBadge } from '../components/arena/StateBadge'
 import { isLocked } from '../components/events/entryCta'
 import { Icon } from '../components/Icon'
@@ -47,10 +48,7 @@ function EventGrid({ path, sport, cityName, onAllCities, onOpen, onExpired }: {
   const list = usePagedList<EventCard>(path, onExpired)
   const noun = eventNoun[sport]
   if (list.loading) return <Text accessibilityLiveRegion="polite" style={{ color: colors['ink-muted'], fontSize: 14 }}>Carregando {noun.many.toLowerCase()}…</Text>
-  if (list.error) return <View>
-    <Text accessibilityRole="alert" style={{ color: colors.error, fontSize: 14, lineHeight: 21 }}>{list.error.message}</Text>
-    <Button secondary title="Tentar novamente" onPress={list.reload} />
-  </View>
+  if (list.error) return <LoadError size="screen" title={`Não foi possível carregar ${noun.many.toLowerCase()}`} text={list.error.message} cause={list.error} onRetry={list.reload} />
   if (list.items.length === 0) return <View testID="events-empty" style={{ alignItems: 'center', borderRadius: 16, backgroundColor: '#ffffff', padding: 22 }}>
     <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants"><Icon name={sport === 'corrida' ? 'flag' : 'trophy'} size={26} color={colors.brand} /></View>
     <Text accessibilityRole="header" style={{ color: colors.ink, fontSize: 16, fontWeight: '700', marginTop: 8, textAlign: 'center' }}>{cityName ? `${none(sport)} em ${cityName}` : none(sport)}</Text>
@@ -145,7 +143,7 @@ export default function EventsScreen({ params, navigation, onExpired }: ScreenPr
       </Pressable>}
     </View>
     {myEntries.length > 0 ? <MyEntries entries={myEntries} onOpen={entry => navigation.go('event', { eventId: entry.event.id, sport })} /> : null}
-    {mine.error ? <Text accessibilityRole="alert" style={{ color: colors.error, fontSize: 13, lineHeight: 19, marginBottom: 12 }}>Não foi possível carregar as suas inscrições. {mine.error.message}</Text> : null}
+    {mine.error ? <LoadError size="section" title="Não foi possível carregar as suas inscrições" text={mine.error.message} cause={mine.error} onRetry={mine.reload} /> : null}
     {places.loading ? <Text accessibilityLiveRegion="polite" style={{ color: colors['ink-muted'], fontSize: 14 }}>Carregando {eventNoun[sport].many.toLowerCase()}…</Text>
       : <EventGrid path={eventsPath(sport, filtered ? city?.id : null)} sport={sport} cityName={filtered ? (city?.name ?? null) : null} onAllCities={filtered ? () => setAllCities(true) : undefined}
         onOpen={card => navigation.go('event', { eventId: card.id, sport: card.sport ?? sport })} onExpired={onExpired} />}
