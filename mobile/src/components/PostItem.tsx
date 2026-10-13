@@ -47,7 +47,7 @@ export default function PostItem({ post, viewerId, token, onUpdate, onRemove, on
     <Avatar path={author.avatar_url} name={author.name} token={token} size={24} />
     <Text numberOfLines={1} className="shrink text-[12px] font-bold text-white"><Text className="text-glass-accent">@</Text>{author.username}</Text>
   </View>
-  return <View className="mb-1.5 bg-white">
+  return <View className="mb-1.5 bg-surface">
     <View className="aspect-square w-full overflow-hidden">
       <PostImage path={post.image_url} token={token} label={post.caption || `Publicação de @${author.username}`} className="h-full w-full" />
       <View className="absolute top-0 right-0 left-0 flex-row items-start justify-between gap-2 p-1.5">

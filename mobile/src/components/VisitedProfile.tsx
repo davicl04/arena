@@ -36,10 +36,10 @@ export default function VisitedProfile({ profile, user, token, mutualText, modal
   const canView = profile.social_public || profile.follow_state === 'approved' || own
   const content = <>
     <ScrollView onScroll={onScroll} scrollEventThrottle={16} keyboardShouldPersistTaps="handled" contentContainerClassName="pb-10">
-      <View className="bg-white">
+      <View className="bg-surface">
         <Cover path={profile.cover_url} token={token} height={COVER_HEIGHT} />
         <View className="px-5.5 pb-4.5">
-          <View className="-mt-8 w-[72px] rounded-[36px] border-[3px] border-white"><Avatar path={profile.avatar_url} name={profile.name} token={token} size={66} /></View>
+          <View className="-mt-8 w-[72px] rounded-[36px] border-[3px] border-surface"><Avatar path={profile.avatar_url} name={profile.name} token={token} size={66} /></View>
           <View className="mt-2.5"><ProfileTitle name={profile.name} username={profile.username} /></View>
           <Text className={tw.body}>{profile.social_public ? 'Perfil público' : 'Perfil privado'}</Text>
           <Text accessibilityLabel="Contagens do perfil" className={tw.body}>{canView ? `${profile.post_count} publicações · ` : ''}{connectionsText(profile.follower_count, profile.following_count)}</Text>

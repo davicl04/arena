@@ -5,7 +5,7 @@ import { JUSTIFICATION_MAX, JUSTIFICATION_MIN } from '../../api/brackets'
 import type { ResultDecisionInput } from '../../api/brackets'
 import type { MatchDetail, ScoreOut, Side } from '../../api/matches'
 import { sideName, sideOf } from '../../data/match'
-import { colors } from '../../theme'
+import { useThemeColors } from '../../hooks/useTheme'
 import { ActionButton, BusyStatus, ErrorText, FormField } from '../arena/controls'
 import { Icon } from '../Icon'
 import type { IconName } from '../Icon'
@@ -31,6 +31,7 @@ export const justificationOk = (note: string) => note.trim().length >= JUSTIFICA
 function GoalsSide({ match, side, name, value, disabled, onChange }: {
   match: MatchDetail; side: Side; name: string; value: number; disabled: boolean; onChange: (value: number) => void
 }) {
+  const colors = useThemeColors()
   const info = sideOf(match, side)
   return <View style={{ flex: 1, minWidth: 0, alignItems: 'center', gap: 4 }}>
     {info ? <TeamMark side={info} /> : null}
@@ -49,12 +50,13 @@ function ChoiceCards<T extends string>({ label, items, value, disabled, onChange
   disabled: boolean
   onChange: (value: T) => void
 }) {
+  const colors = useThemeColors()
   return <View accessibilityRole="radiogroup" accessibilityLabel={label} style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
     {items.map(item => {
       const checked = item.value === value
       return <Pressable key={item.value} accessibilityRole="radio" accessibilityLabel={item.accessibilityLabel} accessibilityState={{ checked, selected: checked, disabled }}
         disabled={disabled} onPress={() => onChange(item.value)}
-        style={{ flexBasis: '47%', flexGrow: 1, minHeight: 78, minWidth: 130, gap: 2, borderRadius: 14, borderWidth: 1.5, borderColor: checked ? colors.brand : colors['line-strong'], backgroundColor: checked ? colors['success-bg'] : '#ffffff', padding: 10, opacity: disabled ? 0.6 : 1 }}>
+        style={{ flexBasis: '47%', flexGrow: 1, minHeight: 78, minWidth: 130, gap: 2, borderRadius: 14, borderWidth: 1.5, borderColor: checked ? colors.brand : colors['line-strong'], backgroundColor: checked ? colors['success-bg'] : colors.surface, padding: 10, opacity: disabled ? 0.6 : 1 }}>
         {item.icon ? <Icon name={item.icon} size={16} color={colors.brand} /> : null}
         {item.caption ? <Text style={{ color: colors['ink-muted'], fontSize: 10 }}>{item.caption}</Text> : null}
         <Text style={item.big ? { color: colors.ink, fontSize: 20, fontWeight: '800' } : { color: colors.ink, fontSize: 12.5, fontWeight: '700' }}>{item.label}</Text>
@@ -64,7 +66,7 @@ function ChoiceCards<T extends string>({ label, items, value, disabled, onChange
   </View>
 }
 
-const h2 = { color: colors.ink, fontSize: 15, fontWeight: '700' } as const
+const h2 = (color: string) => ({ color, fontSize: 15, fontWeight: '700' }) as const
 
 /**
  * Decisão do organizador (D3): o placar informado por um dos times, outro placar (contadores no futebol, sets no tênis) ou
@@ -78,6 +80,7 @@ export function DecisionForm({ match, busy, error, onSubmit }: {
   error: string
   onSubmit: (input: ResultDecisionInput) => void
 }) {
+  const colors = useThemeColors()
   const tennis = match.sport === 'tenis'
   const sides = ['a', 'b'] as const
   const nameA = sideName(sideOf(match, 'a'), 'Lado A')
@@ -133,13 +136,13 @@ export function DecisionForm({ match, busy, error, onSubmit }: {
     placeholder="Ex.: o vídeo mostra o gol antes do apito final." hint={`Fica registrada e os dois times veem. ${trimmed.length}/${JUSTIFICATION_MAX}`} />
 
   return <View testID="decision-form" accessibilityLabel="Sua decisão" style={{ gap: 14 }}>
-    <Text accessibilityRole="header" style={h2}>Sua decisão</Text>
+    <Text accessibilityRole="header" style={h2(colors.ink)}>Sua decisão</Text>
 
     <ChoiceCards<DecisionMode> label="Como decidir o resultado" items={items} value={mode} disabled={busy} onChange={setMode} />
 
     {mode === 'outro' ? (tennis
-      ? <View style={{ borderRadius: 16, backgroundColor: '#ffffff', padding: 12 }}><TennisSets sets={sets} onPatch={patch} mineName={nameA} theirName={nameB} superTiebreak={superTiebreak} disabled={busy} /></View>
-      : <View accessibilityLabel="Placar em gols" style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8, borderRadius: 16, backgroundColor: '#ffffff', padding: 12 }}>
+      ? <View style={{ borderRadius: 16, backgroundColor: colors.surface, padding: 12 }}><TennisSets sets={sets} onPatch={patch} mineName={nameA} theirName={nameB} superTiebreak={superTiebreak} disabled={busy} /></View>
+      : <View accessibilityLabel="Placar em gols" style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8, borderRadius: 16, backgroundColor: colors.surface, padding: 12 }}>
         <GoalsSide match={match} side="a" name={nameA} value={goals[0]} disabled={busy} onChange={value => setGoals(old => [value, old[1]])} />
         <Text accessibilityElementsHidden importantForAccessibility="no" style={{ paddingBottom: 12, color: colors['ink-muted'], fontSize: 20, fontWeight: '800' }}>×</Text>
         <GoalsSide match={match} side="b" name={nameB} value={goals[1]} disabled={busy} onChange={value => setGoals(old => [old[0], value])} />

@@ -1,7 +1,7 @@
 import { View } from 'react-native'
 import Svg, { Circle, Path } from 'react-native-svg'
 import type { RunSeriesPoint } from '../../api/runs'
-import { colors } from '../../theme'
+import { useThemeColors } from '../../hooks/useTheme'
 import { formatDuration } from '../play/tierLines'
 
 const WIDTH = 92
@@ -34,13 +34,14 @@ export function sparkLabel(series: readonly RunSeriesPoint[]): string {
  * marcada. O traço é um `Path` (o mesmo desenho da polilinha da web). Sem marcas, não desenha nada.
  */
 export function RunSpark({ series }: { series: readonly RunSeriesPoint[] }) {
+  const c = useThemeColors()
   if (!series.length) return null
   const points = sparkPoints(series)
   const last = points[points.length - 1]
   return <View testID="run-spark" accessible accessibilityRole="image" accessibilityLabel={sparkLabel(series)} style={{ width: 64, height: 26 }}>
     <Svg width={64} height={26} viewBox={`-4 -3 ${WIDTH + 8} ${HEIGHT + 6}`}>
-      {points.length > 1 ? <Path d={points.map(([x, y], index) => `${index ? 'L' : 'M'}${x} ${y}`).join(' ')} fill="none" stroke={colors.brand} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" /> : null}
-      <Circle cx={last[0]} cy={last[1]} r={3} fill={colors.brand} />
+      {points.length > 1 ? <Path d={points.map(([x, y], index) => `${index ? 'L' : 'M'}${x} ${y}`).join(' ')} fill="none" stroke={c.brand} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" /> : null}
+      <Circle cx={last[0]} cy={last[1]} r={3} fill={c.brand} />
     </Svg>
   </View>
 }

@@ -4,7 +4,7 @@ import { ApiError } from '../../api/client'
 import { cancelEvent, deleteEvent, EVENT_LIMITS, fieldMessage, updateEvent } from '../../api/events'
 import type { EventDraftInput, OrganizerEventDetail } from '../../api/events'
 import { useSubmit } from '../../hooks/useSubmit'
-import { colors } from '../../theme'
+import { useThemeColors } from '../../hooks/useTheme'
 import { plural } from '../../utils/format'
 import Sheet from '../Sheet'
 import { ActionButton, ConfirmBox, FormField, Notice } from '../arena/controls'
@@ -12,7 +12,7 @@ import { cancelledOnCancel, refundsOnCancel } from './eventView'
 
 const { cancelReasonMin, cancelReasonMax, venueMin, venueMax, courseNotesMax, instructionsMax, contactMax } = EVENT_LIMITS
 
-const sectionText = { color: colors.ink, fontSize: 11.5, lineHeight: 18 } as const
+const sectionText = (color: string) => ({ color, fontSize: 11.5, lineHeight: 18 }) as const
 
 /**
  * Cancelar evento publicado ou em andamento: motivo obrigatório (5 a 500, vai no aviso automático aos inscritos) e
@@ -25,6 +25,7 @@ export function CancelEventSheet({ detail, onCancelled, onClose, onExpired }: {
   onClose: () => void
   onExpired: () => void
 }) {
+  const colors = useThemeColors()
   const [reason, setReason] = useState('')
   const [touched, setTouched] = useState(false)
   const [confirming, setConfirming] = useState(false)
@@ -47,14 +48,14 @@ export function CancelEventSheet({ detail, onCancelled, onClose, onExpired }: {
   return <Sheet title="Cancelar evento" onClose={() => { if (!busy) onClose() }}>
     <Text style={{ color: colors['ink-muted'], fontSize: 12 }}>{detail.name}</Text>
     <View style={{ marginTop: 8, borderRadius: 14, backgroundColor: colors.subtle, padding: 12 }}>
-      <Text style={sectionText}>
+      <Text style={sectionText(colors.ink)}>
         {paid
           ? 'As inscrições confirmadas e as com comprovante em análise viram Devolução pendente: você devolve o valor por Pix e anexa o comprovante de cada devolução em Comprovantes. O participante confirma o recebimento (ou conta como recebido em 7 dias). Reservas sem pagamento são canceladas.'
           : 'As inscrições são canceladas. Evento gratuito não tem devolução.'}
         {'\n'}Todos os inscritos recebem o aviso no canal do evento e nas notificações.
       </Text>
-      {refunds > 0 ? <Text style={[sectionText, { marginTop: 6 }]}>{'• '}{plural(refunds, 'inscrição vai', 'inscrições vão')} para Devolução pendente.</Text> : null}
-      {cancelled > 0 ? <Text style={[sectionText, { marginTop: refunds > 0 ? 2 : 6 }]}>{'• '}{plural(cancelled, 'inscrição é cancelada', 'inscrições são canceladas')}.</Text> : null}
+      {refunds > 0 ? <Text style={[sectionText(colors.ink), { marginTop: 6 }]}>{'• '}{plural(refunds, 'inscrição vai', 'inscrições vão')} para Devolução pendente.</Text> : null}
+      {cancelled > 0 ? <Text style={[sectionText(colors.ink), { marginTop: refunds > 0 ? 2 : 6 }]}>{'• '}{plural(cancelled, 'inscrição é cancelada', 'inscrições são canceladas')}.</Text> : null}
     </View>
     {!confirming
       ? <>
@@ -78,6 +79,7 @@ export function DeleteDraftSheet({ detail, onDeleted, onClose, onExpired }: {
   onClose: () => void
   onExpired: () => void
 }) {
+  const colors = useThemeColors()
   const { busy, run } = useSubmit(onExpired)
   async function confirm() {
     const done = await run(async () => { await deleteEvent(detail.id); return true }, 'Não foi possível excluir o rascunho.')
@@ -111,6 +113,7 @@ export function EditPublishedSheet({ detail, onSaved, onClose, onExpired }: {
   onClose: () => void
   onExpired: () => void
 }) {
+  const colors = useThemeColors()
   const fields = PUBLISHED_FIELDS.filter(item => detail.editable_fields.includes(item.field)
     && (item.field !== 'course_notes' || detail.sport === 'corrida') && (item.field !== 'pix_instructions' || Boolean(detail.price_cents)))
   const [values, setValues] = useState<Record<PublishedField, string>>(() => ({

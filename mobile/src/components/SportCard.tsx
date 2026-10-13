@@ -6,9 +6,10 @@ import { toast } from './toast/toastStore'
 import { Button } from './ui'
 import { reportActionError } from '../hooks/useSubmit'
 import { cx, tw } from '../styles'
-import { colors } from '../theme'
+import { useThemeColors } from '../hooks/useTheme'
 
 export default function SportCard({ sport, label, profile, cities, onSave, onExpired }: { sport: Sport; label: string; profile?: Profile; cities: City[]; onSave: (sport: Sport, input: ProfileInput) => Promise<void>; onExpired: () => void }) {
+  const colors = useThemeColors()
   const [editing, setEditing] = useState(false)
   const [cityId, setCityId] = useState(profile?.city_id || 0)
   const [position, setPosition] = useState<Position | null>(profile?.position || null)

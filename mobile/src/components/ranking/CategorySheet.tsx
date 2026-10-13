@@ -5,6 +5,7 @@ import type { Position, Sport } from '../../api/client'
 import { footballFormats, positionOptions, runDistances } from '../../data/arena'
 import type { FootballFormat, RunDistance } from '../../data/arena'
 import { colors } from '../../theme'
+import { useThemeColors } from '../../hooks/useTheme'
 import { ChoicePills } from '../arena/controls'
 import type { ChoiceOption } from '../arena/controls'
 import { SportIcon } from '../arena/SportIcon'
@@ -23,8 +24,9 @@ const distanceChoices: ChoiceOption<RunDistance>[] = runDistances.map(item => ({
 const sportLabel = (sport: Sport) => sports.find(item => item.value === sport)?.label ?? sport
 
 function Group({ label, children }: { label: string; children: ReactNode }) {
+  const c = useThemeColors()
   return <View style={{ gap: 8, marginTop: 14 }}>
-    <Text accessibilityRole="header" style={{ color: colors['ink-muted'], fontSize: 10.5, fontWeight: '800', letterSpacing: 1 }}>{label.toUpperCase()}</Text>
+    <Text accessibilityRole="header" style={{ color: c['ink-muted'], fontSize: 10.5, fontWeight: '800', letterSpacing: 1 }}>{label.toUpperCase()}</Text>
     {children}
   </View>
 }
@@ -41,6 +43,7 @@ export function CategorySheet({ available, value, onChange, onClose }: {
   onChange: (patch: Partial<CategoryChoice>) => void
   onClose: () => void
 }) {
+  const c = useThemeColors()
   return <Sheet title="Categoria do ranking" onClose={onClose}>
     {available.length > 1
       ? <Group label="Modalidade">
@@ -50,16 +53,16 @@ export function CategorySheet({ available, value, onChange, onClose }: {
             return <Pressable key={sport} testID={`sport-tile-${sport}`} accessibilityRole="radio" accessibilityLabel={sportLabel(sport)} accessibilityState={{ checked: selected, selected }}
               onPress={() => { if (!selected) onChange({ sport }) }}
               style={{ flex: 1, minHeight: 76, alignItems: 'center', justifyContent: 'center', gap: 4, borderRadius: 14, borderWidth: 1, paddingVertical: 8,
-                backgroundColor: selected ? colors.forest : '#ffffff', borderColor: selected ? colors.forest : colors['line-strong'] }}>
+                backgroundColor: selected ? colors.forest : c.surface, borderColor: selected ? colors.forest : c['line-strong'] }}>
               <SportIcon sport={sport} size={30} inverted={selected} />
-              <Text style={{ color: selected ? '#ffffff' : colors.ink, fontSize: 12, fontWeight: '700' }}>{sportLabel(sport)}</Text>
+              <Text style={{ color: selected ? '#ffffff' : c.ink, fontSize: 12, fontWeight: '700' }}>{sportLabel(sport)}</Text>
             </Pressable>
           })}
         </View>
       </Group>
       : <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 }}>
         <SportIcon sport={available[0] ?? value.sport} size={26} />
-        <Text style={{ flex: 1, color: colors['ink-muted'], fontSize: 12.5 }}>{`${sportLabel(available[0] ?? value.sport)} é a sua única modalidade ativa`}</Text>
+        <Text style={{ flex: 1, color: c['ink-muted'], fontSize: 12.5 }}>{`${sportLabel(available[0] ?? value.sport)} é a sua única modalidade ativa`}</Text>
       </View>}
     {value.sport === 'futebol' ? <>
       <Group label="Ranking"><SectionTabs label="Tipo de ranking" items={kinds} value={value.kind} onChange={kind => onChange({ kind })} /></Group>

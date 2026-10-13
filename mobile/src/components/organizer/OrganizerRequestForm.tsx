@@ -6,7 +6,7 @@ import { fieldMessage } from '../../api/events'
 import { ORGANIZER_LIMITS, organizerRequestInput, sendOrganizerRequest, validateOrganizerRequest } from '../../api/organizer'
 import type { OrganizerRequest, OrganizerRequestDraft, OrganizerRequestErrors } from '../../api/organizer'
 import { reportActionError } from '../../hooks/useSubmit'
-import { colors } from '../../theme'
+import { useThemeColors } from '../../hooks/useTheme'
 import { ActionButton, CheckRow, CityField, FieldLabel, FormField, MultiPills, Notice, sportChoices } from '../arena/controls'
 
 /** Campos do pedido que a API devolve no `422` (`display_name`, `city_id`…), na ordem da tela. */
@@ -40,6 +40,7 @@ export function OrganizerRequestForm({ cities, defaultCityId, onSent, onExpired 
   onSent: (request: OrganizerRequest) => void
   onExpired: () => void
 }) {
+  const colors = useThemeColors()
   const [draft, setDraft] = useState<OrganizerRequestDraft>({
     display_name: '', city_id: defaultCityId, sports: [], experience: '', contact: '', link: '', accept_terms: false,
   })
@@ -82,7 +83,7 @@ export function OrganizerRequestForm({ cities, defaultCityId, onSent, onExpired 
   }
 
   return <View accessibilityLabel="Pedido de organizador">
-    <View style={{ borderRadius: 16, backgroundColor: '#ffffff', paddingHorizontal: 14, paddingBottom: 16, paddingTop: 2 }}>
+    <View style={{ borderRadius: 16, backgroundColor: colors.surface, paddingHorizontal: 14, paddingBottom: 16, paddingTop: 2 }}>
       <FormField label="Nome do organizador" hint="Você ou a entidade que organiza, como aparecerá nos eventos." value={draft.display_name} maxLength={ORGANIZER_LIMITS.nameMax}
         error={errors.display_name} onChangeText={value => update({ display_name: value })} />
       <CityField label="Cidade" title="Cidade do organizador" description="Onde você pretende organizar." cities={cities} value={draft.city_id} error={errors.city_id}

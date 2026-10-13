@@ -16,7 +16,7 @@ export function CancelSearchSheet({ busy, onKeep, onConfirm }: {
     <Text style={{ marginTop: 4, color: 'rgba(255,255,255,0.8)', fontSize: 13, lineHeight: 20 }}>Você sai da fila e perde o tempo de espera. Dá para buscar de novo quando quiser.</Text>
     <View style={{ marginTop: 16, flexDirection: 'row', gap: 8 }}>
       <ActionButton grow tone="mint" title="Continuar buscando" disabled={busy} onPress={onKeep} />
-      <ActionButton grow tone="danger" title={busy ? 'Cancelando…' : 'Cancelar busca'} accessibilityLabel="Cancelar busca" busy={busy} onPress={onConfirm} />
+      <ActionButton grow tone="danger-fixed" title={busy ? 'Cancelando…' : 'Cancelar busca'} accessibilityLabel="Cancelar busca" busy={busy} onPress={onConfirm} />
     </View>
   </ActionSheet>
 }

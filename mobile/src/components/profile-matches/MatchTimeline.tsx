@@ -6,7 +6,7 @@ import { timelinePath } from '../../api/profile'
 import type { TimelineItem } from '../../api/profile'
 import { usePagedList } from '../../hooks/usePagedList'
 import { useNow } from '../../hooks/useNow'
-import { colors } from '../../theme'
+import { useThemeColors } from '../../hooks/useTheme'
 import { ActionButton } from '../arena/controls'
 import { LoadError } from '../arena/LoadError'
 import { nextScheduledMatch } from '../play/matchView'
@@ -15,10 +15,9 @@ import { TimelineHeader } from './TimelineHeader'
 import { TimelineRail } from './TimelineRail'
 import type { SportFilter } from './timelineView'
 
-const message = { color: colors['ink-muted'], fontSize: 12, lineHeight: 18, textAlign: 'center' as const }
-
 /** Esqueleto de 3 cartões enquanto a primeira página chega. */
 function Skeleton() {
+  const colors = useThemeColors()
   return <View accessibilityLiveRegion="polite" accessibilityLabel="Carregando partidas" style={{ paddingHorizontal: 20, paddingTop: 8, gap: 12 }}>
     {[0, 1, 2].map(index => <View key={index} testID="timeline-skeleton" style={{ height: 92, borderRadius: 14, backgroundColor: colors.subtle }} />)}
   </View>
@@ -39,6 +38,8 @@ export function MatchTimeline({ userId, own, upcoming = [], onOpenMatch, onPlay,
   onPlay?: () => void
   onExpired: () => void
 }) {
+  const colors = useThemeColors()
+  const message = { color: colors['ink-muted'], fontSize: 12, lineHeight: 18, textAlign: 'center' as const }
   const [filter, setFilter] = useState<SportFilter>(null)
   const list = usePagedList<TimelineItem>(timelinePath(userId, filter), onExpired)
   const now = useNow(60_000, own)

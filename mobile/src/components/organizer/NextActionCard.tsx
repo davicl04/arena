@@ -2,7 +2,8 @@ import type { ReactNode } from 'react'
 import { Text, View } from 'react-native'
 import type { OrganizerEventDetail } from '../../api/events'
 import { sentence } from '../../api/organizer'
-import { colors } from '../../theme'
+import { useResolvedTheme, useThemeColors } from '../../hooks/useTheme'
+import type { ThemeColors } from '../../theme'
 import { formatDeadline, plural } from '../../utils/format'
 import { shortDate } from '../../utils/relativeTime'
 import { ActionButton, TextAction } from '../arena/controls'
@@ -12,16 +13,18 @@ import { Icon } from '../Icon'
 import type { IconName } from '../Icon'
 
 type Tone = 'now' | 'wait' | 'bad' | 'calm'
-const toneLook: Record<Tone, { bg: string; icon: string; ring: boolean }> = {
-  now: { bg: '#ffffff', icon: colors.brand, ring: true },
+const toneLook = (colors: ThemeColors, dark: boolean): Record<Tone, { bg: string; icon: string; ring: boolean }> => ({
+  now: { bg: colors.surface, icon: colors.brand, ring: true },
   wait: { bg: colors['warning-bg'], icon: colors.warning, ring: false },
-  bad: { bg: '#fff0f2', icon: colors.danger, ring: false },
-  calm: { bg: '#ffffff', icon: colors.brand, ring: false },
-}
+  bad: { bg: dark ? '#ff8a801a' : '#fff0f2', icon: colors.danger, ring: false },
+  calm: { bg: colors.surface, icon: colors.brand, ring: false },
+})
 
 /** Cartão "Agora" (`.nowc` e `.banner` do G3): ícone, título, texto, conteúdo extra e ações. */
 function NowCard({ tone, icon, title, children, extra, actions }: { tone: Tone; icon: IconName; title: string; children?: ReactNode; extra?: ReactNode; actions?: ReactNode }) {
-  const look = toneLook[tone]
+  const colors = useThemeColors()
+  const dark = useResolvedTheme() === 'dark'
+  const look = toneLook(colors, dark)[tone]
   return <View testID="next-action" accessibilityLabel={`Agora: ${title}`} style={{ borderRadius: 16, padding: 14, backgroundColor: look.bg, borderWidth: look.ring ? 1.5 : 0, borderColor: colors.mint }}>
     <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
       <View style={{ marginTop: 1 }}><Icon name={icon} size={22} color={look.icon} /></View>
@@ -38,6 +41,7 @@ function NowCard({ tone, icon, title, children, extra, actions }: { tone: Tone; 
 
 /** Checklist do rascunho: cada item com o que falta e "Preencher" (abre o assistente no passo do item). */
 function Checklist({ detail, onFill }: { detail: OrganizerEventDetail; onFill: (step: number) => void }) {
+  const colors = useThemeColors()
   return <View accessibilityLabel="Checklist do rascunho" style={{ marginTop: 12, borderRadius: 12, backgroundColor: colors.subtle, paddingHorizontal: 12 }}>
     {detail.checklist.map((item, index) => <View key={item.key} style={{ minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 6, borderTopWidth: index ? 1 : 0, borderTopColor: colors.line }}>
       <Icon name={item.done ? 'circle-check' : 'circle-dashed'} size={17} color={item.done ? colors.brand : colors['ink-muted']} />
@@ -74,6 +78,7 @@ export interface NextActionCardProps {
  * o chaveamento, agendar e decidir as partidas, e assim por diante.
  */
 export function NextActionCard({ detail, busy, onSubmit, onWithdraw, onFill, onReceipts, onShowEntries, onBracket, onMatches }: NextActionCardProps) {
+  const colors = useThemeColors()
   const action = detail.next_action
   const paid = Boolean(detail.price_cents)
   const submitLabel = paid ? 'Enviar para aprovação' : 'Publicar'

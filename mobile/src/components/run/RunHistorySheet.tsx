@@ -5,7 +5,7 @@ import type { Run, RunFilter } from '../../api/runs'
 import { runDistances } from '../../data/arena'
 import { usePagedList } from '../../hooks/usePagedList'
 import { isStale, useSubmit } from '../../hooks/useSubmit'
-import { colors } from '../../theme'
+import { useThemeColors } from '../../hooks/useTheme'
 import Sheet from '../Sheet'
 import { ActionButton, ConfirmBox, ErrorText, TextAction } from '../arena/controls'
 import { LoadError } from '../arena/LoadError'
@@ -31,6 +31,7 @@ export function RunHistorySheet({ filter, onClose, onAdd, onChanged, onExpired, 
   /** Hoje, para os testes. */
   now?: Date
 }) {
+  const c = useThemeColors()
   const list = usePagedList<Run>(runsPath(filter), onExpired)
   const remove = useSubmit(onExpired)
   const [confirming, setConfirming] = useState<number | null>(null)
@@ -53,14 +54,14 @@ export function RunHistorySheet({ filter, onClose, onAdd, onChanged, onExpired, 
   }
 
   return <Sheet title={other ? 'Outras distâncias' : `Histórico dos ${label}`} onClose={onClose}>
-    <Text style={{ color: colors['ink-muted'], fontSize: 12, lineHeight: 18 }}>
+    <Text style={{ color: c['ink-muted'], fontSize: 12, lineHeight: 18 }}>
       {other ? 'Marcas fora de 3, 5, 10, 21 e 42 km (com 2% de tolerância). Ficam só aqui, sem ranking.' : 'Da mais recente para a mais antiga.'}
     </Text>
-    {list.loading ? <Text accessibilityLiveRegion="polite" style={{ paddingVertical: 24, textAlign: 'center', color: colors['ink-muted'], fontSize: 12 }}>Carregando o histórico…</Text> : null}
+    {list.loading ? <Text accessibilityLiveRegion="polite" style={{ paddingVertical: 24, textAlign: 'center', color: c['ink-muted'], fontSize: 12 }}>Carregando o histórico…</Text> : null}
     {list.error ? <LoadError size="section" title="Não foi possível carregar o histórico" text={list.error.message} cause={list.error} onRetry={list.reload} /> : null}
     {!list.loading && !list.error && !list.items.length ? <View style={{ alignItems: 'center', paddingVertical: 24 }}>
-      <Text accessibilityRole="header" style={{ color: colors.ink, fontSize: 12.5, fontWeight: '700' }}>{other ? 'Nenhuma marca fora das cinco distâncias.' : `Nenhuma marca nos ${label}.`}</Text>
-      <Text style={{ marginTop: 6, maxWidth: 280, textAlign: 'center', color: colors['ink-muted'], fontSize: 11.5, lineHeight: 18 }}>
+      <Text accessibilityRole="header" style={{ color: c.ink, fontSize: 12.5, fontWeight: '700' }}>{other ? 'Nenhuma marca fora das cinco distâncias.' : `Nenhuma marca nos ${label}.`}</Text>
+      <Text style={{ marginTop: 6, maxWidth: 280, textAlign: 'center', color: c['ink-muted'], fontSize: 11.5, lineHeight: 18 }}>
         {other ? 'Registre uma corrida com outra distância e ela aparece aqui.' : 'Registre um treino ou uma prova para entrar no ranking.'}
       </Text>
       {!other && onAdd ? <View style={{ marginTop: 12 }}><ActionButton tone="brand" title={`Registrar ${label}`} fit onPress={onAdd} /></View> : null}
@@ -68,14 +69,14 @@ export function RunHistorySheet({ filter, onClose, onAdd, onChanged, onExpired, 
     {list.items.map(run => {
       const time = formatDuration(run.duration_s)
       const day = formatRunDate(run.date, now)
-      return <View key={run.id} testID={`run-history-${run.id}`} style={{ borderBottomWidth: 1, borderBottomColor: colors['brand-soft'] }}>
+      return <View key={run.id} testID={`run-history-${run.id}`} style={{ borderBottomWidth: 1, borderBottomColor: c['brand-soft'] }}>
         <View style={{ minHeight: 56, flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8 }}>
           <View accessible accessibilityLabel={`${time}, ritmo ${formatPace(run.pace_s_per_km)}, ${day}, ${originLabel(run.origin)}, ${formatKm(run.distance_m)}${run.standard_distance_km && !run.counts_for_ranking ? ', fora das 52 semanas' : ''}`} style={{ flex: 1, minWidth: 0 }}>
             <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'baseline', columnGap: 8 }}>
-              <Text style={{ color: colors.ink, fontSize: 17, fontWeight: '800', fontVariant: ['tabular-nums'] }}>{time}</Text>
-              <Text style={{ color: colors['ink-muted'], fontSize: 10.5 }}>{formatPace(run.pace_s_per_km)}</Text>
+              <Text style={{ color: c.ink, fontSize: 17, fontWeight: '800', fontVariant: ['tabular-nums'] }}>{time}</Text>
+              <Text style={{ color: c['ink-muted'], fontSize: 10.5 }}>{formatPace(run.pace_s_per_km)}</Text>
             </View>
-            <Text accessibilityElementsHidden importantForAccessibility="no" style={{ marginTop: 2, color: colors['ink-muted'], fontSize: 10.5, lineHeight: 15 }}>
+            <Text accessibilityElementsHidden importantForAccessibility="no" style={{ marginTop: 2, color: c['ink-muted'], fontSize: 10.5, lineHeight: 15 }}>
               {day} · {originLabel(run.origin)} · {formatKm(run.distance_m)}{run.standard_distance_km && !run.counts_for_ranking ? ' · fora das 52 semanas' : ''}
             </Text>
           </View>

@@ -4,7 +4,7 @@ import type { UploadFile } from '../../api/client'
 import type { OrganizerEntry } from '../../api/events'
 import { sendRefundReceipt, subjectName } from '../../api/receipts'
 import { useSubmit } from '../../hooks/useSubmit'
-import { colors } from '../../theme'
+import { useThemeColors } from '../../hooks/useTheme'
 import { formatPrice } from '../../utils/format'
 import Sheet from '../Sheet'
 import { ActionButton, BusyStatus, ErrorText, Hint } from '../arena/controls'
@@ -20,6 +20,7 @@ import { refundStatus } from './receiptView'
 export function RefundAttachSheet({ entry, onSent, onClose, onExpired }: {
   entry: OrganizerEntry; onSent: (entry: OrganizerEntry) => void; onClose: () => void; onExpired: () => void
 }) {
+  const colors = useThemeColors()
   const name = subjectName(entry.subject)
   const again = refundStatus(entry).step === 'reenviar'
   const [file, setFile] = useState<UploadFile | null>(null)

@@ -26,16 +26,17 @@ import { loadProfiles } from '../hooks/useCities'
 import { useResource } from '../hooks/useResource'
 import { openUser } from '../navigation/openUser'
 import type { ScreenProps } from '../navigation/screens'
-import { colors } from '../theme'
+import { useThemeColors } from '../hooks/useTheme'
 
 /** Estado vazio honesto: sem ninguém classificado, sem pontos nem posições inventados. */
 function EmptyCard({ icon, title, text, action, testID = 'ranking-empty' }: { icon: IconName; title: string; text: string; action?: ReactNode; testID?: string }) {
-  return <View testID={testID} style={{ alignItems: 'center', gap: 6, borderRadius: 16, backgroundColor: '#ffffff', padding: 22 }}>
-    <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 22, backgroundColor: colors['success-bg'] }}>
-      <Icon name={icon} size={22} color={colors.brand} />
+  const c = useThemeColors()
+  return <View testID={testID} style={{ alignItems: 'center', gap: 6, borderRadius: 16, backgroundColor: c.surface, padding: 22 }}>
+    <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 22, backgroundColor: c['success-bg'] }}>
+      <Icon name={icon} size={22} color={c.brand} />
     </View>
-    <Text accessibilityRole="header" style={{ color: colors.ink, fontSize: 14, fontWeight: '700', textAlign: 'center' }}>{title}</Text>
-    <Text style={{ color: colors['ink-muted'], fontSize: 12, lineHeight: 18, textAlign: 'center' }}>{text}</Text>
+    <Text accessibilityRole="header" style={{ color: c.ink, fontSize: 14, fontWeight: '700', textAlign: 'center' }}>{title}</Text>
+    <Text style={{ color: c['ink-muted'], fontSize: 12, lineHeight: 18, textAlign: 'center' }}>{text}</Text>
     {action}
   </View>
 }
@@ -126,6 +127,7 @@ function RankingBody({ user, navigation, params, onExpired, available, profilePo
  * corrida, na distância), como o "Ver ranking" de "Suas marcas" e do Início. Só dados da API: nada é de exemplo.
  */
 export default function RankingScreen({ user, navigation, params, onExpired, notificationSummary }: ScreenProps<'ranking'>) {
+  const c = useThemeColors()
   const profiles = useResource(loadProfiles, onExpired)
   const list: Profile[] = Array.isArray(profiles.data) ? profiles.data : []
   const available = activeSports(list)
@@ -142,7 +144,7 @@ export default function RankingScreen({ user, navigation, params, onExpired, not
   return <ScrollView ref={scroll} testID="ranking-screen" contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 14, paddingBottom: 32 }} keyboardShouldPersistTaps="handled">
     <View ref={content} collapsable={false} style={{ gap: 14 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-        <Text accessibilityRole="header" style={{ color: colors.ink, fontSize: 28, fontWeight: '800' }}>Ranking</Text>
+        <Text accessibilityRole="header" style={{ color: c.heading, fontSize: 28, fontWeight: '800' }}>Ranking</Text>
         <View style={{ marginRight: -8 }}><NotificationBell tone="light" count={notificationSummary.count} onOpen={() => navigation.go('notifications')} /></View>
       </View>
       {profiles.loading

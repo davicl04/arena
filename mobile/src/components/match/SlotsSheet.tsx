@@ -5,7 +5,7 @@ import { footballFormat, positionShort } from '../../data/arena'
 import { currentSlotCounts, guestSlots, maxSlots, shortName, sideOf, slotPositions, slotTotal } from '../../data/match'
 import type { SlotCounts } from '../../data/match'
 import { useNow } from '../../hooks/useNow'
-import { colors } from '../../theme'
+import { useThemeColors } from '../../hooks/useTheme'
 import { ActionButton, BusyStatus, ErrorText } from '../arena/controls'
 import { Avatar } from '../media'
 import Sheet from '../Sheet'
@@ -28,6 +28,7 @@ export function SlotsSheet({ detail, busy, error, onSave, onRemove, onClose, tok
   onClose: () => void
   token?: string | null
 }) {
+  const colors = useThemeColors()
   const initial = currentSlotCounts(detail)
   const guests = guestSlots(detail.slots, detail.my_side)
   const waiting = detail.slots.filter(slot => slot.side === detail.my_side && slot.state === 'oferecida').length

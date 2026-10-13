@@ -19,7 +19,7 @@ import { useSessionToken } from '../hooks/useSessionToken'
 import { reportActionError, useSubmit } from '../hooks/useSubmit'
 import { openUser } from '../navigation/openUser'
 import type { ScreenProps } from '../navigation/screens'
-import { colors } from '../theme'
+import { useThemeColors } from '../hooks/useTheme'
 import { Icon } from '../components/Icon'
 
 // A câmera (expo-camera) só é carregada quando a pessoa toca em "Entrar com QR".
@@ -40,6 +40,7 @@ const failure = (cause: unknown, fallback: string): LoadFailure => ({ message: m
  * time, o estado vazio leva a Criar time. "Entrar com QR" lê o código do link de um time com a câmera.
  */
 export default function TeamsScreen({ user, navigation, onExpired, params }: ScreenProps<'teams'>) {
+  const colors = useThemeColors()
   const selectedTeamId = params?.teamId
   const openInvites = Boolean(params?.invites)
   const showRequests = Boolean(params?.requests)
@@ -192,7 +193,7 @@ export default function TeamsScreen({ user, navigation, onExpired, params }: Scr
         {invitesError ? <LoadError size="section" title="Não foi possível carregar os convites" text={invitesError.message} cause={invitesError.cause} onRetry={reload} /> : null}
         {listError ? <LoadError size="section" title="Não foi possível carregar pedidos e convites" text={listError.message} cause={listError.cause} onRetry={reload} /> : null}
         {!selected
-          ? <View style={{ marginTop: 18, alignItems: 'center', borderRadius: 16, backgroundColor: '#ffffff', padding: 22 }}>
+          ? <View style={{ marginTop: 18, alignItems: 'center', borderRadius: 16, backgroundColor: colors.surface, padding: 22 }}>
             <Icon name="shield" size={36} color={colors.brand} />
             <Text accessibilityRole="header" style={{ marginTop: 10, color: colors.ink, fontSize: 17, fontWeight: '800', textAlign: 'center' }}>Você ainda não tem time</Text>
             <Text style={{ marginTop: 6, color: colors['ink-muted'], fontSize: 13, lineHeight: 20, textAlign: 'center' }}>
@@ -208,7 +209,7 @@ export default function TeamsScreen({ user, navigation, onExpired, params }: Scr
               onRetry={() => setRosterAttempt(n => n + 1)} onOpen={member => setSheet({ kind: 'member', member })}
               action={representative ? <TextAction title="Convidar" accessibilityLabel="Convidar atletas" onPress={() => invite(selected)} /> : undefined} />
             {representative && selected.member_count <= 1
-              ? <View style={{ marginTop: 12, flexDirection: 'row', gap: 12, borderRadius: 16, backgroundColor: '#ffffff', padding: 14, borderWidth: 1.5, borderColor: colors.mint }}>
+              ? <View style={{ marginTop: 12, flexDirection: 'row', gap: 12, borderRadius: 16, backgroundColor: colors.surface, padding: 14, borderWidth: 1.5, borderColor: colors.mint }}>
                 <View style={{ marginTop: 1 }}><Icon name="users" size={22} color={colors.brand} /></View>
                 <View style={{ flex: 1, minWidth: 0 }}>
                   <Text style={{ color: colors.ink, fontSize: 13, fontWeight: '800' }}>Seu time só tem você</Text>

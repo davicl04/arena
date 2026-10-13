@@ -3,7 +3,7 @@ import { Pressable, Text, View } from 'react-native'
 import { removeMember, updateMember } from '../../api/teams'
 import type { TeamCard, TeamMember } from '../../api/teams'
 import { isStale, useSubmit } from '../../hooks/useSubmit'
-import { colors } from '../../theme'
+import { useThemeColors } from '../../hooks/useTheme'
 import { monthYear } from '../../utils/relativeTime'
 import { MemberFace } from './MemberFace'
 import { ActionSheet } from '../arena/ActionSheet'
@@ -13,6 +13,7 @@ import { Icon } from '../Icon'
 import type { IconName } from '../Icon'
 
 function SheetAction({ icon, label, hint, danger = false, disabled = false, onPress }: { icon: IconName; label: string; hint?: string; danger?: boolean; disabled?: boolean; onPress: () => void }) {
+  const colors = useThemeColors()
   return <Pressable accessibilityRole="button" accessibilityLabel={hint ? `${label}. ${hint}` : label} accessibilityState={{ disabled }} disabled={disabled} onPress={onPress}
     style={{ minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: 1, borderBottomColor: colors.line, paddingVertical: 8, opacity: disabled ? 0.5 : 1 }}>
     <Icon name={icon} size={19} color={danger ? colors.danger : colors.brand} />
@@ -42,6 +43,7 @@ export function MemberSheet({ team, member, viewerIsRepresentative, onClose, onO
   onStale?: () => void
   onExpired: () => void
 }) {
+  const colors = useThemeColors()
   const [confirm, setConfirm] = useState<'remove' | 'leave' | null>(null)
   const { busy, run } = useSubmit(onExpired)
   const representative = member.role === 'representante'

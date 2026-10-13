@@ -24,7 +24,7 @@ import { eventFormatParts } from '../data/arena'
 import { useResource } from '../hooks/useResource'
 import { isStale, useSubmit } from '../hooks/useSubmit'
 import type { ScreenProps } from '../navigation/screens'
-import { colors } from '../theme'
+import { useResolvedTheme, useThemeColors } from '../hooks/useTheme'
 import { formatDeadline, parseIso } from '../utils/format'
 
 type Section = 'info' | 'tabela' | 'percurso' | 'inscritos'
@@ -35,8 +35,10 @@ const BADGE_STATES = ['em_andamento', 'encerrado', 'cancelado'] as const
 const EXPIRY_CHECK_MS = 30_000
 
 function Banner({ icon, title, tone, children }: { icon: 'alert' | 'info' | 'lock' | 'trophy'; title: string; tone: 'danger' | 'neutral'; children: string }) {
+  const colors = useThemeColors()
+  const dark = useResolvedTheme() === 'dark'
   const danger = tone === 'danger'
-  return <View accessible accessibilityLabel={`${title}. ${children}`} style={{ flexDirection: 'row', gap: 10, borderRadius: 14, backgroundColor: danger ? '#fff0f2' : colors.subtle, padding: 12 }}>
+  return <View accessible accessibilityLabel={`${title}. ${children}`} style={{ flexDirection: 'row', gap: 10, borderRadius: 14, backgroundColor: danger ? (dark ? '#ff8a801a' : '#fff0f2') : colors.subtle, padding: 12 }}>
     <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants"><Icon name={icon} size={20} color={danger ? colors.danger : colors['ink-muted']} /></View>
     <View style={{ flex: 1, minWidth: 0 }}>
       <Text style={{ color: danger ? colors.danger : colors.ink, fontSize: 12.5, fontWeight: '700' }}>{title}</Text>
@@ -52,6 +54,7 @@ function Banner({ icon, title, tone, children }: { icon: 'alert' | 'info' | 'loc
  * paga com reserva, Pix, comprovante e, no cancelamento do evento, a resposta à devolução.
  */
 export default function EventScreen({ params, navigation, onExpired }: ScreenProps<'event'>) {
+  const colors = useThemeColors()
   const eventId = params.eventId
   const loadEvent = useCallback(() => getEvent(eventId), [eventId])
   const event = useResource(loadEvent, onExpired, { fallback: 'Não foi possível carregar o evento.' })
@@ -200,7 +203,7 @@ export default function EventScreen({ params, navigation, onExpired }: ScreenPro
         {current.cancel_reason ? `Motivo: ${current.cancel_reason}` : 'O organizador cancelou o evento.'}
       </Banner> : null}
       {current.revocation_pending && current.state !== 'cancelado' ? <Banner icon="info" tone="neutral" title="Inscrições suspensas">A administração está decidindo se o evento segue.</Banner> : null}
-      {current.is_organizer ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 10, borderRadius: 16, backgroundColor: '#ffffff', paddingHorizontal: 14, paddingVertical: 12 }}>
+      {current.is_organizer ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 10, borderRadius: 16, backgroundColor: colors.surface, paddingHorizontal: 14, paddingVertical: 12 }}>
         <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants"><Icon name="trophy" size={19} color={colors.brand} /></View>
         <Text style={{ flex: 1, minWidth: 160, color: colors.ink, fontSize: 11.5, lineHeight: 17 }}>Você organiza {run ? 'esta prova' : 'este campeonato'}. Inscrições, comprovantes e avisos ficam na gestão.</Text>
         <Pressable accessibilityRole="button" accessibilityLabel="Abrir gestão" onPress={() => navigation.go('event-manage', { eventId: current.id })}
@@ -232,13 +235,13 @@ export default function EventScreen({ params, navigation, onExpired }: ScreenPro
         {shown === 'inscritos' ? <EventEntrants eventId={current.id} sport={sport} myEntryId={entry?.id ?? null} onExpired={onExpired} /> : null}
       </View>
     </ScrollView>
-    {cta ? <View testID="entry-bar" style={{ flexDirection: 'row', alignItems: 'center', gap: 8, borderTopWidth: 1, borderTopColor: colors.line, backgroundColor: '#ffffff', paddingHorizontal: 20, paddingVertical: 10 }}>
+    {cta ? <View testID="entry-bar" style={{ flexDirection: 'row', alignItems: 'center', gap: 8, borderTopWidth: 1, borderTopColor: colors.line, backgroundColor: colors.surface, paddingHorizontal: 20, paddingVertical: 10 }}>
       <Pressable accessibilityRole="button" accessibilityLabel={cta.label} accessibilityState={{ disabled: cta.kind === 'blocked' || action.busy }} disabled={cta.kind === 'blocked' || action.busy}
         onPress={() => (cta.kind === 'teams' ? navigation.go('teams') : open(cta.kind === 'enter' ? 'enter' : 'receipt'))}
         style={{ flex: 1, minHeight: 48, minWidth: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 8, backgroundColor: cta.kind === 'blocked' ? colors.line : colors.brand, paddingHorizontal: 12, opacity: action.busy ? 0.5 : 1 }}>
         {cta.kind === 'blocked' && cta.locked ? <Icon name="lock" size={16} color={colors.ink} /> : null}
-        {cta.kind === 'receipt' ? <Icon name="upload" size={16} color="#ffffff" /> : null}
-        <Text numberOfLines={2} style={{ flexShrink: 1, color: cta.kind === 'blocked' ? colors.ink : '#ffffff', fontSize: 14, fontWeight: '600', textAlign: 'center' }}>{cta.label}</Text>
+        {cta.kind === 'receipt' ? <Icon name="upload" size={16} color={colors['on-brand']} /> : null}
+        <Text numberOfLines={2} style={{ flexShrink: 1, color: cta.kind === 'blocked' ? colors.ink : colors['on-brand'], fontSize: 14, fontWeight: '600', textAlign: 'center' }}>{cta.label}</Text>
       </Pressable>
       {paid && pix && cta.kind !== 'teams' ? <PaymentInfoButton onPress={() => openInfo(null)} /> : null}
     </View> : null}

@@ -2,7 +2,7 @@ import { Pressable, Text, View } from 'react-native'
 import type { ArenaNotification } from '../../api/notifications'
 import { notificationView } from '../../data/notifications'
 import type { NotificationView } from '../../data/notifications'
-import { colors } from '../../theme'
+import { useResolvedTheme, useThemeColors } from '../../hooks/useTheme'
 import { relativeTime } from '../../utils/relativeTime'
 import { TeamCrest } from '../arena/TeamCrest'
 import { Icon } from '../Icon'
@@ -15,8 +15,9 @@ export const kindIcon: Record<Exclude<NotificationView['kind'], 'team'>, IconNam
 
 /** Escudo do time (iniciais do nome no aviso) ou o ícone do tipo, num quadrado de 38 pt; decorativo. */
 export function NotificationLead({ view }: { view: NotificationView }) {
-  return <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ width: 38, height: 38, alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: view.kind === 'team' ? colors.tile : 'rgba(0,90,54,0.07)' }}>
-    {view.kind === 'team' ? <TeamCrest name={view.teamName ?? 'Time'} size="sm" decorative /> : <Icon name={kindIcon[view.kind]} size={19} color={colors.brand} />}
+  const colors = useThemeColors()
+  return <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ width: 38, height: 38, alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: view.kind === 'team' ? colors.tile : colors['icon-tile'] }}>
+    {view.kind === 'team' ? <TeamCrest name={view.teamName ?? 'Time'} size="sm" decorative /> : <Icon name={kindIcon[view.kind]} size={19} color={colors['icon-tile-ink']} />}
   </View>
 }
 
@@ -35,6 +36,8 @@ export function NotificationItem({ notification, busy, isAdmin = false, first = 
   first?: boolean
   onOpen: (notification: ArenaNotification) => void
 }) {
+  const colors = useThemeColors()
+  const dark = useResolvedTheme() === 'dark'
   const view = notificationView(notification, { isAdmin })
   const unread = !notification.read_at
   const interactive = unread || Boolean(view.target)
@@ -51,7 +54,7 @@ export function NotificationItem({ notification, busy, isAdmin = false, first = 
   const box = { minHeight: 56, flexDirection: 'row' as const, alignItems: 'flex-start' as const, gap: 12, paddingHorizontal: 14, paddingVertical: 12, borderTopWidth: first ? 0 : 1, borderTopColor: colors.line }
   if (!interactive) return <View style={box}>{content}</View>
   return <Pressable accessibilityRole="button" accessibilityLabel={notificationLabel(view.text, time, unread)} accessibilityHint={view.target ? 'Abre a tela do aviso' : 'Marca como lida'}
-    accessibilityState={{ disabled: busy }} disabled={busy} onPress={() => onOpen(notification)} style={{ ...box, backgroundColor: unread ? 'rgba(0,90,54,0.03)' : 'transparent' }}>
+    accessibilityState={{ disabled: busy }} disabled={busy} onPress={() => onOpen(notification)} style={{ ...box, backgroundColor: unread ? (dark ? 'rgba(143,224,180,0.05)' : 'rgba(0,90,54,0.03)') : 'transparent' }}>
     {content}
   </Pressable>
 }

@@ -5,7 +5,7 @@ import {
 } from '../../api/moderation'
 import type { AdminReport, ModerationAction } from '../../api/moderation'
 import { useSubmit } from '../../hooks/useSubmit'
-import { colors } from '../../theme'
+import { useThemeColors } from '../../hooks/useTheme'
 import { formatDeadline } from '../../utils/format'
 import { authSource } from '../media'
 import { ActionButton, BusyStatus, ErrorText, Hint } from '../arena/controls'
@@ -25,6 +25,7 @@ const doneMessages: Record<ModerationAction, string> = {
  * rota da administração (`image_url`) com o Bearer da sessão; depois da decisão a rota não serve mais a imagem.
  */
 function Preview({ report, token }: { report: AdminReport; token: string | null }) {
+  const colors = useThemeColors()
   const [failed, setFailed] = useState(false)
   const preview = report.target_preview
   if (!preview) return <Hint>Prévia indisponível.</Hint>
@@ -46,6 +47,7 @@ function Preview({ report, token }: { report: AdminReport; token: string | null 
 
 /** Opções da decisão como grupo de rádio: rótulo e explicação, com 44 pt ou mais de altura. */
 function ActionChoices({ report, value, onChange, disabled }: { report: AdminReport; value: ModerationAction; onChange: (action: ModerationAction) => void; disabled: boolean }) {
+  const colors = useThemeColors()
   return <View accessibilityRole="radiogroup" accessibilityLabel="Decisão">
     {moderationActions(report.target_type).map(option => {
       const checked = option.value === value
@@ -78,6 +80,7 @@ export function ReportSheet({ report, token, onClose, onDecided, onReactivated, 
   onReactivated: (report: AdminReport) => void
   onExpired: () => void
 }) {
+  const colors = useThemeColors()
   const pending = report.status === 'pending'
   // O padrão é dispensar, a única decisão que não muda nada: remover ou suspender é uma escolha explícita.
   const [action, setAction] = useState<ModerationAction>('dismiss')

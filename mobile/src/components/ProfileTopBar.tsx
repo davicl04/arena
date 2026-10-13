@@ -25,7 +25,7 @@ export function useCondensedTopBar(coverHeight: number) {
 export function TopBarButton({ label, glyph, onPress, condensed }: { label: string; glyph: string; onPress: () => void; condensed: boolean }) {
   return <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={onPress}
     className={cx('min-h-11 min-w-11 items-center justify-center rounded-[22px]', condensed ? 'bg-transparent' : 'bg-glass-light')}>
-    <Text className={cx('text-ink', glyph === '‹' ? 'text-[26px]' : 'text-[20px]', glyph === '•••' ? 'font-extrabold' : 'font-normal')}>{glyph}</Text>
+    <Text className={cx(condensed ? 'text-ink' : 'text-[#343d39]', glyph === '‹' ? 'text-[26px]' : 'text-[20px]', glyph === '•••' ? 'font-extrabold' : 'font-normal')}>{glyph}</Text>
   </Pressable>
 }
 
@@ -35,7 +35,7 @@ export default function ProfileTopBar({ condensed, username, leading, trailing, 
   /** Largura do lado direito: 52 pt para um botão, 96 pt com o sino e o Menu (o @usuário perde um pouco do centro para não truncar em 320 px). */
   trailingWidth?: number
 }) {
-  return <View pointerEvents="box-none" className={cx('absolute top-0 right-0 left-0 z-10 h-14 flex-row items-center border-line px-2', condensed ? 'border-b bg-white elevation-sm' : 'bg-transparent')}>
+  return <View pointerEvents="box-none" className={cx('absolute top-0 right-0 left-0 z-10 h-14 flex-row items-center border-line px-2', condensed ? 'border-b bg-surface elevation-sm' : 'bg-transparent')}>
     <View className="w-[52px] items-start">{leading}</View>
     <View className="grow basis-0 items-center">
       {condensed ? <Text numberOfLines={1} accessibilityRole="header" className="text-[16px] font-bold text-ink"><Text className="text-brand">@</Text>{username}</Text> : null}

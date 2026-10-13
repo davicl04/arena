@@ -4,7 +4,7 @@ import { CANCEL_REASON_MESSAGE, decideRevocation, reasonError } from '../../api/
 import type { AdminEvent } from '../../api/admin'
 import { ORGANIZER_LIMITS } from '../../api/organizer'
 import { useSubmit } from '../../hooks/useSubmit'
-import { colors } from '../../theme'
+import { useResolvedTheme, useThemeColors } from '../../hooks/useTheme'
 import { plural } from '../../utils/format'
 import { StateBadge } from '../arena/StateBadge'
 import { ReasonPanel } from '../review/ReasonPanel'
@@ -20,6 +20,8 @@ import { AdminEventInfo, AdminPoster, AtStake } from './AdminEventParts'
 export function RevokedEventSheet({ event, onClose, onDecided, onExpired }: {
   event: AdminEvent; onClose: () => void; onDecided: (event: AdminEvent, message: string) => void; onExpired: () => void
 }) {
+  const colors = useThemeColors()
+  const dark = useResolvedTheme() === 'dark'
   const [step, setStep] = useState<'escolher' | 'seguir' | 'cancelar'>('escolher')
   const [reason, setReason] = useState('')
   const [attempted, setAttempted] = useState(false)
@@ -54,7 +56,7 @@ export function RevokedEventSheet({ event, onClose, onDecided, onExpired }: {
       <ActionButton tone="outline" title="Cancelar evento" disabled={busy} onPress={() => { setStep('cancelar'); setError('') }} grow />
     </ActionRow> : null}
 
-    {step === 'seguir' ? <View accessibilityLabel="Seguir com o evento" style={{ marginTop: 14, gap: 10, borderRadius: 16, borderWidth: 1.5, borderColor: 'rgba(0,90,54,0.4)', padding: 14 }}>
+    {step === 'seguir' ? <View accessibilityLabel="Seguir com o evento" style={{ marginTop: 14, gap: 10, borderRadius: 16, borderWidth: 1.5, borderColor: (dark ? 'rgba(143,224,180,0.45)' : 'rgba(0,90,54,0.4)'), padding: 14 }}>
       <Text accessibilityRole="header" accessibilityLiveRegion="polite" style={{ color: colors.ink, fontSize: 14, fontWeight: '700' }}>Seguir com o evento?</Text>
       <Text style={{ color: colors['ink-muted'], fontSize: 12, lineHeight: 18 }}>O organizador continua gerindo este evento, e as inscrições reabrem se o prazo permitir. A decisão fica registrada e ele é avisado.</Text>
       <ActionRow>

@@ -43,7 +43,7 @@ function PersonRow({ person, token, children }: { person: SocialUser; token: str
 
 function VisibilityOption({ selected, title, facts, onPress }: { selected: boolean; title: string; facts: string[]; onPress: () => void }) {
   return <Pressable accessibilityRole="radio" accessibilityState={{ selected }} accessibilityLabel={title} onPress={onPress}
-    className={cx('my-1.5 rounded-lg border-2 p-3.5', selected ? 'border-brand bg-brand-soft' : 'border-line bg-white')}>
+    className={cx('my-1.5 rounded-lg border-2 p-3.5', selected ? 'border-brand bg-brand-soft' : 'border-line bg-surface')}>
     <Text className="mb-1.5 font-bold text-ink">{title}</Text>
     {facts.map(fact => <Text key={fact} className="text-[13px] leading-[20px] text-ink-muted">• {fact}</Text>)}
   </Pressable>
@@ -221,12 +221,12 @@ export default function ProfileScreen({ user, onUser, onLogout, onExpired, onNew
   // A rolagem é própria da tela: a barra superior fica fixa por fora do ScrollView.
   return <View className="grow basis-0">
     <ScrollView onScroll={onScroll} scrollEventThrottle={16} keyboardShouldPersistTaps="handled" contentContainerClassName="pb-12">
-      <View className="bg-white">
+      <View className="bg-surface">
         <Cover path={user.cover?.url ?? null} token={token} height={COVER_HEIGHT} />
         <View className="px-5.5 pb-5.5">
           <View className="-mt-9 w-20">
-            <View className="rounded-[40px] border-[3px] border-white"><Avatar path={user.avatar?.url ?? null} name={user.name} token={token} size={74} /></View>
-            <Pressable accessibilityRole="button" accessibilityLabel="Editar perfil" onPress={() => open('edit')} className="absolute -right-1 bottom-0 size-8 items-center justify-center rounded-[16px] bg-brand"><Text className="text-white">⚙</Text></Pressable>
+            <View className="rounded-[40px] border-[3px] border-surface"><Avatar path={user.avatar?.url ?? null} name={user.name} token={token} size={74} /></View>
+            <Pressable accessibilityRole="button" accessibilityLabel="Editar perfil" onPress={() => open('edit')} className="absolute -right-1 bottom-0 size-8 items-center justify-center rounded-[16px] bg-brand"><Text className="text-on-brand">⚙</Text></Pressable>
           </View>
           <View className="mt-2.5"><ProfileTitle name={user.name} username={user.username} /></View>
           <Text className="mb-2 text-ink-muted">{user.social_public ? 'Conta pública' : 'Conta privada'}</Text>
@@ -302,7 +302,7 @@ export default function ProfileScreen({ user, onUser, onLogout, onExpired, onNew
     {sheet === 'connections' ? <Sheet title="Conexões" onClose={() => open(null)}>
       {feedback}
       <View className={tw.row}>
-        {(['followers', 'following'] as const).map(value => <Pressable key={value} accessibilityRole="tab" accessibilityState={{ selected: tab === value }} onPress={() => setTab(value)} className={cx(tw.chip.base, tab === value ? tw.chip.selected : tw.chip.idle)}><Text className={tab === value ? 'text-[13px] text-white' : tw.chipText.idle}>{value === 'followers' ? `Seguidores (${counts.followers})` : `Seguindo (${counts.following})`}</Text></Pressable>)}
+        {(['followers', 'following'] as const).map(value => <Pressable key={value} accessibilityRole="tab" accessibilityState={{ selected: tab === value }} onPress={() => setTab(value)} className={cx(tw.chip.base, tab === value ? tw.chip.selected : tw.chip.idle)}><Text className={tab === value ? 'text-[13px] text-on-brand' : tw.chipText.idle}>{value === 'followers' ? `Seguidores (${counts.followers})` : `Seguindo (${counts.following})`}</Text></Pressable>)}
       </View>
       {tab === 'followers' ? <>
         {followers.length ? followers.map(person => <PersonRow key={person.id} person={person} token={token}><Button secondary title="Remover" disabled={busy} onPress={() => void removeFollower(person.id)} /></PersonRow>) : <Text className={tw.body}>Nenhum seguidor.</Text>}{more('followers', 'seguidores')}

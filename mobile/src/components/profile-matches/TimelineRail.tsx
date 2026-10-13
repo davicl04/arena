@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { Text, View } from 'react-native'
-import { colors } from '../../theme'
+import { useThemeColors } from '../../hooks/useTheme'
 import { SportIcon } from '../arena/SportIcon'
 import { DuelCard } from './DuelCard'
 import { RunDuelCard } from './RunDuelCard'
@@ -12,6 +12,7 @@ const NODE = 30
 
 /** Linha de uma entrada do trilho: coluna do fio com o nó à esquerda e o conteúdo à direita. */
 export function RailRow({ node, last = false, children }: { node: ReactNode; last?: boolean; children: ReactNode }) {
+  const colors = useThemeColors()
   return <View style={{ flexDirection: 'row' }}>
     <View style={{ width: RAIL_WIDTH, alignItems: 'center' }}>
       <View style={{ position: 'absolute', top: 0, bottom: last ? undefined : 0, height: last ? NODE / 2 + 2 : undefined, width: 2, backgroundColor: colors.line }} />
@@ -23,7 +24,8 @@ export function RailRow({ node, last = false, children }: { node: ReactNode; las
 
 /** Nó com o ícone da modalidade (decorativo: o texto do cartão diz tudo). */
 export function RailNode({ children, dark = false }: { children: ReactNode; dark?: boolean }) {
-  return <View accessible={false} importantForAccessibility="no-hide-descendants" style={{ width: NODE, height: NODE, borderRadius: NODE / 2, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: dark ? colors.forest : colors.line, backgroundColor: dark ? colors.forest : '#ffffff' }}>
+  const colors = useThemeColors()
+  return <View accessible={false} importantForAccessibility="no-hide-descendants" style={{ width: NODE, height: NODE, borderRadius: NODE / 2, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: dark ? colors.forest : colors.line, backgroundColor: dark ? colors.forest : colors.surface }}>
     {children}
   </View>
 }
@@ -35,6 +37,7 @@ export function RailNode({ children, dark = false }: { children: ReactNode; dark
 export function TimelineRail({ items, own, leading, continues, onOpenMatch }: {
   items: readonly TimelineItem[]; own: boolean; leading?: ReactNode; continues: boolean; onOpenMatch?: (matchId: number) => void
 }) {
+  const colors = useThemeColors()
   const entries = railEntries(items)
   return <View testID="timeline-rail" style={{ paddingHorizontal: 20 }}>
     {leading}

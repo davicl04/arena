@@ -4,7 +4,8 @@ import type { Position } from '../../api/client'
 import { contestStat, reviewStat } from '../../api/results'
 import type { Lineup, StatField, StatReviewInput } from '../../api/results'
 import { useSubmit } from '../../hooks/useSubmit'
-import { colors } from '../../theme'
+import { useThemeColors } from '../../hooks/useTheme'
+import type { ThemeColors } from '../../theme'
 import { StateBadge } from '../arena/StateBadge'
 import { ActionButton, ChoicePills, ErrorText, FormField, MultiPills } from '../arena/controls'
 import { Icon } from '../Icon'
@@ -36,6 +37,7 @@ export function LineupRow({ matchId, lineup, attendance, onAttendance, onUpdated
   /** Token da sessão para a foto; sem ele (ou nulo), as iniciais. */
   token?: string | null
 }) {
+  const colors = useThemeColors()
   const [panel, setPanel] = useState<'review' | 'contest' | null>(null)
   const { user, stat } = lineup
   // Com a presença em edição, quem ainda não foi informado só vira "Jogou" quando é marcado.
@@ -59,8 +61,8 @@ export function LineupRow({ matchId, lineup, attendance, onAttendance, onUpdated
       {attendance && onAttendance
         ? <Pressable accessibilityRole="checkbox" accessibilityLabel={`${user.name} jogou`} accessibilityState={{ checked: attendance.present }}
           onPress={() => onAttendance({ ...attendance, present: !attendance.present })} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
-          <View style={{ width: 28, height: 28, alignItems: 'center', justifyContent: 'center', borderRadius: 8, borderWidth: 1.5, borderColor: attendance.present ? colors.brand : colors['line-strong'], backgroundColor: attendance.present ? colors.brand : '#ffffff' }}>
-            {attendance.present ? <Icon name="check" size={15} color="#ffffff" strokeWidth={3} /> : null}
+          <View style={{ width: 28, height: 28, alignItems: 'center', justifyContent: 'center', borderRadius: 8, borderWidth: 1.5, borderColor: attendance.present ? colors.brand : colors['line-strong'], backgroundColor: attendance.present ? colors.brand : colors.surface }}>
+            {attendance.present ? <Icon name="check" size={15} color={colors['on-brand']} strokeWidth={3} /> : null}
           </View>
         </Pressable>
         : null}
@@ -101,7 +103,7 @@ export function LineupRow({ matchId, lineup, attendance, onAttendance, onUpdated
   </View>
 }
 
-const panelBox = { gap: 10, borderRadius: 12, backgroundColor: colors.subtle, padding: 10 } as const
+const panelBoxOf = (c: ThemeColors) => ({ gap: 10, borderRadius: 12, backgroundColor: c.subtle, padding: 10 }) as const
 
 function ReviewPanel({ matchId, lineup, onClose, onDone, onExpired }: {
   matchId: number
@@ -110,6 +112,7 @@ function ReviewPanel({ matchId, lineup, onClose, onDone, onExpired }: {
   onDone: (lineup: Lineup) => void
   onExpired: () => void
 }) {
+  const colors = useThemeColors()
   const stat = lineup.stat!
   const [position, setPosition] = useState<Position | null>(lineup.position)
   const [goals, setGoals] = useState(stat.goals ?? 0)
@@ -130,7 +133,7 @@ function ReviewPanel({ matchId, lineup, onClose, onDone, onExpired }: {
     if (updated) onDone(updated)
   }
 
-  return <View accessibilityLabel={`Revisar estatísticas de ${name}`} style={panelBox}>
+  return <View accessibilityLabel={`Revisar estatísticas de ${name}`} style={panelBoxOf(colors)}>
     <ChoicePills label={`Posição em que ${name} jogou`} options={positionChoices} value={position} onChange={setPosition} disabled={busy} />
     {([['Gols', goals, setGoals], ['Assistências', assists, setAssists], [extraLabel, extra, setExtra]] as const).map(([title, value, set]) => (
       <View key={title} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
@@ -154,6 +157,7 @@ function ContestPanel({ matchId, lineup, onClose, onDone, onExpired }: {
   onDone: (lineup: Lineup) => void
   onExpired: () => void
 }) {
+  const colors = useThemeColors()
   const stat = lineup.stat!
   const [fields, setFields] = useState<StatField[]>([])
   const [reason, setReason] = useState('')
@@ -172,7 +176,7 @@ function ContestPanel({ matchId, lineup, onClose, onDone, onExpired }: {
   }
   const problem = touched && invalid && !error ? (fields.length ? 'Conte por que a estatística está errada.' : 'Escolha o que está errado.') : ''
 
-  return <View accessibilityLabel={`Contestar estatísticas de ${lineup.user.name}`} style={panelBox}>
+  return <View accessibilityLabel={`Contestar estatísticas de ${lineup.user.name}`} style={panelBoxOf(colors)}>
     <Text style={{ color: colors.ink, fontSize: 11.5, fontWeight: '700' }}>O que está errado? <Text style={{ fontWeight: '400', color: colors['ink-muted'] }}>(cada estatística só pode ser contestada uma vez)</Text></Text>
     <MultiPills label="O que está errado" options={choices} values={fields} onChange={setFields} />
     <FormField label="Motivo" multiline maxLength={REASON.max} value={reason} onChangeText={setReason} editable={!busy} placeholder="Ex.: ele não fez dois gols, foi um só."

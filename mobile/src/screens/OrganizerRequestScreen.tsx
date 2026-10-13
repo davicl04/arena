@@ -9,7 +9,7 @@ import { OrganizerRequestForm } from '../components/organizer/OrganizerRequestFo
 import { loadProfiles, useCities } from '../hooks/useCities'
 import { useResource } from '../hooks/useResource'
 import type { ScreenProps } from '../navigation/screens'
-import { colors } from '../theme'
+import { useThemeColors } from '../hooks/useTheme'
 import { Icon } from '../components/Icon'
 
 
@@ -25,6 +25,7 @@ const rules: { icon: Parameters<typeof Icon>[0]['name']; title: string; text: st
  * mostra a situação no lugar do formulário.
  */
 export default function OrganizerRequestScreen({ navigation, onExpired }: ScreenProps<'organizer-request'>) {
+  const colors = useThemeColors()
   const status = useResource(getOrganizerStatus, onExpired, { fallback: 'Não foi possível conferir o seu pedido de organizador.' })
   const cities = useCities(onExpired)
   const profiles = useResource(loadProfiles, onExpired)
@@ -63,7 +64,7 @@ export default function OrganizerRequestScreen({ navigation, onExpired }: Screen
             : state && ready && !status.error ? <>
               <Text accessibilityRole="header" style={{ marginTop: 22, marginBottom: 8, color: colors.ink, fontSize: 16, fontWeight: '700' }}>Como funciona</Text>
               <View accessibilityLabel="Regras do organizador" style={{ gap: 8 }}>
-                {rules.map(rule => <View key={rule.title} accessible accessibilityLabel={`${rule.title}. ${rule.text}`} style={{ flexDirection: 'row', gap: 12, borderRadius: 14, backgroundColor: '#ffffff', padding: 12 }}>
+                {rules.map(rule => <View key={rule.title} accessible accessibilityLabel={`${rule.title}. ${rule.text}`} style={{ flexDirection: 'row', gap: 12, borderRadius: 14, backgroundColor: colors.surface, padding: 12 }}>
                   <Icon name={rule.icon} size={20} color={colors.brand} />
                   <View style={{ flex: 1, minWidth: 0 }}>
                     <Text style={{ color: colors.ink, fontSize: 12.5, fontWeight: '700' }}>{rule.title}</Text>

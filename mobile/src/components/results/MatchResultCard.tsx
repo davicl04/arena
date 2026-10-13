@@ -5,7 +5,7 @@ import { reportResult } from '../../api/results'
 import type { ResultInput, ResultMatch } from '../../api/results'
 import { sideName, sideOf } from '../../data/match'
 import { useSubmit } from '../../hooks/useSubmit'
-import { colors } from '../../theme'
+import { useThemeColors } from '../../hooks/useTheme'
 import { LoadError } from '../arena/LoadError'
 import { Icon } from '../Icon'
 import { toast } from '../toast/toastStore'
@@ -49,6 +49,7 @@ export interface MatchResultCardProps<T extends ResultMatch = ResultMatch> {
 export function MatchResultCard<T extends ResultMatch = ResultMatch>({
   match, viewerId, onChanged, onOpenChat, onExpired, walkoverActions,
 }: MatchResultCardProps<T>) {
+  const colors = useThemeColors()
   const result = match.result
   const football = match.sport === 'futebol'
   const [editing, setEditing] = useState(false)
@@ -108,7 +109,7 @@ export function MatchResultCard<T extends ResultMatch = ResultMatch>({
 
     {hasRoster && (!form || ownReport)
       ? <Pressable accessibilityRole="button" accessibilityLabel={`Elenco e estatísticas. ${rosterSummary}`} onPress={() => setRoster(true)}
-        style={{ minHeight: 56, flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 16, backgroundColor: '#ffffff', padding: 14 }}>
+        style={{ minHeight: 56, flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 16, backgroundColor: colors.surface, padding: 14 }}>
         <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants"><Icon name="users" size={20} color={colors.brand} /></View>
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text style={{ color: colors.ink, fontSize: 13, fontWeight: '700' }}>Elenco e estatísticas</Text>

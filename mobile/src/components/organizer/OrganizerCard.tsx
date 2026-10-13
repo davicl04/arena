@@ -5,6 +5,7 @@ import type { OrganizerEventCard } from '../../api/events'
 import { cancelOrganizerRequest, getOrganizerStatus, refusalText, sentence } from '../../api/organizer'
 import type { OrganizerState, OrganizerStatus } from '../../api/organizer'
 import { isStale, useSubmit } from '../../hooks/useSubmit'
+import { useThemeColors } from '../../hooks/useTheme'
 import { colors } from '../../theme'
 import { plural } from '../../utils/format'
 import { shortDate } from '../../utils/relativeTime'
@@ -137,6 +138,7 @@ export function OrganizerEvents({ status, events, loading, error, errorCause, on
   /** Abre o Criar evento (V4); só com a permissão ativa. */
   onCreate: () => void
 }) {
+  const themed = useThemeColors()
   const approved = status?.state === 'aprovado'
   const preview = events.slice(0, 2)
   const pending = events.reduce((total, event) => total + alertCount(event), 0)
@@ -144,7 +146,7 @@ export function OrganizerEvents({ status, events, loading, error, errorCause, on
     ? `${events.length === 1 ? '1 evento em aberto' : `${events.length} eventos em aberto`}${pending ? ` · ${plural(pending, 'pendência', 'pendências')}` : ''}`
     : 'Nenhum evento em aberto.'
   return <View accessibilityLabel="Organizador">
-    {loading ? <Text accessibilityLiveRegion="polite" style={{ marginBottom: 8, color: colors['ink-muted'], fontSize: 11 }}>Carregando os seus eventos…</Text> : null}
+    {loading ? <Text accessibilityLiveRegion="polite" style={{ marginBottom: 8, color: themed['ink-muted'], fontSize: 11 }}>Carregando os seus eventos…</Text> : null}
     {error ? <LoadError size="section" title="Não foi possível carregar os seus eventos" text={error} cause={errorCause} onRetry={onReload} /> : null}
     {preview.length ? <View accessibilityLabel="Próximos eventos" style={{ marginBottom: 10, flexDirection: 'row', gap: 10 }}>
       {preview.map(event => <View key={event.id} style={{ flex: 1, minWidth: 0 }}>

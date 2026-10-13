@@ -18,7 +18,7 @@ import { NextActionCard } from '../components/organizer/NextActionCard'
 import { useResource } from '../hooks/useResource'
 import { useSubmit } from '../hooks/useSubmit'
 import type { ScreenProps } from '../navigation/screens'
-import { colors } from '../theme'
+import { useThemeColors } from '../hooks/useTheme'
 import { formatDeadline, formatPrice, plural } from '../utils/format'
 import { Icon } from '../components/Icon'
 import type { IconName } from '../components/Icon'
@@ -28,8 +28,9 @@ type SheetKind = 'cancel' | 'delete' | 'edit' | null
 
 /** Linha de seção (`.nl`): ícone, título em negrito e o resumo abaixo. */
 function RowBody({ icon, title, value, hot, trailing }: { icon: IconName; title: string; value: string; hot?: boolean; trailing?: ReactNode }) {
+  const colors = useThemeColors()
   return <>
-    <View style={{ width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,90,54,0.07)' }}><Icon name={icon} size={17} color={colors.brand} /></View>
+    <View style={{ width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: colors['icon-tile'] }}><Icon name={icon} size={17} color={colors['icon-tile-ink']} /></View>
     <View style={{ flex: 1, minWidth: 0 }}>
       <Text style={{ color: colors.ink, fontSize: 13, fontWeight: '700' }}>{title}</Text>
       <Text style={{ marginTop: 1, color: hot ? colors.danger : colors['ink-muted'], fontSize: 10.5, lineHeight: 15, fontWeight: hot ? '700' : '400' }}>{value}</Text>
@@ -50,6 +51,7 @@ function SectionPanel({ icon, title, value, hot, open, onToggle, onLayout, child
   onLayout?: (y: number) => void
   children: ReactNode
 }) {
+  const colors = useThemeColors()
   return <View onLayout={event => onLayout?.(event.nativeEvent.layout.y)} style={{ borderBottomWidth: 1, borderBottomColor: colors.line }}>
     <Pressable accessibilityRole="button" accessibilityLabel={`${title}, ${value}`} accessibilityState={{ expanded: open }} onPress={onToggle} style={rowStyle}>
       <RowBody icon={icon} title={title} value={value} hot={hot} trailing={<View style={{ transform: [{ rotate: open ? '180deg' : '0deg' }] }}><Icon name="chevron-down" size={17} color={colors['ink-muted']} /></View>} />
@@ -60,6 +62,7 @@ function SectionPanel({ icon, title, value, hot, open, onToggle, onLayout, child
 
 /** Seção com tela própria (comprovantes e devoluções). */
 function SectionLink({ icon, title, value, hot, onPress }: { icon: IconName; title: string; value: string; hot?: boolean; onPress: () => void }) {
+  const colors = useThemeColors()
   return <View style={{ borderBottomWidth: 1, borderBottomColor: colors.line }}>
     <Pressable accessibilityRole="button" accessibilityLabel={`${title}, ${value}`} onPress={onPress} style={rowStyle}>
       <RowBody icon={icon} title={title} value={value} hot={hot} trailing={<Icon name="chevron" size={17} color={colors['ink-muted']} />} />
@@ -69,6 +72,7 @@ function SectionLink({ icon, title, value, hot, onPress }: { icon: IconName; tit
 
 /** Seção que ainda não pode ser aberta (chaveamento antes do sorteio, resultados da corrida): apagada, sem ação, com o aviso. */
 function SectionLater({ icon, title, value }: { icon: IconName; title: string; value: string }) {
+  const colors = useThemeColors()
   return <View accessible accessibilityLabel={`${title}, ${value}`} accessibilityState={{ disabled: true }} style={{ borderBottomWidth: 1, borderBottomColor: colors.line, opacity: 0.6 }}>
     <View style={rowStyle}><RowBody icon={icon} title={title} value={value} /></View>
   </View>
@@ -76,6 +80,7 @@ function SectionLater({ icon, title, value }: { icon: IconName; title: string; v
 
 /** Lista de dados do evento ou do Pix; valor ausente aparece como "—". */
 function DataList({ rows }: { rows: [string, ReactNode, boolean?][] }) {
+  const colors = useThemeColors()
   return <View style={{ borderRadius: 12, backgroundColor: colors.subtle, paddingHorizontal: 12, paddingVertical: 4 }}>
     {rows.map(([label, value, mono], index) => {
       const empty = value === null || value === ''
@@ -95,6 +100,7 @@ function DataList({ rows }: { rows: [string, ReactNode, boolean?][] }) {
  * excluir rascunho, retirar da aprovação e cancelar.
  */
 export default function EventManageScreen({ params, navigation, onExpired }: ScreenProps<'event-manage'>) {
+  const colors = useThemeColors()
   const eventId = params.eventId
   const load = useCallback(() => getOrganizerEvent(eventId), [eventId])
   const resource = useResource(load, onExpired, { fallback: 'Não foi possível carregar o evento.' })
@@ -216,7 +222,7 @@ export default function EventManageScreen({ params, navigation, onExpired }: Scr
       </View>
 
       <Text accessibilityRole="header" style={{ marginTop: 20, marginBottom: 8, color: colors.ink, fontSize: 16, fontWeight: '700' }}>Seções</Text>
-      <View style={{ borderRadius: 16, backgroundColor: '#ffffff', paddingHorizontal: 14 }}>
+      <View style={{ borderRadius: 16, backgroundColor: colors.surface, paddingHorizontal: 14 }}>
         {beforeRegistration
           ? <SectionLater icon="users" title={entriesTitle(detail.sport)} value={detail.capacity ? `0 de ${detail.capacity} · depois de publicar` : 'Depois de publicar'} />
           : <SectionPanel icon="users" title={entriesTitle(detail.sport)} open={open.entries} onToggle={toggle('entries')} onLayout={y => { entriesY.current = y }}

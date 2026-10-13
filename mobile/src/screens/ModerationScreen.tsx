@@ -13,7 +13,7 @@ import { toast } from '../components/toast/toastStore'
 import { ListMessage, LoadMore } from '../components/review/ui'
 import { usePagedList } from '../hooks/usePagedList'
 import { useSessionToken } from '../hooks/useSessionToken'
-import { colors } from '../theme'
+import { useThemeColors } from '../hooks/useTheme'
 import { relativeTime } from '../utils/relativeTime'
 
 const tabs: { value: ReportStatus; label: string }[] = [{ value: 'pending', label: 'Pendentes' }, { value: 'resolved', label: 'Resolvidas' }]
@@ -27,6 +27,7 @@ function snippet(report: AdminReport): string {
 }
 
 function Reports({ onExpired }: { onExpired: () => void }) {
+  const colors = useThemeColors()
   const token = useSessionToken()
   const [status, setStatus] = useState<ReportStatus>('pending')
   const list = usePagedList<AdminReport>(adminReportsPath(status), onExpired)

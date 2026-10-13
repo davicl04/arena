@@ -5,7 +5,7 @@ import type { PublicEntry } from '../../api/entries'
 import { eventNoun } from '../../data/arena'
 import { usePagedList } from '../../hooks/usePagedList'
 import { useSessionToken } from '../../hooks/useSessionToken'
-import { colors } from '../../theme'
+import { useThemeColors } from '../../hooks/useTheme'
 import { formatShortDate, parseIso } from '../../utils/format'
 import { TeamCrest } from '../arena/TeamCrest'
 import { Avatar } from '../media'
@@ -14,17 +14,18 @@ import { LoadError } from '../arena/LoadError'
 
 /** Aba Inscritos do D2: só as inscrições confirmadas, na ordem da confirmação, com o selo "Você" na de quem vê. */
 export function EventEntrants({ eventId, sport, myEntryId, onExpired }: { eventId: number; sport: Sport; myEntryId: number | null; onExpired: () => void }) {
+  const colors = useThemeColors()
   const list = usePagedList<PublicEntry>(publicEntriesPath(eventId), onExpired)
   const token = useSessionToken()
   const noun = eventNoun[sport]
   if (list.loading) return <Text accessibilityLiveRegion="polite" style={{ color: colors['ink-muted'], fontSize: 11, paddingHorizontal: 4 }}>Carregando inscritos…</Text>
   if (list.error) return <LoadError size="section" title="Não foi possível carregar os inscritos" text={list.error.message} cause={list.error} onRetry={list.reload} />
-  if (list.items.length === 0) return <View style={{ alignItems: 'center', borderRadius: 16, backgroundColor: '#ffffff', padding: 20 }}>
+  if (list.items.length === 0) return <View style={{ alignItems: 'center', borderRadius: 16, backgroundColor: colors.surface, padding: 20 }}>
     <Text accessibilityRole="header" style={{ color: colors.ink, fontSize: 14, fontWeight: '700' }}>Nenhuma inscrição confirmada</Text>
     <Text style={{ color: colors['ink-muted'], fontSize: 12, lineHeight: 18, marginTop: 4, textAlign: 'center' }}>Os {noun.entrants} aparecem aqui quando a inscrição é confirmada.</Text>
   </View>
   return <View style={{ gap: 8 }}>
-    <View accessibilityLabel={`${noun.entrants[0].toUpperCase()}${noun.entrants.slice(1)} confirmados`} style={{ borderRadius: 16, backgroundColor: '#ffffff', paddingHorizontal: 14, paddingVertical: 4 }}>
+    <View accessibilityLabel={`${noun.entrants[0].toUpperCase()}${noun.entrants.slice(1)} confirmados`} style={{ borderRadius: 16, backgroundColor: colors.surface, paddingHorizontal: 14, paddingVertical: 4 }}>
       {list.items.map((item, index) => {
         const team = item.subject.team
         const athlete = item.subject.athlete

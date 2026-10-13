@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { Pressable, Text, TextInput, View } from 'react-native'
 import { colors } from '../../theme'
+import { useThemeColors } from '../../hooks/useTheme'
+import type { ThemeColors } from '../../theme'
 import { Icon } from '../Icon'
 
 const pad = (value: number) => String(value).padStart(2, '0')
@@ -64,10 +66,10 @@ export interface TimeFieldProps {
   disabled?: boolean
 }
 
-const look = {
-  light: { bg: '#ffffff', border: colors['line-strong'], text: colors.ink, hint: colors.placeholder, icon: colors.brand, button: colors['brand-soft'], glyph: colors.brand, error: colors.error },
+const look = (c: ThemeColors) => ({
+  light: { bg: c.surface, border: c['line-strong'], text: c.ink, hint: c.placeholder, icon: c.brand, button: c['brand-soft'], glyph: c.brand, error: c.error },
   dark: { bg: 'rgba(255,255,255,0.05)', border: 'rgba(255,255,255,0.18)', text: '#ffffff', hint: 'rgba(255,255,255,0.4)', icon: colors.mint, button: 'rgba(255,255,255,0.08)', glyph: '#ffffff', error: colors['danger-soft'] },
-} as const
+}) as const
 
 /**
  * Campo de hora: digitação "HH:MM" com máscara e validação (ao sair, "9" vira 09:00) e botões − e + que andam de 15 em
@@ -84,7 +86,7 @@ export function TimeField({ value, onChange, label, stepMinutes = 15, emptyStart
     setText(value)
     setError('')
   }, [value])
-  const style = look[tone]
+  const style = look(useThemeColors())[tone]
 
   function emit(next: string) {
     emitted.current = next

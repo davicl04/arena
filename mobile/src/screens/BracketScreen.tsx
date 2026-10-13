@@ -14,7 +14,7 @@ import { toast } from '../components/toast/toastStore'
 import { useResource } from '../hooks/useResource'
 import { useSubmit } from '../hooks/useSubmit'
 import type { ScreenProps } from '../navigation/screens'
-import { colors } from '../theme'
+import { useThemeColors } from '../hooks/useTheme'
 import { formatDeadline } from '../utils/format'
 
 /** Nome de quem ocupa o lugar `place` da primeira fase (para a frase da troca). */
@@ -25,11 +25,12 @@ function nameAtPlace(bracket: Bracket, place: number): string {
   return 'o lugar escolhido'
 }
 
-const card = { gap: 12, borderRadius: 16, backgroundColor: '#ffffff', padding: 14 } as const
-const small = { color: colors['ink-muted'], fontSize: 11, lineHeight: 17 } as const
+const cardStyle = (backgroundColor: string) => ({ gap: 12, borderRadius: 16, backgroundColor, padding: 14 }) as const
+const small = (color: string) => ({ color, fontSize: 11, lineHeight: 17 }) as const
 
 /** Aviso do que impede o sorteio agora (`permissions.draw_blocker`). */
 function Blocker({ text }: { text: string }) {
+  const colors = useThemeColors()
   return <View testID="draw-blocker" accessibilityRole="alert" style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8, borderRadius: 12, backgroundColor: colors['warning-bg'], padding: 10 }}>
     <View style={{ marginTop: 1 }}><Icon name="triangle-alert" size={16} color={colors.warning} /></View>
     <Text style={{ flex: 1, minWidth: 0, color: colors.ink, fontSize: 11.5, lineHeight: 17 }}>{text}</Text>
@@ -37,9 +38,10 @@ function Blocker({ text }: { text: string }) {
 }
 
 function Info({ icon, children }: { icon: 'info' | 'hand'; children: string }) {
+  const colors = useThemeColors()
   return <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
     <View style={{ marginTop: 1 }}><Icon name={icon} size={15} color={colors.brand} /></View>
-    <Text style={[small, { flex: 1, minWidth: 0 }]}>{children}</Text>
+    <Text style={[small(colors['ink-muted']), { flex: 1, minWidth: 0 }]}>{children}</Text>
   </View>
 }
 
@@ -51,6 +53,7 @@ function Info({ icon, children }: { icon: 'info' | 'hand'; children: string }) {
  * `409` em qualquer ação relê o chaveamento, para os botões acompanharem o estado de agora.
  */
 export default function BracketScreen({ params, navigation, onExpired }: ScreenProps<'event-bracket'>) {
+  const colors = useThemeColors()
   const eventId = params.eventId
   const load = useCallback(() => getBracket(eventId), [eventId])
   const resource = useResource(load, onExpired, { fallback: 'Não foi possível carregar o chaveamento.' })
@@ -149,12 +152,12 @@ export default function BracketScreen({ params, navigation, onExpired }: ScreenP
       <TeamsPlate bottom={16}><DarkTopBar eyebrow={current.event_name} title={title} onBack={navigation.back} /></TeamsPlate>
 
       <View style={{ padding: 16, gap: 14 }}>
-        {current.state === 'sem_chaveamento' ? <View style={card}>
+        {current.state === 'sem_chaveamento' ? <View style={cardStyle(colors.surface)}>
           <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
             <View style={{ marginTop: 1 }}><Icon name="shuffle" size={22} color={colors.brand} /></View>
             <View style={{ flex: 1, minWidth: 0 }}>
               <Text accessibilityRole="header" style={{ color: colors.ink, fontSize: 14, fontWeight: '700', lineHeight: 19 }}>{elimination ? 'Sorteie o chaveamento' : 'Sorteie as rodadas'}</Text>
-              <Text style={[small, { marginTop: 4, fontSize: 11.5 }]}>
+              <Text style={[small(colors['ink-muted']), { marginTop: 4, fontSize: 11.5 }]}>
                 {elimination
                   ? `O sorteio monta a chave com os ${unit} confirmados. Quem ficar sem adversário na primeira fase tem folga e passa direto. Depois você pode trocar dois ${unit} de lugar.`
                   : `O sorteio define a ordem das rodadas: cada ${one} joga uma vez por rodada e, com número ímpar, um folga em cada rodada.`}

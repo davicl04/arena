@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { Text, View } from 'react-native'
-import { colors } from '../../theme'
+import { useThemeColors } from '../../hooks/useTheme'
 import { Icon } from '../Icon'
 import type { IconName } from '../Icon'
 
@@ -11,6 +11,7 @@ export function Strong({ children }: { children: ReactNode }) {
 
 /** Trecho secundário, menor e em cinza (`<small>` dos protótipos). */
 export function Muted({ children }: { children: ReactNode }) {
+  const colors = useThemeColors()
   return <Text style={{ fontSize: 10, color: colors['ink-muted'] }}>{children}</Text>
 }
 
@@ -25,6 +26,7 @@ export function Term({ icon, iconNode, children, action }: {
   children: ReactNode
   action?: ReactNode
 }) {
+  const colors = useThemeColors()
   return <View style={{ minHeight: 32, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
     <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ minWidth: 17, alignItems: 'center' }}>
       {iconNode ?? (icon ? <Icon name={icon} size={17} color={colors.brand} /> : null)}

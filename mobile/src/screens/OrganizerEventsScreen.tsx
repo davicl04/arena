@@ -11,7 +11,7 @@ import { NewEventPoster, PosterGrid } from '../components/organizer/PosterGrid'
 import { usePagedList } from '../hooks/usePagedList'
 import { useResource } from '../hooks/useResource'
 import type { ScreenProps } from '../navigation/screens'
-import { colors } from '../theme'
+import { useThemeColors } from '../hooks/useTheme'
 import { Icon } from '../components/Icon'
 
 /**
@@ -20,6 +20,7 @@ import { Icon } from '../components/Icon'
  * (paginados). Sem permissão ativa (revogado), os eventos mantidos continuam, mas não há criação.
  */
 export default function OrganizerEventsScreen({ navigation, onExpired }: ScreenProps<'organizer-events'>) {
+  const colors = useThemeColors()
   const open = useResource(listOpenOrganizerEvents, onExpired, { fallback: 'Não foi possível carregar os seus eventos.' })
   const closed = usePagedList<OrganizerEventCard>(organizerEventsPath('encerrados'), onExpired)
   const status = useResource(getOrganizerStatus, onExpired)
@@ -49,7 +50,7 @@ export default function OrganizerEventsScreen({ navigation, onExpired }: ScreenP
     {open.error ? <LoadError size="screen" title="Não foi possível carregar os seus eventos" text={open.error} cause={open.errorCause} onRetry={open.reload} /> : null}
 
     {empty ? <View accessibilityLabel="Seu primeiro evento" style={{ alignItems: 'center', paddingHorizontal: 12, paddingVertical: 32 }}>
-      <View style={{ width: 56, height: 56, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,90,54,0.07)' }}><Icon name="trophy" size={26} color={colors.brand} /></View>
+      <View style={{ width: 56, height: 56, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: colors['icon-tile'] }}><Icon name="trophy" size={26} color={colors['icon-tile-ink']} /></View>
       <Text accessibilityRole="header" style={{ marginTop: 14, color: colors.ink, fontSize: 15, fontWeight: '800' }}>Seu primeiro evento</Text>
       <Text style={{ marginTop: 7, maxWidth: 290, textAlign: 'center', color: colors['ink-muted'], fontSize: 12, lineHeight: 20 }}>
         Campeonato de futebol ou tênis (todos contra todos ou eliminação simples) ou prova de corrida. Eventos pagos passam pela aprovação da administração antes de publicar.

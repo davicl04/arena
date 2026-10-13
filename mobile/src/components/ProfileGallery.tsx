@@ -8,7 +8,7 @@ import type { PostUpdate } from './PostItem'
 import PostViewer from './PostViewer'
 import { Button } from './ui'
 import { cx, tw } from '../styles'
-import { colors } from '../theme'
+import { useThemeColors } from '../hooks/useTheme'
 
 /**
  * Grade de fotos 3×N de `/users/{id}/posts`, em linhas mapeadas (o perfil já rola num ScrollView).
@@ -19,6 +19,7 @@ export default function ProfileGallery({ userId, ownerName, ownerUsername, viewe
   userId: number; ownerName: string; ownerUsername: string; viewerId: number; token: string | null; own?: boolean
   onNewPhoto?: () => void; onPostUpdate?: PostUpdate; onPostRemove?: (id: number) => void; onExpired: () => void
 }) {
+  const colors = useThemeColors()
   const list = usePagedList<Post>(`/users/${userId}/posts`, onExpired)
   const [open, setOpen] = useState<number | null>(null)
   const { setItems } = list

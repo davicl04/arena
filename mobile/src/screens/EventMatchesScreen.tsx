@@ -16,7 +16,7 @@ import { whenText } from '../data/match'
 import { useResource } from '../hooks/useResource'
 import { useSubmit } from '../hooks/useSubmit'
 import type { ScreenProps } from '../navigation/screens'
-import { colors } from '../theme'
+import { useThemeColors } from '../hooks/useTheme'
 import { plural } from '../utils/format'
 
 /** Os contadores do alto da lista, na ordem do que o organizador faz primeiro. */
@@ -32,6 +32,7 @@ export function counters(counts: EventMatchList['counts']): { label: string; val
 
 /** Duas marcas lado a lado: o brasão (ou a foto) de quem joga, ou o escudo tracejado enquanto o lado espera o vencedor. */
 function RowMarks({ row }: { row: EventMatchRow }) {
+  const colors = useThemeColors()
   const [a, b] = (['a', 'b'] as const).map(key => row.card.sides.find(side => side.side === key))
   const ghost = <View style={{ width: 29, height: 29, borderRadius: 15, borderWidth: 1, borderStyle: 'dashed', borderColor: colors['ink-muted'], alignItems: 'center', justifyContent: 'center' }}>
     <Text style={{ color: colors['ink-muted'], fontSize: 11, fontWeight: '800' }}>?</Text>
@@ -43,6 +44,7 @@ function RowMarks({ row }: { row: EventMatchRow }) {
 }
 
 function MatchRow({ item, onPress }: { item: EventMatchRow; onPress: () => void }) {
+  const colors = useThemeColors()
   const [first, second] = rowNames(item)
   const badge = rowBadge(item)
   const interactive = item.awaiting_decision || item.can_schedule || item.card.sides.length === 2
@@ -59,7 +61,7 @@ function MatchRow({ item, onPress }: { item: EventMatchRow; onPress: () => void 
     </View>
     {interactive ? <Icon name="chevron" size={16} color={colors['ink-muted']} /> : null}
   </>
-  const frame = { minHeight: 60, flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 16, backgroundColor: '#ffffff', paddingHorizontal: 12, paddingVertical: 10 } as const
+  const frame = { minHeight: 60, flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 16, backgroundColor: colors.surface, paddingHorizontal: 12, paddingVertical: 10 } as const
   const label = `${item.label}, ${first} contra ${second}. ${subtitle}. ${badge.label}.`
   return interactive
     ? <Pressable testID={`match-${item.card.id}`} accessibilityRole="button" accessibilityLabel={label} onPress={onPress} style={frame}>{content}</Pressable>
@@ -74,6 +76,7 @@ function MatchRow({ item, onPress }: { item: EventMatchRow; onPress: () => void 
  * `409` que não é conflito de agenda ("resultado já definido", "já começou") relê a lista, e a mensagem do servidor fica visível.
  */
 export default function EventMatchesScreen({ params, navigation, onExpired }: ScreenProps<'event-matches'>) {
+  const colors = useThemeColors()
   const eventId = params.eventId
   const loadEvent = useCallback(() => getOrganizerEvent(eventId), [eventId])
   const loadMatches = useCallback(() => listEventMatches(eventId), [eventId])
@@ -152,7 +155,7 @@ export default function EventMatchesScreen({ params, navigation, onExpired }: Sc
       {header}
       <View style={{ padding: 16, gap: 12 }}>
         {list.items.length === 0
-          ? <View style={{ alignItems: 'center', borderRadius: 16, backgroundColor: '#ffffff', padding: 20 }}>
+          ? <View style={{ alignItems: 'center', borderRadius: 16, backgroundColor: colors.surface, padding: 20 }}>
             <Icon name="calendar-days" size={24} color={colors['ink-muted']} />
             <Text accessibilityRole="header" style={{ marginTop: 6, color: colors.ink, fontSize: 14, fontWeight: '700' }}>Nenhuma partida ainda</Text>
             <Text style={{ marginTop: 4, color: colors['ink-muted'], fontSize: 12, lineHeight: 18, textAlign: 'center' }}>As partidas aparecem quando você confirma o chaveamento do campeonato.</Text>
@@ -160,7 +163,7 @@ export default function EventMatchesScreen({ params, navigation, onExpired }: Sc
           : <>
             {chips.length > 0 ? <View accessibilityRole="list" accessibilityLabel="Resumo das partidas" style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
               {chips.map(item => <View key={item.label} accessible accessibilityLabel={`${item.value} ${item.label}`}
-                style={{ minHeight: 28, justifyContent: 'center', borderRadius: 14, backgroundColor: item.hot ? colors['warning-bg'] : '#ffffff', paddingHorizontal: 10 }}>
+                style={{ minHeight: 28, justifyContent: 'center', borderRadius: 14, backgroundColor: item.hot ? colors['warning-bg'] : colors.surface, paddingHorizontal: 10 }}>
                 <Text style={{ color: item.hot ? colors.warning : colors['ink-muted'], fontSize: 10.5, fontWeight: '700' }}>
                   <Text style={{ fontSize: 11.5, fontWeight: '800' }}>{item.value}</Text>{` ${item.label}`}
                 </Text>

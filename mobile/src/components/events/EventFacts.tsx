@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import { Pressable, Text, View } from 'react-native'
 import type { EventDetail } from '../../api/entries'
 import { eventFormatParts, eventNoun, tiers } from '../../data/arena'
-import { colors } from '../../theme'
+import { useThemeColors } from '../../hooks/useTheme'
 import { formatDeadline, formatPrice } from '../../utils/format'
 import { TierEmblem } from '../arena/TierEmblem'
 import { Icon } from '../Icon'
@@ -11,11 +11,13 @@ import { Muted, Strong, Term } from './Term'
 
 /** Cartão branco das abas do detalhe. */
 export function InfoCard({ children, label }: { children: ReactNode; label?: string }) {
-  return <View accessibilityLabel={label} style={{ gap: 4, borderRadius: 16, backgroundColor: '#ffffff', paddingHorizontal: 14, paddingVertical: 12 }}>{children}</View>
+  const colors = useThemeColors()
+  return <View accessibilityLabel={label} style={{ gap: 4, borderRadius: 16, backgroundColor: colors.surface, paddingHorizontal: 14, paddingVertical: 12 }}>{children}</View>
 }
 
 /** Ícone ⓘ ao lado do preço: abre a folha "Pagamento e informações". */
 export function PaymentInfoButton({ onPress }: { onPress: () => void }) {
+  const colors = useThemeColors()
   return <Pressable accessibilityRole="button" accessibilityLabel="Informações de pagamento" onPress={onPress}
     style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
     <Icon name="info" size={18} color={colors.brand} />
@@ -69,7 +71,8 @@ export function EventFacts({ detail, onPaymentInfo }: { detail: EventDetail; onP
 
 /** Cartão do organizador ("Contato"), com o nome público. */
 export function OrganizerCard({ name, onContact }: { name: string; onContact?: () => void }) {
-  return <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 16, backgroundColor: '#ffffff', paddingHorizontal: 14, paddingVertical: 12 }}>
+  const colors = useThemeColors()
+  return <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 16, backgroundColor: colors.surface, paddingHorizontal: 14, paddingVertical: 12 }}>
     <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ width: 38, height: 38, alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: colors.tile }}>
       <Icon name="building" size={19} color={colors.brand} />
     </View>
@@ -86,6 +89,7 @@ export function OrganizerCard({ name, onContact }: { name: string; onContact?: (
 
 /** Aviso do pagamento fora do Arena, abaixo das informações dos eventos pagos. */
 export function PaymentHint() {
+  const colors = useThemeColors()
   return <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8, paddingHorizontal: 4 }}>
     <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ marginTop: 1 }}><Icon name="info" size={15} color={colors['ink-muted']} /></View>
     <Text style={{ flex: 1, color: colors['ink-muted'], fontSize: 10.5, lineHeight: 15 }}>

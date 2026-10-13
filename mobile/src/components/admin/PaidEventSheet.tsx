@@ -6,7 +6,7 @@ import { ORGANIZER_LIMITS } from '../../api/organizer'
 import { eventRefusalReasons } from '../../data/arena'
 import type { EventRefusalReason } from '../../data/arena'
 import { useSubmit } from '../../hooks/useSubmit'
-import { colors } from '../../theme'
+import { useThemeColors } from '../../hooks/useTheme'
 import { relativeTime } from '../../utils/relativeTime'
 import { ReasonPanel } from '../review/ReasonPanel'
 import { ActionButton, BusyStatus, ErrorText } from '../arena/controls'
@@ -18,6 +18,7 @@ import { AdminEventInfo, AdminPoster, PixInformed } from './AdminEventParts'
 export function PaidEventSheet({ event, onClose, onDecided, onExpired }: {
   event: AdminEvent; onClose: () => void; onDecided: (event: AdminEvent, message: string) => void; onExpired: () => void
 }) {
+  const colors = useThemeColors()
   const [refusing, setRefusing] = useState(false)
   const [reason, setReason] = useState<EventRefusalReason | null>(null)
   const [detail, setDetail] = useState('')

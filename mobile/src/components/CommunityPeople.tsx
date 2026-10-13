@@ -6,7 +6,7 @@ import { LoadError } from './arena/LoadError'
 import { Avatar } from './media'
 import { Button } from './ui'
 import { cx, tw } from '../styles'
-import { colors } from '../theme'
+import { useThemeColors } from '../hooks/useTheme'
 
 const firstName = (name: string) => name.trim().split(/\s+/)[0] ?? name
 
@@ -37,7 +37,7 @@ function PersonRow({ person, token, pending, onFollow, onOpenProfile }: {
 }) {
   const label = followLabel(person)
   const active = person.follow_state === 'approved' || person.follow_state === 'pending'
-  return <View className="flex-row items-center gap-2 border-b border-line bg-white px-4 py-2">
+  return <View className="flex-row items-center gap-2 border-b border-line bg-surface px-4 py-2">
     <Pressable accessibilityRole="button" accessibilityLabel={`Abrir perfil de ${person.name}`} onPress={() => onOpenProfile(person.id)} className="min-h-11 grow basis-0 flex-row items-center gap-3">
       <Avatar path={person.avatar_url} name={person.name} token={token} size={44} />
       <View className="shrink grow basis-0">
@@ -47,8 +47,8 @@ function PersonRow({ person, token, pending, onFollow, onOpenProfile }: {
       </View>
     </Pressable>
     {person.follow_state !== 'self' ? <Pressable accessibilityRole="button" accessibilityLabel={`${label}: @${person.username}`} accessibilityState={{ disabled: pending, selected: active }} disabled={pending} onPress={() => onFollow(person)}
-      className={cx('min-h-11 min-w-[104px] items-center justify-center rounded-control px-3', active ? 'border border-line bg-white' : 'bg-brand', pending && 'opacity-50')}>
-      <Text className={cx('text-[13px] font-bold', active ? 'text-ink' : 'text-white')}>{label}</Text>
+      className={cx('min-h-11 min-w-[104px] items-center justify-center rounded-control px-3', active ? 'border border-line bg-surface' : 'bg-brand', pending && 'opacity-50')}>
+      <Text className={cx('text-[13px] font-bold', active ? 'text-ink' : 'text-on-brand')}>{label}</Text>
     </Pressable> : null}
   </View>
 }
@@ -58,9 +58,10 @@ export default function CommunityPeople({ userId, token, search, pendingIds, onF
   userId: number; token: string | null; search: AthleteSearch; pendingIds: number[]
   onFollow: (person: SocialUser) => void; onOpenProfile: (id: number) => void; onExpired: () => void
 }) {
+  const colors = useThemeColors()
   if (!search.active) return <ScrollView keyboardShouldPersistTaps="handled" contentContainerClassName="pb-8">
     <FollowingRow userId={userId} token={token} onOpenProfile={onOpenProfile} onExpired={onExpired} />
-    <View className="m-4 rounded-card bg-white p-5">
+    <View className="m-4 rounded-card bg-surface p-5">
       <Text accessibilityRole="header" className="mb-1.5 text-[17px] font-bold text-ink">Encontre atletas</Text>
       <Text className="text-[14px] leading-[21px] text-ink-muted">Busque pelo nome ou pelo @ no campo acima. Contas privadas recebem um pedido para seguir.</Text>
     </View>

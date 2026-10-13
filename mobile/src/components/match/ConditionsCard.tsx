@@ -4,7 +4,8 @@ import { Pressable, Text, View } from 'react-native'
 import type { MatchDetail, MatchTermsOut, Side } from '../../api/matches'
 import { currentSlotCounts, guestSlots, nameOf, orderedSides, shortName, sideName, slotTotal, whenText } from '../../data/match'
 import { useNow } from '../../hooks/useNow'
-import { colors } from '../../theme'
+import { useResolvedTheme, useThemeColors } from '../../hooks/useTheme'
+import type { ThemeColors } from '../../theme'
 import { formatDeadline, parseIso } from '../../utils/format'
 import { ActionButton, ErrorText, SwitchRow } from '../arena/controls'
 import { Icon } from '../Icon'
@@ -16,24 +17,28 @@ import type { IconName } from '../Icon'
  * cancelamento e o W.O. A interface obedece às permissões do servidor: o que o papel não pode fazer simplesmente não aparece.
  */
 
-const muted = colors['ink-muted']
-
 function Row({ icon, children }: { icon: IconName; children: ReactNode }) {
+  const colors = useThemeColors()
   return <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10 }}>
     <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ marginTop: 1 }}><Icon name={icon} size={16} color={colors.brand} /></View>
     <View style={{ flex: 1, minWidth: 0 }}>{children}</View>
   </View>
 }
 
-const rowText = { color: colors.ink, fontSize: 12.5, lineHeight: 18 } as const
-const small = { color: muted, fontSize: 10.5, lineHeight: 15 } as const
+const rowTextOf = (c: ThemeColors) => ({ color: c.ink, fontSize: 12.5, lineHeight: 18 }) as const
+const smallOf = (c: ThemeColors) => ({ color: c['ink-muted'], fontSize: 10.5, lineHeight: 15 }) as const
+/** Fundo rosado dos avisos de erro (claro) e o equivalente no escuro. */
+const errorTint = (dark: boolean) => (dark ? '#ff8a8022' : '#fff0f2')
 
 function Badge({ tone, children }: { tone: 'warning' | 'error'; children: string }) {
-  return <Text style={{ alignSelf: 'flex-start', marginTop: 3, borderRadius: 999, overflow: 'hidden', paddingHorizontal: 8, paddingVertical: 3, fontSize: 9.5, fontWeight: '800', backgroundColor: tone === 'warning' ? colors['warning-bg'] : '#fff0f2', color: tone === 'warning' ? colors.warning : colors.error }}>{children}</Text>
+  const colors = useThemeColors()
+  const dark = useResolvedTheme() === 'dark'
+  return <Text style={{ alignSelf: 'flex-start', marginTop: 3, borderRadius: 999, overflow: 'hidden', paddingHorizontal: 8, paddingVertical: 3, fontSize: 9.5, fontWeight: '800', backgroundColor: tone === 'warning' ? colors['warning-bg'] : errorTint(dark), color: tone === 'warning' ? colors.warning : colors.error }}>{children}</Text>
 }
 
 /** Selo de aceite de um lado: "Ferrugem FC aceitou" ou "Leões do Cerrado falta aceitar". */
 function Ack({ name, accepted }: { name: string; accepted: boolean }) {
+  const colors = useThemeColors()
   return <View testID="terms-ack" style={{ maxWidth: '100%', flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 4, backgroundColor: accepted ? colors['success-bg'] : colors['warning-bg'] }}>
     <Icon name={accepted ? 'check' : 'hourglass'} size={12} color={accepted ? colors.brand : colors.warning} />
     <Text numberOfLines={1} style={{ flexShrink: 1, fontSize: 10, fontWeight: '700', color: accepted ? colors.brand : colors.warning }}>{`${name} ${accepted ? 'aceitou' : 'falta aceitar'}`}</Text>
@@ -41,10 +46,12 @@ function Ack({ name, accepted }: { name: string; accepted: boolean }) {
 }
 
 function Eyebrow({ children }: { children: string }) {
+  const muted = useThemeColors()['ink-muted']
   return <Text style={{ color: muted, fontSize: 10, fontWeight: '800', letterSpacing: 0.8, textTransform: 'uppercase' }}>{children}</Text>
 }
 
 function Note({ icon = 'info', children, testID }: { icon?: IconName; children: ReactNode; testID?: string }) {
+  const muted = useThemeColors()['ink-muted']
   return <View testID={testID} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
     <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ marginTop: 1 }}><Icon name={icon} size={15} color={muted} /></View>
     <Text style={{ flex: 1, color: muted, fontSize: 11, lineHeight: 16 }}>{children}</Text>
@@ -52,7 +59,9 @@ function Note({ icon = 'info', children, testID }: { icon?: IconName; children: 
 }
 
 function Cancelled({ children }: { children: ReactNode }) {
-  return <View accessibilityRole="alert" style={{ flexDirection: 'row', gap: 10, borderRadius: 14, backgroundColor: '#fff0f2', padding: 12 }}>
+  const colors = useThemeColors()
+  const dark = useResolvedTheme() === 'dark'
+  return <View accessibilityRole="alert" style={{ flexDirection: 'row', gap: 10, borderRadius: 14, backgroundColor: errorTint(dark), padding: 12 }}>
     <Icon name="octagon-x" size={20} color={colors.error} />
     <View style={{ flex: 1, minWidth: 0 }}>
       <Text style={{ color: colors.error, fontSize: 12.5, fontWeight: '800' }}>Partida cancelada</Text>
@@ -63,7 +72,9 @@ function Cancelled({ children }: { children: ReactNode }) {
 
 /** O cartão recolhível: o cabeçalho (título, resumo se recolhido, seta) é um botão que abre e fecha o conteúdo. */
 function Shell({ title, icon, summary, open, onToggle, origin, children }: { title: string; icon: IconName; summary: string; open: boolean; onToggle: () => void; origin?: string; children: ReactNode }) {
-  return <View testID={origin ? `conditions-card-${origin}` : 'conditions-card'} style={{ marginHorizontal: 12, marginTop: 10, borderRadius: 16, backgroundColor: '#ffffff', shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 12, shadowOffset: { width: 0, height: 3 }, elevation: 1 }}>
+  const colors = useThemeColors()
+  const muted = colors['ink-muted']
+  return <View testID={origin ? `conditions-card-${origin}` : 'conditions-card'} style={{ marginHorizontal: 12, marginTop: 10, borderRadius: 16, backgroundColor: colors.surface, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 12, shadowOffset: { width: 0, height: 3 }, elevation: 1 }}>
     <Pressable accessibilityRole="button" accessibilityLabel={open ? title : `${title}. ${summary}`} accessibilityHint={open ? 'Recolhe as condições' : 'Mostra as condições'} accessibilityState={{ expanded: open }} onPress={onToggle}
       style={{ minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingVertical: 10 }}>
       <Icon name={icon} size={16} color={colors.brand} />
@@ -82,6 +93,8 @@ function courtNote(terms: MatchTermsOut): string | null {
 
 /** Dia e hora, quadra (com o selo de revisão ou de recusa) e quem reserva; no tênis, o super tie-break. */
 function TermsRows({ detail, terms, booked }: { detail: MatchDetail; terms: MatchTermsOut; booked: boolean | null }) {
+  const rowText = rowTextOf(useThemeColors())
+  const small = smallOf(useThemeColors())
   const note = courtNote(terms)
   return <View style={{ gap: 8 }}>
     <Row icon="calendar-days"><Text style={[rowText, { fontWeight: '800' }]}>{whenText(terms.starts_at)}</Text></Row>
@@ -136,6 +149,10 @@ export interface ConditionsCardProps {
  * resultado", conforme `permissions`.
  */
 function ChampionshipConditions({ detail, busy, error, onSchedule, onDecide }: Pick<ConditionsCardProps, 'detail' | 'busy' | 'error' | 'onSchedule' | 'onDecide'>) {
+  const colors = useThemeColors()
+  const muted = colors['ink-muted']
+  const rowText = rowTextOf(colors)
+  const small = smallOf(colors)
   const { permissions, cancellation, court } = detail
   const scheduled = detail.state === 'agendada'
   const [open, setOpen] = useState(() => detail.state === 'combinando' || Boolean(cancellation) || permissions.decide_result === true)
@@ -174,6 +191,9 @@ export function ConditionsCard(props: ConditionsCardProps) {
 }
 
 function FriendlyConditions({ detail, busy, error, onPropose, onAccept, onBooking, onSlots, onCancel, onRegisterWalkover, onWithdrawWalkover, onContestWalkover }: ConditionsCardProps) {
+  const colors = useThemeColors()
+  const muted = colors['ink-muted']
+  const small = smallOf(colors)
   const { permissions, terms, walkover, cancellation } = detail
   const scheduled = detail.state === 'agendada'
   const pending = terms.pending

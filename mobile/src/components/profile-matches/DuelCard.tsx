@@ -1,7 +1,7 @@
 import { Pressable, Text, View } from 'react-native'
 import type { TimelineMatch, TimelineMatchSide } from '../../api/profile'
 import { useSessionToken } from '../../hooks/useSessionToken'
-import { colors } from '../../theme'
+import { useThemeColors } from '../../hooks/useTheme'
 import { StateBadge } from '../arena/StateBadge'
 import { TeamCrest } from '../arena/TeamCrest'
 import { Icon } from '../Icon'
@@ -20,6 +20,7 @@ function SideMark({ side }: { side: TimelineMatchSide }) {
 
 /** Selo do canto: cheio (Vitória, Empate, Derrota) ou tracejado (Cancelada, Sem resultado). */
 function Badge({ badge }: { badge: MatchBadge }) {
+  const colors = useThemeColors()
   if (!badge.dashed) return <StateBadge tone={badge.tone}>{badge.label}</StateBadge>
   return <View testID="badge-dashed" style={{ alignSelf: 'flex-start', borderRadius: 999, borderWidth: 1, borderStyle: 'dashed', borderColor: colors['ink-muted'], paddingHorizontal: 8, paddingVertical: 2 }}>
     <Text style={{ color: colors['ink-muted'], fontSize: 9.5, fontWeight: '800' }}>{badge.label}</Text>
@@ -28,6 +29,7 @@ function Badge({ badge }: { badge: MatchBadge }) {
 
 /** Placar de um lado: "Ausente" no W.O., colunas por set no tênis, os gols no futebol ou "–" sem placar. */
 function ScoreCells({ match, side }: { match: TimelineMatch; side: TimelineMatchSide }) {
+  const colors = useThemeColors()
   const cell = { minWidth: 22, textAlign: 'center' as const, fontSize: 15 }
   const weight = match.score?.winner === side.side ? '800' : '500'
   if (match.walkover_absent_side === side.side) {
@@ -59,6 +61,7 @@ function summary(match: TimelineMatch, heading: string, badge: MatchBadge | null
  * esmaecidas, com "–" no placar. A quadra só aparece no perfil próprio (o servidor já a omite para visitantes).
  */
 export function DuelCard({ match, own, onOpen }: { match: TimelineMatch; own: boolean; onOpen?: (matchId: number) => void }) {
+  const colors = useThemeColors()
   const heading = matchHeading(match)
   const badge = matchBadge(match)
   const band = eventBand(match)
@@ -93,7 +96,7 @@ export function DuelCard({ match, own, onOpen }: { match: TimelineMatch; own: bo
       {own && match.court ? <Text style={{ color: colors['ink-muted'], fontSize: 11 }}>{match.court.name}</Text> : null}
     </View>
   </>
-  const frame = { overflow: 'hidden' as const, borderRadius: 14, backgroundColor: '#ffffff', borderWidth: 1, borderColor: colors.line, opacity: isFaded(match) ? 0.6 : 1 }
+  const frame = { overflow: 'hidden' as const, borderRadius: 14, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, opacity: isFaded(match) ? 0.6 : 1 }
   if (onOpen) {
     return <Pressable testID="duel-card" accessibilityRole="button" accessibilityLabel={summary(match, heading, badge)} accessibilityHint="Abre a partida" onPress={() => onOpen(match.id)} style={{ ...frame, minHeight: 44 }}>{body}</Pressable>
   }

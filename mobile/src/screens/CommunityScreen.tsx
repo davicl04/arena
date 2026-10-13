@@ -8,10 +8,10 @@ import type { FollowState } from '../api/social'
 import { useAthleteSearch } from '../hooks/useAthleteSearch'
 import { usePagedList } from '../hooks/usePagedList'
 import { reportActionError } from '../hooks/useSubmit'
+import { useThemeColors } from '../hooks/useTheme'
 import { toastReadFailure, useVisitedProfile } from '../hooks/useVisitedProfile'
 import { Button } from '../components/ui'
 import { tw } from '../styles'
-import { colors } from '../theme'
 import CommunityBar, { TITLE_ROW_HEIGHT } from '../components/CommunityBar'
 import type { CommunityTab } from '../components/CommunityBar'
 import CommunityPeople from '../components/CommunityPeople'
@@ -50,6 +50,7 @@ export default function CommunityScreen({ user, onExpired, composeOnOpen = false
   /** Sino da barra escura: número de novas (não lidas e pedidos para seguir) e a abertura das Notificações; sem `onOpenNotifications`, não aparece. */
   notificationCount?: number; onOpenNotifications?: () => void
 }) {
+  const colors = useThemeColors()
   const feed = usePagedList<Post>('/posts', onExpired)
   const [tab, setTab] = useState<CommunityTab>('Publicações')
   const [query, setQuery] = useState('')

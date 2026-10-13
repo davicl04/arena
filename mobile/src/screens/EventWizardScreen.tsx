@@ -22,6 +22,7 @@ import { useCities } from '../hooks/useCities'
 import { reportActionError } from '../hooks/useSubmit'
 import type { ScreenProps } from '../navigation/screens'
 import { makeEntry } from '../navigation/routes'
+import { useThemeColors } from '../hooks/useTheme'
 import { colors } from '../theme'
 import { Icon } from '../components/Icon'
 
@@ -36,6 +37,7 @@ type Busy = 'draft' | 'publish' | null
  * (um `Modal`): o voltar do Android e o X perguntam antes de descartar o que não foi salvo.
  */
 export default function EventWizardScreen({ params, navigation, onExpired }: ScreenProps<'event-wizard'>) {
+  const themed = useThemeColors()
   const eventId = params?.eventId
   const initialStep = params?.step
   const cities = useCities(onExpired)
@@ -262,7 +264,7 @@ export default function EventWizardScreen({ params, navigation, onExpired }: Scr
           {body}
         </KeyboardAvoidingView>
         {leaving ? <Sheet title="Sair sem salvar?" onClose={() => setLeaving(false)}>
-          <Text style={{ color: colors['ink-muted'], fontSize: 12, lineHeight: 18 }}>As mudanças desde o último rascunho salvo se perdem.</Text>
+          <Text style={{ color: themed['ink-muted'], fontSize: 12, lineHeight: 18 }}>As mudanças desde o último rascunho salvo se perdem.</Text>
           <View style={{ marginTop: 12, gap: 8 }}>
             <ActionButton block tone="brand" icon="save" title="Salvar rascunho e sair" disabled={Boolean(busy)} onPress={() => void saveDraft().then(saved => { setLeaving(false); if (saved && mounted.current) navigation.back() })} />
             <ActionButton block tone="outline" title="Sair sem salvar" disabled={Boolean(busy)} onPress={leaveWithoutSaving} />

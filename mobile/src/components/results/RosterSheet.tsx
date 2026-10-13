@@ -8,7 +8,7 @@ import { footballFormat } from '../../data/arena'
 import { sideName, sideOf } from '../../data/match'
 import { useSessionToken } from '../../hooks/useSessionToken'
 import { useSubmit } from '../../hooks/useSubmit'
-import { colors } from '../../theme'
+import { useThemeColors } from '../../hooks/useTheme'
 import { ActionButton, ErrorText } from '../arena/controls'
 import { SectionTabs } from '../events/SectionTabs'
 import Sheet from '../Sheet'
@@ -38,6 +38,7 @@ export function RosterSheet({ match, lineups, onLineups, onUpdated, onChanged, o
   onClose: () => void
   onExpired: () => void
 }) {
+  const colors = useThemeColors()
   const mine = viewSide(match)
   const [tab, setTab] = useState<Side>(mine)
   const token = useSessionToken()

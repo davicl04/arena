@@ -3,12 +3,13 @@ import { Animated, Text, View, useWindowDimensions } from 'react-native'
 import { LoadError } from './arena/LoadError'
 import { Button } from './ui'
 import { cx, tw } from '../styles'
-import { colors } from '../theme'
+import { useThemeColors } from '../hooks/useTheme'
 
 const SEGMENT = 0.4
 
 /** Barra de progresso fina e indeterminada (verde sobre trilho menta translúcido). */
 export function ProgressBar({ label }: { label: string }) {
+  const colors = useThemeColors()
   const { width } = useWindowDimensions()
   const [progress] = useState(() => new Animated.Value(0))
   useEffect(() => {
@@ -27,7 +28,7 @@ export function ProgressBar({ label }: { label: string }) {
 export function FeedLoading() {
   return <View>
     <ProgressBar label="Carregando publicações" />
-    {[0, 1].map(index => <View key={index} importantForAccessibility="no-hide-descendants" className="mb-1.5 bg-white">
+    {[0, 1].map(index => <View key={index} importantForAccessibility="no-hide-descendants" className="mb-1.5 bg-surface">
       <View className="aspect-square w-full bg-line" />
       <View className="gap-2 p-3.5">
         <View className="h-3 w-2/3 rounded-full bg-app" />
@@ -64,7 +65,7 @@ export function FeedError({ onRetry, cause }: { onRetry: () => void; cause?: unk
 
 /** Fim da lista: cartão "Chegou ao fim" com convite para publicar. */
 export function FeedEnd({ onPublish }: { onPublish: () => void }) {
-  return <View className="mx-3.5 mt-3 items-center rounded-card bg-white p-5.5">
+  return <View className="mx-3.5 mt-3 items-center rounded-card bg-surface p-5.5">
     <Text accessibilityRole="header" className="text-[17px] font-bold text-ink">Chegou ao fim</Text>
     <Text className="mt-1 text-[14px] text-ink-muted">Que tal compartilhar a sua?</Text>
     <View className="w-full max-w-[240px]"><Button title="Publicar" onPress={onPublish} /></View>

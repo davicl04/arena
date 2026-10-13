@@ -18,13 +18,13 @@ import type { NotificationSummaryState } from '../hooks/useNotificationSummary'
 import { useNow } from '../hooks/useNow'
 import { usePendingNotifications } from '../hooks/usePendingNotifications'
 import { useResource } from '../hooks/useResource'
+import { useThemeColors } from '../hooks/useTheme'
 import { openNotification } from '../navigation/openNotification'
 import type { Navigation } from '../navigation/useNavigation'
 import { tw } from '../styles'
-import { colors } from '../theme'
 
 function Group({ title, children }: { title: string; children: ReactNode }) {
-  return <View className="mb-1.5"><Text className="mt-3.5 mb-1.5 text-[11px] font-bold tracking-[2px] text-brand">{title}</Text><View className="rounded-card bg-white px-5.5">{children}</View></View>
+  return <View className="mb-1.5"><Text className="mt-3.5 mb-1.5 text-[11px] font-bold tracking-[2px] text-brand">{title}</Text><View className="rounded-card bg-surface px-5.5">{children}</View></View>
 }
 
 /**
@@ -43,6 +43,7 @@ export default function HomeScreen({ user, navigation, onExpired, matches = [], 
   /** Partidas do titular lidas pela placa (`GET /me/play`, entregue pelo shell). */
   matches?: MatchCard[]
 }) {
+  const colors = useThemeColors()
   const now = useNow(60_000)
   const nextMatch = nextScheduledMatch(Array.isArray(matches) ? matches : [], now)
   // A placa relê quando o total de pendências do resumo muda (o resumo é relido a cada minuto); falha ou lista vazia a escondem.

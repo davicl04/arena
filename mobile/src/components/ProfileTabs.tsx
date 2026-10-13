@@ -6,7 +6,7 @@ export type ProfileTab = typeof profileTabs[number]
 
 /** Abas do conteúdo do perfil: Fotos | Partidas. */
 export function ProfileTabs({ value, onChange }: { value: ProfileTab; onChange: (value: ProfileTab) => void }) {
-  return <View accessibilityRole="tablist" accessibilityLabel="Conteúdo do perfil" className="flex-row border-b border-line bg-white">
+  return <View accessibilityRole="tablist" accessibilityLabel="Conteúdo do perfil" className="flex-row border-b border-line bg-surface">
     {profileTabs.map(tab => {
       const selected = value === tab
       return <Pressable key={tab} accessibilityRole="tab" accessibilityLabel={tab} accessibilityState={{ selected }} onPress={() => onChange(tab)}

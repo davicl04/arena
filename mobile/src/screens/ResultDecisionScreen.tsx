@@ -17,7 +17,7 @@ import { headerNames, orderedSides, sideName, sideOf, whenText } from '../data/m
 import { useResource } from '../hooks/useResource'
 import { useSubmit } from '../hooks/useSubmit'
 import type { ScreenProps } from '../navigation/screens'
-import { colors } from '../theme'
+import { useResolvedTheme, useThemeColors } from '../hooks/useTheme'
 import { formatClock, parseIso } from '../utils/format'
 
 interface TimelineEvent { icon: IconName; title: string; detail: string; bad?: boolean }
@@ -47,6 +47,7 @@ export function timelineOf(match: MatchDetail, now = Date.now()): TimelineEvent[
 
 /** Resumo do que foi decidido (partida já encerrada pelo organizador). */
 function DecidedCard({ match }: { match: MatchDetail }) {
+  const colors = useThemeColors()
   const result = match.result
   const score = result?.final ? scoreText(match.sport, result.final, 'a') : null
   const wo = match.walkover?.absent_side
@@ -59,6 +60,7 @@ function DecidedCard({ match }: { match: MatchDetail }) {
 }
 
 function ChatLine({ message, match }: { message: MatchMessageOut; match: MatchDetail }) {
+  const colors = useThemeColors()
   const side = sideOf(match, message.side)
   const time = parseIso(message.created_at)
   const author = message.author?.name ?? 'Participante'
@@ -84,6 +86,8 @@ function ChatLine({ message, match }: { message: MatchMessageOut; match: MatchDe
  * servidor. A recusa de campo (`422`) fica no formulário e as demais falhas de ação saem em toast.
  */
 export default function ResultDecisionScreen({ params, navigation, onExpired }: ScreenProps<'result-decision'>) {
+  const colors = useThemeColors()
+  const dark = useResolvedTheme() === 'dark'
   const matchId = params.matchId
   const loadMatch = useCallback(() => getMatch(matchId), [matchId])
   const loadChat = useCallback(() => getMessages(matchId, { limit: 20 }), [matchId])
@@ -133,7 +137,7 @@ export default function ResultDecisionScreen({ params, navigation, onExpired }: 
 
       <View style={{ padding: 16, gap: 14 }}>
         <View testID="decision-vs" accessible accessibilityRole="header" accessibilityLabel={sides.map(side => sideName(side)).join(' contra ')}
-          style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, borderRadius: 16, backgroundColor: '#ffffff', paddingHorizontal: 12, paddingVertical: 10 }}>
+          style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, borderRadius: 16, backgroundColor: colors.surface, paddingHorizontal: 12, paddingVertical: 10 }}>
           {sides[0] ? <TeamMark side={sides[0]} /> : null}
           <Text numberOfLines={1} style={{ flexShrink: 1, color: colors.ink, fontSize: 13, fontWeight: '700' }}>{names[0]}</Text>
           <Text style={{ color: colors.brand, fontSize: 14, fontWeight: '800' }}>×</Text>
@@ -141,10 +145,10 @@ export default function ResultDecisionScreen({ params, navigation, onExpired }: 
           {sides[1] ? <TeamMark side={sides[1]} /> : null}
         </View>
 
-        <View accessibilityLabel="Linha do tempo da partida" style={{ borderRadius: 16, backgroundColor: '#ffffff', padding: 14 }}>
+        <View accessibilityLabel="Linha do tempo da partida" style={{ borderRadius: 16, backgroundColor: colors.surface, padding: 14 }}>
           {timeline.map((item, index) => <View key={`${item.title}-${index}`} accessible accessibilityLabel={`${item.title}. ${item.detail}`}
             style={{ flexDirection: 'row', gap: 12, paddingBottom: index < timeline.length - 1 ? 14 : 0 }}>
-            <View style={{ width: 27, height: 27, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: item.bad ? '#fff0f2' : 'rgba(0,90,54,0.07)' }}>
+            <View style={{ width: 27, height: 27, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: item.bad ? (dark ? '#ff8a8022' : '#fff0f2') : (dark ? 'rgba(143,224,180,0.12)' : 'rgba(0,90,54,0.07)') }}>
               <Icon name={item.icon} size={14} color={item.bad ? colors.danger : colors.brand} />
             </View>
             <View style={{ flex: 1, minWidth: 0 }}>
@@ -165,8 +169,8 @@ export default function ResultDecisionScreen({ params, navigation, onExpired }: 
           {chat.loading ? <Text accessibilityLiveRegion="polite" style={{ color: colors['ink-muted'], fontSize: 11 }}>Carregando o chat…</Text> : null}
           {chat.error ? <LoadError size="section" title="Não foi possível carregar o chat" text={chat.error} cause={chat.errorCause} onRetry={chat.reload} /> : null}
           {!chat.loading && !chat.error && recent.length === 0
-            ? <Text style={{ borderRadius: 16, backgroundColor: '#ffffff', overflow: 'hidden', padding: 12, color: colors['ink-muted'], fontSize: 11.5 }}>Ainda não há mensagens no chat desta partida.</Text> : null}
-          {recent.length > 0 ? <View testID="chat-excerpt" style={{ gap: 10, borderRadius: 16, backgroundColor: '#ffffff', padding: 12 }}>
+            ? <Text style={{ borderRadius: 16, backgroundColor: colors.surface, overflow: 'hidden', padding: 12, color: colors['ink-muted'], fontSize: 11.5 }}>Ainda não há mensagens no chat desta partida.</Text> : null}
+          {recent.length > 0 ? <View testID="chat-excerpt" style={{ gap: 10, borderRadius: 16, backgroundColor: colors.surface, padding: 12 }}>
             {recent.map(item => <ChatLine key={item.id} message={item} match={detail} />)}
           </View> : null}
         </View> : null}
@@ -176,7 +180,7 @@ export default function ResultDecisionScreen({ params, navigation, onExpired }: 
         {canDecide ? <DecisionForm key={detail.id} match={detail} busy={action.busy} error={action.error} onSubmit={input => void decide(input)} /> : null}
 
         {!canDecide && !decided
-          ? <Text accessibilityRole="text" style={{ borderRadius: 16, backgroundColor: '#ffffff', overflow: 'hidden', padding: 14, color: colors['ink-muted'], fontSize: 12, lineHeight: 18 }}>
+          ? <Text accessibilityRole="text" style={{ borderRadius: 16, backgroundColor: colors.surface, overflow: 'hidden', padding: 14, color: colors['ink-muted'], fontSize: 12, lineHeight: 18 }}>
             {detail.state === 'cancelada' ? 'Esta partida foi cancelada.' : detail.state === 'agendada' ? 'A partida ainda não começou: a decisão fica disponível depois do horário.' : 'Não há resultado para decidir nesta partida agora.'}
           </Text> : null}
       </View>

@@ -17,9 +17,9 @@ import { useNow } from '../hooks/useNow'
 import { usePagedList } from '../hooks/usePagedList'
 import { usePendingNotifications } from '../hooks/usePendingNotifications'
 import { reportActionError } from '../hooks/useSubmit'
+import { useThemeColors } from '../hooks/useTheme'
 import { openNotification } from '../navigation/openNotification'
 import type { ScreenProps } from '../navigation/screens'
-import { colors } from '../theme'
 
 const feedback = { fontSize: 13, lineHeight: 19, marginVertical: 8 } as const
 
@@ -29,10 +29,11 @@ export function feedPathFor(filter: NotificationFilter): string {
 }
 
 function SectionTitle({ children, count }: { children: string; count?: number }) {
+  const colors = useThemeColors()
   return <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 8 }}>
     <Text accessibilityRole="header" style={{ color: colors.ink, fontSize: 14, fontWeight: '700' }}>{children}</Text>
-    {count ? <View accessible accessibilityLabel={`${count} ${count === 1 ? 'pendência' : 'pendências'}`} style={{ minWidth: 21, height: 21, alignItems: 'center', justifyContent: 'center', borderRadius: 11, backgroundColor: 'rgba(0,90,54,0.07)', paddingHorizontal: 4 }}>
-      <Text style={{ color: colors.brand, fontSize: 10, fontWeight: '700' }}>{count}</Text>
+    {count ? <View accessible accessibilityLabel={`${count} ${count === 1 ? 'pendência' : 'pendências'}`} style={{ minWidth: 21, height: 21, alignItems: 'center', justifyContent: 'center', borderRadius: 11, backgroundColor: colors['icon-tile'], paddingHorizontal: 4 }}>
+      <Text style={{ color: colors['icon-tile-ink'], fontSize: 10, fontWeight: '700' }}>{count}</Text>
     </View> : null}
   </View>
 }
@@ -46,6 +47,7 @@ function SectionTitle({ children, count }: { children: string; count?: number })
  * sai do bloco quando a ação é resolvida ou o prazo vence. `params.filter` abre num chip (a placa do Início usa `responder`).
  */
 export default function NotificationsScreen({ user, navigation, onExpired, notificationSummary, params }: ScreenProps<'notifications'>) {
+  const colors = useThemeColors()
   const [filter, setFilter] = useState<NotificationFilter>(params?.filter ?? 'tudo')
   const now = useNow(60_000)
   const feedOn = filter !== 'responder'
@@ -111,18 +113,18 @@ export default function NotificationsScreen({ user, navigation, onExpired, notif
       {feedOn && feed.error ? <LoadError size="section" title="Não foi possível carregar as notificações" text={feed.error.message} cause={feed.error} onRetry={feed.reload} /> : null}
       {feedOn ? groupByDay(feed.items, now).map(group => <View key={group.label} accessibilityLabel={group.label} style={{ marginBottom: 12 }}>
         <Text accessibilityRole="header" style={{ marginHorizontal: 4, marginBottom: 6, color: colors['ink-soft'], fontSize: 10, fontWeight: '700', letterSpacing: 0.8, textTransform: 'uppercase' }}>{group.label}</Text>
-        <View style={{ overflow: 'hidden', borderRadius: 16, backgroundColor: '#ffffff' }}>
+        <View style={{ overflow: 'hidden', borderRadius: 16, backgroundColor: colors.surface }}>
           {group.items.map((item, index) => <NotificationItem key={item.id} notification={item} busy={busy} isAdmin={user.is_admin} first={index === 0} onOpen={notification => void open(notification)} />)}
         </View>
       </View>) : null}
       {feedOn && feed.moreError ? <Text accessibilityRole="alert" style={{ ...feedback, color: colors.error }}>{feed.moreError}</Text> : null}
       {feedOn && feed.hasMore ? <Button secondary title={feed.busy ? 'Carregando…' : 'Carregar mais notificações'} disabled={busy || feed.busy} onPress={() => void feed.loadMore()} /> : null}
-      {nothing && filter === 'tudo' ? <View testID="notifications-empty" style={{ alignItems: 'center', borderRadius: 16, backgroundColor: '#ffffff', padding: 24 }}>
+      {nothing && filter === 'tudo' ? <View testID="notifications-empty" style={{ alignItems: 'center', borderRadius: 16, backgroundColor: colors.surface, padding: 24 }}>
         <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants"><Icon name="bell" size={28} color={colors.brand} /></View>
         <Text accessibilityRole="header" style={{ color: colors.ink, fontSize: 17, fontWeight: '700', marginTop: 8 }}>Tudo em dia</Text>
         <Text style={{ color: colors['ink-muted'], fontSize: 13, lineHeight: 19, marginTop: 4, textAlign: 'center' }}>Convites e pedidos dos seus times, propostas e partidas, inscrições em campeonatos e provas e as respostas da administração aparecem aqui.</Text>
       </View> : null}
-      {nothing && filter !== 'tudo' ? <Text testID="notifications-filter-empty" style={{ borderRadius: 16, backgroundColor: '#ffffff', paddingHorizontal: 14, paddingVertical: 16, color: colors['ink-muted'], fontSize: 12, lineHeight: 19 }}>Nada neste filtro.</Text> : null}
+      {nothing && filter !== 'tudo' ? <Text testID="notifications-filter-empty" style={{ borderRadius: 16, backgroundColor: colors.surface, paddingHorizontal: 14, paddingVertical: 16, color: colors['ink-muted'], fontSize: 12, lineHeight: 19 }}>Nada neste filtro.</Text> : null}
     </View>
   </ScrollView>
 }

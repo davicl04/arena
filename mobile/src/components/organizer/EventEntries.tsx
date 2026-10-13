@@ -4,7 +4,7 @@ import type { OrganizerEntry } from '../../api/events'
 import { entryState } from '../../data/arena'
 import { usePagedList } from '../../hooks/usePagedList'
 import { useSessionToken } from '../../hooks/useSessionToken'
-import { colors } from '../../theme'
+import { useThemeColors } from '../../hooks/useTheme'
 import { formatDeadline } from '../../utils/format'
 import { relativeTime } from '../../utils/relativeTime'
 import { StateBadge } from '../arena/StateBadge'
@@ -32,6 +32,7 @@ export function entryInfo(entry: OrganizerEntry): string {
  * foto, nome, estado efetivo e o prazo ou a situação do comprovante. "Ver comprovante" abre a tela de comprovantes.
  */
 export function EventEntries({ eventId, onReceipts, onExpired }: { eventId: number; onReceipts: () => void; onExpired: () => void }) {
+  const colors = useThemeColors()
   const list = usePagedList<OrganizerEntry>(eventEntriesPath(eventId), onExpired)
   const token = useSessionToken()
   if (list.loading) return <Text accessibilityLiveRegion="polite" style={{ paddingVertical: 12, color: colors['ink-muted'], fontSize: 11.5 }}>Carregando as inscrições…</Text>

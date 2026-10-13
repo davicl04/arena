@@ -6,7 +6,7 @@ import { ORGANIZER_LIMITS } from '../../api/organizer'
 import { getEntryReceipts, subjectName } from '../../api/receipts'
 import { useSubmit } from '../../hooks/useSubmit'
 import { useResource } from '../../hooks/useResource'
-import { colors } from '../../theme'
+import { useResolvedTheme, useThemeColors } from '../../hooks/useTheme'
 import { formatDeadline, formatPrice } from '../../utils/format'
 import { ReceiptImage } from '../arena/ReceiptImage'
 import { StateBadge } from '../arena/StateBadge'
@@ -18,6 +18,7 @@ import Sheet from '../Sheet'
 
 /** Envios anteriores da inscrição (pagamentos e devoluções), do mais recente ao mais antigo. */
 function History({ entryId, currentId, name, token, onExpired }: { entryId: number; currentId: number | null; name: string; token: string | null; onExpired: () => void }) {
+  const colors = useThemeColors()
   const load = useCallback(() => getEntryReceipts(entryId), [entryId])
   const history = useResource(load, onExpired, { fallback: 'Não foi possível carregar o histórico.' })
   const items = (history.data?.items ?? []).filter(item => item.id !== currentId).reverse()
@@ -48,6 +49,8 @@ function History({ entryId, currentId, name, token, onExpired }: { entryId: numb
 export function DisputeSheet({ dispute, token, onClose, onDecided, onExpired }: {
   dispute: RefundDispute; token: string | null; onClose: () => void; onDecided: (dispute: RefundDispute, message: string) => void; onExpired: () => void
 }) {
+  const colors = useThemeColors()
+  const dark = useResolvedTheme() === 'dark'
   const { entry, event, organizer } = dispute
   const refund = entry.refund
   const name = subjectName(entry.subject)
@@ -84,7 +87,7 @@ export function DisputeSheet({ dispute, token, onClose, onDecided, onExpired }: 
       </>
       : <Hint>Comprovante indisponível.</Hint>}
     <Eyebrow>Motivo do participante</Eyebrow>
-    <View testID="contest-reason" accessible style={{ borderRadius: 12, borderLeftWidth: 4, borderLeftColor: colors.danger, backgroundColor: '#fff0f2', paddingHorizontal: 12, paddingVertical: 10 }}>
+    <View testID="contest-reason" accessible style={{ borderRadius: 12, borderLeftWidth: 4, borderLeftColor: colors.danger, backgroundColor: dark ? '#ff8a8022' : '#fff0f2', paddingHorizontal: 12, paddingVertical: 10 }}>
       <Text selectable style={{ color: colors.ink, fontSize: 12.5, lineHeight: 19 }}>{refund?.contest_reason ?? 'Sem motivo informado.'}</Text>
     </View>
     <History entryId={entry.id} currentId={refund?.id ?? null} name={name} token={token} onExpired={onExpired} />

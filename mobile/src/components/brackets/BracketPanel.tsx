@@ -4,14 +4,15 @@ import { getBracket } from '../../api/brackets'
 import { ApiError } from '../../api/client'
 import type { TennisBonus } from '../../api/events'
 import { useResource } from '../../hooks/useResource'
-import { colors } from '../../theme'
+import { useThemeColors } from '../../hooks/useTheme'
 import { LoadError } from '../arena/LoadError'
 import { Icon } from '../Icon'
 import { BracketView } from './BracketView'
 
 /** Texto honesto de quem não lê a tabela (sem inscrição ativa) ou ainda não tem o que ver (antes de confirmar). */
 function TableNote({ title, text }: { title: string; text: string }) {
-  return <View style={{ alignItems: 'center', borderRadius: 16, backgroundColor: '#ffffff', padding: 20 }}>
+  const colors = useThemeColors()
+  return <View style={{ alignItems: 'center', borderRadius: 16, backgroundColor: colors.surface, padding: 20 }}>
     <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants"><Icon name="fork" size={24} color={colors['ink-muted']} /></View>
     <Text accessibilityRole="header" style={{ color: colors.ink, fontSize: 14, fontWeight: '700', marginTop: 6 }}>{title}</Text>
     <Text style={{ color: colors['ink-muted'], fontSize: 12, lineHeight: 18, marginTop: 4, textAlign: 'center' }}>{text}</Text>
@@ -20,8 +21,9 @@ function TableNote({ title, text }: { title: string; text: string }) {
 
 /** Bônus de ranking do tênis (RN16), lembrado na aba enquanto o campeonato não termina. */
 function BonusNote({ bonus }: { bonus: TennisBonus }) {
+  const colors = useThemeColors()
   return <View testID="tennis-bonus" accessible accessibilityLabel={`Bônus no ranking do tênis: campeão mais ${bonus.champion}, vice mais ${bonus.runner_up} e semifinalistas mais ${bonus.semifinalist}`}
-    style={{ flexDirection: 'row', gap: 8, borderRadius: 16, backgroundColor: '#ffffff', padding: 12 }}>
+    style={{ flexDirection: 'row', gap: 8, borderRadius: 16, backgroundColor: colors.surface, padding: 12 }}>
     <View style={{ marginTop: 1 }}><Icon name="medal" size={16} color={colors.brand} /></View>
     <Text style={{ flex: 1, minWidth: 0, color: colors['ink-muted'], fontSize: 11, lineHeight: 17 }}>
       <Text style={{ color: colors.ink, fontWeight: '700' }}>Bônus no ranking do tênis: </Text>
@@ -45,6 +47,7 @@ export function BracketPanel({ eventId, canRead, bonus, onExpired, bleed }: {
   /** Margem lateral da tela, para a árvore ocupar a largura inteira. */
   bleed?: number
 }) {
+  const colors = useThemeColors()
   // A API recusa quem não lê a tabela (403) ou não vê o evento (404): vira `null`, o mesmo texto de quem não está inscrito.
   const load = useCallback(async () => {
     try {

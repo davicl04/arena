@@ -27,7 +27,7 @@ import { useMatchDeadlines } from '../hooks/useMatchDeadlines'
 import { useSessionToken } from '../hooks/useSessionToken'
 import { useSubmit } from '../hooks/useSubmit'
 import type { ScreenProps } from '../navigation/screens'
-import { colors } from '../theme'
+import { useThemeColors } from '../hooks/useTheme'
 import { formatDeadline } from '../utils/format'
 
 type SheetKind = 'terms' | 'cancel' | 'wo' | 'wo-withdraw' | 'wo-contest' | 'slots'
@@ -42,6 +42,7 @@ type SheetKind = 'terms' | 'cancel' | 'wo' | 'wo-withdraw' | 'wo-contest' | 'slo
  * "Decidir resultado" (organizador) levam às telas do campeonato.
  */
 export default function MatchScreen({ user, params, navigation, onExpired, refreshPlayBoard }: ScreenProps<'match'>) {
+  const colors = useThemeColors()
   const { matchId } = params
   const token = useSessionToken()
   const [missing, setMissing] = useState(false)
@@ -152,7 +153,7 @@ export default function MatchScreen({ user, params, navigation, onExpired, refre
     <MatchHeader detail={current} onBack={navigation.back} token={token} />
     {!arranging
       ? <ScrollView contentContainerStyle={{ padding: 20 }}>
-        <View accessibilityRole="summary" style={{ flexDirection: 'row', gap: 10, borderRadius: 16, backgroundColor: '#ffffff', padding: 14 }}>
+        <View accessibilityRole="summary" style={{ flexDirection: 'row', gap: 10, borderRadius: 16, backgroundColor: colors.surface, padding: 14 }}>
           <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ marginTop: 1 }}><Icon name="hourglass" size={20} color={colors.brand} /></View>
           <View style={{ flex: 1, minWidth: 0 }}>
             <Text style={{ color: colors.ink, fontSize: 13, fontWeight: '800' }}>

@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { Pressable, Text, View } from 'react-native'
-import { colors } from '../../theme'
+import { useThemeColors } from '../../hooks/useTheme'
 import { Icon } from '../Icon'
 import type { IconName } from '../Icon'
 
@@ -17,8 +17,9 @@ export function TileRow({ icon, title, lines, badge, status, onOpen }: {
   status?: string
   onOpen?: () => void
 }) {
+  const colors = useThemeColors()
   const label = [title, ...lines, status].filter(Boolean).join('. ')
-  const box = { minHeight: 64, flexDirection: 'row' as const, alignItems: 'center' as const, gap: 12, borderRadius: 16, backgroundColor: '#ffffff', padding: 10 }
+  const box = { minHeight: 64, flexDirection: 'row' as const, alignItems: 'center' as const, gap: 12, borderRadius: 16, backgroundColor: colors.surface, padding: 10 }
   const content = <>
     <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ width: 48, height: 48, alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: colors.forest }}>
       <Icon name={icon} size={21} color={colors.mint} />

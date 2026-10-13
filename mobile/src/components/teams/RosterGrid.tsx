@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 import { ActivityIndicator, Pressable, Text, View } from 'react-native'
 import type { TeamMember } from '../../api/teams'
 import { positionShort } from '../../data/arena'
-import { colors } from '../../theme'
+import { useThemeColors } from '../../hooks/useTheme'
 import { MemberFace } from './MemberFace'
 import { positionLabel, ROSTER_LIMIT } from './teamView'
 import { LoadError } from '../arena/LoadError'
@@ -24,12 +24,13 @@ export function RosterGrid({ members, loading, error, errorCause, onRetry, onOpe
   /** Ação do título (Convidar, para representantes). */
   action?: ReactNode
 }) {
+  const colors = useThemeColors()
   const [all, setAll] = useState(false)
   const shown = all ? members : members.slice(0, ROSTER_LIMIT)
   const hidden = members.length - shown.length
   return <View>
     <SectionTitle title={`Elenco${members.length ? ` · ${members.length}` : ''}`} action={action} />
-    <View style={{ borderRadius: 16, backgroundColor: '#ffffff', paddingHorizontal: 6, paddingVertical: 10 }}>
+    <View style={{ borderRadius: 16, backgroundColor: colors.surface, paddingHorizontal: 6, paddingVertical: 10 }}>
       {loading ? <View accessibilityLabel="Carregando elenco" style={{ paddingVertical: 24, alignItems: 'center' }}><ActivityIndicator color={colors.brand} /><Text style={{ marginTop: 8, color: colors['ink-muted'], fontSize: 12 }}>Carregando elenco…</Text></View>
         : error ? <LoadError size="section" title="Não foi possível carregar o elenco" text={error} cause={errorCause} onRetry={onRetry} />
         : <View style={{ flexDirection: 'row', flexWrap: 'wrap', rowGap: 8 }}>

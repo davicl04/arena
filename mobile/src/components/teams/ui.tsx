@@ -1,6 +1,7 @@
 import { createContext, useContext } from 'react'
 import type { ReactNode } from 'react'
 import { Text, View } from 'react-native'
+import { useThemeColors } from '../../hooks/useTheme'
 import { colors } from '../../theme'
 
 /*
@@ -32,8 +33,9 @@ export function MintBadge({ children }: { children: string }) {
 
 /** Título de seção da tela clara (.sec-title): rótulo em negrito e, à direita, uma ação de texto. */
 export function SectionTitle({ title, action }: { title: string; action?: ReactNode }) {
+  const themed = useThemeColors()
   return <View style={{ marginTop: 22, marginBottom: 6, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 44 }}>
-    <Text accessibilityRole="header" style={{ flexShrink: 1, color: colors.ink, fontSize: 15, fontWeight: '800' }}>{title}</Text>
+    <Text accessibilityRole="header" style={{ flexShrink: 1, color: themed.ink, fontSize: 15, fontWeight: '800' }}>{title}</Text>
     {action ?? null}
   </View>
 }

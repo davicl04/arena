@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { Text, View } from 'react-native'
-import { colors } from '../../theme'
+import { useThemeColors } from '../../hooks/useTheme'
 import { Stepper } from './Stepper'
 import { needsTiebreak, setWinner, showsThirdSet } from './tennis'
 import type { SetDraft } from './tennis'
@@ -17,10 +17,9 @@ export interface TennisSetsProps {
   disabled?: boolean
 }
 
-const muted = { color: colors['ink-muted'] } as const
-
 /** Duas colunas de mesma largura separadas por um travessão: o lado do primeiro nome e o do segundo. */
 function Pair({ left, right }: { left: ReactNode; right: ReactNode }) {
+  const muted = { color: useThemeColors()['ink-muted'] }
   return <View style={{ flexDirection: 'row', alignItems: 'center' }}>
     <View style={{ flex: 1, minWidth: 0, alignItems: 'center' }}>{left}</View>
     <Text accessibilityElementsHidden importantForAccessibility="no" style={{ width: 14, textAlign: 'center', ...muted }}>–</Text>
@@ -35,6 +34,7 @@ function Pair({ left, right }: { left: ReactNode; right: ReactNode }) {
  * organizador (D3). Cada set é uma linha com o nome do set acima dos dois contadores, que cabem em 320 pt de largura.
  */
 export function TennisSets({ sets, onPatch, mineName, theirName, superTiebreak, disabled = false }: TennisSetsProps) {
+  const muted = { color: useThemeColors()['ink-muted'] }
   const third = showsThirdSet(sets)
   const mine = mineName === 'Você' ? 'seus' : `de ${mineName}`
   return <View accessibilityLabel="Placar por sets" style={{ gap: 10 }}>

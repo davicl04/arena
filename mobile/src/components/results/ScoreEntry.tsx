@@ -3,7 +3,7 @@ import { Text, View, useWindowDimensions } from 'react-native'
 import type { ResultInput, ResultMatch } from '../../api/results'
 import type { MatchSideOut, ScoreOut } from '../../api/matches'
 import { sideName, sideOf } from '../../data/match'
-import { colors } from '../../theme'
+import { useThemeColors } from '../../hooks/useTheme'
 import { TeamCrest } from '../arena/TeamCrest'
 import { ActionButton, ErrorText } from '../arena/controls'
 import { otherSide, viewSide } from './format'
@@ -36,6 +36,7 @@ export interface ScoreEntryProps {
 }
 
 export function ScoreEntry({ match, initial, busy, error, summary, notice, onRoster, onCancel, onSubmit }: ScoreEntryProps) {
+  const colors = useThemeColors()
   const mySide = viewSide(match)
   const tennis = match.sport === 'tenis'
   const mine = sideOf(match, mySide)
@@ -96,6 +97,7 @@ function GoalsSide({ side, name, value, disabled, compact, onChange }: {
   compact: boolean
   onChange: (value: number) => void
 }) {
+  const colors = useThemeColors()
   return <View style={{ flex: 1, minWidth: 0, alignItems: 'center', gap: 6 }}>
     <TeamCrest name={name} initials={side?.team?.initials} path={side?.team?.crest_url} size="md" decorative />
     <Text numberOfLines={1} style={{ maxWidth: '100%', color: colors.ink, fontSize: 12, fontWeight: '700', textAlign: 'center' }}>{name}</Text>

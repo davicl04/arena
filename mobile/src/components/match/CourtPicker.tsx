@@ -6,7 +6,7 @@ import { listCourts, suggestCourt } from '../../api/matches'
 import type { CourtOut, MatchDetail } from '../../api/matches'
 import { courtKindOf } from '../../data/match'
 import { reportActionError } from '../../hooks/useSubmit'
-import { colors } from '../../theme'
+import { useThemeColors } from '../../hooks/useTheme'
 import { ActionButton, BusyStatus, ErrorText, FormField } from '../arena/controls'
 import { LoadError } from '../arena/LoadError'
 import { toast } from '../toast/toastStore'
@@ -45,9 +45,10 @@ export interface CourtPickerProps {
 }
 
 function CourtOption({ court, selected, onSelect }: { court: CourtOut; selected: boolean; onSelect: () => void }) {
+  const colors = useThemeColors()
   const note = court.provisional ? 'Em revisão · usada só nesta partida' : (court.address ?? 'Sem endereço informado')
   return <Pressable accessibilityRole="radio" accessibilityLabel={`${court.name}. ${note}`} accessibilityState={{ checked: selected, selected }} onPress={onSelect}
-    style={{ minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 13, borderWidth: selected ? 1.5 : 1, borderColor: selected ? colors.brand : colors.line, backgroundColor: selected ? colors['success-bg'] : '#ffffff', paddingHorizontal: 10, paddingVertical: 8 }}>
+    style={{ minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 13, borderWidth: selected ? 1.5 : 1, borderColor: selected ? colors.brand : colors.line, backgroundColor: selected ? colors['success-bg'] : colors.surface, paddingHorizontal: 10, paddingVertical: 8 }}>
     <View style={{ width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.tile }}><Icon name="map-pin" size={16} color={colors.brand} /></View>
     <View style={{ flex: 1, minWidth: 0 }}>
       <Text numberOfLines={1} style={{ color: colors.ink, fontSize: 12.5, fontWeight: '700' }}>{court.name}</Text>
@@ -58,6 +59,7 @@ function CourtOption({ court, selected, onSelect }: { court: CourtOut; selected:
 }
 
 export function CourtPicker({ detail, selected, onSelect, canSuggest, onExpired, deferSuggestion = false }: CourtPickerProps) {
+  const colors = useThemeColors()
   const kind = courtKindOf(detail)
   const [query, setQuery] = useState('')
   const [courts, setCourts] = useState<CourtOut[] | null>(null)
@@ -145,7 +147,7 @@ export function CourtPicker({ detail, selected, onSelect, canSuggest, onExpired,
   return <View testID="court-picker" style={{ marginTop: 14 }}>
     <Text style={{ color: colors.ink, fontSize: 13, fontWeight: '600' }}>Quadra em {detail.city.name}</Text>
     <View accessibilityRole="radiogroup" accessibilityLabel={`Quadra em ${detail.city.name}`} style={{ marginTop: 6, gap: 6 }}>
-      <View style={{ minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 8, borderWidth: 1, borderColor: colors['line-strong'], backgroundColor: '#ffffff', paddingHorizontal: 12 }}>
+      <View style={{ minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 8, borderWidth: 1, borderColor: colors['line-strong'], backgroundColor: colors.surface, paddingHorizontal: 12 }}>
         <Icon name="search" size={16} color={colors['ink-muted']} />
         <TextInput accessibilityLabel="Buscar quadra" value={query} onChangeText={setQuery} placeholder="Buscar quadra pelo nome" placeholderTextColor={colors.placeholder}
           autoCapitalize="none" autoCorrect={false} returnKeyType="search" style={{ flex: 1, minHeight: 46, padding: 0, color: colors.ink, fontSize: 14 }} />
@@ -162,7 +164,7 @@ export function CourtPicker({ detail, selected, onSelect, canSuggest, onExpired,
     </View>
     {canSuggest && !suggesting
       ? <Pressable accessibilityRole="button" accessibilityLabel="Sugerir outra quadra" accessibilityHint="Entra no catálogo depois da revisão" onPress={() => setSuggesting(true)}
-        style={{ marginTop: 8, minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 13, borderWidth: 1, borderStyle: 'dashed', borderColor: colors['line-strong'], backgroundColor: '#ffffff', paddingHorizontal: 10 }}>
+        style={{ marginTop: 8, minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 13, borderWidth: 1, borderStyle: 'dashed', borderColor: colors['line-strong'], backgroundColor: colors.surface, paddingHorizontal: 10 }}>
         <View style={{ width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.tile }}><Icon name="plus" size={16} color={colors.brand} /></View>
         <View style={{ flex: 1 }}>
           <Text style={{ color: colors.ink, fontSize: 12.5, fontWeight: '700' }}>Sugerir outra quadra</Text>

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Text, View } from 'react-native'
 import type { CourtOut, MatchDetail, Side, TermsInput } from '../../api/matches'
 import { nameOf, orderedSides, sideName } from '../../data/match'
-import { colors } from '../../theme'
+import { useThemeColors } from '../../hooks/useTheme'
 import { combineDateTime, splitDateTime, toDateKey } from '../../utils/dateKey'
 import { DateField } from '../arena/DateField'
 import { TimeField } from '../arena/TimeField'
@@ -26,6 +26,7 @@ export function TermsSheet({ detail, busy, error, onSubmit, onClose, onExpired }
   onClose: () => void
   onExpired: () => void
 }) {
+  const colors = useThemeColors()
   const base = detail.terms.pending ?? detail.terms.current
   const initial = splitDateTime(base?.starts_at)
   const sides = orderedSides(detail)

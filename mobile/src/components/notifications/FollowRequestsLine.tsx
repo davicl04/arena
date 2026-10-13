@@ -1,7 +1,7 @@
 import { Pressable, Text, View } from 'react-native'
 import type { SocialUser } from '../../api/client'
 import { useSessionToken } from '../../hooks/useSessionToken'
-import { colors } from '../../theme'
+import { useThemeColors } from '../../hooks/useTheme'
 import { plural } from '../../utils/format'
 import { Icon } from '../Icon'
 import { Avatar } from '../media'
@@ -19,13 +19,14 @@ export function followRequestNames(people: readonly SocialUser[], total: number)
  * subtela onde se aprova e se recusa. `total` vem do resumo (o servidor conta todos); `people` são os da primeira página.
  */
 export function FollowRequestsLine({ people, total, onOpen }: { people: readonly SocialUser[]; total: number; onOpen: () => void }) {
+  const colors = useThemeColors()
   const token = useSessionToken()
   const title = plural(total, 'pedido para seguir', 'pedidos para seguir')
   const names = followRequestNames(people, total)
   return <Pressable testID="follow-requests-line" accessibilityRole="button" accessibilityLabel={names ? `${title}: ${names}` : title} accessibilityHint="Abre a lista para aprovar ou recusar"
-    onPress={onOpen} style={{ minHeight: 56, flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 16, backgroundColor: '#ffffff', paddingHorizontal: 14, paddingVertical: 10 }}>
+    onPress={onOpen} style={{ minHeight: 56, flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 16, backgroundColor: colors.surface, paddingHorizontal: 14, paddingVertical: 10 }}>
     <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ flexDirection: 'row', paddingLeft: 10 }}>
-      {people.slice(0, 3).map(person => <View key={person.id} style={{ marginLeft: -10, borderRadius: 18, borderWidth: 2, borderColor: '#ffffff' }}>
+      {people.slice(0, 3).map(person => <View key={person.id} style={{ marginLeft: -10, borderRadius: 18, borderWidth: 2, borderColor: colors.surface }}>
         <Avatar path={person.avatar_url} name={person.name} token={token} size={32} />
       </View>)}
     </View>

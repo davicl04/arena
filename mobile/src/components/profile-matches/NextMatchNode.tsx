@@ -1,7 +1,7 @@
 import { Pressable, Text, View } from 'react-native'
 import type { MatchCard } from '../../api/matches'
 import { footballFormat } from '../../data/arena'
-import { colors } from '../../theme'
+import { useThemeColors } from '../../hooks/useTheme'
 import { Icon } from '../Icon'
 import { matchTitle } from '../play/matchView'
 import { SideMark } from '../play/SideBadge'
@@ -22,6 +22,7 @@ function nextDetail(card: MatchCard): string {
  * sem nova leitura) no cartão forest, com a data em menta. Leva à tela da partida. Nunca aparece no perfil visitado.
  */
 export function NextMatchNode({ card, now, onOpen }: { card: MatchCard; now?: Date; onOpen: (matchId: number) => void }) {
+  const colors = useThemeColors()
   const when = card.starts_at ? nextMatchWhen(card.starts_at, now) : 'Data a definir'
   const title = matchTitle(card)
   const detail = nextDetail(card)

@@ -12,8 +12,8 @@ import { toast } from '../components/toast/toastStore'
 import { TeamTokenContext } from '../components/teams/ui'
 import { useSessionToken } from '../hooks/useSessionToken'
 import { isStale, useSubmit } from '../hooks/useSubmit'
+import { useThemeColors } from '../hooks/useTheme'
 import type { ScreenProps } from '../navigation/screens'
-import { colors } from '../theme'
 import { showTeams } from './teamsNavigation'
 import { Icon } from '../components/Icon'
 
@@ -24,6 +24,7 @@ import { Icon } from '../components/Icon'
  * convite do time responde por lá.
  */
 export default function JoinScreen({ navigation, onExpired, params }: ScreenProps<'join'>) {
+  const colors = useThemeColors()
   const { token } = params
   const session = useSessionToken()
   const [preview, setPreview] = useState<JoinPreview | null>(null)
@@ -73,7 +74,7 @@ export default function JoinScreen({ navigation, onExpired, params }: ScreenProp
     return <ScrollView testID="join-invalid" contentContainerStyle={{ paddingBottom: 32 }}>
       <TeamsPlate bottom={20}><DarkTopBar eyebrow="Convite por link" title="Link sem validade" icon="close" onBack={navigation.back} /></TeamsPlate>
       <View style={{ paddingHorizontal: 16, paddingTop: 16 }}>
-        <View style={{ alignItems: 'center', borderRadius: 16, backgroundColor: '#ffffff', padding: 24 }}>
+        <View style={{ alignItems: 'center', borderRadius: 16, backgroundColor: colors.surface, padding: 24 }}>
           <Icon name="link-off" size={34} color={colors['ink-muted']} />
           <Text accessibilityRole="header" style={{ marginTop: 10, color: colors.ink, fontSize: 17, fontWeight: '800', textAlign: 'center' }}>Este link não vale mais</Text>
           <Text style={{ marginTop: 6, color: colors['ink-muted'], fontSize: 13, lineHeight: 20, textAlign: 'center' }}>Um representante gerou outro link ou o time foi encerrado. Peça o link novo a um representante do time.</Text>

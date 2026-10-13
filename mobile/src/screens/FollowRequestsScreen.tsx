@@ -11,8 +11,8 @@ import { toast } from '../components/toast/toastStore'
 import { Button } from '../components/ui'
 import { usePagedList } from '../hooks/usePagedList'
 import { reportActionError } from '../hooks/useSubmit'
+import { useThemeColors } from '../hooks/useTheme'
 import type { ScreenProps } from '../navigation/screens'
-import { colors } from '../theme'
 
 const feedback = { fontSize: 13, lineHeight: 19, marginVertical: 8 } as const
 
@@ -22,6 +22,7 @@ const feedback = { fontSize: 13, lineHeight: 19, marginVertical: 8 } as const
  * com voltar e o título vem do shell.
  */
 export default function FollowRequestsScreen({ onExpired, notificationSummary }: ScreenProps<'follow-requests'>) {
+  const colors = useThemeColors()
   const requests = usePagedList<FollowRequest>('/me/follow-requests', onExpired)
   const [busy, setBusy] = useState(false)
 
@@ -51,14 +52,14 @@ export default function FollowRequestsScreen({ onExpired, notificationSummary }:
   if (requests.loading) return <View style={{ flex: 1, padding: 24 }}><Text accessibilityLiveRegion="polite" style={{ color: colors['ink-muted'], fontSize: 14 }}>{busy ? 'Aprovando solicitações…' : 'Carregando pedidos…'}</Text></View>
   return <ScrollView testID="follow-requests-screen" contentContainerStyle={{ padding: 20, paddingBottom: 32 }}>
     {requests.error ? <LoadError size="section" title="Não foi possível carregar os pedidos" text={requests.error.message} cause={requests.error} onRetry={requests.reload} />
-      : requests.items.length === 0 ? <Text testID="follow-requests-empty" style={{ borderRadius: 16, backgroundColor: '#ffffff', paddingHorizontal: 14, paddingVertical: 16, color: colors['ink-muted'], fontSize: 12, lineHeight: 19 }}>
+      : requests.items.length === 0 ? <Text testID="follow-requests-empty" style={{ borderRadius: 16, backgroundColor: colors.surface, paddingHorizontal: 14, paddingVertical: 16, color: colors['ink-muted'], fontSize: 12, lineHeight: 19 }}>
         Nenhum pedido para seguir por enquanto. Quando alguém pedir para seguir a sua conta privada, o pedido aparece aqui.
       </Text>
         : <View accessibilityLabel="Pedidos para seguir" style={{ marginTop: 12 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 6 }}>
             <View accessible accessibilityLabel={`${requests.items.length}${requests.hasMore ? ' ou mais' : ''} ${requests.items.length === 1 && !requests.hasMore ? 'pedido' : 'pedidos'}`}
-              style={{ minWidth: 21, height: 21, alignItems: 'center', justifyContent: 'center', borderRadius: 11, backgroundColor: 'rgba(0,90,54,0.07)', paddingHorizontal: 4 }}>
-              <Text style={{ color: colors.brand, fontSize: 10, fontWeight: '700' }}>{`${requests.items.length}${requests.hasMore ? '+' : ''}`}</Text>
+              style={{ minWidth: 21, height: 21, alignItems: 'center', justifyContent: 'center', borderRadius: 11, backgroundColor: colors['icon-tile'], paddingHorizontal: 4 }}>
+              <Text style={{ color: colors['icon-tile-ink'], fontSize: 10, fontWeight: '700' }}>{`${requests.items.length}${requests.hasMore ? '+' : ''}`}</Text>
             </View>
             <TextAction title="Aprovar todas" accessibilityLabel="Aprovar todas as solicitações" disabled={busy || requests.busy} onPress={() => void approveAll()} />
           </View>
