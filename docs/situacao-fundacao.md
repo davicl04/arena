@@ -1,8 +1,15 @@
 # Situação da fundação do Arena
 
-## Toasts, aviso de conexão e erros de carregamento (implementação em andamento) — 13 de outubro de 2026
+## Toasts, aviso de conexão e erros de carregamento — 13 de outubro de 2026
 
-Implementação do [plano-toasts.md](plano-toasts.md) na branch local `orq/toasts`, em etapas com commit local cada uma. Esta seção é atualizada a cada etapa.
+Implementação do [plano-toasts.md](plano-toasts.md) na branch local `orq/toasts`, em etapas com commit local cada uma (web, backend e Expo), sem push. Não muda contrato da API, migração nem dependência.
+
+Pendências desta entrega:
+- `NotificationsPage.tsx` (web) e `NotificationsScreen.tsx` (Expo) não foram migradas, porque o plano de notificações as reescreve em paralelo; a migração fica para a conciliação depois do merge. Até lá, o tom `success` de `feedbackVariants` continua existindo só para a `NotificationsPage`, e o contador do sino (`getUnreadCount`) ainda não usa a opção `background`.
+- `HomePage.tsx` e `HomeScreen.tsx` só receberam o mínimo, pelo mesmo motivo.
+- Expo sem validação em aparelho; CI remoto não executado.
+- Na entrada da web, com a API fora, uma tentativa de login mostra a mensagem de conexão duas vezes.
+- Os commits intermediários por área foram separados a partir do mesmo conjunto de mudanças; a suíte completa de cada cliente foi executada no estado final de cada etapa, não em cada commit intermediário.
 
 ### Etapa 1 — web: primitivos, conexão, erros de ação e de carregamento
 
