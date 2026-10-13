@@ -50,6 +50,21 @@ export const accessibility = {
   announcements: [] as string[],
 }
 
+// Esquema de cores: `appearance.setSystem('dark')` simula a troca do sistema; `Appearance.setColorScheme` grava a escolha do app.
+export const appearance = {
+  system: 'light' as 'light' | 'dark',
+  override: null as 'light' | 'dark' | null,
+  listeners: [] as ((preferences: { colorScheme: 'light' | 'dark' }) => void)[],
+  get scheme() { return this.override ?? this.system },
+  emit() { for (const listener of [...this.listeners]) listener({ colorScheme: this.scheme }) },
+  setSystem(scheme: 'light' | 'dark') { this.system = scheme; this.emit() },
+  reset() { this.system = 'light'; this.override = null; this.listeners.length = 0 },
+}
+const subscribeAppearance = (listener: () => void) => {
+  appearance.listeners.push(listener)
+  return () => { appearance.listeners.splice(appearance.listeners.indexOf(listener), 1) }
+}
+
 export function reactNativeMock() {
   const FlatList = ({ data = [], renderItem, ListHeaderComponent, ListEmptyComponent, ListFooterComponent, ...props }: Record<string, any>) => React.createElement('FlatList', props,
     renderComponent(ListHeaderComponent),
@@ -86,6 +101,12 @@ export function reactNativeMock() {
     PanResponder: { create: (config: Record<string, (...args: any[]) => any>) => { panResponder.configs.push(config); return { panHandlers: {} } } },
     Modal: element('Modal'), Platform: { OS: 'android' }, Pressable: element('Pressable'), RefreshControl: element('RefreshControl'), ScrollView: element('ScrollView'),
     Text: element('Text'), TextInput: element('TextInput'), View: element('View'), useWindowDimensions: () => ({ width: 390, height: 844, scale: 2, fontScale: 1 }),
+    Appearance: {
+      getColorScheme: () => appearance.scheme,
+      setColorScheme: (scheme: string | null) => { appearance.override = scheme === 'light' || scheme === 'dark' ? scheme : null; appearance.emit() },
+      addChangeListener: (listener: () => void) => ({ remove: subscribeAppearance(listener) }),
+    },
+    useColorScheme: () => React.useSyncExternalStore(subscribeAppearance, () => appearance.scheme),
   }
 }
 

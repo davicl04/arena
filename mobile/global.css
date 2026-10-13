@@ -59,6 +59,16 @@
   --color-tier-ouro-tint: #7a5a12;
   --color-tier-diamante-tint: #1d5c6a;
   --color-tier-lendario-tint: #5a4a10;
+  /* Tokens do tema (claro aqui; escuro no bloco `prefers-color-scheme: dark` abaixo). */
+  --color-surface: #ffffff;
+  --color-sheet: #ffffff;
+  --color-on-brand: #ffffff;
+  --color-heading: #343d39;
+  --color-icon-tile: #005a3612;
+  --color-icon-tile-ink: #005a36;
+  --color-eyebrow: #606965;
+  --color-surface-edge: transparent;
+  --color-nav: #ffffff;
 
   --radius-control: 8px;
   --radius-lg: 12px;
@@ -67,4 +77,41 @@
 
   /* Elevação Android do vidro (as demais vêm do nativewind/theme: elevation-sm = 3). */
   --elevation-overlay: 20;
+}
+
+/*
+ * Tema escuro "Estádio à noite" (docs/plano-tema.md). O react-native-css mantém como variáveis de execução os tokens
+ * declarados mais de uma vez e resolve a media query pelo esquema do `Appearance`: a preferência do aparelho
+ * (Dia, Noite, Automático) chega por `Appearance.setColorScheme` (hooks/useTheme.ts). Mesmos valores de `darkColors`
+ * em src/theme.ts. Vidro, forest, night, mint, legend e elos não mudam.
+ */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-brand: #8fe0b4;
+    --color-brand-soft: #8fe0b41a;
+    --color-ink: #d2dcd6;
+    --color-ink-muted: #87978e;
+    --color-ink-soft: #87978e;
+    --color-line: #ffffff1a;
+    --color-app: #040806;
+    --color-field: #0b130f;
+    --color-placeholder: #7d8b83;
+    --color-error: #ff9b85;
+    --color-danger: #ff8a80;
+    --color-subtle: #ffffff10;
+    --color-tile: #16201b;
+    --color-line-strong: #ffffff40;
+    --color-success-bg: #8fe0b41a;
+    --color-warning-bg: #f4c56a1a;
+    --color-warning: #f4c56a;
+    --color-surface: #0f1813;
+    --color-sheet: #0b120e;
+    --color-on-brand: #04100a;
+    --color-heading: #ffffff;
+    --color-icon-tile: #f4de9a14;
+    --color-icon-tile-ink: #f4de9a;
+    --color-eyebrow: #f4de9acc;
+    --color-surface-edge: #ffffff12;
+    --color-nav: #040806;
+  }
 }

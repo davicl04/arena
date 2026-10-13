@@ -15,6 +15,7 @@ import { Avatar, Cover } from '../components/media'
 import ListRow from '../components/ListRow'
 import ProfileTitle from '../components/ProfileTitle'
 import Sheet from '../components/Sheet'
+import { AppearanceCard } from '../components/menu/AppearanceCard'
 import UsernameForm from '../components/UsernameForm'
 import SportCard from '../components/SportCard'
 import ProfileGallery from '../components/ProfileGallery'
@@ -315,6 +316,8 @@ export default function ProfileScreen({ user, onUser, onLogout, onExpired, onNew
       <ListRow label="Editar perfil" onPress={editFromMenu} />
       <ListRow label="Minhas modalidades" onPress={() => open(null)} />
       {menuSections?.(() => open(null))}
+      <Text className={cx(tw.eyebrow, 'mt-5')}>APARÊNCIA</Text>
+      <AppearanceCard />
       <Text className={cx(tw.eyebrow, 'mt-5')}>APP</Text>
       <ListRow label="Notificações" value={notificationCount > 0 ? String(notificationCount) : undefined} onPress={onOpenNotifications && (() => { open(null); onOpenNotifications() })} />
       <ListRow label="Sobre o ARENA" value={`Versão ${appVersion}`} />

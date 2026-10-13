@@ -11,7 +11,7 @@ import { LoadError } from './src/components/arena/LoadError'
 import { Screen } from './src/components/Screen'
 import { useJoinLink } from './src/navigation/useJoinLink'
 import { cx, tw } from './src/styles'
-import { colors } from './src/theme'
+import { themeStore, useResolvedTheme, useThemeColors } from './src/hooks/useTheme'
 import ArenaShell from './src/screens/ArenaShell'
 import AuthScreen from './src/screens/AuthScreen'
 
@@ -24,6 +24,10 @@ export default function App() {
   const [attempt, setAttempt] = useState(0)
   // Link do time (`arena://entrar/{token}` ou `…/entrar/{token}`): o token fica só em memória até a pessoa entrar.
   const { joinToken, consume: joinOpened, restore: restoreJoinToken } = useJoinLink()
+  // Tema (docs/plano-tema.md): a preferência do aparelho é lida uma vez; até lá, vale o sistema.
+  useEffect(() => { void themeStore.load() }, [])
+  const theme = useResolvedTheme()
+  const colors = useThemeColors()
   useEffect(() => {
     let alive = true
     request<User>('/me').then(value => { if (alive) setUser(value) }).catch(async err => {
@@ -37,7 +41,7 @@ export default function App() {
     if (pendingJoinToken) restoreJoinToken(pendingJoinToken)
     setUser(null); setSessionExpired(true); void clearToken()
   }, [restoreJoinToken])
-  return <SafeAreaProvider><Screen className={tw.screen}><StatusBar style="dark" /><KeyboardAvoidingView className="grow basis-0" behavior={Platform.OS === 'ios' ? 'padding' : 'height'}><ErrorBoundary>
+  return <SafeAreaProvider><Screen className={tw.screen}><StatusBar style={theme === 'dark' ? 'light' : 'dark'} /><KeyboardAvoidingView className="grow basis-0" behavior={Platform.OS === 'ios' ? 'padding' : 'height'}><ErrorBoundary>
     {loading ? <ScrollView contentContainerClassName={tw.content}><Text className={cx(tw.brand, 'mb-7.5')}>arena.</Text><ActivityIndicator accessibilityLabel="Carregando Arena" color={colors.brand} /></ScrollView> : user
       ? <ArenaShell user={user} onUser={setUser} onLogout={() => setUser(null)} onExpired={expired} joinToken={joinToken} onJoinOpened={joinOpened} />
       : <ScrollView contentContainerClassName={tw.content} keyboardShouldPersistTaps="handled"><Text className={cx(tw.brand, 'mb-7.5')}>arena.</Text>{sessionExpired ? <Text className={tw.error} accessibilityRole="alert">Sua sessão expirou. Entre novamente.</Text> : null}{loadFailure ? <LoadError size="section" title="Não foi possível conectar" text={loadFailure.message} cause={loadFailure.cause} onRetry={() => { setLoadFailure(null); setLoading(true); setAttempt(v => v + 1) }} /> : null}<AuthScreen onLogin={value => { setUser(value); setSessionExpired(false); setLoadFailure(null) }} onConnectionFailure={cause => setLoadFailure({ message: cause.message, cause })} /></ScrollView>}
