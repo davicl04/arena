@@ -28,7 +28,7 @@ export function NotificationItem({ notification, busy, isAdmin = false, onOpen }
   const row = 'flex w-full items-start gap-3 border-0 px-3.5 py-3 text-left text-inherit'
   return <li className="[&+&]:border-t [&+&]:border-solid [&+&]:border-line" data-unread={unread ? '' : undefined}>
     {interactive
-      ? <button type="button" className={cn(row, unread ? 'bg-brand/5 enabled:hover:bg-brand/8' : 'bg-transparent enabled:hover:bg-hover')} disabled={busy} onClick={() => onOpen(notification)}>{content}</button>
+      ? <button type="button" className={cn(row, unread ? 'bg-[#005a3608] enabled:hover:bg-[#005a360f] noite:bg-brand/5 noite:enabled:hover:bg-brand/8' : 'bg-transparent enabled:hover:bg-hover')} disabled={busy} onClick={() => onOpen(notification)}>{content}</button>
       : <div className={row}>{content}</div>}
   </li>
 }
