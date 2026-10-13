@@ -2,11 +2,13 @@ import { StrictMode, useEffect } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { request } from '../src/api/client'
+import { ApiError, request } from '../src/api/client'
 import type { Post, SocialUser, User } from '../src/api/client'
 import SocialCommunity from '../src/components/SocialCommunity'
 import ArenaPage from '../src/pages/ArenaPage'
 import { cropImage } from '../src/utils/cropImage'
+import { CONNECTION_LOAD_TEXT } from '../src/components/ui/load-error'
+import { findToast, queryToast, renderWithToaster } from './toast-utils'
 
 vi.mock('../src/api/client', async original => ({
   ...await original<typeof import('../src/api/client')>(),
@@ -49,7 +51,7 @@ function mockApi(feed: () => unknown = () => page([post])) {
 /** Monta a Comunidade dentro de um `main` rolável, como no app. */
 function renderInMain(props: Partial<Parameters<typeof SocialCommunity>[0]> = {}) {
   const onOpenUser = vi.fn()
-  render(<main><SocialCommunity viewerId={1} onOpenUser={onOpenUser} onExpired={vi.fn()} {...props} /></main>)
+  renderWithToaster(<main><SocialCommunity viewerId={1} onOpenUser={onOpenUser} onExpired={vi.fn()} {...props} /></main>)
   return { onOpenUser, main: document.querySelector('main')! }
 }
 
@@ -104,7 +106,7 @@ describe('Comunidade', () => {
     renderInMain()
     expect(await screen.findByText('Feed indisponível')).not.toBeNull()
     fail = false
-    await ui.click(screen.getByRole('button', { name: 'Tentar de novo' }))
+    await ui.click(screen.getByRole('button', { name: 'Tentar novamente' }))
     expect(await screen.findByText('Treino do dia')).not.toBeNull()
   })
 
@@ -189,7 +191,8 @@ describe('Nova publicação', () => {
     await ui.click(screen.getByRole('button', { name: 'Continuar' }))
     await ui.type(await screen.findByLabelText('Legenda (opcional)'), 'Nova')
     await ui.click(within(dialog).getByRole('button', { name: 'Publicar' }))
-    expect(await screen.findByText('Publicação compartilhada.')).not.toBeNull()
+    const shared = await findToast('Publicação compartilhada.')
+    expect(shared.closest('[data-tone]')?.getAttribute('data-tone')).toBe('success')
     expect(screen.queryByRole('dialog', { name: 'Nova publicação' })).toBeNull()
     expect(screen.getAllByRole('article')[0].getAttribute('aria-label')).toBe('Publicação de @eu')
 
@@ -244,7 +247,7 @@ describe('Nova publicação', () => {
     const form = vi.mocked(request).mock.calls.find(([, method]) => method === 'POST')![2] as FormData
     expect(form.get('caption')).toBe('Nova')
     expect((form.get('file') as File).name).toBe('quadra.webp')
-    expect(await screen.findByText('Publicação compartilhada.')).not.toBeNull()
+    expect(await findToast('Publicação compartilhada.')).not.toBeNull()
     expect(screen.queryByRole('dialog', { name: 'Nova publicação' })).toBeNull()
     expect(screen.getAllByRole('article')[0].getAttribute('aria-label')).toBe('Publicação de @eu')
   })
@@ -258,5 +261,96 @@ describe('Nova publicação', () => {
     expect(screen.queryByTestId('cropper')).toBeNull()
     fireEvent.keyDown(dialog, { key: 'Escape' })
     expect(screen.queryByRole('dialog', { name: 'Nova publicação' })).toBeNull()
+  })
+})
+
+describe('Falhas da Comunidade', () => {
+  it('feed sem conexão mostra o texto de conexão no erro de carregamento', async () => {
+    mockApi(() => { throw new ApiError('Serviço fora do ar.', 503) })
+    renderInMain()
+    expect(await screen.findByText('Feed indisponível')).not.toBeNull()
+    expect(screen.getByText(CONNECTION_LOAD_TEXT)).not.toBeNull()
+  })
+
+  it('a curtida que falha vira toast de erro', async () => {
+    mockApi()
+    const ui = userEvent.setup()
+    renderInMain()
+    await screen.findByText('Treino do dia')
+    vi.mocked(request).mockImplementation(async path => {
+      if (path === '/posts/7/like') throw new ApiError('Não foi possível curtir agora.', 500)
+      return page([post]) as never
+    })
+    await ui.click(screen.getByRole('button', { name: 'Curtir (2)' }))
+    const failure = await findToast('Não foi possível curtir agora.')
+    expect(failure.closest('[data-tone]')?.getAttribute('data-tone')).toBe('error')
+    expect(screen.getByRole('button', { name: 'Curtir (2)' }).getAttribute('aria-pressed')).toBe('false')
+  })
+
+  it('a curtida sem conexão não mostra toast nem mensagem na publicação', async () => {
+    mockApi()
+    const ui = userEvent.setup()
+    renderInMain()
+    await screen.findByText('Treino do dia')
+    vi.mocked(request).mockImplementation(async path => {
+      if (path === '/posts/7/like') throw new ApiError('Sem conexão', 503)
+      return page([post]) as never
+    })
+    await ui.click(screen.getByRole('button', { name: 'Curtir (2)' }))
+    await waitFor(() => expect((screen.getByRole('button', { name: 'Curtir (2)' }) as HTMLButtonElement).disabled).toBe(false))
+    expect(queryToast(/Sem conexão|curtida/)).toBeNull()
+  })
+
+  it('a busca de atletas que falha mostra o erro da seção com "Tentar novamente"', async () => {
+    mockApi()
+    vi.mocked(request).mockImplementation(async path => {
+      if (path.startsWith('/users?q=')) throw new ApiError('Busca fora do ar.', 500)
+      if (path === '/posts') return page([post]) as never
+      return page([]) as never
+    })
+    const ui = userEvent.setup()
+    renderInMain()
+    await ui.click(await screen.findByRole('tab', { name: 'Atletas' }))
+    await ui.type(screen.getByLabelText('Buscar atletas por nome ou @'), 'ana{Enter}')
+    const alert = await screen.findByText('Busca indisponível')
+    expect(alert.closest('[data-slot="load-error"]')?.getAttribute('data-size')).toBe('section')
+    expect(screen.getByText('Busca fora do ar.')).not.toBeNull()
+    expect(screen.getByRole('button', { name: 'Tentar novamente' })).not.toBeNull()
+  })
+
+  it('seguir que falha vira toast de erro e o botão não muda', async () => {
+    vi.mocked(request).mockImplementation(async (path, method) => {
+      if (path.startsWith('/users?q=')) return page([{ ...athlete, id: 5, name: 'Ana Souza', username: 'ana', follow_state: 'none' }]) as never
+      if (path === '/users/5/follow' && method === 'PUT') throw new ApiError('Não foi possível seguir.', 500)
+      return (path === '/posts' ? page([post]) : page([])) as never
+    })
+    const ui = userEvent.setup()
+    renderInMain()
+    await ui.click(await screen.findByRole('tab', { name: 'Atletas' }))
+    await ui.type(screen.getByLabelText('Buscar atletas por nome ou @'), 'ana{Enter}')
+    await ui.click(await screen.findByRole('button', { name: 'Seguir' }))
+    const failure = await findToast('Não foi possível seguir.')
+    expect(failure.closest('[data-tone]')?.getAttribute('data-tone')).toBe('error')
+    expect(screen.getByRole('button', { name: 'Seguir' })).not.toBeNull()
+  })
+
+  it('os comentários que falham ao carregar mostram o erro da seção no vidro e recarregam', async () => {
+    let fail = true
+    mockApi()
+    vi.mocked(request).mockImplementation(async path => {
+      if (path === '/posts/7/comments') {
+        if (fail) throw new ApiError('Comentários fora do ar.', 500)
+        return page([{ id: 11, author_id: 3, author_name: 'Outra Pessoa', author_avatar_url: null, body: 'Boa!', created_at: post.created_at, can_delete: false }]) as never
+      }
+      return page([post]) as never
+    })
+    const ui = userEvent.setup()
+    renderInMain()
+    await ui.click(await screen.findByRole('button', { name: 'Comentários (1)' }))
+    const title = await screen.findByText('Comentários indisponíveis')
+    expect(title.closest('[data-slot="load-error"]')?.getAttribute('data-tone')).toBe('dark')
+    fail = false
+    await ui.click(screen.getByRole('button', { name: 'Tentar novamente' }))
+    expect(await screen.findByText('Boa!')).not.toBeNull()
   })
 })
