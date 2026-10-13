@@ -20,7 +20,7 @@ from app.models.teams import Team, TeamInvite, TeamJoinRequest, TeamMember
 from app.schemas.common import PersonOut
 from app.schemas.identity import CityOut
 from app.schemas.teams import RosterPreviewItemOut, TeamCardOut, TeamMemberOut, TeamUpdateInput
-from app.services import audit, matchmaking, notifications, team_links
+from app.services import audit, matchmaking, notifications, team_links, team_notifications
 from app.services.entries import team_ensure_no_active_entry
 from app.services.people import avatar_url, blocked_ids, person_out
 from app.services.rankings import team_format_grid
@@ -349,7 +349,11 @@ def update_member(db: Session, viewer: User, team_id: int, user_id: int, *, fiel
     if 'role' in fields and role != target.role:
         if role == MEMBER:
             ensure_representative_remains(context.roster.values(), target, LAST_REPRESENTATIVE_ROLE)
+        was_representative = target.role == REPRESENTATIVE
         target.role = role
+        if was_representative and role == MEMBER:
+            # Stops representing the team: what they received only as its representative closes for them alone.
+            team_notifications.resolve_for_former_representatives(db, context.team.id, [user_id])
         audit.record(db, actor_id=viewer.id, action='membro.papel_alterado', target_type='team_member',
                      target_id=target.id, data={'team_id': context.team.id, 'user_id': user_id, 'role': role})
     if 'position' in fields:
@@ -369,6 +373,8 @@ def remove_member(db: Session, viewer: User, team_id: int, user_id: int) -> None
             raise HTTPException(404, NOT_IN_ROSTER)
         ensure_representative_remains(context.roster.values(), context.me, LAST_REPRESENTATIVE_LEAVE)
         context.me.left_at, context.me.left_reason = now, 'saiu'
+        if context.me.role == REPRESENTATIVE:
+            team_notifications.resolve_for_former_representatives(db, team.id, [user_id])
         audit.record(db, actor_id=viewer.id, action='membro.saiu', target_type='team_member',
                      target_id=context.me.id, data={'team_id': team.id, 'user_id': user_id})
     else:
@@ -378,6 +384,8 @@ def remove_member(db: Session, viewer: User, team_id: int, user_id: int) -> None
             raise HTTPException(404, NOT_IN_ROSTER)
         ensure_representative_remains(context.roster.values(), target, LAST_REPRESENTATIVE_ROLE)
         target.left_at, target.left_reason, target.removed_by_id = now, 'removido', viewer.id
+        if target.role == REPRESENTATIVE:
+            team_notifications.resolve_for_former_representatives(db, team.id, [user_id])
         notifications.notify(db, user_id, 'removido_do_time', {'team_id': team.id, 'team_name': team.name},
                              actor_id=viewer.id)
         audit.record(db, actor_id=viewer.id, action='membro.removido', target_type='team_member',
@@ -412,6 +420,8 @@ def close_team(db: Session, viewer: User, team_id: int) -> None:
         audit.record(db, actor_id=viewer.id, action='pedido_entrada.cancelado', target_type='team_join_request',
                      target_id=request.id, data={**automatic, 'user_id': request.user_id})
     matchmaking.cancel_team_searches(db, team, actor_id=viewer.id, now=now)
+    # Nobody represents the team any more: the actions its representatives received for it close for each of them.
+    team_notifications.resolve_for_former_representatives(db, team.id, context.representative_ids())
     notifications.notify_many(db, list(context.roster), 'time_encerrado',
                               {'team_id': team.id, 'team_name': team.name}, actor_id=viewer.id)
     audit.record(db, actor_id=viewer.id, action='time.encerrado', target_type='team', target_id=team.id,
