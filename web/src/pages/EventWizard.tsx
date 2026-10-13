@@ -408,9 +408,9 @@ function WhenStep({ form, errors, update, city, onPickCity }: StepProps & { city
   return <>
     <label htmlFor={FIELD_ID.startDate} className={darkLabel}>Data e hora do evento</label>
     <div className="grid grid-cols-[minmax(0,1fr)_118px] gap-2">
-      <DatePicker id={FIELD_ID.startDate} label="Data do evento" tone="dark" disablePast value={form.startDate} invalid={Boolean(errors.startDate)}
+      <DatePicker id={FIELD_ID.startDate} label="Data do evento" tone="dark" disablePast className="noite:aria-invalid:border-[#94351e]" value={form.startDate} invalid={Boolean(errors.startDate)}
         aria-describedby={errors.startDate ? `${FIELD_ID.startDate}-error` : undefined} onChange={value => update({ startDate: value })} />
-      <TimeField id={FIELD_ID.startTime} aria-label="Hora do início" tone="dark" stepMinutes={5} value={form.startTime} invalid={Boolean(errors.startTime)}
+      <TimeField id={FIELD_ID.startTime} aria-label="Hora do início" tone="dark" stepMinutes={5} className="noite:data-invalid:border-[#94351e]" value={form.startTime} invalid={Boolean(errors.startTime)}
         aria-describedby={errors.startTime ? `${FIELD_ID.startTime}-error` : undefined} onChange={value => update({ startTime: value })} />
     </div>
     <DarkFieldError id={FIELD_ID.startDate} error={errors.startDate} />
@@ -418,7 +418,7 @@ function WhenStep({ form, errors, update, city, onPickCity }: StepProps & { city
 
     <label htmlFor={FIELD_ID.closeDate} className={darkLabel}>Inscrições até</label>
     <div className="grid grid-cols-[minmax(0,1fr)_118px] gap-2">
-      <DatePicker id={FIELD_ID.closeDate} label="Fim das inscrições" tone="dark" disablePast max={closeDateMax(form)} value={form.closeDate}
+      <DatePicker id={FIELD_ID.closeDate} label="Fim das inscrições" tone="dark" disablePast className="noite:aria-invalid:border-[#94351e]" max={closeDateMax(form)} value={form.closeDate}
         invalid={Boolean(errors.closeDate)} aria-describedby={describedBy(FIELD_ID.closeDate, errors.closeDate)} onChange={value => update({ closeDate: value })} />
       <TimeField id={FIELD_ID.closeTime} aria-label="Hora do fim das inscrições (opcional)" tone="dark" stepMinutes={5} value={form.closeTime}
         placeholder="23:59" onChange={value => update({ closeTime: value })} />

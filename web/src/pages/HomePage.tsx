@@ -216,7 +216,7 @@ export default function HomePage({
           </Button>
         }
       />
-      <div className="relative h-[178px] overflow-hidden rounded-panel bg-ink shadow-[0_4px_14px_#0002]">
+      <div className="relative h-[178px] overflow-hidden rounded-panel bg-ink noite:bg-[#495057] shadow-[0_4px_14px_#0002]">
         <img
           className="size-full object-cover"
           src={cover}

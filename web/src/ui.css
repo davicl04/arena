@@ -168,7 +168,7 @@
   --color-success-bg: #8fe0b41a;
   --color-warning: #f4c56a;
   --color-warning-bg: #f4c56a1a;
-  --color-danger: #e04459;
+  --color-danger: #ec5a6e; /* texto 5,1:1 sobre o cartão; sólido leva texto escuro (#2a0710) */
   --color-danger-ink: #ff8a80;
   --color-tile: #16201b;
   --color-surface: #0f1813;

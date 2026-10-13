@@ -205,7 +205,7 @@ export function RunStopwatchDialog({ initialDistance, onClose, onSaved, onFindRa
           {source === 'treino'
             ? <div className="grid gap-1.5">
               <span className={label}>Data</span>
-              <DatePicker id={ids.date} label="Data" tone="dark" value={date} min={firstKey} max={todayKey} invalid={Boolean(problems?.date)}
+              <DatePicker id={ids.date} label="Data" tone="dark" className="noite:aria-invalid:border-[#94351e]" value={date} min={firstKey} max={todayKey} invalid={Boolean(problems?.date)}
                 aria-describedby={problems?.date ? ids.date : undefined} onChange={setDate} />
               <Problem id={ids.date}>{problems?.date}</Problem>
               <small className="text-[10.5px] leading-[1.5] text-white/60">Treinos das últimas 52 semanas, até hoje.</small>

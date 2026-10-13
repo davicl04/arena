@@ -19,7 +19,7 @@ function day(value: string) {
 }
 
 /* Pílulas de curtir/comentar sobre a foto; curtida marcada (aria-pressed) fica branca com coração vermelho. */
-const pill = 'inline-flex min-h-9 items-center gap-1.5 rounded-[18px] border-0 bg-[#0b2218a6] px-[13px] py-0 text-[11px] font-bold text-white tabular-nums backdrop-blur-[10px] aria-pressed:bg-white aria-pressed:text-danger'
+const pill = 'inline-flex min-h-9 items-center gap-1.5 rounded-[18px] border-0 bg-[#0b2218a6] px-[13px] py-0 text-[11px] font-bold text-white tabular-nums backdrop-blur-[10px] aria-pressed:bg-white aria-pressed:text-danger noite:aria-pressed:text-[#b93749]'
 /* Etiqueta do autor (A5): vidro escuro com foto sem contorno e @usuário; o tom escuro garante leitura em foto clara. */
 const authorChip = 'flex min-w-0 items-center gap-2 rounded-full border border-solid border-[#ffffff2e] bg-[#0c161199] py-[3px] pr-[11px] pl-[3px] text-left text-white backdrop-blur-[14px] backdrop-saturate-[1.7]'
 

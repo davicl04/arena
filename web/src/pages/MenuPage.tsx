@@ -11,7 +11,7 @@ import { AppearanceCard } from '../components/menu/AppearanceCard'
 
 /** Contador de pendências da fila (AD1). */
 function QueueCount({ count }: { count: number }) {
-  return <span className="inline-grid h-[17px] min-w-[17px] place-items-center rounded-[9px] bg-danger px-1 text-[9.5px] font-extrabold text-white">
+  return <span className="inline-grid h-[17px] min-w-[17px] place-items-center rounded-[9px] bg-danger px-1 text-[9.5px] font-extrabold text-white noite:text-[#2a0710]">
     {count > 99 ? '99+' : count}<span className="sr-only"> {count === 1 ? 'pendente' : 'pendentes'}</span>
   </span>
 }
