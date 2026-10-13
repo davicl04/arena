@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
+import { cleanup, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ApiError, request } from '../src/api/client'
 import type { OrganizerEventCard } from '../src/api/events'
@@ -7,6 +7,7 @@ import type { OrganizerStatus } from '../src/api/organizer'
 import { EventNotices } from '../src/components/organizer/EventNotices'
 import OrganizerEventsPage from '../src/pages/OrganizerEventsPage'
 import { eventCard, message } from './events-fixtures'
+import { findToast, renderWithToaster } from './toast-utils'
 
 vi.mock('../src/api/client', async original => ({
   ...await original<typeof import('../src/api/client')>(),
@@ -27,7 +28,7 @@ function mockList({ open = [], closed = [], cursor = null, status = approved }: 
 }
 function renderPage() {
   const props = { onBack: vi.fn(), onOpen: vi.fn(), onCreate: vi.fn(), onExpired: vi.fn() }
-  render(<OrganizerEventsPage {...props} />)
+  renderWithToaster(<OrganizerEventsPage {...props} />)
   return props
 }
 
@@ -116,7 +117,7 @@ describe('canal de avisos do evento', () => {
       if (path === '/events/5/messages') return { items: [message({ id: 2, kind: 'evento_cancelado', author: null, body: 'Chuva forte.' }), message()], next_cursor: null } as never
       throw new Error(`rota inesperada ${path}`)
     })
-    render(<EventNotices eventId={5} canWrite onExpired={vi.fn()} />)
+    renderWithToaster(<EventNotices eventId={5} canWrite onExpired={vi.fn()} />)
     const list = await screen.findByRole('list', { name: 'Avisos publicados' })
     const [automatic, notice] = within(list).getAllByRole('listitem')
     expect(automatic.getAttribute('data-kind')).toBe('evento_cancelado')
@@ -141,13 +142,13 @@ describe('canal de avisos do evento', () => {
       if (method === 'POST') throw new ApiError('A administração está decidindo sobre este evento.', 409)
       return { items: [], next_cursor: null } as never
     })
-    render(<EventNotices eventId={5} canWrite onExpired={vi.fn()} />)
+    renderWithToaster(<EventNotices eventId={5} canWrite onExpired={vi.fn()} />)
     expect(await screen.findByText('Nenhum aviso ainda.')).toBeTruthy()
     await user.type(screen.getByLabelText('Novo aviso'), 'Aviso')
     await user.click(screen.getByRole('button', { name: 'Publicar aviso' }))
-    expect((await screen.findByRole('alert')).textContent).toBe('A administração está decidindo sobre este evento.')
+    expect(await findToast('A administração está decidindo sobre este evento.')).toBeTruthy()
     cleanup()
-    render(<EventNotices eventId={5} canWrite={false} onExpired={vi.fn()} />)
+    renderWithToaster(<EventNotices eventId={5} canWrite={false} onExpired={vi.fn()} />)
     expect(await screen.findByText('Nenhum aviso ainda.')).toBeTruthy()
     expect(screen.queryByLabelText('Novo aviso')).toBeNull()
   })

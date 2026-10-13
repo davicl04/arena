@@ -1,10 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
+import { cleanup, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import ResultDecisionPage from '../src/pages/ResultDecisionPage'
 import { apiError, mockApi } from './teams-fixtures'
 import { caio, court, fromNow, matchDetail, message, noPermissions, page, ricardo, sides } from './match-fixtures'
 import { hiddenReport, report, result as resultOf } from './results-fixtures'
+import { findToast, renderWithToaster } from './toast-utils'
 
 /*
  * Placar divergente (D3), do lado do organizador: a linha do tempo, o trecho do chat com "Abrir chat" e a decisão — o placar
@@ -42,7 +43,7 @@ function renderPage(detail = divergent(), routes: Routes = {}) {
     ...routes,
   })
   const props = { onBack: vi.fn(), onOpenChat: vi.fn(), onDone: vi.fn(), onExpired: vi.fn() }
-  render(<ResultDecisionPage matchId={11} {...props} />)
+  renderWithToaster(<ResultDecisionPage matchId={11} {...props} />)
   return { ...api, ...props, user: userEvent.setup() }
 }
 const radio = (name: string | RegExp) => screen.getByRole('radio', { name }) as HTMLButtonElement
@@ -143,7 +144,7 @@ describe('decisão', () => {
     await user.click(await screen.findByRole('radio', { name: /Informado por Leões do Cerrado/ }))
     await user.type(note(), 'Usar o placar do Leões.')
     await user.click(screen.getByRole('button', { name: 'Registrar 1 × 1' }))
-    expect((await screen.findByRole('alert')).textContent).toBe('Na eliminação simples não há empate. Informe o placar final com o vencedor (some os pênaltis, se houver).')
+    expect(await findToast('Na eliminação simples não há empate. Informe o placar final com o vencedor (some os pênaltis, se houver).')).toBeTruthy()
     expect(onDone).not.toHaveBeenCalled()
     // O formulário continua com a escolha e a justificativa.
     expect(note().value).toBe('Usar o placar do Leões.')
@@ -164,7 +165,7 @@ describe('decisão', () => {
     await user.type(note(), 'Usar o placar do Ferrugem.')
     await user.click(screen.getByRole('button', { name: 'Registrar 2 × 1' }))
     expect(await screen.findByRole('region', { name: 'Resultado registrado' })).not.toBeNull()
-    expect(screen.getByRole('alert').textContent).toBe('O resultado desta partida já foi definido.')
+    expect(await findToast('O resultado desta partida já foi definido.')).toBeTruthy()
     expect(find('GET', '/matches/11')).toHaveLength(2)
     expect(screen.queryByRole('heading', { name: 'Sua decisão' })).toBeNull()
     expect(screen.queryByRole('button', { name: /^Registrar/ })).toBeNull()
@@ -182,7 +183,7 @@ describe('decisão', () => {
     await user.type(note(), 'Usar o placar do Leões.')
     await user.click(screen.getByRole('button', { name: 'Registrar 1 × 1' }))
     await waitFor(() => expect(reads).toBe(2))
-    expect((await screen.findByRole('alert')).textContent).toBe('Esta partida ainda espera o resultado dos jogos anteriores.')
+    expect(await findToast('Esta partida ainda espera o resultado dos jogos anteriores.')).toBeTruthy()
     expect(find('GET', '/matches/11')).toHaveLength(2)
     expect(note().value).toBe('Usar o placar do Leões.')
     expect(radio(/Informado por Leões do Cerrado/).getAttribute('aria-checked')).toBe('true')

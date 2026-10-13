@@ -13,6 +13,7 @@ import { apiError, mockApi, reply } from './teams-fixtures'
 import { brasilia, football, playBoard, standings } from './matchmaking-fixtures'
 import { athleteRow, rankingPage } from './results-fixtures'
 import { bests, created, emptyCard, impact, lago, markCard, preview, run, sec } from './run-fixtures'
+import { findToast, renderWithToaster } from './toast-utils'
 
 /*
  * "Suas marcas" (K4), o histórico, a linha do elo da corrida na placa e o fluxo REGISTRAR → salvar, etapa 5.
@@ -30,7 +31,7 @@ describe('RunSpark: minigráfico de evolução em SVG próprio', () => {
   const points = (container: HTMLElement) => (container.querySelector('polyline')?.getAttribute('points') ?? '').split(' ').map(pair => pair.split(',').map(Number))
 
   it('o tempo menor sobe o traço e a marca mais recente fica marcada', () => {
-    const { container } = render(<RunSpark series={markCard(5, ['26:05', '25:00', '24:12']).series} />)
+    const { container } = renderWithToaster(<RunSpark series={markCard(5, ['26:05', '25:00', '24:12']).series} />)
     const line = points(container)
     expect(line).toHaveLength(3)
     expect(line[0][0]).toBe(0)
@@ -43,14 +44,14 @@ describe('RunSpark: minigráfico de evolução em SVG próprio', () => {
   })
 
   it('uma marca é só um ponto; marcas iguais, uma linha reta; sem marcas, nada', () => {
-    const one = render(<RunSpark series={markCard(5, ['24:12']).series} />)
+    const one = renderWithToaster(<RunSpark series={markCard(5, ['24:12']).series} />)
     expect(one.container.querySelector('polyline')).toBeNull()
     expect(one.container.querySelector('circle')?.getAttribute('cx')).toBe('46')
     expect(one.container.querySelector('svg')?.getAttribute('aria-label')).toBe('Evolução: uma marca, 24:12')
-    const flat = render(<RunSpark series={markCard(5, ['24:12', '24:12']).series} />)
+    const flat = renderWithToaster(<RunSpark series={markCard(5, ['24:12', '24:12']).series} />)
     const ys = points(flat.container).map(pair => pair[1])
     expect(ys).toEqual([14, 14])
-    const none = render(<RunSpark series={[]} />)
+    const none = renderWithToaster(<RunSpark series={[]} />)
     expect(none.container.querySelector('svg')).toBeNull()
   })
 })
@@ -63,7 +64,7 @@ describe('RunMarks: os cinco cartões', () => {
     const onOpen = vi.fn()
     const onRetry = vi.fn()
     const onOpenRanking = vi.fn()
-    render(<RunMarks items={cards} loading={false} error="" selected={5} onAdd={onAdd} onOpen={onOpen} onRetry={onRetry} onOpenRanking={onOpenRanking} {...overrides} />)
+    renderWithToaster(<RunMarks items={cards} loading={false} error="" selected={5} onAdd={onAdd} onOpen={onOpen} onRetry={onRetry} onOpenRanking={onOpenRanking} {...overrides} />)
     return { onAdd, onOpen, onRetry, onOpenRanking, ui: userEvent.setup() }
   }
   const card = (km: number) => document.querySelector(`[data-slot="run-mark"][data-distance="${km}"]`) as HTMLElement
@@ -120,7 +121,7 @@ describe('RunMarks: os cinco cartões', () => {
 
   it('carregando e erro: texto de estado e nova tentativa, sem cartões inventados', async () => {
     cleanup()
-    render(<RunMarks items={[]} loading error="" selected={5} onAdd={vi.fn()} onOpen={vi.fn()} onRetry={vi.fn()} onOpenRanking={vi.fn()} />)
+    renderWithToaster(<RunMarks items={[]} loading error="" selected={5} onAdd={vi.fn()} onOpen={vi.fn()} onRetry={vi.fn()} onOpenRanking={vi.fn()} />)
     expect(screen.getByRole('status').textContent).toBe('Carregando suas marcas…')
     expect(document.querySelector('[data-slot="run-mark"]')).toBeNull()
     cleanup()
@@ -141,7 +142,7 @@ describe('RunHistorySheet: histórico paginado e remoção', () => {
   function open(filter: Parameters<typeof RunHistorySheet>[0]['filter'], routes: Parameters<typeof mockApi>[0], extra: Partial<Parameters<typeof RunHistorySheet>[0]> = {}) {
     const api = mockApi(routes)
     const handlers = { onClose: vi.fn(), onChanged: vi.fn(), onExpired: vi.fn(), onAdd: vi.fn() }
-    render(<RunHistorySheet filter={filter} {...handlers} {...extra} />)
+    renderWithToaster(<RunHistorySheet filter={filter} {...handlers} {...extra} />)
     return { api, ...handlers, ui: userEvent.setup() }
   }
   const sheet = () => screen.getByRole('dialog', { name: 'Histórico dos 5 km' })
@@ -192,12 +193,12 @@ describe('RunHistorySheet: histórico paginado e remoção', () => {
   })
 
   it('a marca fora das 52 semanas avisa que não conta para o ranking; erro ao remover fica na confirmação', async () => {
-    const { api, ui, onChanged } = open('5', { [path('5')]: { items: rows, next_cursor: null }, 'DELETE /me/runs/1': apiError(503, 'Serviço indisponível.') })
+    const { api, ui, onChanged } = open('5', { [path('5')]: { items: rows, next_cursor: null }, 'DELETE /me/runs/1': apiError(500, 'Serviço indisponível.') })
     await screen.findByText('26:05')
     await ui.click(screen.getByRole('button', { name: 'Remover a marca de 26:05 em 1 out 2025' }))
     expect(screen.getByRole('group', { name: 'Confirmação' }).textContent).toContain('Não conta para o ranking.')
     await ui.click(within(screen.getByRole('group', { name: 'Confirmação' })).getByRole('button', { name: 'Remover marca' }))
-    expect((await screen.findByRole('alert')).textContent).toBe('Serviço indisponível.')
+    expect(await findToast('Serviço indisponível.')).toBeTruthy()
     expect(onChanged).not.toHaveBeenCalled()
     expect(screen.getByText('26:05')).not.toBeNull()
     // Uma falha de servidor não é estado velho: a lista não é relida e a confirmação continua aberta.
@@ -216,7 +217,7 @@ describe('RunHistorySheet: histórico paginado e remoção', () => {
     await ui.click(within(screen.getByRole('group', { name: 'Confirmação' })).getByRole('button', { name: 'Remover marca' }))
     await waitFor(() => expect(screen.queryByText('25:31')).toBeNull())
     expect(api.find('GET', '/me/runs?distance=5&limit=20')).toHaveLength(2)
-    expect((await screen.findByRole('alert')).textContent).toBe('Marca não encontrada.')
+    expect(await findToast('Marca não encontrada.')).toBeTruthy()
     expect(screen.queryByRole('group', { name: 'Confirmação' })).toBeNull()
     expect(onChanged).toHaveBeenCalledTimes(1)
     expect(within(sheet()).getAllByRole('listitem')).toHaveLength(2)
@@ -254,7 +255,7 @@ describe('placa da corrida (K2 + K4 na PlayPage)', () => {
     const api = mockApi({ 'GET /me/standings': standings(), ...routes })
     const go = vi.fn()
     const onExpired = vi.fn()
-    render(<PlayPage profiles={profiles} cities={[brasilia]} loading={false} board={idleBoard()} go={go} onExpired={onExpired} />)
+    renderWithToaster(<PlayPage profiles={profiles} cities={[brasilia]} loading={false} board={idleBoard()} go={go} onExpired={onExpired} />)
     return { api, go, onExpired, ui: userEvent.setup() }
   }
   const openRunning = async (ui: ReturnType<typeof userEvent.setup>) => { await ui.click(screen.getByRole('tab', { name: 'Corrida' })) }

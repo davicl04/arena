@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { City, Profile } from '../src/api/client'
 import { receiptFileError } from '../src/api/receipts'
@@ -11,6 +11,7 @@ import EventsPage from '../src/pages/EventsPage'
 import { apiError, brasilia, mockApi } from './teams-fixtures'
 import type { Call } from './teams-fixtures'
 import { HOUR, card, confirmedEntry, detail, ferrugem, fromNow, lions, myEntry, myReceipt, withEntry } from './events-fixtures'
+import { findToast, renderWithToaster } from './toast-utils'
 
 /*
  * Campeonatos e provas do atleta (0002, seção 6): lista E2, detalhe D2 com as abas, inscrição gratuita e paga
@@ -26,7 +27,7 @@ const page = (items: unknown[], next: string | null = null) => ({ items, next_cu
 function renderEvent(props: Partial<{ onTeams: () => void; onManage: (id: number) => void }> = {}) {
   const onTeams = props.onTeams ?? vi.fn()
   const onManage = props.onManage ?? vi.fn()
-  render(<div className="relative"><EventPage eventId={1} onTeams={onTeams} onManage={onManage} onExpired={vi.fn()} /></div>)
+  renderWithToaster(<div className="relative"><EventPage eventId={1} onTeams={onTeams} onManage={onManage} onExpired={vi.fn()} /></div>)
   return { onTeams, onManage }
 }
 /** Detalhe e inscrição que mudam com as ações (o servidor devolve o novo estado). */
@@ -109,7 +110,7 @@ describe('lista de campeonatos e provas (E2)', () => {
     const onOpen = vi.fn()
     const onSport = vi.fn()
     const onSports = vi.fn()
-    render(<EventsPage sport="futebol" profiles={profiles} cities={cities} loading={false} onSport={onSport} onOpen={onOpen} onSports={onSports} onExpired={vi.fn()} />)
+    renderWithToaster(<EventsPage sport="futebol" profiles={profiles} cities={cities} loading={false} onSport={onSport} onOpen={onOpen} onSports={onSports} onExpired={vi.fn()} />)
     return { calls, onOpen, onSport, onSports }
   }
 
@@ -224,7 +225,7 @@ describe('detalhe do evento (D2)', () => {
     await ui.click(await screen.findByRole('button', { name: 'Inscrever-se · Grátis' }))
     expect(within(dialog()).getByText(/confirmada na hora/)).not.toBeNull()
     await ui.click(within(dialog()).getByRole('button', { name: 'Confirmar inscrição' }))
-    expect(await screen.findByText('Inscrição confirmada em Copa Sudoeste.')).not.toBeNull()
+    expect(await findToast('Inscrição confirmada em Copa Sudoeste.')).not.toBeNull()
     expect(screen.getByText('Inscrição confirmada em Copa Sudoeste.').closest('[aria-live="polite"]')).not.toBeNull()
     expect(calls.find('POST', '/events/1/entries')[0].body).toEqual({})
     expect(await screen.findByText('Inscrição confirmada')).not.toBeNull()
@@ -260,7 +261,8 @@ describe('detalhe do evento (D2)', () => {
     await ui.click(within(sheet).getByRole('button', { name: 'Informações de pagamento' }))
     await ui.click(within(screen.getByRole('dialog', { name: 'Pagamento e informações' })).getByRole('button', { name: 'Fechar' }))
     await ui.click(within(screen.getByRole('dialog', { name: 'Reservar vaga' })).getByRole('button', { name: 'Reservar vaga' }))
-    expect(await screen.findByText(/^Vaga reservada\. Envie o comprovante até/)).not.toBeNull()
+    expect(await findToast('Vaga reservada.')).not.toBeNull()
+    expect(await findToast(/^Envie o comprovante até/)).not.toBeNull()
     expect(await screen.findByText('Vaga reservada')).not.toBeNull()
     expect(document.querySelector('[data-slot="deadline-ring"]')).not.toBeNull()
     // Cartão S1 com "Copiar chave Pix" e "Pagamento" (ⓘ).
@@ -324,7 +326,7 @@ describe('detalhe do evento (D2)', () => {
     await ui.click(await screen.findByRole('button', { name: 'Enviar comprovante' }))
     fireEvent.change(within(dialog()).getByLabelText(/Escolher arquivo/), { target: { files: [new File(['%PDF'], 'c.pdf', { type: 'application/pdf' })] } })
     await ui.click(within(dialog()).getByRole('button', { name: 'Enviar para análise' }))
-    expect((await within(dialog()).findByRole('alert')).textContent).toBe('O prazo da reserva acabou.')
+    expect(await findToast('O prazo da reserva acabou.')).toBeTruthy()
   })
 
   it('reserva expirada: "A vaga foi liberada" e inscrição de novo, se houver vaga', async () => {
@@ -349,7 +351,7 @@ describe('detalhe do evento (D2)', () => {
     await ui.click(await screen.findByRole('button', { name: 'Desistir da inscrição' }))
     expect(within(dialog()).getByText(/Se você já pagou, combine a devolução com o organizador/)).not.toBeNull()
     await ui.click(within(dialog()).getByRole('button', { name: 'Desistir' }))
-    expect(await screen.findByText('Inscrição cancelada. A vaga ficou livre.')).not.toBeNull()
+    expect(await findToast('Inscrição cancelada. A vaga ficou livre.')).not.toBeNull()
     expect(calls.find('DELETE', '/entries/5')[0].body).toBeUndefined()
     await waitFor(() => expect(screen.queryByRole('region', { name: 'Sua inscrição' })).toBeNull())
     expect(within(bar()!).getByRole('button', { name: 'Inscrever-se · R$ 240' })).not.toBeNull()

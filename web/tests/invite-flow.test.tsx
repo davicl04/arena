@@ -1,8 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
+import { cleanup, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { InviteFlow } from '../src/components/teams/InviteFlow'
 import { apiError, mockApi, person, team } from './teams-fixtures'
+import { findToast, renderWithToaster } from './toast-utils'
 
 afterEach(() => {
   cleanup(); vi.unstubAllGlobals()
@@ -30,7 +31,7 @@ describe('Convidar atleta (I5 + Q2)', () => {
     })
     const onClose = vi.fn()
     const ui = userEvent.setup()
-    render(<InviteFlow teamId={10} onClose={onClose} onExpired={vi.fn()} />)
+    renderWithToaster(<InviteFlow teamId={10} onClose={onClose} onExpired={vi.fn()} />)
     expect(screen.getByRole('heading', { level: 1, name: 'Quem você quer convidar?' })).toBeTruthy()
     expect(screen.getByRole('tab', { name: 'Escolher atleta' }).getAttribute('aria-selected')).toBe('true')
     const list = await screen.findByRole('list', { name: 'Quem você segue' })
@@ -69,10 +70,10 @@ describe('Convidar atleta (I5 + Q2)', () => {
       'POST /teams/10/invites': apiError(409, 'Este atleta já pediu para entrar. Responda em Pedidos para entrar.'),
     })
     const ui = userEvent.setup()
-    render(<InviteFlow teamId={10} onClose={vi.fn()} onExpired={vi.fn()} />)
+    renderWithToaster(<InviteFlow teamId={10} onClose={vi.fn()} onExpired={vi.fn()} />)
     await ui.click(await screen.findByRole('button', { name: 'Escolher Rafael Gomes' }))
     await ui.click(screen.getByRole('button', { name: 'Enviar convite' }))
-    expect((await screen.findByRole('alert')).textContent).toBe('Este atleta já pediu para entrar. Responda em Pedidos para entrar.')
+    expect(await findToast('Este atleta já pediu para entrar. Responda em Pedidos para entrar.')).toBeTruthy()
     await ui.click(screen.getByRole('button', { name: 'Voltar' }))
     expect(screen.getByRole('heading', { level: 1, name: 'Quem você quer convidar?' })).toBeTruthy()
   })
@@ -80,7 +81,7 @@ describe('Convidar atleta (I5 + Q2)', () => {
   it('mostra quando você ainda não segue ninguém e quando a busca não acha', async () => {
     mockApi({ 'GET /teams/10': team(), 'GET /teams/10/invite-candidates': { items: [], next_cursor: null }, 'GET /teams/10/invite-candidates?q=zzz': { items: [], next_cursor: null } })
     const ui = userEvent.setup()
-    render(<InviteFlow teamId={10} onClose={vi.fn()} onExpired={vi.fn()} />)
+    renderWithToaster(<InviteFlow teamId={10} onClose={vi.fn()} onExpired={vi.fn()} />)
     expect(await screen.findByText(/Você ainda não segue ninguém aqui/)).toBeTruthy()
     await ui.type(screen.getByLabelText('Buscar atleta por nome ou @usuário'), 'zzz{Enter}')
     expect(await screen.findByText('Ninguém com esse nome ou @usuário.')).toBeTruthy()
@@ -99,7 +100,7 @@ describe('Link e QR do time (Q2 + Q5)', () => {
     const ui = userEvent.setup()
     const writeText = vi.fn().mockResolvedValue(undefined)
     Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
-    render(<InviteFlow teamId={10} initialTab="link" onClose={vi.fn()} onExpired={vi.fn()} />)
+    renderWithToaster(<InviteFlow teamId={10} initialTab="link" onClose={vi.fn()} onExpired={vi.fn()} />)
     expect(screen.getByRole('tab', { name: 'Link e QR' }).getAttribute('aria-selected')).toBe('true')
     expect(await screen.findByRole('img', { name: 'Código QR para entrar no Ferrugem FC' })).toBeTruthy()
     expect(screen.getByText('localhost:5173/entrar/tokenAtual')).toBeTruthy()
@@ -131,7 +132,7 @@ describe('Link e QR do time (Q2 + Q5)', () => {
       'GET /teams/11/invite-candidates': candidates, 'GET /teams/11/invite-link': apiError(403, 'Só representantes podem ver ou gerar o link do time.') })
     const ui = userEvent.setup()
     Object.defineProperty(navigator, 'clipboard', { value: { writeText: vi.fn().mockRejectedValue(new Error('negado')) }, configurable: true })
-    render(<InviteFlow teamId={10} initialTab="link" onClose={vi.fn()} onExpired={vi.fn()} />)
+    renderWithToaster(<InviteFlow teamId={10} initialTab="link" onClose={vi.fn()} onExpired={vi.fn()} />)
     expect(screen.queryByRole('button', { name: 'Compartilhar link' })).toBeNull()
     await ui.click(await screen.findByRole('button', { name: 'Copiar link' }))
     expect(await screen.findByText('Não foi possível copiar. Selecione o link abaixo e copie.')).toBeTruthy()
@@ -140,7 +141,7 @@ describe('Link e QR do time (Q2 + Q5)', () => {
     expect(field.readOnly).toBe(true)
     expect(document.activeElement).toBe(field)
     cleanup()
-    render(<InviteFlow teamId={11} initialTab="link" onClose={vi.fn()} onExpired={vi.fn()} />)
+    renderWithToaster(<InviteFlow teamId={11} initialTab="link" onClose={vi.fn()} onExpired={vi.fn()} />)
     expect((await screen.findByRole('alert')).textContent).toContain('Só representantes podem ver ou gerar o link do time.')
   })
 })

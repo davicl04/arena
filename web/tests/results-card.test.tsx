@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
+import { cleanup, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { Lineup, ResultMatch } from '../src/api/results'
 import { MatchResultCard } from '../src/components/results/MatchResultCard'
@@ -9,6 +9,7 @@ import {
   tiago, walkover,
 } from './results-fixtures'
 import { apiError, mockApi } from './teams-fixtures'
+import { findToast, renderWithToaster, toastRegion } from './toast-utils'
 
 afterEach(cleanup)
 
@@ -20,14 +21,13 @@ function setup(match: ResultMatch, routes: Routes = {}, { viewerId = 11, lineups
   const onChanged = vi.fn()
   const onOpenChat = vi.fn()
   const onExpired = vi.fn()
-  const view = render(
+  const view = renderWithToaster(
     <MatchResultCard match={match} viewerId={viewerId} onChanged={onChanged} onOpenChat={onOpenChat} onExpired={onExpired} walkoverActions={walkoverActions} />,
   )
   return { api, onChanged, onOpenChat, onExpired, ...view }
 }
 const button = (name: string | RegExp) => screen.getByRole('button', { name })
 const spin = (name: string) => screen.getByRole('spinbutton', { name })
-const toast = () => document.querySelector('[data-slot="result-toast"]') as HTMLElement
 const body = (api: ReturnType<typeof mockApi>, method: string, path: string) => api.find(method, path)[0]?.body
 
 describe('Informe o placar (futebol)', () => {
@@ -56,8 +56,20 @@ describe('Informe o placar (futebol)', () => {
     await ui.click(button('Enviar placar'))
     expect(body(api, 'PUT', '/matches/7/result')).toEqual({ goals_a: 2, goals_b: 1 })
     await waitFor(() => expect(onChanged).toHaveBeenCalledWith(sent))
-    expect(toast().getAttribute('aria-live')).toBe('polite')
-    expect(toast().textContent).toBe('Placar enviado. Falta o outro lado.')
+    expect(toastRegion().getAttribute('aria-live')).toBe('polite')
+    expect(await findToast('Placar enviado. Falta o outro lado.')).toBeTruthy()
+  })
+
+  it.each([
+    ['confirmado', football({ result: confirmed(1, 0, 3) }), 'Placar confirmado pelos dois lados', 'success'],
+    ['divergente', football({ result: result({ state: 'divergente', reports: { a: report('a', 1, 0), b: report('b', 0, 1) } }) }), 'Placar enviado. Os placares não bateram.', 'warning'],
+    ['aguardando', football({ result: result({ reports: { a: report('a', 1, 0), b: null } }) }), 'Placar enviado. Falta o outro lado.', 'success'],
+  ])('o envio %s mostra o toast no tom certo (a divergência é aviso)', async (_state, sent, text, tone) => {
+    setup(football(), { 'PUT /matches/7/result': football({ ...sent }) })
+    const ui = userEvent.setup()
+    await ui.click(button('Mais gols do Leões do Cerrado'))
+    await ui.click(button('Enviar placar'))
+    expect((await findToast(text)).closest('[data-tone]')?.getAttribute('data-tone')).toBe(tone)
   })
 
   it('o lado B troca os gols: o placar enviado é sempre A × B da partida', async () => {
@@ -89,7 +101,7 @@ describe('Informe o placar (futebol)', () => {
     const ui = userEvent.setup()
     await ui.click(button('Mais gols do Leões do Cerrado'))
     await ui.click(button('Enviar placar'))
-    expect((await screen.findByRole('alert')).textContent).toBe('O placar já foi confirmado pelos dois lados.')
+    expect(await findToast('O placar já foi confirmado pelos dois lados.')).toBeTruthy()
     expect(spin('Gols do Leões do Cerrado').getAttribute('aria-valuenow')).toBe('1')
     expect(api.find('PUT', '/matches/7/result')).toHaveLength(1)
   })
@@ -327,7 +339,7 @@ describe('Suas estatísticas (RN10, RN12, RN13)', () => {
     await ui.click(button('Enviar estatísticas'))
     expect(body(api, 'PUT', '/matches/7/my-stats')).toEqual({ position: 'atacante', goals: 2, assists: 1, position_stat: 4 })
     await waitFor(() => expect(onChanged).toHaveBeenCalled())
-    expect(toast().textContent).toBe('Estatísticas enviadas')
+    expect(await findToast('Estatísticas enviadas')).toBeTruthy()
     expect(screen.getByText('Enviadas')).not.toBeNull()
     expect(button('Atualizar estatísticas')).toHaveProperty('disabled', true)
   })
@@ -424,7 +436,7 @@ describe('Revisar elenco', () => {
     await ui.click(within(sheet).getByRole('button', { name: 'Salvar presença' }))
     expect(body(api, 'PUT', '/matches/7/attendance')).toEqual({ athletes: [{ user_id: 12, present: true, position: 'atacante' }] })
     await waitFor(() => expect(onChanged).toHaveBeenCalled())
-    expect(toast().textContent).toBe('Presença registrada')
+    expect(await findToast('Presença registrada')).toBeTruthy()
     expect(within(sheet).getByRole('checkbox', { name: 'Tiago Melo jogou' }).getAttribute('aria-checked')).toBe('true')
   })
 
@@ -455,7 +467,7 @@ describe('Revisar elenco', () => {
     await ui.click(within(sheet).getByRole('button', { name: 'Aprovar' }))
     expect(body(api, 'PUT', '/matches/7/stats/70/review')).toEqual({ goals: 1 })
     await waitFor(() => expect(onChanged).toHaveBeenCalled())
-    expect(toast().textContent).toBe('Estatísticas revisadas')
+    expect(await findToast('Estatísticas revisadas')).toBeTruthy()
     expect(within(sheet).getByText('Revisada')).not.toBeNull()
   })
 
@@ -495,7 +507,7 @@ describe('Revisar elenco', () => {
     await ui.click(within(sheet).getByRole('button', { name: 'Enviar contestação' }))
     expect(body(api, 'POST', '/matches/7/stats/71/contest')).toEqual({ fields: ['gols'], reason: 'Não foi gol, foi contra.' })
     await waitFor(() => expect(onChanged).toHaveBeenCalled())
-    expect(toast().textContent).toBe('Contestação enviada')
+    expect(await findToast('Contestação enviada')).toBeTruthy()
     expect(within(sheet).getByText(/Caio Ramos contestou gols: “Foi gol contra\.” O item contestado/)).not.toBeNull()
     expect(within(sheet).queryByRole('button', { name: 'Contestar' })).toBeNull()
   })
@@ -524,7 +536,7 @@ describe('Revisar elenco', () => {
   it('o erro da leitura do elenco aparece com nova tentativa; 401 chama onExpired', async () => {
     let fails = true
     const api = mockApi({ 'GET /matches/7/stats': () => (fails ? apiError(503, 'Serviço fora do ar.') : { items: lineups() }) })
-    render(<MatchResultCard match={football({ result: confirmed(3, 1, 3) })} viewerId={11} onChanged={vi.fn()} onExpired={vi.fn()} />)
+    renderWithToaster(<MatchResultCard match={football({ result: confirmed(3, 1, 3) })} viewerId={11} onChanged={vi.fn()} onExpired={vi.fn()} />)
     expect(await screen.findByText(/Serviço fora do ar\./)).not.toBeNull()
     fails = false
     await userEvent.setup().click(button('Tentar novamente'))
@@ -533,7 +545,7 @@ describe('Revisar elenco', () => {
     cleanup()
     mockApi({ 'GET /matches/7/stats': apiError(401, 'Sua sessão expirou.') })
     const onExpired = vi.fn()
-    render(<MatchResultCard match={football({ result: confirmed(3, 1, 3) })} viewerId={11} onChanged={vi.fn()} onExpired={onExpired} />)
+    renderWithToaster(<MatchResultCard match={football({ result: confirmed(3, 1, 3) })} viewerId={11} onChanged={vi.fn()} onExpired={onExpired} />)
     await waitFor(() => expect(onExpired).toHaveBeenCalled())
   })
 })

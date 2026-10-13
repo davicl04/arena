@@ -56,7 +56,7 @@ export function useMatchChat(matchId: number, enabled: boolean, onExpired: () =>
       try {
         let more = true
         while (more && !stopped) {
-          const page = await getMessages(matchId, loaded ? { after: lastId ?? 0 } : {})
+          const page = await getMessages(matchId, loaded ? { after: lastId ?? 0 } : {}, { background: true })
           if (stopped) return
           if (page.last_id !== null) lastId = Math.max(lastId ?? 0, page.last_id)
           if (loaded) {

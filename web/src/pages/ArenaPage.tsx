@@ -7,6 +7,8 @@ import BottomNav from "../components/BottomNav";
 import { Button, IconButton } from "@/components/ui/button";
 import { feedbackVariants } from "@/components/ui/feedback";
 import { DialogContainerProvider } from "@/components/ui/dialog";
+import { Toaster } from "@/components/ui/toast";
+import { ConnectionNotice } from "../components/ConnectionNotice";
 import { cn } from "@/lib/utils";
 import { usePlayBoard } from "../hooks/usePlayBoard";
 import HomePage from "./HomePage";
@@ -697,6 +699,8 @@ export default function ArenaPage({
           )}
         </main>
         <BottomNav active={activeNav} onGo={go} playAttention={playBoard.board?.attention} />
+        <ConnectionNotice frame={frame} />
+        <Toaster container={frame} />
       </div>
     </div>
     </DialogContainerProvider>

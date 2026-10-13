@@ -40,7 +40,7 @@ export function usePlayBoard(onExpired: () => void, active: boolean): PlayBoardS
   const reload = useCallback((): Promise<PlayBoard | null> => {
     const mine = ++generation.current
     loadedAt.current = Date.now()
-    return Promise.resolve().then(getPlayBoard).then(raw => {
+    return Promise.resolve().then(() => getPlayBoard({ background: true })).then(raw => {
       if (generation.current !== mine) return null
       const next = normalizeBoard(raw)
       setBoard(next)

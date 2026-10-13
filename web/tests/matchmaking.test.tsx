@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
 import type { Profile } from '../src/api/client'
@@ -18,6 +18,7 @@ import { apiError, mockApi, reply } from './teams-fixtures'
 import {
   athleteSide, brasilia, football, HOUR, inFuture, leoes, matchCard, playBoard, proposal, search, slotOffer, standings, teamSide, tennis, tigres,
 } from './matchmaking-fixtures'
+import { findToast, renderWithToaster } from './toast-utils'
 
 /*
  * Busca, proposta e oferta de vaga na placa do Jogar (etapa 3, frente J1). `fetch` simulado como nos demais testes:
@@ -47,7 +48,7 @@ function world(initial: PlayBoard = playBoard(), extra: Record<string, unknown> 
 function renderPlay(profiles: Profile[] = [football, tennis], openMatch?: number) {
   const go = vi.fn()
   const onExpired = vi.fn()
-  render(<Harness go={go} onExpired={onExpired} profiles={profiles} openMatch={openMatch} />)
+  renderWithToaster(<Harness go={go} onExpired={onExpired} profiles={profiles} openMatch={openMatch} />)
   return { go, onExpired, ui: userEvent.setup() }
 }
 const button = (name: string | RegExp) => screen.getByRole('button', { name }) as HTMLButtonElement
@@ -98,7 +99,7 @@ describe('contadores de vagas (V2)', () => {
 
   it('anda pelas setas, Home e End, com no máximo um goleiro', async () => {
     const ui = userEvent.setup()
-    render(<Stepper />)
+    renderWithToaster(<Stepper />)
     spin('goleiro').focus()
     await ui.keyboard('{ArrowUp}{ArrowUp}')
     expect(spin('goleiro').getAttribute('aria-valuenow')).toBe('1')
@@ -118,7 +119,7 @@ describe('contadores de vagas (V2)', () => {
 
   it('trava os botões nos limites e mostra o erro do servidor no campo', async () => {
     const ui = userEvent.setup()
-    render(<Stepper format="futsal" error="No futsal cabem até 4 vagas para avulsos." />)
+    renderWithToaster(<Stepper format="futsal" error="No futsal cabem até 4 vagas para avulsos." />)
     expect(button('Menos uma vaga de defesa').disabled).toBe(true)
     for (let step = 0; step < 4; step++) await ui.click(button('Mais uma vaga de defesa'))
     expect(spin('defesa').getAttribute('aria-valuenow')).toBe('4')
@@ -134,7 +135,7 @@ describe('folha Preparar busca (V2)', () => {
   function renderSheet(overrides: Partial<Parameters<typeof PrepareSearchSheet>[0]> = {}) {
     const props = { team: { id: 10, name: 'Leões J1' }, eyebrow: 'Leões J1 · Prata', format: 'society' as const, onFormat: vi.fn(), hint: 'Times de Brasília Prata e Ouro',
       onCreated: vi.fn(), onClose: vi.fn(), onExpired: vi.fn(), ...overrides }
-    render(<PrepareSearchSheet {...props} />)
+    renderWithToaster(<PrepareSearchSheet {...props} />)
     return { props, ui: userEvent.setup() }
   }
 
@@ -266,7 +267,7 @@ describe('placa: buscar e cancelar', () => {
     await ui.click(within(screen.getByRole('dialog', { name: 'Cancelar a busca?' })).getByRole('button', { name: 'Cancelar busca' }))
     // A busca já estava pareada: a confirmação some e a placa passa a pedir a resposta à proposta.
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Cancelar a busca?' })).toBeNull())
-    expect((await screen.findByRole('alert')).textContent).toContain('A busca já encontrou uma partida. Responda à proposta.')
+    expect(await findToast(/A busca já encontrou uma partida\. Responda à proposta\./)).toBeTruthy()
     expect(await findButton('Ver a proposta, que aguarda o adversário')).not.toBeNull()
   })
 
@@ -283,7 +284,7 @@ describe('placa: buscar e cancelar', () => {
     await ui.click(await screen.findByRole('tab', { name: 'Tênis' }))
     expect(screen.getByText('Tenistas de Brasília de qualquer nível.')).not.toBeNull()
     await ui.click(await findButton('Encontrar partida'))
-    expect((await screen.findByRole('alert')).textContent).toBe('Complete seu perfil de tênis com a cidade para buscar partidas.')
+    expect(await findToast('Complete seu perfil de tênis com a cidade para buscar partidas.')).toBeTruthy()
     expect(screen.queryByRole('dialog')).toBeNull()
     await ui.click(button('Encontrar partida'))
     expect(await findButton('Buscando, toque para cancelar a busca')).not.toBeNull()
@@ -460,7 +461,7 @@ describe('placa: proposta (P2)', () => {
     const { go, ui } = renderPlay()
     const dialog = await screen.findByRole('dialog', { name: 'Adversário encontrado · Society' })
     await ui.click(within(dialog).getByRole('button', { name: 'Aceitar partida' }))
-    expect((await within(dialog).findByRole('alert')).textContent).toBe('Esta proposta não está mais aberta.')
+    expect(await findToast('Esta proposta não está mais aberta.')).toBeTruthy()
     expect(go).not.toHaveBeenCalled()
   })
 
@@ -565,7 +566,7 @@ describe('placa: oferta de vaga ao avulso', () => {
     await ui.click(await screen.findByRole('button', { name: 'Ver vaga' }))
     const dialog = await screen.findByRole('dialog', { name: 'Vaga encontrada · Society' })
     await ui.click(within(dialog).getByRole('button', { name: 'Quero jogar' }))
-    expect((await within(dialog).findByRole('alert')).textContent).toBe('Esta vaga não está mais reservada para você.')
+    expect(await findToast('Esta vaga não está mais reservada para você.')).toBeTruthy()
     expect(go).not.toHaveBeenCalled()
   })
 })
@@ -645,7 +646,7 @@ describe('leitura da placa (GET /me/play)', () => {
       const { board, loading } = usePlayBoard(onExpired, true)
       return <output>{loading ? 'carregando' : board?.attention ? 'atenção' : 'calmo'}</output>
     }
-    render(<Probe />)
+    renderWithToaster(<Probe />)
     expect(await screen.findByText('calmo')).not.toBeNull()
     expect(api.find('GET', '/me/play')).toHaveLength(1)
     // Foco logo depois da leitura reaproveita a última.
@@ -677,7 +678,7 @@ describe('leitura da placa (GET /me/play)', () => {
       return <output>{board ? (board.attention ? 'atenção' : 'calmo') : 'carregando'}</output>
     }
     const tick = (ms: number) => act(async () => { await vi.advanceTimersByTimeAsync(ms) })
-    render(<Probe />)
+    renderWithToaster(<Probe />)
     await tick(0)
     expect(screen.getByText('calmo')).not.toBeNull()
     const reads = () => api.find('GET', '/me/play').length

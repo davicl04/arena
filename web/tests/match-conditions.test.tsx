@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import MatchPage from '../src/pages/MatchPage'
 import { combineDateTime } from '../src/utils/dateKey'
@@ -7,6 +7,7 @@ import { apiError, mockApi } from './teams-fixtures'
 import {
   arranging, caio, court, fromNow, matchDetail, memberPermissions, noPermissions, page, ricardo, scheduled, sides, terms, walkover,
 } from './match-fixtures'
+import { findToast, renderWithToaster } from './toast-utils'
 
 /*
  * Tela da partida (P2): cabeçalho, cartão de condições, folha "Propor condições" com Date Picker, horário e quadras,
@@ -23,7 +24,7 @@ function renderMatch(detail: ReturnType<typeof matchDetail>, routes: Routes = {}
   const api = mockApi({ 'GET /matches/1': detail, 'GET /matches/1/messages': page([]), 'GET /matches/1/stats': { items: [] }, ...routes })
   const onBack = vi.fn()
   const onExpired = vi.fn()
-  render(<MatchPage matchId={1} viewerId={1} onBack={onBack} onExpired={onExpired} />)
+  renderWithToaster(<MatchPage matchId={1} viewerId={1} onBack={onBack} onExpired={onExpired} />)
   return { ...api, onBack, onExpired, user: userEvent.setup() }
 }
 const button = (name: string | RegExp) => screen.getByRole('button', { name }) as HTMLButtonElement
@@ -141,7 +142,7 @@ describe('condições: propor', () => {
     expect(find('POST', '/matches/1/terms')[0].body).toEqual({
       starts_at: combineDateTime('2026-10-20', '19:00'), court_id: 7, booking_side: 'b',
     })
-    expect(await screen.findByText('Proposta enviada. Leões do Cerrado precisa aceitar.')).not.toBeNull()
+    expect(await findToast('Proposta enviada. Leões do Cerrado precisa aceitar.')).not.toBeNull()
     expect(screen.queryByRole('dialog', { name: 'Propor condições' })).toBeNull()
     // O cartão mostra a proposta com os selos de aceite de cada lado.
     expect(screen.getByText('Proposta de Ferrugem FC')).not.toBeNull()
@@ -191,7 +192,7 @@ describe('condições: propor', () => {
     expect(within(sheet).getByRole('alert').textContent).toBe('Escolha a quadra do catálogo ou sugira uma.')
     await user.click(await within(sheet).findByRole('button', { name: /Arena Sudoeste/ }))
     await send()
-    expect(await within(sheet).findByText('Escolha uma quadra de society.')).not.toBeNull()
+    expect(await findToast('Escolha uma quadra de society.')).not.toBeNull()
     expect(find('POST', '/matches/1/terms')).toHaveLength(1)
     expect(screen.getByRole('dialog', { name: 'Propor condições' })).not.toBeNull()
   })
@@ -326,7 +327,7 @@ describe('condições: aceitar', () => {
     expect(screen.getByText('Leões do Cerrado aceitou')).not.toBeNull()
     await user.click(button('Aceitar condições'))
     expect(find('PUT', '/matches/1/terms/31/accept')[0].body).toEqual({})
-    expect(await screen.findByText('Partida agendada. As condições estão valendo.')).not.toBeNull()
+    expect(await findToast('Partida agendada. As condições estão valendo.')).not.toBeNull()
     expect(screen.getByText('Agendada')).not.toBeNull()
     expect(screen.getByRole('button', { name: /Partida agendada/ })).not.toBeNull()
   })
@@ -334,7 +335,7 @@ describe('condições: aceitar', () => {
   it('mostra o erro do servidor ao aceitar condições substituídas, sem perder a tela', async () => {
     const { user } = renderMatch(opponentProposal(), { 'PUT /matches/1/terms/31/accept': apiError(409, 'Estas condições foram substituídas. Confira a proposta atual.') })
     await user.click(await screen.findByRole('button', { name: 'Aceitar condições' }))
-    expect((await screen.findByRole('alert')).textContent).toBe('Estas condições foram substituídas. Confira a proposta atual.')
+    expect(await findToast('Estas condições foram substituídas. Confira a proposta atual.')).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Aceitar condições' })).not.toBeNull()
   })
 
@@ -452,7 +453,7 @@ describe('reserva', () => {
     expect(toggle.getAttribute('aria-checked')).toBe('false')
     await user.click(toggle)
     expect(find('PUT', '/matches/1/booking')[0].body).toEqual({ confirmed: true })
-    expect(await screen.findByText('Reserva confirmada.')).not.toBeNull()
+    expect(await findToast('Reserva confirmada.')).not.toBeNull()
     expect(screen.getByRole('switch', { name: 'Reserva confirmada' }).getAttribute('aria-checked')).toBe('true')
     expect(screen.getByText('confirmada com o local')).not.toBeNull()
   })
@@ -482,7 +483,7 @@ describe('cancelamento', () => {
     await user.type(within(sheet).getByLabelText('Motivo (opcional)'), 'A quadra caiu para manutenção.')
     await user.click(within(sheet).getByRole('button', { name: 'Confirmar cancelamento' }))
     expect(find('POST', '/matches/1/cancel')[0].body).toEqual({ reason: 'A quadra caiu para manutenção.' })
-    expect(await screen.findByText('Partida cancelada. Os dois lados foram avisados.')).not.toBeNull()
+    expect(await findToast('Partida cancelada. Os dois lados foram avisados.')).not.toBeNull()
     expect(screen.getAllByText('Cancelada').length).toBeGreaterThan(0)
     expect(screen.getByText(/Ricardo Moura cancelou a partida\. Motivo: A quadra caiu para manutenção\./)).not.toBeNull()
     expect(screen.getByText('O chat desta partida está fechado.')).not.toBeNull()
@@ -502,7 +503,7 @@ describe('cancelamento', () => {
     await user.click(await screen.findByRole('button', { name: 'Cancelar partida' }))
     const sheet = await screen.findByRole('dialog', { name: 'Cancelar partida' })
     await user.click(within(sheet).getByRole('button', { name: 'Confirmar cancelamento' }))
-    expect(await within(sheet).findByText(/Faltam menos de 24 h/)).not.toBeNull()
+    expect(await findToast(/Faltam menos de 24 h/)).not.toBeNull()
     expect(screen.getByRole('dialog', { name: 'Cancelar partida' })).not.toBeNull()
   })
 
@@ -545,7 +546,7 @@ describe('W.O.', () => {
     expect(within(sheet).getByText('3 × 0')).not.toBeNull()
     await user.click(within(sheet).getByRole('button', { name: 'Registrar W.O.' }))
     expect(find('POST', '/matches/1/walkover')[0].body).toEqual({})
-    expect(await screen.findByText('W.O. registrado. O outro lado pode contestar até o fim do prazo.')).not.toBeNull()
+    expect(await findToast('W.O. registrado. O outro lado pode contestar até o fim do prazo.')).not.toBeNull()
     // O estado do W.O. fica no cartão de resultado; os botões, no de condições (sem repetir a nota).
     expect(screen.getByText('W.O. registrado contra Leões do Cerrado')).not.toBeNull()
     expect(document.querySelector('[data-slot="walkover-note"]')).toBeNull()
@@ -574,7 +575,7 @@ describe('W.O.', () => {
     const sheet = await screen.findByRole('dialog', { name: 'Retirar W.O.' })
     await user.click(within(sheet).getByRole('button', { name: 'Retirar W.O.' }))
     expect(find('DELETE', '/matches/1/walkover')).toHaveLength(1)
-    expect(await screen.findByText('W.O. retirado. A partida volta a aguardar o placar.')).not.toBeNull()
+    expect(await findToast('W.O. retirado. A partida volta a aguardar o placar.')).not.toBeNull()
     expect(screen.queryByText('W.O. registrado contra Leões do Cerrado')).toBeNull()
   })
 
@@ -594,7 +595,7 @@ describe('W.O.', () => {
     await user.type(within(sheet).getByLabelText('O que aconteceu?'), ' Estávamos na quadra.')
     await user.click(within(sheet).getByRole('button', { name: 'Contestar W.O.' }))
     expect(find('POST', '/matches/1/walkover/contest')[0].body).toEqual({ reason: 'Não Estávamos na quadra.' })
-    expect(await screen.findByText('Contestação enviada à administração.')).not.toBeNull()
+    expect(await findToast('Contestação enviada à administração.')).not.toBeNull()
     expect(screen.getAllByText('W.O. contestado').length).toBeGreaterThan(0)
     expect(screen.getByText(/Ricardo Moura contestou o W\.O\.: “Estávamos na quadra\.” A administração decide/)).not.toBeNull()
     expect(screen.queryByRole('button', { name: 'Contestar W.O.' })).toBeNull()
@@ -616,7 +617,7 @@ describe('W.O.', () => {
     await user.click(await screen.findByRole('button', { name: 'Registrar W.O.' }))
     const sheet = await screen.findByRole('dialog', { name: 'Registrar W.O.' })
     await user.click(within(sheet).getByRole('button', { name: 'Registrar W.O.' }))
-    expect(await within(sheet).findByText(/O outro lado já informou o placar/)).not.toBeNull()
+    expect(await findToast(/O outro lado já informou o placar/)).not.toBeNull()
   })
 })
 

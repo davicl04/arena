@@ -1,10 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
+import { cleanup, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ApiError, request } from '../src/api/client'
 import type { AdminOrganizer, AdminOrganizerRequest } from '../src/api/organizer'
 import { refusalError, refusalInput, revokeError } from '../src/api/admin'
 import AdminOrganizerRequests from '../src/components/admin/AdminOrganizerRequests'
+import { queryToast, renderWithToaster } from './toast-utils'
+import { connection } from '../src/api/connection'
 
 vi.mock('../src/api/client', async original => ({
   ...await original<typeof import('../src/api/client')>(),
@@ -49,7 +51,7 @@ function mockApi({ decision }: { decision?: (id: number, body: Record<string, un
 }
 const renderQueue = () => {
   const onOpenUser = vi.fn()
-  render(<AdminOrganizerRequests onOpenUser={onOpenUser} onExpired={vi.fn()} />)
+  renderWithToaster(<AdminOrganizerRequests onOpenUser={onOpenUser} onExpired={vi.fn()} />)
   return onOpenUser
 }
 
@@ -131,13 +133,14 @@ describe('fila de pedidos de organizador (AD1)', () => {
     expect(calls.filter(call => call.path === '/admin/organizer-requests?state=em_analise')).toHaveLength(2)
   })
 
-  it('erro de rede na decisão mantém a folha aberta com a mensagem', async () => {
+  it('erro de rede na decisão mantém a folha aberta e acende o aviso de conexão, sem toast', async () => {
     mockApi({ decision: () => { throw new ApiError('Serviço indisponível.', 503) } })
     const ui = userEvent.setup()
     renderQueue()
     await ui.click(await screen.findByRole('button', { name: /Liga do Bairro/ }))
     await ui.click(screen.getByRole('button', { name: 'Aprovar organizador' }))
-    expect((await screen.findByRole('alert')).textContent).toBe('Serviço indisponível.')
+    await waitFor(() => expect(connection.getState()).toMatchObject({ status: 'offline', sheetOpen: true }))
+    expect(queryToast('Serviço indisponível.')).toBeNull()
     expect(screen.getByRole('dialog', { name: 'Pedido de organizador' })).not.toBeNull()
   })
 

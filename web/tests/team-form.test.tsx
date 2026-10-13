@@ -1,9 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { Profile, User } from '../src/api/client'
 import TeamFormPage from '../src/pages/TeamFormPage'
 import { apiError, brasilia, goiania, mockApi, team } from './teams-fixtures'
+import { findToast, renderWithToaster } from './toast-utils'
 
 vi.mock('react-easy-crop', () => ({
   default: ({ onCropComplete, aspect, cropShape }: { onCropComplete: (area: unknown, pixels: { x: number; y: number; width: number; height: number }) => void; aspect: number; cropShape: string }) =>
@@ -24,7 +25,7 @@ afterEach(() => { cleanup(); vi.unstubAllGlobals(); Object.assign(URL, { createO
 
 function renderForm(props: Partial<React.ComponentProps<typeof TeamFormPage>> = {}) {
   const handlers = { onDone: vi.fn(), onClosed: vi.fn(), onBack: vi.fn(), onExpired: vi.fn() }
-  const view = render(<TeamFormPage user={user} profiles={[football]} cities={[brasilia, goiania]} {...handlers} {...props} />)
+  const view = renderWithToaster(<TeamFormPage user={user} profiles={[football]} cities={[brasilia, goiania]} {...handlers} {...props} />)
   return { ...handlers, ...view }
 }
 async function pickCrest(container: HTMLElement, ui: ReturnType<typeof userEvent.setup>) {
@@ -87,7 +88,7 @@ describe('Criar time (F2)', () => {
     await ui.type(screen.getByLabelText('Nome do time'), 'Ferrugem FC')
     await pickCrest(container, ui)
     await ui.click(screen.getByRole('button', { name: 'Criar time' }))
-    expect((await screen.findByRole('alert')).textContent).toBe('Time criado, mas o brasão não foi salvo: A imagem deve ter até 5 MiB.')
+    expect(await findToast('Time criado, mas o brasão não foi salvo: A imagem deve ter até 5 MiB.')).toBeTruthy()
     expect(onDone).not.toHaveBeenCalled()
     await ui.click(screen.getByRole('button', { name: 'Salvar alterações' }))
     await waitFor(() => expect(onDone).toHaveBeenCalledWith(expect.objectContaining({ id: 41 })))
@@ -105,7 +106,7 @@ describe('Criar time (F2)', () => {
     await ui.click(screen.getByRole('button', { name: 'Escolher cidade' }))
     await ui.click(within(screen.getByRole('dialog', { name: 'Cidade do time' })).getByRole('button', { name: 'Brasília · DF' }))
     await ui.click(screen.getByRole('button', { name: 'Criar time' }))
-    expect((await screen.findByRole('alert')).textContent).toBe('Selecione uma cidade do catálogo.')
+    expect(await findToast('Selecione uma cidade do catálogo.')).toBeTruthy()
   })
 })
 

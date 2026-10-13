@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
+import { cleanup, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import TeamsPage from '../src/pages/TeamsPage'
 import { apiError, member, mockApi, person, receivedInvite, reply, roster, team } from './teams-fixtures'
+import { findToast, renderWithToaster } from './toast-utils'
 
 beforeEach(() => { Element.prototype.scrollTo = () => {} })
 afterEach(() => { cleanup(); vi.unstubAllGlobals() })
@@ -31,7 +32,7 @@ describe('Meus times', () => {
     })
     const onLink = vi.fn()
     const ui = userEvent.setup()
-    render(<Harness onLink={onLink} />)
+    renderWithToaster(<Harness onLink={onLink} />)
     const card = await screen.findByRole('group', { name: 'Ferrugem FC, 1 de 1' })
     expect(within(card).getByText('Brasília · você representa')).toBeTruthy()
     expect(within(card).getByText('Prata')).toBeTruthy()
@@ -66,7 +67,7 @@ describe('Meus times', () => {
       'PUT /team-join-requests/602': () => ++attempts === 1 ? { ...request, state: 'recusado' } : apiError(409, 'Este pedido não está mais pendente.'),
     })
     const ui = userEvent.setup()
-    render(<Harness />)
+    renderWithToaster(<Harness />)
     await ui.click(await screen.findByRole('button', { name: 'Recusar pedido de Lia Moraes' }))
     await waitFor(() => expect(status()).toContain('Pedido de Lia Moraes recusado.'))
     expect(api.find('PUT', '/team-join-requests/602')[0].body).toEqual({ decision: 'recusar' })
@@ -85,7 +86,7 @@ describe('Meus times', () => {
     })
     const onSelectTeam = vi.fn()
     const ui = userEvent.setup()
-    render(<Harness onSelectTeam={onSelectTeam} />)
+    renderWithToaster(<Harness onSelectTeam={onSelectTeam} />)
     await ui.click(await screen.findByRole('button', { name: 'Leões do Cerrado convidou você' }))
     const sheet = screen.getByRole('dialog', { name: 'Convite para time' })
     expect(within(sheet).getByText('Precisamos de um atacante para quinta.')).toBeTruthy()
@@ -111,7 +112,7 @@ describe('Meus times', () => {
       'PUT /team-invites/502': () => { left = [first]; return { state: 'recusado', team: null } },
     })
     const ui = userEvent.setup()
-    render(<Harness />)
+    renderWithToaster(<Harness />)
     expect(await screen.findByText('Você ainda não tem time')).toBeTruthy()
     await ui.click(screen.getByRole('button', { name: '2 convites para times' }))
     const sheet = screen.getByRole('dialog', { name: 'Convites para times · 2' })
@@ -130,7 +131,7 @@ describe('Meus times', () => {
     })
     const onOpenUser = vi.fn()
     const ui = userEvent.setup()
-    render(<Harness onOpenUser={onOpenUser} />)
+    renderWithToaster(<Harness onOpenUser={onOpenUser} />)
     await ui.click(await screen.findByRole('button', { name: 'Tiago Melo · Defesa' }))
     let sheet = screen.getByRole('dialog', { name: 'Tiago Melo' })
     expect(within(sheet).getByText(/Defesa · no time desde/)).toBeTruthy()
@@ -142,7 +143,7 @@ describe('Meus times', () => {
     sheet = screen.getByRole('dialog', { name: 'Rafa Nunes' })
     const loads = api.find('GET', '/me/teams').length
     await ui.click(within(sheet).getByRole('button', { name: /Tirar a braçadeira/ }))
-    expect((await within(sheet).findByRole('alert')).textContent).toBe('O time precisa de pelo menos um representante. Passe a braçadeira a outro atleta antes.')
+    expect(await findToast('O time precisa de pelo menos um representante. Passe a braçadeira a outro atleta antes.')).toBeTruthy()
     expect(api.find('PATCH', '/teams/10/members/2')[0].body).toEqual({ role: 'membro' })
     // O 409 indica elenco desatualizado: a página relê o time, e a folha continua aberta com o erro.
     await waitFor(() => expect(api.find('GET', '/me/teams').length).toBe(loads + 1))
@@ -159,7 +160,7 @@ describe('Meus times', () => {
       'DELETE /teams/10/members/3': () => { removed = true; return undefined },
     })
     const ui = userEvent.setup()
-    render(<Harness />)
+    renderWithToaster(<Harness />)
     await ui.click(await screen.findByRole('button', { name: 'Tiago Melo · Defesa' }))
     const sheet = screen.getByRole('dialog', { name: 'Tiago Melo' })
     await ui.click(within(sheet).getByRole('button', { name: 'Remover do time' }))
@@ -185,7 +186,7 @@ describe('Meus times', () => {
     })
     const onInvite = vi.fn()
     const ui = userEvent.setup()
-    render(<Harness onInvite={onInvite} />)
+    renderWithToaster(<Harness onInvite={onInvite} />)
     expect(await screen.findByText('Seu time só tem você')).toBeTruthy()
     await ui.click(screen.getAllByRole('button', { name: 'Convidar' }).at(-1)!)
     expect(onInvite).toHaveBeenCalledWith(expect.objectContaining({ id: 10 }))
@@ -219,7 +220,7 @@ describe('Meus times', () => {
     })
     const onSelectTeam = vi.fn()
     const ui = userEvent.setup()
-    render(<Harness onSelectTeam={onSelectTeam} />)
+    renderWithToaster(<Harness onSelectTeam={onSelectTeam} />)
     await ui.click(await screen.findByRole('button', { name: 'Ver todos os 14 atletas' }))
     expect(screen.getByRole('button', { name: /^Atleta 14/ })).toBeTruthy()
     expect(screen.getByRole('heading', { name: 'Elenco · 14' })).toBeTruthy()
@@ -232,7 +233,7 @@ describe('Meus times', () => {
     let fail = true
     mockApi({ 'GET /me/teams': () => fail ? reply(503, { detail: 'Serviço indisponível.' }) : { items: [] }, 'GET /me/team-invites': { items: [] } })
     const ui = userEvent.setup()
-    render(<Harness />)
+    renderWithToaster(<Harness />)
     expect((await screen.findByRole('alert')).textContent).toContain('Serviço indisponível.')
     fail = false
     await ui.click(screen.getByRole('button', { name: 'Tentar novamente' }))
@@ -243,7 +244,7 @@ describe('Meus times', () => {
     mockApi({ 'GET /me/teams': { items: [] }, 'GET /me/team-invites': { items: [] } })
     const onCreate = vi.fn()
     const ui = userEvent.setup()
-    render(<Harness onCreate={onCreate} />)
+    renderWithToaster(<Harness onCreate={onCreate} />)
     expect(await screen.findByText('Você ainda não tem time')).toBeTruthy()
     expect(screen.getAllByRole('button', { name: 'Criar time' })).toHaveLength(1)
     await ui.click(screen.getByRole('button', { name: 'Criar time' }))
@@ -253,7 +254,7 @@ describe('Meus times', () => {
   it('abre já com a folha de convites quando vem de uma notificação', async () => {
     mockApi({ 'GET /me/teams': { items: [] }, 'GET /me/team-invites': { items: [receivedInvite()] } })
     const onInvitesOpened = vi.fn()
-    render(<Harness openInvites onInvitesOpened={onInvitesOpened} />)
+    renderWithToaster(<Harness openInvites onInvitesOpened={onInvitesOpened} />)
     expect(await screen.findByRole('dialog', { name: 'Convite para time' })).toBeTruthy()
     expect(onInvitesOpened).toHaveBeenCalled()
   })
@@ -265,7 +266,7 @@ describe('Meus times', () => {
       'GET /me/team-invites': () => fail ? reply(503, { detail: 'Convites indisponíveis.' }) : { items: [receivedInvite()] },
     })
     const ui = userEvent.setup()
-    render(<Harness />)
+    renderWithToaster(<Harness />)
     expect((await screen.findByRole('alert')).textContent).toContain('Convites indisponíveis.')
     expect(screen.queryByRole('button', { name: /convidou você|convites para times/ })).toBeNull()
     fail = false
@@ -281,7 +282,7 @@ describe('Meus times', () => {
       'GET /me/team-invites': () => fail ? reply(503, { detail: 'Convites indisponíveis.' }) : { items: [receivedInvite()] },
     })
     const ui = userEvent.setup()
-    render(<Harness openInvites />)
+    renderWithToaster(<Harness openInvites />)
     const sheet = await screen.findByRole('dialog', { name: 'Convite para time' })
     await waitFor(() => expect(within(sheet).getByRole('alert').textContent).toContain('Convites indisponíveis.'))
     expect(within(sheet).queryByText('Nenhum convite pendente.')).toBeNull()

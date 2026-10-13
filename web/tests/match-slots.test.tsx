@@ -1,11 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen, within } from '@testing-library/react'
+import { cleanup, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import MatchPage from '../src/pages/MatchPage'
 import { guestSlots, headerNames, maxSlots, openSlotCounts, slotTotal } from '../src/data/match'
 import { activeNavFor } from '../src/data/arena'
 import { apiError, mockApi } from './teams-fixtures'
 import { arranging, marcos, matchDetail, noPermissions, page, scheduled, sides, slot } from './match-fixtures'
+import { findToast, renderWithToaster } from './toast-utils'
 
 /*
  * Vagas para avulsos (representante): um passo por posição (no máximo um goleiro e o formato menos um) e a lista dos
@@ -17,7 +18,7 @@ afterEach(cleanup)
 type Routes = Parameters<typeof mockApi>[0]
 function renderSlots(detail: ReturnType<typeof matchDetail>, routes: Routes = {}) {
   const api = mockApi({ 'GET /matches/1': detail, 'GET /matches/1/messages': page([]), ...routes })
-  render(<MatchPage matchId={1} viewerId={1} onBack={vi.fn()} onExpired={vi.fn()} />)
+  renderWithToaster(<MatchPage matchId={1} viewerId={1} onBack={vi.fn()} onExpired={vi.fn()} />)
   return { ...api, user: userEvent.setup() }
 }
 const withSlots = (overrides: Partial<ReturnType<typeof matchDetail>> = {}) => scheduled(72, {
@@ -81,7 +82,7 @@ describe('vagas para avulsos', () => {
     expect(save.disabled).toBe(false)
     await user.click(save)
     expect(find('PUT', '/matches/1/slots')[0].body).toEqual({ open_slots: { goleiro: 0, defesa: 2, meio_campo: 0, atacante: 0 } })
-    expect(await screen.findByText('Vagas para avulsos atualizadas.')).not.toBeNull()
+    expect(await findToast('Vagas para avulsos atualizadas.')).not.toBeNull()
     expect(screen.queryByRole('dialog', { name: 'Vagas para avulsos' })).toBeNull()
   })
 
@@ -90,7 +91,7 @@ describe('vagas para avulsos', () => {
     const sheet = await openSlots(user)
     await user.click(within(sheet).getByRole('button', { name: 'Mais uma vaga de Meio de campo' }))
     await user.click(within(sheet).getByRole('button', { name: 'Salvar vagas' }))
-    expect(await within(sheet).findByText('No máximo uma vaga de goleiro.')).not.toBeNull()
+    expect(await findToast('No máximo uma vaga de goleiro.')).not.toBeNull()
   })
 
   it('lista os avulsos escalados e remove com confirmação', async () => {
@@ -112,7 +113,7 @@ describe('vagas para avulsos', () => {
     await user.click(within(await screen.findByRole('dialog', { name: 'Vagas para avulsos' })).getByRole('button', { name: 'Remover Marcos Ribeiro da partida' }))
     await user.click(within(await screen.findByRole('dialog', { name: 'Remover avulso' })).getByRole('button', { name: 'Remover' }))
     expect(find('DELETE', '/matches/1/guests/5')).toHaveLength(1)
-    expect(await screen.findByText('Marcos Ribeiro saiu da partida.')).not.toBeNull()
+    expect(await findToast('Marcos Ribeiro saiu da partida.')).not.toBeNull()
     expect(screen.queryByRole('dialog')).toBeNull()
     expect(find('GET', '/matches/1')).toHaveLength(2)
   })
@@ -123,7 +124,7 @@ describe('vagas para avulsos', () => {
     await user.click(within(sheet).getByRole('button', { name: 'Remover Marcos Ribeiro da partida' }))
     const confirm = await screen.findByRole('dialog', { name: 'Remover avulso' })
     await user.click(within(confirm).getByRole('button', { name: 'Remover' }))
-    expect(await within(confirm).findByText('Depois do início, o avulso só fica de fora pela presença.')).not.toBeNull()
+    expect(await findToast('Depois do início, o avulso só fica de fora pela presença.')).not.toBeNull()
   })
 
   it('em "combinando" avisa que as vagas abrem quando a partida for agendada', async () => {

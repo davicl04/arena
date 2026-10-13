@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import AdminReports from '../src/components/AdminReports'
 import MatchPage from '../src/pages/MatchPage'
@@ -7,6 +7,7 @@ import { chatRows } from '../src/components/match/chatRows'
 import { mergeMessages } from '../src/hooks/useMatchChat'
 import { apiError, mockApi } from './teams-fixtures'
 import { arranging, caio, event, fromNow, marcos, matchDetail, message, mine, noPermissions, page, scheduled, tiago } from './match-fixtures'
+import { findToast, renderWithToaster } from './toast-utils'
 
 /*
  * Chat da partida (C1): lados, agrupamento, braçadeira, faixas de evento, mensagens removidas, leitura periódica com
@@ -23,7 +24,7 @@ type Routes = Parameters<typeof mockApi>[0]
 function renderChat(detail: ReturnType<typeof matchDetail>, routes: Routes = {}) {
   const api = mockApi({ 'GET /matches/1': detail, ...routes })
   const onExpired = vi.fn()
-  render(<MatchPage matchId={1} viewerId={1} onBack={vi.fn()} onExpired={onExpired} />)
+  renderWithToaster(<MatchPage matchId={1} viewerId={1} onBack={vi.fn()} onExpired={onExpired} />)
   return { ...api, onExpired }
 }
 const log = () => screen.findByRole('log', { name: 'Mensagens da partida' })
@@ -392,7 +393,7 @@ describe('denúncia', () => {
     await user.click(within(glass).getByRole('radio', { name: /Spam/ }))
     await user.click(sendReport)
     expect(find('POST', '/reports')[0].body).toEqual({ target_type: 'match_message', target_id: 12, reason: 'spam' })
-    expect(await screen.findByText('Denúncia enviada para análise.')).not.toBeNull()
+    expect(await findToast('Denúncia enviada para análise.')).not.toBeNull()
     expect(screen.queryByRole('dialog', { name: 'Denunciar mensagem' })).toBeNull()
   })
 
@@ -446,7 +447,7 @@ describe('fila de denúncias da administração', () => {
         created_at: '2026-10-12T14:00:00Z', target_user_id: 5, target_user_active: true,
         target_preview: { body: 'Mensagem ofensiva', removed: false, author: 'Marcos Ribeiro', match_id: 1, match: 'Ferrugem FC × Leões do Cerrado' } }] },
     })
-    render(<AdminReports onExpired={vi.fn()} />)
+    renderWithToaster(<AdminReports onExpired={vi.fn()} />)
     expect(await screen.findByText('Mensagem da partida · #12')).not.toBeNull()
     expect(screen.getByText('Mensagem ofensiva')).not.toBeNull()
     expect(screen.getByText('Marcos Ribeiro')).not.toBeNull()

@@ -1,11 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
+import { cleanup, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import AdminPaidEvents from '../src/components/admin/AdminPaidEvents'
 import AdminRevokedEvents from '../src/components/admin/AdminRevokedEvents'
 import AdminRefundDisputes from '../src/components/admin/AdminRefundDisputes'
 import { apiError, mockApi, person } from './teams-fixtures'
 import { adminEvent, dispute, fromNow, receipt } from './events-fixtures'
+import { findToast, renderWithToaster } from './toast-utils'
 
 /* Filas da administração da etapa 2 (contrato 0003, seção 15): eventos pagos, organizador revogado e devoluções contestadas. */
 
@@ -26,7 +27,7 @@ describe('fila "Eventos pagos" (AD1)', () => {
   it('abre a folha com o cartaz, os dados e o Pix informado; aprova e publica', async () => {
     const api = mockApi(routes({ 'POST /admin/events/4/decision': { ...copa, state: 'publicado', phase: 'inscricoes_abertas' } }))
     const ui = userEvent.setup()
-    render(<AdminPaidEvents onExpired={vi.fn()} />)
+    renderWithToaster(<AdminPaidEvents onExpired={vi.fn()} />)
     const list = await screen.findByRole('list', { name: 'Eventos pagos para aprovar' })
     expect(within(list).getByRole('button', { name: /Copa Sudoeste Society.*Liga Sudoeste/ })).not.toBeNull()
     await ui.click(within(list).getByRole('button', { name: /Copa Sudoeste Society/ }))
@@ -49,7 +50,7 @@ describe('fila "Eventos pagos" (AD1)', () => {
   it('recusa com motivo (detalhe obrigatório em "Outro") e mostra o erro do servidor', async () => {
     const api = mockApi(routes({ 'POST /admin/events/5/decision': { ...relampago, state: 'rascunho' } }))
     const ui = userEvent.setup()
-    render(<AdminPaidEvents onExpired={vi.fn()} />)
+    renderWithToaster(<AdminPaidEvents onExpired={vi.fn()} />)
     await ui.click(await screen.findByRole('button', { name: /Torneio Relâmpago Society/ }))
     const sheet = screen.getByRole('dialog', { name: 'Evento pago' })
     await ui.click(within(sheet).getByRole('button', { name: 'Recusar' }))
@@ -68,19 +69,19 @@ describe('fila "Eventos pagos" (AD1)', () => {
 
     cleanup()
     mockApi(routes({ 'POST /admin/events/4/decision': apiError(409, 'As datas deste evento já passaram. Recuse para o organizador corrigir.') }))
-    render(<AdminPaidEvents onExpired={vi.fn()} />)
+    renderWithToaster(<AdminPaidEvents onExpired={vi.fn()} />)
     await ui.click(await screen.findByRole('button', { name: /Copa Sudoeste Society/ }))
     await ui.click(screen.getByRole('button', { name: 'Aprovar e publicar' }))
-    expect((await within(screen.getByRole('dialog')).findByRole('alert')).textContent).toBe('As datas deste evento já passaram. Recuse para o organizador corrigir.')
+    expect(await findToast('As datas deste evento já passaram. Recuse para o organizador corrigir.')).toBeTruthy()
   })
 
   it('fila vazia e erro com nova tentativa', async () => {
     mockApi({ 'GET /admin/events?queue=em_aprovacao': { items: [], next_cursor: null } })
-    render(<AdminPaidEvents onExpired={vi.fn()} />)
+    renderWithToaster(<AdminPaidEvents onExpired={vi.fn()} />)
     expect(await screen.findByText('Nada para aprovar')).not.toBeNull()
     cleanup()
     mockApi({ 'GET /admin/events?queue=em_aprovacao': apiError(403, 'Acesso administrativo necessário.') })
-    render(<AdminPaidEvents onExpired={vi.fn()} />)
+    renderWithToaster(<AdminPaidEvents onExpired={vi.fn()} />)
     expect((await screen.findByRole('alert')).textContent).toContain('Acesso administrativo necessário.')
     expect(screen.getByRole('button', { name: 'Tentar novamente' })).not.toBeNull()
   })
@@ -102,7 +103,7 @@ describe('fila "Eventos de organizador revogado"', () => {
   it('mostra o que está em jogo e segue com o evento depois de confirmar', async () => {
     const api = mockApi(routes({ 'POST /admin/events/8/revocation-decision': { ...desafio, revocation_pending: false, revocation_decision: 'seguir' } }))
     const ui = userEvent.setup()
-    render(<AdminRevokedEvents onExpired={vi.fn()} />)
+    renderWithToaster(<AdminRevokedEvents onExpired={vi.fn()} />)
     const list = await screen.findByRole('list', { name: 'Eventos aguardando decisão' })
     expect(within(list).getByText('1 pendência')).not.toBeNull()
     await ui.click(within(list).getByRole('button', { name: /Open do Lago/ }))
@@ -129,7 +130,7 @@ describe('fila "Eventos de organizador revogado"', () => {
   it('cancela com devolução exigindo o motivo', async () => {
     const api = mockApi(routes({ 'POST /admin/events/7/revocation-decision': { ...open, state: 'cancelado', revocation_decision: 'cancelado' } }))
     const ui = userEvent.setup()
-    render(<AdminRevokedEvents onExpired={vi.fn()} />)
+    renderWithToaster(<AdminRevokedEvents onExpired={vi.fn()} />)
     await ui.click(await screen.findByRole('button', { name: /Open do Lago/ }))
     const sheet = screen.getByRole('dialog', { name: 'Organizador revogado' })
     await ui.click(within(sheet).getByRole('button', { name: 'Cancelar evento' }))
@@ -158,7 +159,7 @@ describe('fila "Devoluções contestadas"', () => {
   it('mostra os dois lados e o histórico; pede outro comprovante com o motivo', async () => {
     const api = mockApi(routes({ 'POST /admin/entries/7/refund-decision': item }))
     const ui = userEvent.setup()
-    render(<AdminRefundDisputes onExpired={vi.fn()} />)
+    renderWithToaster(<AdminRefundDisputes onExpired={vi.fn()} />)
     const list = await screen.findByRole('list', { name: 'Devoluções para decidir' })
     await ui.click(within(list).getByRole('button', { name: /Ferrugem FC.*Copa Sudoeste Society/ }))
     const sheet = screen.getByRole('dialog', { name: 'Devolução contestada' })
@@ -181,14 +182,14 @@ describe('fila "Devoluções contestadas"', () => {
   it('considera a devolução feita e mostra o erro do servidor', async () => {
     const api = mockApi(routes({ 'POST /admin/entries/7/refund-decision': apiError(409, 'Esta devolução não está contestada.') }))
     const ui = userEvent.setup()
-    render(<AdminRefundDisputes onExpired={vi.fn()} />)
+    renderWithToaster(<AdminRefundDisputes onExpired={vi.fn()} />)
     await ui.click(await screen.findByRole('button', { name: /Ferrugem FC/ }))
     const sheet = screen.getByRole('dialog', { name: 'Devolução contestada' })
     await ui.click(within(sheet).getByRole('button', { name: 'Devolução feita' }))
     expect(within(sheet).getByText('A inscrição fica como devolvida e o caso é encerrado.')).not.toBeNull()
     await ui.type(within(sheet).getByRole('textbox'), 'Comprovante com a conta do time.')
     await ui.click(within(sheet).getByRole('button', { name: 'Registrar decisão' }))
-    expect((await within(sheet).findByText('Esta devolução não está contestada.')).getAttribute('role')).toBe('alert')
+    expect(await findToast('Esta devolução não está contestada.')).toBeTruthy()
     expect(api.find('POST', '/admin/entries/7/refund-decision')[0].body).toEqual({ decision: 'devolvida', reason: 'Comprovante com a conta do time.' })
   })
 })

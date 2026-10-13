@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useState } from "react";
 import { Lock, MapPin, OctagonX, PauseCircle, Route, Settings2, Upload } from "lucide-react";
 import type { Sport } from "../api/client";
 import {
@@ -34,9 +34,9 @@ import { useResource } from "../hooks/useResource";
 import { useSubmit } from "../hooks/useSubmit";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { feedbackVariants } from "@/components/ui/feedback";
+import { LoadError } from "@/components/ui/load-error";
+import { toast } from "@/components/ui/toast";
 import { Tabs } from "@/components/ui/tabs";
-import { cn } from "@/lib/utils";
 import { formatDeadline, parseIso } from "@/utils/format";
 
 type Section = "info" | "tabela" | "percurso" | "inscritos";
@@ -75,8 +75,6 @@ export default function EventPage({ eventId, initialSection, onSport, onTeams, o
   const [section, setSection] = useState<Section>(initialSection ?? "info");
   const [sheet, setSheet] = useState<SheetKind | null>(null);
   const [infoReturn, setInfoReturn] = useState<SheetKind | null>(null);
-  const [toast, setToast] = useState("");
-  const toastTimer = useRef<number | undefined>(undefined);
   const action = useSubmit(onExpired);
   const { setError } = action;
   const sport = detail?.sport ?? "futebol";
@@ -84,7 +82,6 @@ export default function EventPage({ eventId, initialSection, onSport, onTeams, o
   useEffect(() => {
     if (detail?.sport) onSport?.(detail.sport);
   }, [detail?.sport, onSport]);
-  useEffect(() => () => window.clearTimeout(toastTimer.current), []);
 
   const setEvent = event.setData;
   const setEntry = mine.setData;
@@ -108,11 +105,6 @@ export default function EventPage({ eventId, initialSection, onSport, onTeams, o
     return () => window.clearTimeout(id);
   }, [entry, refresh]);
 
-  function notify(message: string) {
-    window.clearTimeout(toastTimer.current);
-    setToast(message);
-    toastTimer.current = window.setTimeout(() => setToast(""), 6000);
-  }
   function open(kind: SheetKind) {
     setError("");
     setSheet(kind);
@@ -134,12 +126,7 @@ export default function EventPage({ eventId, initialSection, onSport, onTeams, o
   if (event.loading) return <p role="status">Carregando evento…</p>;
   if (!detail)
     return (
-      <div className={feedbackVariants()} role="alert">
-        {event.error}{" "}
-        <Button variant="text" className="inline min-h-0 p-0" onClick={event.reload}>
-          Tentar novamente
-        </Button>
-      </div>
+      <LoadError size="screen" title="Não foi possível carregar o evento" text={event.error} cause={event.errorCause} onRetry={event.reload} />
     );
 
   const current: EventDetail = detail;
@@ -163,11 +150,9 @@ export default function EventPage({ eventId, initialSection, onSport, onTeams, o
     const created = await action.run(() => createEntry(current.id, teamId), "Não foi possível concluir a inscrição.");
     if (!created) return;
     setSheet(null);
-    notify(
-      created.state === "confirmada"
-        ? `Inscrição confirmada em ${current.name}.`
-        : `Vaga reservada. Envie o comprovante até ${formatDeadline(created.reserved_until)}.`,
-    );
+    // Reserva sem pagamento ainda: exige o próximo passo (comprovante), então vira aviso.
+    if (created.state === "confirmada") toast.success(`Inscrição confirmada em ${current.name}.`);
+    else toast.warning("Vaga reservada.", { description: `Envie o comprovante até ${formatDeadline(created.reserved_until)}.` });
     await refresh(created);
   }
   async function upload(file: File) {
@@ -175,7 +160,7 @@ export default function EventPage({ eventId, initialSection, onSport, onTeams, o
     const updated = await action.run(() => sendReceipt(entry.id, file), "Não foi possível enviar o comprovante.");
     if (!updated) return;
     setSheet(null);
-    notify(`Comprovante enviado. ${current.organizer.display_name} vai analisar o pagamento.`);
+    toast.success(`Comprovante enviado. ${current.organizer.display_name} vai analisar o pagamento.`);
     await refresh(updated);
   }
   async function answerRefund(reason?: string) {
@@ -186,7 +171,7 @@ export default function EventPage({ eventId, initialSection, onSport, onTeams, o
     );
     if (!updated) return;
     setSheet(null);
-    notify(reason === undefined ? "Recebimento da devolução confirmado." : "Contestação enviada à administração.");
+    toast.success(reason === undefined ? "Recebimento da devolução confirmado." : "Contestação enviada à administração.");
     await refresh(updated);
   }
   async function giveUp() {
@@ -197,7 +182,7 @@ export default function EventPage({ eventId, initialSection, onSport, onTeams, o
     }, "Não foi possível cancelar a inscrição.");
     if (!done) return;
     setSheet(null);
-    notify("Inscrição cancelada. A vaga ficou livre.");
+    toast.success("Inscrição cancelada. A vaga ficou livre.");
     await refresh();
   }
 
@@ -255,12 +240,7 @@ export default function EventPage({ eventId, initialSection, onSport, onTeams, o
         </p>
       )}
       {summaryId !== null && !entry && mine.error && (
-        <div className={cn(feedbackVariants(), "my-0")} role="alert">
-          {mine.error}{" "}
-          <Button variant="text" className="inline min-h-0 p-0" onClick={mine.reload}>
-            Tentar novamente
-          </Button>
-        </div>
+        <LoadError size="section" title="Não foi possível carregar a sua inscrição" text={mine.error} cause={mine.errorCause} onRetry={mine.reload} />
       )}
       {entry && (
         <EntryStatus
@@ -349,20 +329,6 @@ export default function EventPage({ eventId, initialSection, onSport, onTeams, o
           {paid && pix && cta.kind !== "teams" && <PaymentInfoButton onClick={() => openInfo(null)} className="size-11" />}
         </div>
       )}
-      <div
-        role="status"
-        aria-live="polite"
-        className={cn(
-          "pointer-events-none absolute inset-x-5 z-[19] flex justify-center",
-          cta ? "bottom-[150px] app-narrow:bottom-[calc(150px+env(safe-area-inset-bottom))]" : "bottom-[94px] app-narrow:bottom-[calc(94px+env(safe-area-inset-bottom))]",
-        )}
-      >
-        {toast && (
-          <p className="m-0 max-w-full rounded-card bg-forest px-3.5 py-2.5 text-[11.5px] leading-normal font-semibold text-white shadow-sheet motion-safe:animate-glass-in">
-            {toast}
-          </p>
-        )}
-      </div>
       {sheet === "enter" && cta?.kind === "enter" && (
         <EnterSheet
           detail={current}

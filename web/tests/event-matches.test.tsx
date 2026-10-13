@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import EventMatchesPage from '../src/pages/EventMatchesPage'
 import { DEFERRED_COURT_ID } from '../src/components/match/CourtPicker'
@@ -9,6 +9,7 @@ import { apiError, mockApi, reply } from './teams-fixtures'
 import { eventDetail } from './events-fixtures'
 import { court, fromNow } from './match-fixtures'
 import { matchList, row, score } from './brackets-fixtures'
+import { findToast, renderWithToaster } from './toast-utils'
 
 /*
  * Partidas do campeonato (S1): a lista dos jogos (os sem data primeiro), a folha de agendamento com o Date Picker, o horário
@@ -34,7 +35,7 @@ function renderPage(routes: Routes = {}, props: Partial<Parameters<typeof EventM
   const items = [j1(), j2(), j3(), j4(), j5()]
   const api = mockApi({ 'GET /organizer/events/5': eventDetail(), 'GET /organizer/events/5/matches': matchList(items), ...routes })
   const handlers = { onBack: vi.fn(), onOpenMatch: vi.fn(), onDecide: vi.fn(), onExpired: vi.fn(), onInitialShown: vi.fn() }
-  render(<EventMatchesPage eventId={5} {...handlers} {...props} />)
+  renderWithToaster(<EventMatchesPage eventId={5} {...handlers} {...props} />)
   return { ...api, ...handlers, user: userEvent.setup() }
 }
 const matchRow = (label: string) => screen.getAllByRole('listitem').find(item => item.textContent?.startsWith(label)) as HTMLElement
@@ -203,7 +204,7 @@ describe('agendar', () => {
     await user.click(await screen.findByRole('button', { name: /^J1,/ }))
     const sheet = await fill(user, '16:00')
     await user.click(within(sheet).getByRole('button', { name: 'Agendar' }))
-    expect((await within(sheet).findByRole('alert')).textContent).toBe('A partida já começou: depois do início só o resultado pode mudar.')
+    expect(await findToast('A partida já começou: depois do início só o resultado pode mudar.')).toBeTruthy()
     expect(within(sheet).queryByText(/Conflito/)).toBeNull()
   })
 
@@ -222,7 +223,7 @@ describe('agendar', () => {
     await user.click(within(sheet).getByRole('button', { name: 'Agendar' }))
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Agendar J1' })).toBeNull())
     expect(find('GET', '/organizer/events/5/matches')).toHaveLength(2)
-    expect((await screen.findByRole('alert')).textContent).toBe('O resultado desta partida já foi definido.')
+    expect(await findToast('O resultado desta partida já foi definido.')).toBeTruthy()
     // A lista mostra o estado atual: o jogo já não pede data.
     expect(matchRow('J1').textContent).toContain('2 × 1')
     expect(within(matchRow('J1')).queryByText('Agendar')).toBeNull()

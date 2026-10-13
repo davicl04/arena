@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Eyebrow } from '@/components/ui/eyebrow'
 import { feedbackVariants } from '@/components/ui/feedback'
+import { Toaster } from '@/components/ui/toast'
 
 /** Alternância entre entrar e criar conta. */
 const modes = [
@@ -61,6 +62,7 @@ export default function AuthPage({
     }
   }
   return (
+    <>
     <main
       id="main"
       className="m-auto min-h-dvh max-w-[440px] px-6 py-10 app-narrow:px-5 app-narrow:py-7"
@@ -202,5 +204,7 @@ export default function AuthPage({
         </p>
       </Card>
     </main>
+    <Toaster />
+    </>
   )
 }

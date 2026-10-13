@@ -1,9 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
+import { cleanup, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import BracketPage from '../src/pages/BracketPage'
 import { apiError, mockApi } from './teams-fixtures'
 import { confirmed, eightTeams, eliminationBracket, roundRobinBracket, sixTeams, undrawn } from './brackets-fixtures'
+import { findToast, renderWithToaster } from './toast-utils'
 
 /*
  * Chaveamento do organizador (B3 + T2): sortear, trocar dois times de lugar, "Sortear de novo" e "Confirmar chaveamento"
@@ -16,7 +17,7 @@ type Routes = Parameters<typeof mockApi>[0]
 function renderPage(routes: Routes) {
   const api = mockApi(routes)
   const props = { onBack: vi.fn(), onMatches: vi.fn(), onExpired: vi.fn() }
-  render(<BracketPage eventId={5} {...props} />)
+  renderWithToaster(<BracketPage eventId={5} {...props} />)
   return { ...api, ...props, user: userEvent.setup() }
 }
 const button = (name: string | RegExp) => screen.getByRole('button', { name }) as HTMLButtonElement
@@ -56,7 +57,7 @@ describe('sem sorteio', () => {
       'POST /organizer/events/5/bracket': apiError(409, 'Confirme pelo menos 2 inscrições para sortear o campeonato.'),
     })
     await user.click(await screen.findByRole('button', { name: 'Sortear chaveamento' }))
-    expect((await screen.findByRole('alert')).textContent).toBe('Confirme pelo menos 2 inscrições para sortear o campeonato.')
+    expect(await findToast('Confirme pelo menos 2 inscrições para sortear o campeonato.')).toBeTruthy()
     expect(screen.queryByRole('img')).toBeNull()
   })
 
@@ -146,7 +147,7 @@ describe('trocar lugares', () => {
     await screen.findByRole('img', { name: /8 lugares/ })
     await user.click(swapButton('Folga, lugar 2'))
     await user.click(swapButton('Folga, lugar 6'))
-    expect((await screen.findByRole('alert')).textContent).toBe('Escolha pelo menos um time para trocar de lugar.')
+    expect(await findToast('Escolha pelo menos um time para trocar de lugar.')).toBeTruthy()
     expect(screen.getAllByRole('button').filter(item => item.getAttribute('aria-pressed') === 'true')).toHaveLength(0)
   })
 
@@ -209,7 +210,7 @@ describe('confirmar', () => {
     await user.click(button('Confirmar chaveamento'))
     const sheet = screen.getByRole('dialog', { name: 'Confirmar chaveamento' })
     await user.click(within(sheet).getByRole('button', { name: 'Confirmar' }))
-    expect((await within(sheet).findByRole('alert')).textContent).toBe('Analise 1 comprovante(s) pendente(s) antes de confirmar o chaveamento.')
+    expect(await findToast('Analise 1 comprovante(s) pendente(s) antes de confirmar o chaveamento.')).toBeTruthy()
     expect(screen.getByRole('dialog', { name: 'Confirmar chaveamento' })).not.toBeNull()
     await user.click(within(sheet).getByRole('button', { name: 'Voltar' }))
     expect(screen.queryByRole('dialog')).toBeNull()
@@ -243,7 +244,7 @@ describe('estado obsoleto depois de um erro do servidor', () => {
     await screen.findByRole('img', { name: /8 lugares/ })
     await user.click(swapButton('Novo Horizonte'))
     await user.click(swapButton('Bola Murcha FC'))
-    expect((await screen.findByRole('alert')).textContent).toBe('O chaveamento já foi confirmado.')
+    expect(await findToast('O chaveamento já foi confirmado.')).toBeTruthy()
     await waitFor(() => expect(screen.queryByRole('button', { name: 'Sortear de novo' })).toBeNull())
     expect(find('GET', '/events/5/bracket')).toHaveLength(2)
     expect(screen.queryByRole('button', { name: 'Confirmar chaveamento' })).toBeNull()
@@ -261,7 +262,7 @@ describe('estado obsoleto depois de um erro do servidor', () => {
     await user.click(button('Confirmar chaveamento'))
     await user.click(within(screen.getByRole('dialog', { name: 'Confirmar chaveamento' })).getByRole('button', { name: 'Confirmar' }))
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
-    expect((await screen.findByRole('alert')).textContent).toBe('O chaveamento já foi confirmado.')
+    expect(await findToast('O chaveamento já foi confirmado.')).toBeTruthy()
     expect(find('GET', '/events/5/bracket')).toHaveLength(2)
     expect(screen.getByRole('button', { name: 'Ver e agendar partidas' })).not.toBeNull()
     expect(screen.queryByRole('button', { name: 'Confirmar chaveamento' })).toBeNull()
@@ -276,7 +277,7 @@ describe('estado obsoleto depois de um erro do servidor', () => {
     })
     await screen.findByRole('img', { name: /8 lugares/ })
     await user.click(button('Sortear de novo'))
-    expect((await screen.findByRole('alert')).textContent).toBe('Este evento não aceita mais sorteio.')
+    expect(await findToast('Este evento não aceita mais sorteio.')).toBeTruthy()
     await waitFor(() => expect(button('Sortear de novo').disabled).toBe(true))
     expect(button('Confirmar chaveamento').disabled).toBe(true)
   })
@@ -289,7 +290,7 @@ describe('estado obsoleto depois de um erro do servidor', () => {
     await screen.findByRole('img', { name: /8 lugares/ })
     await user.click(swapButton('Folga, lugar 2'))
     await user.click(swapButton('Folga, lugar 6'))
-    expect((await screen.findByRole('alert')).textContent).toBe('Escolha pelo menos um time para trocar de lugar.')
+    expect(await findToast('Escolha pelo menos um time para trocar de lugar.')).toBeTruthy()
     expect(find('GET', '/events/5/bracket')).toHaveLength(1)
   })
 })
