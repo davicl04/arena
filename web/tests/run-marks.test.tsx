@@ -11,7 +11,7 @@ import ArenaPage from '../src/pages/ArenaPage'
 import PlayPage from '../src/pages/PlayPage'
 import { apiError, mockApi, reply } from './teams-fixtures'
 import { brasilia, football, playBoard, standings } from './matchmaking-fixtures'
-import { athleteRow, rankingPage } from './results-fixtures'
+import { athleteRow, myLine, rankingOverview, tierCounts } from './results-fixtures'
 import { bests, created, emptyCard, impact, lago, markCard, preview, run, sec } from './run-fixtures'
 import { summaryOf } from './notifications-fixtures'
 import { findToast, renderWithToaster } from './toast-utils'
@@ -435,9 +435,9 @@ describe('placa da corrida (K2 + K4 na PlayPage)', () => {
 describe('"Ver ranking" no aplicativo inteiro', () => {
   const me: User = { id: 1, name: 'Ricardo Leão', username: 'ricardo.leao', email: 'r@example.com', birth_date: '1990-01-01', social_public: false, is_admin: false, avatar: null, cover: null }
 
-  it('abre o Ranking já na corrida e na distância da placa, com a lista daquela distância', async () => {
+  it('abre o Ranking já na corrida e na distância da placa, com a placa do elo daquela distância', async () => {
     Element.prototype.scrollTo = () => {}
-    const tenKm = '/rankings?sport=corrida&distance_km=10&limit=20'
+    const tenKm = '/rankings/overview?sport=corrida&distance_km=10'
     const api = mockApi({
       'GET /me/sports-profiles': [football, running],
       'GET /cities': [brasilia],
@@ -445,9 +445,11 @@ describe('"Ver ranking" no aplicativo inteiro', () => {
       'GET /me/standings': standings(),
       'GET /me/play': playBoard(),
       'GET /me/run-bests': bests(markCard(10, ['52:40'], { tier: 'prata' })),
-      [`GET ${tenKm}`]: rankingPage({
-        ranking: 'corrida_10', format: null, distance_km: 10, required: 1, classified_count: 1, legend_slots: 0,
-        items: [athleteRow(1, 40, 'Ana Souza', { metric_value: 3160, tier: 'prata', matches_played: 1, wins: 0, draws: 0, losses: 0 })],
+      [`GET ${tenKm}`]: rankingOverview({
+        ranking: 'corrida_10', format: null, distance_km: 10, required: 1, classified_count: 1, legend_slots: 0, tier_counts: tierCounts({ prata: 1 }),
+        mine: [myLine({ team: null, tier: 'prata', tier_position: 1, tier_size: 1, rank_position: 1, metric_value: 3160, leader_gap: null, next_gap: null, next_tier_position: null })],
+        selected_team_id: null,
+        window: [athleteRow(1, 40, 'Ana Souza', { metric_value: 3160, tier: 'prata', is_mine: true, matches_played: 1, form: null, best_mark_on: '2026-09-03' })],
       }),
     })
     render(<ArenaPage user={me} onUser={vi.fn()} onLogout={vi.fn()} onExpired={vi.fn()} />)
@@ -458,10 +460,8 @@ describe('"Ver ranking" no aplicativo inteiro', () => {
     await ui.click(await screen.findByRole('button', { name: 'Ver ranking' }))
     expect(await screen.findByRole('heading', { level: 1, name: 'Ranking' })).not.toBeNull()
     expect(await screen.findByText('Ana Souza')).not.toBeNull()
-    expect(screen.getByRole('button', { name: 'Corrida' }).getAttribute('aria-pressed')).toBe('true')
-    expect(screen.getByRole('button', { name: '10 km' }).getAttribute('aria-pressed')).toBe('true')
-    expect(screen.getByRole('button', { name: '5 km' }).getAttribute('aria-pressed')).toBe('false')
-    expect(screen.getByRole('button', { name: 'Futebol' }).getAttribute('aria-pressed')).toBe('false')
+    expect(screen.getByRole('button', { name: /Categoria/ }).textContent).toContain('Corrida · 10 km')
+    expect(screen.getByRole('region', { name: 'Sua posição' }).textContent).toContain('52:40')
     expect(within(screen.getByRole('navigation', { name: 'Navegação principal' })).getByRole('button', { current: 'page' }).textContent).toBe('Ranking')
     // A primeira leitura do Ranking já é a da corrida; o futebol nem chega a ser pedido.
     expect(api.calls.filter(call => call.path.startsWith('/rankings')).map(call => call.path)).toEqual([tenKm])

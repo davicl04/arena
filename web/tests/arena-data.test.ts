@@ -57,6 +57,7 @@ describe('aba acesa na navegação', () => {
   it.each<[Screen, Screen, Screen]>([
     ['home', 'home', 'home'],
     ['ranking', 'ranking', 'ranking'],
+    ['legends', 'ranking', 'ranking'],
     ['community', 'community', 'community'],
     ['notifications', 'home', 'home'],
     ['notifications', 'profile', 'profile'],

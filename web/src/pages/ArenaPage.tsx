@@ -28,6 +28,8 @@ import NotificationsPage from "./NotificationsPage";
 import FollowRequestsPage from "./FollowRequestsPage";
 import PlayPage from "./PlayPage";
 import RankingPage from "./RankingPage";
+import LegendsPage from "./LegendsPage";
+import type { RankingState } from "../components/ranking/category";
 import OrganizerRequestPage from "./OrganizerRequestPage";
 import AdminOrganizerRequests from "../components/admin/AdminOrganizerRequests";
 import SocialCommunity from "../components/SocialCommunity";
@@ -92,6 +94,8 @@ interface Entry {
   matchId?: number;
   /** Distância da corrida escolhida ao abrir o Ranking pelo "Ver ranking" de "Suas marcas" (com `sport: "corrida"`). */
   distance?: RunDistance;
+  /** Categoria e time do Ranking (`ranking`): guarda a escolha ao abrir o Salão (`legends`) e a devolve ao voltar. */
+  ranking?: RankingState;
   /** Aba do detalhe do evento (`event`) a abrir: a Tabela (notificações da tabela e do encerramento). */
   section?: "tabela";
   /** Filtro (chip) da tela de notificações: abre num chip (a placa do Início abre "Para responder") e guarda o escolhido. */
@@ -101,6 +105,7 @@ const rootScreens: Screen[] = ["home", "ranking", "play", "community", "profile"
 const titles: Record<Screen, string> = {
   home: "Início",
   ranking: "Ranking",
+  legends: "Salão dos Lendários",
   play: "Jogar",
   community: "Comunidade",
   profile: "Perfil",
@@ -280,6 +285,10 @@ export default function ArenaPage({
   const selectTeam = useCallback((teamId: number) => {
     setStack((old) => [...old.slice(0, -1), { ...old[old.length - 1], teamId }]);
   }, []);
+  /** Guarda na entrada do Ranking a categoria e o time escolhidos, para voltar do Salão à mesma escolha. */
+  const selectRanking = useCallback((ranking: RankingState) => {
+    setStack((old) => [...old.slice(0, -1), { ...old[old.length - 1], ranking }]);
+  }, []);
   /** A folha de convites abre uma vez; ao voltar a Meus times, não reabre. */
   const consumeInvitesRequest = useCallback(() => {
     setStack((old) => old.map((entry) => (entry.invites ? { ...entry, invites: false } : entry)));
@@ -358,6 +367,9 @@ export default function ArenaPage({
   const eventsLayout = (["organizer-events", "event-wizard", "event-manage", "event-bracket", "event-matches", "result-decision"] as Screen[]).includes(screen);
   // Partida (P2 + C1): cabeçalho próprio e chat que rola por dentro, acima da navegação inferior.
   const matchLayout = screen === "match";
+  // Ranking: barra própria (título e sino, sem voltar). Salão dos Lendários: tela escura com o voltar dentro dela.
+  const rankingLayout = screen === "ranking";
+  const legendsLayout = screen === "legends";
 
   return (
     <DialogContainerProvider container={frame}>
@@ -373,21 +385,24 @@ export default function ArenaPage({
             communityLayout && "px-0 pt-0",
             (teamsLayout || plateLayout || eventsLayout) && "px-0 pt-0",
             darkLayout && "bg-forest",
+            legendsLayout && "bg-night px-0 pt-0",
             matchLayout && "overflow-y-hidden px-0 pt-0 pb-[82px] app-narrow:pb-[calc(82px+env(safe-area-inset-bottom))]",
           )}
           aria-label={title}
         >
-          {screen !== "home" && !profileLayout && !communityLayout && !teamsLayout && !plateLayout && !eventsLayout && !matchLayout && (
+          {screen !== "home" && !profileLayout && !communityLayout && !teamsLayout && !plateLayout && !eventsLayout && !matchLayout && !rankingLayout && !legendsLayout && (
             <header className="-mx-2 -mt-2 mb-[18px] flex min-h-[54px] items-center justify-between">
               <IconButton aria-label="Voltar" onClick={back}>
                 <ArrowLeft size={21} />
               </IconButton>
               <h1 className="text-[17px]">{title}</h1>
-              {screen === "ranking" ? (
-                <NotificationBell tone="light" count={notifications.count} onOpen={() => go("notifications")} />
-              ) : (
-                <span className="w-11" />
-              )}
+              <span className="w-11" />
+            </header>
+          )}
+          {rankingLayout && (
+            <header className="-mt-2 -mr-2 mb-3 flex min-h-[54px] items-center justify-between">
+              <h1 className="text-[17px]">{title}</h1>
+              <NotificationBell tone="light" count={notifications.count} onOpen={() => go("notifications")} />
             </header>
           )}
           {loadFailure && (
@@ -469,15 +484,21 @@ export default function ArenaPage({
               </aside>
             </>
           )}
-          {screen === "ranking" && (
+          {screen === "ranking" && !loadFailure && (
             <RankingPage
               profiles={profiles}
+              loading={loading}
               initialSport={current.sport}
               initialDistance={current.distance}
+              initial={current.ranking}
+              onChange={selectRanking}
               go={go}
               onOpenUser={openUser}
               onExpired={onExpired}
             />
+          )}
+          {screen === "legends" && current.ranking && (
+            <LegendsPage ranking={current.ranking} onBack={back} onOpenUser={openUser} onExpired={onExpired} />
           )}
           {screen === "community" && (
             <SocialCommunity
