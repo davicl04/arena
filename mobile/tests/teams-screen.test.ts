@@ -164,8 +164,9 @@ describe('Meus times: placa, carrossel de carteirinhas e elenco', () => {
     serve(path => path === '/me/teams' ? { items: [] } : undefined)
     const tree = await mount()
     expect(textOf(tree)).toContain('Você ainda não tem time')
-    expect(textOf(tree)).toContain('Nenhum time ainda')
-    expect(host(tree, 'team-slide-new')).toHaveLength(1)
+    // A placa não repete o quadro "Criar time" do carrossel: só o estado vazio oferece criar.
+    expect(host(tree, 'team-slide-new')).toHaveLength(0)
+    expect(byLabel(tree, 'Criar time')).toHaveLength(1)
     expect(byLabel(tree, 'Entrar com QR').length).toBeGreaterThan(0)
     await act(async () => { tree.unmount() })
   })

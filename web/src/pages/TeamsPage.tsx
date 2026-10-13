@@ -171,11 +171,12 @@ export default function TeamsPage({ viewerId, selectedTeamId, openInvites = fals
   }
 
   return <section aria-label="Meus times" className="min-h-full">
-    <TeamsPlate>
+    {/* Sem time, o carrossel teria só o quadro "Criar time", repetindo o estado vazio abaixo: a placa fica só com o título. */}
+    <TeamsPlate className={cn(!teams.length && 'pb-6')}>
       <DarkTopBar eyebrow="Jogar" title="Meus times" onBack={onBack} />
       <InviteStrip invites={invites} onOpen={() => setSheet({ kind: 'invites' })} />
-      <TeamCardCarousel teams={teams} selectedId={selected?.id ?? null} onSelect={onSelectTeam} onCreate={onCreate}
-        onInvite={onInvite} onLink={onLink} onEdit={onEdit} onLeave={team => setSheet({ kind: 'leave', team })} />
+      {teams.length > 0 && <TeamCardCarousel teams={teams} selectedId={selected?.id ?? null} onSelect={onSelectTeam} onCreate={onCreate}
+        onInvite={onInvite} onLink={onLink} onEdit={onEdit} onLeave={team => setSheet({ kind: 'leave', team })} />}
     </TeamsPlate>
 
     <div className="px-4">

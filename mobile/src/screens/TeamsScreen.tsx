@@ -184,11 +184,12 @@ export default function TeamsScreen({ user, navigation, onExpired, params }: Scr
 
   return <TeamTokenContext.Provider value={token}>
     <ScrollView ref={scroller} testID="teams-scroll" keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 32 }}>
-      <TeamsPlate>
+      {/* Sem time, o carrossel teria só o quadro "Criar time", repetindo o estado vazio abaixo: a placa fica só com o título. */}
+      <TeamsPlate bottom={teams.length ? 0 : 24}>
         {topRow}
         <InviteStrip invites={invites} onOpen={() => setSheet({ kind: 'invites' })} />
-        <TeamCardCarousel teams={teams} selectedId={selected?.id ?? null} onSelect={selectTeam} onCreate={create}
-          onInvite={invite} onLink={link} onEdit={team => navigation.go('team-form', { teamId: team.id })} onLeave={team => setSheet({ kind: 'leave', team })} />
+        {teams.length ? <TeamCardCarousel teams={teams} selectedId={selected?.id ?? null} onSelect={selectTeam} onCreate={create}
+          onInvite={invite} onLink={link} onEdit={team => navigation.go('team-form', { teamId: team.id })} onLeave={team => setSheet({ kind: 'leave', team })} /> : null}
       </TeamsPlate>
 
       <View style={{ paddingHorizontal: 16 }} onLayout={event => setBodyY(event.nativeEvent.layout.y)}>

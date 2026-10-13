@@ -239,6 +239,17 @@ describe('Meus times', () => {
     expect(await screen.findByText('Você ainda não tem time')).toBeTruthy()
   })
 
+  it('sem time, mostra só o estado vazio: a placa não repete o quadro "Criar time"', async () => {
+    mockApi({ 'GET /me/teams': { items: [] }, 'GET /me/team-invites': { items: [] } })
+    const onCreate = vi.fn()
+    const ui = userEvent.setup()
+    render(<Harness onCreate={onCreate} />)
+    expect(await screen.findByText('Você ainda não tem time')).toBeTruthy()
+    expect(screen.getAllByRole('button', { name: 'Criar time' })).toHaveLength(1)
+    await ui.click(screen.getByRole('button', { name: 'Criar time' }))
+    expect(onCreate).toHaveBeenCalledOnce()
+  })
+
   it('abre já com a folha de convites quando vem de uma notificação', async () => {
     mockApi({ 'GET /me/teams': { items: [] }, 'GET /me/team-invites': { items: [receivedInvite()] } })
     const onInvitesOpened = vi.fn()

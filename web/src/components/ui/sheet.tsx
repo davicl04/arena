@@ -29,7 +29,8 @@ export function Sheet({ title, description, eyebrow, tone = 'light', onClose, cl
     <div data-slot="sheet-scrim" data-testid="sheet-scrim" className="absolute inset-0 z-scrim bg-scrim" onClick={onClose} />
     <section ref={ref} data-slot="sheet" data-tone={tone} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} onKeyDown={onKeyDown}
       className={cn('absolute inset-x-0 bottom-0 z-sheet max-h-[90%] overflow-x-hidden overflow-y-auto rounded-t-sheet bg-white px-5 pt-2 pb-[calc(24px+env(safe-area-inset-bottom))] shadow-sheet outline-none',
-        dark && 'dark bg-forest', className)}>
+        // A folha clara fixa a cor do texto: aberta sobre uma página escura (Criar time, placa do Jogar), não herda o branco.
+        dark ? 'dark bg-forest' : 'text-ink', className)}>
       <div className={cn('mx-auto mb-1.5 h-[5px] w-10 rounded-[3px]', dark ? 'bg-white/25' : 'bg-line')} aria-hidden="true" />
       <div className="flex items-center justify-between gap-2">
         <div className="min-w-0">

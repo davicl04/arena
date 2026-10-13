@@ -1,5 +1,24 @@
 # Situação da fundação do Arena
 
+## Ajustes de Meus times e da folha de cidade — 12 de outubro de 2026
+
+Ajustes pedidos pelo usuário depois de usar a web com o próprio banco.
+
+**O que mudou:**
+- **Meus times sem time (web e Expo):** a placa não mostra mais o carrossel, que só teria o quadro tracejado "Criar time" e repetiria o estado vazio logo abaixo. Agora o único "Criar time" é o do estado vazio. Com pelo menos um time, o carrossel continua com o quadro "Criar time" no fim.
+- **Folha clara sobre página escura (web):** a `Sheet` clara (`components/ui/sheet.tsx`) passou a fixar a cor do texto (`text-ink`). Antes, aberta sobre uma página escura (folha "Cidade do time" no Criar/Editar time), herdava o branco. Assim, o título, o rótulo "Buscar cidade" e as cidades não selecionadas ficavam invisíveis sobre o fundo branco. A folha escura (`tone="dark"`) não muda. O foco laranja do campo é o foco aprovado do projeto e foi mantido.
+
+**Verificações executadas:**
+- Web:
+  - `npm run lint` sem apontamentos e `npm run build` concluído;
+  - `npx vitest run` de `teams-page`, `teams-navigation` e `join-page`: 33 testes aprovados, com um teste novo que confere um único "Criar time" no estado vazio.
+- Expo:
+  - `npm run lint` e `npm run typecheck` sem apontamentos;
+  - `npx vitest run` de `teams-screen` e `teams-view`: 30 testes aprovados, com o teste do estado vazio ajustado.
+- Banco local do usuário: já estava na migração `0011`. A conta 1 recebeu o papel de administradora com `python -m app.admin_cli promote-admin`, a pedido do usuário.
+
+**Não verificado:** conferência visual no navegador feita só pelo usuário, na tela dele; não foi feita no Expo em aparelho.
+
 ## Correções da revisão do Expo — 12 de outubro de 2026
 
 Frente RX, sobre `f2b9cf9`: corrige os achados da revisão do Expo. **Só `mobile/` mudou** (mais README e documentação): sem alteração de backend, de contrato, de migração nem de dependência.
