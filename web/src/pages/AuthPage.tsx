@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Eyebrow } from '@/components/ui/eyebrow'
 import { feedbackVariants } from '@/components/ui/feedback'
-import { Toaster } from '@/components/ui/toast'
+import { toast, Toaster } from '@/components/ui/toast'
 
 /** Alternância entre entrar e criar conta. */
 const modes = [
@@ -17,19 +17,30 @@ const modes = [
 /** Texto de ajuda abaixo de um campo. */
 const help = 'mt-[7px] text-[10px] leading-[1.6] text-ink-muted'
 
+const SESSION_EXPIRED_TEXT = 'Sua sessão expirou. Entre novamente para continuar.'
+
+/*
+ * Estados da tela de entrada, separados: `expired` (a sessão acabou no meio do uso: só o aviso, a pessoa entra de novo) e
+ * `notice` (a leitura de `/me` ao abrir o aplicativo falhou: a mensagem e "Tentar conexão novamente", que refaz a leitura).
+ * Os erros de entrar e criar conta ficam no formulário; só a confirmação do cadastro vira toast. Esta tela não tem a folha
+ * nem a faixa de conexão: o próprio "Tentar conexão novamente" cobre a falha.
+ */
 export default function AuthPage({
   onLogin,
+  expired = false,
   notice,
   onRetry,
 }: {
   onLogin: (user: User) => void
+  /** A sessão expirou: mostra o aviso, sem nova tentativa de conexão. */
+  expired?: boolean
+  /** Falha de conexão (ou outro erro) ao ler `/me` na abertura; vazio se não houve. */
   notice: string
   onRetry: () => void
 }) {
   const [register, setRegister] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const form = new FormData(event.currentTarget)
@@ -37,7 +48,6 @@ export default function AuthPage({
     const password = String(form.get('password'))
     setBusy(true)
     setError('')
-    setSuccess('')
     try {
       if (register) {
         await request('/auth/register', 'POST', {
@@ -47,7 +57,7 @@ export default function AuthPage({
           birth_date: form.get('birth_date'),
         })
         setRegister(false)
-        setSuccess('Conta criada. Entre com seu e-mail e senha.')
+        toast.success('Conta criada.', { description: 'Entre com seu e-mail e senha.' })
         return
       }
       const session = await request<{ user: User }>('/auth/login', 'POST', {
@@ -110,13 +120,17 @@ export default function AuthPage({
               onClick={() => {
                 setRegister(mode.register)
                 setError('')
-                setSuccess('')
               }}
             >
               {mode.label}
             </button>
           ))}
         </div>
+        {expired && (
+          <p className={feedbackVariants()} role="alert">
+            {SESSION_EXPIRED_TEXT}
+          </p>
+        )}
         {notice && (
           <div className={feedbackVariants()} role="alert">
             {notice}
@@ -183,11 +197,6 @@ export default function AuthPage({
             {error && (
               <p className={feedbackVariants()} role="alert">
                 {error}
-              </p>
-            )}
-            {success && (
-              <p className={feedbackVariants({ tone: 'success' })} role="status">
-                {success}
               </p>
             )}
             <Button type="submit" className="mt-[22px] h-[52px] w-full">

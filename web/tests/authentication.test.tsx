@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import AuthPage from '../src/pages/AuthPage'
 import App from '../src/App'
 import { ApiError, request } from '../src/api/client'
+import { findToast, queryToast } from './toast-utils'
 
 vi.mock('../src/api/client', async (original) => ({
   ...await original<typeof import('../src/api/client')>(), request: vi.fn(),
@@ -37,7 +38,12 @@ it('retorna ao login após cadastro, sem autenticar implicitamente', async () =>
   fireEvent.change(screen.getByLabelText('Nome completo'), { target: { value: user.name } })
   fireEvent.change(screen.getByLabelText('Data de nascimento'), { target: { value: user.birth_date } })
   await userEvent.click(screen.getByRole('button', { name: 'Criar minha conta →' }))
-  expect(await screen.findByRole('status')).toHaveProperty('textContent', 'Conta criada. Entre com seu e-mail e senha.')
+  const confirmation = await findToast('Conta criada.')
+  expect(confirmation.closest('[data-tone]')?.getAttribute('data-tone')).toBe('success')
+  expect(await findToast('Entre com seu e-mail e senha.')).toBeTruthy()
+  // A confirmação é toast: nenhum bloco de sucesso fica no formulário.
+  expect(screen.queryByRole('status')).toBeNull()
+  expect(screen.getByRole('button', { name: 'Entrar no Arena →' })).toBeTruthy()
   expect(onLogin).not.toHaveBeenCalled()
   expect(request).toHaveBeenCalledWith('/auth/register', 'POST', expect.objectContaining({ birth_date: user.birth_date }))
 })
@@ -48,6 +54,8 @@ it('apresenta falha do login e permite nova tentativa', async () => {
   fillLogin()
   await userEvent.click(screen.getByRole('button', { name: 'Entrar no Arena →' }))
   expect(await screen.findByRole('alert')).toHaveProperty('textContent', 'E-mail ou senha inválidos.')
+  // O erro de entrar fica no formulário, não em toast.
+  expect(queryToast('E-mail ou senha inválidos.')).toBeNull()
   expect(screen.getByRole('button', { name: 'Entrar no Arena →' })).toHaveProperty('disabled', false)
 })
 
@@ -63,7 +71,19 @@ it('permite repetir a conexão quando o bootstrap falha', async () => {
     .mockRejectedValueOnce(new ApiError('Sem sessão', 401))
   render(<App />)
   expect(await screen.findByRole('alert')).toHaveProperty('textContent', expect.stringContaining('Falha de conexão'))
+  expect(screen.queryByText(/Sua sessão expirou/)).toBeNull()
   await userEvent.click(screen.getByRole('button', { name: 'Tentar conexão novamente' }))
   await waitFor(() => expect(request).toHaveBeenCalledTimes(2))
   await waitFor(() => expect(screen.queryByRole('alert')).toBeNull())
+})
+
+it('a sessão expirada e a falha de conexão do /me são estados separados na tela de entrada', () => {
+  const { rerender } = render(<AuthPage onLogin={vi.fn()} expired notice="" onRetry={vi.fn()} />)
+  const expired = screen.getByRole('alert')
+  expect(expired.textContent).toBe('Sua sessão expirou. Entre novamente para continuar.')
+  expect(screen.queryByRole('button', { name: 'Tentar conexão novamente' })).toBeNull()
+  rerender(<AuthPage onLogin={vi.fn()} notice="Falha de conexão" onRetry={vi.fn()} />)
+  expect(screen.getByRole('alert').textContent).toContain('Falha de conexão')
+  expect(screen.queryByText(/Sua sessão expirou/)).toBeNull()
+  expect(screen.getByRole('button', { name: 'Tentar conexão novamente' })).toBeTruthy()
 })
