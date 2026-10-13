@@ -19,14 +19,18 @@ interface State {
   moreError: string
 }
 
+/** Linhas lidas para mostrar "Os 5 primeiros" de um elo: a sexta só diz que há mais e vira a borda esmaecida. */
+export const PREVIEW_PAGE_SIZE = 6
+
 /**
- * Lista geral do Ranking (`GET /rankings`) paginada por cursor (porta de `useRanking` da web). Trocar a categoria recarrega
- * a primeira página; a primeira resposta guarda os totais e as linhas do titular (`mine`), e "carregar mais" só acrescenta
+ * Lista do Ranking (`GET /rankings`) paginada por cursor (porta de `useRanking` da web). Com `query.tier`, só os classificados
+ * do elo, com a posição dentro dele. Trocar a categoria ou o elo recarrega a primeira página; "carregar mais" só acrescenta
  * linhas. 401 chama `onExpired`; respostas antigas (de outra categoria) são descartadas. `errorCause` é o erro lançado (para o
- * `LoadError`); se a primeira página falhou por conexão, relê uma única vez quando ela volta.
+ * `LoadError`); se a primeira página falhou por conexão, relê uma única vez quando ela volta. `enabled: false` não lê nada (a
+ * lista só é lida na expansão do elo, ao trocar de elo e no Salão); `pageSize` muda o tamanho da página.
  */
-export function useRanking(query: Omit<RankingQuery, 'cursor' | 'limit'>, onExpired: () => void) {
-  const path = rankingPath({ ...query, limit: RANKING_PAGE_SIZE })
+export function useRanking(query: Omit<RankingQuery, 'cursor' | 'limit'>, onExpired: () => void, { enabled = true, pageSize = RANKING_PAGE_SIZE } = {}) {
+  const path = rankingPath({ ...query, limit: pageSize })
   const [state, setState] = useState<State | null>(null)
   const [attempt, setAttempt] = useState(0)
   const generation = useRef(0)
@@ -34,6 +38,7 @@ export function useRanking(query: Omit<RankingQuery, 'cursor' | 'limit'>, onExpi
   const loadingMore = useRef(false)
 
   useEffect(() => {
+    if (!enabled) return
     const current = ++generation.current
     loadingMore.current = false
     request<RankingPage>(path).then(page => {
@@ -46,9 +51,9 @@ export function useRanking(query: Omit<RankingQuery, 'cursor' | 'limit'>, onExpi
         error: cause instanceof Error && cause.message ? cause.message : 'Não foi possível carregar o ranking.' })
     })
     return () => { generation.current = current + 1 }
-  }, [path, attempt, onExpired])
+  }, [path, attempt, onExpired, enabled])
 
-  const current = state && state.path === path ? state : null
+  const current = enabled && state && state.path === path ? state : null
   const loadMore = useCallback(async () => {
     if (!current?.cursor || current.busy || loadingMore.current) return
     const token = current.generation
@@ -78,7 +83,7 @@ export function useRanking(query: Omit<RankingQuery, 'cursor' | 'limit'>, onExpi
     return connection.onRestored(reload)
   }, [connectionError, reload])
   return {
-    loading: !current, error: current?.error ?? '', errorCause: current?.cause ?? null, page: current?.page ?? null, items: current?.items ?? [],
+    loading: enabled && !current, error: current?.error ?? '', errorCause: current?.cause ?? null, page: current?.page ?? null, items: current?.items ?? [],
     hasMore: Boolean(current?.cursor), busy: current?.busy ?? false, moreError: current?.moreError ?? '',
     loadMore, reload,
   }

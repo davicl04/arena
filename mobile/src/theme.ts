@@ -51,6 +51,14 @@ export const colors = {
   /** Superfície sólida do toast e da faixa de conexão (no Expo o vidro não tem desfoque) e a linha que a contorna. */
   toast: 'rgba(8,20,14,0.94)',
   'toast-line': '#ffffff17',
+  /** Dourado do Salão dos Lendários (entrada, subtela e linhas do elo Lendário). */
+  legend: '#F4DE9A',
+  /** Tom de cada elo na placa contínua do Ranking: o topo da placa tinge do tom para `forest`. */
+  'tier-bronze-tint': '#7a4a22',
+  'tier-prata-tint': '#5d6670',
+  'tier-ouro-tint': '#7a5a12',
+  'tier-diamante-tint': '#1d5c6a',
+  'tier-lendario-tint': '#5a4a10',
 } as const
 
 /** Raios em pontos (dp). Classes: rounded-control, rounded-lg, rounded-card, rounded-sheet. */
