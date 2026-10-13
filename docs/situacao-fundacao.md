@@ -1,5 +1,29 @@
 # Situação da fundação do Arena
 
+## Plano do tema claro e escuro (apenas planejamento) — 13 de outubro de 2026
+
+Registrado [plano-tema.md](plano-tema.md), resultado de uma sessão de protótipos em quatro rodadas. O protótipo está num artefato privado do usuário, e a fonte local fica em `artifacts/prototipos-tema/`, fora do versionamento.
+
+Decisões tomadas:
+- **Paleta "Estádio à noite"**: preto esverdeado, holofote no topo, menta nos botões e o dourado dos elos em rótulos, ícones de quadro e item selecionado. O claro aprovado não muda.
+- **Controle "Luzes do estádio"**: cartão "Aparência" no Menu do Perfil, antes do grupo App, com Dia, Noite e Automático. Na Noite os refletores acendem e a tela escurece.
+- **Cartões com a borda iluminada** e ícones de esporte em branco. **Placas forest** (Sua posição, Jogar, Salão) iguais ao claro.
+- **Navegação inferior** preta translúcida, com o botão Jogar em menta.
+
+Divergências encontradas:
+- Não existe tela "Configurações"; o Menu do Perfil cumpre esse papel.
+- A variante `dark:` da web já está ocupada pelo vidro dos formulários. O tema global usará `data-theme` e uma variante própria.
+- Os PNGs de esporte não têm canal alfa e somem sobre fundo escuro com o `mix-blend-multiply` atual.
+- O Expo força `userInterfaceStyle: light`.
+
+Alteração somente documental: nenhum código, dependência ou banco foi alterado e nenhum teste foi executado.
+
+Algumas decisões foram tomadas pelo plano e podem ser revistas antes da implementação:
+- **Automático** como padrão.
+- A preferência fica **no aparelho**: `localStorage` na web e SecureStore no Expo, sem backend.
+- Escopo **web e Expo**, com a web primeiro.
+- O tema vale também nas telas de entrada.
+
 ## Nova tela Ranking por elo, com Salão dos Lendários (backend, web e Expo) — 13 de outubro de 2026
 
 Execução do [plano-ranking.md](plano-ranking.md) em três frentes paralelas (worktrees `orq/ranking-back`, `orq/ranking-web` e `orq/ranking-expo`), mescladas em `feat/notifications-ranking` sem conflitos. Antes de começar, o usuário confirmou as quatro decisões tomadas pelo plano: chips de faixa para quem não tem elo (Bronze por padrão), troca de elo que pula elos vazios, diferenças relativas às pessoas sem expor os cortes, e `rank_position` mantida na API, mas fora da tela.
