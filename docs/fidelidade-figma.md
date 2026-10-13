@@ -47,7 +47,7 @@ Em sessão de protótipos, o usuário fechou as decisões abaixo para o conteúd
 | Menu ••• (M3) | Vidro sobre a foto. Dono: editar legenda (contador /2200) e excluir com confirmação. Visitante: denunciar. |
 | Denúncias | Post (M3), comentário (bandeira → formulário no vidro C4) e conta (••• da capa → vidro em tela cheia com Bloquear e Denunciar). Motivos: spam, assédio, conteúdo inadequado e outro, com detalhes opcionais de até 1000 caracteres. |
 | Topo | Barra fixa que condensa: botões em círculos de vidro sobre a capa e, depois da capa, fundo claro com @usuário. |
-| Partidas (P2) | Boletim por modalidade registrado **somente como desenho**. Sem domínio de partidas no backend, a aba mostra apenas um estado vazio; nenhum resultado é simulado. |
+| Partidas (P2) | Substituído em 12 de outubro de 2026 pela **linha do tempo** de [plano-perfil-partidas.md](plano-perfil-partidas.md): trilho único com separadores por mês, registros "Duelo" (mini placar com selo de resultado, faixa de campeonato, "Ausente" no W.O., sets do tênis, pílulas de pontos e estatísticas), corrida contra o melhor anterior, canceladas e sem resultado esmaecidas e, só no perfil próprio, a próxima partida em cartão forest. Dados reais de `GET /users/{id}/timeline`; nenhum resultado é simulado. |
 
 Na Comunidade, o card de post anterior deu lugar ao post A3. No Expo, sem bibliotecas de ícones ou desfoque, os botões usam glifos Unicode com rótulos de acessibilidade e o vidro é uma camada escura semitransparente; não há declaração de paridade visual com a web nem validação em aparelho.
 

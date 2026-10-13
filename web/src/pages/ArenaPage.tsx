@@ -16,6 +16,7 @@ import MenuPage from "./MenuPage";
 import AdminReports from "../components/AdminReports";
 import BlockedAccountsPage from "./BlockedAccountsPage";
 import ConnectionsPage from "./ConnectionsPage";
+import type { ProfileTab } from "../components/ProfileTabs";
 import UserProfilePage from "./UserProfilePage";
 import NotificationsPage from "./NotificationsPage";
 import PlayPage from "./PlayPage";
@@ -152,6 +153,8 @@ export default function ArenaPage({
   onJoinOpened?: () => void;
 }) {
   const [profiles, setProfiles] = useState<Profile[]>([]);
+  // Aba do perfil próprio: fica em memória para a volta da tela da partida cair em Partidas.
+  const [profileTab, setProfileTab] = useState<ProfileTab>("Fotos");
   const [cities, setCities] = useState<City[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -392,6 +395,9 @@ export default function ArenaPage({
               user={user}
               profiles={profiles}
               go={go}
+              matches={playBoard.board?.matches ?? null}
+              tab={profileTab}
+              onTabChange={setProfileTab}
               onNewPhoto={openComposer}
               openConnections={openConnections}
               onExpired={onExpired}

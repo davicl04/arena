@@ -11,6 +11,8 @@ Data: 12 de outubro de 2026. Contrato da **fase 1 do [plano do Jogar](../plano-j
 > **Etapas 4 e 5 (backend e web implementados e integrados em 12 de outubro de 2026; Expo na etapa 6):** os campeonatos (seção 17, com o chaveamento, a agenda e a decisão do organizador de [0003, seção 21](0003-times-campeonatos.md#21-etapa-4--chaveamento-agenda-e-decisão-do-organizador-fases-6-e-7); migração `0010`) e a corrida (seção 18: migração `0011` `runs`, `app/services/run_rules.py`, `app/services/runs.py`, as rotas `/me/runs`, `/me/runs/preview`, `/me/run-bests` e `/me/run-races` e o ranking por distância em `GET /rankings?sport=corrida`) estão implementados no backend e conciliados com o backend integrado da etapa 3: os erros de regra usam os handlers globais, a ordem global de travas da seção 15.5 vale também para o avanço do vencedor e para as marcas (seção 15.5, extensão das etapas 4 e 5), e a janela de 52 semanas olha partidas, marcas e o bônus do tênis. A web consome os dois contratos (campeonatos: [0003, seção 21.11](0003-times-campeonatos.md#2111-desvios-registrados-na-integração-da-web-etapa-4); corrida: seção 18.9). O Expo consome estes contratos desde a etapa 6.
 >
 > **Estado do Expo (etapa 6, 12 de outubro de 2026):** o Expo consome as seções 6 a 18 e o [0003](0003-times-campeonatos.md) sem alterar o contrato (`mobile/src/api/`). Os desvios do Expo (folhas no lugar de diálogos, PDF e salvar arquivo só na web, Pix e link por texto selecionável e `Share`, câmera para o QR) e o que não foi verificado (aparelho, leitor de tela, API real e paridade visual) estão em [situação da fundação](../situacao-fundacao.md).
+>
+> **Histórico do perfil (12 de outubro de 2026):** a linha do tempo da aba Partidas e as estatísticas do perfil próprio (`GET /users/{id}/timeline` e `GET /me/profile-stats`) estão na seção 19, implementadas no backend, na web e no Expo.
 
 ## 1. Elos e rankings
 
@@ -1332,3 +1334,45 @@ A corrida na web (frente W5: `web/src/api/runs.ts`, `RunStopwatchDialog` (K2), `
 | "Ver ranking" | O link no título de "Suas marcas" abre o Ranking (aba raiz) já na **corrida** e na **distância escolhida na placa** (a do contorno verde): `Entry.sport = 'corrida'` e `Entry.distance` na pilha de `ArenaPage`, lidos por `RankingPage` (`initialSport` e `initialDistance`). | Está no protótipo K4; sem o contexto, o Ranking abriria no futebol. A volta é pela navegação inferior, como em qualquer aba. |
 
 **Conferido no navegador nesta integração (antes pendente):** o **Lendário** com 11 classificados (1 vaga, ⌊11 × 15%⌋; o primeiro, com tempo de Diamante) e a **saída da janela de 52 semanas** (uma marca saiu da janela, `rankings_janela=1` na varredura e o ranking foi de 11 para 10 classificados; a data da marca e o carimbo do ranking foram ajustados no banco de verificação para simular a passagem do tempo). **Não conferido:** prova **paga** (a prova da verificação foi gratuita) e a passagem do dia em Brasília.
+
+## 19. Histórico do perfil: linha do tempo e estatísticas (12 de outubro de 2026)
+
+Implementa a Parte A de [plano-perfil-partidas.md](../plano-perfil-partidas.md). Código: `app/services/profile_history.py` (regra de participação e contagens), `app/services/profile_timeline.py` (união e cursor), `app/routers/profile.py` e `app/schemas/profile.py`. Sem migração: as consultas partem de `user_id`, já indexado em `match_lineups`, `team_members` e `runs` (`ix_runs_user_history`); `EXPLAIN` não foi executado.
+
+### 19.1 Regra de participação
+
+Uma partida entra no histórico de um atleta quando o estado é `realizada`, `encerrada`, `sem_resultado` ou `cancelada`, `starts_at` não é nulo (propostas recusadas ou expiradas e canceladas sem data nunca entram; a partida `agendada` que aguarda o placar fica no Jogar) e vale uma das condições. `realizada` sempre tem placar confirmado e já conta no ranking; só a janela de 48 h das estatísticas segue aberta até virar `encerrada`. O plano supunha que `realizada` aguardava placar; a implementação corrigiu isso.
+
+1. **Tênis:** o atleta é o jogador de um lado (`match_sides.user_id`).
+2. **Futebol, escalação:** existe `match_lineups` do atleta com `removed_at IS NULL` e `present IS TRUE` (inclui o avulso).
+3. **Futebol, presença não informada:** não existe `match_lineups` do atleta com `present IS FALSE` e ele era membro do time de um lado na data: `joined_at <= starts_at` e (`left_at IS NULL` ou `left_at > starts_at`). Cobre partidas sem chamada, W.O. e canceladas.
+
+O histórico não depende da associação atual: quem sai do time mantém o passado e quem entra depois não herda partidas antigas. O lado do titular sai da escalação, quando confirmada, ou da associação na data. O resultado é `scoring.outcome_for(lado, vencedor)`. O W.O. vale quando a partida está `encerrada` e `walkover_decision` não é `anulado` (um W.O. mantido pela administração tem `result_source = 'administracao'`); o lado ausente perde. Um W.O. anulado vira `sem_resultado` e não mostra o lado ausente.
+
+### 19.2 `GET /api/v1/users/{user_id}/timeline`
+
+Autenticada. Acesso pela mesma regra das fotos (`social._can_view`): o titular, conta pública ou seguidor aprovado, sem bloqueio nos dois sentidos. Conta inexistente ou sem acesso responde **404**. Parâmetros: `sport` (`futebol` | `tenis` | `corrida`, opcional), `cursor` e `limit` (padrão 20, máximo 50); cursor inválido responde `422`.
+
+- **Ordem:** `occurred_at` decrescente, depois `kind` crescente (`corrida` antes de `partida` no mesmo instante) e `id` decrescente. Na partida, `occurred_at` é `starts_at`; na corrida, é a **meia-noite de `ran_on` em Brasília** (serializada com `-03:00`), para que a corrida fique no dia certo em relação às partidas da noite anterior. O cursor opaco codifica `occurred_at|kind|id`; a união é feita no servidor.
+- **Resposta:** `{ items, next_cursor, total }`; `total` respeita o filtro.
+- **`kind: "partida"`:** `id`, `sport`, `format`, `origin`, `state`, `occurred_at`, `sides` (`side`, `kind`, `team` {id, name, initials, crest_url}, `athlete` {id, name, username, avatar_url}, `is_owner`), `owner_side`, `score` (formato de `ScoreOut`, com sets), `outcome` (`vitoria` | `empate` | `derrota` | null), `walkover_absent_side`, `points` (3/1/0 no futebol, pontos de time; 10/0 no tênis; null sem resultado), `stats` ({position, goals, assists, position_stat}: só os campos contados por `counted_stat_fields`; `position` vem da escalação e pode ser nula; null no tênis, no W.O., sem estatística ou quando nenhum campo conta), `event` ({id, name} | null), `round_label` (eliminação simples: `bracket_rules.round_name`, ex.: "Semifinal"; outros formatos: "Rodada N"; null em amistoso) e `court` ({name} | null, **sempre nulo quando quem lê não é o titular**). `score`, `outcome` e `points` só existem em `realizada` e `encerrada`; estatísticas ainda não revisadas numa `realizada` ficam nulas até contarem.
+- **`kind: "corrida"`:** `id`, `occurred_at`, `date` (`ran_on`, para exibição sem conversão de fuso), `distance_m`, `standard_distance_km`, `duration_s`, `pace_s_per_km`, `origin` (`RunOriginOut`), `previous_best_s` e `mark_kind` (`primeira_marca` | `novo_melhor` | `sem_melhora` | null). O melhor anterior é recalculado por linha com a semântica de `create_run`: menor tempo do mesmo titular e distância-padrão entre as marcas registradas antes dela (`(created_at, id)` anterior) dentro das 52 semanas que terminam no dia de Brasília do registro. `fora_do_ranking` vira `mark_kind` nulo; distância fora das faixas não tem comparação. Uma marca removida depois deixa de contar.
+- **Exposição a terceiros:** o visitante vê partidas encerradas, sem resultado e canceladas com os lados, placar, pontos, estatísticas contadas, evento e fase, e as corridas (treinos e provas) com o melhor anterior. **Não vê** a próxima partida (ela vem da placa do Jogar, só do titular), a quadra ou o local, chat, condições pendentes, contestações, prazos nem dados dos perfis esportivos (cidade, posição preferida, disponibilidade), preservando a [decisão 0001](0001-fundacao.md).
+
+### 19.3 `GET /api/v1/me/profile-stats`
+
+Só o titular. `{ played, wins, draws, losses, win_rate, best_tier, in_placement }`.
+
+- `played` conta futebol e tênis da regra 19.1 com placar confirmado (`realizada` ou `encerrada`), incluindo o W.O.; canceladas, sem resultado e corridas ficam fora. Cobre a carreira inteira, não a janela de 52 semanas.
+- `win_rate` é o **percentual** `wins / played × 100`, com uma casa decimal (arredondamento half-up), ou `null` sem partidas.
+- `best_tier` é o maior elo entre as linhas `ranqueado` de `GET /me/standings` (times por formato, individual, tênis e distâncias de corrida), na ordem Bronze < Prata < Ouro < Diamante < Lendário; nunca vem de linha em classificação. `in_placement` é verdadeiro quando não há `best_tier` e existe alguma linha em classificação.
+
+### 19.4 Clientes
+
+Web (`web/src/api/profile.ts`, `web/src/components/profile-matches/`) e Expo (`mobile/src/api/profile.ts`, `mobile/src/components/profile-matches/`) consomem as duas rotas; `usePagedList` passou a expor `total` quando a página o traz. Decisões dos clientes:
+
+- A próxima partida vem da placa do Jogar já lida pela página (`nextScheduledMatch`), sem requisição nova; aparece só no perfil próprio e respeita o filtro.
+- Corridas usam `date` para a data e o separador de mês; partidas usam `occurred_at` no horário local.
+- O tie-break do set aparece só no lado que perdeu o set (convenção de `results/format.ts`), nunca no super tie-break.
+- No perfil visitado, um `404` da linha do tempo vira o vazio "Nenhuma partida por aqui"; no próprio, é tratado como erro com "Tentar novamente".
+- Na web, a aba do perfil próprio fica guardada no `ArenaPage`, de modo que voltar da tela da partida mantém Partidas.

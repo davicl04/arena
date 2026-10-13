@@ -22,6 +22,7 @@ vi.mock('../src/components/ui', async () => {
   }
 })
 vi.mock('../src/api/client', () => ({
+  positions: [],
   ApiError: class ApiError extends Error { constructor(message: string, public status: number) { super(message) } },
   apiUrl: (path: string) => path,
   getToken: vi.fn().mockResolvedValue('test-token'),

@@ -15,6 +15,7 @@ vi.mock('react-native-safe-area-context', async () => (await import('./support/n
 vi.mock('../src/components/ui', async () => (await import('./support/native')).uiMock())
 vi.mock('expo-image-picker', () => ({ launchImageLibraryAsync: vi.fn() }))
 vi.mock('../src/api/client', () => ({
+  positions: [],
   ApiError: class ApiError extends Error { constructor(message: string, public status: number) { super(message) } },
   apiUrl: (path: string) => path,
   getToken: vi.fn().mockResolvedValue('test-token'),

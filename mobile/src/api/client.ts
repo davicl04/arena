@@ -8,7 +8,7 @@ export interface User { id: number; name: string; username: string; email: strin
 export interface SocialUser { id: number; name: string; username: string; avatar_url: string | null; cover_url: string | null; social_public: boolean; post_count: number; follower_count: number; following_count: number; follows_you: boolean; follow_state: 'none' | 'pending' | 'approved' | 'self' }
 export interface Post { id: number; author: SocialUser; caption: string; image_url: string; created_at: string; like_count: number; comment_count: number; liked_by_me: boolean; can_edit: boolean }
 export interface SocialComment { id: number; author_id: number; author_name: string; author_avatar_url: string | null; body: string; created_at: string; can_delete: boolean }
-export interface Page<T> { items: T[]; next_cursor: string | null }
+export interface Page<T> { items: T[]; next_cursor: string | null; total?: number }
 export interface MutualFollowersPage extends Page<SocialUser> { total: number }
 export interface UsernameAvailability { available: boolean; reason: 'invalid' | 'reserved' | 'taken' | 'current' | null; suggestions: string[] }
 export interface City { id: number; name: string; state: string }

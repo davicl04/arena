@@ -1,5 +1,44 @@
 # Situação da fundação do Arena
 
+## Aba Partidas do perfil (linha do tempo) e estatísticas do perfil — 12 de outubro de 2026
+
+Implementado o [plano da aba Partidas](plano-perfil-partidas.md) no backend, na web e no Expo. Contrato e regras em [0002, seção 19](decisoes/0002-jogar.md#19-histórico-do-perfil-linha-do-tempo-e-estatísticas-12-de-outubro-de-2026).
+
+- **Backend:** `GET /users/{id}/timeline`, com a visibilidade das fotos (`_can_view`, 404 sem acesso) e cursor estável entre partidas e corridas, e `GET /me/profile-stats` (partidas, vitórias, empates, derrotas, taxa de vitória e melhor elo). A regra de participação conta só as partidas que a pessoa jogou: escalação confirmada, avulso incluído, ou membro do time na data da partida sem ausência marcada. Quem saiu do time mantém o passado, e quem entrou depois não herda partidas antigas. A corrida traz o melhor anterior e o tipo da marca recalculados com a semântica do registro. Sem migração.
+- **Web:** a aba Partidas passou a mostrar a linha do tempo, nos perfis próprio e visitado, com:
+  - topo "N registros" e filtro só com ícone;
+  - próxima partida em cartão forest, só no perfil próprio;
+  - Duelos com selo de resultado, faixa de campeonato, "Ausente" no W.O., sets do tênis e pílulas de pontos e estatísticas;
+  - corrida contra o melhor anterior e canceladas ou sem resultado esmaecidas;
+  - "Carregar mais".
+
+  No perfil próprio, as partidas abrem a tela da partida, e voltar mantém a aba. Os blocos de estatística mostram Taxa de vitória, Partidas e **Melhor elo** (antes "Pontos de elo"), sem bloquear o perfil.
+- **Expo:** mesmos componentes em RN, dentro da rolagem do perfil, sem `FlatList` aninhada; filtro em folha; blocos de estatística no perfil próprio; aba do visitado pelo `VisitedProfile`.
+
+**Verificações executadas:**
+
+- Backend: `ruff check app migrations tests` e `pytest -q` com `TEST_DATABASE_URL` no PostgreSQL Docker (schemas aleatórios isolados): **1.571 aprovados e 1 pulado** (o pulado já existia). Testes novos: regra de participação (9 casos), timeline (privacidade nos seis casos do plano, quadra nula para visitante, filtro e `total`, paginação estável na mesma data, corrida à meia-noite de Brasília, melhor anterior igual ao devolvido por `create_run`, estatística contestada oculta) e estatísticas (W.O., empate, cancelada, sem resultado, elos mistos e classificação).
+- Web: `npm run lint`, `npm run build` e `npm run test:coverage -- --maxWorkers=4`: **940 testes**, **92,5% das instruções e 86,09% dos ramos**; aviso do bundle acima de 500 kB mantido. Depois disso, o ajuste do tie-break passou por lint, build e pelos testes da linha do tempo (26).
+- Expo: `npm run lint`, `npm run typecheck`, `npm run test:coverage -- --maxWorkers=4` (**1.317 testes**, **94,93% das instruções e 90,12% dos ramos**) e `npm run export:android` aprovados. A exportação pelo Git Bash gerou o bundle e terminou com falha de segmentação do wrapper do npm; repetida pelo PowerShell, terminou com código 0. Depois do ajuste do tie-break: lint, typecheck e os testes da linha do tempo (28).
+- Navegador com API e PostgreSQL reais (schema temporário removido ao final, contas sintéticas, sem tocar dados do usuário), com uma titular semeada com 30 registros:
+  - estatísticas iguais às da API (68%, 22 partidas, Ouro);
+  - filtro com contagem igual ao `total` da API em Todas, Futebol, Tênis e Corrida;
+  - "Carregar mais" sem repetir nem pular IDs;
+  - toque na partida e volta à aba Partidas;
+  - visitado público e seguidor aprovado sem quadra, sem próxima partida, sem "você" e sem toque; conta privada sem seguir com o aviso de conta privada já existente (e "Nenhuma partida por aqui" quando a conta fica privada com a aba aberta);
+  - recarga com sessão e dados preservados;
+  - 320, 390 e 1440 px sem overflow horizontal;
+  - console sem erros de JS.
+
+  Capturas locais em `artifacts/perfil-partidas/` (não versionado).
+- A verificação no navegador apontou o tie-break exibido nos dois lados; ele foi corrigido na web e no Expo para aparecer só no lado que perdeu o set, como no restante do app.
+
+**Correção após teste do usuário (mesmo dia):** a linha do tempo mostrava só corridas numa conta com três partidas de tênis com placar confirmado. A causa era o plano supor que `realizada` aguardava placar; na verdade o estado sempre tem placar confirmado e só vira `encerrada` quando fecha a janela de 48 h das estatísticas. O histórico e as contagens passaram a incluir `realizada` (backend), e os clientes deixaram de esmaecer esse estado. Conferido no banco de desenvolvimento, só em leitura: a conta passou a ter as três partidas no trilho e 1 vitória em 3 (33,3%). Testes de regressão no backend (`realizada` de futebol e tênis entra; `agendada` aguardando placar não) e nos dois clientes. Verificações: ruff e os testes de perfil do backend (34), lint, build/typecheck e os testes da linha do tempo na web (36) e no Expo (31), além da suíte completa do backend: **1.572 aprovados e 1 pulado**. Numa primeira execução, `test_championship_result_flow.py::test_equal_reports_confirm_the_match_and_take_the_winner_to_the_next_one` falhou uma vez; ele não usa o código alterado e passou isolado, no arquivo inteiro (duas vezes) e na suíte completa repetida, então foi registrado como intermitente, sem causa investigada.
+
+**Limitações:** "Em classificação", o esqueleto de carregamento e o vazio próprio não foram capturados no navegador (cobertos por testes); `EXPLAIN` dos índices não foi executado. O Expo não foi verificado em aparelho Android/iOS nem contra a API real; não há declaração de paridade visual. CI remoto não executado. **Pendências:** Atividades em Notificações, estatísticas no perfil visitado, gráficos de evolução e exportação do histórico (fora do plano). Esta entrega não declara o MVP completo.
+
+A pedido do usuário, a entrega foi registrada em commit na branch `feat/play-page` e enviada ao remoto.
+
 ## Consolidação da branch para commit — 12 de outubro de 2026
 
 O usuário autorizou incluir todos os arquivos pendentes no commit e enviar a branch `feat/play-page` ao remoto. O conteúdo reúne as cinco correções da revisão, seus testes e contratos, e o plano da aba Partidas do perfil (somente planejamento). Conferência final com `git diff --check` aprovada; as verificações de código são as registradas na entrega das correções abaixo, sem nova execução nesta etapa de Git.
@@ -1101,7 +1140,7 @@ Atualizar este Markdown a cada entrega ou alteração no projeto, registrando im
 | Foto de perfil (avatar) e capa | Integradas à API e ao armazenamento privado, com recorte, troca e remoção (capa padrão) na web e no mobile. |
 | Edição de perfil e @ | Integradas à API: lista agrupada com folhas, @ único com verificação de disponibilidade, visibilidade, contas bloqueadas e conexões. |
 | Posts, comunidade e perfis sociais | Integrados à API: feed cronológico, foto/legenda, curtidas, comentários, busca, privacidade social, seguidores, bloqueios e denúncias. Painel administrativo web e histórico de decisões implementados. |
-| Conteúdo do perfil | Abas Fotos \| Partidas na web e no Expo: grade com visualizador "Publicações", post 4:5, comentários e ações em vidro, denúncias de post/comentário/conta com motivo e detalhes e topo fixo condensado. Partidas (P2) aguarda domínio e mostra estado vazio; Atividades sairá para Notificações em entrega futura. |
+| Conteúdo do perfil | Abas Fotos \| Partidas na web e no Expo: grade com visualizador "Publicações", post 4:5, comentários e ações em vidro, denúncias de post/comentário/conta com motivo e detalhes e topo fixo condensado. Partidas integrada: linha do tempo de partidas e corridas (`GET /users/{id}/timeline`) nos perfis próprio e visitado, e estatísticas do perfil próprio (`GET /me/profile-stats`, com Melhor elo); Atividades sairá para Notificações em entrega futura. |
 | Partidas, ranking, estatísticas e notificações | Integrados à API na web (etapas 3 e 4) e no Expo (etapa 6): partidas, resultado, estatísticas, Ranking e Notificações com os tipos de times, eventos, partidas e campeonatos, além das solicitações para seguir. Sem partida, evento ou marca, as telas mostram o estado vazio; não há dados demonstrativos. |
 | Moedas e carteira | Removidas da interface web e fora da direção atual do produto; não implementar sem nova solicitação. |
 | Botão Jogar | Busca adversário de verdade (times, tênis e avulso), com proposta, partida e agendamento, na web e no Expo; sem perfil esportivo, prepara o perfil. Nunca simula uma partida encontrada. |

@@ -1,5 +1,5 @@
 import { Pressable, Text, View } from 'react-native'
-import { cx, tw } from '../styles'
+import { cx } from '../styles'
 
 export const profileTabs = ['Fotos', 'Partidas'] as const
 export type ProfileTab = typeof profileTabs[number]
@@ -14,13 +14,5 @@ export function ProfileTabs({ value, onChange }: { value: ProfileTab; onChange: 
         <Text className={selected ? 'font-bold text-brand' : 'font-medium text-ink-muted'}>{tab}</Text>
       </Pressable>
     })}
-  </View>
-}
-
-/** Partidas ainda não têm domínio no backend: só o estado vazio. */
-export function MatchesEmpty() {
-  return <View className="items-center p-5.5">
-    <Text accessibilityRole="header" className={cx(tw.heading, 'text-center')}>Sua história em campo</Text>
-    <Text className={cx(tw.body, 'text-center')}>Quando as partidas estiverem disponíveis, os resultados ficam registrados aqui.</Text>
   </View>
 }

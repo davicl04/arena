@@ -21,6 +21,7 @@ from app.routers.matches import router as matches_router
 from app.routers.matchmaking import router as matchmaking_router
 from app.routers.notifications import router as notifications_router
 from app.routers.organizers import router as organizers_router
+from app.routers.profile import router as profile_router
 from app.routers.rankings import router as rankings_router
 from app.routers.results import router as results_router
 from app.routers.runs import router as runs_router
@@ -205,3 +206,4 @@ app.include_router(slots_router)
 app.include_router(results_router)
 app.include_router(brackets_router)
 app.include_router(runs_router)
+app.include_router(profile_router)

@@ -1,6 +1,8 @@
 # Plano — conteúdo do perfil, visualizador de posts, denúncias e topo fixo (web + Expo)
 
 > Estado: **implementado em 10 de outubro de 2026** (web e Expo), conforme o registro em [situação da fundação](situacao-fundacao.md). Partidas (P2) e Atividades em Notificações continuam fora desta entrega.
+>
+> **Nota de 12 de outubro de 2026:** a decisão Partidas (P2) foi substituída pela linha do tempo de [plano-perfil-partidas.md](plano-perfil-partidas.md).
 
 ## Contexto
 
@@ -17,7 +19,7 @@ Em sessão de protótipos de 10 de outubro de 2026 (artefato privado do usuário
 | Comentários (C4) | Vidro escuro sobre a foto, com envio por **ícone**. |
 | Menu ••• (M3) | Vidro sobre a foto. Dono: editar legenda (contador /2200) e excluir com confirmação. Visitante: denunciar. |
 | Denúncias | Post (M3), comentário (bandeira → formulário no vidro C4) e conta (••• da capa → vidro em tela cheia com Bloquear/Denunciar). Motivos: spam, assédio, conteúdo inadequado e outro, com detalhes opcionais (≤1000). |
-| Partidas (P2) | Boletim por modalidade. **Só design registrado**: sem domínio no backend, a aba mostra estado vazio. |
+| Partidas (P2) | Boletim por modalidade. **Só design registrado**: sem domínio no backend, a aba mostra estado vazio. **Substituído** pela linha do tempo de [plano-perfil-partidas.md](plano-perfil-partidas.md). |
 | Topo | Barra fixa que condensa: botões em círculos de vidro sobre a capa e, depois da capa, fundo claro + @usuário. |
 
 Escopo confirmado: **web e Expo**. Os fluxos novos também valem na **Comunidade**. Nenhuma mudança de backend é necessária, pois todos os endpoints existem em `backend/app/routers/social.py` (posts, PATCH/DELETE, likes, comentários com cursor, `/reports` com `description`, `/users/{id}/block`).

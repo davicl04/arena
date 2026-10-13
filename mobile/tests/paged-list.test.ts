@@ -28,6 +28,25 @@ const page = (ids: number[], next: string | null) => ({ items: ids.map(id => ({ 
 describe('usePagedList (mobile)', () => {
   beforeEach(() => { enableAct(); vi.mocked(request).mockReset() })
 
+  it('expõe o total quando a resposta o traz e o mantém ao carregar mais', async () => {
+    vi.mocked(request).mockImplementation(async path => (path.includes('cursor=')
+      ? { items: [{ id: 3 }], next_cursor: null }
+      : { ...page([1, 2], 'c2'), total: 3 }) as never)
+    const { tree } = await mount('/timeline')
+    expect(current.total).toBe(3)
+    await act(async () => { await current.loadMore() })
+    expect(current.items).toHaveLength(3)
+    expect(current.total).toBe(3)
+    await act(async () => { tree.unmount() })
+  })
+
+  it('sem total na resposta, o total fica indefinido', async () => {
+    vi.mocked(request).mockResolvedValue(page([1], null) as never)
+    const { tree } = await mount('/posts')
+    expect(current.total).toBeUndefined()
+    await act(async () => { tree.unmount() })
+  })
+
   it('carrega a primeira página, acrescenta a próxima pelo cursor e ignora chamadas duplicadas', async () => {
     let release!: () => void
     vi.mocked(request).mockImplementation(async path => {

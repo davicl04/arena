@@ -79,7 +79,8 @@ export const screens: { [S in ScreenName]: ScreenComponent<S> } = {
   play: PlayScreen,
   community: CommunityRoute,
   'user-profile': UserProfileScreen,
-  profile: ({ user, navigation, onUser, onLogout, onExpired }) => <ProfileScreen user={user} onUser={onUser} onLogout={onLogout} onExpired={onExpired} onNewPhoto={() => navigation.go('community', { compose: true })}
+  profile: ({ user, navigation, onUser, onLogout, onExpired, playBoard }) => <ProfileScreen user={user} onUser={onUser} onLogout={onLogout} onExpired={onExpired} onNewPhoto={() => navigation.go('community', { compose: true })}
+    upcoming={playBoard.board?.matches} onOpenMatch={matchId => navigation.go('match', { matchId })} onPlay={() => navigation.go('play')}
     menuSections={close => <OrganizerMenu isAdmin={user.is_admin} navigation={navigation} onLeave={close} onExpired={onExpired} />} />,
   notifications: NotificationsScreen,
   events: EventsScreen,

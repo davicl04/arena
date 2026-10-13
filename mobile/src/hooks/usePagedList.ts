@@ -4,12 +4,14 @@ import { ApiError, request } from '../api/client'
 import type { Page } from '../api/client'
 
 interface State<T> {
-  path: string; generation: number; items: T[]; cursor: string | null; error: ApiError | Error | null
+  path: string; generation: number; items: T[]; cursor: string | null; total?: number; error: ApiError | Error | null
   busy: boolean; moreError: string
 }
 
 export interface PagedList<T> {
   items: T[]; loading: boolean; error: ApiError | Error | null; moreError: string; hasMore: boolean; busy: boolean
+  /** Total de registros, quando a resposta o traz (a linha do tempo do perfil); `undefined` nas demais listas. */
+  total: number | undefined
   /** Verdadeiro durante `refresh`: a primeira página é relida sem esvaziar a lista (puxar para atualizar). */
   refreshing: boolean
   setItems: Dispatch<SetStateAction<T[]>>; loadMore: () => Promise<void>; reload: () => void; refresh: () => void
@@ -28,7 +30,7 @@ export function usePagedList<T>(path: string, onExpired: () => void): PagedList<
     loadingMore.current = false
     request<Page<T>>(path).then(page => {
       if (generation.current !== requestGeneration) return
-      setState({ path, generation: requestGeneration, items: page.items, cursor: page.next_cursor, error: null, busy: false, moreError: '' })
+      setState({ path, generation: requestGeneration, items: page.items, cursor: page.next_cursor, total: page.total, error: null, busy: false, moreError: '' })
       setRefreshing(false)
     }).catch((err: unknown) => {
       if (generation.current !== requestGeneration) return
@@ -50,7 +52,7 @@ export function usePagedList<T>(path: string, onExpired: () => void): PagedList<
     try {
       const page = await request<Page<T>>(`${path}${path.includes('?') ? '&' : '?'}cursor=${encodeURIComponent(current.cursor)}`)
       if (generation.current !== requestGeneration) return
-      setState(old => old?.generation === requestGeneration ? { ...old, items: [...old.items, ...page.items], cursor: page.next_cursor } : old)
+      setState(old => old?.generation === requestGeneration ? { ...old, items: [...old.items, ...page.items], cursor: page.next_cursor, total: page.total ?? old.total } : old)
     } catch (err) {
       if (generation.current !== requestGeneration) return
       if (err instanceof ApiError && err.status === 401) onExpired()
@@ -67,6 +69,6 @@ export function usePagedList<T>(path: string, onExpired: () => void): PagedList<
   const refresh = useCallback(() => { setRefreshing(true); setAttempt(n => n + 1) }, [])
   return {
     items: current?.items ?? [], loading: !current, error: current?.error ?? null, moreError: current?.moreError ?? '',
-    hasMore: Boolean(current?.cursor), busy: current?.busy ?? false, refreshing, setItems, loadMore, reload, refresh,
+    total: current?.total, hasMore: Boolean(current?.cursor), busy: current?.busy ?? false, refreshing, setItems, loadMore, reload, refresh,
   }
 }

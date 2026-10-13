@@ -4,7 +4,7 @@ import { ApiError, request } from '../api/client'
 import type { Page } from '../api/client'
 
 interface State<T> {
-  path: string; generation: number; items: T[]; cursor: string | null; error: ApiError | Error | null
+  path: string; generation: number; items: T[]; cursor: string | null; total: number | null; error: ApiError | Error | null
   busy: boolean; moreError: string
 }
 
@@ -16,11 +16,11 @@ export function usePagedList<T>(path: string, onExpired: () => void) {
   useEffect(() => {
     const requestGeneration = ++generation.current
     request<Page<T>>(path).then(page => {
-      if (generation.current === requestGeneration) setState({ path, generation: requestGeneration, items: page.items, cursor: page.next_cursor, error: null, busy: false, moreError: '' })
+      if (generation.current === requestGeneration) setState({ path, generation: requestGeneration, items: page.items, cursor: page.next_cursor, total: page.total ?? null, error: null, busy: false, moreError: '' })
     }).catch((err: unknown) => {
       if (generation.current !== requestGeneration) return
       if (err instanceof ApiError && err.status === 401) onExpired()
-      setState({ path, generation: requestGeneration, items: [], cursor: null, error: err instanceof Error ? err : new Error('Não foi possível carregar a lista.'), busy: false, moreError: '' })
+      setState({ path, generation: requestGeneration, items: [], cursor: null, total: null, error: err instanceof Error ? err : new Error('Não foi possível carregar a lista.'), busy: false, moreError: '' })
     })
     return () => { generation.current = requestGeneration + 1 }
   }, [path, attempt, onExpired])
@@ -35,7 +35,7 @@ export function usePagedList<T>(path: string, onExpired: () => void) {
     try {
       const page = await request<Page<T>>(`${path}${path.includes('?') ? '&' : '?'}cursor=${encodeURIComponent(current.cursor)}`)
       if (generation.current !== requestGeneration) return
-      setState(old => old?.generation === requestGeneration ? { ...old, items: [...old.items, ...page.items], cursor: page.next_cursor } : old)
+      setState(old => old?.generation === requestGeneration ? { ...old, items: [...old.items, ...page.items], cursor: page.next_cursor, total: page.total ?? old.total } : old)
     } catch (err) {
       if (generation.current !== requestGeneration) return
       if (err instanceof ApiError && err.status === 401) onExpired()
@@ -46,7 +46,7 @@ export function usePagedList<T>(path: string, onExpired: () => void) {
   }, [current, path, onExpired])
   return {
     items: current?.items ?? [], loading: !current, error: current?.error ?? null, moreError: current?.moreError ?? '',
-    hasMore: Boolean(current?.cursor), busy: current?.busy ?? false, setItems, loadMore,
+    total: current?.total ?? null, hasMore: Boolean(current?.cursor), busy: current?.busy ?? false, setItems, loadMore,
     reload: () => { generation.current++; setState(null); setAttempt(n => n + 1) },
   }
 }

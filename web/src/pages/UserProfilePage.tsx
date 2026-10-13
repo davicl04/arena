@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
-import { ArrowLeft, CalendarDays, Ellipsis, Shield } from 'lucide-react'
+import { ArrowLeft, Ellipsis, Shield } from 'lucide-react'
 import { ApiError, request } from '../api/client'
 import type { MutualFollowersPage, SocialUser } from '../api/client'
 import AccountActions from '../components/AccountActions'
 import { Button, IconButton } from '@/components/ui/button'
-import { EmptyState } from '@/components/ui/empty-state'
+import { MatchTimeline } from '@/components/profile-matches/MatchTimeline'
 import { feedbackVariants } from '@/components/ui/feedback'
 import ProfileGallery from '../components/ProfileGallery'
 import ProfileHeader, { ProfileCover, ProfileTopbar } from '../components/ProfileHeader'
@@ -109,7 +109,7 @@ export default function UserProfilePage({ userId, ownUserId, onBack, onOpenConne
         <ProfilePanel tab={tab}>
           {tab === 'Fotos'
             ? <ProfileGallery userId={person.id} username={person.username} ownerName={person.name} viewerId={ownUserId} own={false} onExpired={onExpired} />
-            : <EmptyState Icon={CalendarDays} title="História em campo" text="Quando as partidas estiverem disponíveis, os resultados desta conta ficam registrados aqui." />}
+            : <MatchTimeline userId={person.id} own={false} onExpired={onExpired} />}
         </ProfilePanel>
       </>
       : <p className="flex items-center justify-center gap-2 px-2 py-5 text-center text-[12px] leading-[1.6] text-ink-muted"><Shield size={20} /> Esta conta é privada. Solicite acesso para ver as publicações.</p>}
