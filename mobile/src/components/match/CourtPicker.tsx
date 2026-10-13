@@ -129,7 +129,7 @@ export function CourtPicker({ detail, selected, onSelect, canSuggest, onExpired,
       const result = await suggestCourt({ match_id: detail.id, name: cleanName, address: address.trim() || null })
       onSelect(result.court)
       if (result.existing) toast.info(`${result.court.name} já estava no catálogo ou nesta partida e foi selecionada.`)
-      else toast.success(`${result.court.name} foi sugerida: fica em revisão e vale só nesta partida.`)
+      else toast.warning(`${result.court.name} foi sugerida.`, { description: 'Fica em revisão e vale só nesta partida até a aprovação da administração.' })
       finishSuggestion()
       setCourts(old => (old && !old.some(item => item.id === result.court.id) ? [result.court, ...old] : old))
     } catch (cause) {

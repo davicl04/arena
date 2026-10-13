@@ -282,7 +282,8 @@ describe('condições: propor', () => {
     const option = findByPrefix(tree, 'Quadra Nova')!
     expect(option.props.accessibilityState.checked).toBe(true)
     expect(allText(tree)).toContain('Sugestão em revisão')
-    expect(allText(tree)).toContain('Quadra Nova foi sugerida: fica em revisão e vale só nesta partida.')
+    expect(toasts().map(item => [item.tone, item.title])).toEqual([['warning', 'Quadra Nova foi sugerida.']])
+    expect(toastText()).toContain('até a aprovação da administração')
 
     await fill(tree, 20, '2000')
     await pressButton(tree, 'Enviar proposta')

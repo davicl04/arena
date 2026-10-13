@@ -8,7 +8,7 @@ import type { CourtOut } from '../src/api/matches'
 import { CourtPicker, DEFERRED_COURT_ID } from '../src/components/match/CourtPicker'
 import type { CourtPickerMatch } from '../src/components/match/CourtPicker'
 import { enableAct } from './support/native'
-import { toasts } from './support/toast'
+import { toastText, toasts } from './support/toast'
 import { brasilia, court } from './support/play'
 import { allText, bodyOf, callsTo, findButton, findByPrefix, flush, hasField, pressButton, pressPrefix, render, serve, typeInto } from './support/review'
 
@@ -96,7 +96,8 @@ describe('CourtPicker: sugerir quadra', () => {
     await pressButton(tree, 'Sugerir quadra')
     expect(bodyOf('POST', '/courts/suggestions')).toEqual({ match_id: 12, name: 'Quadra Nova', address: null })
     expect(onChosen).toHaveBeenCalledWith(suggested)
-    expect(toasts().map(item => [item.tone, item.title])).toEqual([['success', 'Quadra Nova foi sugerida: fica em revisão e vale só nesta partida.']])
+    expect(toasts().map(item => [item.tone, item.title])).toEqual([['warning', 'Quadra Nova foi sugerida.']])
+    expect(toastText()).toContain('até a aprovação da administração')
     expect(hasField(tree, 'Nome da quadra')).toBe(false)
   })
 

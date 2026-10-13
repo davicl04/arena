@@ -238,7 +238,8 @@ describe('condições: propor', () => {
     const option = await within(sheet).findByRole('button', { name: /Quadra Nova/ })
     expect(option.getAttribute('aria-pressed')).toBe('true')
     expect(within(option).getByText('Sugestão em revisão')).not.toBeNull()
-    expect((await findToast('Quadra Nova foi sugerida: fica em revisão e vale só nesta partida.')).closest('[data-tone]')?.getAttribute('data-tone')).toBe('success')
+    expect((await findToast('Quadra Nova foi sugerida.')).closest('[data-tone]')?.getAttribute('data-tone')).toBe('warning')
+    expect(await findToast(/até a aprovação da administração/)).not.toBeNull()
 
     await pickDay(user, '20')
     fireEvent.change(within(sheet).getByLabelText('Horário'), { target: { value: '20:00' } })

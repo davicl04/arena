@@ -8,7 +8,6 @@ Pendências desta entrega:
 - `NotificationsPage.tsx` (web) e `NotificationsScreen.tsx` (Expo) não foram migradas, porque o plano de notificações as reescreve em paralelo; a migração fica para a conciliação depois do merge. Até lá, o tom `success` de `feedbackVariants` continua existindo só para a `NotificationsPage`, e o contador do sino (`getUnreadCount`) ainda não usa a opção `background`.
 - `HomePage.tsx` e `HomeScreen.tsx` só receberam o mínimo, pelo mesmo motivo.
 - Expo sem validação em aparelho; CI remoto não executado.
-- Na entrada da web, com a API fora, uma tentativa de login mostra a mensagem de conexão duas vezes.
 - Os commits intermediários por área foram separados a partir do mesmo conjunto de mudanças; a suíte completa de cada cliente foi executada no estado final de cada etapa, não em cada commit intermediário.
 
 ### Etapa 1 — web: primitivos, conexão, erros de ação e de carregamento
@@ -24,6 +23,13 @@ Verificações da etapa 1: `npm run lint` e `npm run build` aprovados (permanece
 
 Pendências desta etapa: `getUnreadCount` (contador do sino) ainda não usa `background`, para não colidir com a reescrita paralela das notificações. `NotificationsPage.tsx` (web) e `NotificationsScreen.tsx` (Expo) não serão migradas nesta entrega: a migração fica para a conciliação depois do merge com o plano de notificações.
 
+### Ajustes decididos pelo usuário depois da entrega
+
+- **Entrada sem conexão, mensagem uma só vez (web e Expo):** quando entrar ou criar conta falha por conexão (`isConnection`), o formulário não mostra a mensagem; a tela de entrada liga o mesmo bloco da falha do `/me`, com "Tentar conexão novamente" (no Expo, o `LoadError` "Não foi possível conectar"). Isso vale também quando o `/me` respondeu 401 e só o login falhou. Credenciais inválidas e 422 continuam no formulário. A web e o Expo tinham a mesma duplicação.
+- **Sugestão de quadra nova (web e Expo):** o toast passou de sucesso para aviso ("… foi sugerida." com a descrição "Fica em revisão e vale só nesta partida até a aprovação da administração."), porque a sugestão entra na fila da administração. "Já estava no catálogo" e "será sugerida ao agendar" continuam como informação.
+
+Verificações dos ajustes: web com `npm run lint` e `npm run build` aprovados e `npm run test:coverage` com **1.094 testes em 82 arquivos** (93,47% das instruções e 87,42% dos ramos); Expo com `npm run lint` e `npm run typecheck` aprovados e `npm run test:coverage` com **1.481 testes em 92 arquivos** (96,07% e 90,88%). Testes novos cobrem o login com falha de conexão (um único alerta, recuperação pelo botão) e credenciais inválidas no formulário; os testes da sugestão conferem o tom de aviso. Não conferido no navegador nem em aparelho; `export:android` não repetido.
+
 ### Etapa 3 — web: eventos e organizador, administração, entrada e limpeza (A6, etapas 6 a 9)
 
 - **Eventos e organizador:** publicar, enviar para aprovação, retirar, cancelar e salvar o evento, agendar partida ("Os dois elencos foram avisados."), sorteio, troca e confirmação do chaveamento ("Troca cancelada." como informação), aprovar e recusar comprovante, devolução, aviso publicado e cancelamento do pedido de organizador viraram toast. A cópia do Pix e da chave passa por `notifyCopy` (sucesso ou aviso), preservando a espera do retorno assíncrono da área de transferência e o campo de cópia manual. O `EventWizard` separou o resumo do formulário (`summary`), o estado não editável e a falha de carga (`LoadError` escuro com nova tentativa); "Rascunho salvo." virou toast. A instrução do segundo toque no chaveamento e o conflito de agenda continuam na tela. As telas e seções de eventos, inscritos, avisos, recibos, devoluções, chaveamento e pedido de organizador usam `LoadError`.
@@ -33,7 +39,7 @@ Pendências desta etapa: `getUnreadCount` (contador do sino) ainda não usa `bac
 
 Verificações das etapas 2 e 3 (web): `npm run lint` e `npm run build` aprovados (aviso de bundle já existente); `npm run test:coverage` com **1.091 testes em 82 arquivos**, 93,46% das instruções e 87,42% dos ramos. No navegador, com API própria (porta 8002), web na 5175 e seis contas sintéticas locais (`toasts.verif+N@example.com`, uma promovida a administradora e uma aprovada como organizadora pela fila): nome, perfil esportivo e privacidade com toast e persistência após recarregar; nome de usuário em uso junto ao campo; curtir, comentar, excluir comentário, buscar e seguir sem bloco antigo; "Busca cancelada." no Jogar; `LoadError` do histórico e folha de conexão com a API derrubada, recarga ao voltar; time criado e persistido, falha ao copiar o link como aviso com o campo manual, "Novo link gerado"; aprovação de organizador pela fila e "Rascunho salvo." no assistente; `LoadError` das sugestões de quadra sem conexão; cadastro com toast na entrada, erro de login no formulário e falha do `/me` com "Tentar conexão novamente", sem folha. Sem overflow em 320, 375, 390 e 1440 px; toast acima da navegação e por cima de folha aberta; console sem erros de JS. Não conferido: o `LoadError` escuro da própria placa do Jogar (a placa não relê ao trocar de aba) e a decisão de denúncias (só havia dados reais da base de desenvolvimento). Ficaram na base de desenvolvimento as contas sintéticas, um time e um rascunho de evento. Capturas em `artifacts/toasts-etapa1/` e `artifacts/toasts-areas/`, fora do versionamento.
 
-Observação: com a API fora, uma tentativa de entrar mostra a mensagem de conexão duas vezes na tela de entrada (o bloco da falha do `/me` e o erro do formulário). Não bloqueia o fluxo; fica como ajuste pendente.
+Observação da verificação, corrigida depois (veja "Ajustes decididos pelo usuário"): com a API fora, uma tentativa de entrar mostrava a mensagem de conexão duas vezes na tela de entrada.
 
 ### Etapa 2 — web: perfil e conta, comunidade, Jogar e partida, times (A6, etapas 2 a 5)
 
