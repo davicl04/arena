@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { Text, View } from 'react-native'
 import type { JoinRequest, Person, TeamInviteSent } from '../../api/teams'
-import { colors } from '../../theme'
+import { useThemeColors } from '../../hooks/useTheme'
 import { relativeTime } from '../../utils/relativeTime'
 import { MemberFace } from './MemberFace'
 import { ActionButton, TextAction } from '../arena/controls'
@@ -9,6 +9,7 @@ import { SectionTitle } from './ui'
 
 /** Linha de pessoa das listas do representante: rosto, nome, detalhe e ações. */
 function PersonLine({ person, detail, last, children }: { person: Person; detail: string; last: boolean; children: ReactNode }) {
+  const colors = useThemeColors()
   return <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 56, paddingVertical: 8, borderBottomWidth: last ? 0 : 1, borderBottomColor: colors.line }}>
     <MemberFace name={person.name} avatarUrl={person.avatar_url} size="row" />
     <View style={{ flex: 1, minWidth: 0 }}>
@@ -19,7 +20,6 @@ function PersonLine({ person, detail, last, children }: { person: Person; detail
   </View>
 }
 
-const listCard = { borderRadius: 16, backgroundColor: '#ffffff', paddingHorizontal: 13, paddingVertical: 2 } as const
 
 /** Pedidos para entrar pelo link (só representantes): Aprovar | Recusar. */
 export function JoinRequestsList({ requests, busyId, onDecide, onOpenLink }: {
@@ -28,7 +28,9 @@ export function JoinRequestsList({ requests, busyId, onDecide, onOpenLink }: {
   onDecide: (request: JoinRequest, decision: 'aprovar' | 'recusar') => void
   onOpenLink: () => void
 }) {
+  const colors = useThemeColors()
   if (!requests.length) return null
+  const listCard = { borderRadius: 16, backgroundColor: colors.surface, paddingHorizontal: 13, paddingVertical: 2 } as const
   return <View>
     <SectionTitle title={`Pedidos para entrar · ${requests.length}`} action={<TextAction title="Link e QR" accessibilityLabel="Abrir Link e QR do time" onPress={onOpenLink} />} />
     <View style={listCard}>
@@ -47,7 +49,9 @@ export function SentInvitesList({ invites, busyId, onCancel, onInvite }: {
   onCancel: (invite: TeamInviteSent) => void
   onInvite: () => void
 }) {
+  const colors = useThemeColors()
   if (!invites.length) return null
+  const listCard = { borderRadius: 16, backgroundColor: colors.surface, paddingHorizontal: 13, paddingVertical: 2 } as const
   return <View>
     <SectionTitle title="Convites enviados" action={<TextAction title="Convidar" accessibilityLabel="Convidar atletas" onPress={onInvite} />} />
     <View style={listCard}>

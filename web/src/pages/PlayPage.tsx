@@ -13,6 +13,7 @@ import { CancelSearchDialog } from '../components/play/CancelSearchDialog'
 import { formatChips } from '../components/play/formatChips'
 import { MyMatches } from '../components/play/MyMatches'
 import { OtherWays } from '../components/play/OtherWays'
+import { NotificationBell } from '../components/notifications/NotificationBell'
 import { PlateChips } from '../components/play/PlateChips'
 import type { PlateOption } from '../components/play/PlateChips'
 import { PlayButton } from '../components/play/PlayButton'
@@ -35,7 +36,9 @@ import { useRunBests } from '../hooks/useRunBests'
 import { useSubmit } from '../hooks/useSubmit'
 import type { PlayBoardState } from '../hooks/usePlayBoard'
 import { Button } from '@/components/ui/button'
+import { LoadError } from '@/components/ui/load-error'
 import { Tabs } from '@/components/ui/tabs'
+import { toast } from '@/components/ui/toast'
 
 type Mode = 'time' | 'avulso'
 const sportTabs = sports.map(sport => ({
@@ -75,7 +78,7 @@ function searchHint(sport: Sport, mode: Mode, city: string, position: AvulsoPosi
  * à tela da partida. Na Corrida (K2 + K4, etapa 5), o botão REGISTRAR abre o cronômetro em tela cheia; a placa mostra o elo e
  * o melhor tempo da distância escolhida (`GET /me/run-bests`) e, abaixo, "Suas marcas" com o histórico de cada distância.
  */
-export default function PlayPage({ profiles, cities, loading, board, openMatch, go, onExpired }: {
+export default function PlayPage({ profiles, cities, loading, board, openMatch, notificationCount = 0, go, onExpired }: {
   profiles: Profile[]
   cities: City[]
   /** Perfis esportivos ainda carregando (ArenaPage). */
@@ -84,6 +87,8 @@ export default function PlayPage({ profiles, cities, loading, board, openMatch, 
   board: PlayBoardState
   /** Partida cuja proposta (ou oferta de vaga) abre em tela cheia ao entrar: as notificações "Partida encontrada" e "Vaga encontrada". */
   openMatch?: number
+  /** Não lidas mais pedidos para seguir (resumo das notificações do ArenaPage): o número do sino. */
+  notificationCount?: number
   go: (screen: Screen, context?: { teamId?: number; sport?: Sport; matchId?: number; distance?: RunDistance }) => void
   onExpired: () => void
 }) {
@@ -97,7 +102,6 @@ export default function PlayPage({ profiles, cities, loading, board, openMatch, 
   const [distance, setDistance] = useState<RunDistance>(5)
   const [sheet, setSheet] = useState(false)
   const [confirming, setConfirming] = useState(false)
-  const [notice, setNotice] = useState('')
   /** Corrida: distância com que o cronômetro (K2) abre, o histórico aberto (K4) e a última marca salva (cartão sobre a placa). */
   const [registering, setRegistering] = useState<RunDistance | null>(null)
   const [history, setHistory] = useState<RunFilter | null>(null)
@@ -139,8 +143,8 @@ export default function PlayPage({ profiles, cities, loading, board, openMatch, 
 
   /* A corrida lê o elo e o melhor tempo de `run-bests`; as outras modalidades, de `standings`. */
   const elo = sport === 'corrida'
-    ? { loading: bests.loading && !bests.loaded, error: bests.loaded ? '' : bests.error, reload: bests.reload }
-    : { loading: standings.loading, error: standings.error, reload: standings.reload }
+    ? { loading: bests.loading && !bests.loaded, error: bests.loaded ? '' : bests.error, cause: bests.errorCause, reload: bests.reload }
+    : { loading: standings.loading, error: standings.error, cause: standings.errorCause, reload: standings.reload }
   let view: TierLineView | null = null
   if (sport === 'corrida') {
     if (bests.loaded) view = runBestLine(bests.items, distance)
@@ -176,7 +180,6 @@ export default function PlayPage({ profiles, cities, loading, board, openMatch, 
 
   function created(result: SearchCreated) {
     setSheet(false)
-    setNotice('')
     setWatching(null)
     void reload().then(() => {
       if (result.proposal) setPicked({ kind: 'proposta', id: result.proposal.match_id })
@@ -194,7 +197,7 @@ export default function PlayPage({ profiles, cities, loading, board, openMatch, 
     const done = await cancel.run(async () => { await cancelSearch(search.id); return true }, 'Não foi possível cancelar a busca.')
     if (done) {
       setConfirming(false)
-      setNotice('Busca cancelada.')
+      toast.success('Busca cancelada.')
     }
     void reload()
   }
@@ -216,7 +219,7 @@ export default function PlayPage({ profiles, cities, loading, board, openMatch, 
   function later(matchId: number) {
     board.defer(matchId)
     setPicked(null)
-    setNotice('A proposta continua na placa e nas notificações até o prazo.')
+    toast.info('A proposta continua na placa e nas notificações até o prazo.')
   }
 
   /* Estado do botão: preparar o perfil, criar ou representar um time, buscar, esperar ou responder. */
@@ -255,23 +258,25 @@ export default function PlayPage({ profiles, cities, loading, board, openMatch, 
     button = { verb, caption, label: idleLabel }
     note = board.loading ? 'Carregando a placa…' : 'Não foi possível carregar a placa do Jogar. Tente novamente.'
   } else {
-    button = { verb, caption, label: idleLabel, onClick: start.busy ? undefined : timeMode ? () => { setNotice(''); setSheet(true) } : () => { setNotice(''); void startDirect() } }
+    button = { verb, caption, label: idleLabel, onClick: start.busy ? undefined : timeMode ? () => setSheet(true) : () => void startDirect() }
     note = start.busy ? 'Iniciando a busca…' : `${hint}.`
   }
-  const feedback = start.error || (cancel.error && !showConfirm ? cancel.error : '') || (!board.board && !board.loading ? board.error : '')
+  /* A placa que não carregou é erro de carga (LoadError); `start.error` só traz a recusa de campo do servidor (422). */
+  const boardFailed = !board.board && !board.loading && board.error !== ''
 
   return <div className="min-h-full">
     <section aria-labelledby={`${ids}-title`} className="relative overflow-hidden rounded-b-[28px] bg-forest pb-[26px] text-white">
       <span aria-hidden="true" className="pointer-events-none absolute -bottom-[30px] left-1/2 h-[240px] w-[420px] -translate-x-1/2 bg-white opacity-[0.045] mask-[url(/images/brand/coliseum.svg)] mask-contain mask-center mask-no-repeat" />
-      <div className="relative flex min-h-[54px] items-center gap-2.5 pt-1.5 pr-3 pl-[18px]">
+      <div className="relative flex min-h-[54px] items-center gap-2.5 pt-1.5 pr-2 pl-[18px]">
         <ArenaMark className="h-[22px] w-[30px] text-mint" />
-        <h1 id={`${ids}-title`} className="min-w-0 flex-1 text-[17px] text-white">Jogar</h1>
-        <button type="button" className="inline-flex max-w-[55%] min-w-0 items-center gap-[5px] rounded-full border-0 bg-white/8 px-2.5 py-1.5 text-[10.5px] font-semibold text-white/80 hover:bg-white/12 focus-visible:outline-mint"
+        <h1 id={`${ids}-title`} className="min-w-fit flex-1 text-[17px] text-white">Jogar</h1>
+        <button type="button" className="inline-flex max-w-[55%] min-w-0 shrink items-center gap-[5px] rounded-full border-0 bg-white/8 px-2.5 py-1.5 text-[10.5px] font-semibold text-white/80 hover:bg-white/12 focus-visible:outline-mint"
           aria-label={city ? `Cidade do perfil de ${sportLabel}: ${city.name}. Alterar em Suas modalidades` : `Definir a cidade do perfil de ${sportLabel}`}
           onClick={() => go('sports')}>
           <MapPin size={13} className="text-mint" aria-hidden="true" />
           <span className="truncate">{city ? city.name : 'Definir cidade'}</span>
         </button>
+        <NotificationBell tone="dark" count={notificationCount} onOpen={() => go('notifications')} />
       </div>
       <Tabs variant="dark" items={sportTabs} value={sport} onChange={next => { setSport(next); setSavedRun(null) }} label="Modalidade" idPrefix={`${ids}-tab-`} controls={`${ids}-panel`}
         className="relative border-b border-solid border-white/7" />
@@ -289,9 +294,7 @@ export default function PlayPage({ profiles, cities, loading, board, openMatch, 
         {sport === 'corrida' && <PlateChips label="Distância" options={distanceChips} value={`${distance}`} onChange={value => setDistance(Number(value) as RunDistance)} />}
         <div className="flex min-h-11 items-center justify-center" aria-live="polite">
           {elo.loading && <p role="status" className="text-[11px] text-white/65">Carregando seu elo…</p>}
-          {elo.error && <p role="alert" className="text-[11px] leading-[1.5] text-[#ffd0d7]">
-            {elo.error} <Button variant="glass-link" className="inline min-h-0 p-0 align-baseline" onClick={elo.reload}>Tentar novamente</Button>
-          </p>}
+          {elo.error && <LoadError size="section" tone="dark" text={elo.error} cause={elo.cause} onRetry={elo.reload} />}
           {view && <TierLine view={view} />}
           {standings.data && timeMode && !team && <p className="max-w-[280px] text-[11.5px] leading-[1.5] text-white/75">Você ainda não representa um time.</p>}
         </div>
@@ -302,12 +305,11 @@ export default function PlayPage({ profiles, cities, loading, board, openMatch, 
         {sport === 'futebol' && otherTeamSearches.map(item => <p key={item.id} role="status" className="max-w-[290px] text-[10.5px] leading-[1.55] text-white/75">
           {item.team?.name} está buscando {item.state === 'pareada' ? 'e encontrou um adversário' : 'partida'}. Só os representantes respondem.
         </p>)}
-        {feedback && <p role="alert" className="max-w-[290px] text-[11px] leading-[1.5] text-[#ffd0d7]">
-          {feedback}{!board.board && !board.loading && <> <Button variant="glass-link" className="inline min-h-0 p-0 align-baseline" onClick={() => void reload()}>Tentar novamente</Button></>}
+        {boardFailed && <LoadError size="section" tone="dark" text={board.error} cause={board.errorCause} onRetry={() => void reload()} />}
+        {start.error && <p role="alert" className="max-w-[290px] text-[11px] leading-[1.5] text-[#ffd0d7]">{start.error}</p>}
+        {waitingOver && confirmedId === null && <p role="status" className="max-w-[290px] text-[11px] leading-[1.5] text-mint">
+          A proposta foi encerrada. Veja a situação da busca na placa.
         </p>}
-        <p role="status" className="max-w-[290px] text-[11px] leading-[1.5] text-mint empty:hidden">
-          {notice || (waitingOver && confirmedId === null ? 'A proposta foi encerrada. Veja a situação da busca na placa.' : '')}
-        </p>
         {sport === 'corrida' && savedRun && <RunSavedCard created={savedRun} onDismiss={() => setSavedRun(null)} />}
         {(proposalsHere.length > 0 || offersHere.length > 0) && <div className="grid w-full gap-3 text-left">
           {proposalsHere.map(item => <ProposalCard key={item.match_id} proposal={item} onElapsed={() => void reload()}
@@ -317,7 +319,7 @@ export default function PlayPage({ profiles, cities, loading, board, openMatch, 
         </div>}
       </div>
     </section>
-    {sport === 'corrida' && profile && !loading && <RunMarks items={bests.items} loading={bests.loading} error={bests.error} selected={distance}
+    {sport === 'corrida' && profile && !loading && <RunMarks items={bests.items} loading={bests.loading} error={bests.error} errorCause={bests.errorCause} selected={distance}
       onAdd={register} onOpen={setHistory} onRetry={bests.reload}
       onOpenRanking={km => go('ranking', { sport: 'corrida', distance: km })} />}
     {sport !== 'corrida' && <MyMatches sport={sport} upcoming={plate.matches} onOpen={matchId => go('match', { matchId })} onExpired={onExpired} />}
@@ -329,12 +331,11 @@ export default function PlayPage({ profiles, cities, loading, board, openMatch, 
       onSaved={registered} onFindRaces={() => { setRegistering(null); go('events', { sport: 'corrida' }) }} onExpired={onExpired} />}
     {history !== null && <RunHistorySheet filter={history} onClose={() => setHistory(null)} onChanged={() => void bests.refresh()} onExpired={onExpired}
       onAdd={history === 'outra' ? undefined : () => { const km = Number(history) as RunDistance; setHistory(null); register(km) }} />}
-    {showConfirm && <CancelSearchDialog returnFocus={playButton} busy={cancel.busy} error={cancel.error} onKeep={() => { setConfirming(false); cancel.setError('') }} onConfirm={() => void endSearch()} />}
+    {showConfirm && <CancelSearchDialog returnFocus={playButton} busy={cancel.busy} onKeep={() => setConfirming(false)} onConfirm={() => void endSearch()} />}
     {openProposal && <ProposalDialog key={openProposal.match_id} returnFocus={playButton} proposal={openProposal} onLater={() => later(openProposal.match_id)}
       onOpenMatch={matchId => { setPicked(null); go('match', { matchId }) }} onElapsed={() => void reload()} onExpired={onExpired}
       onAnswer={async (updated, answer) => {
-        setNotice('')
-        if (answer === 'recusar') { setPicked(null); setNotice('Proposta recusada.'); await reload(); return }
+        if (answer === 'recusar') { setPicked(null); toast.success('Proposta recusada.'); await reload(); return }
         if (updated.state === 'combinando') { setPicked(null); void reload(); go('match', { matchId: updated.match_id }); return }
         setWatching(updated.match_id)
         setPicked({ kind: 'proposta', id: updated.match_id })
@@ -343,6 +344,6 @@ export default function PlayPage({ profiles, cities, loading, board, openMatch, 
     {openOffer && <SlotOfferDialog key={openOffer.slot_id} returnFocus={playButton} offer={openOffer} onLater={() => { setPicked(null) }} onExpired={onExpired}
       onElapsed={() => void reload()}
       onAccepted={matchId => { setPicked(null); void reload(); go('match', { matchId }) }}
-      onDeclined={() => { setPicked(null); setNotice('Vaga recusada. Sua busca terminou.'); void reload() }} />}
+      onDeclined={() => { setPicked(null); toast.info('Vaga recusada. Sua busca terminou.'); void reload() }} />}
   </div>
 }

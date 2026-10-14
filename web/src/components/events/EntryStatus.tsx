@@ -4,12 +4,11 @@ import { Ban, Copy, ExternalLink, FileSearch, FileX, Info, ShieldAlert, TimerOff
 import { receiptFileHref } from "@/api/receipts";
 import type { EventDetail, MyEntry } from "@/api/entries";
 import { useClipboard } from "@/hooks/useClipboard";
-import { cn } from "@/lib/utils";
 import { formatDeadline, formatPrice, parseIso } from "@/utils/format";
 import { ManualCopyField } from "./PixBlock";
 import { StatusCard, StatusCardButton } from "./StatusCard";
 import { refusalText } from "./eventText";
-import { copyFeedback } from "./pix";
+import { notifyCopy } from "./pix";
 import type { PixInfo } from "./pix";
 
 /** Limiares (em horas) em que o fim do prazo é anunciado a leitores de tela, sem repetir a cada minuto. */
@@ -84,6 +83,9 @@ export function EntryStatus({ entry, detail, pix, busy = false, onPayment, onCon
     entry.state === "reservada" || entry.state === "rejeitada" ? entry.reserved_until : waitingRefund ? refund?.auto_confirm_at : null,
     entry.state === "reservada" || entry.state === "rejeitada" ? "O prazo da reserva acabou." : "O prazo para responder à devolução acabou.",
   );
+  async function copyKey(key: string) {
+    notifyCopy(await copy("chave", key), "chave");
+  }
   const repText = team ? `O representante do ${team.name}` : "O inscrito";
 
   let card: ReactNode;
@@ -98,7 +100,7 @@ export function EntryStatus({ entry, detail, pix, busy = false, onPayment, onCon
           actions={
             acting && pix ? (
               <>
-                <StatusCardButton onClick={() => void copy("chave", pix.key)}>
+                <StatusCardButton onClick={() => void copyKey(pix.key)}>
                   <Copy aria-hidden="true" />
                   Copiar chave Pix
                 </StatusCardButton>
@@ -241,9 +243,6 @@ export function EntryStatus({ entry, detail, pix, busy = false, onPayment, onCon
     <section aria-label="Sua inscrição" data-state={entry.state} className="grid gap-2">
       {card}
       {failed && pix && <ManualCopyField label="Chave Pix" value={pix.key} />}
-      <p role="status" aria-live="polite" className={cn("m-0 px-1 text-[11px] leading-[1.45] empty:-mt-2", failed ? "text-error" : "text-brand")}>
-        {copyFeedback(status, copiedKey)}
-      </p>
       <span className="sr-only" aria-live="polite">{alert}</span>
     </section>
   );

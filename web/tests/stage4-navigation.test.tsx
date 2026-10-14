@@ -13,6 +13,7 @@ import { detail, eventDetail, myEntry, withEntry } from './events-fixtures'
 import { confirmed, eightTeams, eliminationBracket, matchList, row } from './brackets-fixtures'
 import { court, fromNow, matchDetail, noPermissions, page as chatPage, sides } from './match-fixtures'
 import { report, result as resultOf } from './results-fixtures'
+import { summaryOf } from './notifications-fixtures'
 
 /*
  * Pontas da etapa 4 (campeonatos), com o ArenaPage inteiro: da gestão do evento ao chaveamento, às partidas, à decisão e à
@@ -38,7 +39,7 @@ function base(extra: Record<string, unknown> = {}) {
   return {
     'GET /me/sports-profiles': [football],
     'GET /cities': [brasilia],
-    'GET /me/notifications/unread-count': { unread_count: 0 },
+    'GET /me/notifications/summary': summaryOf({ unread_count: 0 }),
     'GET /me/follow-requests': list([]),
     'GET /me/organizer-request': { state: 'aprovado', request: null, organizer: { id: 3, display_name: 'Liga Sudoeste', approved_at: '2026-10-12T10:00:00Z' }, revocation: null },
     'GET /organizer/events?scope=abertos': list([]),
@@ -73,7 +74,8 @@ const matchRoutes = (detailOf = divergent()) => ({
 describe('organizador: da gestão ao chaveamento, às partidas e à decisão', () => {
   it('G3 abre o Chaveamento e as Partidas com o contador; as partidas levam à decisão e à partida; sempre com Perfil aceso', async () => {
     const calls = mockApi(base({
-      'GET /me/notifications': list([note(1, 'evento_decidido', { event_id: 5, event_name: 'Copa Sudoeste Society', decision: 'aprovado' })]),
+      'GET /me/notifications/pending?limit=50': { items: [] },
+      'GET /me/notifications?pendente=false': list([note(1, 'evento_decidido', { event_id: 5, event_name: 'Copa Sudoeste Society', decision: 'aprovado' })]),
       'GET /organizer/events/5': copa(),
       'GET /events/5/messages': list([]),
       'GET /events/5/bracket': confirmed(eliminationBracket(eightTeams.slice(0, 4), {}, true)),
@@ -119,7 +121,8 @@ describe('organizador: da gestão ao chaveamento, às partidas e à decisão', (
   it('registrar a decisão volta à tela anterior, que lê os dados de novo', async () => {
     let decided = false
     const calls = mockApi(base({
-      'GET /me/notifications': list([note(1, 'divergencia_para_decidir', { match_id: 11, event_id: 5, event_name: 'Copa Sudoeste Society', deadline: new Date(Date.now() + 40 * 3600e3).toISOString() })]),
+      'GET /me/notifications/pending?limit=50': { items: [] },
+      'GET /me/notifications?pendente=false': list([note(1, 'divergencia_para_decidir', { match_id: 11, event_id: 5, event_name: 'Copa Sudoeste Society', deadline: new Date(Date.now() + 40 * 3600e3).toISOString() })]),
       'GET /matches/11': () => (decided ? { ...divergent(), state: 'encerrada', permissions: { ...noPermissions, read_chat: true } } : divergent()),
       'GET /matches/11/messages': chatPage([]), 'GET /matches/11/messages?limit=20': chatPage([]), 'GET /matches/11/stats': { items: [] },
       'POST /organizer/matches/11/result-decision': () => { decided = true; return divergent() },
@@ -134,7 +137,7 @@ describe('organizador: da gestão ao chaveamento, às partidas e à decisão', (
     await ui.click(screen.getByRole('button', { name: 'Registrar 2 × 1' }))
     await waitFor(() => expect(calls.find('POST', '/organizer/matches/11/result-decision')).toHaveLength(1))
     // Volta às notificações (a tela de baixo na pilha).
-    expect(await screen.findByRole('heading', { level: 2, name: /Atividades/ })).not.toBeNull()
+    expect(await screen.findByRole('heading', { level: 1, name: 'Notificações' })).not.toBeNull()
   })
 
   it('"Agendar" da partida abre a lista de partidas com a folha daquele jogo', async () => {
@@ -143,7 +146,8 @@ describe('organizador: da gestão ao chaveamento, às partidas e à decisão', (
       event: { id: 5, name: 'Copa Sudoeste Society' }, round_number: 1, permissions: { ...noPermissions, read_chat: true, write_chat: true, schedule_match: true },
     })
     mockApi(base({
-      'GET /me/notifications': list([note(1, 'adversario_definido', { match_id: 12, event_id: 5, event_name: 'Copa Sudoeste Society', opponent_name: 'Atlético Guará' })]),
+      'GET /me/notifications/pending?limit=50': { items: [] },
+      'GET /me/notifications?pendente=false': list([note(1, 'adversario_definido', { match_id: 12, event_id: 5, event_name: 'Copa Sudoeste Society', opponent_name: 'Atlético Guará' })]),
       'GET /matches/12': combining, 'GET /matches/12/messages': chatPage([]), 'GET /matches/12/stats': { items: [] },
       'GET /organizer/events/5': copa(),
       'GET /organizer/events/5/matches': matchList([row('J2', 12, ['Atlético Guará', 'Unidos do Lago'])]),
@@ -168,7 +172,8 @@ describe('atleta: as notificações novas abrem a tela certa', () => {
 
   it('tabela_publicada abre o detalhe do evento na aba Tabela, com JOGAR aceso', async () => {
     const calls = mockApi(base({
-      'GET /me/notifications': list([note(1, 'tabela_publicada', { event_id: 5, event_name: 'Copa Sudoeste Society' }, { actor: { id: 2, name: 'Rafa Nunes', username: 'rafa', avatar_url: null } })]),
+      'GET /me/notifications/pending?limit=50': { items: [] },
+      'GET /me/notifications?pendente=false': list([note(1, 'tabela_publicada', { event_id: 5, event_name: 'Copa Sudoeste Society' }, { actor: { id: 2, name: 'Rafa Nunes', username: 'rafa', avatar_url: null } })]),
       ...eventRoutes(),
     }))
     const ui = renderArena()
@@ -184,7 +189,8 @@ describe('atleta: as notificações novas abrem a tela certa', () => {
     const bracket = confirmed(eliminationBracket(eightTeams.slice(0, 4), {}, true), { is_organizer: false, event_state: 'encerrado' })
     const champion = bracket.rounds[0].nodes[0].slots[0].competitor!
     mockApi(base({
-      'GET /me/notifications': list([note(1, 'evento_encerrado', { event_id: 5, event_name: 'Copa Sudoeste Society', champion: 'Novo Horizonte' })]),
+      'GET /me/notifications/pending?limit=50': { items: [] },
+      'GET /me/notifications?pendente=false': list([note(1, 'evento_encerrado', { event_id: 5, event_name: 'Copa Sudoeste Society', champion: 'Novo Horizonte' })]),
       ...eventRoutes('encerrado'),
       'GET /events/5/bracket': { ...bracket, champion, placements: [{ placement: 1, competitor: champion, bonus_points: 0 }] },
     }))
@@ -201,7 +207,8 @@ describe('atleta: as notificações novas abrem a tela certa', () => {
       permissions: { ...noPermissions, read_chat: true, write_chat: true },
     })
     mockApi(base({
-      'GET /me/notifications': list([
+      'GET /me/notifications/pending?limit=50': { items: [] },
+      'GET /me/notifications?pendente=false': list([
         note(2, 'decisao_registrada', { match_id: 50, event_id: 5, event_name: 'Copa Sudoeste Society', kind: 'divergencia', score_a: 2, score_b: 1, justification: 'Vídeo.', absent_side: null }),
         note(1, 'adversario_definido', { match_id: 50, event_id: 5, event_name: 'Copa Sudoeste Society', opponent_name: 'Leões do Cerrado' }),
       ]),

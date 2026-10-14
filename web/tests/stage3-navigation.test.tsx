@@ -11,6 +11,7 @@ import { fromNow, message, noPermissions, page as chatPage, scheduled } from './
 import { dispute, suggestion } from './admin-match-fixtures'
 import { hiddenReport, report, result as resultOf } from './results-fixtures'
 import { nextScheduledMatch } from '../src/components/play/matchView'
+import { summaryOf } from './notifications-fixtures'
 
 /*
  * Pontas entre as frentes web da etapa 3 (Jogar), com o ArenaPage inteiro: a placa leva à proposta, a proposta à tela da
@@ -29,7 +30,7 @@ function base(extra: Record<string, unknown> = {}) {
   return {
     'GET /me/sports-profiles': [football],
     'GET /cities': [brasilia],
-    'GET /me/notifications/unread-count': { unread_count: 0 },
+    'GET /me/notifications/summary': summaryOf({ unread_count: 0 }),
     'GET /me/standings': standings(),
     'GET /me/follow-requests': list([]),
     'GET /me/organizer-request': { state: 'nenhum', request: null, organizer: null, revocation: null },
@@ -144,15 +145,16 @@ describe('ligações da etapa 3: Início', () => {
 describe('ligações da etapa 3: notificações', () => {
   function withNotification(notification: ArenaNotification, extra: Record<string, unknown> = {}, user: User = me) {
     mockApi(base({
-      'GET /me/notifications/unread-count': { unread_count: 1 },
-      'GET /me/notifications': list([notification]),
-      'PUT /me/notifications/1/read': { unread_count: 0 },
+      'GET /me/notifications/summary': summaryOf({ unread_count: 1 }),
+      'GET /me/notifications/pending?limit=50': { items: [] },
+      'GET /me/notifications?pendente=false': list([notification]),
+      'PUT /me/notifications/1/read': summaryOf({ unread_count: 0 }),
       ...extra,
     }))
     return renderArena(user)
   }
   const openFirst = async (ui: ReturnType<typeof userEvent.setup>, name: RegExp) => {
-    await ui.click(await screen.findByRole('button', { name: 'Notificações, 1 não lida' }))
+    await ui.click(await screen.findByRole('button', { name: 'Notificações, 1 nova' }))
     await ui.click(await screen.findByRole('button', { name }))
   }
 
@@ -188,7 +190,7 @@ describe('ligações da etapa 3: notificações', () => {
     expect(lit()).toBe('JOGAR')
     expect(await screen.findByRole('button', { name: /Partida agendada/ })).not.toBeNull()
     await ui.click(screen.getByRole('button', { name: 'Voltar' }))
-    expect(await screen.findByRole('list', { name: 'Notificações da conta' })).not.toBeNull()
+    expect((await screen.findAllByRole('listitem')).length).toBeGreaterThan(0)
   })
 
   it('"W.O. contestado", para a administração, abre a fila com a decisão', async () => {

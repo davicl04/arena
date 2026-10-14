@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Dispatch, SetStateAction } from 'react'
 import { ApiError, request } from '../api/client'
 import type { Page } from '../api/client'
+import { connection } from '../api/connection'
 
 interface State<T> {
   path: string; generation: number; items: T[]; cursor: string | null; total?: number; error: ApiError | Error | null
@@ -10,6 +11,8 @@ interface State<T> {
 
 export interface PagedList<T> {
   items: T[]; loading: boolean; error: ApiError | Error | null; moreError: string; hasMore: boolean; busy: boolean
+  /** A primeira página falhou por conexão: recarrega sozinha, uma vez, quando a conexão volta. */
+  connectionError: boolean
   /** Total de registros, quando a resposta o traz (a linha do tempo do perfil); `undefined` nas demais listas. */
   total: number | undefined
   /** Verdadeiro durante `refresh`: a primeira página é relida sem esvaziar a lista (puxar para atualizar). */
@@ -17,8 +20,12 @@ export interface PagedList<T> {
   setItems: Dispatch<SetStateAction<T[]>>; loadMore: () => Promise<void>; reload: () => void; refresh: () => void
 }
 
-/** Lista paginada por cursor (porta do hook da web). Trocar `path` recarrega a primeira página. */
-export function usePagedList<T>(path: string, onExpired: () => void): PagedList<T> {
+/**
+ * Lista paginada por cursor (porta do hook da web). Trocar `path` recarrega a primeira página. Com `enabled` falso não há leitura
+ * (`loading` é falso e a lista, vazia): a tela de notificações não lê a lista no chip "Para responder". Se a primeira página falhou
+ * por conexão (`connectionError`), recarrega uma única vez quando a conexão volta; `moreError` (carregar mais) continua no rodapé.
+ */
+export function usePagedList<T>(path: string, onExpired: () => void, enabled = true): PagedList<T> {
   const [state, setState] = useState<State<T> | null>(null)
   const [attempt, setAttempt] = useState(0)
   const [refreshing, setRefreshing] = useState(false)
@@ -26,6 +33,7 @@ export function usePagedList<T>(path: string, onExpired: () => void): PagedList<
   // `onEndReached` pode disparar várias vezes antes de o estado `busy` chegar à tela.
   const loadingMore = useRef(false)
   useEffect(() => {
+    if (!enabled) return
     const requestGeneration = ++generation.current
     loadingMore.current = false
     request<Page<T>>(path).then(page => {
@@ -39,8 +47,8 @@ export function usePagedList<T>(path: string, onExpired: () => void): PagedList<
       setState({ path, generation: requestGeneration, items: [], cursor: null, error: err instanceof Error ? err : new Error('Não foi possível carregar a lista.'), busy: false, moreError: '' })
     })
     return () => { generation.current = requestGeneration + 1 }
-  }, [path, attempt, onExpired])
-  const current = state && state.path === path ? state : null
+  }, [path, attempt, onExpired, enabled])
+  const current = enabled && state && state.path === path ? state : null
   const setItems: Dispatch<SetStateAction<T[]>> = useCallback(update => {
     setState(old => old ? { ...old, items: typeof update === 'function' ? update(old.items) : update } : old)
   }, [])
@@ -67,8 +75,12 @@ export function usePagedList<T>(path: string, onExpired: () => void): PagedList<
   const reload = useCallback(() => { generation.current++; loadingMore.current = false; setRefreshing(false); setState(null); setAttempt(n => n + 1) }, [])
   // Mantém os itens na tela; a nova geração (no efeito) descarta um "carregar mais" ainda pendente.
   const refresh = useCallback(() => { setRefreshing(true); setAttempt(n => n + 1) }, [])
+  const connectionError = current?.error instanceof ApiError && current.error.isConnection
+  const retryOnRestore = useRef(false)
+  useEffect(() => { retryOnRestore.current = connectionError }, [connectionError])
+  useEffect(() => connection.onRestored(() => { if (retryOnRestore.current) { retryOnRestore.current = false; reload() } }), [reload])
   return {
-    items: current?.items ?? [], loading: !current, error: current?.error ?? null, moreError: current?.moreError ?? '',
+    items: current?.items ?? [], loading: enabled && !current, error: current?.error ?? null, connectionError, moreError: current?.moreError ?? '',
     total: current?.total, hasMore: Boolean(current?.cursor), busy: current?.busy ?? false, refreshing, setItems, loadMore, reload, refresh,
   }
 }

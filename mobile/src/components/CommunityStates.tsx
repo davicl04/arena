@@ -1,13 +1,15 @@
 import { useEffect, useState } from 'react'
 import { Animated, Text, View, useWindowDimensions } from 'react-native'
+import { LoadError } from './arena/LoadError'
 import { Button } from './ui'
 import { cx, tw } from '../styles'
-import { colors } from '../theme'
+import { useThemeColors } from '../hooks/useTheme'
 
 const SEGMENT = 0.4
 
 /** Barra de progresso fina e indeterminada (verde sobre trilho menta translúcido). */
 export function ProgressBar({ label }: { label: string }) {
+  const colors = useThemeColors()
   const { width } = useWindowDimensions()
   const [progress] = useState(() => new Animated.Value(0))
   useEffect(() => {
@@ -26,7 +28,7 @@ export function ProgressBar({ label }: { label: string }) {
 export function FeedLoading() {
   return <View>
     <ProgressBar label="Carregando publicações" />
-    {[0, 1].map(index => <View key={index} importantForAccessibility="no-hide-descendants" className="mb-1.5 bg-white">
+    {[0, 1].map(index => <View key={index} importantForAccessibility="no-hide-descendants" className="mb-1.5 bg-surface">
       <View className="aspect-square w-full bg-line" />
       <View className="gap-2 p-3.5">
         <View className="h-3 w-2/3 rounded-full bg-app" />
@@ -56,18 +58,14 @@ export function FeedEmpty({ onPublish, onSearch }: { onPublish: () => void; onSe
   </View>
 }
 
-/** Erro na primeira página do feed. */
-export function FeedError({ onRetry }: { onRetry: () => void }) {
-  return <View className="items-center px-6 pt-10 pb-6">
-    <Text accessibilityRole="header" className={cx(tw.heading, 'text-center')}>Feed indisponível</Text>
-    <Text accessibilityRole="alert" className={cx(tw.body, 'text-center')}>Não foi possível carregar as publicações. Verifique sua conexão.</Text>
-    <View className="w-full max-w-[320px]"><Button title="Tentar de novo" onPress={onRetry} /></View>
-  </View>
+/** Erro na primeira página do feed (`LoadError` de tela; `cause` é o erro da lista, para reconhecer a falta de conexão). */
+export function FeedError({ onRetry, cause }: { onRetry: () => void; cause?: unknown }) {
+  return <LoadError size="screen" title="Feed indisponível" text="Não foi possível carregar as publicações." cause={cause} onRetry={onRetry} />
 }
 
 /** Fim da lista: cartão "Chegou ao fim" com convite para publicar. */
 export function FeedEnd({ onPublish }: { onPublish: () => void }) {
-  return <View className="mx-3.5 mt-3 items-center rounded-card bg-white p-5.5">
+  return <View className="mx-3.5 mt-3 items-center rounded-card bg-surface p-5.5">
     <Text accessibilityRole="header" className="text-[17px] font-bold text-ink">Chegou ao fim</Text>
     <Text className="mt-1 text-[14px] text-ink-muted">Que tal compartilhar a sua?</Text>
     <View className="w-full max-w-[240px]"><Button title="Publicar" onPress={onPublish} /></View>

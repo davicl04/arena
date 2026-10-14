@@ -8,13 +8,14 @@ import type { User } from '../src/api/client'
 import { screens } from '../src/navigation/screens'
 import type { ScreenComponent } from '../src/navigation/screens'
 import { enableAct, hardwareBack, linking, ownBar, press, textOf } from './support/native'
+import { textWithin } from './support/toast'
 
 vi.mock('react-native', async () => (await import('./support/native')).reactNativeMock())
 vi.mock('react-native-svg', async () => (await import('./support/native')).svgMock())
 vi.mock('react-native-safe-area-context', async () => {
   const ReactModule = await import('react')
   const element = (name: string) => ({ children, ...props }: Record<string, unknown>) => ReactModule.createElement(name, props, children as React.ReactNode)
-  return { SafeAreaProvider: element('SafeAreaProvider'), SafeAreaView: element('SafeAreaView') }
+  return { useSafeAreaInsets: () => ({ top: 0, right: 0, bottom: 0, left: 0 }), SafeAreaProvider: element('SafeAreaProvider'), SafeAreaView: element('SafeAreaView') }
 })
 vi.mock('expo-status-bar', () => ({ StatusBar: () => null }))
 vi.mock('expo-secure-store', () => ({ getItemAsync: vi.fn(), setItemAsync: vi.fn(), deleteItemAsync: vi.fn() }))
@@ -66,6 +67,38 @@ beforeEach(() => {
   })
 })
 
+describe('App: falha ao conferir a sessão', () => {
+  it('a falha do /me é um estado à parte da sessão expirada: mostra o erro com nova tentativa e entra quando volta', async () => {
+    vi.mocked(request).mockImplementation(async path => {
+      if (path === '/me') throw new ApiError('Servidor com problema.', 500)
+      return { unread_count: 0 } as never
+    })
+    const tree = await mountApp()
+    expect(host(tree, 'AuthScreen')).toHaveLength(1)
+    expect(textOf(tree)).toContain('Não foi possível conectar')
+    expect(textOf(tree)).toContain('Servidor com problema.')
+    expect(textOf(tree)).not.toContain('Sua sessão expirou')
+    vi.mocked(request).mockImplementation(async path => (path === '/me' ? me : { unread_count: 0 }) as never)
+    const retry = tree.root.findAllByType('Pressable' as never).find(node => textWithin(node) === 'Tentar novamente')
+    expect(retry).toBeTruthy()
+    await act(async () => { retry!.props.onPress() })
+    expect(textOf(tree)).toContain('Bora jogar, Maria?')
+  })
+  it('login que falha por conexão liga o mesmo bloco de conexão, uma só vez, e Tentar novamente o limpa', async () => {
+    const tree = await mountApp()
+    expect(textOf(tree)).not.toContain('Não foi possível conectar')
+    const down = new ApiError('Sem conexão com a ARENA.', 0)
+    await act(async () => { host(tree, 'AuthScreen')[0].props.onConnectionFailure(down) })
+    expect(textOf(tree)).toContain('Não foi possível conectar')
+    expect(textOf(tree).split('Sem conexão com a ARENA.')).toHaveLength(2)
+    vi.mocked(request).mockImplementation(async path => (path === '/me' ? me : { unread_count: 0 }) as never)
+    const retry = tree.root.findAllByType('Pressable' as never).find(node => textWithin(node) === 'Tentar novamente')
+    expect(retry).toBeTruthy()
+    await act(async () => { retry!.props.onPress() })
+    expect(textOf(tree)).toContain('Bora jogar, Maria?')
+  })
+})
+
 describe('App: link do time depois do login', () => {
   it('guarda o token do arena://entrar/{token} em memória e abre a tela de entrada depois do login', async () => {
     linking.initial = 'arena://entrar/abc_123-XYZ'
@@ -114,6 +147,8 @@ describe('App: link do time depois do login', () => {
     await act(async () => { expire() })
     expect(host(tree, 'AuthScreen')).toHaveLength(1)
     expect(textOf(tree)).toContain('Sua sessão expirou. Entre novamente.')
+    // Sessão expirada é só o texto: não há nova tentativa (que é da falha ao conferir a sessão).
+    expect(textOf(tree)).not.toContain('Tentar novamente')
     expect(clearToken).toHaveBeenCalled()
     await login(tree)
     expect(joins).toEqual(['volta-123', 'volta-123'])
@@ -139,8 +174,8 @@ describe('App: link do time depois do login', () => {
     const tree = await mountApp()
     await login(tree)
     vi.mocked(request).mockRejectedValue(new ApiError('Sessão expirada', 401))
+    // A troca de aba relê o resumo das notificações, que responde 401 e expira a sessão.
     await press(tree, 'Perfil')
-    await press(tree, 'Início')
     expect(host(tree, 'AuthScreen')).toHaveLength(1)
     await login(tree)
     expect(joins).toEqual([])

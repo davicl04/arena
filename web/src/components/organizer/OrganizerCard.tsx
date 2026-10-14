@@ -7,9 +7,9 @@ import type { OrganizerEventCard } from '@/api/events'
 import { EventPoster } from '@/components/events/EventPoster'
 import { useSubmit } from '@/hooks/useSubmit'
 import { Button } from '@/components/ui/button'
-import { feedbackVariants } from '@/components/ui/feedback'
-import { glassMessageVariants } from '@/components/ui/glass-variants'
 import { ListGroup, ListHeading } from '@/components/ui/list-row'
+import { LoadError } from '@/components/ui/load-error'
+import { toast } from '@/components/ui/toast'
 import { cn } from '@/lib/utils'
 import { alertCount, posterProps } from './eventView'
 import { shortDate } from '@/utils/relativeTime'
@@ -67,8 +67,7 @@ export function OrganizerCard({ status, onRequest, onChange, onExpired }: {
   onExpired: () => void
 }) {
   const [confirming, setConfirming] = useState(false)
-  const [notice, setNotice] = useState('')
-  const { busy, error, setError, run } = useSubmit(onExpired)
+  const { busy, run } = useSubmit(onExpired)
   const question = useRef<HTMLParagraphElement>(null)
   useEffect(() => { if (confirming) question.current?.focus() }, [confirming])
   if (status.state === 'aprovado' || !(status.state in stagesFor)) return null
@@ -90,7 +89,7 @@ export function OrganizerCard({ status, onRequest, onChange, onExpired }: {
       return
     }
     setConfirming(false)
-    setNotice('Pedido cancelado. Você pode enviar um novo quando quiser.')
+    toast.success('Pedido cancelado.', { description: 'Você pode enviar um novo quando quiser.' })
     onChange({ state: 'sem_pedido', request: null, organizer: null, revocation: null })
   }
   const sent = status.request?.created_at ? shortDate(status.request.created_at) : ''
@@ -114,11 +113,11 @@ export function OrganizerCard({ status, onRequest, onChange, onExpired }: {
           <p ref={question} tabIndex={-1} className="font-display text-[13px] font-bold text-white outline-none">Cancelar o pedido em análise?</p>
           <p className="mt-1 mb-3 text-[11px] leading-[1.5] text-white/65">A administração deixa de analisá-lo. Você pode enviar outro depois.</p>
           <div className="flex gap-2 *:flex-1">
-            <Button variant="glass-secondary" className={secondaryOnDark} disabled={busy} onClick={() => { setConfirming(false); setError('') }}>Manter pedido</Button>
+            <Button variant="glass-secondary" className={secondaryOnDark} disabled={busy} onClick={() => setConfirming(false)}>Manter pedido</Button>
             <Button variant="glass-danger" disabled={busy} onClick={() => void cancel()}>{busy ? 'Cancelando…' : 'Cancelar pedido'}</Button>
           </div>
         </div>
-        : <Button variant="glass-secondary" className={secondaryOnDark} onClick={() => { setConfirming(true); setNotice('') }}>Cancelar pedido</Button>}
+        : <Button variant="glass-secondary" className={secondaryOnDark} onClick={() => setConfirming(true)}>Cancelar pedido</Button>}
     </>}
     {state === 'recusado' && <>
       <Situation tone="bad" title="Pedido recusado" text={`Motivo: ${sentence(refusalText(status.request?.reason_code, status.request?.reason_detail))} Você pode enviar um novo pedido.`} />
@@ -128,10 +127,6 @@ export function OrganizerCard({ status, onRequest, onChange, onExpired }: {
       <Situation tone="bad" title="Permissão revogada" text={`Motivo: ${sentence(status.revocation?.reason || 'não informado')} Você pode enviar um novo pedido.`} />
       <Button variant="glass" className="flex w-full items-center justify-center gap-2" onClick={onRequest}><RotateCcw size={16} aria-hidden="true" />Enviar novo pedido</Button>
     </>}
-    <div aria-live="polite">
-      {error && <p className={cn(glassMessageVariants(), 'mt-2.5')} role="alert">{error}</p>}
-      {notice && <p className={cn(glassMessageVariants({ tone: 'notice' }), 'mt-2.5')} role="status">{notice}</p>}
-    </div>
   </section>
 }
 
@@ -140,12 +135,14 @@ export function OrganizerCard({ status, onRequest, onChange, onExpired }: {
  * aberto em cartazes compactos (os dois primeiros, por data) e o acesso à área do organizador (O3). Sem eventos,
  * o estado vazio leva a criar o primeiro.
  */
-export function OrganizerEvents({ status, events, loading, error, onReload, onOpenList, onOpenEvent, onCreate }: {
+export function OrganizerEvents({ status, events, loading, error, errorCause, onReload, onOpenList, onOpenEvent, onCreate }: {
   status: OrganizerStatus | null
   /** Eventos em aberto (`GET /organizer/events?scope=abertos`). */
   events: OrganizerEventCard[]
   loading: boolean
   error: string
+  /** O erro lançado pela leitura (`useResource().errorCause`), para o `LoadError` reconhecer a falta de conexão. */
+  errorCause?: unknown
   onReload: () => void
   /** Abre a área do organizador (O3). */
   onOpenList: () => void
@@ -160,15 +157,15 @@ export function OrganizerEvents({ status, events, loading, error, onReload, onOp
   return <section aria-labelledby="organizer-events-title">
     <ListHeading id="organizer-events-title">Organizador</ListHeading>
     {loading && <p role="status" className="mx-1 mb-2 text-[11px] text-ink-muted">Carregando os seus eventos…</p>}
-    {error && <div className={cn(feedbackVariants(), 'mt-0')} role="alert">{error} <Button variant="text" onClick={onReload}>Tentar novamente</Button></div>}
+    {error && <LoadError size="section" title="Não foi possível carregar seus eventos" text={error} cause={errorCause} onRetry={onReload} className="mb-2" />}
     {preview.length > 0 && <ul className="m-0 mb-2.5 grid list-none grid-cols-2 gap-2.5 p-0" aria-label="Próximos eventos">
       {preview.map(event => <li key={event.id} className="grid min-w-0">
         <EventPoster {...posterProps(event)} pendingCount={alertCount(event)} showSport className="min-h-[170px] pt-[56px]" onClick={() => onOpenEvent(event.id)} />
       </li>)}
     </ul>}
     <ListGroup>
-      <button type="button" onClick={onOpenList} className="flex min-h-[54px] w-full items-center gap-3 border-0 bg-transparent px-3.5 py-2.5 text-left text-inherit enabled:hover:bg-[#f6f7f9]">
-        <span className="grid size-[34px] flex-none place-items-center rounded-[10px] bg-[#005a3612] text-brand"><CalendarRange size={17} aria-hidden="true" /></span>
+      <button type="button" onClick={onOpenList} className="flex min-h-[54px] w-full items-center gap-3 border-0 bg-transparent px-3.5 py-2.5 text-left text-inherit enabled:hover:bg-hover">
+        <span className="grid size-[34px] flex-none place-items-center rounded-[10px] bg-icon-tile text-brand"><CalendarRange size={17} aria-hidden="true" /></span>
         <span className="min-w-0 flex-1">
           <b className="flex items-center gap-1.5 text-[12px]">Meus eventos{approved && status?.organizer && <BadgeCheck size={14} className="text-brand" aria-hidden="true" />}</b>
           <small className="mt-0.5 text-[11px] leading-[1.5] text-ink-muted">
@@ -180,8 +177,8 @@ export function OrganizerEvents({ status, events, loading, error, onReload, onOp
         </span>
         <ChevronRight size={16} className="flex-none text-ink-muted" aria-hidden="true" />
       </button>
-      {approved && !loading && !events.length && <button type="button" onClick={onCreate} className="flex min-h-[54px] w-full items-center gap-3 border-0 border-t border-solid border-line bg-transparent px-3.5 py-2.5 text-left text-inherit enabled:hover:bg-[#f6f7f9]">
-        <span className="grid size-[34px] flex-none place-items-center rounded-[10px] bg-[#005a3612] text-brand"><Plus size={17} aria-hidden="true" /></span>
+      {approved && !loading && !events.length && <button type="button" onClick={onCreate} className="flex min-h-[54px] w-full items-center gap-3 border-0 border-t border-solid border-line bg-transparent px-3.5 py-2.5 text-left text-inherit enabled:hover:bg-hover">
+        <span className="grid size-[34px] flex-none place-items-center rounded-[10px] bg-icon-tile text-brand"><Plus size={17} aria-hidden="true" /></span>
         <span className="min-w-0 flex-1 text-[12px] font-bold">Criar evento</span>
         <ChevronRight size={16} className="flex-none text-ink-muted" aria-hidden="true" />
       </button>}

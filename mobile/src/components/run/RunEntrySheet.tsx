@@ -6,10 +6,12 @@ import type { RunCreated, RunInput, RunPreview, RunRace, RunSource } from '../..
 import { runDistances } from '../../data/arena'
 import type { RunDistance } from '../../data/arena'
 import { useResource } from '../../hooks/useResource'
+import { reportActionError } from '../../hooks/useSubmit'
 import { colors } from '../../theme'
 import { toDateKey } from '../../utils/dateKey'
 import { Icon } from '../Icon'
 import { Screen } from '../Screen'
+import { ToastViewport } from '../toast/ToastViewport'
 import { DateField } from '../arena/DateField'
 import { ActionButton, ChoicePills, FieldError, FieldLabel, FormField, Hint, Notice } from '../arena/controls'
 import type { ChoiceOption } from '../arena/controls'
@@ -33,7 +35,10 @@ const sourceOptions: ChoiceOption<RunSource>[] = [
 ]
 export const MEASURE_RANGE = 'A distância deve ficar entre 1 km e 100 km.'
 
-/** O que o servidor recusou, por campo (`422`), mais o que não pertence a um campo. `blocked`: repetir não adianta. */
+/**
+ * O que o servidor recusou, por campo (`422`), mais o que não pertence a um campo (a falha da prévia, que fica junto a ela).
+ * `blocked`: repetir não adianta. O erro de salvar que não é de campo sai em toast e não passa por aqui.
+ */
 export interface Problems { distance_m?: string; duration_s?: string; date?: string; entry_id?: string; general?: string; blocked: boolean }
 /** Resposta da prévia (ou do salvar) para as entradas identificadas por `key`. */
 interface Outcome { key: string; preview?: RunPreview; problems?: Problems }
@@ -42,6 +47,8 @@ const fieldNames = ['distance_m', 'duration_s', 'date', 'entry_id'] as const
 /** Erro da API → mensagem no campo certo (`ApiError.fields`); o que não é de um campo vira `general`. */
 export function problemsOf(cause: unknown, fallback: string): Problems {
   if (!(cause instanceof ApiError)) return { general: fallback, blocked: false }
+  // Sem conexão: o aviso de conexão cuida, sem mensagem local.
+  if (cause.isConnection) return { blocked: false }
   const problems: Problems = { blocked: cause.status >= 400 && cause.status < 500 }
   const rest: string[] = []
   for (const item of cause.fields) {
@@ -129,8 +136,9 @@ export function RunEntrySheet({ initialDistance, onClose, onSaved, onFindRaces, 
     try {
       onSaved(await createRun(input))
     } catch (cause) {
-      if (cause instanceof ApiError && cause.status === 401) onExpired()
-      setOutcome(old => ({ key, preview: old?.key === key ? old.preview : undefined, problems: problemsOf(cause, 'Não foi possível salvar a corrida.') }))
+      // Só a recusa de campo (`422`) fica na tela; o resto vira toast (ou o aviso de conexão) e o botão segue disponível.
+      const report = reportActionError(cause, 'Não foi possível salvar a corrida.', onExpired)
+      if (report.kind === 'form') setOutcome(old => ({ key, preview: old?.key === key ? old.preview : undefined, problems: problemsOf(cause, 'Não foi possível salvar a corrida.') }))
     } finally {
       saving.current = false
       setBusy(false)
@@ -194,7 +202,7 @@ export function RunEntrySheet({ initialDistance, onClose, onSaved, onFindRaces, 
               </View>
               : <View>
                 <FieldLabel surface="dark">Prova</FieldLabel>
-                <RunRaces races={raceList} loading={races.loading} error={races.error} selected={race ? race.entry_id : null} onRetry={races.reload} onFind={onFindRaces} onSelect={pickRace} />
+                <RunRaces races={raceList} loading={races.loading} error={races.error} errorCause={races.errorCause} selected={race ? race.entry_id : null} onRetry={races.reload} onFind={onFindRaces} onSelect={pickRace} />
                 <FieldError error={problems?.entry_id} surface="dark" />
                 <FieldError error={problems?.date} surface="dark" />
                 {raceList.length > 0 ? <Hint surface="dark">O dia da marca é o dia da prova.</Hint> : null}
@@ -213,5 +221,6 @@ export function RunEntrySheet({ initialDistance, onClose, onSaved, onFindRaces, 
         </View>
       </KeyboardAvoidingView>
     </Screen>
+    <ToastViewport />
   </Modal>
 }

@@ -15,7 +15,7 @@ export const tw = {
   /** `heading` sem margem inferior, para cabeçalhos em linha. */
   headingInline: 'text-[23px] font-bold text-ink',
   body: 'mb-4 text-[14px] leading-[22px] text-ink-muted',
-  card: 'mb-4.5 rounded-card bg-white p-5.5',
+  card: 'mb-4.5 rounded-card bg-surface p-5.5',
   label: 'mt-3 mb-2 text-[13px] font-semibold text-ink',
   input: 'min-h-12 rounded-control border border-line bg-field p-3 text-[16px] text-ink',
   error: 'my-3.5 text-[14px] leading-[22px] text-error',
@@ -29,7 +29,7 @@ export const tw = {
   chipText: {
     idle: 'text-[13px] text-ink',
     /** Texto do chip selecionado: herda o estilo do texto do botão primário. */
-    selected: 'text-[14px] font-semibold text-white',
+    selected: 'text-[14px] font-semibold text-on-brand',
   },
 } as const
 

@@ -16,6 +16,8 @@ import { DarkTopBar, TeamsPlate } from '@/components/teams/TeamsPlate'
 import { Button } from '@/components/ui/button'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { feedbackVariants } from '@/components/ui/feedback'
+import { LoadError } from '@/components/ui/load-error'
+import { toast } from '@/components/ui/toast'
 import { eventFormatParts, pixKeyType, tiers } from '@/data/arena'
 import { useResource } from '@/hooks/useResource'
 import { useSubmit } from '@/hooks/useSubmit'
@@ -26,7 +28,7 @@ type SectionKey = 'entries' | 'data' | 'pix'
 type SheetKind = 'cancel' | 'delete' | 'edit' | null
 
 const rowClass = 'flex min-h-[58px] w-full items-center gap-3 border-0 bg-transparent px-0 py-2 text-left text-ink'
-const rowIcon = 'grid size-[34px] flex-none place-items-center rounded-[10px] bg-[#005a3612] text-brand'
+const rowIcon = 'grid size-[34px] flex-none place-items-center rounded-[10px] bg-icon-tile text-brand'
 
 /** Rótulo e valor da linha de seção (`.nl`): título em negrito e o resumo abaixo. */
 function RowText({ title, value, hot }: { title: string; value: ReactNode; hot?: boolean }) {
@@ -48,7 +50,7 @@ function SectionPanel({ id, Icon, title, value, hot, open, onOpenChange, childre
   children: ReactNode
 }) {
   return <Collapsible open={open} onOpenChange={onOpenChange} className="border-0 border-b border-solid border-line last:border-b-0">
-    <CollapsibleTrigger id={id} className={cn(rowClass, 'enabled:hover:bg-[#f6f7f9]')}>
+    <CollapsibleTrigger id={id} className={cn(rowClass, 'enabled:hover:bg-hover')}>
       <span className={rowIcon}><Icon size={17} aria-hidden="true" /></span>
       <RowText title={title} value={value} hot={hot} />
       <ChevronDown size={17} aria-hidden="true" className={cn('flex-none text-ink-muted motion-safe:transition-transform', open && 'rotate-180')} />
@@ -60,7 +62,7 @@ function SectionPanel({ id, Icon, title, value, hot, open, onOpenChange, childre
 /** Seção com tela própria (comprovantes e devoluções). */
 function SectionLink({ Icon, title, value, hot, onClick }: { Icon: LucideIcon; title: string; value: ReactNode; hot?: boolean; onClick: () => void }) {
   return <div className="border-0 border-b border-solid border-line last:border-b-0">
-    <button type="button" className={cn(rowClass, 'hover:bg-[#f6f7f9]')} onClick={onClick}>
+    <button type="button" className={cn(rowClass, 'hover:bg-hover')} onClick={onClick}>
       <span className={rowIcon}><Icon size={17} aria-hidden="true" /></span>
       <RowText title={title} value={value} hot={hot} />
       <ChevronRight size={17} aria-hidden="true" className="flex-none text-ink-muted" />
@@ -115,14 +117,13 @@ export default function EventManagePage({ eventId, onBack, onEdit, onReceipts, o
   const resource = useResource(load, onExpired, { fallback: 'Não foi possível carregar o evento.' })
   const [open, setOpen] = useState<Record<SectionKey, boolean>>({ entries: false, data: false, pix: false })
   const [sheet, setSheet] = useState<SheetKind>(null)
-  const [status, setStatus] = useState('')
   const action = useSubmit(onExpired)
   const detail = resource.data
 
   const toggle = (key: SectionKey) => (value: boolean) => setOpen(old => ({ ...old, [key]: value }))
   function update(next: OrganizerEventDetail, message: string) {
     resource.setData(next)
-    setStatus(message)
+    toast.success(message)
   }
 
   if (!detail) {
@@ -130,7 +131,7 @@ export default function EventManagePage({ eventId, onBack, onEdit, onReceipts, o
       <TeamsPlate className="pb-4"><DarkTopBar eyebrow="Organizador" title="Gestão do evento" onBack={onBack} /></TeamsPlate>
       <div className="px-5 pt-4">
         {resource.loading && <p role="status" className="text-[12px] text-ink-muted">Carregando o evento…</p>}
-        {resource.error && <div className={feedbackVariants()} role="alert">{resource.error} <Button variant="text" onClick={resource.reload}>Tentar novamente</Button></div>}
+        {resource.error && <LoadError size="screen" text={resource.error} cause={resource.errorCause} onRetry={resource.reload} />}
       </div>
     </div>
   }
@@ -224,16 +225,13 @@ export default function EventManagePage({ eventId, onBack, onEdit, onReceipts, o
     </TeamsPlate>
 
     <div className="px-5 pt-4">
-      <div aria-live="polite">
-        {status && <p className={cn(feedbackVariants({ tone: 'success' }), 'mb-3')} role="status">{status}</p>}
-        {action.error && <p className={cn(feedbackVariants(), 'mb-3')} role="alert">{action.error}</p>}
-      </div>
+      {action.error && <p className={cn(feedbackVariants(), 'mb-3')} role="alert">{action.error}</p>}
 
       <NextActionCard detail={detail} busy={action.busy} onSubmit={() => void submit()} onWithdraw={() => void withdraw()}
         onFill={step => onEdit(step)} onReceipts={onReceipts} onShowEntries={showEntries} onBracket={onBracket} onMatches={onMatches} />
 
       <h2 className="mt-5 mb-2 text-[16px]">Seções</h2>
-      <div className="rounded-card bg-white px-3.5">
+      <div className="surface rounded-card px-3.5 inset-ring inset-ring-surface-edge">
         {beforeRegistration
           ? <SectionLater Icon={Users} title={entriesTitle(detail.sport)} value={detail.capacity ? `0 de ${detail.capacity} · depois de publicar` : 'Depois de publicar'} />
           : <SectionPanel id="section-entries" Icon={Users} title={entriesTitle(detail.sport)} open={open.entries} onOpenChange={toggle('entries')}

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Pressable, RefreshControl, ScrollView, Text, View } from 'react-native'
 import { cancelEntry, confirmRefund, contestRefund, createEntry, getEntry, getEvent, pixInfo, sendReceipt } from '../api/entries'
 import type { EventDetail, MyEntry } from '../api/entries'
@@ -6,6 +6,7 @@ import { ApiError } from '../api/client'
 import type { UploadFile } from '../api/client'
 import { TextAction } from '../components/arena/controls'
 import { EventPoster } from '../components/arena/EventPoster'
+import { LoadError } from '../components/arena/LoadError'
 import { BracketPanel } from '../components/brackets/BracketPanel'
 import { EntryStatus } from '../components/events/EntryStatus'
 import { CancelEntrySheet, ConfirmRefundSheet, ContactSheet, ContestRefundSheet, EnterSheet, ReceiptSheet } from '../components/events/EntrySheets'
@@ -18,26 +19,26 @@ import { Term } from '../components/events/Term'
 import { entryCta, isLocked } from '../components/events/entryCta'
 import { placeText } from '../components/events/eventText'
 import { Icon } from '../components/Icon'
-import { Button } from '../components/ui'
+import { toast } from '../components/toast/toastStore'
 import { eventFormatParts } from '../data/arena'
 import { useResource } from '../hooks/useResource'
-import { useSubmit } from '../hooks/useSubmit'
+import { isStale, useSubmit } from '../hooks/useSubmit'
 import type { ScreenProps } from '../navigation/screens'
-import { colors } from '../theme'
-import { announce } from '../utils/announce'
+import { useResolvedTheme, useThemeColors } from '../hooks/useTheme'
 import { formatDeadline, parseIso } from '../utils/format'
 
 type Section = 'info' | 'tabela' | 'percurso' | 'inscritos'
 type SheetKind = 'enter' | 'info' | 'receipt' | 'confirm-refund' | 'contest' | 'cancel' | 'contact'
 /** Estados do evento em que o cartaz do detalhe mostra o selo (aberto não precisa de selo). */
 const BADGE_STATES = ['em_andamento', 'encerrado', 'cancelado'] as const
-const TOAST_MS = 6000
 /** Intervalo em que a tela confere se a reserva venceu enquanto está aberta. */
 const EXPIRY_CHECK_MS = 30_000
 
 function Banner({ icon, title, tone, children }: { icon: 'alert' | 'info' | 'lock' | 'trophy'; title: string; tone: 'danger' | 'neutral'; children: string }) {
+  const colors = useThemeColors()
+  const dark = useResolvedTheme() === 'dark'
   const danger = tone === 'danger'
-  return <View accessible accessibilityLabel={`${title}. ${children}`} style={{ flexDirection: 'row', gap: 10, borderRadius: 14, backgroundColor: danger ? '#fff0f2' : colors.subtle, padding: 12 }}>
+  return <View accessible accessibilityLabel={`${title}. ${children}`} style={{ flexDirection: 'row', gap: 10, borderRadius: 14, backgroundColor: danger ? (dark ? '#ff8a801a' : '#fff0f2') : colors.subtle, padding: 12 }}>
     <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants"><Icon name={icon} size={20} color={danger ? colors.danger : colors['ink-muted']} /></View>
     <View style={{ flex: 1, minWidth: 0 }}>
       <Text style={{ color: danger ? colors.danger : colors.ink, fontSize: 12.5, fontWeight: '700' }}>{title}</Text>
@@ -53,6 +54,7 @@ function Banner({ icon, title, tone, children }: { icon: 'alert' | 'info' | 'loc
  * paga com reserva, Pix, comprovante e, no cancelamento do evento, a resposta à devolução.
  */
 export default function EventScreen({ params, navigation, onExpired }: ScreenProps<'event'>) {
+  const colors = useThemeColors()
   const eventId = params.eventId
   const loadEvent = useCallback(() => getEvent(eventId), [eventId])
   const event = useResource(loadEvent, onExpired, { fallback: 'Não foi possível carregar o evento.' })
@@ -65,9 +67,7 @@ export default function EventScreen({ params, navigation, onExpired }: ScreenPro
   const [sheet, setSheet] = useState<SheetKind | null>(null)
   const [infoReturn, setInfoReturn] = useState<SheetKind | null>(null)
   const [pickedTeam, setPickedTeam] = useState<number | null>(null)
-  const [toast, setToast] = useState('')
   const [refreshing, setRefreshing] = useState(false)
-  const toastTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const action = useSubmit(onExpired)
   const { setError } = action
   const sport = detail?.sport ?? params.sport ?? 'futebol'
@@ -76,7 +76,6 @@ export default function EventScreen({ params, navigation, onExpired }: ScreenPro
   useEffect(() => {
     if (detail?.sport && params.sport !== detail.sport) navigation.setParams('event', { sport: detail.sport })
   }, [detail?.sport, params.sport, navigation])
-  useEffect(() => () => clearTimeout(toastTimer.current), [])
 
   const setEvent = event.setData
   const setEntry = mine.setData
@@ -111,12 +110,6 @@ export default function EventScreen({ params, navigation, onExpired }: ScreenPro
     return () => clearInterval(id)
   }, [waitsReceipt, reservedUntil, refresh])
 
-  function notify(message: string) {
-    clearTimeout(toastTimer.current)
-    setToast(message)
-    announce(message)
-    toastTimer.current = setTimeout(() => setToast(''), TOAST_MS)
-  }
   function open(kind: SheetKind) {
     setError('')
     setSheet(kind)
@@ -136,10 +129,7 @@ export default function EventScreen({ params, navigation, onExpired }: ScreenPro
   }
 
   if (event.loading) return <View style={{ flex: 1, padding: 24 }}><Text accessibilityLiveRegion="polite" style={{ color: colors['ink-muted'], fontSize: 14 }}>Carregando evento…</Text></View>
-  if (!detail) return <View style={{ flex: 1, padding: 24 }}>
-    <Text accessibilityRole="alert" style={{ color: colors.error, fontSize: 14, lineHeight: 21 }}>{event.error}</Text>
-    <Button title="Tentar novamente" onPress={event.reload} />
-  </View>
+  if (!detail) return <View style={{ flex: 1 }}><LoadError size="screen" title="Não foi possível carregar o evento" text={event.error} cause={event.errorCause} onRetry={event.reload} /></View>
 
   const current: EventDetail = detail
   const paid = (current.price_cents ?? 0) > 0
@@ -161,29 +151,23 @@ export default function EventScreen({ params, navigation, onExpired }: ScreenPro
 
   /**
    * Roda a ação de uma folha. Se o servidor recusar porque a situação mudou (404 ou 409: vaga liberada, inscrição já decidida
-   * ou cancelada), a folha fecha, a mensagem do servidor vira o aviso e a tela relê o evento e a inscrição, em vez de
-   * seguir com dados velhos. Os outros erros ficam na folha, como antes.
+   * ou cancelada), `useSubmit` mostra a mensagem do servidor como aviso; a folha fecha e a tela relê o evento e a inscrição,
+   * em vez de seguir com dados velhos. Os outros erros viram toast de erro e a folha continua aberta.
    */
-  async function guarded<T>(task: () => Promise<T>, fallback: string): Promise<T | undefined> {
-    let stale = ''
-    const result = await action.run(async () => {
-      try { return await task() } catch (cause) {
-        if (cause instanceof ApiError && (cause.status === 404 || cause.status === 409)) stale = cause.message
-        throw cause
-      }
-    }, fallback)
-    if (result === undefined && stale) {
+  function guarded<T>(task: () => Promise<T>, fallback: string): Promise<T | undefined> {
+    return action.run(task, fallback, async cause => {
+      if (!isStale(cause)) return
       closeSheet()
-      notify(stale)
       await refresh()
-    }
-    return result
+    })
   }
   async function enter(teamId: number | null) {
     const created = await guarded(() => createEntry(current.id, teamId), 'Não foi possível concluir a inscrição.')
     if (!created) return
     setSheet(null)
-    notify(created.state === 'confirmada' ? `Inscrição confirmada em ${current.name}.` : `Vaga reservada. Envie o comprovante até ${formatDeadline(created.reserved_until)}.`)
+    // Reserva sem pagamento ainda: exige o próximo passo (comprovante), então vira aviso.
+    if (created.state === 'confirmada') toast.success(`Inscrição confirmada em ${current.name}.`)
+    else toast.warning('Vaga reservada.', { description: `Envie o comprovante até ${formatDeadline(created.reserved_until)}.` })
     await refresh(created)
   }
   async function upload(file: UploadFile) {
@@ -191,7 +175,7 @@ export default function EventScreen({ params, navigation, onExpired }: ScreenPro
     const updated = await guarded(() => sendReceipt(entry.id, file), 'Não foi possível enviar o comprovante.')
     if (!updated) return
     setSheet(null)
-    notify(`Comprovante enviado. ${current.organizer.display_name} vai analisar o pagamento.`)
+    toast.success(`Comprovante enviado. ${current.organizer.display_name} vai analisar o pagamento.`)
     await refresh(updated)
   }
   async function answerRefund(reason?: string) {
@@ -199,7 +183,7 @@ export default function EventScreen({ params, navigation, onExpired }: ScreenPro
     const updated = await guarded(() => (reason === undefined ? confirmRefund(entry.id) : contestRefund(entry.id, reason)), 'Não foi possível responder à devolução.')
     if (!updated) return
     setSheet(null)
-    notify(reason === undefined ? 'Recebimento da devolução confirmado.' : 'Contestação enviada à administração.')
+    toast.success(reason === undefined ? 'Recebimento da devolução confirmado.' : 'Contestação enviada à administração.')
     await refresh(updated)
   }
   async function giveUp() {
@@ -207,7 +191,7 @@ export default function EventScreen({ params, navigation, onExpired }: ScreenPro
     const done = await guarded(async () => { await cancelEntry(entry.id); return true }, 'Não foi possível cancelar a inscrição.')
     if (!done) return
     setSheet(null)
-    notify('Inscrição cancelada. A vaga ficou livre.')
+    toast.success('Inscrição cancelada. A vaga ficou livre.')
     await refresh()
   }
 
@@ -219,7 +203,7 @@ export default function EventScreen({ params, navigation, onExpired }: ScreenPro
         {current.cancel_reason ? `Motivo: ${current.cancel_reason}` : 'O organizador cancelou o evento.'}
       </Banner> : null}
       {current.revocation_pending && current.state !== 'cancelado' ? <Banner icon="info" tone="neutral" title="Inscrições suspensas">A administração está decidindo se o evento segue.</Banner> : null}
-      {current.is_organizer ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 10, borderRadius: 16, backgroundColor: '#ffffff', paddingHorizontal: 14, paddingVertical: 12 }}>
+      {current.is_organizer ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 10, borderRadius: 16, backgroundColor: colors.surface, paddingHorizontal: 14, paddingVertical: 12 }}>
         <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants"><Icon name="trophy" size={19} color={colors.brand} /></View>
         <Text style={{ flex: 1, minWidth: 160, color: colors.ink, fontSize: 11.5, lineHeight: 17 }}>Você organiza {run ? 'esta prova' : 'este campeonato'}. Inscrições, comprovantes e avisos ficam na gestão.</Text>
         <Pressable accessibilityRole="button" accessibilityLabel="Abrir gestão" onPress={() => navigation.go('event-manage', { eventId: current.id })}
@@ -228,10 +212,7 @@ export default function EventScreen({ params, navigation, onExpired }: ScreenPro
         </Pressable>
       </View> : null}
       {summaryId !== null && !entry && mine.loading ? <Text accessibilityLiveRegion="polite" style={{ color: colors['ink-muted'], fontSize: 11, paddingHorizontal: 4 }}>Carregando sua inscrição…</Text> : null}
-      {summaryId !== null && !entry && mine.error ? <View>
-        <Text accessibilityRole="alert" style={{ color: colors.error, fontSize: 12, lineHeight: 17 }}>{mine.error}</Text>
-        <Button secondary title="Tentar novamente" onPress={mine.reload} />
-      </View> : null}
+      {summaryId !== null && !entry && mine.error ? <LoadError size="section" title="Não foi possível carregar a sua inscrição" text={mine.error} cause={mine.errorCause} onRetry={mine.reload} /> : null}
       {entry ? <EntryStatus entry={entry} detail={current} hasPix={Boolean(pix)} busy={action.busy} onPayment={() => openInfo(null)} onConfirmRefund={() => open('confirm-refund')} onContestRefund={() => open('contest')} /> : null}
       {entry?.can_cancel ? <TextAction title="Desistir da inscrição" onPress={() => open('cancel')} /> : null}
       {showLock ? <Banner icon="lock" tone="danger" title={current.eligibility.reason === 'sem_time' ? 'Inscrição por time' : 'Fora da faixa'}>
@@ -254,26 +235,23 @@ export default function EventScreen({ params, navigation, onExpired }: ScreenPro
         {shown === 'inscritos' ? <EventEntrants eventId={current.id} sport={sport} myEntryId={entry?.id ?? null} onExpired={onExpired} /> : null}
       </View>
     </ScrollView>
-    <View accessibilityLiveRegion="polite" style={{ paddingHorizontal: 20 }}>
-      {toast ? <Text testID="toast" style={{ borderRadius: 16, backgroundColor: colors.forest, color: '#ffffff', fontSize: 11.5, fontWeight: '600', lineHeight: 17, paddingHorizontal: 14, paddingVertical: 10, marginBottom: 8 }}>{toast}</Text> : null}
-    </View>
-    {cta ? <View testID="entry-bar" style={{ flexDirection: 'row', alignItems: 'center', gap: 8, borderTopWidth: 1, borderTopColor: colors.line, backgroundColor: '#ffffff', paddingHorizontal: 20, paddingVertical: 10 }}>
+    {cta ? <View testID="entry-bar" style={{ flexDirection: 'row', alignItems: 'center', gap: 8, borderTopWidth: 1, borderTopColor: colors.line, backgroundColor: colors.surface, paddingHorizontal: 20, paddingVertical: 10 }}>
       <Pressable accessibilityRole="button" accessibilityLabel={cta.label} accessibilityState={{ disabled: cta.kind === 'blocked' || action.busy }} disabled={cta.kind === 'blocked' || action.busy}
         onPress={() => (cta.kind === 'teams' ? navigation.go('teams') : open(cta.kind === 'enter' ? 'enter' : 'receipt'))}
         style={{ flex: 1, minHeight: 48, minWidth: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 8, backgroundColor: cta.kind === 'blocked' ? colors.line : colors.brand, paddingHorizontal: 12, opacity: action.busy ? 0.5 : 1 }}>
         {cta.kind === 'blocked' && cta.locked ? <Icon name="lock" size={16} color={colors.ink} /> : null}
-        {cta.kind === 'receipt' ? <Icon name="upload" size={16} color="#ffffff" /> : null}
-        <Text numberOfLines={2} style={{ flexShrink: 1, color: cta.kind === 'blocked' ? colors.ink : '#ffffff', fontSize: 14, fontWeight: '600', textAlign: 'center' }}>{cta.label}</Text>
+        {cta.kind === 'receipt' ? <Icon name="upload" size={16} color={colors['on-brand']} /> : null}
+        <Text numberOfLines={2} style={{ flexShrink: 1, color: cta.kind === 'blocked' ? colors.ink : colors['on-brand'], fontSize: 14, fontWeight: '600', textAlign: 'center' }}>{cta.label}</Text>
       </Pressable>
       {paid && pix && cta.kind !== 'teams' ? <PaymentInfoButton onPress={() => openInfo(null)} /> : null}
     </View> : null}
-    {sheet === 'enter' && cta?.kind === 'enter' ? <EnterSheet detail={current} teams={cta.teams} teamId={enterTeam} onTeam={setPickedTeam} pix={pix} busy={action.busy} error={action.error} onConfirm={teamId => void enter(teamId)} onPaymentInfo={() => openInfo('enter')} onClose={closeSheet} /> : null}
+    {sheet === 'enter' && cta?.kind === 'enter' ? <EnterSheet detail={current} teams={cta.teams} teamId={enterTeam} onTeam={setPickedTeam} pix={pix} busy={action.busy} onConfirm={teamId => void enter(teamId)} onPaymentInfo={() => openInfo('enter')} onClose={closeSheet} /> : null}
     {sheet === 'info' && pix ? <PaymentInfoSheet eventName={current.name} priceCents={current.price_cents ?? 0} sport={sport} pix={pix} receiptDeadline={entry?.reserved_until}
       onClose={closeSheet} onBack={infoReturn ? backFromInfo : undefined} /> : null}
     {sheet === 'receipt' && entry ? <ReceiptSheet entry={entry} eventName={current.name} busy={action.busy} error={action.error} onSend={file => void upload(file)} onClose={closeSheet} /> : null}
-    {sheet === 'confirm-refund' && entry ? <ConfirmRefundSheet entry={entry} busy={action.busy} error={action.error} onConfirm={() => void answerRefund()} onClose={closeSheet} /> : null}
+    {sheet === 'confirm-refund' && entry ? <ConfirmRefundSheet entry={entry} busy={action.busy} onConfirm={() => void answerRefund()} onClose={closeSheet} /> : null}
     {sheet === 'contest' && entry ? <ContestRefundSheet entry={entry} busy={action.busy} error={action.error} onContest={reason => void answerRefund(reason)} onClose={closeSheet} /> : null}
-    {sheet === 'cancel' && entry ? <CancelEntrySheet entry={entry} busy={action.busy} error={action.error} onConfirm={() => void giveUp()} onClose={closeSheet} /> : null}
+    {sheet === 'cancel' && entry ? <CancelEntrySheet entry={entry} busy={action.busy} onConfirm={() => void giveUp()} onClose={closeSheet} /> : null}
     {sheet === 'contact' && current.contact ? <ContactSheet name={current.organizer.display_name} contact={current.contact} onClose={closeSheet} /> : null}
   </View>
 }

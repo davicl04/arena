@@ -6,13 +6,14 @@ import { cn } from '@/lib/utils'
  * Chip de modalidade (.sport-chip). Ativo (.sport-chip.active) com `active` ou `aria-pressed`.
  * size="sm" reproduz o chip do perfil (.profile-sports .sport-chip, sempre preenchido: use `active`).
  * O ícone de modalidade (SportIcon, `data-slot="sport-icon"`) dentro do chip tem no mínimo 20 px
- * e fica claro (tela + inversão em cinza) quando o chip está ativo (`data-active`).
+ * e fica claro (tela + inversão em cinza) quando o chip está ativo (`data-active`). No escuro, o ícone é uma máscara e o
+ * chip ativo o pinta com `--sport-icon-color` (texto sobre a marca).
  */
-const sportIcon = '[&_[data-slot=sport-icon]]:min-h-5 [&_[data-slot=sport-icon]]:min-w-5 data-active:[&_[data-slot=sport-icon]]:mix-blend-screen data-active:[&_[data-slot=sport-icon]]:[filter:grayscale(1)_invert(1)]'
+const sportIcon = '[&_[data-slot=sport-icon]]:min-h-5 [&_[data-slot=sport-icon]]:min-w-5 data-active:[&_[data-slot=sport-icon]]:mix-blend-screen data-active:[&_[data-slot=sport-icon]]:[filter:grayscale(1)_invert(1)] data-active:[--sport-icon-color:var(--color-on-brand)]'
 const chipVariants = cva(['inline-flex items-center gap-1.5 rounded-[18px] border border-solid border-line bg-transparent font-bold text-ink-muted', sportIcon], {
   variants: {
     size: { default: 'min-h-9 px-3 text-[11px]', sm: 'min-h-[29px] px-2 text-[9px]' },
-    active: { true: 'border-brand bg-brand text-white', false: 'aria-pressed:border-brand aria-pressed:bg-brand aria-pressed:text-white' },
+    active: { true: 'border-brand bg-brand text-on-brand', false: 'aria-pressed:border-brand aria-pressed:bg-brand aria-pressed:text-on-brand' },
   },
   defaultVariants: { size: 'default', active: false },
 })

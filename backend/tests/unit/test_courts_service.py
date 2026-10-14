@@ -233,6 +233,7 @@ def test_rejecting_without_a_duplicate_cancels_the_pending_terms_and_needs_a_rea
     row = make_court(8, 'Arena Sul', state='em_revisao')
     db.put(Court, row)
     db.then('courts', row, row)
+    db.on('match_terms', [5])                           # ids of the pending terms that used the court
     with pytest.raises(RuleError) as error:
         decide(review, decision='rejeitar')
     assert (str(error.value), error.value.field) == ('Descreva o motivo da recusa.', 'reason')

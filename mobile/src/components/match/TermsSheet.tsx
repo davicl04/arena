@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Text, View } from 'react-native'
 import type { CourtOut, MatchDetail, Side, TermsInput } from '../../api/matches'
 import { nameOf, orderedSides, sideName } from '../../data/match'
-import { colors } from '../../theme'
+import { useThemeColors } from '../../hooks/useTheme'
 import { combineDateTime, splitDateTime, toDateKey } from '../../utils/dateKey'
 import { DateField } from '../arena/DateField'
 import { TimeField } from '../arena/TimeField'
@@ -20,11 +20,13 @@ import { MAX_DAYS_AHEAD, STEP_MINUTES, termsError } from './termsRules'
 export function TermsSheet({ detail, busy, error, onSubmit, onClose, onExpired }: {
   detail: MatchDetail
   busy: boolean
+  /** Recusa do servidor às condições (`422`/`409` com conflito de agenda): as demais falhas de ação saem em toast. */
   error: string
   onSubmit: (input: TermsInput) => void
   onClose: () => void
   onExpired: () => void
 }) {
+  const colors = useThemeColors()
   const base = detail.terms.pending ?? detail.terms.current
   const initial = splitDateTime(base?.starts_at)
   const sides = orderedSides(detail)
@@ -68,7 +70,8 @@ export function TermsSheet({ detail, busy, error, onSubmit, onClose, onExpired }
       <Text style={{ flex: 1, color: colors['ink-muted'], fontSize: 10.5, lineHeight: 16 }}>Quem propõe já aceita. A partida só é agendada quando o outro lado também aceitar estas condições.</Text>
     </View>
 
-    {problem || error ? <ErrorText>{problem || error}</ErrorText> : null}
+    {problem ? <ErrorText>{problem}</ErrorText> : null}
+    {error && !problem ? <ErrorText>{error}</ErrorText> : null}
     <BusyStatus text={busy ? 'Enviando a proposta…' : ''} />
     <View style={{ marginTop: 14 }}>
       <ActionButton block tone="brand" icon="send" title={busy ? 'Enviando…' : 'Enviar proposta'} accessibilityLabel="Enviar proposta" busy={busy} onPress={submit} />

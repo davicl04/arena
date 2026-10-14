@@ -13,8 +13,8 @@ vi.mock('../src/api/client', () => ({
 
 type Item = { id: number }
 let current!: PagedList<Item>
-function Probe({ path, onExpired }: { path: string; onExpired: () => void }) {
-  const list = usePagedList<Item>(path, onExpired)
+function Probe({ path, onExpired, enabled = true }: { path: string; onExpired: () => void; enabled?: boolean }) {
+  const list = usePagedList<Item>(path, onExpired, enabled)
   useEffect(() => { current = list })
   return null
 }
@@ -27,6 +27,22 @@ const page = (ids: number[], next: string | null) => ({ items: ids.map(id => ({ 
 
 describe('usePagedList (mobile)', () => {
   beforeEach(() => { enableAct(); vi.mocked(request).mockReset() })
+
+  it('desligada (`enabled` falso) não lê, não carrega e entrega a lista vazia; ao ligar, lê a primeira página', async () => {
+    vi.mocked(request).mockResolvedValue(page([1, 2], null) as never)
+    let tree!: ReturnType<typeof create>
+    await act(async () => { tree = create(React.createElement(Probe, { path: '/posts', onExpired: vi.fn(), enabled: false })) })
+    expect(request).not.toHaveBeenCalled()
+    expect(current.loading).toBe(false)
+    expect(current.items).toEqual([])
+    await act(async () => { tree.update(React.createElement(Probe, { path: '/posts', onExpired: vi.fn(), enabled: true })) })
+    expect(request).toHaveBeenCalledTimes(1)
+    expect(current.items.map(item => item.id)).toEqual([1, 2])
+    await act(async () => { tree.update(React.createElement(Probe, { path: '/posts', onExpired: vi.fn(), enabled: false })) })
+    expect(current.items).toEqual([])
+    expect(current.loading).toBe(false)
+    await act(async () => { tree.unmount() })
+  })
 
   it('expõe o total quando a resposta o traz e o mantém ao carregar mais', async () => {
     vi.mocked(request).mockImplementation(async path => (path.includes('cursor=')

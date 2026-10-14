@@ -1,10 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
+import { cleanup, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import AdminCourtSuggestions from '../src/components/admin/AdminCourtSuggestions'
 import AdminWalkoverDisputes from '../src/components/admin/AdminWalkoverDisputes'
 import { apiError, mockApi, reply } from './teams-fixtures'
 import { chatLine, court, dispute, disputeMatch, ferrugem, fromNow, rafa, suggestion, tigres } from './admin-match-fixtures'
+import { findToast, renderWithToaster } from './toast-utils'
 
 /* Filas da administração da etapa 3 (0002-jogar, seções 10.4 e 10.7): quadras sugeridas e W.O. contestados. */
 
@@ -28,7 +29,7 @@ describe('fila "Sugestões de quadra"', () => {
 
   it('lista nome, endereço, cidade, quem sugeriu e a partida de origem, com o aviso de duplicidade', async () => {
     mockApi(routes())
-    render(<AdminCourtSuggestions onExpired={vi.fn()} />)
+    renderWithToaster(<AdminCourtSuggestions onExpired={vi.fn()} />)
     const list = await screen.findByRole('list', { name: 'Sugestões para analisar' })
     const [first, second] = within(list).getAllByRole('button')
     expect(first.textContent).toContain('Arena Sul')
@@ -43,7 +44,7 @@ describe('fila "Sugestões de quadra"', () => {
   it('a folha mostra a partida de origem com os lados e a quadra parecida do catálogo', async () => {
     mockApi(routes())
     const ui = userEvent.setup()
-    render(<AdminCourtSuggestions onExpired={vi.fn()} />)
+    renderWithToaster(<AdminCourtSuggestions onExpired={vi.fn()} />)
     await ui.click(await screen.findByRole('button', { name: /Arena Sul Society/ }))
     const sheet = screen.getByRole('dialog', { name: 'Sugestão de quadra' })
     expect(await within(sheet).findByText('Ferrugem FC × Tigres do Lago')).not.toBeNull()
@@ -57,13 +58,13 @@ describe('fila "Sugestões de quadra"', () => {
   it('publica sem correções: o corpo leva só a decisão, e a fila perde o item', async () => {
     const api = mockApi(routes({ 'POST /admin/court-suggestions/41/decision': decided() }))
     const ui = userEvent.setup()
-    render(<AdminCourtSuggestions onExpired={vi.fn()} />)
+    renderWithToaster(<AdminCourtSuggestions onExpired={vi.fn()} />)
     await ui.click(await firstRow())
     const sheet = screen.getByRole('dialog', { name: 'Sugestão de quadra' })
     await ui.click(within(sheet).getByRole('button', { name: 'Publicar' }))
     expect((within(sheet).getByLabelText('Nome da quadra') as HTMLInputElement).value).toBe('Arena Sul')
     await ui.click(within(sheet).getByRole('button', { name: 'Publicar quadra' }))
-    expect((await screen.findByRole('status')).textContent).toBe('Arena Sul entrou no catálogo de Brasília.')
+    expect((await findToast('Arena Sul entrou no catálogo de Brasília.')).closest('[data-tone]')?.getAttribute('data-tone')).toBe('success')
     expect(api.find('POST', '/admin/court-suggestions/41/decision')[0].body).toEqual({ decision: 'publicar' })
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
     expect(within(screen.getByRole('list', { name: 'Sugestões para analisar' })).getAllByRole('button')).toHaveLength(1)
@@ -72,7 +73,7 @@ describe('fila "Sugestões de quadra"', () => {
   it('publica com nome e endereço corrigidos e recusa o nome vazio no cliente', async () => {
     const api = mockApi(routes({ 'POST /admin/court-suggestions/41/decision': decided({ court: court({ name: 'Arena Sul Society' }) }) }))
     const ui = userEvent.setup()
-    render(<AdminCourtSuggestions onExpired={vi.fn()} />)
+    renderWithToaster(<AdminCourtSuggestions onExpired={vi.fn()} />)
     await ui.click(await firstRow())
     const sheet = screen.getByRole('dialog', { name: 'Sugestão de quadra' })
     await ui.click(within(sheet).getByRole('button', { name: 'Publicar' }))
@@ -85,14 +86,14 @@ describe('fila "Sugestões de quadra"', () => {
     const address = within(sheet).getByLabelText('Endereço (opcional)')
     await ui.clear(address)
     await ui.click(within(sheet).getByRole('button', { name: 'Publicar quadra' }))
-    await screen.findByRole('status')
+    await findToast(/entrou no catálogo/)
     expect(api.find('POST', '/admin/court-suggestions/41/decision')[0].body).toEqual({ decision: 'publicar', name: 'Arena Sul Society', address: null })
   })
 
   it('rejeita com motivo obrigatório (5 a 300 caracteres)', async () => {
     const api = mockApi(routes({ 'POST /admin/court-suggestions/41/decision': decided({ court: court({ state: 'rejeitada' }) }) }))
     const ui = userEvent.setup()
-    render(<AdminCourtSuggestions onExpired={vi.fn()} />)
+    renderWithToaster(<AdminCourtSuggestions onExpired={vi.fn()} />)
     await ui.click(await firstRow())
     const sheet = screen.getByRole('dialog', { name: 'Sugestão de quadra' })
     await ui.click(within(sheet).getByRole('button', { name: 'Rejeitar' }))
@@ -102,14 +103,14 @@ describe('fila "Sugestões de quadra"', () => {
     expect(api.find('POST', '/admin/court-suggestions/41/decision')).toHaveLength(0)
     await ui.type(within(sheet).getByLabelText('Motivo da recusa (obrigatório)'), 'O endereço não existe.')
     await ui.click(within(sheet).getByRole('button', { name: 'Rejeitar sugestão' }))
-    expect((await screen.findByRole('status')).textContent).toBe('Sugestão Arena Sul rejeitada.')
+    expect((await findToast('Sugestão Arena Sul rejeitada.')).closest('[data-tone]')?.getAttribute('data-tone')).toBe('success')
     expect(api.find('POST', '/admin/court-suggestions/41/decision')[0].body).toEqual({ decision: 'rejeitar', reason: 'O endereço não existe.' })
   })
 
   it('rejeita como duplicada: a quadra do catálogo dispensa o motivo e pode ser desfeita', async () => {
     const api = mockApi(routes({ 'POST /admin/court-suggestions/42/decision': decided({ court: court({ id: 42, state: 'rejeitada' }), duplicate_of: parecida }) }))
     const ui = userEvent.setup()
-    render(<AdminCourtSuggestions onExpired={vi.fn()} />)
+    renderWithToaster(<AdminCourtSuggestions onExpired={vi.fn()} />)
     await ui.click(await screen.findByRole('button', { name: /Arena Sul Society/ }))
     const sheet = screen.getByRole('dialog', { name: 'Sugestão de quadra' })
     await ui.click(within(sheet).getByRole('button', { name: 'Rejeitar' }))
@@ -122,19 +123,19 @@ describe('fila "Sugestões de quadra"', () => {
     expect(chip.getAttribute('aria-pressed')).toBe('false')
     await ui.click(chip)
     await ui.click(within(sheet).getByRole('button', { name: 'Rejeitar sugestão' }))
-    expect((await screen.findByRole('status')).textContent).toBe('Arena Sul Society rejeitada como duplicada de Arena Sul Society.')
+    expect((await findToast('Arena Sul Society rejeitada como duplicada de Arena Sul Society.')).closest('[data-tone]')?.getAttribute('data-tone')).toBe('success')
     expect(api.find('POST', '/admin/court-suggestions/42/decision')[0].body).toEqual({ decision: 'rejeitar', duplicate_of_id: 30 })
   })
 
   it('o nome repetido no catálogo (409) fica na folha, para rejeitar como duplicada', async () => {
     mockApi(routes({ 'POST /admin/court-suggestions/42/decision': apiError(409, 'Já existe uma quadra publicada com este nome nesta cidade. Rejeite como duplicada.') }))
     const ui = userEvent.setup()
-    render(<AdminCourtSuggestions onExpired={vi.fn()} />)
+    renderWithToaster(<AdminCourtSuggestions onExpired={vi.fn()} />)
     await ui.click(await screen.findByRole('button', { name: /Arena Sul Society/ }))
     const sheet = screen.getByRole('dialog', { name: 'Sugestão de quadra' })
     await ui.click(within(sheet).getByRole('button', { name: 'Publicar' }))
     await ui.click(within(sheet).getByRole('button', { name: 'Publicar quadra' }))
-    expect((await within(sheet).findByText(/Rejeite como duplicada/)).getAttribute('role')).toBe('alert')
+    expect(await findToast(/Rejeite como duplicada/)).toBeTruthy()
     expect(screen.getByRole('dialog', { name: 'Sugestão de quadra' })).not.toBeNull()
   })
 
@@ -145,12 +146,12 @@ describe('fila "Sugestões de quadra"', () => {
       'POST /admin/court-suggestions/41/decision': apiError(409, 'Esta sugestão já foi decidida.'),
     }))
     const ui = userEvent.setup()
-    render(<AdminCourtSuggestions onExpired={vi.fn()} />)
+    renderWithToaster(<AdminCourtSuggestions onExpired={vi.fn()} />)
     await ui.click(await screen.findByRole('button', { name: /Arena Sul/ }))
     const sheet = screen.getByRole('dialog', { name: 'Sugestão de quadra' })
     await ui.click(within(sheet).getByRole('button', { name: 'Publicar' }))
     await ui.click(within(sheet).getByRole('button', { name: 'Publicar quadra' }))
-    expect((await screen.findByRole('status')).textContent).toBe('Esta sugestão já foi decidida.')
+    expect((await findToast('Esta sugestão já foi decidida.')).closest('[data-tone]')?.getAttribute('data-tone')).toBe('warning')
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
     expect(await screen.findByText('Nada para analisar')).not.toBeNull()
     expect(api.find('GET', '/admin/court-suggestions?state=em_revisao')).toHaveLength(2)
@@ -160,7 +161,7 @@ describe('fila "Sugestões de quadra"', () => {
     mockApi(routes({ 'POST /admin/court-suggestions/41/decision': reply(401, { detail: 'Sessão expirada.' }) }))
     const onExpired = vi.fn()
     const ui = userEvent.setup()
-    render(<AdminCourtSuggestions onExpired={onExpired} />)
+    renderWithToaster(<AdminCourtSuggestions onExpired={onExpired} />)
     await ui.click(await firstRow())
     await ui.click(screen.getByRole('button', { name: 'Publicar' }))
     await ui.click(screen.getByRole('button', { name: 'Publicar quadra' }))
@@ -176,7 +177,7 @@ describe('fila "Sugestões de quadra"', () => {
       ]),
     }))
     const ui = userEvent.setup()
-    render(<AdminCourtSuggestions onExpired={vi.fn()} />)
+    renderWithToaster(<AdminCourtSuggestions onExpired={vi.fn()} />)
     await screen.findByRole('list', { name: 'Sugestões para analisar' })
     const first = screen.getByRole('tab', { name: 'Para analisar' })
     first.focus()
@@ -197,7 +198,7 @@ describe('fila "Sugestões de quadra"', () => {
     let ok = false
     mockApi({ 'GET /admin/court-suggestions?state=em_revisao': () => ok ? page([]) : apiError(500, 'Falha ao carregar.') })
     const ui = userEvent.setup()
-    render(<AdminCourtSuggestions onExpired={vi.fn()} />)
+    renderWithToaster(<AdminCourtSuggestions onExpired={vi.fn()} />)
     expect((await screen.findByRole('alert')).textContent).toContain('Falha ao carregar.')
     ok = true
     await ui.click(screen.getByRole('button', { name: 'Tentar novamente' }))
@@ -225,7 +226,7 @@ describe('fila "W.O. contestados"', () => {
 
   it('lista a partida, quem registrou e quem contestou', async () => {
     mockApi(routes())
-    render(<AdminWalkoverDisputes onExpired={vi.fn()} />)
+    renderWithToaster(<AdminWalkoverDisputes onExpired={vi.fn()} />)
     const list = await screen.findByRole('list', { name: 'W.O. para decidir' })
     const row = within(list).getByRole('button', { name: /Ferrugem FC × Tigres do Lago/ })
     expect(row.textContent).toContain('Society')
@@ -236,7 +237,7 @@ describe('fila "W.O. contestados"', () => {
   it('a folha mostra os dois lados, o motivo e o trecho do chat', async () => {
     const api = mockApi(routes())
     const ui = userEvent.setup()
-    render(<AdminWalkoverDisputes onExpired={vi.fn()} />)
+    renderWithToaster(<AdminWalkoverDisputes onExpired={vi.fn()} />)
     await ui.click(await screen.findByRole('button', { name: /Ferrugem FC × Tigres do Lago/ }))
     const sheet = screen.getByRole('dialog', { name: 'W.O. contestado' })
     expect(within(sheet).getByText('Quadra do Lago')).not.toBeNull()
@@ -260,7 +261,7 @@ describe('fila "W.O. contestados"', () => {
   it('mantém o W.O. com a justificativa obrigatória', async () => {
     const api = mockApi(routes({ 'POST /admin/matches/12/walkover-decision': { ...item, walkover: { ...item.walkover, decision: 'mantido' } } }))
     const ui = userEvent.setup()
-    render(<AdminWalkoverDisputes onExpired={vi.fn()} />)
+    renderWithToaster(<AdminWalkoverDisputes onExpired={vi.fn()} />)
     await ui.click(await screen.findByRole('button', { name: /Ferrugem FC × Tigres do Lago/ }))
     const sheet = screen.getByRole('dialog', { name: 'W.O. contestado' })
     await ui.click(within(sheet).getByRole('button', { name: 'Manter o W.O.' }))
@@ -270,7 +271,7 @@ describe('fila "W.O. contestados"', () => {
     expect(api.find('POST', '/admin/matches/12/walkover-decision')).toHaveLength(0)
     await ui.type(within(sheet).getByLabelText('Justificativa da decisão (os dois lados veem)'), ' O portão estava aberto, vale o registro. ')
     await ui.click(within(sheet).getAllByRole('button', { name: 'Manter o W.O.' })[0])
-    expect((await screen.findByRole('status')).textContent).toBe('W.O. mantido: vitória de Ferrugem FC por 3 × 0.')
+    expect((await findToast('W.O. mantido: vitória de Ferrugem FC por 3 × 0.')).closest('[data-tone]')?.getAttribute('data-tone')).toBe('success')
     expect(api.find('POST', '/admin/matches/12/walkover-decision')[0].body).toEqual({ decision: 'manter', reason: 'O portão estava aberto, vale o registro.' })
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
     expect(screen.getByText('Nenhum W.O. contestado')).not.toBeNull()
@@ -279,14 +280,14 @@ describe('fila "W.O. contestados"', () => {
   it('anula o W.O. e a partida fica sem resultado', async () => {
     const api = mockApi(routes({ 'POST /admin/matches/12/walkover-decision': { ...item, walkover: { ...item.walkover, decision: 'anulado' } } }))
     const ui = userEvent.setup()
-    render(<AdminWalkoverDisputes onExpired={vi.fn()} />)
+    renderWithToaster(<AdminWalkoverDisputes onExpired={vi.fn()} />)
     await ui.click(await screen.findByRole('button', { name: /Ferrugem FC × Tigres do Lago/ }))
     const sheet = screen.getByRole('dialog', { name: 'W.O. contestado' })
     await ui.click(within(sheet).getByRole('button', { name: 'Anular' }))
     expect(within(sheet).getByText(/A partida fica sem resultado e ninguém pontua/)).not.toBeNull()
     await ui.type(within(sheet).getByRole('textbox'), 'Os dois lados estavam no local.')
     await ui.click(within(sheet).getByRole('button', { name: 'Anular o W.O.' }))
-    expect((await screen.findByRole('status')).textContent).toBe('W.O. anulado: Ferrugem FC × Tigres do Lago ficou sem resultado.')
+    expect((await findToast('W.O. anulado: Ferrugem FC × Tigres do Lago ficou sem resultado.')).closest('[data-tone]')?.getAttribute('data-tone')).toBe('success')
     expect(api.find('POST', '/admin/matches/12/walkover-decision')[0].body).toEqual({ decision: 'anular', reason: 'Os dois lados estavam no local.' })
   })
 
@@ -295,7 +296,7 @@ describe('fila "W.O. contestados"', () => {
     const tennis = dispute({ match: disputeMatch({ id: 15, sport: 'tenis', format: null, sides: [athlete('a', 'Ana', 3), athlete('b', 'Bia', 4)] }) })
     mockApi({ 'GET /admin/walkover-disputes': page([tennis]), 'GET /matches/15/messages?limit=12': { items: [], has_more: false, last_id: null } })
     const ui = userEvent.setup()
-    render(<AdminWalkoverDisputes onExpired={vi.fn()} />)
+    renderWithToaster(<AdminWalkoverDisputes onExpired={vi.fn()} />)
     await ui.click(await screen.findByRole('button', { name: /Ana × Bia/ }))
     const sheet = screen.getByRole('dialog', { name: 'W.O. contestado' })
     expect(await within(sheet).findByText('Nenhuma mensagem no chat.')).not.toBeNull()
@@ -307,10 +308,10 @@ describe('fila "W.O. contestados"', () => {
     let ok = false
     mockApi(routes({ 'GET /matches/12/messages?limit=12': () => ok ? chat : apiError(403, 'O chat abre quando os dois lados aceitam a proposta.') }))
     const ui = userEvent.setup()
-    render(<AdminWalkoverDisputes onExpired={vi.fn()} />)
+    renderWithToaster(<AdminWalkoverDisputes onExpired={vi.fn()} />)
     await ui.click(await screen.findByRole('button', { name: /Ferrugem FC × Tigres do Lago/ }))
     const sheet = screen.getByRole('dialog', { name: 'W.O. contestado' })
-    expect((await within(sheet).findByText(/O chat abre quando os dois lados aceitam/)).getAttribute('role')).toBe('alert')
+    expect((await within(sheet).findByText(/O chat abre quando os dois lados aceitam/)).closest('[data-slot="load-error"]')?.getAttribute('role')).toBe('alert')
     expect(within(sheet).getByRole('button', { name: 'Manter o W.O.' })).not.toBeNull()
     ok = true
     await ui.click(within(sheet).getByRole('button', { name: 'Tentar novamente' }))
@@ -324,20 +325,20 @@ describe('fila "W.O. contestados"', () => {
       'POST /admin/matches/12/walkover-decision': apiError(409, 'Este W.O. não aguarda decisão.'),
     }))
     const ui = userEvent.setup()
-    render(<AdminWalkoverDisputes onExpired={vi.fn()} />)
+    renderWithToaster(<AdminWalkoverDisputes onExpired={vi.fn()} />)
     await ui.click(await screen.findByRole('button', { name: /Ferrugem FC × Tigres do Lago/ }))
     const sheet = screen.getByRole('dialog', { name: 'W.O. contestado' })
     await ui.click(within(sheet).getByRole('button', { name: 'Anular' }))
     await ui.type(within(sheet).getByRole('textbox'), 'Decisão repetida.')
     await ui.click(within(sheet).getByRole('button', { name: 'Anular o W.O.' }))
-    expect((await screen.findByRole('status')).textContent).toBe('Este W.O. não aguarda decisão.')
+    expect((await findToast('Este W.O. não aguarda decisão.')).closest('[data-tone]')?.getAttribute('data-tone')).toBe('warning')
     expect(await screen.findByText('Nenhum W.O. contestado')).not.toBeNull()
     expect(api.find('GET', '/admin/walkover-disputes')).toHaveLength(2)
   })
 
   it('fila vazia mostra o estado vazio', async () => {
     mockApi({ 'GET /admin/walkover-disputes': page([]) })
-    render(<AdminWalkoverDisputes onExpired={vi.fn()} />)
+    renderWithToaster(<AdminWalkoverDisputes onExpired={vi.fn()} />)
     expect(await screen.findByText('Nenhum W.O. contestado')).not.toBeNull()
   })
 })

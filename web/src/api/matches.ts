@@ -1,5 +1,5 @@
 import { request } from './client'
-import type { City, Person, Position } from './client'
+import type { City, Person, Position, RequestOptions } from './client'
 import type { TeamRef } from './events'
 import type { FootballFormat, TierKey } from '../data/arena'
 
@@ -250,13 +250,13 @@ export function listCourts({ cityId, kind, q, matchId }: CourtQuery) {
 export const suggestCourt = (input: CourtSuggestionInput) => request<CourtSuggestionResult>('/courts/suggestions', 'POST', input)
 
 export interface MessageQuery { after?: number; before?: number; limit?: number }
-export function getMessages(id: number, { after, before, limit }: MessageQuery = {}) {
+export function getMessages(id: number, { after, before, limit }: MessageQuery = {}, options?: RequestOptions) {
   const query = new URLSearchParams()
   if (after !== undefined) query.set('after', String(after))
   if (before !== undefined) query.set('before', String(before))
   if (limit !== undefined) query.set('limit', String(limit))
   const text = query.toString()
-  return request<MessagePage>(`/matches/${id}/messages${text ? `?${text}` : ''}`)
+  return request<MessagePage>(`/matches/${id}/messages${text ? `?${text}` : ''}`, 'GET', undefined, options)
 }
 export const sendMessage = (id: number, body: string) => request<MatchMessageOut>(`/matches/${id}/messages`, 'POST', { body: body.trim() })
 

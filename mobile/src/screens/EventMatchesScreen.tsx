@@ -4,10 +4,11 @@ import { listEventMatches, scheduleConflict, scheduleMatch } from '../api/bracke
 import type { EventMatchList, EventMatchRow, ScheduleConflict, ScheduleInput } from '../api/brackets'
 import { ApiError } from '../api/client'
 import { getOrganizerEvent } from '../api/events'
-import { ErrorText, LiveNotice, Notice, TextAction } from '../components/arena/controls'
+import { LoadError } from '../components/arena/LoadError'
 import { StateBadge } from '../components/arena/StateBadge'
 import { DarkTopBar, TeamsPlate } from '../components/arena/TeamsPlate'
 import { Icon } from '../components/Icon'
+import { toast } from '../components/toast/toastStore'
 import { TeamMark } from '../components/match/TeamMark'
 import { ScheduleSheet } from '../components/organizer/ScheduleSheet'
 import { rowBadge, rowNames, rowSubtitle } from '../components/organizer/scheduleRows'
@@ -15,8 +16,7 @@ import { whenText } from '../data/match'
 import { useResource } from '../hooks/useResource'
 import { useSubmit } from '../hooks/useSubmit'
 import type { ScreenProps } from '../navigation/screens'
-import { colors } from '../theme'
-import { announce } from '../utils/announce'
+import { useThemeColors } from '../hooks/useTheme'
 import { plural } from '../utils/format'
 
 /** Os contadores do alto da lista, na ordem do que o organizador faz primeiro. */
@@ -32,6 +32,7 @@ export function counters(counts: EventMatchList['counts']): { label: string; val
 
 /** Duas marcas lado a lado: o brasão (ou a foto) de quem joga, ou o escudo tracejado enquanto o lado espera o vencedor. */
 function RowMarks({ row }: { row: EventMatchRow }) {
+  const colors = useThemeColors()
   const [a, b] = (['a', 'b'] as const).map(key => row.card.sides.find(side => side.side === key))
   const ghost = <View style={{ width: 29, height: 29, borderRadius: 15, borderWidth: 1, borderStyle: 'dashed', borderColor: colors['ink-muted'], alignItems: 'center', justifyContent: 'center' }}>
     <Text style={{ color: colors['ink-muted'], fontSize: 11, fontWeight: '800' }}>?</Text>
@@ -43,6 +44,7 @@ function RowMarks({ row }: { row: EventMatchRow }) {
 }
 
 function MatchRow({ item, onPress }: { item: EventMatchRow; onPress: () => void }) {
+  const colors = useThemeColors()
   const [first, second] = rowNames(item)
   const badge = rowBadge(item)
   const interactive = item.awaiting_decision || item.can_schedule || item.card.sides.length === 2
@@ -59,7 +61,7 @@ function MatchRow({ item, onPress }: { item: EventMatchRow; onPress: () => void 
     </View>
     {interactive ? <Icon name="chevron" size={16} color={colors['ink-muted']} /> : null}
   </>
-  const frame = { minHeight: 60, flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 16, backgroundColor: '#ffffff', paddingHorizontal: 12, paddingVertical: 10 } as const
+  const frame = { minHeight: 60, flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 16, backgroundColor: colors.surface, paddingHorizontal: 12, paddingVertical: 10 } as const
   const label = `${item.label}, ${first} contra ${second}. ${subtitle}. ${badge.label}.`
   return interactive
     ? <Pressable testID={`match-${item.card.id}`} accessibilityRole="button" accessibilityLabel={label} onPress={onPress} style={frame}>{content}</Pressable>
@@ -74,6 +76,7 @@ function MatchRow({ item, onPress }: { item: EventMatchRow; onPress: () => void 
  * `409` que não é conflito de agenda ("resultado já definido", "já começou") relê a lista, e a mensagem do servidor fica visível.
  */
 export default function EventMatchesScreen({ params, navigation, onExpired }: ScreenProps<'event-matches'>) {
+  const colors = useThemeColors()
   const eventId = params.eventId
   const loadEvent = useCallback(() => getOrganizerEvent(eventId), [eventId])
   const loadMatches = useCallback(() => listEventMatches(eventId), [eventId])
@@ -82,7 +85,6 @@ export default function EventMatchesScreen({ params, navigation, onExpired }: Sc
   const action = useSubmit(onExpired)
   const [selected, setSelected] = useState<number | null>(params.matchId ?? null)
   const [conflict, setConflict] = useState<ScheduleConflict | null>(null)
-  const [status, setStatus] = useState('')
   const consumed = useRef(false)
   const { setData } = matches
 
@@ -106,27 +108,16 @@ export default function EventMatchesScreen({ params, navigation, onExpired }: Sc
   async function save(input: ScheduleInput) {
     if (!row) return
     setConflict(null)
-    let found: ScheduleConflict | null = null
-    let stale = false
-    const saved = await action.run(async () => {
-      try {
-        return await scheduleMatch(row.card.id, input)
-      } catch (cause) {
-        found = scheduleConflict(cause)
-        // 409 que não é conflito de agenda ("resultado já definido", "já começou"): a lista estava velha.
-        stale = cause instanceof ApiError && cause.status === 409 && found === null
-        throw cause
-      }
-    }, 'Não foi possível agendar a partida.')
-    if (!saved) {
+    // O conflito de agenda (409 com o jogo que conflita) fica na folha, como instrução. Um 409 que não é conflito ("resultado
+    // já definido", "já começou") mostra o aviso do servidor (toast) e relê a lista, que estava velha.
+    const saved = await action.run(() => scheduleMatch(row.card.id, input), 'Não foi possível agendar a partida.', async cause => {
+      const found = scheduleConflict(cause)
       setConflict(found)
-      if (stale) await reload()
-      return
-    }
+      if (cause instanceof ApiError && cause.status === 409 && found === null) await reload()
+    })
+    if (!saved) return
     setSelected(null)
-    const message = `${saved.label} ${row.card.starts_at ? 'reagendado' : 'agendado'} para ${whenText(saved.card.starts_at)}${saved.card.court ? ` em ${saved.card.court.name}` : ''}. Os dois elencos foram avisados.`
-    setStatus(message)
-    announce(message)
+    toast.success(`${saved.label} ${row.card.starts_at ? 'reagendado' : 'agendado'} para ${whenText(saved.card.starts_at)}${saved.card.court ? ` em ${saved.card.court.name}` : ''}.`, { description: 'Os dois elencos foram avisados.' })
     if (!await reload()) setData(old => old ? { ...old, items: old.items.map(item => item.card.id === saved.card.id ? saved : item) } : old)
   }
   /** Relê a lista sem esconder a tela; devolve se deu certo (a falha mantém a lista que já estava na tela). */
@@ -152,7 +143,7 @@ export default function EventMatchesScreen({ params, navigation, onExpired }: Sc
       {header}
       <View style={{ padding: 20 }}>
         {matches.loading ? <Text accessibilityLiveRegion="polite" style={{ color: colors['ink-muted'], fontSize: 12 }}>Carregando as partidas…</Text> : null}
-        {matches.error ? <View><Notice>{matches.error}</Notice><TextAction title="Tentar novamente" onPress={matches.reload} /></View> : null}
+        {matches.error ? <LoadError size="screen" title="Não foi possível carregar as partidas" text={matches.error} cause={matches.errorCause} onRetry={matches.reload} /> : null}
       </View>
     </View>
   }
@@ -163,11 +154,8 @@ export default function EventMatchesScreen({ params, navigation, onExpired }: Sc
     <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 48 }}>
       {header}
       <View style={{ padding: 16, gap: 12 }}>
-        <LiveNotice text={status} />
-        {action.error && !row ? <ErrorText>{action.error}</ErrorText> : null}
-
         {list.items.length === 0
-          ? <View style={{ alignItems: 'center', borderRadius: 16, backgroundColor: '#ffffff', padding: 20 }}>
+          ? <View style={{ alignItems: 'center', borderRadius: 16, backgroundColor: colors.surface, padding: 20 }}>
             <Icon name="calendar-days" size={24} color={colors['ink-muted']} />
             <Text accessibilityRole="header" style={{ marginTop: 6, color: colors.ink, fontSize: 14, fontWeight: '700' }}>Nenhuma partida ainda</Text>
             <Text style={{ marginTop: 4, color: colors['ink-muted'], fontSize: 12, lineHeight: 18, textAlign: 'center' }}>As partidas aparecem quando você confirma o chaveamento do campeonato.</Text>
@@ -175,7 +163,7 @@ export default function EventMatchesScreen({ params, navigation, onExpired }: Sc
           : <>
             {chips.length > 0 ? <View accessibilityRole="list" accessibilityLabel="Resumo das partidas" style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
               {chips.map(item => <View key={item.label} accessible accessibilityLabel={`${item.value} ${item.label}`}
-                style={{ minHeight: 28, justifyContent: 'center', borderRadius: 14, backgroundColor: item.hot ? colors['warning-bg'] : '#ffffff', paddingHorizontal: 10 }}>
+                style={{ minHeight: 28, justifyContent: 'center', borderRadius: 14, backgroundColor: item.hot ? colors['warning-bg'] : colors.surface, paddingHorizontal: 10 }}>
                 <Text style={{ color: item.hot ? colors.warning : colors['ink-muted'], fontSize: 10.5, fontWeight: '700' }}>
                   <Text style={{ fontSize: 11.5, fontWeight: '800' }}>{item.value}</Text>{` ${item.label}`}
                 </Text>

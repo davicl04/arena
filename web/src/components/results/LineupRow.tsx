@@ -60,7 +60,7 @@ export function LineupRow({ matchId, lineup, attendance, onAttendance, onUpdated
             type="button" role="checkbox" aria-checked={attendance.present} aria-label={`${user.name} jogou`}
             onClick={() => onAttendance({ ...attendance, present: !attendance.present })}
             className={cn('grid size-7 flex-none place-items-center rounded-lg border-[1.5px] border-solid text-[14px] font-bold',
-              attendance.present ? 'border-brand bg-brand text-white' : 'border-line-strong bg-white text-transparent')}
+              attendance.present ? 'border-brand bg-brand text-on-brand' : 'border-line-strong bg-field text-transparent')}
           >
             <Check size={15} aria-hidden="true" />
           </button>

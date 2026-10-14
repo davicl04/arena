@@ -1,4 +1,5 @@
 import React from 'react'
+import { act } from 'react-test-renderer'
 import type { ReactTestRenderer } from 'react-test-renderer'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiError } from '../src/api/client'
@@ -6,6 +7,7 @@ import { serverFieldErrors } from '../src/components/organizer/OrganizerRequestF
 import OrganizerRequestScreen from '../src/screens/OrganizerRequestScreen'
 import { byLabel, enableAct, press, textOf, type } from './support/native'
 import { approved, calls, city, mount, navigationMock, organizerRequest, otherCity, routeRequest, status } from './support/organizer'
+import { textWithin, toastText, toasts } from './support/toast'
 
 vi.mock('react-native', async () => (await import('./support/native')).reactNativeMock())
 vi.mock('expo-secure-store', () => ({ getItemAsync: vi.fn(), setItemAsync: vi.fn(), deleteItemAsync: vi.fn() }))
@@ -18,6 +20,12 @@ let navigation = navigationMock()
 const profiles = [{ id: 1, sport: 'futebol', city_id: 7, position: null, looking_for: false, is_public: false, level: null }]
 const baseRoutes = (over: Record<string, unknown> = {}) => ({ '/me/organizer-request': status(), '/cities': [city, otherCity], '/me/sports-profiles': profiles, ...over })
 const screen = () => mount(h(OrganizerRequestScreen, { navigation: navigation as never, onExpired, params: undefined, title: 'Seja organizador' } as never))
+/** Toca no botão (sem rótulo de acessibilidade) cujo texto é exatamente `text`, como o "Tentar novamente" do `LoadError`. */
+const pressText = async (tree: ReactTestRenderer, text: string) => {
+  const target = tree.root.findAllByType('Pressable' as never).find(entry => textWithin(entry) === text)
+  expect(target, `Pressable "${text}"`).toBeTruthy()
+  await act(async () => { target!.props.onPress() })
+}
 const state = (tree: ReactTestRenderer, label: string) => tree.root.findAllByType('Pressable' as never).find(entry => entry.props.accessibilityLabel === label)!.props.accessibilityState
 const fill = async (tree: ReactTestRenderer) => {
   await type(tree, 'Nome do organizador', '  Liga Candanga ')
@@ -139,14 +147,15 @@ describe('Seja organizador (P5): regras e formulário', () => {
     const tree = await screen()
     await fill(tree)
     await press(tree, 'Enviar pedido')
-    expect(textOf(tree)).toContain('Você já tem um pedido em análise.')
+    expect(toastText()).toContain('Você já tem um pedido em análise.')
+    expect(toasts().map(item => item.tone)).toEqual(['warning'])
     expect(textOf(tree)).not.toContain('Revise os campos destacados.')
     routeRequest(baseRoutes({ 'POST /me/organizer-request': () => { throw new ApiError('Sessão expirada', 401) } }))
     await press(tree, 'Enviar pedido')
     expect(onExpired).toHaveBeenCalledTimes(1)
     routeRequest(baseRoutes({ 'POST /me/organizer-request': () => { throw new Error('') } }))
     await press(tree, 'Enviar pedido')
-    expect(textOf(tree)).toContain('Não foi possível enviar o pedido.')
+    expect(toastText()).toContain('Não foi possível enviar o pedido.')
   })
 
   it('erros 422 sem lista de campos que citam o aceite ou a cidade vão para o campo', () => {
@@ -186,12 +195,12 @@ describe('Seja organizador (P5): quem já tem pedido ou permissão', () => {
   })
 
   it('falha ao conferir o pedido mostra o erro e não oferece o formulário; tentar de novo recarrega', async () => {
-    routeRequest(baseRoutes({ '/me/organizer-request': () => { throw new ApiError('Sem conexão', 0) } }))
+    routeRequest(baseRoutes({ '/me/organizer-request': () => { throw new ApiError('Servidor com problema', 500) } }))
     const tree = await screen()
-    expect(textOf(tree)).toContain('Sem conexão')
+    expect(textOf(tree)).toContain('Servidor com problema')
     expect(byLabel(tree, 'Pedido de organizador')).toHaveLength(0)
     routeRequest(baseRoutes())
-    await press(tree, 'Tentar novamente')
+    await pressText(tree, 'Tentar novamente')
     expect(byLabel(tree, 'Pedido de organizador')).toHaveLength(1)
   })
 

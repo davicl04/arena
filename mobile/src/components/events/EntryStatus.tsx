@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 import { Text, View } from 'react-native'
 import type { EventDetail, MyEntry } from '../../api/entries'
 import type { Receipt } from '../../api/events'
-import { colors } from '../../theme'
+import { useThemeColors } from '../../hooks/useTheme'
 import { formatDeadline, formatPrice, parseIso } from '../../utils/format'
 import { ReceiptImage } from '../arena/ReceiptImage'
 import { StatusCard, StatusCardButton } from '../arena/StatusCard'
@@ -60,6 +60,7 @@ export interface EntryStatusProps {
  * sem as ações do representante. O comprovante abre na própria tela (imagem autorizada; PDF, o aviso para abrir pela web).
  */
 export function EntryStatus({ entry, detail, hasPix, busy = false, token, onPayment, onConfirmRefund, onContestRefund }: EntryStatusProps) {
+  const colors = useThemeColors()
   const [receipt, setReceipt] = useState<'pagamento' | 'devolucao' | null>(null)
   const acting = entry.my_role === 'atleta' || entry.my_role === 'representante'
   const team = entry.subject.team
@@ -143,7 +144,7 @@ export function EntryStatus({ entry, detail, hasPix, busy = false, token, onPaym
 
   return <View accessibilityLabel="Sua inscrição" testID={`entry-${entry.state}`} style={{ gap: 8 }}>
     {card}
-    {shown ? <View style={{ gap: 6, borderRadius: 16, backgroundColor: '#ffffff', padding: 12 }}>
+    {shown ? <View style={{ gap: 6, borderRadius: 16, backgroundColor: colors.surface, padding: 12 }}>
       <Text accessibilityRole="header" style={{ color: colors.ink, fontSize: 12, fontWeight: '700' }}>{shown.kind === 'devolucao' ? 'Comprovante da devolução' : 'Comprovante enviado'}</Text>
       <ReceiptImage receipt={shown} token={token} title={shown.kind === 'devolucao' ? `Comprovante da devolução de ${detail.organizer.display_name}` : `Comprovante enviado por ${team?.name ?? shown.uploaded_by?.name ?? 'você'}`} />
     </View> : null}

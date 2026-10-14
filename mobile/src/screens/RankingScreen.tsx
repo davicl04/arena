@@ -1,153 +1,161 @@
-import { useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { ScrollView, Text, View } from 'react-native'
-import type { Position, Sport } from '../api/client'
-import type { RankingKey } from '../api/results'
-import { ActionButton, ChoicePills, TextAction, sportChoices } from '../components/arena/controls'
-import type { ChoiceOption } from '../components/arena/controls'
-import { TierEmblem } from '../components/arena/TierEmblem'
-import { SectionTabs } from '../components/events/SectionTabs'
+import type { Position, Profile, Sport } from '../api/client'
+import type { MyRankingOverviewLine, RankingOverview } from '../api/results'
+import { ActionButton, TextAction } from '../components/arena/controls'
+import { LoadError } from '../components/arena/LoadError'
 import { Icon } from '../components/Icon'
 import type { IconName } from '../components/Icon'
-import { MyRankingPlate, RankingRows } from '../components/ranking/RankingRows'
-import { useRanking } from '../components/ranking/useRanking'
+import { NotificationBell } from '../components/notifications/NotificationBell'
+import { rankedTier } from '../components/play/tierLines'
+import { CategoryCard } from '../components/ranking/CategoryCard'
+import { CategorySheet } from '../components/ranking/CategorySheet'
+import { activeSports, categoryOf, categoryShort, categoryText, rankingKeyOf, subjectNoun } from '../components/ranking/category'
+import type { CategoryChoice } from '../components/ranking/category'
+import { LegendsEntry } from '../components/ranking/LegendsEntry'
+import { PositionPlate } from '../components/ranking/PositionPlate'
+import { TeamSwitch } from '../components/ranking/TeamSwitch'
+import { TierPicker } from '../components/ranking/TierPicker'
+import { TierPlate } from '../components/ranking/TierPlate'
+import { emptyTierCounts } from '../components/ranking/tiers'
+import { useRankingOverview } from '../components/ranking/useRankingOverview'
 import { LoadState } from '../components/review/ui'
-import { footballFormat, footballFormats, positionOptions, rankingTiers, runDistances } from '../data/arena'
-import type { FootballFormat, RunDistance } from '../data/arena'
+import type { TierKey } from '../data/arena'
 import { loadProfiles } from '../hooks/useCities'
 import { useResource } from '../hooks/useResource'
 import { openUser } from '../navigation/openUser'
 import type { ScreenProps } from '../navigation/screens'
-import { colors } from '../theme'
-import { plural } from '../utils/format'
+import { useThemeColors } from '../hooks/useTheme'
 
-type Kind = 'time' | 'individual'
-const kinds: { value: Kind; label: string }[] = [
-  { value: 'time', label: 'Times' },
-  { value: 'individual', label: 'Individual' },
-]
-const formatChoices: ChoiceOption<FootballFormat>[] = footballFormats.map(item => ({ value: item.value, label: `${item.label} ${item.size}`, accessibilityLabel: `${item.label}, ${item.size}` }))
-const positionChoices: ChoiceOption<Position>[] = positionOptions.map(item => ({ value: item.value, label: item.label }))
-const distanceChoices: ChoiceOption<RunDistance>[] = runDistances.map(item => ({ value: item.value, label: item.label }))
-
-/** Chave do ranking mostrada, para os textos; a API devolve a mesma em `ranking`. */
-function rankingKey(sport: Sport, kind: Kind, distance: RunDistance): RankingKey {
-  if (sport === 'tenis') return 'tenis'
-  if (sport === 'corrida') return `corrida_${distance}`
-  return kind === 'time' ? 'futebol_time' : 'futebol_individual'
-}
-
-/** Estado vazio honesto da lista: sem ninguém classificado, sem pontos nem posições inventados. */
-function EmptyCard({ icon, title, text, action }: { icon: IconName; title: string; text: string; action?: ReactNode }) {
-  return <View testID="ranking-empty" style={{ alignItems: 'center', gap: 6, borderRadius: 16, backgroundColor: '#ffffff', padding: 22 }}>
-    <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 22, backgroundColor: colors['success-bg'] }}>
-      <Icon name={icon} size={22} color={colors.brand} />
+/** Estado vazio honesto: sem ninguém classificado, sem pontos nem posições inventados. */
+function EmptyCard({ icon, title, text, action, testID = 'ranking-empty' }: { icon: IconName; title: string; text: string; action?: ReactNode; testID?: string }) {
+  const c = useThemeColors()
+  return <View testID={testID} style={{ alignItems: 'center', gap: 6, borderRadius: 16, backgroundColor: c.surface, padding: 22 }}>
+    <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 22, backgroundColor: c['success-bg'] }}>
+      <Icon name={icon} size={22} color={c.brand} />
     </View>
-    <Text accessibilityRole="header" style={{ color: colors.ink, fontSize: 14, fontWeight: '700', textAlign: 'center' }}>{title}</Text>
-    <Text style={{ color: colors['ink-muted'], fontSize: 12, lineHeight: 18, textAlign: 'center' }}>{text}</Text>
+    <Text accessibilityRole="header" style={{ color: c.ink, fontSize: 14, fontWeight: '700', textAlign: 'center' }}>{title}</Text>
+    <Text style={{ color: c['ink-muted'], fontSize: 12, lineHeight: 18, textAlign: 'center' }}>{text}</Text>
     {action}
   </View>
 }
 
-/**
- * Tela Ranking: os elos de referência no topo e a lista **geral** (sem cidade) de `GET /rankings`, por modalidade. No
- * futebol, Times | Individual, o formato e, no individual, a posição; no tênis, a lista única; na corrida, a distância,
- * com o melhor tempo das últimas 52 semanas de cada atleta (menor vence). Cada linha traz o brasão do elo de quem já se
- * classificou; a linha de quem vê fica em destaque e a placa "Sua posição" mostra também quem ainda está em classificação
- * ("n de 3 partidas", sem elo). `params` abre já na modalidade (e, na corrida, na distância), como o "Ver ranking" de
- * "Suas marcas" e do Início. Só dados da API: lista vazia é estado vazio, nunca pontos de exemplo.
- */
-export default function RankingScreen({ user, navigation, params, onExpired }: ScreenProps<'ranking'>) {
-  const [sport, setSport] = useState<Sport>(params?.sport ?? 'futebol')
-  const [kind, setKind] = useState<Kind>('time')
-  const [format, setFormat] = useState<FootballFormat>('society')
-  const [chosenPosition, setChosenPosition] = useState<Position | null>(null)
-  const [distance, setDistance] = useState<RunDistance>(params?.distanceKm ?? 5)
+type Chosen = Omit<CategoryChoice, 'position'> & { position: Position | null }
+
+function RankingBody({ user, navigation, params, onExpired, available, profilePosition, reveal }: Pick<ScreenProps<'ranking'>, 'user' | 'navigation' | 'params' | 'onExpired'> & {
+  available: Sport[]
+  profilePosition: Position | null
+  reveal: (node: View | null) => void
+}) {
+  const startSport = params?.sport && available.includes(params.sport) ? params.sport : available[0]
+  const [chosen, setChosen] = useState<Chosen>({ sport: startSport, kind: 'time', format: 'society', position: null, distance: params?.distanceKm ?? 5 })
   // Pedido de abertura vindo de outra tela (a pilha mantém a tela quando só os parâmetros mudam): aplicado uma vez por pedido.
   const asked = `${params?.sport ?? ''}|${params?.distanceKm ?? ''}`
   const [applied, setApplied] = useState(asked)
   if (applied !== asked) {
     setApplied(asked)
-    if (params?.sport) setSport(params.sport)
-    if (params?.distanceKm) setDistance(params.distanceKm)
+    setChosen(old => ({
+      ...old,
+      sport: params?.sport && available.includes(params.sport) ? params.sport : old.sport,
+      distance: params?.distanceKm ?? old.distance,
+    }))
   }
-  // Posição do individual: a escolhida; senão a do perfil de futebol; senão atacante.
-  const profiles = useResource(loadProfiles, onExpired)
-  const profilePosition = Array.isArray(profiles.data) ? profiles.data.find(profile => profile.sport === 'futebol')?.position : null
-  const position: Position = chosenPosition ?? profilePosition ?? 'atacante'
+  const [sheet, setSheet] = useState(false)
+  const [teamId, setTeamId] = useState<number | null>(null)
+  const [tierPick, setTierPick] = useState<{ scope: string; tier: TierKey } | null>(null)
 
-  const football = sport === 'futebol'
-  const running = sport === 'corrida'
-  const ranking = useRanking(
-    football
-      ? { sport, kind, format, position: kind === 'individual' ? position : undefined }
-      : running ? { sport, distance_km: distance } : { sport },
-    onExpired,
-  )
-  const key = rankingKey(sport, kind, distance)
-  const page = ranking.page
-  const category = football
-    ? `${footballFormat[format].label}${kind === 'individual' ? ` · ${positionOptions.find(item => item.value === position)?.label}` : ''}`
-    : running ? `${distance} km` : 'Tênis'
-  const classified = page?.classified_count ?? 0
+  const choice: CategoryChoice = { ...chosen, position: chosen.position ?? profilePosition ?? 'atacante' }
+  const category = categoryOf(choice)
+  const ranking = rankingKeyOf(category)
+  const noun = subjectNoun(category)
+  const isTeams = category.sport === 'futebol' && category.kind === 'time'
+  const overview = useRankingOverview(category, isTeams ? teamId : null, onExpired)
+  const data: RankingOverview | null = overview.overview
+  const change = (patch: Partial<CategoryChoice>) => setChosen(old => ({ ...old, ...patch }))
 
-  return <ScrollView testID="ranking-screen" contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 6, paddingBottom: 32 }} keyboardShouldPersistTaps="handled">
-    <Text style={{ color: colors.brand, fontSize: 11, fontWeight: '800', letterSpacing: 2 }}>CADA JOGO CONTA</Text>
-    <Text accessibilityRole="header" style={{ marginTop: 3, color: colors.ink, fontSize: 28, fontWeight: '800' }}>Ranking</Text>
-    <Text style={{ marginTop: 4, marginBottom: 18, color: colors['ink-muted'], fontSize: 12, lineHeight: 19 }}>Reconstrua sua arena a cada elo.</Text>
+  const lines: MyRankingOverviewLine[] = data?.mine ?? []
+  const line: MyRankingOverviewLine | null = lines.find(item => item.team?.id === data?.selected_team_id) ?? lines[0] ?? null
+  const mineTier = rankedTier(line ?? undefined)
+  const teams = (data ?? overview.previous)?.mine.flatMap(item => item.team ? [item.team] : []) ?? []
+  const scope = overview.path
+  const shown: TierKey = tierPick?.scope === scope ? tierPick.tier : (mineTier ?? 'bronze')
+  const showTier = (tier: TierKey) => setTierPick({ scope, tier })
+  const openHall = () => navigation.go('legends', { category })
+  const counts = data?.tier_counts ?? emptyTierCounts
+  const teamName = isTeams ? line?.team?.name ?? null : null
 
-    <View accessibilityLabel="Elos do ranking" style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 10, marginBottom: 20 }}>
-      {rankingTiers.map(tier => <View key={tier.image} testID={`tier-${tier.image}`} accessible accessibilityLabel={`Elo ${tier.name}`}
-        style={{ width: '30.5%', alignItems: 'center', borderRadius: 12, backgroundColor: colors.forest, paddingHorizontal: 6, paddingVertical: 12 }}>
-        <TierEmblem tier={tier.image} size="xl" decorative />
-        <Text style={{ marginTop: 6, color: '#edebe2', fontSize: 11, fontWeight: '700' }}>{tier.name}</Text>
-      </View>)}
+  return <>
+    <CategoryCard sport={choice.sport} text={categoryText(category)} onOpen={() => setSheet(true)} />
+    {isTeams ? <TeamSwitch teams={teams} selectedId={data?.selected_team_id ?? teamId} onSelect={setTeamId} /> : null}
+    <View testID="ranking-panel" accessibilityLabel={`Ranking de ${categoryShort(category)}`} accessibilityState={{ busy: overview.loading }} style={{ gap: 14 }}>
+      {overview.loading
+        ? <LoadState loading error={null} onRetry={overview.reload} loadingText="Carregando ranking…" />
+        : overview.error || !data
+          ? <LoadError size="screen" title="Não foi possível carregar o ranking" text={overview.error} cause={overview.errorCause} onRetry={overview.reload} />
+          : <>
+            {data.classified_count > 0
+              ? <LegendsEntry count={data.tier_counts.lendario} preview={data.legends_preview} inHall={mineTier === 'lendario'} onOpen={openHall} />
+              : null}
+            {mineTier ? null
+              : <PositionPlate line={line} noTeam={isTeams && !lines.length} runKm={category.sport === 'corrida' ? category.distance_km ?? null : null} teamName={teamName}
+                onTeams={() => navigation.go('teams')} onRun={() => navigation.go('play')} />}
+            {data.classified_count > 0
+              ? <>
+                {mineTier ? null : <TierPicker value={shown} onChange={showTier} />}
+                <TierPlate key={`${scope}|${shown}`} category={category} ranking={ranking} tier={shown} counts={counts} mineTier={mineTier} line={line} window={data.window}
+                  teamName={teamName} noun={noun} onShow={showTier} onHall={openHall} onExpired={onExpired} onOpenUser={userId => openUser(navigation, user.id, userId)} reveal={reveal} />
+              </>
+              : category.sport === 'corrida'
+                ? <EmptyCard icon="timer" title={`Ninguém com marca nos ${categoryShort(category)} ainda`}
+                  text="O ranking usa o melhor tempo das últimas 52 semanas de cada atleta. A primeira marca já classifica."
+                  action={<TextAction title="Registrar uma corrida" onPress={() => navigation.go('play')} />} />
+                : <EmptyCard icon="trophy" title="Ninguém classificado ainda"
+                  text={`O ranking de ${categoryShort(category)} começa quando as primeiras partidas forem confirmadas. São ${data.required} partidas para sair da classificação.`} />}
+          </>}
     </View>
+    {sheet ? <CategorySheet available={available} value={choice} onChange={change} onClose={() => setSheet(false)} /> : null}
+  </>
+}
 
-    <View style={{ gap: 12 }}>
-      <ChoicePills label="Modalidade" options={sportChoices('light')} value={sport} onChange={setSport} />
-      {football ? <>
-        <SectionTabs label="Tipo de ranking" items={kinds} value={kind} onChange={setKind} />
-        <ChoicePills label="Formato" options={formatChoices} value={format} onChange={setFormat} />
-        {kind === 'individual' ? <ChoicePills label="Posição" options={positionChoices} value={position} onChange={setChosenPosition} /> : null}
-      </> : null}
-      {running ? <ChoicePills label="Distância" options={distanceChoices} value={distance} onChange={setDistance} /> : null}
+/**
+ * Tela Ranking: você no centro. A barra clara leva só o título e o sino (aba raiz, sem voltar). Abaixo: o cartão Categoria (abre
+ * a folha de filtros, só com as modalidades de perfil ativo), os chips dos times (ranking de Times com mais de um time ativo), a
+ * entrada do Salão dos Lendários e a placa contínua do elo, onde cada elo é um ranking próprio (posição de 1 ao último dentro
+ * do elo, sem posição geral). Quem está sem elo vê o estado da classificação e as faixas, com Bronze por padrão. Os dados vêm de
+ * `GET /rankings/overview` e, ao trocar de elo ou expandir, de `GET /rankings?tier=`. `params` abre já na modalidade (e, na
+ * corrida, na distância), como o "Ver ranking" de "Suas marcas" e do Início. Só dados da API: nada é de exemplo.
+ */
+export default function RankingScreen({ user, navigation, params, onExpired, notificationSummary }: ScreenProps<'ranking'>) {
+  const c = useThemeColors()
+  const profiles = useResource(loadProfiles, onExpired)
+  const list: Profile[] = Array.isArray(profiles.data) ? profiles.data : []
+  const available = activeSports(list)
+  const profilePosition = list.find(profile => profile.sport === 'futebol')?.position ?? null
+  const scroll = useRef<ScrollView>(null)
+  const content = useRef<View>(null)
+  // Depois de expandir o elo, leva a linha do titular à vista (a posição na tela é medida em relação ao conteúdo da rolagem).
+  const reveal = useCallback((node: View | null) => {
+    const base = content.current
+    if (!node || !base || typeof node.measureLayout !== 'function') return
+    node.measureLayout(base, (_x, y) => scroll.current?.scrollTo({ y: Math.max(0, y - 200), animated: true }), () => undefined)
+  }, [])
 
-      <View testID="ranking-panel" accessibilityLabel={`Ranking de ${category}`} style={{ gap: 12 }}>
-        {ranking.loading || ranking.error
-          ? <LoadState loading={ranking.loading} error={ranking.error || null} onRetry={ranking.reload} loadingText="Carregando ranking…" />
-          : page
-            ? <>
-              <MyRankingPlate lines={page.mine ?? []} ranking={key}
-                empty={football && kind === 'time'
-                  ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 8, borderRadius: 16, backgroundColor: '#ffffff', paddingLeft: 14, paddingVertical: 2, paddingRight: 8 }}>
-                    <Text style={{ color: colors['ink-muted'], fontSize: 12, lineHeight: 18 }}>Você ainda não faz parte de um time ativo.</Text>
-                    <TextAction title="Meus times" onPress={() => navigation.go('teams')} />
-                  </View>
-                  : undefined} />
-              {ranking.items.length
-                ? <View accessibilityLabel={`Ranking · ${category}`} style={{ gap: 8 }}>
-                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'baseline', justifyContent: 'space-between', gap: 4 }}>
-                    <Text accessibilityRole="header" style={{ color: colors.ink, fontSize: 14, fontWeight: '700' }}>{category}</Text>
-                    <Text style={{ color: colors['ink-muted'], fontSize: 10.5 }}>
-                      {plural(classified, 'classificado', 'classificados')}
-                      {page.legend_slots > 0 ? ` · ${plural(page.legend_slots, 'vaga', 'vagas')} de Lendário` : ''}
-                      {running ? ' · menor tempo vence' : ''}
-                    </Text>
-                  </View>
-                  <RankingRows items={ranking.items} ranking={key} onOpenUser={userId => openUser(navigation, user.id, userId)} />
-                  {ranking.moreError ? <Text accessibilityRole="alert" style={{ color: colors.error, fontSize: 12.5 }}>{ranking.moreError}</Text> : null}
-                  {ranking.hasMore ? <ActionButton tone="outline" block title={ranking.busy ? 'Carregando…' : 'Carregar mais'} accessibilityLabel="Carregar mais" busy={ranking.busy} onPress={() => void ranking.loadMore()} /> : null}
-                </View>
-                : running
-                  ? <EmptyCard icon="timer" title={`Ninguém com marca nos ${category} ainda`}
-                    text="O ranking usa o melhor tempo das últimas 52 semanas de cada atleta. A primeira marca já classifica."
-                    action={<TextAction title="Registrar uma corrida" onPress={() => navigation.go('play')} />} />
-                  : <EmptyCard icon="trophy" title="Ninguém classificado ainda"
-                    text={`O ranking de ${category} começa quando as primeiras partidas forem confirmadas. São ${page.required} partidas para sair da classificação.`} />}
-            </>
-            : null}
+  return <ScrollView ref={scroll} testID="ranking-screen" contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 14, paddingBottom: 32 }} keyboardShouldPersistTaps="handled">
+    <View ref={content} collapsable={false} style={{ gap: 14 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+        <Text accessibilityRole="header" style={{ color: c.heading, fontSize: 28, fontWeight: '800' }}>Ranking</Text>
+        <View style={{ marginRight: -8 }}><NotificationBell tone="light" count={notificationSummary.count} onOpen={() => navigation.go('notifications')} /></View>
       </View>
+      {profiles.loading
+        ? <LoadState loading error={null} onRetry={profiles.reload} loadingText="Carregando ranking…" />
+        : profiles.error
+          ? <LoadError size="screen" title="Não foi possível carregar o ranking" text={profiles.error} cause={profiles.errorCause} onRetry={profiles.reload} />
+          : available.length
+            ? <RankingBody user={user} navigation={navigation} params={params} onExpired={onExpired} available={available} profilePosition={profilePosition} reveal={reveal} />
+            : <EmptyCard testID="ranking-no-profile" icon="trophy" title="Você ainda não joga nenhuma modalidade"
+              text="O Ranking mostra os elos das modalidades em que você tem perfil ativo. Configure futebol, tênis ou corrida para entrar."
+              action={<View style={{ alignSelf: 'stretch', marginTop: 8 }}><ActionButton block title="Configurar modalidade" onPress={() => navigation.go('profile')} /></View>} />}
     </View>
   </ScrollView>
 }

@@ -37,7 +37,7 @@ function GoalsSide({ match, side, name, value, disabled, onChange }: {
   )
 }
 
-const choice = 'grid min-h-[78px] min-w-0 content-start justify-items-start gap-0.5 rounded-[14px] border-[1.5px] border-solid border-line-strong bg-white p-2.5 text-left text-ink aria-checked:border-brand aria-checked:bg-[#eaf5ed] aria-checked:shadow-[0_0_0_3px_#8fe0b455]'
+const choice = 'grid min-h-[78px] min-w-0 content-start justify-items-start gap-0.5 rounded-[14px] border-[1.5px] border-solid border-line-strong bg-surface p-2.5 text-left text-ink aria-checked:border-brand aria-checked:bg-[#eaf5ed] noite:aria-checked:bg-success-bg aria-checked:shadow-[0_0_0_3px_#8fe0b455]'
 
 /**
  * Escolha de uma opção entre cartões: `radiogroup` com foco só na opção escolhida (ou na primeira) e as setas movendo a
@@ -74,7 +74,8 @@ function ChoiceGroup<T extends string>({ label, items, value, disabled, onChange
 /**
  * Decisão do organizador (D3): o placar informado por um dos times, outro placar (contadores no futebol, sets no tênis) ou
  * W.O. (o lado ausente), e a justificativa obrigatória (5 a 500 caracteres), registrada e visível aos dois times. O servidor
- * decide se vale: na eliminação não há empate, e a mensagem dele aparece aqui sem fechar o formulário.
+ * decide se vale: na eliminação não há empate, e a mensagem dele sai como aviso de erro (toast) sem fechar o formulário;
+ * `error` só traz o que pertence ao formulário (campos recusados), e a validação local fica junto ao botão.
  */
 export function DecisionForm({ match, busy, error, onSubmit }: {
   match: MatchDetail
@@ -164,7 +165,7 @@ export function DecisionForm({ match, busy, error, onSubmit }: {
         tennis
           ? <TennisSets sets={sets} onPatch={patch} mineName={nameA} theirName={nameB} superTiebreak={superTiebreak} disabled={busy} />
           : (
-            <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-end gap-2 rounded-card bg-white p-3" role="group" aria-label="Placar em gols">
+            <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-end gap-2 surface rounded-card p-3 inset-ring inset-ring-surface-edge" role="group" aria-label="Placar em gols">
               <GoalsSide match={match} side="a" name={nameA} value={goals[0]} disabled={busy} onChange={value => setGoals(old => [value, old[1]])} />
               <span aria-hidden="true" className="pb-1 font-display text-[20px] font-extrabold text-ink-muted">×</span>
               <GoalsSide match={match} side="b" name={nameB} value={goals[1]} disabled={busy} onChange={value => setGoals(old => [old[0], value])} />
@@ -198,10 +199,8 @@ export function DecisionForm({ match, busy, error, onSubmit }: {
         </small>
       </div>
 
-      <div aria-live="polite" className="grid gap-2">
-        {error && <p className={cn(feedbackVariants(), 'my-0')} role="alert">{error}</p>}
-        {attempted && problem && !error && <p className={cn(feedbackVariants(), 'my-0')} role="alert">{problem}</p>}
-      </div>
+      {error && <p className={cn(feedbackVariants(), 'my-0')} role="alert">{error}</p>}
+      {attempted && problem && !error && <p className={cn(feedbackVariants(), 'my-0')} role="alert">{problem}</p>}
 
       <Button type="button" className="w-full" disabled={busy} onClick={submit}>
         <Gavel size={16} aria-hidden="true" />{busy ? 'Registrando…' : `Registrar ${summary}`}

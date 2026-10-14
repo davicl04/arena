@@ -1,14 +1,15 @@
 import { Pressable, Text, TextInput, View } from 'react-native'
 import type { TextInputProps } from 'react-native'
 import { cx, tw } from '../styles'
-import { colors } from '../theme'
+import { useThemeColors } from '../hooks/useTheme'
 
 export function Field({ label, ...props }: TextInputProps & { label: string }) {
+  const colors = useThemeColors()
   return <View><Text className={tw.label}>{label}</Text><TextInput accessibilityLabel={label} placeholderTextColor={colors.placeholder} className={tw.input} {...props} /></View>
 }
 
 const buttonTone = {
-  primary: { box: 'bg-brand', text: 'text-white' },
+  primary: { box: 'bg-brand', text: 'text-on-brand' },
   secondary: { box: 'bg-brand-soft', text: 'text-brand' },
 } as const
 

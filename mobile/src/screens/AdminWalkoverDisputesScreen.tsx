@@ -6,7 +6,8 @@ import type { WalkoverOut } from '../api/matches'
 import AdminGate from '../components/admin/AdminGate'
 import { TileRow } from '../components/admin/AdminMatchParts'
 import { matchTitle } from '../components/admin/adminMatchView'
-import { QueueBody, useNotice } from '../components/admin/QueueBody'
+import { QueueBody } from '../components/admin/QueueBody'
+import { toast } from '../components/toast/toastStore'
 import { WalkoverSheet, modality } from '../components/admin/WalkoverSheet'
 import { StateBadge } from '../components/arena/StateBadge'
 import { RowList } from '../components/review/Rows'
@@ -24,22 +25,22 @@ const rowLines = (match: DisputeMatch, walkover: WalkoverOut) => [
 function WalkoverDisputes({ onExpired }: { onExpired: () => void }) {
   const list = usePagedList<WalkoverDispute>(WALKOVER_DISPUTES_PATH, onExpired)
   const [open, setOpen] = useState<WalkoverDispute | null>(null)
-  const { notice, say, clear } = useNotice()
-  return <QueueBody hint="O lado que faltou disse que compareceu. Leia os dois relatos e o chat; a partida só fecha com a sua decisão." notice={notice}>
+  return <QueueBody hint="O lado que faltou disse que compareceu. Leia os dois relatos e o chat; a partida só fecha com a sua decisão.">
     <ListMessage list={list} loadingText="Carregando W.O. contestados…" emptyTitle="Nenhum W.O. contestado"
       emptyText="Quando um time contestar um W.O., ele aparece aqui e nas notificações." />
     {list.items.length > 0 ? <RowList label="W.O. para decidir">
       {list.items.map(item => <TileRow key={item.match.id} icon="gavel" title={matchTitle(item.match.sides)} lines={rowLines(item.match, item.walkover)}
-        badge={<StateBadge tone="pending">Aguarda decisão</StateBadge>} status="Aguarda decisão" onOpen={() => { setOpen(item); clear() }} />)}
+        badge={<StateBadge tone="pending">Aguarda decisão</StateBadge>} status="Aguarda decisão" onOpen={() => setOpen(item)} />)}
     </RowList> : null}
     <LoadMore list={list} label="Carregar mais W.O." />
     {open ? <WalkoverSheet dispute={open} onClose={() => setOpen(null)} onExpired={onExpired}
       onDecided={message => {
         list.setItems(old => old.filter(item => item.match.id !== open.match.id))
         setOpen(null)
-        say(message)
+        toast.success(message)
       }}
-      onStale={message => { setOpen(null); say(message); list.reload() }} /> : null}
+      // Já decidido (404/409): o toast de aviso mostra a mensagem; a fila relê.
+      onStale={() => { setOpen(null); list.reload() }} /> : null}
   </QueueBody>
 }
 

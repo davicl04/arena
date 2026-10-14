@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import AdminReports from '../src/components/AdminReports'
 import MatchPage from '../src/pages/MatchPage'
@@ -7,6 +7,7 @@ import { chatRows } from '../src/components/match/chatRows'
 import { mergeMessages } from '../src/hooks/useMatchChat'
 import { apiError, mockApi } from './teams-fixtures'
 import { arranging, caio, event, fromNow, marcos, matchDetail, message, mine, noPermissions, page, scheduled, tiago } from './match-fixtures'
+import { findToast, renderWithToaster } from './toast-utils'
 
 /*
  * Chat da partida (C1): lados, agrupamento, braçadeira, faixas de evento, mensagens removidas, leitura periódica com
@@ -23,7 +24,7 @@ type Routes = Parameters<typeof mockApi>[0]
 function renderChat(detail: ReturnType<typeof matchDetail>, routes: Routes = {}) {
   const api = mockApi({ 'GET /matches/1': detail, ...routes })
   const onExpired = vi.fn()
-  render(<MatchPage matchId={1} viewerId={1} onBack={vi.fn()} onExpired={onExpired} />)
+  renderWithToaster(<MatchPage matchId={1} viewerId={1} onBack={vi.fn()} onExpired={onExpired} />)
   return { ...api, onExpired }
 }
 const log = () => screen.findByRole('log', { name: 'Mensagens da partida' })
@@ -59,7 +60,7 @@ describe('lados, agrupamento e braçadeira', () => {
     // Adversário: à esquerda, bolhas brancas.
     expect(opponent.className).toContain('self-start')
     expect(opponent.dataset.side).toBe('b')
-    expect(Array.from(opponent.querySelectorAll('p')).every(bubble => bubble.className.includes('bg-white'))).toBe(true)
+    expect(Array.from(opponent.querySelectorAll('p')).every(bubble => bubble.className.includes('bg-surface'))).toBe(true)
     // Eu: à direita, verde-escuro com o nome "Você".
     expect(me.className).toContain('self-end')
     expect(me.dataset.mine).toBe('true')
@@ -137,7 +138,22 @@ describe('lados, agrupamento e braçadeira', () => {
     expect(await screen.findByText('Nenhuma mensagem ainda. Combinem dia, horário e quadra por aqui.')).not.toBeNull()
     cleanup()
     renderChat(matchDetail(), { 'GET /matches/1/messages': apiError(403, 'O chat abre quando os dois lados aceitam a proposta.') })
-    expect((await screen.findAllByRole('alert'))[0].textContent).toBe('O chat abre quando os dois lados aceitam a proposta.')
+    const alert = (await screen.findAllByRole('alert'))[0]
+    expect(alert.textContent).toContain('O chat abre quando os dois lados aceitam a proposta.')
+    expect(within(alert).getByRole('button', { name: 'Tentar novamente' })).not.toBeNull()
+  })
+
+  it('falha de conexão no carregamento fala em conexão e "Tentar novamente" lê de novo', async () => {
+    const user = userEvent.setup()
+    let reads = 0
+    const { find } = renderChat(matchDetail(), {
+      'GET /matches/1/messages': () => (++reads === 1 ? apiError(503, 'Serviço indisponível.') : page([message(1, { body: 'Chegou' })])),
+    })
+    const alert = await screen.findByRole('alert')
+    expect(alert.textContent).toContain('Sem conexão com a ARENA')
+    await user.click(within(alert).getByRole('button', { name: 'Tentar novamente' }))
+    expect(await screen.findByText('Chegou')).not.toBeNull()
+    expect(find('GET', '/matches/1/messages')).toHaveLength(2)
   })
 
   it('separa os dias com "Hoje" e "Ontem" e agrupa pelo lado', () => {
@@ -361,6 +377,21 @@ describe('envio', () => {
     expect((field as HTMLTextAreaElement).value.trim()).toBe('Oi')
   })
 
+  it('falha de conexão ao enviar não escreve mensagem no campo e guarda o texto para tentar de novo', async () => {
+    const user = userEvent.setup()
+    renderChat(matchDetail(), {
+      'GET /matches/1/messages': page([]),
+      'POST /matches/1/messages': apiError(503, 'Serviço indisponível.'),
+    })
+    const field = await screen.findByLabelText('Mensagem')
+    const live = field.getAttribute('aria-describedby')!
+    await user.type(field, 'Oi')
+    await user.click(screen.getByRole('button', { name: 'Enviar mensagem' }))
+    await waitFor(() => expect((screen.getByRole('button', { name: 'Enviar mensagem' }) as HTMLButtonElement).disabled).toBe(false))
+    expect(document.getElementById(live)!.textContent).toBe('')
+    expect((field as HTMLTextAreaElement).value).toBe('Oi')
+  })
+
   it('o campo respeita o limite de 1000 caracteres', async () => {
     renderChat(matchDetail(), { 'GET /matches/1/messages': page([]) })
     expect((await screen.findByLabelText('Mensagem')).getAttribute('maxlength')).toBe('1000')
@@ -392,11 +423,11 @@ describe('denúncia', () => {
     await user.click(within(glass).getByRole('radio', { name: /Spam/ }))
     await user.click(sendReport)
     expect(find('POST', '/reports')[0].body).toEqual({ target_type: 'match_message', target_id: 12, reason: 'spam' })
-    expect(await screen.findByText('Denúncia enviada para análise.')).not.toBeNull()
+    expect(await findToast('Denúncia enviada para análise.')).not.toBeNull()
     expect(screen.queryByRole('dialog', { name: 'Denunciar mensagem' })).toBeNull()
   })
 
-  it('o erro da denúncia fica no formulário, que continua aberto', async () => {
+  it('o erro da denúncia vira aviso e o formulário continua aberto', async () => {
     const user = userEvent.setup()
     renderChat(matchDetail(), {
       'GET /matches/1/messages': page([message(12, { body: 'Mensagem' })]),
@@ -406,7 +437,8 @@ describe('denúncia', () => {
     const glass = await screen.findByRole('dialog', { name: 'Denunciar mensagem' })
     await user.click(within(glass).getByRole('radio', { name: /Assédio/ }))
     await user.click(within(glass).getByRole('button', { name: 'Enviar denúncia' }))
-    expect(await within(glass).findByText('Conteúdo não encontrado.')).not.toBeNull()
+    expect(await findToast('Conteúdo não encontrado.')).not.toBeNull()
+    expect(screen.getByRole('dialog', { name: 'Denunciar mensagem' })).toBeTruthy()
     await user.click(within(glass).getByRole('button', { name: 'Fechar' }))
     expect(screen.queryByRole('dialog', { name: 'Denunciar mensagem' })).toBeNull()
   })
@@ -446,7 +478,7 @@ describe('fila de denúncias da administração', () => {
         created_at: '2026-10-12T14:00:00Z', target_user_id: 5, target_user_active: true,
         target_preview: { body: 'Mensagem ofensiva', removed: false, author: 'Marcos Ribeiro', match_id: 1, match: 'Ferrugem FC × Leões do Cerrado' } }] },
     })
-    render(<AdminReports onExpired={vi.fn()} />)
+    renderWithToaster(<AdminReports onExpired={vi.fn()} />)
     expect(await screen.findByText('Mensagem da partida · #12')).not.toBeNull()
     expect(screen.getByText('Mensagem ofensiva')).not.toBeNull()
     expect(screen.getByText('Marcos Ribeiro')).not.toBeNull()

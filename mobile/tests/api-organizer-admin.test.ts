@@ -39,7 +39,7 @@ describe('cliente do organizador, da administração, das notificações e das p
       ['/admin/events/3/decision', 'POST', { decision: 'aprovar' }],
       ['/admin/events/3/revocation-decision', 'POST', { decision: 'cancelar', reason: 'Organizador revogado' }],
       ['/admin/entries/12/refund-decision', 'POST', { decision: 'devolvida', reason: 'Comprovante conferido' }],
-      ['/me/notifications/unread-count'],
+      ['/me/notifications/unread-count', 'GET', undefined, { background: true }],
       ['/me/notifications/5/read', 'PUT', {}],
       ['/me/notifications/read-all', 'PUT', {}],
       ['/me/standings'],

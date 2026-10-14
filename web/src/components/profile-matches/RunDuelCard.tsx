@@ -12,7 +12,7 @@ export function RunDuelCard({ run }: { run: TimelineRun }) {
   const badge = markBadge(run.mark_kind)
   const compared = run.standard_distance_km !== null
   return <article data-slot="run-duel-card" aria-label={`Corrida de ${formatKm(run.distance_m)} em ${formatDuration(run.duration_s)}`}
-    className="grid gap-2 overflow-hidden rounded-card border border-solid border-line bg-white px-3 py-2.5 shadow-card">
+    className="grid gap-2 overflow-hidden rounded-card border border-solid border-line surface px-3 py-2.5 shadow-card noite:border-surface-edge">
     <div className="flex items-start justify-between gap-2">
       <small className="min-w-0 text-[10.5px] leading-normal wrap-anywhere text-ink-muted">{formatRunDate(run.date)} · {runOriginText(run)}</small>
       {badge && <StateBadge tone={badge.tone} className="flex-none">{badge.label}</StateBadge>}

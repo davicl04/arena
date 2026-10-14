@@ -1,5 +1,5 @@
 import { Text, View } from 'react-native'
-import { ActionButton, LiveNotice } from '../arena/controls'
+import { ActionButton } from '../arena/controls'
 import { RunSavedCard } from './RunSavedCard'
 import { useRunEntry } from './useRunEntry'
 import type { RunPartProps } from './useRunEntry'
@@ -18,7 +18,6 @@ export function RunPlateActions(props: RunPartProps) {
     <Text style={{ maxWidth: 300, textAlign: 'center', color: 'rgba(255,255,255,0.8)', fontSize: 11.5, lineHeight: 18 }}>
       Treino ou prova do Arena: o melhor tempo das últimas 52 semanas de cada distância vale no ranking.
     </Text>
-    <View style={{ alignSelf: 'stretch' }}><LiveNotice text={run.notice} /></View>
     {run.saved ? <View style={{ alignSelf: 'stretch' }}><RunSavedCard created={run.saved} onDismiss={run.dismiss} /></View> : null}
     {run.sheet}
   </View>

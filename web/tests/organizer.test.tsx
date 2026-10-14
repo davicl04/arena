@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
+import { cleanup, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ApiError, request } from '../src/api/client'
 import type { City, Profile } from '../src/api/client'
@@ -9,6 +9,7 @@ import MenuPage from '../src/pages/MenuPage'
 import OrganizerRequestPage from '../src/pages/OrganizerRequestPage'
 import type { OrganizerEventCard } from '../src/api/events'
 import { eventCard } from './events-fixtures'
+import { findToast, renderWithToaster } from './toast-utils'
 
 vi.mock('../src/api/client', async original => ({
   ...await original<typeof import('../src/api/client')>(),
@@ -40,7 +41,7 @@ function renderMenu({ isAdmin = false } = {}) {
     onPaidEvents: vi.fn(), onRevokedEvents: vi.fn(), onRefundDisputes: vi.fn(),
     onNotifications: vi.fn(), onLogout: vi.fn(), onExpired: vi.fn(), onOrganizerEvents: vi.fn(), onOpenEvent: vi.fn(), onNewEvent: vi.fn(),
   }
-  render(<MenuPage isAdmin={isAdmin} busy={false} {...props} />)
+  renderWithToaster(<MenuPage isAdmin={isAdmin} busy={false} {...props} />)
   return props
 }
 
@@ -74,7 +75,7 @@ describe('cartão "Organizar no Arena" no Menu', () => {
     await ui.click(within(card).getByRole('button', { name: 'Cancelar pedido' }))
     await ui.click(within(card).getAllByRole('button', { name: 'Cancelar pedido' }).at(-1)!)
     await waitFor(() => expect(request).toHaveBeenCalledWith('/me/organizer-request', 'DELETE'))
-    expect((await screen.findByRole('status')).textContent).toContain('Pedido cancelado')
+    expect(await findToast('Pedido cancelado.')).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Quero organizar' })).not.toBeNull()
   })
 
@@ -88,7 +89,7 @@ describe('cartão "Organizar no Arena" no Menu', () => {
     renderMenu()
     await ui.click(await screen.findByRole('button', { name: 'Cancelar pedido' }))
     await ui.click(screen.getAllByRole('button', { name: 'Cancelar pedido' }).at(-1)!)
-    expect((await screen.findByRole('alert')).textContent).toBe('Nenhum pedido em análise.')
+    expect(await findToast('Nenhum pedido em análise.')).toBeTruthy()
     expect(screen.getByText('Pedido em análise')).not.toBeNull()
   })
 
@@ -198,7 +199,7 @@ describe('cartão "Organizar no Arena" no Menu', () => {
   it('mostra o erro ao carregar o estado do pedido e tenta de novo', async () => {
     let fail = true
     vi.mocked(request).mockImplementation(async () => {
-      if (fail) throw new ApiError('Serviço indisponível.', 503)
+      if (fail) throw new ApiError('Serviço indisponível.', 500)
       return status('sem_pedido') as never
     })
     renderMenu()
@@ -218,7 +219,7 @@ describe('pedido de organizador (P5)', () => {
       throw new Error(`rota inesperada ${path}`)
     })
     const onBack = vi.fn()
-    render(<OrganizerRequestPage cities={[brasilia, goiania]} profiles={profiles} onBack={onBack} onExpired={vi.fn()} />)
+    renderWithToaster(<OrganizerRequestPage cities={[brasilia, goiania]} profiles={profiles} onBack={onBack} onExpired={vi.fn()} />)
     return onBack
   }
 
@@ -279,7 +280,7 @@ describe('pedido de organizador (P5)', () => {
     await ui.type(screen.getByLabelText('Contato'), 'liga@example.com')
     await ui.click(screen.getByRole('checkbox'))
     await ui.click(screen.getByRole('button', { name: 'Enviar pedido' }))
-    expect((await screen.findByRole('alert')).textContent).toBe('Você já tem um pedido em análise.')
+    expect(await findToast('Você já tem um pedido em análise.')).toBeTruthy()
     expect(screen.queryByText('Pedido enviado')).toBeNull()
   })
 

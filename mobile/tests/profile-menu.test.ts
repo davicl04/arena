@@ -10,7 +10,7 @@ import { searchAthletes } from './support/native'
 vi.mock('react-native', async () => (await import('./support/native')).reactNativeMock())
 vi.mock('react-native-safe-area-context', async () => {
   const ReactModule = await import('react')
-  return { SafeAreaView: ({ children, ...props }: Record<string, unknown>) => ReactModule.createElement('SafeAreaView', props, children as React.ReactNode) }
+  return { useSafeAreaInsets: () => ({ top: 0, right: 0, bottom: 0, left: 0 }), SafeAreaView: ({ children, ...props }: Record<string, unknown>) => ReactModule.createElement('SafeAreaView', props, children as React.ReactNode) }
 })
 vi.mock('expo-image-picker', () => ({ launchImageLibraryAsync: vi.fn(), ImagePickerResult: undefined }))
 vi.mock('../src/components/SportCard', () => ({ default: () => null }))
@@ -73,11 +73,31 @@ describe('menu do perfil', () => {
     for (const expected of ['"Menu"', '"CONTA"', '"APP"', '"Sair da conta"']) expect(text).toContain(expected)
     expect(pressables(tree, 'Editar perfil')).toHaveLength(2)
     expect(pressables(tree, 'Minhas modalidades')).toHaveLength(1)
-    expect(pressables(tree, 'Notificações: Em breve')[0].props.onPress).toBeUndefined()
+    // Sem a abertura das Notificações (entregue pelo shell), a linha não leva a lugar nenhum.
+    expect(pressables(tree, 'Notificações')[0].props.onPress).toBeUndefined()
     expect(pressables(tree, `Sobre o ARENA: Versão ${appVersion}`)).toHaveLength(1)
     expect(text).not.toContain('Denúncias')
     expect(text).not.toContain('MODERAÇÃO')
     await act(async () => { tree.unmount() })
+  })
+
+  it('o sino abre as Notificações com o número de novas, ao lado do Menu, só no perfil próprio; a linha do Menu mostra o mesmo número', async () => {
+    const onOpenNotifications = vi.fn()
+    const tree = await mount({ notificationCount: 12, onOpenNotifications })
+    expect(pressables(tree, 'Notificações, 12 novas')).toHaveLength(1)
+    expect(texts(tree)).toContain('"9+"')
+    expect(pressables(tree, 'Menu')).toHaveLength(1)
+    await press(tree, 'Notificações, 12 novas')
+    expect(onOpenNotifications).toHaveBeenCalledTimes(1)
+    await press(tree, 'Menu')
+    await press(tree, 'Notificações: 12')
+    expect(onOpenNotifications).toHaveBeenCalledTimes(2)
+    // A folha do Menu fecha antes de abrir as Notificações.
+    expect(pressables(tree, 'Sair da conta')).toHaveLength(0)
+    await act(async () => { tree.unmount() })
+    const quiet = await mount({ notificationCount: 0, onOpenNotifications })
+    expect(pressables(quiet, 'Notificações')).toHaveLength(1)
+    expect(texts(quiet)).not.toContain('"9+"')
   })
 
   it('Editar perfil pelo menu volta ao menu; pelo selo do avatar apenas fecha', async () => {

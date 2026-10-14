@@ -29,6 +29,9 @@ POSITION_STAT_CAP = Decimal(4)
 TENNIS_WIN_POINTS = 10
 WINDOW_WEEKS = 52
 AVERAGE_QUANTUM = Decimal('0.001')
+# Recent form (Ranking screen): the last results of a subject, oldest first, as stored in `standings.recent_form`.
+FORM_LENGTH = 5
+FORM_LETTERS = {'vitoria': 'V', 'empate': 'E', 'derrota': 'D'}
 
 
 def outcome_for(side: str, winner: str | None) -> str:
@@ -38,6 +41,21 @@ def outcome_for(side: str, winner: str | None) -> str:
     if winner is None:
         return 'empate'
     return 'vitoria' if winner == side else 'derrota'
+
+
+def score_outcome(points_for: int, points_against: int, *, draws: bool = True) -> str:
+    """'vitoria', 'empate' or 'derrota' from the score of one side; without draws (tennis) a tie is a loss, as in
+    `tennis_record`."""
+    if points_for > points_against:
+        return 'vitoria'
+    return 'empate' if draws and points_for == points_against else 'derrota'
+
+
+def recent_form(outcomes: Iterable[tuple[datetime, int, str]], limit: int = FORM_LENGTH) -> str:
+    """Last `limit` results as letters ('V', 'E', 'D'), the oldest first: `outcomes` are (match start, match id,
+    outcome) and are ordered by start, then id, so the sequence does not depend on how they were loaded."""
+    latest = sorted(outcomes, key=lambda item: (item[0], item[1]))[-limit:] if limit > 0 else []
+    return ''.join(FORM_LETTERS[outcome] for _, _, outcome in latest)
 
 
 def team_points(outcome: str) -> int:
@@ -117,6 +135,7 @@ class TeamRecord:
     losses: int = 0
     goals_for: int = 0
     goals_against: int = 0
+    form: str = ''
 
     @property
     def points(self) -> int:
@@ -131,8 +150,8 @@ class TeamRecord:
         return Decimal(self.points)
 
 
-def team_record(subject_id: int, games: Iterable[tuple[int, int]]) -> TeamRecord:
-    """Record from (goals for, goals against) of each confirmed match in the window."""
+def team_record(subject_id: int, games: Iterable[tuple[int, int]], *, form: str = '') -> TeamRecord:
+    """Record from (goals for, goals against) of each confirmed match in the window; `form` is `recent_form`."""
     wins = draws = losses = scored = conceded = matches = 0
     for goals_for, goals_against in games:
         matches += 1
@@ -144,7 +163,7 @@ def team_record(subject_id: int, games: Iterable[tuple[int, int]]) -> TeamRecord
             draws += 1
         else:
             losses += 1
-    return TeamRecord(subject_id, matches, wins, draws, losses, scored, conceded)
+    return TeamRecord(subject_id, matches, wins, draws, losses, scored, conceded, form)
 
 
 def team_order(record: TeamRecord) -> tuple:
@@ -160,6 +179,7 @@ class IndividualRecord:
     wins: int = 0
     draws: int = 0
     losses: int = 0
+    form: str = ''
 
     @property
     def average(self) -> Decimal:
@@ -172,8 +192,10 @@ class IndividualRecord:
         return self.average
 
 
-def individual_record(subject_id: int, appearances: Iterable[tuple[str, IndividualPoints]]) -> IndividualRecord:
-    """Record from (outcome, points) of each counted appearance in one position and format (RN11)."""
+def individual_record(subject_id: int, appearances: Iterable[tuple[str, IndividualPoints]], *,
+                      form: str = '') -> IndividualRecord:
+    """Record from (outcome, points) of each counted appearance in one position and format (RN11); `form` is
+    `recent_form` of those appearances."""
     total = Decimal(0)
     tally = {'vitoria': 0, 'empate': 0, 'derrota': 0}
     matches = 0
@@ -181,7 +203,7 @@ def individual_record(subject_id: int, appearances: Iterable[tuple[str, Individu
         matches += 1
         total += points.total
         tally[outcome] += 1
-    return IndividualRecord(subject_id, matches, total, tally['vitoria'], tally['empate'], tally['derrota'])
+    return IndividualRecord(subject_id, matches, total, tally['vitoria'], tally['empate'], tally['derrota'], form)
 
 
 def individual_order(record: IndividualRecord) -> tuple:
@@ -198,6 +220,7 @@ class TennisRecord:
     sets_for: int = 0
     sets_against: int = 0
     bonus: int = 0              # championship placement bonus (RN16), added by the championship phase
+    form: str = ''
 
     @property
     def points(self) -> int:
@@ -208,8 +231,9 @@ class TennisRecord:
         return Decimal(self.points)
 
 
-def tennis_record(subject_id: int, games: Iterable[tuple[int, int]], *, bonus: int = 0) -> TennisRecord:
-    """Record from (sets won, sets lost) of each confirmed match in the window."""
+def tennis_record(subject_id: int, games: Iterable[tuple[int, int]], *, bonus: int = 0,
+                  form: str = '') -> TennisRecord:
+    """Record from (sets won, sets lost) of each confirmed match in the window; `form` is `recent_form`."""
     wins = losses = won = lost = matches = 0
     for sets_won, sets_lost in games:
         matches += 1
@@ -219,7 +243,7 @@ def tennis_record(subject_id: int, games: Iterable[tuple[int, int]], *, bonus: i
             wins += 1
         else:
             losses += 1
-    return TennisRecord(subject_id, matches, wins, losses, won, lost, bonus)
+    return TennisRecord(subject_id, matches, wins, losses, won, lost, bonus, form)
 
 
 def tennis_order(record: TennisRecord) -> tuple:
@@ -275,7 +299,8 @@ def rank_records(records: Sequence[R], *, cuts: Cuts, order: Callable[[R], tuple
 
 def standing_fields(placement: Placement, *, calc_version: int) -> dict:
     """Column values of a `standings` row for one placement (goals for teams, sets for tennis, none for the
-    individual ranking, whose metric is the average, nor for running, whose metric is the best time)."""
+    individual ranking, whose metric is the average, nor for running, whose metric is the best time). The recent
+    form is empty in running, which has the day of the best mark instead."""
     record = placement.record
     return {
         'metric_value': placement.metric_value, 'matches_played': placement.matches_played,
@@ -284,4 +309,5 @@ def standing_fields(placement: Placement, *, calc_version: int) -> dict:
         'losses': getattr(record, 'losses', 0),
         'goals_for': getattr(record, 'goals_for', getattr(record, 'sets_for', 0)),
         'goals_against': getattr(record, 'goals_against', getattr(record, 'sets_against', 0)),
+        'recent_form': getattr(record, 'form', ''), 'best_mark_on': getattr(record, 'achieved_on', None),
     }

@@ -7,10 +7,11 @@ import { usePullToRefresh } from '../hooks/usePullToRefresh'
 import { ArenaMark } from './Brand'
 import CommunityFeed from './CommunityFeed'
 import CommunityPeople from './CommunityPeople'
+import { NotificationBell } from './notifications/NotificationBell'
 import PostComposer from './PostComposer'
 import { buttonVariants } from '@/components/ui/button-variants'
-import { feedbackVariants } from '@/components/ui/feedback'
 import { Tabs } from '@/components/ui/tabs'
+import { toast } from '@/components/ui/toast'
 import { cn } from '@/lib/utils'
 
 const tabs = [
@@ -26,10 +27,14 @@ const TITLE_ROW = 54
  * Ao rolar para baixo, o título recolhe e só as abas ficam. O feed atualiza ao ser puxado no topo (com um botão
  * visível só no foco, para o teclado). A rolagem é a do `main` do app, onde a seção é montada.
  */
-export default function SocialCommunity({ viewerId, onOpenUser, onExpired, composeOnOpen = false, onComposeStarted }: {
+export default function SocialCommunity({ viewerId, onOpenUser, onExpired, notificationCount = 0, onNotifications, composeOnOpen = false, onComposeStarted }: {
   viewerId: number
   onOpenUser: (id: number) => void
   onExpired: () => void
+  /** Não lidas mais pedidos para seguir (resumo das notificações do ArenaPage): o número do sino. */
+  notificationCount?: number
+  /** Abre a tela de notificações; sem ele, a barra não mostra o sino. */
+  onNotifications?: () => void
   /** Abre direto a nova publicação (quadro "Nova foto" do perfil). */
   composeOnOpen?: boolean
   /** Consome o pedido de abertura sem remontar a Comunidade. */
@@ -39,7 +44,6 @@ export default function SocialCommunity({ viewerId, onOpenUser, onExpired, compo
   const [composing, setComposing] = useState(composeOnOpen)
   const [query, setQuery] = useState('')
   const [search, setSearch] = useState('')
-  const [notice, setNotice] = useState('')
   const [tucked, setTucked] = useState(false)
   const [scroller, setScroller] = useState<HTMLElement | null>(null)
   const rootRef = useCallback((node: HTMLElement | null) => setScroller(node?.closest('main') ?? null), [])
@@ -55,11 +59,6 @@ export default function SocialCommunity({ viewerId, onOpenUser, onExpired, compo
     const timer = setTimeout(() => setSearch(query.trim()), 300)
     return () => clearTimeout(timer)
   }, [query])
-  useEffect(() => {
-    if (!notice) return
-    const timer = setTimeout(() => setNotice(''), 4000)
-    return () => clearTimeout(timer)
-  }, [notice])
   useEffect(() => {
     if (!scroller) return
     let last = scroller.scrollTop
@@ -88,7 +87,7 @@ export default function SocialCommunity({ viewerId, onOpenUser, onExpired, compo
   }
   function published(post: Post) {
     feed.setItems(old => [post, ...old])
-    setComposing(false); setTab('feed'); setNotice('Publicação compartilhada.')
+    setComposing(false); setTab('feed'); toast.success('Publicação compartilhada.')
     scroller?.scrollTo?.({ top: 0 })
   }
 
@@ -98,6 +97,7 @@ export default function SocialCommunity({ viewerId, onOpenUser, onExpired, compo
       <div className="flex h-[54px] items-center gap-2.5 pr-2 pl-[18px]">
         <ArenaMark className="h-[22px] w-[30px] text-mint" />
         <h1 className="flex-1 text-[17px] text-white">Comunidade</h1>
+        {onNotifications && <NotificationBell tone="dark" count={notificationCount} onOpen={onNotifications} />}
         <button type="button" className="grid size-[38px] place-items-center rounded-full border-0 bg-mint text-night" aria-label="Nova publicação"
           onClick={() => setComposing(true)}><Plus size={20} /></button>
       </div>
@@ -120,7 +120,6 @@ export default function SocialCommunity({ viewerId, onOpenUser, onExpired, compo
           {pull > 0 && <span className="flex items-center gap-1.5"><ArrowDown size={16} className={cn('motion-safe:transition-transform', ready && 'rotate-180')} />
             {ready ? 'Solte para atualizar' : 'Puxe para atualizar'}</span>}
         </div>
-        {notice && <p className={cn(feedbackVariants({ tone: 'success' }), 'mx-4 mt-3')} role="status">{notice}</p>}
         <CommunityFeed feed={feed} viewerId={viewerId} scroller={scroller} onOpenUser={onOpenUser} onExpired={onExpired}
           onCompose={() => setComposing(true)} onSearch={() => changeTab('people')} />
       </> : <CommunityPeople viewerId={viewerId} query={search} onOpenUser={onOpenUser} onExpired={onExpired} />}

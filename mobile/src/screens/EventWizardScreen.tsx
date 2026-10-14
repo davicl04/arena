@@ -5,6 +5,7 @@ import { createEvent, getOrganizerEvent, submitEvent, updateEvent } from '../api
 import type { OrganizerEventDetail } from '../api/events'
 import { EventPoster } from '../components/arena/EventPoster'
 import { ActionButton, Notice } from '../components/arena/controls'
+import { LoadError } from '../components/arena/LoadError'
 import { StepBars } from '../components/arena/StepBars'
 import {
   apiFormErrors, draftInput, emptyForm, FIELD_STEP, firstErrorField, firstIncompleteStep, formFromDetail, LAST_STEP, parseCapacity, parsePrice,
@@ -15,9 +16,13 @@ import { CapacityStep, NameStep, PriceStep, SportStep, WhenStep } from '../compo
 import type { CategoryChange } from '../components/organizer/WizardSteps'
 import Sheet from '../components/Sheet'
 import { Screen } from '../components/Screen'
+import { ToastViewport } from '../components/toast/ToastViewport'
+import { toast } from '../components/toast/toastStore'
 import { useCities } from '../hooks/useCities'
+import { reportActionError } from '../hooks/useSubmit'
 import type { ScreenProps } from '../navigation/screens'
 import { makeEntry } from '../navigation/routes'
+import { useThemeColors } from '../hooks/useTheme'
 import { colors } from '../theme'
 import { Icon } from '../components/Icon'
 
@@ -32,17 +37,21 @@ type Busy = 'draft' | 'publish' | null
  * (um `Modal`): o voltar do Android e o X perguntam antes de descartar o que não foi salvo.
  */
 export default function EventWizardScreen({ params, navigation, onExpired }: ScreenProps<'event-wizard'>) {
+  const themed = useThemeColors()
   const eventId = params?.eventId
   const initialStep = params?.step
   const cities = useCities(onExpired)
   const [savedId, setSavedId] = useState<number | undefined>(eventId)
   const [loading, setLoading] = useState(Boolean(eventId))
-  const [loadError, setLoadError] = useState('')
+  /** O rascunho não carregou (rede ou servidor): `LoadError` com nova tentativa. */
+  const [loadError, setLoadError] = useState<{ message: string; cause: unknown } | null>(null)
+  /** O evento não pode ser editado aqui (já em aprovação ou publicado): é um estado, não uma falha. */
+  const [blocked, setBlocked] = useState('')
+  const [attempt, setAttempt] = useState(0)
   const [form, setForm] = useState<EventForm>(emptyForm)
   const [step, setStep] = useState(0)
   const [errors, setErrors] = useState<FormErrors>({})
   const [general, setGeneral] = useState('')
-  const [notice, setNotice] = useState('')
   const [busy, setBusy] = useState<Busy>(null)
   const [dirty, setDirty] = useState(false)
   const [leaving, setLeaving] = useState(false)
@@ -59,24 +68,24 @@ export default function EventWizardScreen({ params, navigation, onExpired }: Scr
     getOrganizerEvent(eventId).then(detail => {
       if (!alive) return
       if (detail.state !== 'rascunho') {
-        setLoadError(detail.state === 'em_aprovacao' ? 'Retire o evento da aprovação para editar.' : 'Este evento não é mais um rascunho. Edite os dados pela gestão do evento.')
+        setBlocked(detail.state === 'em_aprovacao' ? 'Retire o evento da aprovação para editar.' : 'Este evento não é mais um rascunho. Edite os dados pela gestão do evento.')
         return
       }
+      setLoadError(null)
       const loaded = formFromDetail(detail)
       setForm(loaded)
       setStep(initialStep !== undefined ? Math.min(Math.max(initialStep, 0), LAST_STEP) : firstIncompleteStep(loaded))
     }).catch((cause: unknown) => {
       if (!alive) return
       if (cause instanceof ApiError && cause.status === 401) onExpired()
-      setLoadError(cause instanceof Error && cause.message ? cause.message : 'Não foi possível carregar o rascunho.')
+      setLoadError({ message: cause instanceof Error && cause.message ? cause.message : 'Não foi possível carregar o rascunho.', cause })
     }).finally(() => { if (alive) setLoading(false) })
     return () => { alive = false }
-  }, [eventId, initialStep, onExpired])
+  }, [eventId, initialStep, onExpired, attempt])
 
   const update = useCallback((change: Partial<EventForm>) => {
     setForm(old => ({ ...old, ...change }))
     setDirty(true)
-    setNotice('')
     setGeneral('')
     setErrors(old => {
       const keys = Object.keys(change) as FormField[]
@@ -89,7 +98,6 @@ export default function EventWizardScreen({ params, navigation, onExpired }: Scr
   function category(change: CategoryChange) {
     setForm(old => withCategory(old, change))
     setDirty(true)
-    setNotice('')
     setGeneral('')
     setErrors(old => {
       const next = { ...old }
@@ -117,6 +125,18 @@ export default function EventWizardScreen({ params, navigation, onExpired }: Scr
     setStep(Math.max(0, step - 1))
   }
 
+  /**
+   * Erro da API: o campo recusado pelo servidor volta ao passo e ao campo certos; os demais seguem a regra única dos erros de
+   * ação (sessão expirada, aviso de conexão ou toast).
+   */
+  function failed(cause: unknown, fallback: string, message: string) {
+    const mapped = apiFormErrors(cause, form, fallback)
+    if (mapped.step !== null) { showErrors(mapped.errors, message); return }
+    setErrors({})
+    const report = reportActionError(cause, fallback, onExpired)
+    if (report.kind === 'form') setGeneral(report.message)
+  }
+
   /** Cria ou atualiza o rascunho; erros vão para o passo do campo. Devolve o rascunho salvo. */
   async function persist(fallback: string): Promise<OrganizerEventDetail | null> {
     try {
@@ -126,16 +146,12 @@ export default function EventWizardScreen({ params, navigation, onExpired }: Scr
       setDirty(false)
       return detail
     } catch (cause) {
-      if (cause instanceof ApiError && cause.status === 401) onExpired()
-      const mapped = apiFormErrors(cause, form, fallback)
-      if (mapped.step !== null) showErrors(mapped.errors, 'Revise o campo indicado.')
-      else { setErrors({}); setGeneral(mapped.general) }
+      failed(cause, fallback, 'Revise o campo indicado.')
       return null
     }
   }
 
   async function saveDraft(): Promise<boolean> {
-    setNotice('')
     const found = validateDraft(form)
     if (Object.keys(found).length) { showErrors(found, 'Revise o campo indicado.'); return false }
     setBusy('draft'); setGeneral('')
@@ -143,13 +159,12 @@ export default function EventWizardScreen({ params, navigation, onExpired }: Scr
     setBusy(null)
     if (saved) {
       setErrors({})
-      setNotice('Rascunho salvo. Ele fica em Meus eventos, com o checklist do que falta.')
+      toast.success('Rascunho salvo.', { description: 'Ele fica em Meus eventos, com o checklist do que falta.' })
     }
     return Boolean(saved)
   }
 
   async function publish() {
-    setNotice('')
     const missing = validateAll(form)
     if (missing) { showErrors(missing.errors, 'Complete este passo para publicar.'); return }
     setBusy('publish'); setGeneral('')
@@ -161,10 +176,7 @@ export default function EventWizardScreen({ params, navigation, onExpired }: Scr
       // Sai do assistente para a gestão do evento: se ela já está logo abaixo na pilha (veio dela), a substitui.
       navigation.replace(makeEntry('event-manage', { eventId: sent.id }), below => below.screen === 'event-manage' && below.params.eventId === sent.id)
     } catch (cause) {
-      if (cause instanceof ApiError && cause.status === 401) onExpired()
-      const mapped = apiFormErrors(cause, form, form.paid ? 'Não foi possível enviar para aprovação.' : 'Não foi possível publicar.')
-      if (mapped.step !== null) showErrors(mapped.errors, 'Complete este passo para publicar.')
-      else setGeneral(mapped.general)
+      failed(cause, form.paid ? 'Não foi possível enviar para aprovação.' : 'Não foi possível publicar.', 'Complete este passo para publicar.')
       setBusy(null)
     }
   }
@@ -189,7 +201,7 @@ export default function EventWizardScreen({ params, navigation, onExpired }: Scr
       <Text style={{ color: colors.mint, fontSize: 9, fontWeight: '800', letterSpacing: 1.1 }}>ORGANIZADOR</Text>
       <Text accessibilityRole="header" style={{ color: '#ffffff', fontSize: 17, fontWeight: '800' }}>{eventId ? 'Editar rascunho' : 'Novo evento'}</Text>
     </View>
-    {!loading && !loadError ? <View accessible accessibilityLabel={`Passo ${step + 1} de ${WIZARD_STEPS.length}`} style={{ marginRight: 8, borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 10, paddingVertical: 4 }}>
+    {!loading && !loadError && !blocked ? <View accessible accessibilityLabel={`Passo ${step + 1} de ${WIZARD_STEPS.length}`} style={{ marginRight: 8, borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 10, paddingVertical: 4 }}>
       <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 11, fontWeight: '800' }}>{step + 1}/{WIZARD_STEPS.length}</Text>
     </View> : null}
   </View>
@@ -200,10 +212,13 @@ export default function EventWizardScreen({ params, navigation, onExpired }: Scr
   const previewStart = startsAt(form) ?? (form.startDate ? `${form.startDate}T12:00:00` : null)
   const status = busy === 'draft' ? 'Salvando o rascunho…' : busy === 'publish' ? (paid ? 'Enviando para aprovação…' : 'Publicando…') : ''
 
-  const body = loading || loadError
+  const body = loading || loadError || blocked
     ? <View style={{ paddingHorizontal: 16, paddingTop: 12 }}>
-      {loadError ? <Notice surface="dark">{loadError}</Notice> : <Text accessibilityLiveRegion="polite" style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12 }}>Carregando o rascunho…</Text>}
-      {loadError ? <View style={{ marginTop: 12 }}><ActionButton block tone="line" title="Voltar" onPress={navigation.back} /></View> : null}
+      {loadError ? <LoadError size="screen" tone="dark" title="Não foi possível carregar o rascunho" text={loadError.message} cause={loadError.cause}
+        onRetry={() => { setLoadError(null); setLoading(true); setAttempt(n => n + 1) }} />
+        : blocked ? <Notice surface="dark">{blocked}</Notice>
+          : <Text accessibilityLiveRegion="polite" style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12 }}>Carregando o rascunho…</Text>}
+      {loadError || blocked ? <View style={{ marginTop: 12 }}><ActionButton block tone="line" title="Voltar" onPress={navigation.back} /></View> : null}
     </View>
     : <>
       <StepBars done={step + 1} total={WIZARD_STEPS.length} inset={16} />
@@ -216,10 +231,9 @@ export default function EventWizardScreen({ params, navigation, onExpired }: Scr
         {step === 2 ? <CapacityStep form={form} errors={errors} update={update} onBack={previous} /> : null}
         {step === 3 ? <WhenStep form={form} errors={errors} update={update} cities={Array.isArray(cities.data) ? cities.data : []} /> : null}
         {step === 4 ? <PriceStep form={form} errors={errors} update={update} /> : null}
-        {step === 3 && cities.error ? <Notice surface="dark">{cities.error}</Notice> : null}
+        {step === 3 && cities.error ? <LoadError size="section" tone="dark" title="Não foi possível carregar as cidades" text={cities.error} cause={cities.errorCause} onRetry={cities.reload} /> : null}
 
         {general ? <Notice surface="dark">{general}</Notice> : null}
-        {notice ? <Notice surface="dark" tone="success">{notice}</Notice> : null}
         <Text accessibilityLiveRegion="polite" style={{ position: 'absolute', width: 1, height: 1, opacity: 0 }}>{status}</Text>
 
         <View style={{ marginTop: 18, flexDirection: 'row', gap: 8 }}>
@@ -250,7 +264,7 @@ export default function EventWizardScreen({ params, navigation, onExpired }: Scr
           {body}
         </KeyboardAvoidingView>
         {leaving ? <Sheet title="Sair sem salvar?" onClose={() => setLeaving(false)}>
-          <Text style={{ color: colors['ink-muted'], fontSize: 12, lineHeight: 18 }}>As mudanças desde o último rascunho salvo se perdem.</Text>
+          <Text style={{ color: themed['ink-muted'], fontSize: 12, lineHeight: 18 }}>As mudanças desde o último rascunho salvo se perdem.</Text>
           <View style={{ marginTop: 12, gap: 8 }}>
             <ActionButton block tone="brand" icon="save" title="Salvar rascunho e sair" disabled={Boolean(busy)} onPress={() => void saveDraft().then(saved => { setLeaving(false); if (saved && mounted.current) navigation.back() })} />
             <ActionButton block tone="outline" title="Sair sem salvar" disabled={Boolean(busy)} onPress={leaveWithoutSaving} />
@@ -258,6 +272,7 @@ export default function EventWizardScreen({ params, navigation, onExpired }: Scr
           </View>
         </Sheet> : null}
       </Screen>
+      <ToastViewport />
     </Modal>
   </View>
 }

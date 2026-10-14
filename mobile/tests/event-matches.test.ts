@@ -12,6 +12,7 @@ import EventMatchesScreen, { counters } from '../src/screens/EventMatchesScreen'
 import { dayLabel } from '../src/utils/calendar'
 import { combineDateTime } from '../src/utils/dateKey'
 import { enableAct } from './support/native'
+import { toastText } from './support/toast'
 import { matchList, row, score } from './support/brackets'
 import { detail as organizerDetail } from './support/organizer'
 import { court, fromNow } from './support/play'
@@ -168,8 +169,8 @@ describe('agendar', () => {
     expect(bodyOf('PUT', scheduleOf(1))).toEqual({ starts_at: startsAt, court_id: 7 })
     // A folha fecha, o aviso diz o que aconteceu e a lista foi relida com o jogo agendado.
     expect(allText(tree)).not.toContain('Agendar J1')
-    expect(allText(tree)).toContain('J1 agendado para')
-    expect(allText(tree)).toContain('em Arena Sudoeste. Os dois elencos foram avisados.')
+    expect(toastText()).toContain('J1 agendado para')
+    expect(toastText()).toContain('em Arena Sudoeste. Os dois elencos foram avisados.')
     expect(callsTo('GET', MATCHES)).toHaveLength(2)
     expect(labelled(tree, '1 agendadas')).toHaveLength(1)
     expect(findByPrefix(tree, 'J1, Novo Horizonte contra Bola Murcha FC')!.props.accessibilityLabel).toContain('Agendada.')
@@ -249,9 +250,9 @@ describe('agendar', () => {
     await pressPrefix(tree, 'Arena Sudoeste')
     await pressButton(tree, 'Agendar')
     expect(callsTo('GET', MATCHES)).toHaveLength(2)
-    // A folha fecha (o jogo não é mais agendável), a mensagem do servidor fica na tela e a linha mostra o jogo encerrado.
+    // A folha fecha (o jogo não é mais agendável), a mensagem do servidor sai como toast de aviso e a linha mostra o jogo encerrado.
     expect(allText(tree)).not.toContain('Agendar J1')
-    expect(allText(tree)).toContain(message)
+    expect(toastText()).toContain(message)
     expect(byId(tree, 'schedule-conflict')).toHaveLength(0)
     expect(String(byId(tree, 'match-1')[0].props.accessibilityLabel)).toContain('Encerrada')
   })
@@ -272,7 +273,7 @@ describe('agendar', () => {
     await pressButton(tree, 'Agendar')
     expect(bodyOf('PUT', scheduleOf(1))).toEqual({ starts_at: startsAt, court_suggestion: { name: 'Quadra Nova', address: 'SQN 100' } })
     expect(callsTo('POST', '/courts/suggestions')).toHaveLength(0)
-    expect(allText(tree)).toContain('em Quadra Nova')
+    expect(toastText()).toContain('em Quadra Nova')
   })
 
   it('campos vazios são recusados antes de enviar, um por vez, na ordem do servidor', async () => {

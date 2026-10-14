@@ -7,6 +7,7 @@ import { dayLabel } from '../src/utils/calendar'
 import EventWizardScreen from '../src/screens/EventWizardScreen'
 import { byLabel, enableAct, press, textOf, type } from './support/native'
 import { calls, checklistItems, city, detail, draftDetail, mount, navigationMock, otherCity, routeRequest } from './support/organizer'
+import { toastText, toasts } from './support/toast'
 
 vi.mock('react-native', async () => (await import('./support/native')).reactNativeMock())
 vi.mock('expo-secure-store', () => ({ getItemAsync: vi.fn(), setItemAsync: vi.fn(), deleteItemAsync: vi.fn() }))
@@ -165,9 +166,8 @@ describe('Criar evento (V4): uma pergunta por vez', () => {
     await type(tree, 'Nome do evento', 'Copa Sudoeste')
     await press(tree, 'Salvar rascunho')
     expect(calls('POST', EVENTS)[0][2]).toMatchObject({ name: 'Copa Sudoeste', sport: null, price_cents: null, starts_at: null, accepted_tiers: null })
-    expect(textOf(tree)).toContain('Rascunho salvo. Ele fica em Meus eventos, com o checklist do que falta.')
+    expect(toastText()).toContain('Rascunho salvo. Ele fica em Meus eventos, com o checklist do que falta.')
     await type(tree, 'Nome do evento', 'Copa Sudoeste 2026')
-    expect(textOf(tree)).not.toContain('Rascunho salvo.')
     await press(tree, 'Salvar rascunho')
     expect(calls('PATCH', EVENT)[0][2]).toMatchObject({ name: 'Copa Sudoeste 2026' })
     expect(calls('POST', EVENTS)).toHaveLength(1)
@@ -473,7 +473,7 @@ describe('Criar evento (V4): erros da API no passo e no campo certos', () => {
     const tree = await wizard({ eventId: 5 })
     await press(tree, 'Publicar')
     expect(question(tree)).toBe('A inscrição é paga?')
-    expect(textOf(tree)).toContain('Retire o evento da aprovação para editar.')
+    expect(toastText()).toContain('Retire o evento da aprovação para editar.')
     routeRequest(baseRoutes({
       [EVENT]: fullDraft({ price_cents: 0 }),
       [`PATCH ${EVENT}`]: fullDraft({ price_cents: 0 }),
@@ -481,11 +481,12 @@ describe('Criar evento (V4): erros da API no passo e no campo certos', () => {
     }))
     await press(tree, 'Publicar')
     expect(onExpired).toHaveBeenCalledTimes(1)
-    expect(textOf(tree)).toContain('Sessão expirada')
+    // Sessão expirada não gera toast: o fluxo de entrada cuida.
+    expect(toastText()).not.toContain('Sessão expirada')
     expect(navigation.replace).not.toHaveBeenCalled()
     routeRequest(baseRoutes({ [EVENT]: fullDraft({ price_cents: 0 }), [`PATCH ${EVENT}`]: () => { throw new Error('') } }))
     await press(tree, 'Publicar')
-    expect(textOf(tree)).toContain('Não foi possível salvar o evento.')
+    expect(toastText()).toContain('Não foi possível salvar o evento.')
   })
 
   it('erro ao criar o rascunho do zero mostra a mensagem geral e não perde o formulário', async () => {
@@ -493,9 +494,10 @@ describe('Criar evento (V4): erros da API no passo e no campo certos', () => {
     const tree = await wizard()
     await type(tree, 'Nome do evento', 'Copa Sudoeste')
     await press(tree, 'Salvar rascunho')
-    expect(textOf(tree)).toContain('Você precisa ser organizador para criar eventos.')
+    expect(toastText()).toContain('Você precisa ser organizador para criar eventos.')
     expect(input(tree, 'Nome do evento')!.props.value).toBe('Copa Sudoeste')
-    expect(textOf(tree)).not.toContain('Rascunho salvo.')
+    expect(toasts().map(item => item.tone)).toEqual(['error'])
+    expect(toastText()).not.toContain('Rascunho salvo.')
   })
 })
 
@@ -519,6 +521,7 @@ describe('Editar rascunho', () => {
     routeRequest(baseRoutes({ [EVENT]: detail({ state: 'em_aprovacao' }) }))
     const waiting = await wizard({ eventId: 5 })
     expect(textOf(waiting)).toContain('Retire o evento da aprovação para editar.')
+    expect(toasts()).toEqual([])
     expect(byLabel(waiting, 'Salvar rascunho')).toHaveLength(0)
     await press(waiting, 'Voltar')
     expect(navigation.back).toHaveBeenCalledTimes(1)

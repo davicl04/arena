@@ -1,7 +1,7 @@
 import { Pressable, Text, View } from 'react-native'
 import { tabItems } from '../navigation/routes'
 import type { TabScreen } from '../navigation/routes'
-import { colors } from '../theme'
+import { useResolvedTheme, useThemeColors } from '../hooks/useTheme'
 import { ArenaMark } from './arena/ArenaMark'
 import { Icon } from './Icon'
 
@@ -21,8 +21,10 @@ export const playAttentionLabel = (label: string) => `${label}, há uma busca, p
  * uma busca, proposta ou partida em andamento") e o ponto, decorativo, fica oculto para leitores de tela.
  */
 export default function BottomNav({ active, onGo, playAttention = false }: { active: TabScreen; onGo: (screen: TabScreen) => void; playAttention?: boolean }) {
+  const colors = useThemeColors()
+  const ring = useResolvedTheme() === 'dark' ? '#f4de9a55' : colors.line
   return <View accessibilityRole="tablist" style={{ height: BAR_HEIGHT, flexDirection: 'row' }}>
-    <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, bottom: 0, top: PLAY_RISE, borderTopWidth: 1, borderTopColor: colors.line, backgroundColor: '#ffffff' }} />
+    <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, bottom: 0, top: PLAY_RISE, borderTopWidth: 1, borderTopColor: colors.line, backgroundColor: colors.nav }} />
     {tabItems.map(item => {
       const on = active === item.screen
       const play = item.screen === 'play'
@@ -31,12 +33,12 @@ export default function BottomNav({ active, onGo, playAttention = false }: { act
         onPress={() => onGo(item.screen)}
         style={{ flex: 1, alignItems: 'center', justifyContent: 'flex-end', gap: 4, paddingBottom: 8 }}>
         {play ? <View style={{ width: 55, height: 55, borderRadius: 28, borderWidth: 4, borderColor: colors.app, backgroundColor: colors.brand, alignItems: 'center', justifyContent: 'center', elevation: 4 }}>
-          <ArenaMark compact width={26} height={28} />
+          <ArenaMark compact width={26} height={28} color={colors['on-brand']} />
           {playAttention ? <View testID="play-attention" accessible={false} importantForAccessibility="no-hide-descendants"
             style={{ position: 'absolute', top: -2, right: -2, width: 14, height: 14, borderRadius: 7, borderWidth: 2, borderColor: colors.app, backgroundColor: colors.mint }} /> : null}
         </View>
-          : item.icon ? <View style={{ borderRadius: 14, borderWidth: 1, borderColor: on ? colors.line : 'transparent', paddingHorizontal: 12, paddingVertical: 4 }}><Icon name={item.icon} size={21} color={tint} /></View>
-          : <View style={{ borderRadius: 14, borderWidth: 1, borderColor: on ? colors.line : 'transparent', paddingHorizontal: 12, paddingVertical: 4 }}><ArenaMark width={24} height={21} color={tint} /></View>}
+          : item.icon ? <View style={{ borderRadius: 14, borderWidth: 1, borderColor: on ? ring : 'transparent', paddingHorizontal: 12, paddingVertical: 4 }}><Icon name={item.icon} size={21} color={tint} /></View>
+          : <View style={{ borderRadius: 14, borderWidth: 1, borderColor: on ? ring : 'transparent', paddingHorizontal: 12, paddingVertical: 4 }}><ArenaMark width={24} height={21} color={tint} /></View>}
         <Text style={{ color: tint, fontSize: 10, fontWeight: play ? '800' : on ? '700' : '500', letterSpacing: play ? 0.3 : 0 }}>{item.label}</Text>
       </Pressable>
     })}

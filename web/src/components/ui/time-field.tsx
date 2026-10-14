@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils"
  * seletor fica oculto para não repetir o relógio; tocar no relógio ou na borda abre o seletor do navegador.
  */
 const tones = {
-  light: "border-field-border bg-white text-ink [&_[data-icon]]:text-brand",
+  light: "border-field-border bg-field text-ink [&_[data-icon]]:text-brand",
   dark: "border-white/18 bg-white/5 text-white [color-scheme:dark] [&_[data-icon]]:text-mint",
 }
 

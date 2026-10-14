@@ -6,6 +6,8 @@ import type { Position, Sport } from "../api/client";
 export type Screen =
   | "home"
   | "ranking"
+  // Salão dos Lendários: subtela do Ranking, aberta pela entrada do Salão e pela seta do Diamante.
+  | "legends"
   | "play"
   | "community"
   | "profile"
@@ -16,6 +18,8 @@ export type Screen =
   | "connections"
   | "user-profile"
   | "notifications"
+  // Pedidos para seguir: aprovar e recusar, aberta pela linha-resumo da tela de notificações.
+  | "follow-requests"
   | "sports"
   // Etapa 1 (Times e organizador): telas declaradas, renderizadas pelas frentes de cada área.
   | "teams"
@@ -84,8 +88,8 @@ const playScreens: Screen[] = ["teams", "team-form", "team-invite", "join", "eve
 /**
  * Aba acesa na navegação inferior para a tela atual. Perfis e conexões herdam a aba da raiz da pilha
  * (de onde foram abertos); as telas de Meus times, dos eventos do atleta e da partida acendem "JOGAR", e as de
- * organizador e administração (inclusive as filas de quadras e de W.O.), "Perfil"; Notificações acendem "Início",
- * ou "Perfil" quando abertas pelo Menu.
+ * organizador e administração (inclusive as filas de quadras e de W.O.), "Perfil"; Notificações e Pedidos para seguir
+ * acendem a aba de onde o sino foi tocado (Início, Ranking, Jogar, Comunidade ou Perfil, também pelo Menu).
  */
 export function activeNavFor(screen: Screen, root: Screen): Screen {
   if (screen === "user-profile" || screen === "connections") {
@@ -93,10 +97,11 @@ export function activeNavFor(screen: Screen, root: Screen): Screen {
     if (profileScreens.includes(root)) return "profile";
     return playScreens.includes(root) ? "play" : root;
   }
+  if (screen === "legends") return "ranking";
   if (profileScreens.includes(screen) || screen === "sports") return "profile";
   if (playScreens.includes(screen)) return "play";
-  // Notificações acendem "Início" (o sino) ou "Perfil", quando abertas pela linha do Menu.
-  if (screen === "notifications") return root === "profile" ? "profile" : "home";
+  // Notificações e Pedidos para seguir acendem a aba de onde o sino foi tocado (ou "Perfil", pela linha do Menu).
+  if (screen === "notifications" || screen === "follow-requests") return navItems.some((item) => item.screen === root) ? root : "home";
   return screen;
 }
 
@@ -123,6 +128,20 @@ export const tiers = Object.fromEntries(
     { key: tier.image, name: tier.name, image: `/images/brand/${tier.image}.svg` },
   ]),
 ) as Record<TierKey, TierInfo>;
+
+/** Elos do mais baixo ao mais alto (a ordem de progressão do Ranking). */
+export const tierOrder: readonly TierKey[] = rankingTiers.map((tier) => tier.image);
+/**
+ * Tom de cada elo na placa contínua do Ranking (tokens `--color-tier-*-tint` de `ui.css`): o gradiente vai desse tom
+ * para o `forest`. O Lendário é o tom dourado do Salão.
+ */
+export const tierTints: Record<TierKey, string> = {
+  bronze: "var(--color-tier-bronze-tint)",
+  prata: "var(--color-tier-prata-tint)",
+  ouro: "var(--color-tier-ouro-tint)",
+  diamante: "var(--color-tier-diamante-tint)",
+  lendario: "var(--color-tier-lendario-tint)",
+};
 
 /** Partidas confirmadas para sair da classificação no futebol e no tênis (a corrida classifica na primeira marca). */
 export const placementRequired = 3;

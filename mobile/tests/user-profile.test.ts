@@ -5,6 +5,7 @@ import { ApiError, request } from '../src/api/client'
 import type { SocialUser } from '../src/api/client'
 import UserProfileScreen from '../src/screens/UserProfileScreen'
 import { button, byLabel, click, enableAct, press, textOf } from './support/native'
+import { toasts } from './support/toast'
 import { fakeNavigation, me } from './support/teams'
 import type { FakeNavigation, Handler } from './support/teams'
 import { playContext } from './support/play'
@@ -84,7 +85,7 @@ describe('Perfil de outro atleta (user-profile)', () => {
     await act(async () => { tree.unmount() })
   })
 
-  it('segue a conta pública (PUT) e recarrega o perfil com o vínculo novo; o erro do vínculo aparece no perfil', async () => {
+  it('segue a conta pública (PUT) e recarrega o perfil com o vínculo novo; o erro do vínculo sai em toast', async () => {
     let state: SocialUser['follow_state'] = 'none'
     let failFollow = true
     serve((path, method) => {
@@ -95,7 +96,8 @@ describe('Perfil de outro atleta (user-profile)', () => {
     const tree = await mount()
     expect(button(tree, 'Seguir')).toBeDefined()
     await click(tree, 'Seguir')
-    expect(textOf(tree)).toContain('Não foi possível seguir.')
+    expect(toasts().map(item => [item.tone, item.title])).toEqual([['error', 'Não foi possível seguir.']])
+    expect(textOf(tree)).not.toContain('Não foi possível seguir.')
     failFollow = false
     await click(tree, 'Seguir')
     expect(request).toHaveBeenCalledWith('/users/5/follow', 'PUT')

@@ -1,31 +1,40 @@
-import { Bell, CalendarDays, ChevronRight, Medal, Zap } from "lucide-react";
-import { sports } from "../api/client";
+import { CalendarDays, ChevronRight, Medal, Zap } from "lucide-react";
+import { ApiError, sports } from "../api/client";
 import type { Profile } from "../api/client";
-import { getUnreadCount } from "../api/notifications";
+import { markNotificationRead } from "../api/notifications";
+import type { ArenaNotification } from "../api/notifications";
 import type { MatchCard } from "../api/matches";
 import { getMyStandings } from "../api/play";
 import { useNow } from "../hooks/useNow";
 import { useResource } from "../hooks/useResource";
+import { usePendingNotifications } from "../hooks/usePendingNotifications";
+import type { NotificationSummaryState } from "../hooks/useNotificationSummary";
 import { MatchRow } from "../components/play/MyMatches";
 import { nextScheduledMatch } from "../components/play/matchView";
 import { formatDuration } from "../components/play/tierLines";
 import { Logo } from "../components/Brand";
+import { NotificationBell } from "../components/notifications/NotificationBell";
+import { PendingPlate } from "../components/notifications/PendingPlate";
 import { TierEmblem } from "../components/arena/TierEmblem";
 import { modalityStanding } from "../components/arena/modalityStanding";
 import { Badge } from "@/components/ui/badge";
-import { Button, IconButton } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Eyebrow } from "@/components/ui/eyebrow";
 import { IconTile } from "@/components/ui/icon-tile";
 import { SectionTitle } from "@/components/ui/section-title";
 import { cover, sportIcons } from "../data/arena";
 import type { Screen } from "../data/arena";
+import { notificationView } from "../data/notifications";
+import type { NotificationFilter, NotificationTarget } from "../data/notifications";
 
 export default function HomePage({
   firstName,
   profiles,
   loading,
   matches = [],
+  summary,
+  isAdmin = false,
   go,
   onExpired,
 }: {
@@ -34,14 +43,40 @@ export default function HomePage({
   loading: boolean;
   /** Partidas do titular lidas pela placa (`GET /me/play`): a próxima agendada vai ao cartão "Próxima partida". */
   matches?: MatchCard[];
-  go: (screen: Screen, context?: { matchId?: number }) => void;
+  /** Resumo das notificações (ArenaPage): o número do sino e a placa "Para responder". */
+  summary?: NotificationSummaryState;
+  /** Conta administrativa: alguns avisos levam às filas da administração. */
+  isAdmin?: boolean;
+  go: (screen: Screen, context?: Omit<NotificationTarget, "screen"> & { filter?: NotificationFilter }) => void;
   onExpired: () => void;
 }) {
   const now = useNow(60_000);
   const nextMatch = nextScheduledMatch(matches, now);
-  // Indicador de não lidas no sino (os pedidos para seguir não entram nessa contagem).
-  const unread = useResource(getUnreadCount, onExpired);
-  const count = typeof unread.data?.unread_count === "number" ? unread.data.unread_count : 0;
+  // Placa "Para responder": as 2 pendências mais urgentes; só é lida quando o resumo diz que há pendências.
+  const pendingCount = summary?.data?.pending_count ?? 0;
+  const pending = usePendingNotifications(onExpired, {
+    limit: 2,
+    enabled: pendingCount > 0,
+    version: summary?.data ? `${summary.data.pending_count}:${summary.data.unread_count}` : undefined,
+  });
+  async function openPending(notification: ArenaNotification) {
+    const { target } = notificationView(notification, { isAdmin });
+    if (!notification.read_at) {
+      try {
+        summary?.setData(await markNotificationRead(notification.id));
+      } catch (cause) {
+        // Marcar como lida é secundário: a navegação segue; só a sessão expirada interrompe.
+        if (cause instanceof ApiError && cause.status === 401) {
+          onExpired();
+          return;
+        }
+      }
+    }
+    if (target) {
+      const { screen, ...context } = target;
+      go(screen, context);
+    } else go("notifications", { filter: "responder" });
+  }
   // Classificação de cada modalidade: o elo de quem já se classificou, ou "n de 3 partidas".
   const standings = useResource(getMyStandings, onExpired);
   return (
@@ -49,22 +84,7 @@ export default function HomePage({
       <header className="flex items-center justify-between">
         <Logo />
         <div className="flex items-center gap-0.5">
-          <IconButton
-            aria-label={count ? `Notificações, ${count} ${count === 1 ? "não lida" : "não lidas"}` : "Notificações"}
-            className="relative"
-            onClick={() => go("notifications")}
-          >
-            <Bell size={21} />
-            {count > 0 && (
-              <span
-                aria-hidden="true"
-                data-testid="unread-indicator"
-                className="absolute top-1.5 right-1 grid h-4 min-w-4 place-items-center rounded-full bg-brand px-1 text-[9px] leading-none font-bold text-white ring-2 ring-app"
-              >
-                {count > 9 ? "9+" : count}
-              </span>
-            )}
-          </IconButton>
+          <NotificationBell tone="light" count={summary?.count ?? 0} onOpen={() => go("notifications")} />
         </div>
       </header>
       <section className="pt-[26px] pb-[21px]">
@@ -79,6 +99,16 @@ export default function HomePage({
           Bora jogar, {firstName}?
         </h1>
       </section>
+      {pendingCount > 0 && pending.items.length > 0 && (
+        <PendingPlate
+          items={pending.items}
+          total={pendingCount}
+          now={now}
+          isAdmin={isAdmin}
+          onOpenItem={(notification) => void openPending(notification)}
+          onOpenAll={() => go("notifications", { filter: "responder" })}
+        />
+      )}
       <SectionTitle
         title="Seu elo"
         action={
@@ -160,13 +190,13 @@ export default function HomePage({
       <SectionTitle title="Próxima partida" />
       <Card
         as="article"
-        className={nextMatch ? "px-[13px] py-0.5 shadow-[0_2px_9px_#0000000c]" : "flex items-center gap-3 p-[13px] shadow-[0_2px_9px_#0000000c]"}
+        className={nextMatch ? "px-[13px] py-0.5 shadow-[0_2px_9px_#0000000c] noite:shadow-none" : "flex items-center gap-3 p-[13px] shadow-[0_2px_9px_#0000000c] noite:shadow-none"}
       >
         {nextMatch ? (
           <MatchRow card={nextMatch} onOpen={(matchId) => go("match", { matchId })} />
         ) : (
           <>
-            <span className="grid h-[53px] w-[47px] place-items-center rounded-xl bg-ink text-app">
+            <span className="grid h-[53px] w-[47px] place-items-center rounded-xl bg-ink text-app noite:bg-icon-tile noite:text-icon-tile-ink">
               <CalendarDays size={23} />
             </span>
             <div>
@@ -186,7 +216,7 @@ export default function HomePage({
           </Button>
         }
       />
-      <div className="relative h-[178px] overflow-hidden rounded-panel bg-ink shadow-[0_4px_14px_#0002]">
+      <div className="relative h-[178px] overflow-hidden rounded-panel bg-ink noite:bg-[#495057] shadow-[0_4px_14px_#0002]">
         <img
           className="size-full object-cover"
           src={cover}
@@ -209,14 +239,14 @@ export default function HomePage({
       </div>
       <SectionTitle title="Seu próximo passo" />
       <button
-        className="flex w-full items-center gap-[11px] rounded-card border border-solid border-line bg-white p-3.5 text-left"
+        className="flex w-full items-center gap-[11px] rounded-card border border-solid border-line bg-surface p-3.5 text-left noite:border-surface-edge"
         onClick={() => go("sports")}
       >
         <IconTile>
           <Medal size={22} />
         </IconTile>
         <span className="flex-1">
-          <b className="text-[12px]">Complete seu perfil esportivo</b>
+          <b className="text-[12px] text-heading">Complete seu perfil esportivo</b>
           <small className="mt-1 text-[10px] leading-[1.5] text-ink-muted">
             Mostre onde e como você gosta de jogar.
           </small>

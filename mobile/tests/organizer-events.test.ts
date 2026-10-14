@@ -6,6 +6,7 @@ import { ApiError } from '../src/api/client'
 import OrganizerEventsScreen from '../src/screens/OrganizerEventsScreen'
 import { byLabel, enableAct, press, textOf } from './support/native'
 import { approved, card, mount, navigationMock, page, routeRequest, status } from './support/organizer'
+import { textWithin } from './support/toast'
 
 vi.mock('react-native', async () => (await import('./support/native')).reactNativeMock())
 vi.mock('expo-secure-store', () => ({ getItemAsync: vi.fn(), setItemAsync: vi.fn(), deleteItemAsync: vi.fn() }))
@@ -125,7 +126,7 @@ describe('Meus eventos (O3)', () => {
     expect(textOf(tree)).toContain('Encerrados indisponíveis')
     expect(textOf(tree)).not.toContain('Seu primeiro evento')
     routeRequest({ [OPEN]: page([open[0]]), [CLOSED]: page([]), '/me/organizer-request': approved() })
-    await act(async () => { tree.root.findAllByType('Pressable' as never).filter(entry => entry.props.accessibilityLabel === 'Tentar novamente').forEach(entry => entry.props.onPress()) })
+    await act(async () => { tree.root.findAllByType('Pressable' as never).filter(entry => textWithin(entry) === 'Tentar novamente').forEach(entry => entry.props.onPress()) })
     expect(textOf(tree)).not.toContain('indisponíveis')
     expect(poster(tree, 'Copa Sudoeste')).toBeTruthy()
     routeRequest({ [OPEN]: () => { throw new ApiError('Sessão expirada', 401) }, [CLOSED]: page([]), '/me/organizer-request': approved() })

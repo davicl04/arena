@@ -73,10 +73,8 @@ export function CancelEventSheet({ detail, onCancelled, onClose, onExpired }: {
       : <ConfirmBox confirmLabel="Cancelar evento" cancelLabel="Voltar" busy={busy} onConfirm={() => void confirm()} onCancel={() => setConfirming(false)}>
         <b>Cancelar {detail.name}?</b><br />Motivo: “{text}”<br />Não dá para desfazer.
       </ConfirmBox>}
-    <div aria-live="polite">
-      {error && <p className={cn(feedbackVariants(), 'mt-3')} role="alert">{error}</p>}
-      {busy && <p role="status" className="sr-only">Cancelando o evento…</p>}
-    </div>
+    {error && <p className={cn(feedbackVariants(), 'mt-3')} role="alert">{error}</p>}
+    {busy && <p role="status" className="sr-only">Cancelando o evento…</p>}
   </Sheet>
 }
 
@@ -146,7 +144,7 @@ export function EditPublishedSheet({ detail, onSaved, onClose, onExpired }: {
     if (!Object.keys(changes).length) { onClose(); return }
     const saved = await run(async () => {
       try { return await updateEvent(detail.id, changes) } catch (cause) {
-        // Campos recusados pelo servidor aparecem no próprio campo; a mensagem geral fica em `error`.
+        // Campos recusados pelo servidor aparecem no próprio campo (e a mensagem junto ao formulário, em `error`); o resto vira toast.
         if (cause instanceof ApiError && cause.fields.length) {
           const mapped: Partial<Record<PublishedField, string>> = {}
           for (const item of cause.fields) if (fields.some(entry => entry.field === item.field)) mapped[item.field as PublishedField] = fieldMessage(item.message)
@@ -175,7 +173,7 @@ export function EditPublishedSheet({ detail, onSaved, onClose, onExpired }: {
           {fieldError && <p id={`${id}-error`} className={errorClass}>{fieldError}</p>}
         </div>
       })}
-      <div aria-live="polite">{error && <p className={cn(feedbackVariants(), 'mt-3')} role="alert">{error}</p>}</div>
+      {error && <p className={cn(feedbackVariants(), 'mt-3')} role="alert">{error}</p>}
       <SheetActions>
         <button type="button" className={teamButton({ tone: 'outline', size: 'md' })} disabled={busy} onClick={onClose}>Cancelar</button>
         <button type="submit" className={teamButton({ tone: 'brand', size: 'md' })} disabled={busy}>{busy ? 'Salvando…' : 'Salvar'}</button>

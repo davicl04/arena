@@ -7,6 +7,7 @@ import { ApiError, request } from '../src/api/client'
 import type { ResultMatch } from '../src/api/results'
 import { MatchResultCard } from '../src/components/results/MatchResultCard'
 import { enableAct } from './support/native'
+import { toastText, toasts } from './support/toast'
 import { allText, bodyOf, byId, callsTo, findButton, flush, hasField, isDisabled, labelled, lastBodyOf, pressButton, render, serve, typeInto } from './support/review'
 import {
   asFerrugem, caio, confirmed, football, hiddenReport, inHours, lineup, permissions, preview, rafa, report, result, stat, tennis, tiago, walkover,
@@ -78,8 +79,8 @@ describe('Informar o placar: futebol', () => {
     expect(valueOf(tree, 'Gols do Leões do Cerrado')).toBe(3)
     await pressButton(tree, 'Enviar placar')
     expect(bodyOf('PUT', '/matches/7/result')).toEqual({ goals_a: 3, goals_b: 1 })
-    expect(allText(tree)).toContain('Placar enviado. Falta o outro lado.')
-    expect(byId(tree, 'result-toast')).toHaveLength(1)
+    expect(toastText()).toContain('Placar enviado. Falta o outro lado.')
+    expect(toasts().map(item => item.tone)).toEqual(['success'])
     expect(onChanged).toHaveBeenCalledWith(sent)
     // O placar enviado vira o cartão de espera, com o meu lado primeiro; o contador "Corrigir o meu" não manda nada sozinho.
     expect(callsTo('PUT', '/matches/7/result')).toHaveLength(1)
@@ -126,19 +127,21 @@ describe('Informar o placar: futebol', () => {
     const before = callsTo('GET', STATS).length
     await pressButton(tree, 'Enviar placar')
     expect(bodyOf('PUT', '/matches/7/result')).toEqual({ goals_a: 0, goals_b: 0 })
-    expect(allText(tree)).toContain('Placar confirmado pelos dois lados')
+    expect(toastText()).toContain('Placar confirmado pelos dois lados')
     expect(onChanged).toHaveBeenCalledWith(done)
     await flush()
     expect(callsTo('GET', STATS).length).toBeGreaterThan(before)
   })
 
-  it('placares diferentes: toast informativo e, com o detalhe novo, os dois placares e "Corrigir o meu"', async () => {
+  it('placares diferentes: toast de aviso e, com o detalhe novo, os dois placares e "Corrigir o meu"', async () => {
     const divergent = football({ phase: 'divergente', result: result({ state: 'divergente', reports: { a: report('a', 3, 1), b: report('b', 0, 2) } }) })
     serve({ [STATS]: roster(), 'PUT /matches/7/result': divergent })
     const { tree } = await mount({ match: football() })
     await bump(tree, 'Gols do Leões do Cerrado', 3)
     await pressButton(tree, 'Enviar placar')
-    expect(allText(tree)).toContain('Placar enviado. Os placares não bateram.')
+    // Os placares não bateram: falta um próximo passo (corrigir ou conversar), então é aviso.
+    expect(toastText()).toContain('Placar enviado. Os placares não bateram.')
+    expect(toasts().map(item => item.tone)).toEqual(['warning'])
     // A tela da partida relê o detalhe e devolve o cartão: aqui, o novo `match` por props.
     const next = await mount({ match: divergent })
     const text = allText(next.tree)
@@ -165,17 +168,27 @@ describe('Informar o placar: futebol', () => {
     expect(bodyOf('PUT', '/matches/7/result')).toEqual({ goals_a: 3, goals_b: 0 })
   })
 
-  it('erro do servidor fica no cartão como alerta; 401 expira a sessão', async () => {
+  it('erro do servidor vira toast (409 é aviso de situação que mudou); 401 expira a sessão', async () => {
     serve({ [STATS]: roster(), 'PUT /matches/7/result': new ApiError('O placar é informado depois do horário da partida e até 48 h depois.', 409) })
     const expired = vi.fn()
     const { tree, onChanged } = await mount({ match: football() }, { onExpired: expired })
     await pressButton(tree, 'Enviar placar')
-    expect(allText(tree)).toContain('O placar é informado depois do horário da partida e até 48 h depois.')
+    expect(toastText()).toContain('O placar é informado depois do horário da partida e até 48 h depois.')
+    expect(toasts().map(item => item.tone)).toEqual(['warning'])
     expect(onChanged).not.toHaveBeenCalled()
     expect(expired).not.toHaveBeenCalled()
     serve({ [STATS]: roster(), 'PUT /matches/7/result': new ApiError('Sessão expirada', 401) })
     await pressButton(tree, 'Enviar placar')
     expect(expired).toHaveBeenCalled()
+  })
+
+  it('a recusa de campo do servidor (422 com campos) fica no formulário do placar, sem toast', async () => {
+    serve({ [STATS]: roster(), 'PUT /matches/7/result': new ApiError('Placar inválido.', 422, [{ field: 'goals_a', message: 'Os gols devem ser de 0 a 99.' }]) })
+    const { tree, onChanged } = await mount({ match: football() })
+    await pressButton(tree, 'Enviar placar')
+    expect(toasts()).toEqual([])
+    expect(allText(tree)).toContain('Placar inválido.')
+    expect(onChanged).not.toHaveBeenCalled()
   })
 
   it('quem não age pelo lado não vê o formulário, e a partida sem resultado (antes do início) não desenha nada', async () => {
@@ -220,7 +233,7 @@ describe('Informar o placar: tênis', () => {
     await bump(tree, 'Games de Beatriz Lima no set 2', 3)
     await pressButton(tree, 'Enviar placar')
     expect(bodyOf('PUT', '/matches/8/result')).toEqual({ sets: [{ a: 6, b: 4 }, { a: 6, b: 3 }] })
-    expect(allText(tree)).toContain('Placar enviado. Falta o outro lado.')
+    expect(toastText()).toContain('Placar enviado. Falta o outro lado.')
   })
 
   it('o lado B troca os games: 7-6 com tie-break e terceiro set vão como A × B', async () => {
@@ -396,7 +409,8 @@ describe('Presença, elenco e estatísticas (futebol)', () => {
     expect(isDisabled(tree, 'Salvar presença')).toBe(false)
     await pressButton(tree, 'Salvar presença')
     expect(bodyOf('PUT', '/matches/7/attendance')).toEqual({ athletes: [{ user_id: 12, present: true, position: 'goleiro' }] })
-    expect(allText(tree)).toContain('Presença registrada')
+    // Um só aviso (toast de sucesso, desenhado no viewport da folha): não há mais região viva paralela.
+    expect(toasts().map(item => [item.tone, item.title])).toEqual([['success', 'Presença registrada']])
     expect(onChanged).toHaveBeenCalled()
     expect(callsTo('PUT', '/matches/7/attendance')).toHaveLength(1)
   })
@@ -438,7 +452,7 @@ describe('Presença, elenco e estatísticas (futebol)', () => {
     await bump(tree, 'Defesas de Tiago Melo', 1, 'decrement')
     await pressButton(tree, 'Aprovar estatísticas de Tiago Melo')
     expect(bodyOf('PUT', '/matches/7/stats/71/review')).toEqual({ goals: 1, position_stat: 2 })
-    expect(allText(tree)).toContain('Estatísticas revisadas')
+    expect(toasts().map(item => [item.tone, item.title])).toEqual([['success', 'Estatísticas revisadas']])
   })
 
   it('estatística contestada ou já revisada reabre a revisão; depois da contestação a revisão é final; o erro fica no painel', async () => {
@@ -486,7 +500,7 @@ describe('Presença, elenco e estatísticas (futebol)', () => {
     await typeInto(tree, 'Motivo', 'Foi um gol só.')
     await pressButton(tree, 'Enviar contestação')
     expect(bodyOf('POST', '/matches/7/stats/90/contest')).toEqual({ fields: ['gols'], reason: 'Foi um gol só.' })
-    expect(allText(tree)).toContain('Contestação enviada')
+    expect(toasts().map(item => [item.tone, item.title])).toEqual([['success', 'Contestação enviada']])
     expect(allText(tree)).toContain('Contestada')
   })
 
@@ -506,7 +520,7 @@ describe('Presença, elenco e estatísticas (futebol)', () => {
     expect(allText(tree)).toContain('6 pts')
     await pressButton(tree, 'Enviar estatísticas')
     expect(bodyOf('PUT', '/matches/7/my-stats')).toEqual({ position: 'atacante', goals: 2, assists: null, position_stat: null })
-    expect(allText(tree)).toContain('Estatísticas enviadas')
+    expect(toastText()).toContain('Estatísticas enviadas')
     expect(onChanged).toHaveBeenCalled()
     // A resposta troca a atuação: o selo vira "Enviadas" e o botão pede alteração para atualizar.
     expect(allText(tree)).toContain('Enviadas')
@@ -540,9 +554,12 @@ describe('Presença, elenco e estatísticas (futebol)', () => {
     let fail = true
     serve({ [STATS]: () => (fail ? new ApiError('Não foi possível carregar o elenco.', 500) : roster()) })
     const { tree } = await mount({ match: own() })
+    // Erro de carregamento da seção (LoadError), não toast.
     expect(allText(tree)).toContain('Não foi possível carregar o elenco.')
+    expect(tree.root.findAll(node => typeof node.type === 'string' && node.props.testID === 'load-error-section')).toHaveLength(1)
+    expect(toasts()).toEqual([])
     fail = false
-    await pressButton(tree, 'Tentar carregar o elenco de novo')
+    await pressButton(tree, 'Tentar novamente')
     expect(allText(tree)).toContain('Elenco e estatísticas')
     expect(allText(tree)).not.toContain('Não foi possível carregar o elenco.')
   })

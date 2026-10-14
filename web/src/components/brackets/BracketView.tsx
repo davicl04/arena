@@ -27,7 +27,7 @@ function RoundBlock({ round, bracket }: { round: BracketRound; bracket: Bracket 
   return (
     <section aria-label={round.name} className="grid gap-1.5">
       <h3 className="m-0 text-[10.5px] font-extrabold tracking-[0.08em] text-ink-muted uppercase">{round.name}</h3>
-      <ul className="m-0 grid list-none gap-0 rounded-card bg-white p-0 px-3">
+      <ul className="m-0 grid list-none gap-0 surface rounded-card p-0 px-3 inset-ring inset-ring-surface-edge">
         {round.nodes.map(node => {
           const [a, b] = node.slots
           const meta = nodeMeta(node, bracket.sport)
@@ -72,7 +72,7 @@ export function FinalBoard({ bracket }: { bracket: Bracket }) {
       {placements && placements.length > 0 && (
         <>
           <h3 className="m-0 mt-1 text-[10.5px] font-extrabold tracking-[0.08em] text-ink-muted uppercase">Colocações</h3>
-          <ol className="m-0 grid list-none gap-0 rounded-card bg-white p-0 px-3">
+          <ol className="m-0 grid list-none gap-0 surface rounded-card p-0 px-3 inset-ring inset-ring-surface-edge">
             {placements.map(item => (
               <li key={item.competitor.entry_id} className="flex min-h-[48px] items-center gap-2.5 border-0 border-b border-solid border-line py-2 last:border-b-0">
                 <span className="grid size-6 flex-none place-items-center rounded-full bg-subtle font-display text-[11px] font-extrabold text-ink">{item.placement}º</span>

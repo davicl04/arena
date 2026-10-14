@@ -1383,3 +1383,67 @@ Web (`web/src/api/profile.ts`, `web/src/components/profile-matches/`) e Expo (`m
 `GET /matches/{id}` e `GET /matches/{id}/stats` aceitam, além dos vínculos atuais já previstos, o participante da regra 19.1. Sem vínculo atual, o detalhe retorna `my_role: 'historico'`, o lado na época, `needs_my_action: false` e todas as permissões falsas. A leitura das estatísticas retorna apenas a escalação e as estatísticas do próprio titular; sem chamada, retorna a lista vazia, sem acrescentar o elenco atual.
 
 Esse acesso não permite ler ou escrever no chat, enviar ou revisar estatísticas, contestar, informar resultado, cancelar ou alterar condições. Essas rotas conservam a autorização pelo vínculo atual. Pessoa estranha, membro que entrou depois da partida, atleta ausente e avulso removido sem participação válida não ganham acesso. Partidas agendadas continuam fora desse acesso histórico. Os clientes mostram as estatísticas do titular sem ações e explicam a indisponibilidade do chat.
+
+
+## 20. Ranking por elo, janela, forma recente e Salão (13 de outubro de 2026)
+
+Implementa o backend de [plano-ranking.md](../plano-ranking.md). Código: `app/services/ranking_views.py` (leitura; `rankings_page` saiu de `services/results.py`), `app/services/scoring.py` (`recent_form`, `score_outcome`), `app/services/standings.py` (carregadores com a ordem das partidas), `app/schemas/rankings.py` (os schemas do Ranking saíram de `schemas/matches.py`), `app/routers/rankings.py` (`GET /rankings` saiu de `routers/results.py`, com o mesmo prefixo e caminho), `app/admin_cli.py` (`recalculate-rankings`) e a migração `0013_ranking_form.py`. A seção 12.6 continua valendo; tudo o que entra aqui é campo ou parâmetro novo (aditivo).
+
+### 20.1 Invariante: elos contíguos
+
+Em cada categoria os elos ocupam faixas **contíguas** de `rank_position`, do melhor para o pior, e o Lendário é um **prefixo**. Isso vem de as quatro ordens de `scoring.py` (`team_order`, `individual_order`, `tennis_order`, `run_order`) terem a métrica como primeira chave, e de o elo depender só da métrica (mais a posição, no Lendário). A posição dentro do elo e a janela dependem disso: `tier_position = rank_position − tier_offset(contagens, elo)`, em que `tier_offset` soma os classificados dos elos acima. O teste `tests/unit/test_ranking_tiers.py` gera categorias aleatórias (semente fixa) nas quatro ordens e exige que o elo nunca suba ao longo da posição. Se uma calibragem futura (`calc_version = 2`) desacoplar o elo da primeira chave da ordem, o teste falha antes de a tela errar.
+
+### 20.2 Forma recente e melhor marca (migração `0013`)
+
+`standings` ganha:
+
+- `recent_form VARCHAR(5) NOT NULL DEFAULT ''`, com `CHECK (recent_form ~ '^[VED]{0,5}$')`: os **últimos 5 resultados** da janela, **do mais antigo para o mais recente** (`"VVEDV"`). Sem E no tênis (o serviço garante, um teste cobre) e vazia na corrida.
+- `best_mark_on DATE NULL`, com `CHECK (sport = 'corrida' OR best_mark_on IS NULL)`: na corrida, o `achieved_on` que `RunRecord` já calculava (o primeiro dia em que o melhor tempo da janela foi corrido).
+- O índice parcial `ix_standings_ranking_tier` em (`sport`, `format`, `position`, `distance_km`, `tier`, `rank_position`) `WHERE rank_position IS NOT NULL`, para o filtro por elo e a janela.
+
+**Gravação.** A forma sai do **mesmo recálculo** da categoria que grava pontos, posição e elo (`standings._recalculate_key`), então acompanha todos os caminhos que já o chamam: resultado confirmado, decisão da administração, W.O. (prazo ou decisão), presença e estatísticas, marca de corrida registrada ou removida e a varredura `rankings_janela` quando uma partida sai da janela. Os carregadores `_team_records`, `_individual_records` e `_tennis_records` selecionam também `Match.starts_at` e `Match.id` e guardam o resultado de cada partida; a regra pura `scoring.recent_form(outcomes, limit=5)` ordena por (`starts_at`, `id`), fica com as 5 últimas e devolve as letras. `recent_form` e `best_mark_on` entram em `standing_fields` e em `VALUE_FIELDS`, de modo que a linha só é regravada quando algo muda (mudar só a ordem dos resultados já regrava). Sujeitos em classificação também ganham a forma; ela só aparece na lista quando se classificam.
+
+- **Times:** o resultado sai do placar de cada lado (`scoring.score_outcome`).
+- **Individual:** só aparições com presença, na posição e no formato; no W.O. conta só o lado que compareceu, como os pontos (`scoring.outcome_for`). Estatísticas mudam pontos, nunca a forma.
+- **Tênis:** só V/D (`score_outcome(..., draws=False)`).
+
+**Passo operacional.** A migração não chama serviços: cria as colunas vazias. Em cada ambiente, depois de `alembic upgrade head`, rode **uma vez** `python -m app.admin_cli recalculate-rankings` (README). Ele recalcula todas as categorias (3 de times, 12 individuais, tênis e 5 distâncias de corrida) com `recalculate_rankings(..., touch=False)` em uma transação, imprime quantas linhas mudaram e é **idempotente**: a segunda execução imprime `0 linhas alteradas`. Até ele rodar, as linhas antigas devolvem `form: []`, nunca uma forma errada; o próximo resultado da categoria também a preenche.
+
+### 20.3 `GET /api/v1/rankings` (estendido)
+
+Os parâmetros de hoje e o `tier` (`bronze` | `prata` | `ouro` | `diamante` | `lendario`; outro valor responde `422`), que mantém só os classificados do elo. `cursor` (a última `rank_position`, opaca) e `limit` (padrão 20, máximo 50) continuam: dentro de um elo, o cursor é a posição geral do último item, e a ordem é sempre `rank_position`. Sem `tier`, a resposta é a de hoje mais os campos novos.
+
+- Cada item de `items` (`RankingRow`) ganha `tier_position: int` (1 = melhor do elo), `form: ('V'|'E'|'D')[] | null` (até 5, do mais antigo ao mais recente; `[]` sem forma gravada; **`null` na corrida**) e `best_mark_on: 'YYYY-MM-DD' | null` (só na corrida).
+- A página ganha `tier_counts: { bronze, prata, ouro, diamante, lendario }`, sempre da **categoria inteira**, mesmo com `tier=` (e com zeros nos elos vazios). `classified_count` é a soma.
+- Cada linha de `mine` (`MyRankingLine`) ganha `tier_position`, `tier_size`, `leader_gap`, `next_gap` e `next_tier_position` (20.4).
+
+### 20.4 `GET /api/v1/rankings/overview` (novo)
+
+Os mesmos parâmetros de categoria (`sport`, `kind`, `format`, `position`, `distance_km`; os mesmos `422`) e o `team_id` opcional; não há `tier`, `cursor` nem `limit`. O titular vem sempre da sessão. O `team_id` precisa ser de um **time ativo do titular**, em qualquer ranking: de outro titular, inexistente, encerrado ou do qual ele saiu, a resposta é **`404 Time não encontrado.`**.
+
+`RankingOverview`:
+
+- `ranking`, `format`, `position`, `distance_km`, `calc_version`, `required`, `classified_count`, `legend_slots` e `tier_counts`, como na página;
+- `mine: MyRankingLine[]`: a mesma lista de hoje (cada time ativo, o representante primeiro e depois o mais antigo; ou o próprio atleta), mesmo em classificação ou sem jogos. Cada linha **ranqueada** ganha `tier_position`, `tier_size`, `leader_gap`, `next_gap` e `next_tier_position`; em classificação, sem jogos ou sem marca, esses cinco campos são `null` (`tier_position` e `tier_size` são **anuláveis**);
+  - `leader_gap: number | null`: quanto o titular está **atrás do 1º do elo**, na métrica do ranking (pontos, média com 3 casas ou **segundos** na corrida, onde o menor tempo é o melhor); `null` quando lidera (`tier_position = 1`);
+  - `next_gap: number | null` e `next_tier_position: int | null`: quanto está **à frente do próximo** do elo e a posição dele; `null` quando é o último. Nunca negativos (`ranking_views.gap(a, b, direction)`, com `maior` ou `menor` da `direction` dos cortes); empates de métrica dão `0`;
+- `selected_team_id`: o `team_id` pedido ou, sem ele, o time da primeira linha de `mine`; `null` fora do ranking de times e sem times ativos;
+- `window: RankingRow[] | null`: as linhas do **elo da linha selecionada** de `tier_position − 3` a `tier_position + 3`, limitadas ao elo, em ordem de posição (a tela mostra ±2 e usa as pontas como borda esmaecida); `null` quando a linha não tem elo (classificação, sem jogos, sem time). Cada linha segue a visibilidade da lista (`is_mine`, `athlete` por `people_out`: avatar oculto por bloqueio e conta inativa);
+- `legends_preview: { team, athlete }[]`: até 4 Lendários em ordem de posição, para a entrada do Salão. Vazio quando não há vagas (`legend_slots = 0`) ou ninguém reúne os pontos de Diamante.
+
+O Salão (`tier=lendario`), "Ver o elo inteiro" e os 5 primeiros de outro elo (`tier=…&limit=6`) usam `GET /rankings`.
+
+A leitura de `form`, `best_mark_on` e do elo vem **só de `standings`**: nenhuma consulta a `matches`, `match_sides`, `match_lineups` ou `runs` (teste `test_the_reads_use_the_stored_form_and_never_look_at_the_matches`). As consultas são fixas por requisição: contagens por elo (uma agregação), linhas do titular, os valores de métrica do líder e do próximo, a janela e a prévia, mais times e pessoas em lote.
+
+### 20.5 Desvios e decisões
+
+- **Posição geral fora da tela.** O plano aceito mostra a posição **dentro do elo** ("6º de 12 no Diamante") e não a geral nem "Top %". `rank_position` continua na API por compatibilidade, para o cursor e para a ordem; web e Expo deixam de exibi-la.
+- **Sem elo, os chips Bronze · Prata · Ouro · Diamante** (Bronze por padrão), **as setas pulam elos vazios** e **as diferenças são relativas às pessoas**, nunca aos cortes ("faltam X para o Ouro" fica de fora, e os cortes continuam fora do contrato do cliente).
+- **Schemas e roteador movidos.** `RankingRowOut`, `MyRankingLineOut`, `RankingPageOut` (e o `RankingKey` literal) foram de `schemas/matches.py` para `schemas/rankings.py`, junto com `RankingOverviewOut`, `RankingSubjectOut` e `TierCountsOut`; `GET /rankings` foi de `routers/results.py` para `routers/rankings.py`. Caminhos, prefixo e nomes de resposta não mudam.
+- **`tier_position` e `tier_size` anuláveis** em `MyRankingLine`: o contrato do plano os lista sem tipo; só existem para linha ranqueada.
+- **`form` vazio e nulo.** `[]` significa "ainda sem forma gravada" (linhas anteriores ao `recalculate-rankings`) ou sem partidas na janela; `null` é exclusivo da corrida.
+- **Concorrência (corrigida em 14 de outubro de 2026).** O recálculo mantém a trava transacional exclusiva da categoria; `/rankings` e `/rankings/overview` mantêm a versão compartilhada da mesma trava durante a leitura. Leitores podem trabalhar juntos, mas nenhum recálculo move ou remove linhas entre a leitura de contagens, posições, métricas e janela. Sem essa proteção, a remoção de uma linha podia causar erro 500, e a defasagem não era limitada a uma unidade. A trava é liberada ao terminar a transação da requisição.
+
+### 20.6 Testes
+
+Unitários: `tests/unit/test_ranking_tiers.py` (invariante nas quatro ordens), `test_ranking_views.py` (`tier_offset`, `gap` nas duas direções), `test_scoring.py` (`recent_form`, `score_outcome`, colunas em `standing_fields`) e `test_standings_service.py`. Integração (PostgreSQL): `test_ranking_form_flow.py` (forma por resultado confirmado, presença e estatísticas, individual, tênis, saída da janela, melhor marca ao registrar e remover, restrições do banco, `recalculate-rankings`), `partida/test_ranking_form_walkover.py` (W.O. por prazo, decisão e anulação) e `test_ranking_views_flow.py` (contagens, filtro e cursor por elo, janela nas pontas e em elos de 1 e 2 integrantes, gaps com corrida, `404`, vários times, linhas em classificação, prévia do Salão, visibilidade, leitura sem partidas e uma passagem pelo recálculo real).

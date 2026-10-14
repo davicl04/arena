@@ -5,7 +5,7 @@ import type { OrganizerEntry } from '../../api/events'
 import { subjectName } from '../../api/receipts'
 import { usePagedList } from '../../hooks/usePagedList'
 import type { EntryState } from '../../data/arena'
-import { colors } from '../../theme'
+import { useThemeColors } from '../../hooks/useTheme'
 import { formatPrice } from '../../utils/format'
 import { ReceiptImage } from '../arena/ReceiptImage'
 import { StateBadge } from '../arena/StateBadge'
@@ -17,10 +17,11 @@ import { refundStatus } from './receiptView'
 
 /** Uma inscrição com devolução: situação, arquivo enviado e "Anexar comprovante" (imagem ou PDF até 5 MiB). */
 function RefundRow({ entry, token, onAttach }: { entry: OrganizerEntry; token: string | null; onAttach: () => void }) {
+  const colors = useThemeColors()
   const name = subjectName(entry.subject)
   const status = refundStatus(entry)
   const refund = entry.refund
-  return <View testID={`refund-${entry.id}`} accessibilityLabel={`${name}: ${status.label}`} style={{ borderRadius: 16, backgroundColor: '#ffffff', padding: 12 }}>
+  return <View testID={`refund-${entry.id}`} accessibilityLabel={`${name}: ${status.label}`} style={{ borderRadius: 16, backgroundColor: colors.surface, padding: 12 }}>
     <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
       {refund && status.step !== 'enviar'
         ? <ReceiptImage receipt={refund} title={`Comprovante da devolução de ${name}`} variant="thumb" token={token} />
@@ -49,6 +50,7 @@ const groups: { state: EntryState; title: string; empty: string }[] = [
 function RefundGroup({ eventId, state, title, empty, token, onSent, onExpired }: {
   eventId: number; state: EntryState; title: string; empty: string; token: string | null; onSent: (entry: OrganizerEntry) => void; onExpired: () => void
 }) {
+  const colors = useThemeColors()
   const list = usePagedList<OrganizerEntry>(eventEntriesPath(eventId, state), onExpired)
   const [attaching, setAttaching] = useState<OrganizerEntry | null>(null)
   return <View accessibilityLabel={title} style={{ marginTop: 18 }}>
@@ -72,6 +74,7 @@ function RefundGroup({ eventId, state, title, empty, token, onSent, onExpired }:
  * inscrição; o participante confirma ou contesta (sem resposta em 7 dias, conta como recebida).
  */
 export function RefundList({ eventId, token, onSent, onExpired }: { eventId: number; token: string | null; onSent: (entry: OrganizerEntry) => void; onExpired: () => void }) {
+  const colors = useThemeColors()
   return <View>
     <Text style={{ marginTop: 4, color: colors['ink-muted'], fontSize: 12, lineHeight: 18 }}>
       Devolva o valor de cada inscrição paga por Pix, fora do Arena, e anexe o comprovante. O participante confirma o recebimento; sem resposta em 7 dias, conta como recebida.

@@ -2,10 +2,11 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import Cropper from 'react-easy-crop'
 import type { Area } from 'react-easy-crop'
 import { ArrowLeft, ArrowRight, Check, Crosshair, ImagePlus, RotateCcw, RotateCwSquare, X } from 'lucide-react'
-import { ApiError, request } from '../api/client'
+import { request } from '../api/client'
 import type { Post } from '../api/client'
 import { CAPTION_MAX } from '../api/social'
 import { useDialogFocus } from '../hooks/useDialogFocus'
+import { reportActionError } from '../hooks/useSubmit'
 import { cropImage, IMAGE_TYPES, validateImageFile } from '../utils/cropImage'
 import { Button, IconButton } from '@/components/ui/button'
 import { glassMessageVariants } from '@/components/ui/glass-variants'
@@ -103,8 +104,9 @@ export default function PostComposer({ onClose, onPublished, onExpired }: {
       form.append('caption', caption)
       onPublished(await request<Post>('/posts', 'POST', form))
     } catch (cause) {
-      if (cause instanceof ApiError && cause.status === 401) onExpired()
-      setError(cause instanceof Error && cause.message ? cause.message : 'Não foi possível publicar.')
+      // Só a recusa de validação do servidor (legenda, imagem) fica junto ao campo; o resto vira toast ou aviso de conexão.
+      const report = reportActionError(cause, 'Não foi possível publicar.', onExpired)
+      if (report.kind === 'form') setError(report.message)
       setBusy(false)
     }
   }

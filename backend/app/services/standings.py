@@ -48,7 +48,7 @@ RUN_RANKINGS = tuple(f'corrida_{km}' for km in RUN_DISTANCES_KM)
 RANKING_ORDER = ('futebol_time', 'futebol_individual', 'tenis', *RUN_RANKINGS)
 # Columns of a `standings` row that a recalculation writes; a row is rewritten only when one of them changes.
 VALUE_FIELDS = ('metric_value', 'matches_played', 'wins', 'draws', 'losses', 'goals_for', 'goals_against',
-                'rank_position', 'tier', 'calc_version')
+                'rank_position', 'tier', 'calc_version', 'recent_form', 'best_mark_on')
 
 
 @dataclass(frozen=True)
@@ -163,14 +163,18 @@ def _scored(window_start: datetime, now: datetime):
 
 def _team_records(db: Session, key: RankingKey, window_start: datetime, now: datetime) -> list:
     rows = db.execute(
-        select(MatchSide.team_id, MatchSide.side, Match.score_a, Match.score_b)
+        select(MatchSide.team_id, MatchSide.side, Match.score_a, Match.score_b, Match.starts_at, Match.id)
         .join(Match, Match.id == MatchSide.match_id)
         .where(*_scored(window_start, now), Match.sport == 'futebol', Match.format == key.format,
                MatchSide.team_id.is_not(None))).all()
     games: dict[int, list[tuple[int, int]]] = defaultdict(list)
-    for team_id, side, score_a, score_b in rows:
-        games[team_id].append((score_a, score_b) if side == 'a' else (score_b, score_a))
-    return [scoring.team_record(team_id, items) for team_id, items in games.items()]
+    results: dict[int, list[tuple[datetime, int, str]]] = defaultdict(list)
+    for team_id, side, score_a, score_b, starts_at, match_id in rows:
+        goals_for, goals_against = (score_a, score_b) if side == 'a' else (score_b, score_a)
+        games[team_id].append((goals_for, goals_against))
+        results[team_id].append((starts_at, match_id, scoring.score_outcome(goals_for, goals_against)))
+    return [scoring.team_record(team_id, items, form=scoring.recent_form(results[team_id]))
+            for team_id, items in games.items()]
 
 
 def _individual_records(db: Session, key: RankingKey, window_start: datetime, now: datetime) -> list:
@@ -178,7 +182,7 @@ def _individual_records(db: Session, key: RankingKey, window_start: datetime, no
     walkover only the side that showed up counts, with presence and the win, and there are no stats."""
     rows = db.execute(
         select(MatchLineup.user_id, MatchLineup.side, Match.winner_side, Match.walkover_absent_side,
-               FootballStat.state, FootballStat.goals, FootballStat.assists, FootballStat.position_stat,
+               Match.starts_at, Match.id, FootballStat.state, FootballStat.goals, FootballStat.assists, FootballStat.position_stat,
                FootballStat.contested_fields, FootballStat.reviewed_at)
         .select_from(MatchLineup)
         .join(Match, Match.id == MatchLineup.match_id)
@@ -187,7 +191,9 @@ def _individual_records(db: Session, key: RankingKey, window_start: datetime, no
                MatchLineup.position == key.position, MatchLineup.present.is_(True),
                MatchLineup.removed_at.is_(None))).all()
     appearances: dict[int, list[tuple[str, scoring.IndividualPoints]]] = defaultdict(list)
-    for user_id, side, winner, absent, state, goals, assists, position_stat, contested, reviewed_at in rows:
+    results: dict[int, list[tuple[datetime, int, str]]] = defaultdict(list)
+    for (user_id, side, winner, absent, starts_at, match_id, state, goals, assists, position_stat, contested,
+         reviewed_at) in rows:
         if absent is not None and side == absent:
             continue
         counted = frozenset() if absent is not None or state is None else counted_stat_fields(
@@ -195,7 +201,9 @@ def _individual_records(db: Session, key: RankingKey, window_start: datetime, no
         outcome = scoring.outcome_for(side, winner)
         appearances[user_id].append((outcome, scoring.individual_points(
             outcome=outcome, goals=goals, assists=assists, position_stat=position_stat, counted=counted)))
-    return [scoring.individual_record(user_id, items) for user_id, items in appearances.items()]
+        results[user_id].append((starts_at, match_id, outcome))
+    return [scoring.individual_record(user_id, items, form=scoring.recent_form(results[user_id]))
+            for user_id, items in appearances.items()]
 
 
 def _tennis_records(db: Session, window_start: datetime, now: datetime) -> list:
@@ -203,18 +211,22 @@ def _tennis_records(db: Session, window_start: datetime, now: datetime) -> list:
     +10): `event_placements` rows written when a tennis event with 4 or more entries ends, counted while the event
     ended inside the window."""
     rows = db.execute(
-        select(MatchSide.user_id, MatchSide.side, Match.score_a, Match.score_b)
+        select(MatchSide.user_id, MatchSide.side, Match.score_a, Match.score_b, Match.starts_at, Match.id)
         .join(Match, Match.id == MatchSide.match_id)
         .where(*_scored(window_start, now), Match.sport == 'tenis', MatchSide.user_id.is_not(None))).all()
     games: dict[int, list[tuple[int, int]]] = defaultdict(list)
-    for user_id, side, score_a, score_b in rows:
-        games[user_id].append((score_a, score_b) if side == 'a' else (score_b, score_a))
+    results: dict[int, list[tuple[datetime, int, str]]] = defaultdict(list)
+    for user_id, side, score_a, score_b, starts_at, match_id in rows:
+        sets_won, sets_lost = (score_a, score_b) if side == 'a' else (score_b, score_a)
+        games[user_id].append((sets_won, sets_lost))
+        results[user_id].append((starts_at, match_id, scoring.score_outcome(sets_won, sets_lost, draws=False)))
     bonus = dict(db.execute(
         select(EventPlacement.user_id, func.sum(EventPlacement.bonus_points))
         .where(EventPlacement.user_id.is_not(None), EventPlacement.bonus_points > 0,
                EventPlacement.awarded_at >= window_start, EventPlacement.awarded_at <= now)
         .group_by(EventPlacement.user_id)).all())
-    return [scoring.tennis_record(user_id, items, bonus=int(bonus.get(user_id, 0))) for user_id, items in games.items()]
+    return [scoring.tennis_record(user_id, items, bonus=int(bonus.get(user_id, 0)),
+                                  form=scoring.recent_form(results[user_id])) for user_id, items in games.items()]
 
 
 def _run_records(db: Session, distance_km: int, start_day: date, today: date) -> list[scoring.RunRecord]:

@@ -4,7 +4,7 @@ import type { City } from '../../api/client'
 import type { EventMatchRow, ScheduleConflict, ScheduleInput } from '../../api/brackets'
 import type { CourtOut } from '../../api/matches'
 import { whenText } from '../../data/match'
-import { colors } from '../../theme'
+import { useThemeColors } from '../../hooks/useTheme'
 import { combineDateTime, splitDateTime, toDateKey } from '../../utils/dateKey'
 import { ActionButton, BusyStatus, ErrorText, FieldLabel, Hint } from '../arena/controls'
 import { DateField } from '../arena/DateField'
@@ -37,6 +37,7 @@ export function ScheduleSheet({ row, city, busy, error, conflict, onSubmit, onCl
   onOpenMatch?: () => void
   onExpired: () => void
 }) {
+  const colors = useThemeColors()
   const { card } = row
   const initial = splitDateTime(card.starts_at)
   const [date, setDate] = useState(initial?.date ?? '')

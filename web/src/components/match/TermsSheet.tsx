@@ -16,7 +16,7 @@ import { Switch } from "@/components/ui/switch";
 
 const lbl = "m-0 text-[12px] font-bold";
 const segClass =
-  "min-h-10 min-w-0 flex-1 rounded-[11px] border border-solid border-line-strong bg-white px-2 text-[11.5px] font-bold text-ink aria-pressed:border-brand aria-pressed:bg-brand aria-pressed:text-white";
+  "min-h-10 min-w-0 flex-1 rounded-[11px] border border-solid border-line-strong bg-surface px-2 text-[11.5px] font-bold text-ink aria-pressed:border-brand aria-pressed:bg-brand aria-pressed:text-on-brand";
 
 /**
  * Folha "Propor condições" (P2): Date Picker com os dias passados desabilitados, horário com passo de 15 min, quadra
@@ -33,6 +33,7 @@ export function TermsSheet({
 }: {
   detail: MatchDetail;
   busy: boolean;
+  /** Recusa do servidor às condições (`422`/`409` com conflito): as demais falhas de ação saem em toast. */
   error: string;
   onSubmit: (input: TermsInput) => void;
   onClose: () => void;
@@ -112,9 +113,14 @@ export function TermsSheet({
           Quem propõe já aceita. A partida só é agendada quando o outro lado também aceitar estas condições.
         </p>
 
-        {(problem || error) && (
+        {problem && (
           <p className={cn(feedbackVariants(), "my-0")} role="alert">
-            {problem || error}
+            {problem}
+          </p>
+        )}
+        {error && !problem && (
+          <p className={cn(feedbackVariants(), "my-0")} role="alert">
+            {error}
           </p>
         )}
         <Button type="submit" className="w-full" disabled={busy}>

@@ -7,7 +7,8 @@ import { cn } from "@/lib/utils";
 
 /*
  * Folhas de confirmação da partida: cancelar (motivo opcional), registrar ou retirar o W.O. e contestar o W.O.
- * (motivo de 5 a 500 caracteres). Os erros do servidor aparecem dentro da folha, que fica aberta para tentar de novo.
+ * (motivo de 5 a 500 caracteres). A folha fica aberta para tentar de novo: a recusa do formulário pelo servidor (`error`) aparece
+ * dentro dela e as demais falhas de ação saem em toast. A validação local do motivo (`shortMessage`) fica junto ao campo.
  */
 
 function SheetError({ message }: { message: string }) {
@@ -115,7 +116,7 @@ export function ReasonSheet({
           aria-invalid={touched && short ? true : undefined}
           aria-describedby={`${id}-help`}
           onChange={(event) => setReason(event.target.value)}
-          className="w-full resize-none rounded-field border border-solid border-field-border bg-white p-2.5 text-[12px] leading-normal text-ink aria-invalid:border-error"
+          className="w-full resize-none rounded-field border border-solid border-field-border bg-field p-2.5 text-[12px] leading-normal text-ink aria-invalid:border-error"
           placeholder={placeholder}
         />
         <small id={`${id}-help`} className="flex justify-between gap-2 px-0.5 text-[10.5px] text-ink-muted">

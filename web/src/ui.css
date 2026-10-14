@@ -6,6 +6,11 @@
 @source not "../tests";
 
 @custom-variant dark (&:is(.dark *));
+/*
+ * Tema escuro global ("Estádio à noite", docs/plano-tema.md): `data-theme="dark"` em <html>. Uso: `noite:border-…`.
+ * Só para o que os tokens não resolvem; `dark:` continua sendo a do vidro dos formulários.
+ */
+@custom-variant noite (&:where([data-theme="dark"], [data-theme="dark"] *));
 /* Largura do aplicativo: até 430 px ocupa a tela toda. Uso: `app-narrow:rounded-none`. */
 @custom-variant app-narrow (@media (max-width: 430px));
 
@@ -40,6 +45,10 @@
   --color-danger-ink: #b42318;
   --color-danger-soft: #ff8a9a;
   --color-mint: #8fe0b4;
+  --color-warning-soft: #f4c56a; /* tom de aviso sobre o vidro escuro (toast, faixa de conexão) */
+  --color-info-soft: #c9d6cf; /* tom de informação sobre o vidro escuro */
+  --color-toast: rgba(8, 20, 14, 0.86); /* superfície do toast */
+  --color-toast-line: #ffffff17; /* borda do toast */
   --color-night: #08140e;
   --color-glass: #08140ed1;
   --color-glass-strong: #08140eeb;
@@ -47,6 +56,31 @@
   --color-cover: #2b3a33;
   --color-tile: #dfe3e0;
   --color-scrim: #101814b8;
+  --color-legend: #F4DE9A; /* dourado do Salão dos Lendários (acento sobre fundo escuro) */
+  /* Tom de cada elo na placa contínua do Ranking: o gradiente vai dele para o forest (combina com o brasão do elo). */
+  --color-tier-bronze-tint: #7a4a22;
+  --color-tier-prata-tint: #5d6670;
+  --color-tier-ouro-tint: #7a5a12;
+  --color-tier-diamante-tint: #1d5c6a;
+  --color-tier-lendario-tint: #5a4a10;
+  /*
+   * Tokens do tema (valores do claro; o escuro está em `:root[data-theme="dark"]`, abaixo).
+   * surface: cartões e superfícies que eram `bg-white` (o utilitário `surface` acrescenta o degradê do escuro);
+   * sheet: folha clara e fundo do shadcn; field: campos; on-brand: texto e ícone sobre `bg-brand`;
+   * heading: títulos e rótulos fortes; icon-tile(-ink): quadro de ícone verde-claro (ListRow, EmptyState, Badge);
+   * eyebrow: sobretítulos; hover: fundo de linha sob o ponteiro; nav: barra inferior; surface-edge: borda acesa.
+   */
+  --color-surface: #fff;
+  --color-sheet: #fff;
+  --color-field: #fff;
+  --color-on-brand: #fff;
+  --color-heading: #495057;
+  --color-icon-tile: #005a3612;
+  --color-icon-tile-ink: #005a36;
+  --color-eyebrow: #626970;
+  --color-hover: #f6f7f9;
+  --color-nav: #e2e4e9f7;
+  --color-surface-edge: transparent;
 
   /* Raios recorrentes (os da escala padrão continuam disponíveis). */
   --radius-field: 11px; /* campos, avisos */
@@ -62,23 +96,31 @@
   --shadow-soft: 0 2px 6px #0001;
   --shadow-sheet: 0 -12px 40px #0003;
   --shadow-play: 0 5px 14px #005a364d;
+  --shadow-toast: 0 18px 40px rgb(0 0 0 / 0.35);
 
   /* Camadas (namespace `--z-index-*` do Tailwind → `z-nav`, `z-sheet`…). */
   --z-index-photo-glass: 4; /* vidro sobre a foto do post (Glass variant="media") */
   --z-index-tabs: 12; /* abas fixas do perfil */
   --z-index-topbar: 15; /* barra fixa do perfil */
   --z-index-viewer: 19; /* visualizador "Publicações", abaixo da navegação */
+  --z-index-connection: 19; /* faixa de conexão, presa acima da navegação inferior; o botão Jogar (z-nav) passa por cima dela */
   --z-index-nav: 20; /* navegação inferior */
   --z-index-glass-screen: 30; /* vidro de tela cheia (ações da conta) */
   --z-index-skip-link: 30; /* link "Pular para conteúdo" */
   --z-index-scrim: 40; /* fundo escurecido da folha */
   --z-index-sheet: 41; /* folha inferior */
+  --z-index-toast: 50; /* toasts: acima de folhas e diálogos */
 
   /* Animações (só com prefers-reduced-motion: no-preference → usar `motion-safe:animate-…`). */
   --animate-glass-in: glass-in 0.2s ease-out;
   --animate-viewer-in: viewer-in 0.22s ease-out;
   --animate-indeterminate: indeterminate 1.1s ease-in-out infinite; /* barra de progresso sem valor (Comunidade) */
   --animate-ripple: ripple 1.8s ease-out infinite; /* ondas do botão redondo do Jogar durante a busca */
+  --animate-pulse-dot: pulse-dot 1.6s ease-in-out infinite; /* ponto de conexão (faixa e folha) */
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; scale: 1; }
+    50% { opacity: 0.45; scale: 0.8; }
+  }
   @keyframes glass-in {
     from { opacity: 0; }
     to { opacity: 1; }
@@ -94,6 +136,84 @@
   @keyframes viewer-in {
     from { transform: translateX(100%); }
     to { transform: none; }
+  }
+}
+
+/*
+ * Tema escuro "Estádio à noite": preto esverdeado com holofote no topo, menta nos botões e o dourado dos elos
+ * (`--color-legend`) nos sobretítulos, nos quadros de ícone e no item selecionado. Os utilitários do Tailwind leem
+ * `var(--color-…)`, então trocar os valores aqui muda todas as telas que usam tokens. Forest, night, glass, mint,
+ * legend e os tons dos elos não mudam: já são escuros por design (Jogar, Salão, vidro, toasts).
+ */
+:root {
+  --surface-sheen: none;
+  --app-glow: none;
+  color-scheme: light;
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --color-app: #040806;
+  --color-ink: #d2dcd6;
+  --color-ink-muted: #87978e;
+  --color-line: #ffffff10;
+  --color-line-strong: #ffffff30;
+  --color-subtle: #ffffff10;
+  --color-field-border: #ffffff24;
+  --color-placeholder: #7d8b83;
+  --color-brand: #8fe0b4;
+  --color-brand-hover: #a6ead0;
+  --color-focus: #e0a82e;
+  --color-error: #ff9b85;
+  --color-error-bg: #ff8a801a;
+  --color-success-bg: #8fe0b41a;
+  --color-warning: #f4c56a;
+  --color-warning-bg: #f4c56a1a;
+  --color-danger: #ec5a6e; /* texto 5,1:1 sobre o cartão; sólido leva texto escuro (#2a0710) */
+  --color-danger-ink: #ff8a80;
+  --color-tile: #16201b;
+  --color-surface: #0f1813;
+  --color-sheet: #0b120e;
+  --color-field: #0b130f;
+  --color-on-brand: #04100a;
+  --color-heading: #fff;
+  --color-icon-tile: #f4de9a14;
+  --color-icon-tile-ink: #f4de9a;
+  --color-eyebrow: #f4de9acc;
+  --color-hover: #ffffff08;
+  --color-nav: #040806f2;
+  --color-surface-edge: #ffffff12;
+  --surface-sheen: linear-gradient(180deg, #131d18, #0a110d);
+  --app-glow: radial-gradient(80% 30% at 50% -6%, #eafff31c, transparent 70%);
+  --shadow-app: 0 24px 70px #0000008c;
+  --shadow-primary: 0 0 26px #8fe0b440;
+  --shadow-card: none;
+  --shadow-soft: none;
+  --shadow-play: 0 0 26px #8fe0b440;
+}
+
+/*
+ * Superfície de cartão: `bg-surface` no claro (branco) e o degradê escuro no tema escuro. Para elementos com hover de
+ * fundo, use `bg-surface` (o degradê cobriria a cor do hover). A borda acesa vem da borda do cartão (`border-line`) ou,
+ * sem borda, de `inset-ring inset-ring-surface-edge` (transparente no claro, sem mudar o layout).
+ */
+@utility surface {
+  background-color: var(--color-surface);
+  background-image: var(--surface-sheen);
+}
+
+/* Transição da troca de tema pelo cartão Aparência (classe temporária em <html>; nunca na carga nem pelo sistema). */
+@media (prefers-reduced-motion: no-preference) {
+  /* O cartão Aparência tem as próprias transições (céu, sol, refletores), que esta regra não pode substituir. */
+  html.theme-transition,
+  html.theme-transition *:not(.stadium, .stadium *),
+  html.theme-transition *:not(.stadium, .stadium *)::before,
+  html.theme-transition *:not(.stadium, .stadium *)::after {
+    transition:
+      background-color 0.28s ease,
+      color 0.28s ease,
+      border-color 0.28s ease,
+      fill 0.28s ease,
+      box-shadow 0.28s ease !important;
   }
 }
 
@@ -128,16 +248,20 @@
 }
 
 :root {
-  --ui-background: #ffffff;
+  --ui-background: var(--color-sheet);
   --ui-foreground: var(--color-ink);
   --ui-primary: var(--color-brand);
-  --ui-primary-foreground: #ffffff;
+  --ui-primary-foreground: var(--color-on-brand);
   --ui-muted: var(--color-subtle);
   --ui-muted-foreground: var(--color-ink-muted);
   --ui-border: #49505726;
   --ui-input: var(--color-field-border);
   --ui-ring: var(--color-focus);
   --ui-destructive: var(--color-danger);
+}
+/* Tema escuro global: os tokens acima já seguem os da paleta; só a borda muda. O `.dark` (vidro) vem depois e vence. */
+:root[data-theme="dark"] {
+  --ui-border: #ffffff17;
 }
 
 .dark {
@@ -166,7 +290,9 @@
     font-family: var(--font-sans);
     line-height: normal;
     color: var(--color-ink);
-    background: var(--color-app);
+    background-color: var(--color-app);
+    background-image: var(--app-glow); /* holofote do tema escuro (none no claro) */
+    background-repeat: no-repeat;
     font-synthesis: none;
     /* Comportamento padrão do navegador no toque e na rotação (o preflight remove o destaque e fixa 100%). */
     -webkit-tap-highlight-color: initial;
@@ -188,6 +314,10 @@
   h3 {
     font-family: var(--font-display);
     font-weight: 700;
+  }
+  /* No escuro, os títulos ficam brancos (no claro herdam a cor). Utilitários de cor no título continuam vencendo. */
+  [data-theme="dark"] :where(h1, h2, h3) {
+    color: var(--color-heading);
   }
   /* Rótulo de campo. O `Label` do shadcn/ui (field-label) define os próprios utilitários e zera a margem. */
   label {
@@ -246,7 +376,7 @@
     min-height: 48px;
     border: 1px solid var(--color-field-border);
     border-radius: var(--radius-field);
-    background: #fff;
+    background: var(--color-field);
     color: var(--color-ink);
     padding: 12px 13px;
     font-size: 13px;
@@ -261,5 +391,218 @@
   /* Espaçamento padrão das opções na lista do seletor (o preflight o zera). */
   option {
     padding: 0 2px 1px;
+  }
+}
+
+/*
+ * Toast (components/ui/toast.tsx). O Base UI entrega o índice, o deslocamento, a altura e o arrasto como variáveis
+ * (`--toast-index`, `--toast-offset-y`, `--toast-height`, `--toast-frontmost-height`, `--toast-swipe-movement-y`) e o
+ * atributo `data-expanded` quando o baralho se abre (ponteiro ou foco). O tom vem de `data-tone`: `--tone` colore
+ * glifo, anel, linha do topo, Coliseu e botão de ação. O anel esvazia durante `--toast-duration`; pausa com o baralho
+ * aberto (`data-expanded`) e com a janela sem foco (`data-blurred`), como os temporizadores do Base UI.
+ * A posição vem de `--toast-bottom` (86 px sobre a navegação inferior; 16 px sem ela) somada a `--connection-dock`.
+ */
+@layer components {
+  /*
+   * Cartão "Luzes do estádio" (components/menu/AppearanceCard.tsx). O desenho é o mesmo nos dois temas; `data-lit`
+   * (tema resolvido escuro) escurece o céu, esconde o sol, acende os refletores e escurece o gramado. Sem animação com
+   * `prefers-reduced-motion: reduce`.
+   */
+  .stadium {
+    position: relative;
+    height: 196px;
+    border-radius: var(--radius-panel);
+    overflow: hidden;
+    isolation: isolate;
+    border: 1px solid var(--color-surface-edge);
+    color: #fff;
+  }
+  .stadium-sky { position: absolute; inset: 0; transition: opacity 0.6s ease; }
+  .stadium-sky-day { background: linear-gradient(180deg, #8fd0f2 0%, #cfeefd 60%, #e9f7ff 100%); }
+  .stadium-sky-night {
+    background:
+      radial-gradient(60% 50% at 18% 18%, #fff7d633, transparent 70%),
+      radial-gradient(60% 50% at 82% 18%, #fff7d633, transparent 70%),
+      linear-gradient(180deg, #02060a 0%, #07130d 70%, #0b2218 100%);
+    opacity: 0;
+  }
+  .stadium-sun {
+    position: absolute;
+    top: 16px;
+    right: 56px;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: #ffd66b;
+    box-shadow: 0 0 0 8px #ffd66b33;
+    transition: opacity 0.5s ease, translate 0.6s ease;
+  }
+  .stadium-pole { position: absolute; bottom: 46px; width: 4px; height: 82px; background: #2b3a33; }
+  .stadium-pole-l { left: 22px; }
+  .stadium-pole-r { right: 22px; }
+  .stadium-pole i {
+    position: absolute;
+    top: -8px;
+    left: -10px;
+    width: 24px;
+    height: 12px;
+    border-radius: 3px;
+    background: #3d4a43;
+    transition: background-color 0.4s ease, box-shadow 0.4s ease;
+  }
+  .stadium-beam { position: absolute; top: 66px; width: 180px; height: 150px; opacity: 0; transition: opacity 0.6s ease 0.15s; pointer-events: none; }
+  .stadium-beam-l { left: 16px; background: conic-gradient(from 135deg at 0 0, transparent 0deg, #fff8dd33 8deg, #fff8dd14 30deg, transparent 38deg); }
+  .stadium-beam-r { right: 16px; background: conic-gradient(from 187deg at 100% 0, transparent 0deg, #fff8dd14 8deg, #fff8dd33 30deg, transparent 38deg); }
+  .stadium-coliseum {
+    position: absolute;
+    left: 50%;
+    bottom: 40px;
+    translate: -50% 0;
+    width: 230px;
+    max-width: 70%;
+    height: 96px;
+    background: var(--color-forest);
+    mask: url(/images/brand/coliseum.svg) center bottom / contain no-repeat;
+    opacity: 0.9;
+    transition: background-color 0.5s ease;
+  }
+  .stadium-pitch {
+    position: absolute;
+    inset: auto 0 0;
+    height: 46px;
+    background: repeating-linear-gradient(90deg, #1f7a46 0 22px, #237f4b 22px 44px);
+    transition: filter 0.5s ease;
+  }
+  .stadium-text { position: absolute; left: 16px; top: 14px; z-index: 2; display: grid; gap: 2px; }
+  .stadium-eyebrow { font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #0b2218b3; transition: color 0.4s ease; }
+  .stadium-title { font-family: var(--font-display); font-size: 16px; font-weight: 700; color: var(--color-forest); transition: color 0.4s ease; }
+  .stadium-options {
+    position: absolute;
+    inset: auto 12px 10px;
+    z-index: 2;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 4px;
+    padding: 4px;
+    border-radius: 12px;
+    background: #04080699;
+    backdrop-filter: blur(10px);
+  }
+  .stadium-options button {
+    display: inline-flex;
+    min-width: 0;
+    min-height: 34px;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    border: 0;
+    border-radius: 9px;
+    padding: 7px 4px;
+    background: transparent;
+    color: #ffffffcc;
+    font-size: 11px;
+    font-weight: 700;
+  }
+  .stadium-options button:hover { background: #ffffff14; }
+  .stadium-options button[aria-pressed="true"] { background: #fff; color: var(--color-forest); }
+  .stadium[data-lit] .stadium-sky-night { opacity: 1; }
+  .stadium[data-lit] .stadium-sun { opacity: 0; translate: 0 30px; }
+  .stadium[data-lit] .stadium-beam { opacity: 1; }
+  .stadium[data-lit] .stadium-pole i { background: #fff8dd; box-shadow: 0 0 18px 6px #fff8dd66; }
+  .stadium[data-lit] .stadium-coliseum { background: #000; }
+  .stadium[data-lit] .stadium-pitch { filter: brightness(0.55) saturate(0.8); }
+  .stadium[data-lit] .stadium-eyebrow { color: #f4de9acc; }
+  .stadium[data-lit] .stadium-title { color: #fff; }
+  .stadium[data-lit] .stadium-options button[aria-pressed="true"] { background: var(--color-legend); color: #1a1404; }
+  @media (prefers-reduced-motion: reduce) {
+    .stadium * { transition: none !important; }
+  }
+
+  .toast-viewport {
+    position: absolute;
+    inset-inline: 12px;
+    bottom: calc(var(--toast-bottom, 86px) + var(--connection-dock, 0px));
+    z-index: var(--z-index-toast);
+    pointer-events: none;
+    transition: bottom 0.3s ease;
+  }
+  .toast-viewport[data-floating] {
+    position: fixed;
+    margin-inline: auto;
+    max-width: 416px;
+  }
+  .toast-root {
+    --tone: var(--color-mint);
+    --toast-gap: 8px;
+    --toast-peek: 10px;
+    --toast-scale: calc(max(0, 1 - (var(--toast-index) * 0.05)));
+    --toast-card-height: var(--toast-frontmost-height, var(--toast-height));
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: var(--toast-card-height);
+    transform-origin: bottom center;
+    transform: translateY(calc(var(--toast-swipe-movement-y, 0px) - (var(--toast-index) * var(--toast-peek)))) scale(var(--toast-scale));
+    transition:
+      transform 0.38s cubic-bezier(0.22, 1, 0.36, 1),
+      opacity 0.38s cubic-bezier(0.22, 1, 0.36, 1),
+      height 0.2s ease;
+    pointer-events: auto;
+    outline: none;
+    touch-action: none;
+    z-index: calc(1000 - var(--toast-index));
+  }
+  .toast-root[data-tone='info'] { --tone: var(--color-info-soft); }
+  .toast-root[data-tone='warning'] { --tone: var(--color-warning-soft); }
+  .toast-root[data-tone='error'] { --tone: var(--color-danger-soft); }
+  .toast-root[data-expanded] {
+    height: var(--toast-height);
+    transform: translateY(calc(var(--toast-offset-y) * -1 + (var(--toast-index) * var(--toast-gap) * -1) + var(--toast-swipe-movement-y, 0px)));
+  }
+  .toast-root[data-limited] { opacity: 0; pointer-events: none; }
+  .toast-root[data-starting-style],
+  .toast-root[data-ending-style] { opacity: 0; transform: translateY(28px) scale(0.96); }
+  .toast-root[data-ending-style][data-swipe-direction='down'] { transform: translateY(calc(var(--toast-swipe-movement-y) + 150%)); }
+  .toast-root[data-ending-style][data-swipe-direction='right'] { transform: translateX(calc(var(--toast-swipe-movement-x) + 150%)); }
+  /* Ponte invisível entre os cartões abertos, para o ponteiro não fechar o baralho no espaço de 8 px. */
+  .toast-root::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 0;
+    width: 100%;
+    height: calc(var(--toast-gap) + 1px);
+  }
+  .toast-root[data-behind]:not([data-expanded]) .toast-body { opacity: 0; }
+  .toast-body { transition: opacity 0.2s ease; }
+  .toast-ring-arc {
+    stroke-dasharray: 100.53;
+    stroke-dashoffset: 0;
+    transform: rotate(-90deg);
+    transform-origin: 50% 50%;
+  }
+  .toast-ring-arc[data-timed] { animation: toast-ring var(--toast-duration) linear forwards; }
+  .toast-root[data-expanded] .toast-ring-arc,
+  .toast-root[data-blurred] .toast-ring-arc { animation-play-state: paused; }
+  @keyframes toast-ring {
+    from { stroke-dashoffset: 0; }
+    to { stroke-dashoffset: 100.53; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .toast-root {
+      transition: opacity 0.2s linear;
+    }
+    .toast-root[data-starting-style],
+    .toast-root[data-ending-style],
+    .toast-root[data-ending-style][data-swipe-direction] {
+      transform: translateY(calc(var(--toast-swipe-movement-y, 0px) - (var(--toast-index) * var(--toast-peek)))) scale(var(--toast-scale));
+    }
+    .toast-root[data-expanded][data-starting-style],
+    .toast-root[data-expanded][data-ending-style] {
+      transform: translateY(calc(var(--toast-offset-y) * -1 + (var(--toast-index) * var(--toast-gap) * -1)));
+    }
+    .toast-viewport { transition: none; }
   }
 }

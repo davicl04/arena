@@ -7,7 +7,7 @@ import { alertCount, posterProps } from '@/components/organizer/eventView'
 import { teamButton } from '@/components/teams/styles'
 import { DarkTopBar, TeamsPlate } from '@/components/teams/TeamsPlate'
 import { Button, IconButton } from '@/components/ui/button'
-import { feedbackVariants } from '@/components/ui/feedback'
+import { LoadError } from '@/components/ui/load-error'
 import { usePagedList } from '@/hooks/usePagedList'
 import { useResource } from '@/hooks/useResource'
 import { cn } from '@/lib/utils'
@@ -46,10 +46,10 @@ export default function OrganizerEventsPage({ onBack, onOpen, onCreate, onExpire
         {status.data.state === 'revogado' ? 'Sua permissão de organizador foi revogada. Os eventos que a administração manteve continuam aqui.' : 'Você precisa ser organizador para criar eventos.'}
       </p>}
       {open.loading && <p role="status" className="text-[12px] text-ink-muted">Carregando os seus eventos…</p>}
-      {open.error && <div className={feedbackVariants()} role="alert">{open.error} <Button variant="text" onClick={open.reload}>Tentar novamente</Button></div>}
+      {open.error && <LoadError size="screen" text={open.error} cause={open.errorCause} onRetry={open.reload} />}
 
       {empty ? <div className="px-3 py-8 text-center">
-        <span className="mx-auto mb-3.5 grid size-14 place-items-center rounded-[18px] bg-[#005a3610] text-brand"><Trophy size={26} aria-hidden="true" /></span>
+        <span className="mx-auto mb-3.5 grid size-14 place-items-center rounded-[18px] bg-icon-tile text-brand"><Trophy size={26} aria-hidden="true" /></span>
         <h2 className="text-[15px]">Seu primeiro evento</h2>
         <p className="mx-auto mt-[7px] max-w-[290px] text-[12px] leading-[1.7] text-ink-muted">
           Campeonato de futebol ou tênis (todos contra todos ou eliminação simples) ou prova de corrida. Eventos pagos passam pela aprovação da administração antes de publicar.
@@ -75,7 +75,7 @@ export default function OrganizerEventsPage({ onBack, onOpen, onCreate, onExpire
         {closed.moreError && <p className="mt-2 text-[11px] text-error" role="alert">{closed.moreError}</p>}
         {closed.hasMore && <Button variant="link" className="mt-2" disabled={closed.busy} onClick={() => void closed.loadMore()}>{closed.busy ? 'Carregando…' : 'Carregar mais'}</Button>}
       </section>}
-      {closed.error && <div className={feedbackVariants()} role="alert">{closed.error.message} <Button variant="text" onClick={closed.reload}>Tentar novamente</Button></div>}
+      {closed.error && <LoadError size="section" title="Não foi possível carregar os encerrados" text={closed.error.message} cause={closed.error} onRetry={closed.reload} />}
     </div>
   </div>
 }

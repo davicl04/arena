@@ -8,6 +8,7 @@ import { ApiError, request } from '../src/api/client'
 import type { Entry } from '../src/navigation/routes'
 import TeamFormScreen, { CREST_TYPE_ERROR } from '../src/screens/TeamFormScreen'
 import { byLabel, enableAct, press, textOf, type } from './support/native'
+import { toastText, toasts } from './support/toast'
 import { answer, city, fakeNavigation, me, team, TOKEN } from './support/teams'
 import type { FakeNavigation, Handler } from './support/teams'
 import { playContext } from './support/play'
@@ -196,7 +197,7 @@ describe('Criar time (F2)', () => {
     await press(tree, 'Enviar brasão')
     await vi.waitFor(async () => { await flush(); expect(byLabel(tree, 'Trocar imagem do brasão')).toHaveLength(1) }, { timeout: 8000 })
     await press(tree, 'Criar time')
-    expect(textOf(tree)).toContain('Time criado, mas o brasão não foi salvo: A imagem deve ter até 5 MiB.')
+    expect(toastText()).toContain('Time criado, mas o brasão não foi salvo: A imagem deve ter até 5 MiB.')
     expect(navigation.replace).not.toHaveBeenCalled()
     // Agora o time existe: a tela passa a editá-lo e não cria outro.
     expect(textOf(tree)).toContain('Salvar alterações')
@@ -207,17 +208,17 @@ describe('Criar time (F2)', () => {
     await act(async () => { tree.unmount() })
   })
 
-  it('erro ao criar aparece como alerta, 401 expira a sessão, e as cidades têm nova tentativa', async () => {
+  it('401 ao criar expira a sessão sem toast, e as cidades têm nova tentativa', async () => {
     serve((path, method) => { if (path === '/teams' && method === 'POST') throw new ApiError('Sessão expirada.', 401); return undefined })
     const tree = await mount()
     await type(tree, 'Nome do time', 'Leões')
     await press(tree, 'Criar time')
     expect(onExpired).toHaveBeenCalledOnce()
-    expect(textOf(tree)).toContain('Sessão expirada.')
+    expect(toasts()).toEqual([])
     await act(async () => { tree.unmount() })
-    serve(path => { if (path === '/cities') throw new ApiError('Sem conexão.', 0); return undefined })
+    serve(path => { if (path === '/cities') throw new ApiError('Catálogo indisponível.', 500); return undefined })
     const failing = await mount()
-    expect(textOf(failing)).toContain('Sem conexão.')
+    expect(textOf(failing)).toContain('Catálogo indisponível.')
     expect(byLabel(failing, 'Escolher cidade').length + byLabel(failing, 'Trocar cidade').length).toBe(1)
     serve()
     await press(failing, 'Tentar novamente')

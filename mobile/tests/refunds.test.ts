@@ -12,6 +12,7 @@ import { playContext } from './support/play'
 import {
   allText, byId, callsTo, entry, eventDetail, findButton, inDays, inHours, isDisabled, labelled, me, navigationMock, page, person, pressButton, receipt, render, serve,
 } from './support/review'
+import { toastText } from './support/toast'
 
 vi.mock('react-native', async () => (await import('./support/native')).reactNativeMock())
 vi.mock('react-native-svg', async () => (await import('./support/native')).svgMock())
@@ -175,7 +176,7 @@ describe('Anexar a devolução', () => {
     expect(call).toBeTruthy()
     expect(call[2]).toBeInstanceOf(FormData)
     const text = allText(tree)
-    expect(text).toContain('Devolução de Ferrugem FC enviada. O participante confirma o recebimento.')
+    expect(toastText()).toContain('Devolução de Ferrugem FC enviada. O participante confirma o recebimento.')
     expect(text).toContain('Devoluções (1)')
     expect(findButton(tree, 'Anexar comprovante de Ferrugem FC')).toBeUndefined()
     expect(text).not.toContain('Anexar devolução')
@@ -218,7 +219,7 @@ describe('Anexar a devolução', () => {
     pickDocument({ name: 'pix.png', mimeType: 'image/png', size: 2048 })
     await pressButton(tree, 'Escolher arquivo (imagem ou PDF)')
     await pressButton(tree, 'Enviar devolução')
-    expect(allText(tree)).toContain('A devolução já foi enviada; aguarde a resposta do participante.')
+    expect(toastText()).toContain('A devolução já foi enviada; aguarde a resposta do participante.')
     expect(allText(tree)).toContain('Anexar devolução')
     expect(expired).not.toHaveBeenCalled()
     world({}, { 'PUT /entries/21/refund-receipt': new ApiError('Sessão expirada.', 401) })

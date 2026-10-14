@@ -8,7 +8,7 @@ import type { CourtOut } from '../../api/matches'
 import { footballFormat } from '../../data/arena'
 import { useResource } from '../../hooks/useResource'
 import { useSubmit } from '../../hooks/useSubmit'
-import { colors } from '../../theme'
+import { useResolvedTheme, useThemeColors } from '../../hooks/useTheme'
 import { formatDeadline } from '../../utils/format'
 import { relativeTime } from '../../utils/relativeTime'
 import { ActionButton, BusyStatus, ErrorText, FormField } from '../arena/controls'
@@ -29,6 +29,7 @@ function originText(match: MatchRef) {
 
 /** Partida de origem: os dados do `MatchRef` e, se a leitura da partida responder, os nomes dos lados. */
 function OriginMatch({ match, onExpired }: { match: MatchRef; onExpired: () => void }) {
+  const colors = useThemeColors()
   const load = useCallback(() => getMatch(match.id), [match.id])
   const sides = useResource(load, onExpired, { fallback: '' })
   return <View>
@@ -39,6 +40,7 @@ function OriginMatch({ match, onExpired }: { match: MatchRef; onExpired: () => v
 
 /** Aviso de possível duplicidade: quadras publicadas parecidas na mesma cidade e tipo. */
 function DuplicateWarning({ duplicates }: { duplicates: CourtOut[] }) {
+  const colors = useThemeColors()
   return <View accessibilityLabel="Possível duplicidade" style={{ marginTop: 12, borderRadius: 12, backgroundColor: colors['warning-bg'], padding: 12 }}>
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
       <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants"><Icon name="triangle-alert" size={16} color={colors.warning} /></View>
@@ -67,6 +69,8 @@ export function CourtSheet({ item, onClose, onDecided, onStale, onExpired }: {
   onStale: (message: string) => void
   onExpired: () => void
 }) {
+  const colors = useThemeColors()
+  const dark = useResolvedTheme() === 'dark'
   const { court, suggested_by: by, origin_match: origin, possible_duplicates: duplicates } = item
   const [mode, setMode] = useState<'publish' | 'reject' | null>(null)
   const [name, setName] = useState(court.name)
@@ -132,7 +136,7 @@ export function CourtSheet({ item, onClose, onDecided, onStale, onExpired }: {
       <ActionButton icon="x" tone="outline" title="Rejeitar" disabled={busy} onPress={() => { setMode('reject'); setError('') }} grow />
     </ActionRow> : null}
 
-    {mode === 'publish' ? <View accessibilityLabel="Publicar no catálogo" style={{ marginTop: 14, gap: 4, borderRadius: 16, borderWidth: 1.5, borderColor: 'rgba(0,90,54,0.4)', padding: 14 }}>
+    {mode === 'publish' ? <View accessibilityLabel="Publicar no catálogo" style={{ marginTop: 14, gap: 4, borderRadius: 16, borderWidth: 1.5, borderColor: (dark ? 'rgba(143,224,180,0.45)' : 'rgba(0,90,54,0.4)'), padding: 14 }}>
       <Text accessibilityRole="header" style={{ color: colors.ink, fontSize: 14, fontWeight: '700' }}>Publicar no catálogo</Text>
       <FormField label="Nome da quadra" value={name} onChangeText={setName} maxLength={COURT_LIMITS.nameMax} error={publishProblems.name} editable={!busy} />
       <FormField label="Endereço (opcional)" value={address} onChangeText={setAddress} maxLength={COURT_LIMITS.addressMax} error={publishProblems.address} editable={!busy} />

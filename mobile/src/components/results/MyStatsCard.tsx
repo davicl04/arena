@@ -4,7 +4,7 @@ import type { Position } from '../../api/client'
 import { putMyStats } from '../../api/results'
 import type { Lineup, MyStatsResult, ResultMatch } from '../../api/results'
 import { useSubmit } from '../../hooks/useSubmit'
-import { colors } from '../../theme'
+import { useThemeColors } from '../../hooks/useTheme'
 import { StateBadge } from '../arena/StateBadge'
 import { ActionButton, ChoicePills, ErrorText } from '../arena/controls'
 import { formatNumber, localPreview, positionStat, statFieldLabel } from './format'
@@ -30,6 +30,7 @@ export function MyStatsCard({ match, lineup, outcome, onSaved, onExpired }: {
   onSaved: (result: MyStatsResult) => void
   onExpired: () => void
 }) {
+  const colors = useThemeColors()
   const stat = lineup?.stat ?? null
   // Depois da contestação, a revisão do representante é final e o servidor recusa edições, mesmo com `send_stats`.
   const finalReview = stat?.state === 'revisada' && stat.contested_at != null
@@ -103,6 +104,7 @@ export function MyStatsCard({ match, lineup, outcome, onSaved, onExpired }: {
       <Muted>{summary}</Muted>
     </View>
 
+    {/* Só a recusa de campo do servidor (`422`); as demais falhas de envio saem em toast. */}
     {error ? <ErrorText>{error}</ErrorText> : null}
     {editable
       ? <ActionButton tone="brand" block title={busy ? 'Enviando…' : stat ? 'Atualizar estatísticas' : 'Enviar estatísticas'}

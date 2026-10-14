@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { Text, View } from 'react-native'
-import { colors } from '../../theme'
+import { useResolvedTheme, useThemeColors } from '../../hooks/useTheme'
 import { Icon } from '../Icon'
 import { ActionButton, ChoicePills, ErrorText } from '../arena/controls'
 import { ActionRow, LongField } from './ui'
@@ -28,7 +28,9 @@ export function ReasonPanel<T extends string = string>({ title, options, option,
   tone?: 'danger' | 'brand'
   placeholder?: string
 }) {
-  const accent = tone === 'danger' ? 'rgba(180,35,24,0.45)' : 'rgba(0,90,54,0.4)'
+  const colors = useThemeColors()
+  const dark = useResolvedTheme() === 'dark'
+  const accent = tone === 'danger' ? (dark ? 'rgba(255,138,128,0.5)' : 'rgba(180,35,24,0.45)') : (dark ? 'rgba(143,224,180,0.45)' : 'rgba(0,90,54,0.4)')
   return <View accessibilityLabel={title} style={{ marginTop: 14, gap: 10, borderRadius: 16, borderWidth: 1.5, borderColor: accent, padding: 14 }}>
     <Text accessibilityRole="header" accessibilityLiveRegion="polite" style={{ color: colors.ink, fontSize: 14, fontWeight: '700' }}>{title}</Text>
     {options && onOption ? <ChoicePills label={title} options={options} value={option ?? null} onChange={onOption} disabled={busy} accent={tone} /> : null}

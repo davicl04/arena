@@ -13,7 +13,9 @@ import { useResource } from '@/hooks/useResource'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { feedbackVariants } from '@/components/ui/feedback'
+import { LoadError } from '@/components/ui/load-error'
 import { Tabs } from '@/components/ui/tabs'
+import { toast } from '@/components/ui/toast'
 import { formatDeadline, formatPrice, plural } from '@/utils/format'
 import { relativeTime } from '@/utils/relativeTime'
 
@@ -39,7 +41,7 @@ function ReceiptRow({ review, decided, onOpen, onExpired }: { review: ReceiptRev
   const { receipt, entry, attempt } = review
   const name = subjectName(entry.subject)
   const when = decided ? `Decidido ${relativeTime(receipt.decided_at ?? receipt.created_at)}` : `Enviado ${relativeTime(receipt.created_at)}`
-  return <li className="relative flex items-center gap-3 rounded-card bg-white p-2.5 shadow-[0_2px_8px_#0000000a] has-[button:focus-visible]:outline-3 has-[button:focus-visible]:outline-offset-2 has-[button:focus-visible]:outline-focus hover:bg-[#fbfbfc]">
+  return <li className="relative flex items-center gap-3 rounded-card bg-surface p-2.5 shadow-[0_2px_8px_#0000000a] noite:shadow-none inset-ring inset-ring-surface-edge has-[button:focus-visible]:outline-3 has-[button:focus-visible]:outline-offset-2 has-[button:focus-visible]:outline-focus hover:bg-[#fbfbfc] noite:hover:bg-hover">
     <ReceiptThumb receipt={receipt} name={name} onExpired={onExpired} />
     <span className="grid min-w-0 flex-1 justify-items-start gap-[3px]">
       <button type="button" className="max-w-full truncate border-0 bg-transparent p-0 text-left text-[13px] font-bold text-inherit after:absolute after:inset-0 after:rounded-card focus-visible:outline-none"
@@ -66,7 +68,7 @@ function ReceiptQueue({ event, tab, onDecided, onExpired }: {
   const decided = tab === 'decididos'
   return <>
     {list.loading && <p role="status" className="py-4 text-[12px]">Carregando comprovantes…</p>}
-    {list.error && <div className={feedbackVariants()} role="alert">{list.error.message} <Button variant="text" onClick={list.reload}>Tentar novamente</Button></div>}
+    {list.error && <LoadError size="section" text={list.error.message} cause={list.error} onRetry={list.reload} />}
     {!list.loading && !list.error && !list.items.length && <EmptyState Icon={CheckCheck}
       title={decided ? 'Nenhum comprovante decidido' : 'Nada para analisar'}
       text={decided ? 'Os comprovantes aprovados ou recusados aparecem aqui.' : 'Quando alguém enviar o comprovante, ele aparece aqui e nas suas notificações.'} />}
@@ -94,7 +96,6 @@ export default function ReceiptsPage({ eventId, onBack, onExpired }: { eventId: 
   const load = useCallback(() => getReceiptsEvent(eventId), [eventId])
   const event = useResource(load, onExpired, { fallback: 'Não foi possível carregar o evento.' })
   const [chosen, setChosen] = useState<PageTab | null>(null)
-  const [notice, setNotice] = useState('')
   const data = event.data
   const cancelled = data?.state === 'cancelado'
   const first: PageTab = cancelled ? 'devolucoes' : 'para_analisar'
@@ -120,18 +121,17 @@ export default function ReceiptsPage({ eventId, onBack, onExpired }: { eventId: 
     </TeamsPlate>
     <div className="px-5 pt-3.5">
       {event.loading && <p role="status" className="py-4 text-[12px]">Carregando o evento…</p>}
-      {event.error && <div className={feedbackVariants()} role="alert">{event.error} <Button variant="text" onClick={event.reload}>Tentar novamente</Button></div>}
+      {event.error && <LoadError size="screen" text={event.error} cause={event.errorCause} onRetry={event.reload} />}
       {data && <>
         {data.revocation_pending && <p className="mb-3 flex items-start gap-2 rounded-xl bg-warning-bg p-3 text-[11.5px] leading-[1.5] text-warning">
           <Info size={15} className="mt-px flex-none" aria-hidden="true" />A administração está decidindo se o evento segue. A análise dos comprovantes fica em espera; as devoluções continuam.</p>}
         <Tabs variant="segmented" items={tabs} value={tab} label="Comprovantes do evento" idPrefix={`${ids}-tab-`} controls={`${ids}-panel`}
-          onChange={value => { setChosen(value); setNotice('') }} />
-        <div aria-live="polite">{notice && <p className={feedbackVariants({ tone: 'success' })} role="status">{notice}</p>}</div>
+          onChange={setChosen} />
         <div id={`${ids}-panel`} role="tabpanel" aria-labelledby={`${ids}-tab-${tab}`} className="pt-1 pb-4">
           {tab === 'devolucoes'
             ? <RefundList eventId={data.id} onExpired={onExpired}
-              onSent={entry => { setNotice(`Devolução de ${subjectName(entry.subject)} enviada. O participante confirma o recebimento.`); refresh() }} />
-            : <ReceiptQueue key={tab} event={data} tab={tab} onExpired={onExpired} onDecided={message => { setNotice(message); refresh() }} />}
+              onSent={entry => { toast.success(`Devolução de ${subjectName(entry.subject)} enviada.`, { description: 'O participante confirma o recebimento.' }); refresh() }} />
+            : <ReceiptQueue key={tab} event={data} tab={tab} onExpired={onExpired} onDecided={message => { toast.success(message); refresh() }} />}
         </div>
       </>}
     </div>

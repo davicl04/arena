@@ -11,6 +11,7 @@ import { IconButton } from "@/components/ui/button";
 import { SectionTitle } from "@/components/ui/section-title";
 import ProfileGallery from "../components/ProfileGallery";
 import ProfileHeader from "../components/ProfileHeader";
+import { NotificationBell } from "../components/notifications/NotificationBell";
 import ProfileTabs, { ProfilePanel } from "../components/ProfileTabs";
 import type { ProfileTab } from "../components/ProfileTabs";
 import Avatar from "../components/Avatar";
@@ -26,15 +27,15 @@ function ProfileStatsBlocks({ state }: { state: StatsState }) {
   const stats = state.status === "ready" ? state.stats : null;
   return (
     <div className="grid grid-cols-3 gap-2" aria-busy={state.status === "loading"}>
-      <div className="rounded-control bg-white px-2 py-[13px] text-center">
+      <div className="rounded-control surface px-2 py-[13px] text-center">
         <b className="block font-display text-[18px] font-bold">{stats ? winRateText(stats.win_rate) : "—"}</b>
         <span className="mt-[3px] block text-[9px] text-ink-muted">Taxa de vitória</span>
       </div>
-      <div className="rounded-control bg-white px-2 py-[13px] text-center">
+      <div className="rounded-control surface px-2 py-[13px] text-center">
         <b className="block font-display text-[18px] font-bold">{stats ? stats.played : "—"}</b>
         <span className="mt-[3px] block text-[9px] text-ink-muted">Partidas</span>
       </div>
-      <div className="rounded-control bg-white px-2 py-[13px] text-center">
+      <div className="rounded-control surface px-2 py-[13px] text-center">
         {stats?.best_tier ? (
           <b className="flex items-center justify-center gap-1 font-display text-[14px] leading-[22px] font-bold">
             <TierEmblem tier={stats.best_tier} size="sm" showName />
@@ -57,6 +58,7 @@ export default function ProfilePage({
   matches,
   tab,
   onTabChange,
+  notificationCount = 0,
   onNewPhoto,
   openConnections,
   onExpired,
@@ -70,6 +72,8 @@ export default function ProfilePage({
   /** Aba ativa guardada pelo shell (sobrevive à ida à tela da partida); sem ela, a página guarda a própria. */
   tab?: ProfileTab;
   onTabChange?: (tab: ProfileTab) => void;
+  /** Não lidas mais pedidos para seguir (resumo das notificações do ArenaPage): o número do sino. */
+  notificationCount?: number;
   /** Abre a Comunidade já na nova publicação. */
   onNewPhoto: () => void;
   openConnections: (userId: number, tab: ConnectionsTab) => void;
@@ -119,9 +123,12 @@ export default function ProfilePage({
         followingCount={counts?.following ?? null}
         sportList={profiles.map((p) => p.sport)}
         trailing={
-          <IconButton tone="cover" aria-label="Menu" onClick={() => go("menu")}>
-            <Menu size={21} />
-          </IconButton>
+          <div className="flex items-center gap-1.5">
+            <NotificationBell tone="cover" count={notificationCount} onOpen={() => go("notifications")} />
+            <IconButton tone="cover" aria-label="Menu" onClick={() => go("menu")}>
+              <Menu size={21} />
+            </IconButton>
+          </div>
         }
         onEdit={() => go("edit-profile")}
         onFollowers={() => openConnections(user.id, "followers")}

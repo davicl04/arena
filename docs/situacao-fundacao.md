@@ -1,5 +1,420 @@
 # Situação da fundação do Arena
 
+## Correções da revisão da branch e preparação do MR — 14 de outubro de 2026
+
+Corrigidos os cinco achados da revisão de `feat/notifications-ranking` contra `origin/main`:
+
+- `/rankings` e `/rankings/overview` mantêm a trava compartilhada da categoria, compatível com a exclusiva do recálculo. A leitura não perde métricas ou posições entre consultas; leitores podem trabalhar simultaneamente. Testes com conexões PostgreSQL separadas conferem o bloqueio do escritor até o fim da leitura.
+- A divergência a decidir pelo organizador não expira com o prazo dos atletas. A migração `0014` remove o prazo incorreto apenas das notificações desse tipo ainda não resolvidas e com chave de ação; preserva as resolvidas, as antigas sem chave e as pendências dos atletas. Aplicada no banco local, agora na head `0014`.
+- `/me/notifications/pending` aceita cursor e devolve `next_cursor`, mantendo a ordem por prazo, criação e ID. Web e Expo permitem carregar as próximas páginas, preservam os cartões ao falhar e descartam respostas de uma categoria anterior. Conferidos 57 registros, filtros, fronteiras com prazo nulo, limite máximo e cursor inválido.
+- O Expo limpa mensagens, ações e temporizadores dos toasts no logout e na expiração. Testes do App conferem a ausência de mensagens da conta anterior tanto na entrada quanto após outro login.
+- O Swagger descreve `fields` como opcional nos erros `422`. Atualizados README e contratos 0002/0003 e conciliado o plano de notificações com as correções.
+
+Também corrigida a expressão regular do teste de data do Expo, que já falhava na main com "sáb": ela aceita letras Unicode, mantendo a verificação de todo o formato.
+
+**Validação final:** Ruff, lint e TypeScript dos dois clientes, build web e exportação Android aprovados. Backend: `pytest -q --cov=app --cov-branch` com PostgreSQL, **1696 aprovados e 1 pulado**, cobertura combinada arredondada de **98%**. Web: **1231 testes**, cobertura de instruções **93,62%**; Expo: **1580 testes**, cobertura de instruções **96,34%**. Migrações e teste do reparo de dados aprovados em schema isolado; `alembic upgrade head`, `current` (`0014`) e `check` aprovados no banco local, sem diferenças de modelagem. Diff local sem erros de whitespace.
+
+**Navegador:** API temporária em 8040, web em 5197 e schema aleatório isolado, com dois usuários, 57 times e 57 convites reais criados pelos serviços. A tela carregou 50 e depois 57 cartões sem duplicação, inclusive com Enter. Abrir um convite da segunda página marcou apenas essa notificação como lida; após recarregar, ela continuou lida e as 57 pendências continuaram abertas. Notificações conferidas em Dia/Noite, em 320, 390 e 1440 px, sem overflow horizontal. Evidência em `artifacts/review-branch/notifications-dark-57.png`; scripts e logs em `.local/review-branch/`. Sessão, aba e servidores de teste encerrados; schema temporário removido. Dados e serviços habituais preservados.
+
+**Limitações:** envio real ao S3 permaneceu pulado; aviso de bundle web acima de 500 kB permanece; Expo não foi validado em aparelho. A preparação do commit/MR foi autorizada pelo usuário; checks locais não comprovam CI remoto. Esta entrega corrige a revisão, sem declarar o MVP completo.
+
+## Revisão da branch contra a main remota — 14 de outubro de 2026
+
+A revisão anterior cobriu somente o último commit. Esta revisão ampliou a comparação para `origin/main...HEAD`, após `git fetch origin main`: base `a5eb2d5`, HEAD `7e507b1`, 53 commits e 614 arquivos alterados. A `main` local estava atrasada; não foi movida. Revisados os fluxos de notificações, resoluções de pendências, ranking, conexão, migração dos retornos para toasts e tema dos clientes. Não houve correção no código, commit ou push.
+
+**Achados pendentes, além da descrição incorreta do `422` já registrada:**
+
+- **Ranking durante recálculo:** `ranking_views.my_lines` acessa as métricas do líder/próximo por chave obrigatória, embora contagens, linhas e métricas venham de consultas distintas. Reproduzido em duas sessões PostgreSQL: com dois atletas no Bronze, a remoção da segunda linha entre consultas causa `KeyError(2)` no overview, que resulta em erro 500 na API. A limitação é maior que a posição temporariamente defasada descrita na seção 20.5 da decisão 0002; é necessário garantir uma leitura consistente ou tratar a mudança antes de acessar as métricas.
+- **Prazo da decisão do organizador:** `championship_lifecycle.on_divergence` usa `result_deadline` como `action_until`. Após 48 h, a divergência desaparece de Para responder, embora a partida ainda espere a decisão do organizador. Reproduzidos a ausência da pendência e o sucesso da decisão pela API depois do prazo. O prazo dos atletas não encerra a decisão do organizador; a regra das pendências no plano e na decisão 0003 precisa ser conciliada com esse comportamento.
+- **Mais de 50 pendências:** web e Expo consultam `/me/notifications/pending` com limite 50, sem cursor ou botão para continuar, e excluem pendências do feed paginado (`pendente=false`). Reproduzidos resumo com 51, bloco com 50 e feed vazio. A pendência restante fica inacessível nessa tela até que outra seja resolvida; é necessário permitir acessar as demais.
+- **Toasts entre contas no Expo:** a loja global não é limpa no logout ou na expiração. Reproduzido no App por teste de componentes: um toast de erro da conta A continua na tela de entrada e na conta B após novo login. Mensagens e ações da sessão anterior precisam ser descartadas ao encerrá-la.
+
+**Verificações executadas:**
+
+- Backend: Ruff aprovado (execução da revisão anterior, mesmo código); `pytest -q` com PostgreSQL, 1691 aprovados e 1 pulado (envio real ao S3 não habilitado); migrações até a head e `alembic check` em schema aleatório isolado, sem diferenças. Os scripts de reprodução também usaram schemas próprios, removidos ao terminar, sem alterar os dados da aplicação.
+- Web: lint, build e `test:coverage` aprovados; 1230 testes, cobertura de instruções 93,70%. Permanece o aviso de bundle acima de 500 kB.
+- Expo: lint, typecheck e exportação Android aprovados. `test:coverage`: 1575 aprovados e 1 falhou. A falha foi confirmada isoladamente: `mobile/tests/match-screen.test.ts:54` usa `\w{3}` para o dia, que não aceita o acento de "sáb"; a mesma expressão e o uso de data dinâmica já existiam em `origin/main`, portanto não é uma regressão introduzida nesta branch. A execução não concluiu a etapa de cobertura.
+- Reproduções adicionais: corrida entre leituras do ranking, divergência vencida, limite de pendências e isolamento de toasts entre sessões confirmados. Scripts e teste temporário preservados em `.local/review-branch/`; o teste temporário foi retirado de `mobile/tests/` após a execução.
+- Navegador: apenas a tela de entrada no tema escuro, em 320, 390 e 1440 px, sem overflow horizontal; não houve login. Sem revisão visual completa das áreas autenticadas, comparação do tema claro ou validação em aparelho Android/iOS.
+- `git diff --check origin/main...HEAD` encontrou whitespace em `docs/plano-ranking.md:194`; o diff local desta revisão foi conferido separadamente. Única alteração versionável desta revisão: este registro.
+
+## Revisão da documentação do Swagger — 14 de outubro de 2026
+
+Revisado o commit `7e507b1`, o mais recente no início da revisão; não havia alterações sem commit. A comparação do OpenAPI com o commit anterior confirmou as mesmas 174 operações e os mesmos contratos e componentes, desconsiderando apenas os metadados de documentação.
+
+**Achado pendente:** a descrição geral em `backend/app/core/openapi.py` afirma que erros de validação ou regra `422` incluem `fields`, mas regras que lançam `HTTPException(422, ...)` retornam apenas `detail`. Reproduzido pelo cadastro de menor de idade: `422 { "detail": "O cadastro exige 18 anos completos." }`. A documentação deve distinguir os formatos ou indicar que `fields` é opcional. Nenhuma correção funcional foi aplicada nesta revisão.
+
+**Verificações executadas:** `ruff check app migrations tests` aprovado; `pytest -q` com 1098 aprovados e 594 pulados; comparação programática dos contratos OpenAPI antes/depois; `GET /docs` e `GET /openapi.json` com 200 via TestClient; `git diff --check HEAD^ HEAD` sem erros. A reprodução do cadastro usou a dependência do banco substituída em memória, sem criar conta ou escrever no banco.
+
+**Limitações:** sem `TEST_DATABASE_URL`, os testes de integração foram pulados; não houve revisão visual no navegador nem validação dos clientes web/Expo. A revisão cobre somente esse commit e não comprova persistência ou o MVP completo.
+
+## Swagger organizado por domínio — 14 de outubro de 2026
+
+A pedido do usuário, o Swagger (`/docs`) ficou organizado, **sem alterar nenhuma rota**: caminhos, métodos, parâmetros, respostas, `operationId`, schemas e comportamento seguem idênticos. Só mudaram metadados de documentação.
+
+**O que mudou:**
+- `backend/app/core/openapi.py` (novo) concentra a descrição da API, as 22 tags com descrição e o resumo em português das 174 operações; `document_operations` apenas completa o OpenAPI gerado, por (método, caminho). Os routers não foram editados.
+- `backend/app/main.py`: `description` em Markdown (cookie `HttpOnly` na web, Bearer no mobile, JSON obrigatório na escrita, uploads multipart de até 5 MiB, erros `422 { detail, fields }`, `409` e `503`), `openapi_tags` e `swagger_ui_parameters` (seções recolhidas, filtro, modelos ocultos, duração da requisição).
+- Tags, em ordem: Sistema, Autenticação, Conta e perfil, Perfis esportivos, Usuários e seguidores, Publicações, Denúncias, Notificações, Ranking, Times, Organizadores, Campeonatos, Gestão de campeonatos, Inscrições, Chaveamento, Matchmaking, Partidas, Vagas e avulsos, Quadras, Resultados, Corridas e Administração (todas as rotas `/admin/*`).
+- `backend/tests/test_openapi_docs.py` (novo) garante que toda operação tenha uma tag declarada e um resumo.
+
+**Verificações executadas:** snapshot do OpenAPI antes e depois comparado por script (mesmas 174 operações, `parameters`, `requestBody`, `responses` e `operationId` iguais, `components` idêntico; só `tags`, `summary`, `description` e `info.description`/`tags` mudaram); `ruff check app migrations tests` sem erros; `pytest -q` com 1098 aprovados e 594 pulados; `GET /docs` e `GET /openapi.json` com 200 em uvicorn local.
+
+**Limitações:** sem `TEST_DATABASE_URL`, os testes de integração foram pulados. Uma rota nova só ganha tag e resumo ao ser incluída em `backend/app/core/openapi.py` (o teste novo avisa se faltar). O OpenAPI não declara esquema de segurança, então o Swagger não mostra o botão Authorize; o cookie da web funciona no "Try it out" feito a partir de origem autorizada.
+
+## Vídeo de demonstração da web gravado com Playwright — 14 de outubro de 2026
+
+Gravação da web, sem mudança de código, contrato ou esquema. Os vídeos (WebM, 390×844 com DPR 2, legendas por seção) ficam em `artifacts/video-demo/`, e os scripts em `.local/video/` (`env.mjs`, `seed.mjs`, `seed-events.mjs`, `run-master.mjs`). Nenhum dos dois é versionado.
+
+**Ambiente:** isolado, com o banco `arena_video` no Postgres do Compose, migrado com `alembic upgrade head`, a API na porta 8020 e a web na 5190. Os bancos `arena` e `arena_e2e` e os serviços 8000, 5173, 8010 e 5180 não foram tocados.
+
+**Dados:** o seed via API cria 12 contas em Brasília, 6 times de futebol, 17 partidas de tênis, 13 de futebol e marcas de corrida, com resultados confirmados. Também cria um organizador aprovado, um torneio de tênis gratuito e uma prova de 5 km paga.
+
+**O que os vídeos mostram:**
+- **Tour:** cadastro e login, as abas raiz, e o Ranking das três modalidades com troca de elo e Salão dos Lendários.
+- **Futebol por times:** a busca e a proposta aceita. Em seguida, o chat, as condições, a reserva e a presença do elenco. Depois, o placar 3×1, as estatísticas e a confirmação do adversário, com a subida para o Ouro.
+- **Tênis:** a mesma sequência, com placar por sets.
+- **Corrida:** registro de 26:45 nos 5 km e o Ranking atualizado.
+- **Outros fluxos:** notificações, perfil e edição, seguir outro atleta, time, inscrição em campeonato e em prova, e o tema Noite.
+- **Adversários:** agem pela API com Bearer.
+
+**Ajustes feitos só no `arena_video`, para a demonstração:**
+- Os cortes de `rank_cuts` foram reduzidos para que poucas partidas separem os elos. Os valores reais estão na seção 1 da [0002](decisoes/0002-jogar.md).
+- O `starts_at` das partidas gravadas foi antecipado, porque o placar só abre depois do horário combinado. A legenda do vídeo avisa.
+- As quadras foram inseridas por SQL.
+
+**Limitações:**
+- **Telas não gravadas:** fotos, avatares e o comprovante do Pix, para não usar o MinIO local; os fluxos de administração, a gestão do evento pelo organizador, avulso, W.O., cancelamento e contestação; o Expo.
+- **Atraso da placa:** a placa reage à busca e à proposta pelo polling de 15 s ou pelo foco da janela, e o script dispara `focus`.
+- **Histórico:** em Minhas partidas, a partida confirmada continua em "Próximas" até o fim do prazo de 48 h.
+- **Contagem de partidas:** por causa do `starts_at` antecipado, `profile-stats` da protagonista conta menos partidas que as jogadas.
+
+## Tema claro e escuro "Estádio à noite" (web e Expo) — 13 de outubro de 2026
+
+Execução do [plano-tema.md](plano-tema.md). As decisões assumidas pelo plano valem como implementadas: Automático como padrão, preferência no aparelho e escopo web e Expo, com a web primeiro, valendo também nas telas de entrada. A orquestração usou subagentes por área. Os commits são locais em `feat/notifications-ranking`, sem push. Decisões, tokens e contraste estão em [0004-tema.md](decisoes/0004-tema.md).
+
+**O que mudou**
+- **Controle:** cartão "Luzes do estádio" na seção Aparência do Menu do Perfil (web e Expo), com Dia, Noite e Automático. A preferência fica em `arena.tema` no aparelho (`localStorage` na web, SecureStore no Expo). Não há backend, migração nem mudança de contrato.
+- **Web:**
+  - tokens claro/escuro em `ui.css` (`:root[data-theme="dark"]`), tokens novos (`surface`, `sheet`, `field`, `on-brand`, `heading`, `icon-tile`, `eyebrow`, `hover`, `nav`, `surface-edge`) e a variante `noite:`;
+  - script em linha no `index.html`, que aplica o tema antes da primeira pintura, com `theme-color` e `color-scheme`;
+  - `hooks/useTheme.ts`, com o Automático acompanhando o sistema ao vivo e transição só na troca pelo cartão;
+  - primitivos e navegação ajustados;
+  - varredura de todas as áreas;
+  - revisão dos blocos escuros por design (placas forest, Jogar, Salão, vidro, cartaz, assistente), que ficam iguais nos dois temas.
+- **Ícones de esporte:** versões com alfa (`{sport}-alfa.png`, geradas por `web/scripts/gerar-icones-alfa.py`). No escuro, a web pinta o ícone por máscara e o Expo por `tintColor`.
+- **Expo:**
+  - `darkColors` e `useThemeColors()`;
+  - tokens escuros em `global.css` (`@media (prefers-color-scheme: dark)`) aplicados por `Appearance.setColorScheme`;
+  - `app.json` em `automatic`;
+  - `StatusBar` seguindo o tema;
+  - varredura das telas, com cores de props e `style` pelo hook;
+  - tom `danger-fixed` no `ActionButton`, para a folha escura de cancelar a busca;
+  - simulação de `Appearance`/`useColorScheme` e de `expo-secure-store` nos testes.
+- **Documentação:** [0004-tema.md](decisoes/0004-tema.md), seção nova em [fidelidade-figma.md](fidelidade-figma.md), comando dos ícones no README e regra dos dois temas no `AGENTS.md`.
+
+**Verificações executadas**
+- **Web:** `npm run lint`, `npm run build` e `npm run test:coverage` passam (88 arquivos, 1230 testes, entre eles os novos de `tests/theme.test.tsx`: hook, persistência, falha de armazenamento, `matchMedia` ao vivo, transição, cartão com `aria-pressed` e ícone em máscara).
+- **Claro inalterado na web:** capturas de 33 telas em 390 px, antes e depois, idênticas pixel a pixel, exceto o Menu (cartão novo) e um ruído de 10 pixels no desfoque da barra. O diff foi auditado por script.
+- **Escuro na web:** as mesmas 33 telas em 390 px e 7 telas em 320 e 1440 px, revisadas sem overflow horizontal.
+- **Fluxo real no navegador** (web auxiliar 5180):
+  - Noite grava `arena.tema` e troca `data-theme`, `theme-color` e `color-scheme`;
+  - após a recarga, o tema já está aplicado no `DOMContentLoaded`, antes de o React montar, sem piscar;
+  - o Automático acompanha a troca do sistema ao vivo;
+  - Enter no teclado troca a opção, com foco visível;
+  - não há erro de console.
+- **Expo:** `npm run lint`, `npm run typecheck`, `npm run test:coverage` (102 arquivos, 1576 testes, com `tests/theme.test.ts`) e `npm run export:android` passam. `npx expo install --check` aponta só o desvio conhecido `expo@57.0.27` contra `~57.0.28`.
+- **Prova de compilação do NativeWind 5 rc:** o `global.css`, compilado pelo react-native-css, gera as variáveis com a condição `prefers-color-scheme = dark` (ex.: `color-app` `#040806`/`#e2e4e9`), e `bg-app` lê a variável. O diff do Expo foi auditado: os únicos literais do claro trocados são equivalentes (`rgba(0,90,54,0.07)` → `#005a3612`).
+- **Contraste do escuro** conferido por cálculo (valores em 0004).
+
+**Limitações e pendências**
+- **Expo sem aparelho:** não houve validação em Android nem iOS (não há SDK nem emulador nesta máquina). Não estão confirmados em execução: a troca por `Appearance.setColorScheme`, o desempenho da troca e a aparência real das telas. A build não comprova o funcionamento. Não há declaração de paridade visual do Expo.
+- **Telas da web sem captura:** times, eventos, organizador, partida, chaveamento, recibos e Salão foram revisados só por código e auditoria de diff. A API auxiliar em execução (8010) é uma versão antiga e responde 404 a essas rotas. Atualizá-la exigiria migrar o banco `arena_e2e`, o que não foi feito.
+- **Bordas de campo** (`field-border`, `line-strong`) ficam abaixo de 3:1 no escuro, como já acontecia no claro aprovado.
+- **CSP:** não há cabeçalho CSP no projeto. Uma CSP de produção precisará liberar o script em linha do `index.html` por hash.
+- **Ícones de esporte:** se os provisórios forem trocados, as versões com alfa precisam ser regeneradas.
+
+## Plano do tema claro e escuro (apenas planejamento) — 13 de outubro de 2026
+
+Registrado [plano-tema.md](plano-tema.md), resultado de uma sessão de protótipos em quatro rodadas. O protótipo está num artefato privado do usuário, e a fonte local fica em `artifacts/prototipos-tema/`, fora do versionamento.
+
+Decisões tomadas:
+- **Paleta "Estádio à noite"**: preto esverdeado, holofote no topo, menta nos botões e o dourado dos elos em rótulos, ícones de quadro e item selecionado. O claro aprovado não muda.
+- **Controle "Luzes do estádio"**: cartão "Aparência" no Menu do Perfil, antes do grupo App, com Dia, Noite e Automático. Na Noite os refletores acendem e a tela escurece.
+- **Cartões com a borda iluminada** e ícones de esporte em branco. **Placas forest** (Sua posição, Jogar, Salão) iguais ao claro.
+- **Navegação inferior** preta translúcida, com o botão Jogar em menta.
+
+Divergências encontradas:
+- Não existe tela "Configurações"; o Menu do Perfil cumpre esse papel.
+- A variante `dark:` da web já está ocupada pelo vidro dos formulários. O tema global usará `data-theme` e uma variante própria.
+- Os PNGs de esporte não têm canal alfa e somem sobre fundo escuro com o `mix-blend-multiply` atual.
+- O Expo força `userInterfaceStyle: light`.
+
+Alteração somente documental: nenhum código, dependência ou banco foi alterado e nenhum teste foi executado.
+
+Algumas decisões foram tomadas pelo plano e podem ser revistas antes da implementação:
+- **Automático** como padrão.
+- A preferência fica **no aparelho**: `localStorage` na web e SecureStore no Expo, sem backend.
+- Escopo **web e Expo**, com a web primeiro.
+- O tema vale também nas telas de entrada.
+
+## Nova tela Ranking por elo, com Salão dos Lendários (backend, web e Expo) — 13 de outubro de 2026
+
+Execução do [plano-ranking.md](plano-ranking.md) em três frentes paralelas (worktrees `orq/ranking-back`, `orq/ranking-web` e `orq/ranking-expo`), mescladas em `feat/notifications-ranking` sem conflitos. Antes de começar, o usuário confirmou as quatro decisões tomadas pelo plano: chips de faixa para quem não tem elo (Bronze por padrão), troca de elo que pula elos vazios, diferenças relativas às pessoas sem expor os cortes, e `rank_position` mantida na API, mas fora da tela.
+
+O que mudou:
+- **Backend.**
+  - A migração `0013` adiciona a `standings` as colunas `recent_form` (até 5 letras V/E/D, com CHECK) e `best_mark_on` (só corrida, com CHECK), além do índice parcial `ix_standings_ranking_tier`.
+  - O recálculo da categoria grava a forma recente (`scoring.recent_form`) e a data da melhor marca. No individual, conta só quem teve presença, e no W.O. só o lado que compareceu. No tênis, só V/D.
+  - O novo comando `python -m app.admin_cli recalculate-rankings` preenche as linhas existentes e pode ser rodado de novo sem mudar nada.
+  - `services/ranking_views.py` é novo, com `rankings_page` movido de `results.py`, e os schemas e o roteador passaram a `schemas/rankings.py` e `routers/rankings.py`, com os mesmos caminhos.
+  - `GET /rankings` ganhou `tier`, `tier_position`, `form`, `best_mark_on` e `tier_counts`.
+  - O novo `GET /rankings/overview` traz a janela de ±3 no elo, as diferenças para o 1º e para o próximo, os times do titular com `team_id` (404 para time alheio ou inativo) e a prévia dos Lendários.
+  - O contrato está na seção 20 da [0002](decisoes/0002-jogar.md), e o passo pós-migração no README.
+- **Web.**
+  - A aba Ranking ganhou barra própria, só com título e sino. Abaixo vêm o cartão Categoria (folha filtrada pelos perfis ativos), os chips dos times, a entrada do Salão dos Lendários e a placa contínua tingida na cor do elo.
+  - A placa traz a troca de elo, a posição no elo, as diferenças e a janela ±2 com borda esmaecida. Ao expandir, a lista carrega o elo inteiro, paginado, e oferece "Mostrar só ao seu redor".
+  - As linhas mostram a forma recente; na corrida, a data da melhor marca.
+  - Sem elo, aparecem a placa de estado e os chips de faixa.
+  - A subtela `legends` é nova. `RankingRows` e `MyRankingPlate` foram removidos.
+  - Tokens novos: `--color-legend` e `--color-tier-*-tint`.
+- **Expo.** O mesmo conjunto em `mobile/src/`, com `LegendsScreen` nova. A borda esmaecida é feita por camadas de opacidade, sem dependência nova. Sem nenhuma modalidade, "Configurar modalidade" leva ao Perfil, porque o Expo não tem tela de modalidades. Uma falha ao ler os perfis esportivos agora vira erro de tela com "Tentar novamente".
+
+Verificações executadas na árvore integrada (`cdbbf85`):
+- **Backend:** `ruff check` sem erros. `pytest -q --cov=app --cov-branch` com `TEST_DATABASE_URL`: 1690 passaram e 1 foi pulado (o envio real ao S3, que só roda quando ligado), com cobertura de 98%. `alembic upgrade head` e `alembic check` sem diferenças, num banco próprio de verificação.
+- **Web:** `npm run lint` e `npm run build` sem erros. O aviso de pacote grande já existia, e o pacote passou de 1.252 kB para 1.327 kB. `npm run test:coverage`: 1221 testes passaram, com 93,68% das instruções cobertas.
+- **Expo:** `npm run lint` e `npm run typecheck` sem erros. `npm run test:coverage`: 1570 testes passaram, com 96,26% das instruções cobertas. `npm run export:android` gerou o pacote.
+- **Navegador, com o backend real:**
+  - O banco próprio (`arena_orq_rk_e2e`) foi populado com contas criadas pela API e partidas pontuadas, e cobriu: cinco elos ocupados, Lendários, um titular com 2 times, titulares em classificação, sem time, sem marca, com 1 modalidade e sem nenhuma, e a corrida com um elo vazio.
+  - A 320, 390 e 1440 px conferiram:
+    - a barra, a folha com 1, 2 e 3 perfis e o estado sem perfil;
+    - a placa, com "Lidera" e "Último";
+    - a troca de elo pulando o elo vazio e a abertura do Salão;
+    - a janela, a expansão com `tier=` e cursor, e a volta à janela;
+    - os chips dos times enviando `team_id`, e os chips de faixa sem elo;
+    - a ausência de overflow horizontal, o foco visível, a rolagem acima da navegação inferior e os mesmos dados depois de recarregar.
+  - As formas exibidas bateram com as partidas do banco: 47 de 47 no society.
+  - `recalculate-rankings` com dados alterou 64 linhas e, rodado de novo, nenhuma.
+
+Aplicação no ambiente local do usuário: com a API em `--reload` já no código novo e o banco `arena` ainda na `0012`, toda leitura de `standings` falhava por falta de `recent_form`. Por isso o Ranking mostrava "Sem conexão" e "Suas estatísticas" aparecia com traços. A pedido do usuário, a `0013` foi aplicada no banco `arena` e o `recalculate-rankings` foi rodado: 3 linhas alteradas e, na segunda vez, nenhuma. Depois disso, `/me/standings` e `/rankings/overview` (tênis e corrida) voltaram a responder 200.
+
+Limitações e pendências:
+- **Em cada ambiente,** rode `alembic upgrade head` e depois `recalculate-rankings` uma vez. Até a migração, as leituras de `standings` falham com o código novo. Até o recálculo, as linhas antigas mostram a forma vazia, nunca errada.
+- **Não verificados no navegador:** o erro de conexão ao expandir (coberto só por testes) e o clique num chip de faixa vazio.
+- **Observações menores, sem correção:**
+  - Numa categoria sem classificados, não aparece o cartão "Nenhum Lendário ainda".
+  - O time escolhido continua selecionado ao trocar o formato.
+- **Concorrência:** a contagem por elo e as linhas são lidas em consultas separadas. Se um recálculo cair entre as duas, a posição no elo pode ficar defasada em uma unidade até a próxima leitura (seção 20 da 0002).
+- **Expo:** a paridade visual e o funcionamento em Android ou iOS não foram verificados. O build só comprova que o pacote compila.
+
+## Plano da nova tela Ranking (apenas planejamento) — 13 de outubro de 2026
+
+Registrado [plano-ranking.md](plano-ranking.md), resultado de uma sessão de protótipos em sete rodadas. O protótipo está num artefato privado do usuário, e a fonte local fica em `artifacts/prototipos-ranking/`, fora do versionamento.
+
+Decisões tomadas:
+- **Estrutura "Você no centro"**: barra só com título e sino, sem voltar, seguida do cartão Categoria, da entrada do Salão dos Lendários e de uma placa contínua tingida na cor do elo. Saem os cinco cartões fixos de elos, o título repetido e o "Configurar modalidade" fixo.
+- **A lista mostra o elo do titular**, e cada elo é um ranking próprio (1º ao último do elo, com o 1º no topo). A tela não mostra a posição geral nem "Top %".
+- **Janela**: o titular com 2 acima e 2 abaixo. Quem está fora aparece com a borda esmaecida e um botão com seta e número, que carrega o elo inteiro.
+- **Lendários**: o Salão dos Lendários é uma entrada compacta que abre uma subtela escura própria.
+- **Categoria**: folha de filtros só com as modalidades em que o titular tem perfil ativo. Sem nenhum perfil, a tela mostra o estado vazio com "Configurar modalidade".
+- **Linha da lista** com a forma recente (últimos 5 resultados; na corrida, a data da melhor marca).
+- **Vários times**: a placa abre num time, e chips trocam entre os times ativos do titular.
+- **API**: `GET /rankings` ganha o filtro `tier`, a posição no elo, a forma recente e a contagem por elo. O novo `GET /rankings/overview` traz a janela, as diferenças e a prévia dos Lendários.
+- **Forma recente gravada no banco**, por decisão do usuário. As colunas `recent_form` e `best_mark_on` em `standings` são preenchidas pelo mesmo recálculo que atualiza pontos e elo. A migração cria as colunas e um índice, e o novo comando `admin_cli recalculate-rankings` preenche as linhas existentes.
+- **Escopo**: backend, web e Expo.
+
+Divergências encontradas: a aba raiz Ranking usa a barra de subtela, com voltar, e repete o título. A API pagina só a partir do 1º lugar e não sabe buscar por elo, contar por elo nem montar a janela ao redor do titular.
+
+Alteração somente documental: nenhum código, dependência ou banco foi alterado e nenhum teste foi executado. Algumas decisões foram tomadas pelo plano e podem ser revistas antes da implementação: os chips de faixa para quem ainda não tem elo, a troca de elo que pula elos vazios, e as diferenças relativas às pessoas (sem expor os cortes).
+
+## Conciliação dos toasts com as notificações — 13 de outubro de 2026
+
+Fechamento do merge das branches `orq/toasts` e `orq/notificacoes` em `feat/notifications-ranking`: conflitos resolvidos, migração das telas de notificações para o novo padrão de mensagens e correção dos testes quebrados pela conciliação. Não muda contrato da API nem esquema; o backend não foi alterado.
+
+**Merge e conflitos resolvidos:**
+- `usePagedList` (web e Expo): a versão final combina `path` nulo na web e `enabled` no Expo (a tela de notificações não lê a lista no chip *Para responder* nem a fila de pedidos fora de *Tudo*) com `connectionError` e a releitura única quando a conexão volta.
+- `ArenaPage` e `ArenaShell`: o resumo das notificações, o sino e as subtelas convivem com o `Toaster`, a faixa e a folha de conexão.
+- `CommunityScreen` e `ProfileScreen` do Expo: o `ProfileScreen` ficou sem o cartão interno de pedidos para seguir (que agora só existe na subtela) e com o `LoadError` nativo.
+- Testes dos dois lados e esta própria seção.
+
+**Leituras em segundo plano:** `getUnreadCount` e `getNotificationSummary` (web e Expo) chamam `request(path, 'GET', undefined, { background: true })`. O contador do sino e o resumo nunca abrem a folha de conexão; uma falha só liga a faixa.
+
+**Migração das telas de notificações:**
+- **Web:** `NotificationsPage` e `FollowRequestsPage` perderam os estados `error` e `notice`, o `aria-live` e os blocos `feedbackVariants`. "Todas as notificações foram marcadas como lidas." é `toast.success`; os erros de ação (ler uma notificação sem destino, "Ler todas", aprovar e recusar pedidos, "Aprovar todas") passam por `reportActionError` (404/409 viram aviso, o resto erro, conexão cai na faixa e 401 expira a sessão). Marcar como lida falhando numa notificação com destino continua deixando a navegação seguir, só o 401 interrompe. Os erros de carregamento dos pedidos para seguir, das pendências e da lista usam `LoadError size="section"` com "Tentar novamente" e `cause`. "Carregar mais" que falhou continua no rodapé. O tom `success` de `feedbackVariants` ficou sem uso e foi removido; o tom `error` permanece.
+- **Expo:** `NotificationsScreen` e `FollowRequestsScreen` seguem o mesmo desenho, com o `LoadError` nativo. "Solicitação de X aprovada/recusada." e "Solicitações aprovadas." são `toast.success`; a aprovação parcial de "Aprovar todas" ("Nem todas as solicitações foram aprovadas. Tente de novo em instantes.") é `toast.warning`, como o `ProfileScreen` fazia. `openNotification` (compartilhado com o Início) passou a chamar `reportActionError` quando marcar como lida falha numa notificação sem destino, em vez de devolver o texto; o Início, que ignorava o retorno, agora também avisa.
+- `usePendingNotifications` (web e Expo) devolve `errorCause` e relê uma única vez quando a conexão volta, como `useResource` e `usePagedList`.
+- `HomePage`, `HomeScreen` e `components/notifications/*` foram conferidos: não restava bloco de sucesso nem de erro de ação no padrão antigo. A placa do Início continua sem mostrar erro.
+- Na web, "Aprovar todas" não tinha confirmação e continua sem (a fila vazia mostra "Tudo em dia").
+
+**Testes:**
+- Web: `NotificationsHarness` monta o `Toaster`; os testes de notificações, de "Ler todas" e de pedidos para seguir procuram o texto na região do toast (`findToast`) e conferem o tom (erro, aviso). Os casos de erro passaram a usar 500 onde queriam a mensagem do servidor, porque 503 é falta de conexão e vira faixa. Novo teste: a seção de pendências sem conexão mostra o aviso do `LoadError` e relê sozinha quando a conexão volta. `tests/organizer-api.test.ts` espera `{ background: true }`.
+- Expo: `follow-requests-screen` e `notifications` usam `toasts()` e `toastText()`; o caso de falha de conexão da fila confere o `load-error-section`; `api-notifications`, `api-organizer-admin` e `navigation-shell` esperam `{ background: true }` (o mock de `request` do `navigation-shell` compara os argumentos). Novo teste no hook de pendências: causa do erro e releitura única ao voltar a conexão.
+- `community.test.tsx` > "atualiza ao puxar o feed no topo além do limite, mas não com um puxão curto" falhou uma vez na suíte completa depois do merge e passou isolada, em oito execuções simultâneas e na suíte completa seguinte; não foi reproduzida. A causa provável é uma corrida do próprio teste: os ouvintes de toque entram num efeito (`usePullToRefresh`) depois de o feed aparecer, e sob carga o primeiro `touchStart` pode chegar antes. O hook e o `SocialCommunity` não mudaram no merge além do toast no lugar do aviso de publicação. O teste agora repete o puxão curto dentro de `waitFor` até o gesto estar armado, sem mudar o que verifica (puxão curto não atualiza, puxão longo atualiza uma vez).
+
+**Banco de desenvolvimento:** a migração `0012_notification_actions` está aplicada no banco `arena` (`alembic current` em `0012 (head)`); `alembic check` sem diferenças.
+
+**Verificações executadas:**
+- Web: `npm run lint` e `npm run build` aprovados (permanece o aviso de bundle acima de 500 kB); `npm run test:coverage` aprovado com **1.192 testes em 86 arquivos**, 93,54% das instruções e 87,47% dos ramos.
+- Expo: `npm run lint`, `npm run typecheck` e `npm run test:coverage` aprovados, com **1.534 testes em 99 arquivos**, 96,19% das instruções e 91,10% dos ramos.
+- Depois do merge: backend com `ruff` sem apontamentos e `pytest -q` com `TEST_DATABASE_URL` (PostgreSQL 5432, schema aleatório): 1649 aprovados e 1 pulado; Expo com `npm run export:android` concluído.
+- Não executados: conferência da conciliação no navegador e em aparelho; ela foi validada só por testes. CI remoto não executado.
+
+**Limitações:** sem validação em aparelho Android/iOS (o toast sobre os `Modal`, a faixa e a folha de conexão do Expo seguem pendentes de conferência em aparelho); CI remoto não executado.
+
+## Sino global, pendências e tela de notificações (backend, web e Expo) — 13 de outubro de 2026
+
+Implementado o [plano de notificações](plano-notificacoes.md) no backend, na web e no Expo. Contrato em [0003, seção 7](decisoes/0003-times-campeonatos.md#7-notificações): pendências (7.1) e tipos com ação (7.2).
+
+**O que mudou:**
+- **Backend:** migração `0012_notification_actions` adiciona `action_key`, `action_until` e `resolved_at` em `notifications`, com dois índices parciais. `NOTIFICATION_CATEGORY` (43 tipos em partidas, times, eventos e conta) e `ACTION_TYPES` (14 tipos). `notify` e `notify_many` recebem `action_key`, `action_until` e `informative`; `resolve_actions`, `resolve_actions_many` e `resolve_actions_prefix` resolvem as pendências; há construtores de chave por tipo. Rotas novas: `GET /me/notifications/pending` e `GET /me/notifications/summary`; `GET /me/notifications` aceita os filtros `categoria` e `pendente`; `PUT .../read` e `.../read-all` devolvem o resumo. Os 14 tipos recebem a chave na criação e são resolvidos nos serviços de times, convites, fila do Jogar, vagas, condições, W.O., resultados, quadras, inscrições, comprovantes, devoluções, eventos, campeonato e varredura. Em `devolucao_contestada` e `wo_contestado`, só a administração recebe a pendência; organizador e lado que registrou recebem aviso informativo.
+- **Web:** `useNotificationSummary` no `ArenaPage`, relido na troca de aba raiz, ao entrar ou voltar de subtela, em foco e visibilidade e a cada 60 s visível. `NotificationBell` nas cinco abas raiz (Início, Ranking, Jogar, Comunidade e Perfil próprio), com contador de não lidas mais pedidos para seguir (`9+` acima de nove). A tela de notificações tem placa `forest`, "Ler todas", linha de resumo, chips *Tudo · Para responder · Partidas · Times · Eventos* filtrados no servidor, bloco "Para responder" com `PendingCard` (prazo, barra e botão que marca como lida e leva ao destino) e lista agrupada por dia. A linha "N pedidos para seguir" abre a nova subtela `follow-requests` (`FollowRequestsPage`). O Início ganha a placa "Para responder" (`PendingPlate`), e a linha "Notificações" do Menu mostra o contador. O Início deixou de ler `unread-count`.
+- **Expo:** o mesmo conjunto: `useNotificationSummary` no `ArenaShell`, com `AppState`; `NotificationBell`, `NotificationsPlate`, `PendingCard`, `FollowRequestsLine`, tela `follow-requests`, `PendingPlate` no Início e contador na linha "Notificações" do Menu do Perfil.
+
+**Verificações executadas:**
+- Backend: `ruff check app migrations tests` aprovado; `pytest -q` com `TEST_DATABASE_URL` (PostgreSQL 16 local, schema aleatório): **1638 aprovados e 1 pulado** (após os ajustes de ex-representante). Migração aplicada em banco de teste separado (`arena_notif_check`), com `alembic check` sem diferenças e ciclo `downgrade 0011` / `upgrade head` aprovado. O banco de desenvolvimento `arena` não foi migrado nesta entrega.
+- Integração por tipo com ação: `test_notification_actions_flow.py`, `test_notification_resolution_matches_flow.py`, `partida/test_notification_resolution_flow.py` e `test_notification_resolution_events_flow.py`, conferindo que ler não resolve e que a ação real e os caminhos alternativos resolvem.
+- Web: `npm run lint`, `npm run build` e `npm run test:coverage` aprovados: **79 arquivos e 1042 testes**; cobertura de **92,59% das instruções e 86,17% dos ramos**.
+- Expo: `npm run lint`, `npm run typecheck`, `npm run test:coverage` (**88 arquivos e 1375 testes** após a remoção do cartão do Perfil) e `npm run export:android` aprovados.
+- Navegador, com Chrome headless controlado por CDP, API na porta 8001 apontando para `arena_notif_check`, Vite na 5174 e contas de teste criadas pela API:
+  - a 320, 390 e 1440 px, sino presente nas cinco abas raiz, com alvo de 44 px e sem overflow horizontal;
+  - tela aberta pelo sino e pela placa do Início, que abre no chip *Para responder*; chips filtrando, e *Partidas* vazio mostra "Nada neste filtro.";
+  - foco visível nos chips e no sino;
+  - o botão do cartão marca como lida e leva a Meus times; após recarregar, a leitura persiste e a pendência continua aberta;
+  - aceitar o convite e recusar o pedido de entrada resolvem as pendências, e a placa do Início some;
+  - "Ler todas" mostra "Tudo lido · 1 ainda pede sua resposta";
+  - aprovar pedido para seguir atualiza o contador.
+
+**Limitações e pendências:**
+- Sem validação em aparelho Android/iOS nem conferência visual do Expo; o build do Expo não comprova funcionamento em aparelho.
+- Sem preenchimento retroativo: notificações anteriores à migração nunca aparecem como pendentes.
+- Divergências do plano:
+  - `condicoes_propostas` tem prazo no horário proposto (o plano previa sem prazo), porque as condições não podem ser aceitas depois dele;
+  - `convite_time` não tem prazo, porque convites não têm validade no código;
+  - a aba acesa em Notificações e Pedidos para seguir é a aba de onde o sino foi tocado (o plano dizia Início);
+  - o resumo também é relido ao entrar e voltar de subtelas.
+- A barra do prazo fica âmbar só com menos de 25% do tempo restante (decisão do usuário; o limite de 3 h do plano foi removido na web e no Expo).
+- Quando um representante sai, é removido, deixa de representar ou o time é encerrado, as pendências que recebeu como representante daquele time (`pedido_entrada`, `proposta_partida`, `condicoes_propostas`, `wo_registrado`, `resultado_divergente`, `comprovante_decidido` e `devolucao_enviada`) são resolvidas só para ele (`team_notifications.resolve_for_former_representatives`); as recebidas por outro papel continuam. `vaga_encontrada` fica de fora porque vai ao avulso, não a representantes. Regra na seção 7.2 do 0003.
+- O banco de desenvolvimento `arena` precisa de `alembic upgrade head` antes de usar esta branch.
+- No Expo, o cartão interno "Notificações" (pedidos para seguir) do Perfil foi removido: os pedidos ficam só na subtela "Pedidos para seguir", como na web.
+
+## Toasts, aviso de conexão e erros de carregamento — 13 de outubro de 2026
+
+Implementação do [plano-toasts.md](plano-toasts.md) na branch local `orq/toasts`, em etapas com commit local cada uma (web, backend e Expo), sem push. Não muda contrato da API, migração nem dependência.
+
+Pendências desta entrega (a migração das telas de notificações e do "Ler todas" foi concluída na conciliação):
+- Expo sem validação em aparelho; CI remoto não executado.
+- Os commits intermediários por área foram separados a partir do mesmo conjunto de mudanças; a suíte completa de cada cliente foi executada no estado final de cada etapa, não em cada commit intermediário.
+
+### Etapa 1 — web: primitivos, conexão, erros de ação e de carregamento
+
+- **Toast** (`components/ui/toast.tsx`): API `toast.success | info | warning | error(título, { description, action, id })` sobre o Toast do `@base-ui/react` 1.8.0, sem dependência nova. Durações num único mapa (4 s, 5 s, 7 s; erro até fechar), limite de 4, erro com `priority: 'high'`. Cartão "Anel" (vidro, linha e Coliseu no tom, anel de tempo, ação em pílula, X "Fechar aviso"), baralho que abre com ponteiro ou foco, arrastar para baixo dispensa, `prefers-reduced-motion` só com opacidade. `<Toaster>` montado no `app-frame` da `ArenaPage` (acima da navegação inferior) e na `AuthPage`. Tokens novos em `ui.css`: `--color-warning-soft`, `--color-info-soft`, `--color-toast`, `--color-toast-line`, `--shadow-toast` e camadas do toast e da faixa. O `Toast.Root` usa `role="group"` no lugar do `dialog` do Base UI, porque o toast não é diálogo; a região viva é `Avisos`.
+- **Conexão** (`api/connection.ts`, `components/ConnectionNotice.tsx`): loja com `online | offline | restored`, `sheetDismissed`, `nextRetryAt`, `nudge` e `checking`. O cliente marca `ApiError.isConnection` em 0, 502, 503 e 504 e avisa a loja; qualquer outra resposta confirma a conexão. Reconexão por `GET /health/ready` em 5, 10, 20 e depois 30 s, e em "Tentar agora". Leitura falha → faixa; ação falha → folha (se não dispensada) ou tremor da faixa; volta → "Conexão restabelecida" por 2,5 s. `request` ganhou a opção `background` (4º argumento), usada na sondagem do chat da partida e na releitura da placa do Jogar. Divergência do plano: quem abre a folha é o próprio cliente ao detectar a falha de uma requisição que altera dados; `reportActionError` também chama `attempted`, com deduplicação pela causa, para cobrir `catch` manuais.
+- **Erros de ação** (`hooks/useSubmit.ts`): `reportActionError(causa, fallback, onExpired)` → 401 sessão expirada; conexão → aviso de conexão; 422 com `fields` e o 409 com `conflict` da agenda → ficam no formulário (`error`/`fields`); 404/409 → `toast.warning`; o resto → `toast.error` com a mensagem do servidor. O `error` do `useSubmit` passou a guardar só o que pertence ao formulário; os blocos de erro de ação nas telas ainda não migradas ficam vazios até a etapa da área.
+- **Erro de carregamento** (`components/ui/load-error.tsx`): `LoadError` (`screen` com Coliseu, `section` compacta), `role="alert"`, texto próprio para falha de conexão. `useResource` e `usePagedList` expõem `connectionError` e recarregam uma vez quando a conexão volta.
+- **Migração da etapa 1:** `MatchResultCard`, `MatchPage` e `EventPage` usam `toast.*`; "Os placares não bateram" e "Vaga reservada" viraram aviso. Removidos `results/ResultToast.tsx`, `results/useToast.ts`, os dois `notify()` e as regiões vivas deles.
+- **Testes:** novos `toast`, `connection`, `connection-notice`, `submit-errors`, `load-error`, `arena-feedback` e casos de classificação em `client.test.ts`; helper `tests/toast-utils.tsx` (`renderWithToaster`, `findToast`, `queryToast`). Testes de 21 arquivos passaram a procurar as mensagens na região do toast.
+
+Verificações da etapa 1: `npm run lint` e `npm run build` aprovados (permanece o aviso de bundle acima de 500 kB); `npm run test:coverage` aprovado com **1.053 testes em 81 arquivos**, 92,69% das instruções e 85,98% dos ramos; suíte repetida pelo orquestrador: 1.053 aprovados. No navegador (API própria na porta 8002, web na 5175 e conta sintética local): os quatro tons, a pilha com 6 toasts (4 visíveis), a abertura em lista e a pausa com o ponteiro, o X, a ação, F6, Tab e Esc conferidos; o erro não some sozinho e os demais saem em cerca de 4, 5 e 7 s. O toast fica dentro do painel, acima da navegação e por cima de uma folha aberta, sem overflow em 320, 390 e 1440 px. Com a API derrubada: só a faixa ao navegar, a folha ao salvar (foco preso), o tremor depois de "Continuar sem conexão" e a volta automática com "Conexão restabelecida" por 2,5 s e recarga da seção que falhou. Com a API apontada para um banco inválido, `/health/ready` deu 503 e o app mostrou o aviso de conexão, não toast de erro. `LoadError` de tela conferido no evento e na partida. Correção feita na verificação: o cartão de trás do baralho rolava 16 px ao receber foco por teclado (`overflow-hidden` → `overflow-clip`). Também se viu que a ação ainda era enviada depois de "Continuar sem conexão"; o cliente passou a recusá-la sem enviar (veja a seção do Expo). Limitação: o painel do navegador estava oculto, então a animação em si não foi vista rodando e parte dos cliques foi feita por script; a pausa com a janela em segundo plano só foi testada em unidade.
+
+Os pontos que esta etapa deixou para a conciliação (o contador do sino em segundo plano e a migração de `NotificationsPage.tsx` e `NotificationsScreen.tsx`) foram resolvidos na seção "Conciliação dos toasts com as notificações".
+
+### Ajustes decididos pelo usuário depois da entrega
+
+- **Entrada sem conexão, mensagem uma só vez (web e Expo):** quando entrar ou criar conta falha por conexão (`isConnection`), o formulário não mostra a mensagem; a tela de entrada liga o mesmo bloco da falha do `/me`, com "Tentar conexão novamente" (no Expo, o `LoadError` "Não foi possível conectar"). Isso vale também quando o `/me` respondeu 401 e só o login falhou. Credenciais inválidas e 422 continuam no formulário. A web e o Expo tinham a mesma duplicação.
+- **Sugestão de quadra nova (web e Expo):** o toast passou de sucesso para aviso ("… foi sugerida." com a descrição "Fica em revisão e vale só nesta partida até a aprovação da administração."), porque a sugestão entra na fila da administração. "Já estava no catálogo" e "será sugerida ao agendar" continuam como informação.
+
+Verificações dos ajustes: web com `npm run lint` e `npm run build` aprovados e `npm run test:coverage` com **1.094 testes em 82 arquivos** (93,47% das instruções e 87,42% dos ramos); Expo com `npm run lint` e `npm run typecheck` aprovados e `npm run test:coverage` com **1.481 testes em 92 arquivos** (96,07% e 90,88%). Testes novos cobrem o login com falha de conexão (um único alerta, recuperação pelo botão) e credenciais inválidas no formulário; os testes da sugestão conferem o tom de aviso. Não conferido no navegador nem em aparelho; `export:android` não repetido.
+
+### Etapa 3 — web: eventos e organizador, administração, entrada e limpeza (A6, etapas 6 a 9)
+
+- **Eventos e organizador:** publicar, enviar para aprovação, retirar, cancelar e salvar o evento, agendar partida ("Os dois elencos foram avisados."), sorteio, troca e confirmação do chaveamento ("Troca cancelada." como informação), aprovar e recusar comprovante, devolução, aviso publicado e cancelamento do pedido de organizador viraram toast. A cópia do Pix e da chave passa por `notifyCopy` (sucesso ou aviso), preservando a espera do retorno assíncrono da área de transferência e o campo de cópia manual. O `EventWizard` separou o resumo do formulário (`summary`), o estado não editável e a falha de carga (`LoadError` escuro com nova tentativa); "Rascunho salvo." virou toast. A instrução do segundo toque no chaveamento e o conflito de agenda continuam na tela. As telas e seções de eventos, inscritos, avisos, recibos, devoluções, chaveamento e pedido de organizador usam `LoadError`.
+- **Administração:** `AdminReports` passou a usar `usePagedList` e `useSubmit` e separou carga (`LoadError`), justificativa (junto ao campo, por denúncia), decisão e reativação (toast; "Decisão registrada." e "Conta reativada." são confirmações novas). As filas de organizador, quadras, eventos pagos, revogados, devoluções e W.O. mostram sucesso em toast, avisos de item já decidido pelo `useSubmit` e `LoadError` nas listas, no histórico e no trecho do chat.
+- **Entrada:** `App.tsx` separou `bootError` (falha do `/me`, com "Tentar conexão novamente") de `sessionExpired` ("Sua sessão expirou. Entre novamente para continuar."). A confirmação do cadastro virou toast ("Conta criada."); os erros de login e cadastro continuam no formulário. Não há fluxo de recuperação de senha na web, então só o cadastro foi migrado. Sem folha de conexão na entrada.
+- **Limpeza:** saíram a variante `notice` de `glassMessageVariants` e o tom `success` de `darkNotice`. O tom `success` de `feedbackVariants` ficou para a conciliação, quando a `NotificationsPage` foi migrada, e foi removido.
+
+Verificações das etapas 2 e 3 (web): `npm run lint` e `npm run build` aprovados (aviso de bundle já existente); `npm run test:coverage` com **1.091 testes em 82 arquivos**, 93,46% das instruções e 87,42% dos ramos. No navegador, com API própria (porta 8002), web na 5175 e seis contas sintéticas locais (`toasts.verif+N@example.com`, uma promovida a administradora e uma aprovada como organizadora pela fila): nome, perfil esportivo e privacidade com toast e persistência após recarregar; nome de usuário em uso junto ao campo; curtir, comentar, excluir comentário, buscar e seguir sem bloco antigo; "Busca cancelada." no Jogar; `LoadError` do histórico e folha de conexão com a API derrubada, recarga ao voltar; time criado e persistido, falha ao copiar o link como aviso com o campo manual, "Novo link gerado"; aprovação de organizador pela fila e "Rascunho salvo." no assistente; `LoadError` das sugestões de quadra sem conexão; cadastro com toast na entrada, erro de login no formulário e falha do `/me` com "Tentar conexão novamente", sem folha. Sem overflow em 320, 375, 390 e 1440 px; toast acima da navegação e por cima de folha aberta; console sem erros de JS. Não conferido: o `LoadError` escuro da própria placa do Jogar (a placa não relê ao trocar de aba) e a decisão de denúncias (só havia dados reais da base de desenvolvimento). Ficaram na base de desenvolvimento as contas sintéticas, um time e um rascunho de evento. Capturas em `artifacts/toasts-etapa1/` e `artifacts/toasts-areas/`, fora do versionamento.
+
+Observação da verificação, corrigida depois (veja "Ajustes decididos pelo usuário"): com a API fora, uma tentativa de entrar mostrava a mensagem de conexão duas vezes na tela de entrada.
+
+### Etapa 2 — web: perfil e conta, comunidade, Jogar e partida, times (A6, etapas 2 a 5)
+
+Confirmações passageiras viraram `toast.*` e os blocos verdes, os `aria-live` e os estados que os mostravam saíram. Erros de ação passam pelo `useSubmit` ou por `reportActionError`; os blocos que restaram mostram só erro de formulário (422 com campos). Erros de carregamento com nova tentativa viraram `LoadError` (`screen` para a tela, `section` para seções, tom escuro na placa, nas folhas escuras e no vidro). "Carregando…", instruções, estados e validação local continuam na tela.
+
+- **Perfil e conta:** `ArenaPage` separou a carga de perfis e cidades (`LoadError`, com recarga quando a conexão volta) do salvamento e da saída (toast). "Perfil salvo.", as confirmações do Editar perfil, a denúncia de conta e o aviso de lista fechada (informação) viraram toast. O 409 de nome de usuário em uso continua junto ao campo, sem toast. `BlockedAccountsPage`, `ConnectionsPage`, `UserProfilePage`, `MenuPage`, `ProfileGallery` e `MatchTimeline` usam `LoadError`.
+- **Comunidade:** publicar, denunciar post e comentário viraram toast (o `ReportForm` só avisa o chamador, para não duplicar). Curtir, editar, excluir e comentar usam a regra única; 422 da legenda e do comentário continuam no campo. "Feed indisponível" usa o `LoadError` de tela (o bloco antigo falava em conexão mesmo em erro comum); comentários usam o `LoadError` escuro de seção.
+- **Jogar e partida:** `PlayPage` separou a placa (`LoadError` escuro), o erro do formulário de busca e o aviso derivado do estado da proposta; cancelar, recusar e adiar viraram toast (sucesso ou informação). `TermsSheet` e `ScoreEntry` separaram validação local e recusa do servidor. O erro de envio do chat continua junto ao campo, com o texto preservado. Ranking, histórico, marcas, provas, quadras, chat, elenco e a decisão de resultado usam `LoadError`; os hooks `usePlayBoard`, `useMatchChat`, `useLineups`, `useRanking` e o `CourtPicker` recarregam uma vez quando a conexão volta. Um 409 ao salvar a corrida deixou de travar o botão Salvar.
+- **Times:** `TeamsPage` separou a carga (tela, convites e listas de cada time, guardadas por time) da resposta a pedidos e convites (toast; 404/409 viram aviso e recarregam). Copiar o link virou toast de sucesso e a falha virou aviso, com o campo de cópia manual visível. "Pedido enviado" no `JoinPage` virou toast, e o estado de membro continua na tela. `TeamFormPage` ganhou "Tentar novamente" na carga do time.
+
+### Expo, C3 — migração das telas
+
+- **Confirmações:** os `LiveNotice`, os `Notice tone="success"` e os textos de sucesso viraram `toast.*`, inclusive o `LiveNotice` absoluto da `MatchScreen`, as marcas da corrida, o elenco, o perfil ("Perfil salvo.", nome, fotos, privacidade, solicitações), a comunidade (publicação, denúncia), times, eventos, recibos, chaveamento, filas da administração e o cadastro ("Conta criada."). O `ReportForm` não tem mais o passo "Concluir": envia, mostra o toast e fecha. O único `LiveNotice` restante é o estado de membro do `JoinScreen`, que continua na tela.
+- **Erros de ação:** os `ErrorText` e `Notice` de ação saíram ou passaram a mostrar só erro de formulário (422 com campos); os `catch` manuais usam `reportActionError`. 404/409 viram aviso e relêem pelo `onFailure`. O 409 de nome de usuário em uso e o 422 do @ continuam junto ao campo. O conflito de agenda continua na folha.
+- **Carregamento:** as telas e seções usam o `LoadError` nativo; o `LoadState` de `review/ui.tsx` delega a ele. `usePlayBoard`, `useMatchChat`, `useLineups`, `useRanking`, `useRunBests`, `useAthleteSearch` e o `CourtPicker` expõem a causa e recarregam quando a conexão volta.
+- **Separações:** `PlayScreen` (placa, elo e modalidades × busca × aviso da proposta), `TermsSheet` e `ScoreEntry` (validação local × recusa do servidor), `EventWizardScreen` (carga, bloqueio e resumo do formulário), `App.tsx` (sessão expirada × falha do `/me`, sem folha de conexão).
+- Mudança de comportamento alinhada à web: um 409 ao salvar a corrida vira aviso e não bloqueia uma nova tentativa.
+
+Verificações do Expo depois da C3: `npm run lint`, `npm run typecheck` e `npm run export:android` aprovados; `npm run test:coverage` com **1.479 testes em 92 arquivos**, 96,07% das instruções e 90,88% dos ramos. Sem validação em aparelho Android ou iOS: o toast sobre os `Modal`, a faixa e a folha de conexão, o `LoadError` dentro das folhas e o contraste do `LoadError` claro no Menu do organizador precisam ser conferidos em aparelho.
+
+### Expo, C1 e C2 — primitivos e conexão
+
+- **Toast** (`components/toast/`): `toastStore` com a mesma API da web (`toast.success | info | warning | error`, `dismiss`, limite 4, mesmas durações), temporizadores na loja com pausa quando o app vai para segundo plano (`AppState`) e enquanto o cartão é tocado ou arrastado. `ToastCard` em vidro sólido (`rgba(8, 20, 14, 0.94)`, sem desfoque), linha do tom em gradiente SVG, Coliseu (`ArenaMark`), anel em `react-native-svg`, entrada, saída e pilha com `react-native-reanimated`, reduce motion respeitado, arrastar para baixo dispensa (`PanResponder`), X "Fechar aviso", `announce` no iOS e `accessibilityLiveRegion` no Android (erro `assertive`). `ToastViewport` (`nav`, `screen` e `modal`) montado no `ArenaShell`, na entrada e dentro de cada `Modal` (`Sheet`, `ActionSheet`, `PostComposer`, `PostViewer`, `RunEntrySheet`, `QrScanner`, `VisitedProfile`, `EventWizardScreen`); só o viewport montado por último exibe os toasts. Tokens novos em `theme.ts` e `global.css`; ícone `bang` para o aviso.
+- **Conexão:** `api/connection.ts` com as regras da web (0, 502, 503 e 504; timeout de 15 s e de 120 s no upload); reconexão por `/health/ready` sem Bearer; `ConnectionNotice` no `ArenaShell` com a faixa acima da barra inferior e a folha sobre o `ActionSheet` escuro (o `Sheet` não tem tom escuro); ao voltar do segundo plano com o aviso ligado, tenta de novo. `request` ganhou a opção `background`, usada na sondagem do chat e na placa do Jogar. Não há NetInfo.
+- **Erros:** `useSubmit` e `reportActionError` com as mesmas regras da web; `onFailure` acrescentado ao `run`. `LoadError` nativo (`components/arena/LoadError.tsx`), ainda sem uso nas telas. `useResource` e `usePagedList` recarregam uma vez quando a conexão volta.
+- **Migração mínima:** `MatchResultCard` e `EventScreen` usam `toast.*` ("Vaga reservada." virou aviso com a descrição do comprovante); removidos `results/useToast.ts`, `results/ResultToast.tsx` e o toast próprio do `EventScreen`.
+- **Nos dois clientes:** depois de "Continuar sem conexão", uma nova ação não chega a ser enviada: o cliente recusa na hora e a faixa treme. A entrada (`/auth/`) sempre tenta. A conferência no navegador mostrou que, antes disso, a ação ainda era tentada.
+
+Divergências: o Expo não carrega Sora nem Inter (usa a fonte do sistema com o peso); a pilha de viewports segue a ordem de montagem. Até a migração C3, os blocos `ErrorText` e `Notice` de erro de ação ficam vazios e o `RosterSheet` mostra o `LiveNotice` e o toast ao mesmo tempo.
+
+Verificações do Expo: `npm run lint` e `npm run typecheck` aprovados; `npm run test:coverage` com **1.437 testes em 88 arquivos**, 95,14% das instruções e 89,82% dos ramos; `npm run export:android` aprovado (na primeira execução o npm encerrou com falha de segmentação depois de "Exported: dist"; repetida, saiu com código 0). Sem validação em aparelho Android ou iOS: a sobreposição do toast sobre `Modal` precisa ser conferida em aparelho.
+
+### Parte B — backend (falha do banco)
+
+Sem mudança de contrato nem de código do app. Acrescentado `backend/tests/unit/test_database_unavailable.py` (11 testes, sem PostgreSQL), com o app real e `TestClient(raise_server_exceptions=False)`, para confirmar que nenhuma falha do banco chega ao cliente como o 500 em texto do Starlette:
+- `get_db` levantando `OperationalError` na abertura (função comum e gerador), em rotas públicas e autenticadas (`/me`, `/me/sports-profiles`, contador de notificações);
+- falha no flush e no commit (`POST /auth/logout`);
+- falha no fechamento da sessão depois de a rota responder: com FastAPI 0.143/Starlette 1.7 a saída do `yield` roda depois do envio, então o cliente recebe a resposta da rota (o teste aceita essa resposta ou 503 em JSON);
+- `GET /health/ready` com `engine.connect()` e com a consulta falhando: 503 em JSON; `GET /health/live` continua 200 sem tocar no banco.
+
+Todos os casos devolveram 503 com `{"detail": "Não foi possível acessar os dados. Tente novamente."}`; nenhum handler novo foi necessário, por isso [decisoes/0001-fundacao.md](decisoes/0001-fundacao.md) não mudou. Não há `with SessionLocal()` direto em rotas: só em scripts de linha de comando.
+
+Verificações: `ruff check app migrations tests` aprovado; `pytest -q` com `TEST_DATABASE_URL` (PostgreSQL local, schemas aleatórios): **1.597 aprovados e 1 pulado** (o já existente que exige `MEDIA_TEST_S3=1`).
+
+## Plano do sino global e da tela de notificações (apenas planejamento) — 13 de outubro de 2026
+
+Registrado [plano-notificacoes.md](plano-notificacoes.md), resultado de uma sessão de protótipos em quatro rodadas. O protótipo está num artefato privado do usuário, e a fonte local fica em `artifacts/prototipos-notificacoes/`, fora do versionamento.
+
+Decisões tomadas:
+- O sino fica na barra de cada aba raiz (Início, Ranking, Jogar, Comunidade e Perfil). As subtelas não têm sino.
+- O contador mostra o número de não lidas mais os pedidos para seguir.
+- A tela segue o desenho **Placa e filtros**, com os chips *Tudo · Para responder · Partidas · Times · Eventos*.
+- A lista usa **Pendências fixadas**: o bloco "Para responder" vem no topo, com prazo e botão que leva à tela do aviso.
+- Os pedidos para seguir viram uma linha-resumo que abre uma subtela própria.
+- O Início ganha a placa compacta "Para responder", com as 2 pendências mais urgentes.
+- O backend passa a calcular as pendências (chave de ação, prazo e resolução), e os filtros rodam no servidor.
+- O resumo é recarregado na troca de aba, no retorno ao app e a cada 60 s.
+- O escopo cobre backend, web e Expo.
+
+Divergências encontradas: hoje o contador só é lido quando o Início monta e não inclui os pedidos para seguir. O modelo `Notification` só tem `read_at`, então abrir uma proposta a marca como lida mesmo sem resposta.
+
+Alteração somente documental: nenhum código, dependência ou banco foi alterado e nenhum teste foi executado. Algumas decisões foram tomadas pelo plano e podem ser revistas antes da implementação: a contagem dos chips, a ausência de preenchimento retroativo e a permanência da linha do Menu.
+
+## Plano dos toasts, do aviso de conexão e dos erros de carregamento (apenas planejamento) — 13 de outubro de 2026
+
+Registrado [plano-toasts.md](plano-toasts.md), resultado de uma sessão de protótipos em três rodadas. O protótipo está num artefato privado do usuário, e a fonte local fica em `artifacts/prototipos-toasts/`, fora do versionamento.
+
+Decisões tomadas:
+- Direção visual **Vidro do Coliseu**, com o cartão **Anel** (anel de tempo no ícone, ação em pílula, X sempre visível).
+- Pilha em baralho acima da navegação inferior.
+- Durações: 4 s para sucesso, 5 s para informação e 7 s para aviso. O erro fica até ser fechado.
+- As mensagens se dividem em quatro níveis: toast, aviso de conexão, erro de tela e erro junto ao campo.
+- Sem conexão, a faixa aparece presa à navegação. Uma folha bloqueante só abre quando o usuário tenta uma ação, e depois de dispensada a faixa apenas treme.
+- Na web, a base é o Toast do `@base-ui/react`, sem dependência nova.
+- O escopo cobre web e Expo.
+
+O inventário encontrou três implementações paralelas de toast na web e cerca de 65 arquivos com blocos de retorno parados. Também encontrou variáveis que misturam erro de carregamento, de ação e de campo (por exemplo `AdminReports`, `ArenaPage`, `TeamsPage` e `PlayPage`). No Expo, as folhas usam `Modal` nativo, o que exige um viewport de toast dentro de cada modal. O backend já devolve 503 em falha do banco e tem `/health/ready`, que o plano aproveita.
+
+Alteração somente documental: nenhum código, dependência ou banco foi alterado e nenhum teste foi executado. O comportamento do erro de tela (Coliseu, com uma variante compacta para seções) foi assumido no plano e pode ser revisto antes da implementação.
+
 ## Espera pelo retorno da cópia de Pix nos testes web — 13 de outubro de 2026
 
 O CI do commit `1c7ce14` passou no backend e no Expo nas duas execuções (push e pull request), confirmando a recuperação da compilação do MinIO. A web passou na execução do PR, mas falhou na do push: o teste de Pix encontrou a região `role="status"` ainda vazia, antes da conclusão assíncrona de `navigator.clipboard.writeText`. A presença dessa região não comprova que a mensagem já foi atualizada.
@@ -1189,7 +1604,7 @@ Atualizar este Markdown a cada entrega ou alteração no projeto, registrando im
 | Edição de perfil e @ | Integradas à API: lista agrupada com folhas, @ único com verificação de disponibilidade, visibilidade, contas bloqueadas e conexões. |
 | Posts, comunidade e perfis sociais | Integrados à API: feed cronológico, foto/legenda, curtidas, comentários, busca, privacidade social, seguidores, bloqueios e denúncias. Painel administrativo web e histórico de decisões implementados. |
 | Conteúdo do perfil | Abas Fotos \| Partidas na web e no Expo: grade com visualizador "Publicações", post 4:5, comentários e ações em vidro, denúncias de post/comentário/conta com motivo e detalhes e topo fixo condensado. Partidas integrada: linha do tempo de partidas e corridas (`GET /users/{id}/timeline`) nos perfis próprio e visitado, e estatísticas do perfil próprio (`GET /me/profile-stats`, com Melhor elo); Atividades sairá para Notificações em entrega futura. |
-| Partidas, ranking, estatísticas e notificações | Integrados à API na web (etapas 3 e 4) e no Expo (etapa 6): partidas, resultado, estatísticas, Ranking e Notificações com os tipos de times, eventos, partidas e campeonatos, além das solicitações para seguir. Sem partida, evento ou marca, as telas mostram o estado vazio; não há dados demonstrativos. |
+| Partidas, ranking, estatísticas e notificações | Integrados à API na web (etapas 3 e 4) e no Expo (etapa 6): partidas, resultado, estatísticas, Ranking e Notificações com os tipos de times, eventos, partidas e campeonatos, além das solicitações para seguir. Sem partida, evento ou marca, as telas mostram o estado vazio; não há dados demonstrativos. Desde 13 de outubro, o sino global das abas raiz, a tela de notificações com filtros e as pendências "Para responder" (resolvidas pela ação real) estão integrados ao backend, à web e ao Expo; sem validação em aparelho. |
 | Moedas e carteira | Removidas da interface web e fora da direção atual do produto; não implementar sem nova solicitação. |
 | Botão Jogar | Busca adversário de verdade (times, tênis e avulso), com proposta, partida e agendamento, na web e no Expo; sem perfil esportivo, prepara o perfil. Nunca simula uma partida encontrada. |
 | Cliente Expo | Comunidade e recursos sociais; título @, hambúrguer e folha Menu. Desde a etapa 6, também times, organizador, eventos e inscrições, comprovantes, administração, Jogar (placa, partida, resultado e Ranking), corrida e campeonatos (chaveamento, agenda e decisão), sem tela "em breve". A revisão visual do Figma foi aplicada somente à web; paridade visual do Expo, funcionamento em aparelho, leitor de tela e API real não foram verificados. |

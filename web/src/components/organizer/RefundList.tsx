@@ -9,6 +9,7 @@ import { usePagedList } from '@/hooks/usePagedList'
 import { useSubmit } from '@/hooks/useSubmit'
 import { Button } from '@/components/ui/button'
 import { feedbackVariants } from '@/components/ui/feedback'
+import { LoadError } from '@/components/ui/load-error'
 import type { EntryState, StateTone } from '@/data/arena'
 import { formatDeadline, formatPrice } from '@/utils/format'
 import { relativeTime } from '@/utils/relativeTime'
@@ -70,7 +71,7 @@ function RefundRow({ entry, onSent, onExpired }: { entry: OrganizerEntry; onSent
     if (sent) onSent(sent)
   }
 
-  return <li className="rounded-card bg-white p-3 shadow-[0_2px_8px_#0000000a]" aria-labelledby={`${id}-name`}>
+  return <li className="surface rounded-card p-3 shadow-[0_2px_8px_#0000000a] noite:shadow-none inset-ring inset-ring-surface-edge" aria-labelledby={`${id}-name`}>
     <div className="flex items-start gap-3">
       {refund && status.step !== 'enviar'
         ? <ReceiptThumb receipt={refund} name={name} onExpired={onExpired} />
@@ -95,7 +96,7 @@ function RefundRow({ entry, onSent, onExpired }: { entry: OrganizerEntry; onSent
         Ver comprovante enviado
       </ReceiptLink>}
     </div>}
-    <div aria-live="polite">{error && <p className={feedbackVariants({ className: 'mb-0' })} role="alert">{error}</p>}</div>
+    {error && <p className={feedbackVariants({ className: 'mb-0' })} role="alert">{error}</p>}
   </li>
 }
 
@@ -112,7 +113,7 @@ function RefundGroup({ eventId, state, title, empty, onSent, onExpired }: {
   return <section aria-label={title} className="mt-4">
     <h2 className="mx-1 mb-2 text-[10px] font-bold tracking-[0.1em] text-ink-muted uppercase">{title}</h2>
     {list.loading && <p role="status" className="py-2 text-[12px]">Carregando…</p>}
-    {list.error && <div className={feedbackVariants()} role="alert">{list.error.message} <Button variant="text" onClick={list.reload}>Tentar novamente</Button></div>}
+    {list.error && <LoadError size="section" text={list.error.message} cause={list.error} onRetry={list.reload} />}
     {!list.loading && !list.error && !list.items.length && <p className="mx-1 text-[11.5px] text-ink-muted">{empty}</p>}
     {list.items.length > 0 && <ul className="grid gap-2">
       {list.items.map(entry => <RefundRow key={entry.id} entry={entry} onExpired={onExpired}

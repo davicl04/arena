@@ -8,6 +8,7 @@ import { COUNTER_FROM } from '../src/components/match/MatchChat'
 import { mergeMessages } from '../src/hooks/useMatchChat'
 import { colors } from '../src/theme'
 import { appState, enableAct, hardwareBack } from './support/native'
+import { toasts } from './support/toast'
 import { matchRoutes, mountMatch, pressFake, tick, unmountAll } from './support/match'
 import {
   arranging, caio, marcos, matchDetail, matchEvent, message, messagePage, mine, noPermissions, person, scheduled, sides, tiago,
@@ -146,6 +147,22 @@ describe('lados, agrupamento e braçadeira', () => {
     expect(allText(failed.tree)).not.toContain('Nenhuma mensagem ainda')
   })
 
+  it('a falha ao carregar o chat é um erro de seção (LoadError) e "Tentar novamente" recomeça a leitura', async () => {
+    let fail = true
+    const { tree } = await mountMatch(matchRoutes(matchDetail(), { [MESSAGES]: () => (fail ? new ApiError('Chat indisponível.', 500) : messagePage([message(1, { body: 'Voltou' })])) }))
+    expect(byId(tree, 'load-error-section')).toHaveLength(1)
+    expect(allText(tree)).toContain('Chat indisponível.')
+    expect(toasts()).toEqual([])
+    fail = false
+    await pressButton(tree, 'Tentar novamente')
+    await flush()
+    expect(byId(tree, 'load-error-section')).toHaveLength(0)
+    expect(allText(tree)).toContain('Voltou')
+    expect(callsTo('GET', MESSAGES)).toHaveLength(2)
+  })
+
+
+
   it('junta mensagens sem repetir ids e em ordem', () => {
     const merged = mergeMessages([message(1), message(3)], [message(2), message(3, { body: 'editada' })])
     expect(merged.map(item => item.id)).toEqual([1, 2, 3])
@@ -199,6 +216,9 @@ describe('leitura periódica', () => {
     await tick(8000)
     expect(callsTo('GET', `${MESSAGES}?after=3`).length).toBeGreaterThan(1)
     expect(callsTo('GET', '/matches/1')).toHaveLength(1)
+    // A leitura periódica é em segundo plano: uma queda de conexão liga só a faixa, nunca a folha.
+    expect(callsTo('GET', MESSAGES)[0][3]).toEqual({ background: true })
+    expect(callsTo('GET', `${MESSAGES}?after=2`)[0][3]).toEqual({ background: true })
   })
 
   it('pausa a leitura com o app em segundo plano e lê na hora ao voltar', async () => {
@@ -269,6 +289,17 @@ describe('leitura periódica', () => {
     await tick(4000)
     expect(bubbleTexts(tree)).toContain('Voltou')
     expect(allText(tree)).not.toContain('Sem conexão')
+  })
+
+  it('falha de conexão na primeira leitura: o erro de seção diz que está sem conexão e a leitura seguinte recupera', async () => {
+    let reads = 0
+    const { tree } = await live({ [MESSAGES]: () => (++reads === 1 ? new ApiError('Sem resposta.', 503) : messagePage([message(1, { body: 'Voltou' })])) })
+    expect(byId(tree, 'load-error-section')).toHaveLength(1)
+    expect(allText(tree)).toContain('Sem conexão com a ARENA. Vamos tentar de novo assim que voltar.')
+    expect(allText(tree)).not.toContain('Sem resposta.')
+    await tick(4000)
+    expect(bubbleTexts(tree)).toContain('Voltou')
+    expect(byId(tree, 'load-error-section')).toHaveLength(0)
   })
 
   it('sessão expirada durante a leitura chama onExpired e para de ler', async () => {
@@ -403,6 +434,19 @@ describe('envio', () => {
     expect(send(tree).props.disabled).toBe(false)
   })
 
+  it('o envio que falha por falta de conexão não deixa mensagem local nem toast (o aviso de conexão cuida); o texto fica no campo', async () => {
+    const { tree } = await mountMatch(matchRoutes(matchDetail(), {
+      [MESSAGES]: messagePage([]),
+      'POST /matches/1/messages': new ApiError('Sem resposta.', 503),
+    }))
+    await typeInto(tree, 'Mensagem', 'Oi')
+    await pressButton(tree, 'Enviar mensagem')
+    expect(allText(tree)).not.toContain('Sem resposta.')
+    expect(toasts()).toEqual([])
+    expect(input(tree).props.value).toBe('Oi')
+    expect(send(tree).props.disabled).toBe(false)
+  })
+
   it('respeita o limite de 1000 caracteres e mostra a contagem perto dele', async () => {
     const { tree } = await mountMatch(matchRoutes(matchDetail(), { [MESSAGES]: messagePage([]), 'POST /matches/1/messages': (call: { body: unknown }) => mine(2, (call.body as { body: string }).body) }))
     expect(input(tree).props.maxLength).toBe(MESSAGE_MAX)
@@ -488,7 +532,7 @@ describe('organizador no chat (campeonato)', () => {
 describe('denúncia de mensagem', () => {
   const offensive = message(7, { body: 'Texto ofensivo.' })
 
-  it('abre o formulário com a mensagem, envia como match_message e avisa que a denúncia foi enviada', async () => {
+  it('abre o formulário com a mensagem, envia como match_message, avisa em toast e fecha o formulário', async () => {
     const { tree } = await mountMatch(matchRoutes(matchDetail(), {
       [MESSAGES]: messagePage([offensive, mine(8, 'Minha mensagem')]),
       'POST /reports': { id: 1, status: 'pending' },
@@ -503,13 +547,11 @@ describe('denúncia de mensagem', () => {
     await pressButton(tree, 'Assédio')
     await pressButton(tree, 'Enviar denúncia')
     expect(bodyOf('POST', '/reports')).toEqual({ target_type: 'match_message', target_id: 7, reason: 'assedio' })
-    expect(allText(tree)).toContain('Denúncia da mensagem enviada.')
-    await pressButton(tree, 'Concluir')
+    expect(toasts().map(item => [item.tone, item.title])).toEqual([['success', 'Denúncia da mensagem enviada.']])
     expect(allText(tree)).not.toContain('A administração vê a mensagem, a partida e o autor.')
-    expect(allText(tree)).toContain('Denúncia enviada para análise.')
   })
 
-  it('o erro do servidor fica no formulário e o 401 volta ao login', async () => {
+  it('a sessão expirada volta ao login sem toast e o formulário continua aberto', async () => {
     const { tree, onExpired } = await mountMatch(matchRoutes(matchDetail(), {
       [MESSAGES]: messagePage([offensive]),
       'POST /reports': new ApiError('Sessão expirada.', 401),
@@ -518,8 +560,21 @@ describe('denúncia de mensagem', () => {
     await pressButton(tree, 'Spam')
     await pressButton(tree, 'Enviar denúncia')
     expect(onExpired).toHaveBeenCalled()
-    expect(allText(tree)).toContain('Sessão expirada.')
+    expect(toasts()).toEqual([])
     expect(allText(tree)).toContain('A administração vê a mensagem, a partida e o autor.')
+  })
+
+  it('um erro do servidor sai em toast de erro e o formulário continua aberto para tentar de novo', async () => {
+    const { tree } = await mountMatch(matchRoutes(matchDetail(), {
+      [MESSAGES]: messagePage([offensive]),
+      'POST /reports': new ApiError('Não foi possível registrar a denúncia agora.', 500),
+    }))
+    await pressButton(tree, 'Denunciar mensagem de Caio Ramos')
+    await pressButton(tree, 'Spam')
+    await pressButton(tree, 'Enviar denúncia')
+    expect(toasts().map(item => [item.tone, item.title])).toEqual([['error', 'Não foi possível registrar a denúncia agora.']])
+    expect(allText(tree)).toContain('A administração vê a mensagem, a partida e o autor.')
+    expect(findButton(tree, 'Enviar denúncia')!.props.disabled).toBe(false)
   })
 
   it('o voltar do Android fecha o formulário em vez de sair da partida; sem ele aberto, o voltar segue para a navegação', async () => {

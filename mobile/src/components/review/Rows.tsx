@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { Pressable, Text, View } from 'react-native'
-import { colors } from '../../theme'
+import { useThemeColors } from '../../hooks/useTheme'
 import { eventDateParts } from '../../utils/format'
 import { Icon } from '../Icon'
 import { Avatar } from '../media'
@@ -14,8 +14,9 @@ import { Avatar } from '../media'
 const spoken = (label: string, status?: string) => (status ? `${label}. ${status}` : label)
 
 function RowShell({ label, onPress, lead, title, text, children }: { label: string; onPress: () => void; lead: ReactNode; title: string; text: string; children?: ReactNode }) {
+  const colors = useThemeColors()
   return <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={onPress}
-    style={{ minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 16, backgroundColor: '#ffffff', padding: 10 }}>
+    style={{ minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 16, backgroundColor: colors.surface, padding: 10 }}>
     {lead}
     <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
       <Text numberOfLines={1} style={{ color: colors.ink, fontSize: 13.5, fontWeight: '700' }}>{title}</Text>
@@ -39,6 +40,7 @@ export function PersonRow({ name, avatarPath, token, title, text, badge, status,
 
 /** Bloco de data da linha de evento: mês em caixa alta e o dia grande, sobre o verde-escuro. */
 function DateBlock({ iso }: { iso: string | null | undefined }) {
+  const colors = useThemeColors()
   const date = eventDateParts(iso)
   return <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ width: 44, height: 48, alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: colors.forest }}>
     <Text style={{ color: colors.mint, fontSize: 9, fontWeight: '800', letterSpacing: 0.8 }}>{(date?.month ?? '—').toUpperCase()}</Text>

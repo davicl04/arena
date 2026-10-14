@@ -4,13 +4,14 @@ import { getProfileStats } from '../../api/profile'
 import type { ProfileStats } from '../../api/profile'
 import { tiers } from '../../data/arena'
 import { useResource } from '../../hooks/useResource'
-import { colors } from '../../theme'
+import { useThemeColors } from '../../hooks/useTheme'
 import { TierEmblem } from '../arena/TierEmblem'
 
 /** "62%" (arredondado) ou "—" sem partidas. */
 export const winRateText = (stats: ProfileStats | null) => stats?.win_rate == null ? '—' : `${Math.round(stats.win_rate)}%`
 
 function Block({ label, value, children }: { label: string; value: string; children?: ReactNode }) {
+  const colors = useThemeColors()
   return <View accessible accessibilityLabel={`${label}: ${value}`} style={{ flex: 1, minWidth: 0, borderRadius: 12, backgroundColor: colors['brand-soft'], padding: 12, gap: 4 }}>
     <Text style={{ color: colors['ink-muted'], fontSize: 10.5, fontWeight: '700' }}>{label}</Text>
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 24 }}>
@@ -25,6 +26,7 @@ function Block({ label, value, children }: { label: string; value: string; child
  * erro não bloqueiam o perfil: os blocos ficam com "—". Quem só está em classificação nunca recebe um elo.
  */
 export function ProfileStatsBlocks({ onExpired }: { onExpired: () => void }) {
+  const colors = useThemeColors()
   const stats = useResource(getProfileStats, onExpired, { fallback: 'Não foi possível carregar as estatísticas.' })
   const data = stats.data
   const tier = data?.best_tier && data.best_tier in tiers ? data.best_tier : null

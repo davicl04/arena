@@ -35,7 +35,7 @@ export function PaymentInfoButton({ onClick, className }: { onClick: () => void;
       aria-label="Informações de pagamento"
       title="Informações de pagamento"
       onClick={onClick}
-      className={cn("grid size-9 flex-none place-items-center rounded-full bg-transparent p-0 text-brand hover:bg-[#005a3612]", className)}
+      className={cn("grid size-9 flex-none place-items-center rounded-full bg-transparent p-0 text-brand hover:bg-icon-tile", className)}
     >
       <Info size={18} aria-hidden="true" />
     </button>
@@ -129,7 +129,7 @@ export function OrganizerCard({ name, onContact }: { name: string; onContact?: (
           type="button"
           onClick={onContact}
           aria-label={`Contato de ${name}`}
-          className="inline-flex min-h-9 flex-none items-center rounded-field border-[1.5px] border-solid border-line-strong bg-transparent px-3 text-[11px] font-bold text-ink hover:bg-[#fff6]"
+          className="inline-flex min-h-9 flex-none items-center rounded-field border-[1.5px] border-solid border-line-strong bg-transparent px-3 text-[11px] font-bold text-ink hover:bg-[#fff6] noite:hover:bg-[#ffffff0d]"
         >
           Contato
         </button>

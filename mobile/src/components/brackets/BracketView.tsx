@@ -1,7 +1,7 @@
 import { Text, View } from 'react-native'
 import type { Bracket, BracketNode, BracketRound } from '../../api/brackets'
 import { whenText } from '../../data/match'
-import { colors } from '../../theme'
+import { useThemeColors } from '../../hooks/useTheme'
 import { StateBadge } from '../arena/StateBadge'
 import { Icon } from '../Icon'
 import { bracketSummary, competitorName, nodeScore, nodeSentence, placementLabel, slotName } from './bracketText'
@@ -15,7 +15,7 @@ import { CompetitorMark, CrossTable, RestList, StandingsTable } from './RoundRob
  * A lista por rodada é a alternativa acessível ao desenho: cada confronto é lido como uma frase.
  */
 
-const eyebrow = { color: colors['ink-muted'], fontSize: 10.5, fontWeight: '800', letterSpacing: 0.8, textTransform: 'uppercase' } as const
+const eyebrow = (color: string) => ({ color, fontSize: 10.5, fontWeight: '800', letterSpacing: 0.8, textTransform: 'uppercase' }) as const
 
 /** Detalhe curto de um confronto na lista: o placar, a data e a quadra, ou "Sem data". */
 export function nodeMeta(node: BracketNode, sport: Bracket['sport']): { text: string; decided: boolean } | null {
@@ -28,9 +28,10 @@ export function nodeMeta(node: BracketNode, sport: Bracket['sport']): { text: st
 }
 
 function RoundBlock({ round, bracket }: { round: BracketRound; bracket: Bracket }) {
+  const colors = useThemeColors()
   return <View accessibilityLabel={round.name} style={{ gap: 6 }}>
-    <Text accessibilityRole="header" style={eyebrow}>{round.name}</Text>
-    <View style={{ borderRadius: 16, backgroundColor: '#ffffff', paddingHorizontal: 12 }}>
+    <Text accessibilityRole="header" style={eyebrow(colors['ink-muted'])}>{round.name}</Text>
+    <View style={{ borderRadius: 16, backgroundColor: colors.surface, paddingHorizontal: 12 }}>
       {round.nodes.map((node, index) => {
         const [a, b] = node.slots
         const meta = nodeMeta(node, bracket.sport)
@@ -56,6 +57,7 @@ function RoundBlock({ round, bracket }: { round: BracketRound; bracket: Bracket 
 
 /** Campeão e colocações finais (só com o evento encerrado). */
 export function FinalBoard({ bracket }: { bracket: Bracket }) {
+  const colors = useThemeColors()
   const { champion, placements } = bracket
   if (!champion && !placements?.length) return null
   const bonus = bracket.sport === 'tenis'
@@ -70,8 +72,8 @@ export function FinalBoard({ bracket }: { bracket: Bracket }) {
       <CompetitorMark competitor={champion} size="sm" />
     </View> : null}
     {placements && placements.length > 0 ? <>
-      <Text accessibilityRole="header" style={[eyebrow, { marginTop: 4 }]}>Colocações</Text>
-      <View style={{ borderRadius: 16, backgroundColor: '#ffffff', paddingHorizontal: 12 }}>
+      <Text accessibilityRole="header" style={[eyebrow(colors['ink-muted']), { marginTop: 4 }]}>Colocações</Text>
+      <View style={{ borderRadius: 16, backgroundColor: colors.surface, paddingHorizontal: 12 }}>
         {placements.map((item, index) => <View key={item.competitor.entry_id} accessible
           accessibilityLabel={`${item.placement}º lugar, ${competitorName(item.competitor)}, ${placementLabel(item.placement, bracket.kind)}${bonus && item.bonus_points > 0 ? `, mais ${item.bonus_points} pontos no ranking` : ''}`}
           style={{ minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, borderTopWidth: index ? 1 : 0, borderTopColor: colors.line }}>
@@ -107,6 +109,7 @@ export interface BracketViewProps {
  * muda a ordem, sem troca manual. A árvore ocupa a largura da tela (margem negativa igual à do conteúdo, `bleed`).
  */
 export function BracketView({ bracket, picked, onPick, busy, bleed = 16 }: BracketViewProps) {
+  const colors = useThemeColors()
   const elimination = bracket.kind === 'eliminacao_simples'
   return <View style={{ gap: 14 }}>
     <Text style={{ color: colors['ink-muted'], fontSize: 11, lineHeight: 17 }}>{bracketSummary(bracket)}</Text>
@@ -116,7 +119,7 @@ export function BracketView({ bracket, picked, onPick, busy, bleed = 16 }: Brack
         <CrossTable bracket={bracket} />
         <RestList bracket={bracket} />
         {bracket.table && bracket.table.length > 0 ? <>
-          <Text accessibilityRole="header" style={eyebrow}>Classificação</Text>
+          <Text accessibilityRole="header" style={eyebrow(colors['ink-muted'])}>Classificação</Text>
           <StandingsTable rows={bracket.table} sport={bracket.sport} />
         </> : null}
       </>}

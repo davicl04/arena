@@ -9,6 +9,7 @@ import ModerationScreen from '../src/screens/ModerationScreen'
 import { enableAct, press, textOf } from './support/native'
 import type { Call } from './support/review'
 import { admin, allText, byId, callsTo, findButton, hasField, labelled, lastBodyOf, me, page, pressButton, pressPrefix, render, report, serve, typeInto } from './support/review'
+import { toastText } from './support/toast'
 
 vi.mock('react-native', async () => (await import('./support/native')).reactNativeMock())
 vi.mock('react-native-svg', async () => (await import('./support/native')).svgMock())
@@ -107,9 +108,8 @@ describe('Moderação (Denúncias)', () => {
     await typeInto(tree, JUSTIFICATION, '  Ofensa clara ao autor  ')
     await pressButton(tree, 'Registrar decisão')
     expect(lastBodyOf('POST', '/admin/reports/11/decision')).toEqual({ action: 'remove', justification: 'Ofensa clara ao autor' })
-    const after = allText(tree)
-    expect(after).toContain('Conteúdo removido e denúncia resolvida.')
-    expect(after).not.toContain('Comentário · #55')
+    expect(toastText()).toContain('Conteúdo removido e denúncia resolvida.')
+    expect(allText(tree)).not.toContain('Comentário · #55')
     expect(findButton(tree, 'Registrar decisão')).toBeUndefined()
   })
 
@@ -124,7 +124,7 @@ describe('Moderação (Denúncias)', () => {
     await typeInto(tree, JUSTIFICATION, 'Decisão da equipe')
     await pressButton(tree, 'Registrar decisão')
     expect(lastBodyOf('POST', '/admin/reports/11/decision')).toEqual({ action, justification: 'Decisão da equipe' })
-    expect(allText(tree)).toContain(message)
+    expect(toastText()).toContain(message)
   })
 
   it('denúncia de mensagem da partida: mostra a partida e o texto, remove com o aviso próprio e a removida mostra o aviso', async () => {
@@ -146,7 +146,7 @@ describe('Moderação (Denúncias)', () => {
     await typeInto(tree, JUSTIFICATION, 'Ofensa a outro atleta')
     await pressButton(tree, 'Registrar decisão')
     expect(lastBodyOf('POST', '/admin/reports/14/decision')).toEqual({ action: 'remove', justification: 'Ofensa a outro atleta' })
-    expect(allText(tree)).toContain('Mensagem removida: o texto some para todos na partida e o registro fica guardado.')
+    expect(toastText()).toContain('Mensagem removida: o texto some para todos na partida e o registro fica guardado.')
   })
 
   it('a denúncia de uma conta oferece reativar e não remover', async () => {
@@ -159,7 +159,7 @@ describe('Moderação (Denúncias)', () => {
     await typeInto(tree, JUSTIFICATION, 'Conta verificada')
     await pressButton(tree, 'Registrar decisão')
     expect(lastBodyOf('POST', '/admin/reports/13/decision')).toEqual({ action: 'reactivate', justification: 'Conta verificada' })
-    expect(allText(tree)).toContain('Conta reativada e denúncia resolvida.')
+    expect(toastText()).toContain('Conta reativada e denúncia resolvida.')
   })
 
   it('a mensagem da partida mostra a prévia de texto e pode ser removida', async () => {
@@ -261,7 +261,7 @@ describe('Moderação: denúncias resolvidas', () => {
     await typeInto(tree, 'Justificativa para reativação', 'Revisão feita')
     await pressButton(tree, 'Reativar conta')
     expect(callsTo('PUT', '/admin/users/77/status?active=true&justification=Revis%C3%A3o%20feita')).toHaveLength(1)
-    expect(allText(tree)).toContain('Conta reativada.')
+    expect(toastText()).toContain('Conta reativada.')
     // As outras denúncias da mesma conta deixam de oferecer a reativação.
     await pressPrefix(tree, 'Publicação número 61')
     expect(findButton(tree, 'Reativar conta')).toBeUndefined()

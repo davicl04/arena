@@ -13,7 +13,7 @@ vi.mock('expo-secure-store', () => ({ getItemAsync: vi.fn(), setItemAsync: vi.fn
 const rafa = person(2, 'Rafa Nunes')
 let nextId = 1
 const note = (type: string, payload: Record<string, unknown>, actor: ArenaNotification['actor'] = null): ArenaNotification =>
-  ({ id: nextId++, type, payload, actor, created_at: new Date(Date.now() - 60e3).toISOString(), read_at: null })
+  ({ id: nextId++, type, category: 'partidas', payload, actor, created_at: new Date(Date.now() - 60e3).toISOString(), read_at: null, pending: false, action_until: null })
 const view = (type: string, payload: Record<string, unknown> = {}, actor: ArenaNotification['actor'] = null, isAdmin = false) =>
   notificationView(note(type, { match_id: 12, ...payload }, actor), { isAdmin })
 /** 20/10/2026 às 16:00 no fuso do aparelho. */

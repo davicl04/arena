@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { AppState } from 'react-native'
 import { ApiError } from '../api/client'
+import { connection } from '../api/connection'
 import { CHAT_POLL_MS, getMessages, sendMessage } from '../api/matches'
 import type { MatchMessageOut } from '../api/matches'
 
@@ -29,12 +30,16 @@ const visible = (state: string) => state !== 'background' && state !== 'inactive
  * montada e o app em primeiro plano. Em segundo plano (`AppState`) a leitura pausa; ao voltar, lê na hora. Carrega
  * as anteriores com `before`. O envio acrescenta a mensagem devolvida sem mexer no cursor da leitura, para não pular
  * mensagens do outro lado que chegaram antes. Erros 4xx (chat fechado para quem lê) encerram a leitura; falha de rede só
- * marca `offline` e tenta de novo no ciclo seguinte.
+ * marca `offline` e tenta de novo no ciclo seguinte. Falha ao enviar por falta de conexão não deixa mensagem local (o aviso
+ * de conexão cuida; o texto digitado continua no campo); as demais ficam em `sendError`, junto ao campo. `error`/`errorCause`
+ * são só do carregamento (o `LoadError` do chat, com `reload`).
  */
 export function useMatchChat(matchId: number, enabled: boolean, onExpired: () => void, onEvent?: () => void, live = true) {
   const [items, setItems] = useState<MatchMessageOut[]>([])
   const [ready, setReady] = useState(false)
   const [error, setError] = useState('')
+  const [errorCause, setErrorCause] = useState<unknown>(null)
+  const [attempt, setAttempt] = useState(0)
   const [offline, setOffline] = useState(false)
   const [hasOlder, setHasOlder] = useState(false)
   const [loadingOlder, setLoadingOlder] = useState(false)
@@ -61,7 +66,7 @@ export function useMatchChat(matchId: number, enabled: boolean, onExpired: () =>
       try {
         let more = true
         while (more && !stopped) {
-          const page = await getMessages(matchId, loaded ? { after: lastId ?? 0 } : {})
+          const page = await getMessages(matchId, loaded ? { after: lastId ?? 0 } : {}, { background: true })
           if (stopped) return
           if (page.last_id !== null) lastId = Math.max(lastId ?? 0, page.last_id)
           if (loaded) {
@@ -77,6 +82,7 @@ export function useMatchChat(matchId: number, enabled: boolean, onExpired: () =>
           }
           setOffline(false)
           setError('')
+          setErrorCause(null)
           setReady(true)
         }
       } catch (cause) {
@@ -86,13 +92,14 @@ export function useMatchChat(matchId: number, enabled: boolean, onExpired: () =>
           // Chat fechado para quem lê (403/404): não adianta insistir.
           stopped = true
           setError(messageOf(cause, 'Não foi possível carregar o chat.'))
+          setErrorCause(cause)
           setReady(true)
           return
         }
         // Falha de rede: avisa e tenta de novo no próximo ciclo.
         setOffline(true)
         setReady(true)
-        if (!loaded) setError(messageOf(cause, 'Não foi possível carregar o chat.'))
+        if (!loaded) { setError(messageOf(cause, 'Não foi possível carregar o chat.')); setErrorCause(cause) }
       } finally {
         busy = false
         schedule()
@@ -115,7 +122,15 @@ export function useMatchChat(matchId: number, enabled: boolean, onExpired: () =>
       clearTimeout(timer)
       subscription.remove()
     }
-  }, [matchId, enabled])
+  }, [matchId, enabled, attempt])
+
+  /** "Tentar novamente" do carregamento: recomeça a leitura (a lista volta ao estado de carregando). */
+  const reload = useCallback(() => {
+    setError('')
+    setErrorCause(null)
+    setReady(false)
+    setAttempt(count => count + 1)
+  }, [])
 
   const loadOlder = useCallback(async () => {
     const first = items[0]
@@ -143,12 +158,13 @@ export function useMatchChat(matchId: number, enabled: boolean, onExpired: () =>
       return true
     } catch (cause) {
       if (cause instanceof ApiError && cause.status === 401) onExpiredRef.current()
-      if (alive.current) setSendError(messageOf(cause, 'Não foi possível enviar a mensagem.'))
+      else if (cause instanceof ApiError && cause.isConnection) connection.attempted(cause)
+      else if (alive.current) setSendError(messageOf(cause, 'Não foi possível enviar a mensagem.'))
       return false
     } finally {
       if (alive.current) setSending(false)
     }
   }, [matchId])
 
-  return { items, loading: enabled && !ready, error, offline, hasOlder, loadingOlder, loadOlder, sending, sendError, send }
+  return { items, loading: enabled && !ready, error, errorCause, reload, offline, hasOlder, loadingOlder, loadOlder, sending, sendError, send }
 }

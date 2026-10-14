@@ -5,19 +5,21 @@ import { ApiError } from '../../api/client'
 import { ORGANIZER_LIMITS, ORGANIZER_REFUSAL_REASONS, refusalText, sportNames } from '../../api/organizer'
 import type { AdminOrganizer, AdminOrganizerRequest, OrganizerRefusalReason } from '../../api/organizer'
 import { useSubmit } from '../../hooks/useSubmit'
-import { colors } from '../../theme'
+import { useThemeColors } from '../../hooks/useTheme'
 import { relativeTime, shortDate } from '../../utils/relativeTime'
 import { Avatar } from '../media'
 import { ReasonPanel } from '../review/ReasonPanel'
 import { ActionButton, BusyStatus, ErrorText, Hint } from '../arena/controls'
 import { ActionRow, InfoGrid, InfoText } from '../review/ui'
 import Sheet from '../Sheet'
+import { toast } from '../toast/toastStore'
 
 const stateLabels = { em_analise: 'Em análise', aprovado: 'Aprovado', recusado: 'Recusado', cancelado: 'Cancelado pelo autor' } as const
 const firstNameOf = (name: string) => name.trim().split(/\s+/)[0]
 
 /** Pessoa da folha: foto, nome do organizador e a linha de apoio. */
 function PersonHeader({ name, avatarPath, token, title, subtitle }: { name: string; avatarPath: string | null; token: string | null; title: string; subtitle: string }) {
+  const colors = useThemeColors()
   return <View style={{ marginTop: 4, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
     <Avatar path={avatarPath} name={name} token={token} size={52} />
     <View style={{ flex: 1, minWidth: 0 }}>
@@ -29,24 +31,24 @@ function PersonHeader({ name, avatarPath, token, title, subtitle }: { name: stri
 
 /** "Ver perfil de Fulano": só aparece quando a tela sabe abrir o perfil; a folha fecha antes de navegar. */
 function ProfileLink({ firstName, onPress }: { firstName: string; onPress: () => void }) {
+  const colors = useThemeColors()
   return <Pressable accessibilityRole="link" accessibilityLabel={`Ver perfil de ${firstName}`} onPress={onPress} style={{ minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start' }}>
     <Text style={{ color: colors.brand, fontSize: 13, fontWeight: '700', textDecorationLine: 'underline' }}>Ver perfil de {firstName}</Text>
   </Pressable>
 }
 
-/** Link do pedido: abre no navegador do aparelho (só http e https), com falha avisada. */
+/** Link do pedido: abre no navegador do aparelho (só http e https), com falha avisada num toast. */
 function RequestLink({ link }: { link: string }) {
-  const [failed, setFailed] = useState(false)
+  const colors = useThemeColors()
   const safe = /^https?:\/\//i.test(link)
   async function open() {
-    try { await Linking.openURL(link); setFailed(false) } catch { setFailed(true) }
+    try { await Linking.openURL(link) } catch { toast.error('Não foi possível abrir o link.') }
   }
   if (!safe) return <Text selectable style={{ color: colors.ink, fontSize: 12.5, fontWeight: '600' }}>{link}</Text>
   return <View>
     <Pressable accessibilityRole="link" accessibilityLabel={`Abrir o link do pedido: ${link}`} onPress={() => void open()} style={{ minHeight: 44, justifyContent: 'center' }}>
       <Text style={{ color: colors.brand, fontSize: 12.5, fontWeight: '600', textDecorationLine: 'underline' }}>{link}</Text>
     </Pressable>
-    {failed ? <Text accessibilityRole="alert" style={{ color: colors.error, fontSize: 11 }}>Não foi possível abrir o link.</Text> : null}
   </View>
 }
 
@@ -65,6 +67,7 @@ export function OrganizerRequestSheet({ item, token, onClose, onOpenProfile, onD
   onStale: (message: string) => void
   onExpired: () => void
 }) {
+  const colors = useThemeColors()
   const [refusing, setRefusing] = useState(false)
   const [reason, setReason] = useState<OrganizerRefusalReason | null>(null)
   const [detail, setDetail] = useState('')

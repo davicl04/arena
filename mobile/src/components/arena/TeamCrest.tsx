@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Image, View } from 'react-native'
 import Svg, { Path, Text as SvgText } from 'react-native-svg'
 import { useSessionToken } from '../../hooks/useSessionToken'
-import { colors } from '../../theme'
+import { useThemeColors } from '../../hooks/useTheme'
 import { teamInitials } from '../../utils/teamInitials'
 import { authSource } from '../media'
 
@@ -39,6 +39,7 @@ export interface TeamCrestProps {
  * de escudo (o React Native não recorta por caminho SVG).
  */
 export function TeamCrest({ name, initials, path, previewUri, size = 'md', decorative = false, token: provided }: TeamCrestProps) {
+  const c = useThemeColors()
   const token = useSessionToken(provided)
   const [failed, setFailed] = useState<string | null>(null)
   const [width, height] = crestSizes[size]
@@ -48,14 +49,14 @@ export function TeamCrest({ name, initials, path, previewUri, size = 'md', decor
     ? { accessible: false, importantForAccessibility: 'no-hide-descendants' as const }
     : { accessible: true, accessibilityRole: 'image' as const, accessibilityLabel: `Brasão de ${name}` }
   if (source && failed !== key) {
-    return <View {...a11y} style={{ width, height, overflow: 'hidden', backgroundColor: colors.tile, borderTopLeftRadius: width * 0.14, borderTopRightRadius: width * 0.14, borderBottomLeftRadius: width * 0.5, borderBottomRightRadius: width * 0.5, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.55)' }}>
+    return <View {...a11y} style={{ width, height, overflow: 'hidden', backgroundColor: c.tile, borderTopLeftRadius: width * 0.14, borderTopRightRadius: width * 0.14, borderBottomLeftRadius: width * 0.5, borderBottomRightRadius: width * 0.5, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.55)' }}>
       <Image source={source} resizeMode="cover" onError={() => setFailed(key)} style={{ width: '100%', height: '100%' }} />
     </View>
   }
   return <View {...a11y} style={{ width, height }}>
     <Svg width={width} height={height} viewBox="0 0 40 44">
-      <Path d={shield} fill={colors.tile} stroke={colors['line-strong']} strokeWidth={1.4} />
-      <SvgText x={20} y={25} textAnchor="middle" fontSize={11} fontWeight="800" fill={colors.ink}>{initials || teamInitials(name)}</SvgText>
+      <Path d={shield} fill={c.tile} stroke={c['line-strong']} strokeWidth={1.4} />
+      <SvgText x={20} y={25} textAnchor="middle" fontSize={11} fontWeight="800" fill={c.ink}>{initials || teamInitials(name)}</SvgText>
     </Svg>
   </View>
 }

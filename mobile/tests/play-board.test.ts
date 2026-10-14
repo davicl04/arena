@@ -3,6 +3,7 @@ import { act, create } from 'react-test-renderer'
 import type { ReactTestRenderer } from 'react-test-renderer'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiError, request } from '../src/api/client'
+import { connection } from '../src/api/connection'
 import { useNow } from '../src/hooks/useNow'
 import { PLAY_BOARD_POLL_MS, usePlayBoard } from '../src/hooks/usePlayBoard'
 import type { PlayBoardState } from '../src/hooks/usePlayBoard'
@@ -48,6 +49,12 @@ describe('usePlayBoard: a placa do Jogar (GET /me/play)', () => {
     expect(current.error).toBe('')
     expect(current.board).toEqual({ attention: false, searches: [], proposals: [], offers: [], matches: [] })
     expect(playReads()).toBe(1)
+    await act(async () => { tree.unmount() })
+  })
+
+  it('a leitura da placa é em segundo plano: uma falha de conexão liga só a faixa, nunca a folha', async () => {
+    const tree = await mount()
+    expect(vi.mocked(request)).toHaveBeenCalledWith('/me/play', 'GET', undefined, { background: true })
     await act(async () => { tree.unmount() })
   })
 
@@ -165,6 +172,32 @@ describe('usePlayBoard: a placa do Jogar (GET /me/play)', () => {
     vi.mocked(request).mockResolvedValueOnce(playBoard() as never)
     await act(async () => { await current.reload() })
     expect(current.error).toBe('')
+    await act(async () => { tree.unmount() })
+  })
+
+  it('guarda a causa da falha e, se foi de conexão, relê uma única vez quando a conexão volta', async () => {
+    vi.mocked(request).mockRejectedValueOnce(new ApiError('Sem conexão.', 0))
+    const tree = await mount()
+    expect(current.board).toBeNull()
+    expect(current.errorCause).toBeInstanceOf(ApiError)
+    expect(playReads()).toBe(1)
+    await act(async () => { connection.lost({ mutating: false }); connection.reached() })
+    expect(playReads()).toBe(2)
+    expect(current.error).toBe('')
+    expect(current.errorCause).toBeNull()
+    expect(current.board?.attention).toBe(false)
+    // Sem falha pendente, uma nova volta da conexão não relê.
+    await act(async () => { connection.lost({ mutating: false }); connection.reached() })
+    expect(playReads()).toBe(2)
+    await act(async () => { tree.unmount() })
+  })
+
+  it('uma falha que não é de conexão espera o "Tentar novamente": a volta da conexão não relê', async () => {
+    vi.mocked(request).mockRejectedValueOnce(new ApiError('Fora do ar', 500))
+    const tree = await mount()
+    expect(current.errorCause).toBeInstanceOf(ApiError)
+    await act(async () => { connection.lost({ mutating: false }); connection.reached() })
+    expect(playReads()).toBe(1)
     await act(async () => { tree.unmount() })
   })
 

@@ -9,7 +9,7 @@ import { footballFormat } from '../../data/arena'
 import { sideOf } from '../../data/match'
 import { useResource } from '../../hooks/useResource'
 import { useSubmit } from '../../hooks/useSubmit'
-import { colors } from '../../theme'
+import { useResolvedTheme, useThemeColors } from '../../hooks/useTheme'
 import { formatDeadline } from '../../utils/format'
 import { ActionButton, BusyStatus, ErrorText } from '../arena/controls'
 import { ReasonPanel } from '../review/ReasonPanel'
@@ -30,12 +30,14 @@ export const modality = (match: DisputeMatch) => (match.format ? footballFormat[
 function Party({ title, person, side, role, at, reason }: {
   title: string; person: WalkoverDispute['walkover']['registered_by']; side: MatchSideOut | undefined; role: string; at: string | null; reason?: string | null
 }) {
+  const colors = useThemeColors()
+  const dark = useResolvedTheme() === 'dark'
   return <View accessibilityLabel={title} style={{ marginTop: 10, borderRadius: 12, borderWidth: 1, borderColor: colors.line, padding: 12 }}>
     <Eyebrow>{title}</Eyebrow>
     <Text selectable style={{ marginTop: 2, color: colors.ink, fontSize: 13, fontWeight: '700' }}>{person?.name ?? 'Conta indisponível'}</Text>
     <Text style={{ color: colors['ink-muted'], fontSize: 11 }}>{sideName(side)} · {role}{at ? ` · ${formatDeadline(at)}` : ''}</Text>
     {reason !== undefined
-      ? <View testID="walkover-reason" accessible style={{ marginTop: 8, borderRadius: 12, borderLeftWidth: 4, borderLeftColor: colors.danger, backgroundColor: '#fff0f2', paddingHorizontal: 12, paddingVertical: 10 }}>
+      ? <View testID="walkover-reason" accessible style={{ marginTop: 8, borderRadius: 12, borderLeftWidth: 4, borderLeftColor: colors.danger, backgroundColor: dark ? '#ff8a8022' : '#fff0f2', paddingHorizontal: 12, paddingVertical: 10 }}>
         <Text selectable style={{ color: colors.ink, fontSize: 12, lineHeight: 18 }}>{reason ?? 'Sem motivo informado.'}</Text>
       </View>
       : null}
@@ -44,6 +46,7 @@ function Party({ title, person, side, role, at, reason }: {
 
 /** Trecho do chat: a administração lê as últimas mensagens para decidir (0002-jogar, seção 8). */
 function ChatExcerpt({ match, onExpired }: { match: DisputeMatch; onExpired: () => void }) {
+  const colors = useThemeColors()
   const load = useCallback(() => getMessages(match.id, { limit: CHAT_EXCERPT }), [match.id])
   const chat = useResource(load, onExpired, { fallback: 'Não foi possível carregar o chat da partida.' })
   const lines = chat.data?.items ?? []
@@ -55,7 +58,7 @@ function ChatExcerpt({ match, onExpired }: { match: DisputeMatch; onExpired: () 
       <View accessibilityLabel="Mensagens do chat" style={{ marginTop: 6, gap: 6, borderRadius: 12, backgroundColor: colors.subtle, padding: 10 }}>
         {lines.map(line => line.kind === 'evento'
           ? <Text key={line.id} style={{ textAlign: 'center', color: colors['ink-muted'], fontSize: 10.5, lineHeight: 15, fontStyle: 'italic' }}>{line.body}</Text>
-          : <View key={line.id} accessible style={{ borderRadius: 10, backgroundColor: '#ffffff', paddingHorizontal: 10, paddingVertical: 8 }}>
+          : <View key={line.id} accessible style={{ borderRadius: 10, backgroundColor: colors.surface, paddingHorizontal: 10, paddingVertical: 8 }}>
             <Text style={{ color: colors.ink, fontSize: 11.5 }}>
               <Text style={{ fontWeight: '700' }}>{line.author?.name ?? 'Conta indisponível'}</Text>
               <Text style={{ color: colors['ink-muted'], fontSize: 10 }}>{` · ${sideName(sideOf(match, line.side ?? 'a'))} · ${formatDeadline(line.created_at)}`}</Text>
@@ -81,6 +84,7 @@ export function WalkoverSheet({ dispute, onClose, onDecided, onStale, onExpired 
   onStale: (message: string) => void
   onExpired: () => void
 }) {
+  const colors = useThemeColors()
   const { match, walkover } = dispute
   const absent = sideOf(match, walkover.absent_side)
   const present = sideOf(match, otherSide(walkover.absent_side))

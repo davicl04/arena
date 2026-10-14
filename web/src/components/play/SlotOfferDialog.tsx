@@ -29,7 +29,7 @@ export function SlotOfferDialog({ offer, onLater, onAccepted, onDeclined, onElap
   onExpired: () => void
   returnFocus?: RefObject<HTMLElement | null>
 }) {
-  const { busy, error, run } = useSubmit(onExpired)
+  const { busy, run } = useSubmit(onExpired)
   const popup = useRef<HTMLDivElement>(null)
   const { match } = offer
   const opening = match.sides.find(side => side.side === offer.side)
@@ -87,7 +87,6 @@ export function SlotOfferDialog({ offer, onLater, onAccepted, onDeclined, onElap
             <button type="button" className={darkOutline} disabled={busy} onClick={() => void decline()}>Agora não</button>
             <button type="button" className={darkMint} disabled={busy} onClick={() => void accept()}>Quero jogar</button>
           </div>
-          {error && <p role="alert" className="m-0 text-[11.5px] leading-normal text-danger-soft">{error}</p>}
           <Button variant="glass-link" className="justify-self-center self-center" disabled={busy} onClick={onLater}>Responder depois</Button>
         </div>
       </div>

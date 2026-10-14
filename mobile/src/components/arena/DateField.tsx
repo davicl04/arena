@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { Pressable, Text, View } from 'react-native'
 import { colors } from '../../theme'
+import { useThemeColors } from '../../hooks/useTheme'
+import type { ThemeColors } from '../../theme'
 import { addMonths, dayAllowed, dayKey, dayLabel, initialMonth, monthKey, monthOf, monthTitle, monthWeeks, WEEKDAY_INITIALS } from '../../utils/calendar'
 import type { MonthView } from '../../utils/calendar'
 import { fromDateKey, startOfToday, toDateKey } from '../../utils/dateKey'
@@ -11,9 +13,10 @@ import { Icon } from '../Icon'
 const ROW_HEIGHT = 44
 
 function NavButton({ label, glyph, disabled, onPress }: { label: string; glyph: 'arrow-left' | 'arrow-right'; disabled: boolean; onPress: () => void }) {
+  const c = useThemeColors()
   return <Pressable accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ disabled }} disabled={disabled} onPress={onPress}
     style={{ width: ROW_HEIGHT, height: ROW_HEIGHT, alignItems: 'center', justifyContent: 'center', opacity: disabled ? 0.35 : 1 }}>
-    <Icon name={glyph} size={20} color={colors.brand} />
+    <Icon name={glyph} size={20} color={c.brand} />
   </Pressable>
 }
 
@@ -34,6 +37,7 @@ export interface CalendarGridProps {
  * `max` desabilitados e o dia escolhido em destaque. Cada dia é um botão de 44 pt, com a data por extenso como nome.
  */
 export function CalendarGrid({ value, min, max, today, onSelect }: CalendarGridProps) {
+  const c = useThemeColors()
   const [view, setView] = useState<MonthView>(() => initialMonth(value, min, today))
   const todayKey = toDateKey(today)
   const canGoBack = !min || monthKey(addMonths(view, -1)) >= monthKey(monthOf(fromDateKey(min) ?? today))
@@ -42,11 +46,11 @@ export function CalendarGrid({ value, min, max, today, onSelect }: CalendarGridP
   return <View testID="calendar-grid" style={{ marginTop: 6 }}>
     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
       <NavButton label="Mês anterior" glyph="arrow-left" disabled={!canGoBack} onPress={() => setView(old => addMonths(old, -1))} />
-      <Text accessibilityRole="header" accessibilityLiveRegion="polite" style={{ color: colors.ink, fontSize: 15, fontWeight: '700', textTransform: 'capitalize' }}>{monthTitle(view)}</Text>
+      <Text accessibilityRole="header" accessibilityLiveRegion="polite" style={{ color: c.ink, fontSize: 15, fontWeight: '700', textTransform: 'capitalize' }}>{monthTitle(view)}</Text>
       <NavButton label="Próximo mês" glyph="arrow-right" disabled={!canGoOn} onPress={() => setView(old => addMonths(old, 1))} />
     </View>
     <View accessible={false} importantForAccessibility="no-hide-descendants" style={{ flexDirection: 'row', marginTop: 4 }}>
-      {WEEKDAY_INITIALS.map((initial, index) => <Text key={index} style={{ flex: 1, textAlign: 'center', color: colors['ink-muted'], fontSize: 11, fontWeight: '700' }}>{initial}</Text>)}
+      {WEEKDAY_INITIALS.map((initial, index) => <Text key={index} style={{ flex: 1, textAlign: 'center', color: c['ink-muted'], fontSize: 11, fontWeight: '700' }}>{initial}</Text>)}
     </View>
     {monthWeeks(view).map((week, row) => <View key={row} style={{ flexDirection: 'row' }}>
       {week.map((day, column) => {
@@ -57,8 +61,8 @@ export function CalendarGrid({ value, min, max, today, onSelect }: CalendarGridP
         return <Pressable key={column} accessibilityRole="button" accessibilityLabel={dayLabel(new Date(view.year, view.month, day))}
           accessibilityState={{ selected, disabled: !allowed }} disabled={!allowed} onPress={() => onSelect(key)}
           style={{ flex: 1, minHeight: ROW_HEIGHT, alignItems: 'center', justifyContent: 'center' }}>
-          <View style={{ width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', backgroundColor: selected ? colors.brand : 'transparent', borderWidth: key === todayKey && !selected ? 1.5 : 0, borderColor: colors.brand }}>
-            <Text style={{ color: selected ? '#ffffff' : colors.ink, fontSize: 14, fontWeight: selected ? '800' : '500', opacity: allowed ? 1 : 0.3 }}>{day}</Text>
+          <View style={{ width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', backgroundColor: selected ? c.brand : 'transparent', borderWidth: key === todayKey && !selected ? 1.5 : 0, borderColor: c.brand }}>
+            <Text style={{ color: selected ? c['on-brand'] : c.ink, fontSize: 14, fontWeight: selected ? '800' : '500', opacity: allowed ? 1 : 0.3 }}>{day}</Text>
           </View>
         </Pressable>
       })}
@@ -87,10 +91,10 @@ export interface DateFieldProps {
   now?: Date
 }
 
-const look = {
-  light: { bg: '#ffffff', border: colors['line-strong'], text: colors.ink, hint: colors.placeholder, icon: colors.brand },
+const look = (c: ThemeColors) => ({
+  light: { bg: c.surface, border: c['line-strong'], text: c.ink, hint: c.placeholder, icon: c.brand },
   dark: { bg: 'rgba(255,255,255,0.05)', border: 'rgba(255,255,255,0.18)', text: '#ffffff', hint: 'rgba(255,255,255,0.4)', icon: colors.mint },
-} as const
+}) as const
 
 /**
  * Campo de data: mostra o dia escolhido ("sáb, 25 out") e abre o calendário numa folha, em português, com os dias
@@ -101,11 +105,12 @@ export function DateField({ value, onChange, label, min, max, disablePast = true
   const today = startOfToday(now)
   const floor = disablePast && (!min || toDateKey(today) > min) ? toDateKey(today) : min
   const date = fromDateKey(value)
-  const style = look[tone]
+  const c = useThemeColors()
+  const style = look(c)[tone]
   return <>
     <Pressable accessibilityRole="button" accessibilityLabel={`${label}: ${date ? dayLabel(date) : 'não escolhida'}`} accessibilityHint="Abre o calendário"
       accessibilityState={{ disabled }} disabled={disabled} onPress={() => setOpen(true)}
-      style={{ minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 8, borderWidth: 1, paddingHorizontal: 12, backgroundColor: style.bg, borderColor: invalid ? (tone === 'dark' ? colors['danger-soft'] : colors.error) : style.border, opacity: disabled ? 0.5 : 1 }}>
+      style={{ minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 8, borderWidth: 1, paddingHorizontal: 12, backgroundColor: style.bg, borderColor: invalid ? (tone === 'dark' ? colors['danger-soft'] : c.error) : style.border, opacity: disabled ? 0.5 : 1 }}>
       <Icon name="calendar" size={17} color={style.icon} />
       <Text numberOfLines={1} style={{ flex: 1, color: date ? style.text : style.hint, fontSize: 14, fontWeight: date ? '600' : '400' }}>{date ? formatShortDate(date, now) : placeholder}</Text>
     </Pressable>
