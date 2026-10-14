@@ -1,5 +1,46 @@
 # Situação da fundação do Arena
 
+## Swagger organizado por domínio — 14 de outubro de 2026
+
+A pedido do usuário, o Swagger (`/docs`) ficou organizado, **sem alterar nenhuma rota**: caminhos, métodos, parâmetros, respostas, `operationId`, schemas e comportamento seguem idênticos. Só mudaram metadados de documentação.
+
+**O que mudou:**
+- `backend/app/core/openapi.py` (novo) concentra a descrição da API, as 22 tags com descrição e o resumo em português das 174 operações; `document_operations` apenas completa o OpenAPI gerado, por (método, caminho). Os routers não foram editados.
+- `backend/app/main.py`: `description` em Markdown (cookie `HttpOnly` na web, Bearer no mobile, JSON obrigatório na escrita, uploads multipart de até 5 MiB, erros `422 { detail, fields }`, `409` e `503`), `openapi_tags` e `swagger_ui_parameters` (seções recolhidas, filtro, modelos ocultos, duração da requisição).
+- Tags, em ordem: Sistema, Autenticação, Conta e perfil, Perfis esportivos, Usuários e seguidores, Publicações, Denúncias, Notificações, Ranking, Times, Organizadores, Campeonatos, Gestão de campeonatos, Inscrições, Chaveamento, Matchmaking, Partidas, Vagas e avulsos, Quadras, Resultados, Corridas e Administração (todas as rotas `/admin/*`).
+- `backend/tests/test_openapi_docs.py` (novo) garante que toda operação tenha uma tag declarada e um resumo.
+
+**Verificações executadas:** snapshot do OpenAPI antes e depois comparado por script (mesmas 174 operações, `parameters`, `requestBody`, `responses` e `operationId` iguais, `components` idêntico; só `tags`, `summary`, `description` e `info.description`/`tags` mudaram); `ruff check app migrations tests` sem erros; `pytest -q` com 1098 aprovados e 594 pulados; `GET /docs` e `GET /openapi.json` com 200 em uvicorn local.
+
+**Limitações:** sem `TEST_DATABASE_URL`, os testes de integração foram pulados. Uma rota nova só ganha tag e resumo ao ser incluída em `backend/app/core/openapi.py` (o teste novo avisa se faltar). O OpenAPI não declara esquema de segurança, então o Swagger não mostra o botão Authorize; o cookie da web funciona no "Try it out" feito a partir de origem autorizada.
+
+## Vídeo de demonstração da web gravado com Playwright — 14 de outubro de 2026
+
+Gravação da web, sem mudança de código, contrato ou esquema. Os vídeos (WebM, 390×844 com DPR 2, legendas por seção) ficam em `artifacts/video-demo/`, e os scripts em `.local/video/` (`env.mjs`, `seed.mjs`, `seed-events.mjs`, `run-master.mjs`). Nenhum dos dois é versionado.
+
+**Ambiente:** isolado, com o banco `arena_video` no Postgres do Compose, migrado com `alembic upgrade head`, a API na porta 8020 e a web na 5190. Os bancos `arena` e `arena_e2e` e os serviços 8000, 5173, 8010 e 5180 não foram tocados.
+
+**Dados:** o seed via API cria 12 contas em Brasília, 6 times de futebol, 17 partidas de tênis, 13 de futebol e marcas de corrida, com resultados confirmados. Também cria um organizador aprovado, um torneio de tênis gratuito e uma prova de 5 km paga.
+
+**O que os vídeos mostram:**
+- **Tour:** cadastro e login, as abas raiz, e o Ranking das três modalidades com troca de elo e Salão dos Lendários.
+- **Futebol por times:** a busca e a proposta aceita. Em seguida, o chat, as condições, a reserva e a presença do elenco. Depois, o placar 3×1, as estatísticas e a confirmação do adversário, com a subida para o Ouro.
+- **Tênis:** a mesma sequência, com placar por sets.
+- **Corrida:** registro de 26:45 nos 5 km e o Ranking atualizado.
+- **Outros fluxos:** notificações, perfil e edição, seguir outro atleta, time, inscrição em campeonato e em prova, e o tema Noite.
+- **Adversários:** agem pela API com Bearer.
+
+**Ajustes feitos só no `arena_video`, para a demonstração:**
+- Os cortes de `rank_cuts` foram reduzidos para que poucas partidas separem os elos. Os valores reais estão na seção 1 da [0002](decisoes/0002-jogar.md).
+- O `starts_at` das partidas gravadas foi antecipado, porque o placar só abre depois do horário combinado. A legenda do vídeo avisa.
+- As quadras foram inseridas por SQL.
+
+**Limitações:**
+- **Telas não gravadas:** fotos, avatares e o comprovante do Pix, para não usar o MinIO local; os fluxos de administração, a gestão do evento pelo organizador, avulso, W.O., cancelamento e contestação; o Expo.
+- **Atraso da placa:** a placa reage à busca e à proposta pelo polling de 15 s ou pelo foco da janela, e o script dispara `focus`.
+- **Histórico:** em Minhas partidas, a partida confirmada continua em "Próximas" até o fim do prazo de 48 h.
+- **Contagem de partidas:** por causa do `starts_at` antecipado, `profile-stats` da protagonista conta menos partidas que as jogadas.
+
 ## Tema claro e escuro "Estádio à noite" (web e Expo) — 13 de outubro de 2026
 
 Execução do [plano-tema.md](plano-tema.md). As decisões assumidas pelo plano valem como implementadas: Automático como padrão, preferência no aparelho e escopo web e Expo, com a web primeiro, valendo também nas telas de entrada. A orquestração usou subagentes por área. Os commits são locais em `feat/notifications-ranking`, sem push. Decisões, tokens e contraste estão em [0004-tema.md](decisoes/0004-tema.md).

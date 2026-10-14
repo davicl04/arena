@@ -12,6 +12,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from app.core.access_log import install_access_log_filter
 from app.core.config import get_settings
 from app.core.database import engine
+from app.core.openapi import API_DESCRIPTION, OPENAPI_TAGS, SWAGGER_UI_PARAMETERS, document_operations
 from app.routers.brackets import router as brackets_router
 from app.routers.courts import router as courts_router
 from app.routers.entries import router as entries_router
@@ -30,7 +31,8 @@ from app.routers.social import router as social_router
 from app.routers.teams import router as teams_router
 from app.services.match_rules import RuleError, TransitionError
 
-app = FastAPI(title='Arena API', version='0.1.0')
+app = FastAPI(title='Arena API', version='0.1.0', description=API_DESCRIPTION, openapi_tags=OPENAPI_TAGS,
+              swagger_ui_parameters=SWAGGER_UI_PARAMETERS)
 # The team link token travels in GET/POST /api/v1/join/{token}: the access log shows /join/*** instead.
 install_access_log_filter()
 app.add_middleware(CORSMiddleware, allow_origins=get_settings().allowed_origins,
@@ -207,3 +209,14 @@ app.include_router(results_router)
 app.include_router(brackets_router)
 app.include_router(runs_router)
 app.include_router(profile_router)
+
+
+def openapi_with_documentation():
+    """OpenAPI gerado pelo FastAPI, com tags e resumos do Swagger aplicados (só metadados)."""
+    if app.openapi_schema is None:
+        app.openapi_schema = document_operations(get_openapi_schema())
+    return app.openapi_schema
+
+
+get_openapi_schema = app.openapi
+app.openapi = openapi_with_documentation
