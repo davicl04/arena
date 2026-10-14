@@ -134,7 +134,8 @@ def on_divergence(db: Session, match: Match, *, now: datetime) -> None:
     event = db.get(Event, match.event_id)
     notifications.notify(db, event.organizer_user_id, 'divergencia_para_decidir', {
         'match_id': match.id, 'event_id': event.id, 'event_name': event.name, 'deadline': iso(match.result_deadline)},
-        action_key=notifications.decision_key(match.id), action_until=match.result_deadline)
+        # The athletes' correction window ends after 48 h; the organizer can still decide afterwards.
+        action_key=notifications.decision_key(match.id))
 
 
 def lock_following(db: Session, match: Match) -> None:

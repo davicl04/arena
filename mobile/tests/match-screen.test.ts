@@ -51,7 +51,7 @@ describe('cabeçalho da partida', () => {
     const text = allText(tree)
     expect(text).toContain('Ferrugem  ×  Leões')
     expect(text).toContain('Agendada')
-    expect(byId(tree, 'match-when')[0].children.join('')).toMatch(/^\w{3}, \d{1,2} \w{3} · \d\d:\d\d · Arena Sudoeste$/)
+    expect(byId(tree, 'match-when')[0].children.join('')).toMatch(/^\p{L}{3}, \d{1,2} \p{L}{3} · \d\d:\d\d · Arena Sudoeste$/u)
     expect(byId(tree, 'team-mark')).toHaveLength(2)
     // Quem está em classificação não ganha elo: só o brasão Prata do adversário.
     expect(tierEmblems(tree)).toEqual([brandSvgs.prata])

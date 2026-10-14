@@ -117,6 +117,10 @@ export default function NotificationsPage({ isAdmin = false, summary, filter, on
             <div className="grid gap-2">
               {pendingItems.map(item => <PendingCard key={item.id} notification={item} now={now} busy={busy} isAdmin={isAdmin} onOpen={notification => void open(notification)} />)}
             </div>
+            {pending.moreError && <p className={feedbackVariants()} role="alert">{pending.moreError}</p>}
+            {pending.hasMore && <Button variant="secondary" className="mt-3 w-full" disabled={busy || pending.busy} onClick={() => void pending.loadMore()}>
+              {pending.busy ? 'Carregando…' : 'Carregar mais pendências'}
+            </Button>}
           </section>}
           {feed.error && <section aria-label="Notificações da conta">
             <ListHeading>Notificações</ListHeading>

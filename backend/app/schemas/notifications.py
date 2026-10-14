@@ -25,6 +25,7 @@ class NotificationPage(BaseModel):
 
 class PendingNotificationsOut(BaseModel):
     items: list[NotificationOut]
+    next_cursor: str | None = None
 
 
 class UnreadCountOut(BaseModel):

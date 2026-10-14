@@ -97,6 +97,6 @@ const query = (params: Record<string, string | number | boolean | undefined>) =>
 export const notificationsPath = ({ categoria, pendente }: { categoria?: NotificationFilterCategory; pendente?: boolean } = {}) =>
   `${NOTIFICATIONS_PATH}${query({ categoria, pendente })}`
 
-/** Pendências abertas, da mais urgente à menos urgente, sem cursor (`limit` de 1 a 50; padrão do servidor: 20). */
-export const listPendingNotifications = ({ categoria, limit }: { categoria?: NotificationFilterCategory; limit?: number } = {}) =>
-  request<{ items: ArenaNotification[] }>(`${NOTIFICATIONS_PATH}/pending${query({ categoria, limit })}`)
+/** Pendências abertas, da mais urgente à menos urgente, com cursor (`limit` de 1 a 50). */
+export const listPendingNotifications = ({ categoria, limit, cursor }: { categoria?: NotificationFilterCategory; limit?: number; cursor?: string } = {}) =>
+  request<{ items: ArenaNotification[]; next_cursor?: string | null }>(`${NOTIFICATIONS_PATH}/pending${query({ categoria, limit, cursor })}`)

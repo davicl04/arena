@@ -19,6 +19,38 @@ REQUEST = {**TEAM, 'request_id': 1}
 PROPOSAL = {'match_id': 1, 'sport': 'tenis', 'format': 'simples', 'opponent_name': 'Caio', 'expires_at': 'x'}
 
 
+def test_pending_cursor_reaches_every_action_in_urgency_order_and_keeps_ownership(client):
+    http, db = client
+    owner, owner_id = register(http, 'pending-pages@example.com', 'Dono Pendencias')
+    other, other_id = register(http, 'pending-pages-other@example.com', 'Outro Pendencias')
+    now = utcnow()
+    # Equal deadlines, equal creation times, different deadlines and null deadlines all cross page boundaries.
+    for number in range(1, 58):
+        row = invite(db, owner_id, number, action_until=now + (number % 3 + 1) * HOUR if number <= 40 else None)
+        row.created_at = now - timedelta(minutes=number % 2)
+    invite(db, other_id, 100)
+    db.commit()
+    expected = ids(http.get(PENDING, headers=owner, params={'limit': 50}))
+    cursor = http.get(PENDING, headers=owner, params={'limit': 50}).json()['next_cursor']
+    assert cursor and summary(http, owner)['pending_count'] == 57
+    last = http.get(PENDING, headers=owner, params={'limit': 50, 'cursor': cursor}).json()
+    assert len(last['items']) == 7 and last['next_cursor'] is None
+    assert len(set(expected + [item['id'] for item in last['items']])) == 57
+    found, cursor = [], None
+    while True:
+        params = {'limit': 7, 'categoria': 'times', **({'cursor': cursor} if cursor else {})}
+        page = http.get(PENDING, headers=owner, params=params).json()
+        found.extend(item['id'] for item in page['items'])
+        cursor = page['next_cursor']
+        if cursor is None:
+            break
+    assert found == expected + [item['id'] for item in last['items']]
+    assert ids(http.get(PENDING, headers=owner, params={'categoria': 'partidas'})) == []
+    assert len(ids(http.get(PENDING, headers=other))) == 1
+    assert http.get(PENDING, headers=owner, params={'cursor': 'invalid'}).status_code == 422
+    assert http.get(PENDING, headers=owner, params={'limit': 51}).status_code == 422
+
+
 def invite(db, user_id, number, **values):
     return notify(db, user_id, 'convite_time', {**TEAM, 'invite_id': number}, action_key=f'invite:{number}', **values)
 

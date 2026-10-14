@@ -1442,7 +1442,7 @@ A leitura de `form`, `best_mark_on` e do elo vem **só de `standings`**: nenhuma
 - **Schemas e roteador movidos.** `RankingRowOut`, `MyRankingLineOut`, `RankingPageOut` (e o `RankingKey` literal) foram de `schemas/matches.py` para `schemas/rankings.py`, junto com `RankingOverviewOut`, `RankingSubjectOut` e `TierCountsOut`; `GET /rankings` foi de `routers/results.py` para `routers/rankings.py`. Caminhos, prefixo e nomes de resposta não mudam.
 - **`tier_position` e `tier_size` anuláveis** em `MyRankingLine`: o contrato do plano os lista sem tipo; só existem para linha ranqueada.
 - **`form` vazio e nulo.** `[]` significa "ainda sem forma gravada" (linhas anteriores ao `recalculate-rankings`) ou sem partidas na janela; `null` é exclusivo da corrida.
-- **Concorrência.** A contagem por elo e as linhas são lidas em consultas separadas (READ COMMITTED); como o recálculo grava a categoria numa transação, uma leitura no meio de uma gravação pode, no pior caso, devolver uma posição no elo defasada em uma unidade até a próxima leitura. A tela se corrige na releitura.
+- **Concorrência (corrigida em 14 de outubro de 2026).** O recálculo mantém a trava transacional exclusiva da categoria; `/rankings` e `/rankings/overview` mantêm a versão compartilhada da mesma trava durante a leitura. Leitores podem trabalhar juntos, mas nenhum recálculo move ou remove linhas entre a leitura de contagens, posições, métricas e janela. Sem essa proteção, a remoção de uma linha podia causar erro 500, e a defasagem não era limitada a uma unidade. A trava é liberada ao terminar a transação da requisição.
 
 ### 20.6 Testes
 

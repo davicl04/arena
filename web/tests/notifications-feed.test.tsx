@@ -73,7 +73,10 @@ function mockServer({ items = [], pending = [], follow = [], followTotal = follo
     if (path === '/me/notifications/summary') return summary() as never
     if (url.pathname === '/me/notifications/pending') {
       if (failures.pending-- > 0) throw new ApiError('Não foi possível carregar as pendências.', failPendingStatus)
-      return { items: pending.filter(item => !category || item.category === category) } as never
+      const filtered = pending.filter(item => !category || item.category === category)
+      const start = Number(url.searchParams.get('cursor') ?? 0)
+      const limit = Number(url.searchParams.get('limit') ?? 50)
+      return { items: filtered.slice(start, start + limit), next_cursor: start + limit < filtered.length ? String(start + limit) : null } as never
     }
     if (url.pathname === '/me/notifications') {
       if (failures.feed-- > 0) throw new ApiError('Serviço indisponível.', 500)
@@ -106,6 +109,18 @@ const chip = (name: string) => screen.getByRole('button', { name })
 const everything = { items: [refused, removed, accepted, tableOut], pending: [proposal, invite] }
 
 describe('Notificações: placa, resumo e filtros', () => {
+  it('carrega as pendências além das primeiras 50 sem repetir cartões', async () => {
+    const many = Array.from({ length: 51 }, (_, index) => ({ ...invite, id: 100 + index, payload: { ...invite.payload, team_name: `Time ${index + 1}` } }))
+    mockServer({ pending: many })
+    render(<NotificationsHarness />)
+    const more = await screen.findByRole('button', { name: 'Carregar mais pendências' })
+    expect(screen.queryByRole('article', { name: /Time 51$/ })).toBeNull()
+    await userEvent.setup().click(more)
+    await screen.findByRole('article', { name: /Time 51$/ })
+    expect(screen.getAllByRole('article', { name: /Time 1$/ })).toHaveLength(1)
+    expect(screen.queryByRole('button', { name: 'Carregar mais pendências' })).toBeNull()
+    expect(paths()).toContain('/me/notifications/pending?limit=50&cursor=50')
+  })
   it.each([
     ['não lidas e pendências', { items: [refused], pending: [proposal, invite] }, '3 não lidas · 2 pedem sua resposta'],
     ['uma de cada', { items: [], pending: [invite] }, '1 não lida · 1 pede sua resposta'],

@@ -278,6 +278,19 @@ describe('Notificações: consulta de cada chip', () => {
 })
 
 describe('Notificações: lista agrupada por dia e bloco "Para responder"', () => {
+  it('carrega a 51ª pendência e mantém os cartões anteriores', async () => {
+    const items = Array.from({ length: 51 }, (_, index) => pendingNote('convite_time', { team_id: index + 1, team_name: `Time ${index + 1}`, invite_id: index + 1 }))
+    serveNotifications({ extra: {
+      [PENDING_ALL]: { items: items.slice(0, 50), next_cursor: 'page-2' },
+      [`${PENDING_ALL}&cursor=page-2`]: { items: items.slice(50), next_cursor: null },
+    } })
+    const { tree } = await mountNotifications({ params: { filter: 'responder' }, summary: summaryOf({ pending_count: 51 }) })
+    expect(byId(tree, 'pending-card')).toHaveLength(50)
+    await pressButton(tree, 'Carregar mais pendências')
+    expect(byId(tree, 'pending-card')).toHaveLength(51)
+    expect(findButton(tree, 'Carregar mais pendências')).toBeUndefined()
+    expect(callsTo('GET', `${PENDING_ALL}&cursor=page-2`)).toHaveLength(1)
+  })
   it('o bloco fixado vem primeiro; depois Hoje, Ontem, Esta semana e Anteriores, com as linhas de sempre', async () => {
     const ago = (hours: number) => new Date(Date.now() - hours * 3_600_000).toISOString()
     serveNotifications({

@@ -42,6 +42,7 @@ from app.services.rankings import (
     required_matches,
     standing_line,
 )
+from app.services.standings import RankingKey, ranking_lock_id
 
 CURSOR_INVALID = 'Cursor de paginação inválido.'
 TEAM_NOT_FOUND = 'Time não encontrado.'
@@ -139,6 +140,9 @@ def resolve_category(db: Session, params: RankingParams) -> Category:
     ranking, format_, position, distance_km = ranking_category(params)
     cuts = load_cuts(db, CURRENT_CALC_VERSION)
     sport = 'corrida' if distance_km else 'tenis' if ranking == 'tenis' else 'futebol'
+    # Recalculations hold the exclusive version of this transaction lock. Readers can run together, but all
+    # their counts, positions and gap metrics must come from the same committed recalculation.
+    db.execute(select(func.pg_advisory_xact_lock_shared(ranking_lock_id(RankingKey(ranking, format_, position)))))
     return Category(ranking, format_, position, distance_km, cuts[ranking], required_matches(cuts, ranking, sport))
 
 

@@ -1,11 +1,14 @@
 """In-app notifications. `notify` only adds rows: the caller commits in the same transaction as the change."""
 from __future__ import annotations
 
+import base64
+import binascii
 from collections.abc import Iterable
 from datetime import datetime
 from typing import Literal
 
-from sqlalchemy import ColumnElement, and_, exists, func, or_, select, update
+from fastapi import HTTPException
+from sqlalchemy import ColumnElement, and_, exists, func, or_, select, tuple_, update
 from sqlalchemy.orm import Session
 
 from app.core.pagination import paginate
@@ -246,15 +249,45 @@ def list_page(db: Session, viewer: User, cursor: str | None, limit: int, *, cate
     return serialize(db, viewer, rows, now), next_cursor
 
 
-def list_pending(db: Session, viewer: User, *, category: str | None = None, limit: int = 20) -> list[NotificationOut]:
-    """Open actions, most urgent first: nearest deadline, no deadline last, then newest."""
+def _pending_cursor(item: Notification) -> str:
+    until = item.action_until.isoformat() if item.action_until is not None else ''
+    raw = f'{until}|{item.created_at.isoformat()}|{item.id}'.encode()
+    return base64.urlsafe_b64encode(raw).decode().rstrip('=')
+
+
+def _pending_after(cursor: str):
+    try:
+        raw = base64.urlsafe_b64decode(cursor + '=' * (-len(cursor) % 4)).decode()
+        until, stamp, item_id = raw.split('|')
+        deadline = datetime.fromisoformat(until) if until else None
+        created = datetime.fromisoformat(stamp)
+        number = int(item_id)
+        if number < 1 or created.tzinfo is None or (deadline is not None and deadline.tzinfo is None):
+            raise ValueError
+    except (ValueError, UnicodeDecodeError, binascii.Error):
+        raise HTTPException(422, 'Cursor de paginação inválido.') from None
+    older = tuple_(Notification.created_at, Notification.id) < tuple_(created, number)
+    if deadline is None:
+        return and_(Notification.action_until.is_(None), older)
+    return or_(Notification.action_until > deadline, Notification.action_until.is_(None),
+               and_(Notification.action_until == deadline, older))
+
+
+def list_pending(db: Session, viewer: User, *, category: str | None = None, limit: int = 20,
+                 cursor: str | None = None) -> tuple[list[NotificationOut], str | None]:
+    """Open actions, most urgent first: nearest deadline, no deadline last, then newest; keyset pagination."""
     now = utcnow()
     statement = select(Notification).where(Notification.user_id == viewer.id, pending_clause(now))
     if category is not None:
         statement = statement.where(Notification.type.in_(types_of(category)))
+    if cursor is not None:
+        statement = statement.where(_pending_after(cursor))
     statement = statement.order_by(Notification.action_until.asc().nulls_last(), Notification.created_at.desc(),
-                                   Notification.id.desc()).limit(limit)
-    return serialize(db, viewer, list(db.scalars(statement).all()), now)
+                                   Notification.id.desc()).limit(limit + 1)
+    rows = list(db.scalars(statement).all())
+    more = len(rows) > limit
+    rows = rows[:limit]
+    return serialize(db, viewer, rows, now), _pending_cursor(rows[-1]) if more else None
 
 
 def unread_count(db: Session, user_id: int) -> int:

@@ -109,6 +109,8 @@ export default function NotificationsScreen({ user, navigation, onExpired, notif
         <View style={{ gap: 8 }}>
           {pending.items.map(item => <PendingCard key={item.id} notification={item} now={now} busy={busy} isAdmin={user.is_admin} onOpen={notification => void open(notification)} />)}
         </View>
+        {pending.moreError ? <Text accessibilityRole="alert" style={{ ...feedback, color: colors.error }}>{pending.moreError}</Text> : null}
+        {pending.hasMore ? <Button secondary title={pending.busy ? 'Carregando…' : 'Carregar mais pendências'} disabled={busy || pending.busy} onPress={() => void pending.loadMore()} /> : null}
       </View> : null}
       {feedOn && feed.error ? <LoadError size="section" title="Não foi possível carregar as notificações" text={feed.error.message} cause={feed.error} onRetry={feed.reload} /> : null}
       {feedOn ? groupByDay(feed.items, now).map(group => <View key={group.label} accessibilityLabel={group.label} style={{ marginBottom: 12 }}>

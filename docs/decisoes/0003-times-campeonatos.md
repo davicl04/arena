@@ -363,7 +363,7 @@ interface NotificationSummary {
 | Rota | Corpo | Resposta |
 | --- | --- | --- |
 | `GET /me/notifications?cursor=&limit=&categoria=&pendente=` | — | `Page<ArenaNotification>` (mais recentes primeiro). `categoria` ∈ `partidas`, `times`, `eventos`; `pendente` ∈ `true`, `false`. Valor inválido, inclusive `categoria=conta`: `422` |
-| `GET /me/notifications/pending?categoria=&limit=` | — | `{ items: ArenaNotification[] }`, sem cursor: as pendências (7.1) por urgência, prazo mais próximo primeiro, sem prazo por último e, depois, as mais recentes. `categoria` como acima; `limit` de 1 a 50, padrão 20 |
+| `GET /me/notifications/pending?categoria=&limit=&cursor=` | — | `{ items: ArenaNotification[], next_cursor: string \| null }`: as pendências (7.1) por urgência, prazo mais próximo primeiro, sem prazo por último e, depois, as mais recentes (`created_at` e `id` decrescentes). `categoria` como acima; `limit` de 1 a 50, padrão 20. Reenvie `next_cursor` com os mesmos filtros para continuar; cursor inválido dá `422` |
 | `GET /me/notifications/summary` | — | `NotificationSummary` |
 | `GET /me/notifications/unread-count` | — | `{ unread_count: number }`, mantida por compatibilidade |
 | `PUT /me/notifications/{id}/read` | `{}` | `NotificationSummary`; `404 Notificação não encontrada.` para notificação de outra pessoa; idempotente (mantém o primeiro `read_at`). Ler não resolve a pendência |
@@ -432,7 +432,7 @@ Chaves e prazos conferidos com os construtores `*_key` de `app/services/notifica
 | `comprovante_decidido` (só na recusa) | atleta ou representantes da inscrição | `entry_receipt:{entry_id}` | `reserved_until` | novo comprovante enviado; reserva expirada (varredura ou outra expiração); inscrição cancelada pelo participante; evento cancelado |
 | `devolucao_enviada` | atleta ou representantes do time | `refund:{receipt_id}` | envio + 7 dias (`REFUND_AUTO_CONFIRM_AFTER`) | devolução confirmada, contestada ou confirmada automaticamente |
 | `comprovante_recebido` | organizador do evento | `receipt:{receipt_id}` | — | comprovante decidido; evento cancelado com o comprovante em análise |
-| `divergencia_para_decidir` | organizador do evento | `decision:{match_id}` | `result_deadline` | decisão registrada; placares passam a bater; cancelamento das partidas do evento |
+| `divergencia_para_decidir` | organizador do evento | `decision:{match_id}` | sem prazo (o `deadline` do payload é dos atletas) | decisão registrada; placares passam a bater; cancelamento das partidas do evento |
 | `evento_para_aprovar` | administração | `event_review:{event_id}` | — | evento decidido por qualquer conta administrativa (uma decisão recusada com `409`, como aprovar com datas passadas, deixa a ação aberta); evento retirado; organizador revogado |
 | `devolucao_contestada` | administração (o organizador recebe `informative`, uma única vez se também for administrador) | `refund_dispute:{receipt_id}` | — | devolução decidida pela administração (manter ou reabrir) |
 | `wo_contestado` | administração (representantes do lado que registrou recebem `informative`) | `wo_dispute:{match_id}` | — | W.O. decidido pela administração |

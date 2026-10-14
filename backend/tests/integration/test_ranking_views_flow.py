@@ -11,12 +11,14 @@ from types import SimpleNamespace
 
 import pytest
 from sqlalchemy import event as sa_event
-from sqlalchemy import select
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session
 
 from app.models.identity import MediaObject, UserBlock
 from app.models.rankings import RankCut, Standing
 from app.models.teams import TeamMember
-from app.services.standings import RankingKey, recalculate_rankings
+from app.services.ranking_views import RankingParams, ranking_overview, rankings_page
+from app.services.standings import RankingKey, ranking_lock_id, recalculate_rankings
 from tests.integration.match_helpers import NOW, add, make_team, make_user
 from tests.integration.result_helpers import DAY, login, played
 
@@ -26,6 +28,21 @@ FORMS = ['VVVVV', 'VVVVE', 'VVVED', 'VVEDV', 'VEDVV', 'EDVVV', 'DVVVV', 'DDVVV',
          'V', 'VE', 'EEE', 'VVVV']
 # (tier, how many): ranks 1, 2-3, 4-6, 7 and 8-16. The metric of rank r is 105 - 5r points.
 LAYOUT = [('lendario', 1), ('diamante', 2), ('ouro', 3), ('prata', 1), ('bronze', 9)]
+
+
+@pytest.mark.parametrize('read', [rankings_page, ranking_overview])
+def test_ranking_readers_share_a_lock_and_block_recalculation_until_the_read_ends(test_engine, read):
+    lock_id = ranking_lock_id(RankingKey('tenis'))
+    with Session(test_engine) as reader, Session(test_engine) as other_reader, Session(test_engine) as writer:
+        viewer = make_user(reader, 'snapshot')
+        read(reader, viewer, RankingParams('tenis'))
+        # Recalculations cannot remove or move a row between the read's counts and gap/window queries.
+        assert writer.scalar(select(func.pg_try_advisory_xact_lock(lock_id))) is False
+        assert other_reader.scalar(select(func.pg_try_advisory_xact_lock_shared(lock_id))) is True
+        reader.rollback()
+        assert writer.scalar(select(func.pg_try_advisory_xact_lock(lock_id))) is False
+        other_reader.rollback()
+        assert writer.scalar(select(func.pg_try_advisory_xact_lock(lock_id))) is True
 
 
 def metric(rank):

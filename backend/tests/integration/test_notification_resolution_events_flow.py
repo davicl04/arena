@@ -390,7 +390,7 @@ def test_divergence_is_pending_for_the_organizer_and_both_sides_until_decided_or
     to_decide = pending(http, owner, 'divergencia_para_decidir')
     assert sorted(item['payload']['match_id'] for item in to_decide) == sorted([one.id, two.id])
     item = next(item for item in to_decide if item['payload']['match_id'] == one.id)
-    assert item['pending'] is True and moment(item['action_until']) == one.result_deadline
+    assert item['pending'] is True and item['action_until'] is None
     read(http, owner, item['id'])
     assert len(pending(http, owner, 'divergencia_para_decidir')) == 2
     sides = {match.id: reps(world, db, match.id) for match in (one, two)}
@@ -413,3 +413,20 @@ def test_divergence_is_pending_for_the_organizer_and_both_sides_until_decided_or
     assert pending(http, owner, 'divergencia_para_decidir') == []
     for rep in sides[two.id].values():
         assert pending(http, rep['headers'], 'resultado_divergente') == []
+
+
+def test_organizer_divergence_stays_pending_after_the_athletes_deadline(client, monkeypatch):
+    from app.services import notifications
+
+    http, db = client
+    world = started_world(http, db, monkeypatch, count=2)
+    match = matches_of(db, world, 1)[0]
+    diverge(http, db, world, match.id, (2, 1), (1, 2))
+    db.refresh(match)
+    after = match.result_deadline + timedelta(hours=1)
+    monkeypatch.setattr(notifications, 'utcnow', lambda: after)
+    world['clock'].set(after)
+    [item] = pending(http, world['organizer'], 'divergencia_para_decidir')
+    assert item['payload']['match_id'] == match.id and item['action_until'] is None
+    decide(http, world, match.id, score={'goals_a': 2, 'goals_b': 1}, justification='Conferido após o prazo dos times.')
+    assert pending(http, world['organizer'], 'divergencia_para_decidir') == []

@@ -1,5 +1,53 @@
 # Situação da fundação do Arena
 
+## Correções da revisão da branch e preparação do MR — 14 de outubro de 2026
+
+Corrigidos os cinco achados da revisão de `feat/notifications-ranking` contra `origin/main`:
+
+- `/rankings` e `/rankings/overview` mantêm a trava compartilhada da categoria, compatível com a exclusiva do recálculo. A leitura não perde métricas ou posições entre consultas; leitores podem trabalhar simultaneamente. Testes com conexões PostgreSQL separadas conferem o bloqueio do escritor até o fim da leitura.
+- A divergência a decidir pelo organizador não expira com o prazo dos atletas. A migração `0014` remove o prazo incorreto apenas das notificações desse tipo ainda não resolvidas e com chave de ação; preserva as resolvidas, as antigas sem chave e as pendências dos atletas. Aplicada no banco local, agora na head `0014`.
+- `/me/notifications/pending` aceita cursor e devolve `next_cursor`, mantendo a ordem por prazo, criação e ID. Web e Expo permitem carregar as próximas páginas, preservam os cartões ao falhar e descartam respostas de uma categoria anterior. Conferidos 57 registros, filtros, fronteiras com prazo nulo, limite máximo e cursor inválido.
+- O Expo limpa mensagens, ações e temporizadores dos toasts no logout e na expiração. Testes do App conferem a ausência de mensagens da conta anterior tanto na entrada quanto após outro login.
+- O Swagger descreve `fields` como opcional nos erros `422`. Atualizados README e contratos 0002/0003 e conciliado o plano de notificações com as correções.
+
+Também corrigida a expressão regular do teste de data do Expo, que já falhava na main com "sáb": ela aceita letras Unicode, mantendo a verificação de todo o formato.
+
+**Validação final:** Ruff, lint e TypeScript dos dois clientes, build web e exportação Android aprovados. Backend: `pytest -q --cov=app --cov-branch` com PostgreSQL, **1696 aprovados e 1 pulado**, cobertura combinada arredondada de **98%**. Web: **1231 testes**, cobertura de instruções **93,62%**; Expo: **1580 testes**, cobertura de instruções **96,34%**. Migrações e teste do reparo de dados aprovados em schema isolado; `alembic upgrade head`, `current` (`0014`) e `check` aprovados no banco local, sem diferenças de modelagem. Diff local sem erros de whitespace.
+
+**Navegador:** API temporária em 8040, web em 5197 e schema aleatório isolado, com dois usuários, 57 times e 57 convites reais criados pelos serviços. A tela carregou 50 e depois 57 cartões sem duplicação, inclusive com Enter. Abrir um convite da segunda página marcou apenas essa notificação como lida; após recarregar, ela continuou lida e as 57 pendências continuaram abertas. Notificações conferidas em Dia/Noite, em 320, 390 e 1440 px, sem overflow horizontal. Evidência em `artifacts/review-branch/notifications-dark-57.png`; scripts e logs em `.local/review-branch/`. Sessão, aba e servidores de teste encerrados; schema temporário removido. Dados e serviços habituais preservados.
+
+**Limitações:** envio real ao S3 permaneceu pulado; aviso de bundle web acima de 500 kB permanece; Expo não foi validado em aparelho. A preparação do commit/MR foi autorizada pelo usuário; checks locais não comprovam CI remoto. Esta entrega corrige a revisão, sem declarar o MVP completo.
+
+## Revisão da branch contra a main remota — 14 de outubro de 2026
+
+A revisão anterior cobriu somente o último commit. Esta revisão ampliou a comparação para `origin/main...HEAD`, após `git fetch origin main`: base `a5eb2d5`, HEAD `7e507b1`, 53 commits e 614 arquivos alterados. A `main` local estava atrasada; não foi movida. Revisados os fluxos de notificações, resoluções de pendências, ranking, conexão, migração dos retornos para toasts e tema dos clientes. Não houve correção no código, commit ou push.
+
+**Achados pendentes, além da descrição incorreta do `422` já registrada:**
+
+- **Ranking durante recálculo:** `ranking_views.my_lines` acessa as métricas do líder/próximo por chave obrigatória, embora contagens, linhas e métricas venham de consultas distintas. Reproduzido em duas sessões PostgreSQL: com dois atletas no Bronze, a remoção da segunda linha entre consultas causa `KeyError(2)` no overview, que resulta em erro 500 na API. A limitação é maior que a posição temporariamente defasada descrita na seção 20.5 da decisão 0002; é necessário garantir uma leitura consistente ou tratar a mudança antes de acessar as métricas.
+- **Prazo da decisão do organizador:** `championship_lifecycle.on_divergence` usa `result_deadline` como `action_until`. Após 48 h, a divergência desaparece de Para responder, embora a partida ainda espere a decisão do organizador. Reproduzidos a ausência da pendência e o sucesso da decisão pela API depois do prazo. O prazo dos atletas não encerra a decisão do organizador; a regra das pendências no plano e na decisão 0003 precisa ser conciliada com esse comportamento.
+- **Mais de 50 pendências:** web e Expo consultam `/me/notifications/pending` com limite 50, sem cursor ou botão para continuar, e excluem pendências do feed paginado (`pendente=false`). Reproduzidos resumo com 51, bloco com 50 e feed vazio. A pendência restante fica inacessível nessa tela até que outra seja resolvida; é necessário permitir acessar as demais.
+- **Toasts entre contas no Expo:** a loja global não é limpa no logout ou na expiração. Reproduzido no App por teste de componentes: um toast de erro da conta A continua na tela de entrada e na conta B após novo login. Mensagens e ações da sessão anterior precisam ser descartadas ao encerrá-la.
+
+**Verificações executadas:**
+
+- Backend: Ruff aprovado (execução da revisão anterior, mesmo código); `pytest -q` com PostgreSQL, 1691 aprovados e 1 pulado (envio real ao S3 não habilitado); migrações até a head e `alembic check` em schema aleatório isolado, sem diferenças. Os scripts de reprodução também usaram schemas próprios, removidos ao terminar, sem alterar os dados da aplicação.
+- Web: lint, build e `test:coverage` aprovados; 1230 testes, cobertura de instruções 93,70%. Permanece o aviso de bundle acima de 500 kB.
+- Expo: lint, typecheck e exportação Android aprovados. `test:coverage`: 1575 aprovados e 1 falhou. A falha foi confirmada isoladamente: `mobile/tests/match-screen.test.ts:54` usa `\w{3}` para o dia, que não aceita o acento de "sáb"; a mesma expressão e o uso de data dinâmica já existiam em `origin/main`, portanto não é uma regressão introduzida nesta branch. A execução não concluiu a etapa de cobertura.
+- Reproduções adicionais: corrida entre leituras do ranking, divergência vencida, limite de pendências e isolamento de toasts entre sessões confirmados. Scripts e teste temporário preservados em `.local/review-branch/`; o teste temporário foi retirado de `mobile/tests/` após a execução.
+- Navegador: apenas a tela de entrada no tema escuro, em 320, 390 e 1440 px, sem overflow horizontal; não houve login. Sem revisão visual completa das áreas autenticadas, comparação do tema claro ou validação em aparelho Android/iOS.
+- `git diff --check origin/main...HEAD` encontrou whitespace em `docs/plano-ranking.md:194`; o diff local desta revisão foi conferido separadamente. Única alteração versionável desta revisão: este registro.
+
+## Revisão da documentação do Swagger — 14 de outubro de 2026
+
+Revisado o commit `7e507b1`, o mais recente no início da revisão; não havia alterações sem commit. A comparação do OpenAPI com o commit anterior confirmou as mesmas 174 operações e os mesmos contratos e componentes, desconsiderando apenas os metadados de documentação.
+
+**Achado pendente:** a descrição geral em `backend/app/core/openapi.py` afirma que erros de validação ou regra `422` incluem `fields`, mas regras que lançam `HTTPException(422, ...)` retornam apenas `detail`. Reproduzido pelo cadastro de menor de idade: `422 { "detail": "O cadastro exige 18 anos completos." }`. A documentação deve distinguir os formatos ou indicar que `fields` é opcional. Nenhuma correção funcional foi aplicada nesta revisão.
+
+**Verificações executadas:** `ruff check app migrations tests` aprovado; `pytest -q` com 1098 aprovados e 594 pulados; comparação programática dos contratos OpenAPI antes/depois; `GET /docs` e `GET /openapi.json` com 200 via TestClient; `git diff --check HEAD^ HEAD` sem erros. A reprodução do cadastro usou a dependência do banco substituída em memória, sem criar conta ou escrever no banco.
+
+**Limitações:** sem `TEST_DATABASE_URL`, os testes de integração foram pulados; não houve revisão visual no navegador nem validação dos clientes web/Expo. A revisão cobre somente esse commit e não comprova persistência ou o MVP completo.
+
 ## Swagger organizado por domínio — 14 de outubro de 2026
 
 A pedido do usuário, o Swagger (`/docs`) ficou organizado, **sem alterar nenhuma rota**: caminhos, métodos, parâmetros, respostas, `operationId`, schemas e comportamento seguem idênticos. Só mudaram metadados de documentação.

@@ -82,7 +82,7 @@ export interface NotificationSummary {
   pending_count: number
   unread_by_category: Record<NotificationFilterCategory, number>
 }
-export interface PendingNotifications { items: ArenaNotification[] }
+export interface PendingNotifications { items: ArenaNotification[]; next_cursor?: string | null }
 
 export const NOTIFICATIONS_PATH = '/me/notifications'
 
@@ -98,11 +98,12 @@ export function notificationsPath({ categoria, pendente }: NotificationsQuery = 
 
 export const getUnreadCount = () => request<UnreadCount>('/me/notifications/unread-count', 'GET', undefined, { background: true })
 export const getNotificationSummary = () => request<NotificationSummary>('/me/notifications/summary', 'GET', undefined, { background: true })
-/** Pendências abertas por urgência, sem cursor (`limit` de 1 a 50; o servidor usa 20 se omitido). */
-export function listPendingNotifications({ categoria, limit }: { categoria?: NotificationFilterCategory; limit?: number } = {}) {
+/** Pendências abertas por urgência, com cursor (`limit` de 1 a 50; o servidor usa 20 se omitido). */
+export function listPendingNotifications({ categoria, limit, cursor }: { categoria?: NotificationFilterCategory; limit?: number; cursor?: string } = {}) {
   const query = new URLSearchParams()
   if (categoria) query.set('categoria', categoria)
   if (limit !== undefined) query.set('limit', String(limit))
+  if (cursor !== undefined) query.set('cursor', cursor)
   const text = query.toString()
   return request<PendingNotifications>(`${NOTIFICATIONS_PATH}/pending${text ? `?${text}` : ''}`)
 }

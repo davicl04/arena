@@ -22,7 +22,8 @@ API do **Arena**, plataforma de futebol, tênis e corrida amadores.
 - **Escrita em JSON:** as requisições de escrita exigem `Content-Type: application/json` (`415` caso contrário).
   Não exigem corpo `DELETE`, logout e as ações curtir, seguir e bloquear. Os **uploads** (avatar, capa,
   publicação, brasão e comprovantes) usam `multipart/form-data`, com limite de **5 MiB** (`413` acima disso).
-- **Erro de validação ou de regra:** `422` com `{ "detail": "...", "fields": [{ "field": "...", "message": "..." }] }`.
+- **Erro de validação ou de regra:** `422` com `{ "detail": "..." }`; a validação de campos também inclui
+  `"fields": [{ "field": "...", "message": "..." }]`. O campo `fields` é opcional.
 - **Conflito de estado:** `409` com `{ "detail": "..." }`.
 - **Dados indisponíveis:** `503` com `{ "detail": "..." }`.
 - As respostas não são guardadas em cache (`Cache-Control: no-store`).

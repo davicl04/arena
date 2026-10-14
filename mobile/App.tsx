@@ -7,6 +7,7 @@ import { ApiError, clearToken, request } from './src/api/client'
 import type { User } from './src/api/client'
 import { ErrorBoundary } from './src/components/ErrorBoundary'
 import { ToastViewport } from './src/components/toast/ToastViewport'
+import { toastStore } from './src/components/toast/toastStore'
 import { LoadError } from './src/components/arena/LoadError'
 import { Screen } from './src/components/Screen'
 import { useJoinLink } from './src/navigation/useJoinLink'
@@ -39,11 +40,13 @@ export default function App() {
   const expired = useCallback((pendingJoinToken?: string) => {
     // O link do time que ainda estava aberto volta para a memória: o próximo login o reabre.
     if (pendingJoinToken) restoreJoinToken(pendingJoinToken)
+    toastStore.reset()
     setUser(null); setSessionExpired(true); void clearToken()
   }, [restoreJoinToken])
+  const logout = useCallback(() => { toastStore.reset(); setUser(null) }, [])
   return <SafeAreaProvider><Screen className={tw.screen}><StatusBar style={theme === 'dark' ? 'light' : 'dark'} /><KeyboardAvoidingView className="grow basis-0" behavior={Platform.OS === 'ios' ? 'padding' : 'height'}><ErrorBoundary>
     {loading ? <ScrollView contentContainerClassName={tw.content}><Text className={cx(tw.brand, 'mb-7.5')}>arena.</Text><ActivityIndicator accessibilityLabel="Carregando Arena" color={colors.brand} /></ScrollView> : user
-      ? <ArenaShell user={user} onUser={setUser} onLogout={() => setUser(null)} onExpired={expired} joinToken={joinToken} onJoinOpened={joinOpened} />
+      ? <ArenaShell user={user} onUser={setUser} onLogout={logout} onExpired={expired} joinToken={joinToken} onJoinOpened={joinOpened} />
       : <ScrollView contentContainerClassName={tw.content} keyboardShouldPersistTaps="handled"><Text className={cx(tw.brand, 'mb-7.5')}>arena.</Text>{sessionExpired ? <Text className={tw.error} accessibilityRole="alert">Sua sessão expirou. Entre novamente.</Text> : null}{loadFailure ? <LoadError size="section" title="Não foi possível conectar" text={loadFailure.message} cause={loadFailure.cause} onRetry={() => { setLoadFailure(null); setLoading(true); setAttempt(v => v + 1) }} /> : null}<AuthScreen onLogin={value => { setUser(value); setSessionExpired(false); setLoadFailure(null) }} onConnectionFailure={cause => setLoadFailure({ message: cause.message, cause })} /></ScrollView>}
     {/* Sem a área logada (carregando ou tela de entrada): confirmações de cadastro e recuperação, a 16 pt da base. */}
     {!user ? <ToastViewport placement="screen" /> : null}

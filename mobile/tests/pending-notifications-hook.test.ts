@@ -31,6 +31,27 @@ const reads = (path: string) => vi.mocked(request).mock.calls.filter(([called]) 
 beforeEach(() => { enableAct(); resetNotificationIds(); vi.mocked(request).mockReset().mockResolvedValue({ items: [pendingNote('convite_time')] } as never) })
 
 describe('usePendingNotifications: pendências abertas (GET /me/notifications/pending)', () => {
+  it('mantém a página ao falhar em carregar mais e ignora respostas de outra categoria', async () => {
+    const first = pendingNote('convite_time')
+    vi.mocked(request).mockResolvedValueOnce({ items: [first], next_cursor: 'next' } as never)
+    const tree = await mount({ limit: 50 })
+    vi.mocked(request).mockRejectedValueOnce(new ApiError('Página indisponível.', 500))
+    await act(async () => { await current.loadMore() })
+    expect(current.items).toEqual([first])
+    expect(current.hasMore).toBe(true)
+    expect(current.moreError).toBe('Página indisponível.')
+    let release!: (value: unknown) => void
+    vi.mocked(request).mockReturnValueOnce(new Promise(resolve => { release = resolve }) as never)
+    let pending!: Promise<void>
+    await act(async () => { pending = current.loadMore(); void current.loadMore() })
+    await act(async () => { tree.update(h(Probe, { categoria: 'eventos', limit: 50 })) })
+    const updated = current.items
+    await act(async () => { release({ items: [pendingNote('convite_time')], next_cursor: null }); await pending })
+    expect(current.items).toEqual(updated)
+    expect(current.moreError).toBe('')
+    expect(reads('/me/notifications/pending?limit=50&cursor=next')).toBe(2)
+    await act(async () => { tree.unmount() })
+  })
   it('lê com categoria e limite, carrega até a primeira resposta e entrega as pendências', async () => {
     let release!: (value: unknown) => void
     vi.mocked(request).mockReturnValueOnce(new Promise(resolve => { release = resolve }) as never)

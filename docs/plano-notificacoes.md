@@ -76,7 +76,7 @@ Categorias: **partidas** reúne propostas, vagas, ofertas, condições, partida 
 | `comprovante_decidido` (recusado) | Inscrito | `entry_receipt:{entry_id}` | `reserved_until` | Novo comprovante enviado; reserva expirada | `events.py`, `entries.py` |
 | `devolucao_enviada` | Participante | `refund:{receipt_id}` | 7 dias (confirmação automática) | Confirmada, contestada ou confirmada automaticamente | `entries.py` |
 | `comprovante_recebido` | Organizador | `receipt:{receipt_id}` | — | Comprovante decidido | `entries.py`, `events.py` |
-| `divergencia_para_decidir` | Organizador | `decision:{match_id}` | `deadline` | Decisão registrada | `championship_lifecycle.py` |
+| `divergencia_para_decidir` | Organizador | `decision:{match_id}` | Sem prazo; `deadline` é dos atletas | Decisão registrada | `championship_lifecycle.py` |
 | `evento_para_aprovar` | Administração | `event_review:{event_id}` | — | Evento decidido por qualquer conta administrativa | `events.py` |
 | `devolucao_contestada` | Administração | `refund_dispute:{receipt_id}` | — | Devolução decidida | `entries.py`, `events.py` |
 | `wo_contestado` | Administração | `wo_dispute:{match_id}` | — | W.O. decidido | `matches.py`, `match_rules.py` |
@@ -90,7 +90,7 @@ O titular sempre vem da sessão.
 | Método e rota | Mudança |
 | --- | --- |
 | `GET /me/notifications?categoria=&pendente=` | Ganha filtros opcionais: `categoria` ∈ `partidas`, `times`, `eventos` e `pendente` ∈ `true`, `false`. Mantém a paginação por cursor (`created_at`, `id`). *Tudo* usa `pendente=false` abaixo do bloco fixado. |
-| `GET /me/notifications/pending?categoria=&limit=` | **Nova.** Lista as pendências abertas sem cursor, ordenadas por urgência (`COALESCE(action_until, 'infinity')` crescente, depois `created_at` decrescente). `limit` vai de 1 a 50, com padrão 20. O Início usa `limit=2`. |
+| `GET /me/notifications/pending?categoria=&limit=&cursor=` | Lista as pendências abertas por urgência (`action_until` crescente, nulos por último, depois `created_at` e `id` decrescentes), com `{ items, next_cursor }`. `limit` vai de 1 a 50, com padrão 20. O Início usa `limit=2`; Notificações permite carregar páginas adicionais. Correção do contrato em 14 de outubro de 2026. |
 | `GET /me/notifications/summary` | **Nova.** Devolve `{ unread_count, follow_requests_count, pending_count, unread_by_category: { partidas, times, eventos } }`. |
 | `GET /me/notifications/unread-count` | Permanece, por compatibilidade. |
 | `PUT /me/notifications/{id}/read` e `PUT /me/notifications/read-all` | Passam a devolver o resumo. Ele contém `unread_count`, então os clientes atuais continuam funcionando. |

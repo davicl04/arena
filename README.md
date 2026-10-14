@@ -31,6 +31,8 @@ API: [localhost:8000/docs](http://localhost:8000/docs). Saúde do processo: `/he
 
 ### Forma recente do Ranking (recalcular uma vez após a `0013`)
 
+A migração `0014`, também aplicada por `alembic upgrade head`, corrige as notificações de divergência ainda não resolvidas do organizador: elas continuam pendentes depois das 48 h destinadas à correção pelos atletas. Não altera contas, placares ou notificações já resolvidas e não exige outro comando de recálculo.
+
 A migração `0013` acrescenta a `standings` a forma recente (`recent_form`, os últimos 5 resultados V/E/D) e, na corrida, o dia da melhor marca (`best_mark_on`). Ela só cria as colunas vazias e não chama serviços da aplicação. Em cada ambiente, depois de `alembic upgrade head`, rode **uma vez**, em `backend/`:
 
 ```powershell

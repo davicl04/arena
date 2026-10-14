@@ -31,8 +31,10 @@ def list_notifications(cursor: str | None = None, limit: int = Query(PAGE_DEFAUL
 
 @router.get('/me/notifications/pending', response_model=PendingNotificationsOut)
 def list_pending(categoria: FilterCategory | None = None, limit: int = Query(PAGE_DEFAULT, ge=1, le=PAGE_MAX),
+                 cursor: str | None = None,
                  user: User = Depends(current_user), db: Session = Depends(get_db)):
-    return PendingNotificationsOut(items=notifications.list_pending(db, user, category=categoria, limit=limit))
+    items, next_cursor = notifications.list_pending(db, user, category=categoria, limit=limit, cursor=cursor)
+    return PendingNotificationsOut(items=items, next_cursor=next_cursor)
 
 
 @router.get('/me/notifications/summary', response_model=NotificationSummaryOut)
