@@ -360,6 +360,30 @@ describe('Ranking: borda esmaecida e expansão do elo', () => {
     expect(labelled(m.tree, 'Mostrar só ao seu redor')).toHaveLength(0)
   })
 
+  it('mantém o titular além da primeira página e mescla as páginas sem repetir posições', async () => {
+    serve({
+      [PROFILES]: [footballProfile],
+      [OVERVIEW]: diamond({ mine: [myLine('diamante', 45, 60)], window: squad(42, 48, 45), tier_counts: tierCounts({ diamante: 60 }) }),
+      [FULL]: rankingPage({ items: squad(1, 20, 45), next_cursor: 'c1' }),
+      [`${FULL}&cursor=c1`]: rankingPage({ items: squad(21, 40, 45), next_cursor: 'c2' }),
+      [`${FULL}&cursor=c2`]: rankingPage({ items: squad(41, 60, 45), next_cursor: null }),
+    })
+    const m = await mount()
+    expect(positionsOf(m)).toEqual(['43', '44', '45', '46', '47'])
+    await pressButton(m.tree, 'Ver 42 times acima')
+    expect(positionsOf(m)).toEqual([...Array.from({ length: 20 }, (_, i) => String(i + 1)), '43', '44', '45', '46', '47'])
+    expect(rows(m).filter(row => row.props.accessibilityState.selected)).toHaveLength(1)
+    // A borda sinaliza o trecho ainda não carregado entre as páginas e a janela.
+    await pressButton(m.tree, 'Ver mais 22 times')
+    expect(positionsOf(m)).toContain('45')
+    await pressButton(m.tree, 'Ver mais 2 times')
+    expect(positionsOf(m)).toEqual(Array.from({ length: 60 }, (_, i) => String(i + 1)))
+    expect(rows(m).filter(row => row.props.accessibilityState.selected)).toHaveLength(1)
+    expect(byId(m.tree, 'fade-edge-down')).toHaveLength(0)
+    await pressButton(m.tree, 'Mostrar só ao seu redor')
+    expect(positionsOf(m)).toEqual(['43', '44', '45', '46', '47'])
+  })
+
   it('um erro ao expandir aparece abaixo da lista com "Tentar de novo" e a janela continua visível', async () => {
     let fail = true
     serve({ [PROFILES]: [footballProfile], [OVERVIEW]: diamond(), [FULL]: () => (fail ? new ApiError('Não foi possível carregar o ranking.', 500) : fullPage(1, 8, null)) })

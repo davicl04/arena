@@ -1,5 +1,21 @@
 # Situação da fundação do Arena
 
+## Versionamento das correções do PR #4 — 23 de outubro de 2026
+
+Commit e push das correções de leitura de notificações web e expansão do ranking Expo autorizados pelo usuário na branch `feat/notifications-ranking`. Incluídos somente os dois componentes, seus testes de regressão e este registro; o arquivo temporário de bloqueio do Word foi preservado fora do commit. Diff e whitespace conferidos. Os checks e a validação integrada registrados abaixo não foram repetidos nesta etapa de versionamento; a execução remota do CI permanece pendente.
+
+## Correções dos achados da revisão privada do PR #4 — 23 de outubro de 2026
+
+- **Notificações web:** “Ler todas” atualiza localmente apenas os IDs carregados no início da ação. Notificações recebidas depois continuam usando o estado de leitura retornado pela API e, ao abrir, enviam a marcação individual. Removido o carimbo global que fazia notificações futuras parecerem lidas.
+- **Ranking Expo:** expandir o elo mescla as páginas com a janela ao redor do titular, ordenando e deduplicando por posição no elo; as páginas prevalecem no trecho sobreposto. A borda esmaecida indica o trecho ainda não carregado e permite continuar a paginação até unir as listas. Recolher restaura a janela original.
+- **Regressões:** testes cobrem novas notificações comuns e pendentes após a leitura em lote, além do titular na posição 45 em um elo com 60 integrantes, carregamento das páginas sem repetição e retorno à janela.
+
+**Verificações:** web com lint, build e `test:coverage` aprovados (1233 testes; 93,62% de instruções). Expo com lint, typecheck, exportação Android e `test:coverage` aprovados (1581 testes; 96,35% de instruções). Os novos testes reproduziram os defeitos antes das correções. Permanece o aviso do bundle web acima de 500 kB. Sem alteração de contrato ou esquema, novas dependências, commit ou push.
+
+**Navegador com API e PostgreSQL:** em schema aleatório isolado, “Ler todas” persistiu a leitura; outro convite criado depois permaneceu não lido ao trocar de filtro, enviou o `PUT` individual com 200 ao pressionar Enter e continuou lido após recarregar. Tela conferida nos temas claro e escuro em 320, 390 e 1440 px, sem overflow horizontal ou erros JavaScript. Evidências locais em `artifacts/fix-pr4/`; servidores temporários encerrados e somente o schema de teste removido ao terminar, preservando os dados da aplicação.
+
+**Limitações:** o Expo continua sem validação em aparelho; a exportação e os testes de componentes não comprovam a rolagem nativa. O MVP completo não está declarado.
+
 ## Roteiro: seções 3.3 e 3.4 preenchidas — 23 de outubro de 2026
 
 Atualizadas apenas as seções 3.3 (Interfaces com usuário) e 3.4 (Banco de dados) de `docs/roteiro-projeto.docx`, sem mudança de código, contrato ou esquema.

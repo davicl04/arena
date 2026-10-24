@@ -326,6 +326,27 @@ describe('Notificações: pendências fixadas e lista por dia', () => {
     expect(screen.getAllByRole('article')).toHaveLength(1)
   })
 
+  it.each([false, true])('preserva a leitura individual de uma nova notificação após "Ler todas" (pendência: %s)', async isPending => {
+    mockServer({ items: [removed] })
+    const ui = userEvent.setup()
+    render(<NotificationsHarness />)
+    await listed()
+    await ui.click(screen.getByRole('button', { name: 'Ler todas' }))
+    await waitFor(() => expect(document.querySelectorAll('[data-unread]')).toHaveLength(0))
+
+    const fresh = isPending
+      ? noteOf(80, 'convite_time', { team_id: 11, team_name: 'Novo time', invite_id: 12 }, { category: 'times', pending: true })
+      : noteOf(80, 'time_encerrado', { team_id: 11, team_name: 'Novo time' }, { category: 'times' })
+    mockServer({ items: [{ ...removed, read_at: minutesAgo(1) }, ...(isPending ? [] : [fresh])], pending: isPending ? [fresh] : [] })
+    await ui.click(chip('Times'))
+    const text = await screen.findByText(/Novo time/)
+    const row = text.closest(isPending ? 'article' : 'li')!
+    expect(row.hasAttribute('data-unread')).toBe(true)
+    await ui.click(within(row as HTMLElement).getByRole('button'))
+    expect(calls).toContainEqual({ path: '/me/notifications/80/read', method: 'PUT', body: {} })
+    await waitFor(() => expect(row.hasAttribute('data-unread')).toBe(false))
+  })
+
   it('mostra o erro de "Ler todas"', async () => {
     mockServer({ items: [refused] })
     const ui = userEvent.setup()

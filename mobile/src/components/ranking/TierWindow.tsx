@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Text, View } from 'react-native'
 import type { MyRankingOverviewLine, RankingCategory, RankingKey, RankingRow, TierCounts } from '../../api/results'
@@ -65,9 +65,14 @@ export function TierWindow({ category, ranking, tier, counts, line, window, noun
   if (total === 0) {
     status = <Text style={{ paddingHorizontal: 6, paddingVertical: 10, color: 'rgba(255,255,255,0.7)', fontSize: 12 }}>{`Ninguém ${inTier(tier)} ainda.`}</Text>
   } else if (expanded && list.items.length) {
-    rows = list.items
-    if (list.hasMore) {
-      const remaining = Math.max(1, total - list.items.length)
+    // Mantém o titular mesmo antes de a paginação chegar à sua posição; a página prevalece no trecho sobreposto.
+    const merged = new Map<number, RankingRow>()
+    for (const item of windowed && window ? window.filter(item => Math.abs(item.tier_position - at!) <= AROUND) : []) merged.set(item.tier_position, item)
+    for (const item of list.items) merged.set(item.tier_position, item)
+    rows = [...merged.values()].sort((a, b) => a.tier_position - b.tier_position)
+    const hasGap = rows.some((item, index) => index > 0 && item.tier_position > rows[index - 1].tier_position + 1)
+    if (list.hasMore && !hasGap) {
+      const remaining = Math.max(1, total - rows[rows.length - 1].tier_position)
       bottom = <FadeEdge side="down" count={remaining} busy={list.busy} label={`Ver mais ${remaining} ${rowsWord(remaining, noun)}`} onPress={() => void list.loadMore()} />
     }
   } else if (windowed && window) {
@@ -109,7 +114,13 @@ export function TierWindow({ category, ranking, tier, counts, line, window, noun
   const canCollapse = expanded
   return <View testID="tier-window" accessibilityLabel={`Ranking ${inTier(tier)}`} accessibilityState={{ busy: list.loading || list.busy }} style={{ gap: 6, paddingHorizontal: 12, paddingTop: 10 }}>
     {top}
-    {rows.map(item => row(item))}
+    {rows.map((item, index) => {
+      const missing = index > 0 ? item.tier_position - rows[index - 1].tier_position - 1 : 0
+      return <Fragment key={keyOf(item)}>
+        {expanded && list.hasMore && missing > 0 ? <FadeEdge side="down" count={missing} busy={list.busy} label={`Ver mais ${missing} ${rowsWord(missing, noun)}`} onPress={() => void list.loadMore()} /> : null}
+        {row(item)}
+      </Fragment>
+    })}
     {bottom}
     {status}
     {canCollapse ? <ActionButton tone="line" block title={windowed ? 'Mostrar só ao seu redor' : `Mostrar só os ${PREVIEW_ROWS} primeiros`} onPress={collapse} /> : null}

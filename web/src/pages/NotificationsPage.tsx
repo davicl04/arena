@@ -59,8 +59,7 @@ export default function NotificationsPage({ isAdmin = false, summary, filter, on
   const [busy, setBusy] = useState(false)
   /** Leituras feitas nesta tela: valem sobre as listas já carregadas, sem esperar nova consulta. */
   const [readAt, setReadAt] = useState<Record<number, string>>({})
-  const [allReadAt, setAllReadAt] = useState<string | null>(null)
-  const withRead = (item: ArenaNotification): ArenaNotification => item.read_at ? item : { ...item, read_at: readAt[item.id] ?? allReadAt }
+  const withRead = (item: ArenaNotification): ArenaNotification => item.read_at ? item : { ...item, read_at: readAt[item.id] ?? null }
 
   async function open(notification: ArenaNotification) {
     const { target } = notificationView(notification, { isAdmin })
@@ -80,10 +79,13 @@ export default function NotificationsPage({ isAdmin = false, summary, filter, on
     if (target) onNavigate(target)
   }
   async function readAll() {
+    const loadedIds = [...pending.items, ...feed.items].map(item => item.id)
     setBusy(true)
     try {
       const result = await markAllNotificationsRead()
-      setAllReadAt(new Date().toISOString())
+      const at = new Date().toISOString()
+      // Só as linhas já carregadas precisam de atualização local; novas consultas usam o estado do servidor.
+      setReadAt(old => ({ ...old, ...Object.fromEntries(loadedIds.map(id => [id, at])) }))
       summary.setData(result)
       toast.success('Todas as notificações foram marcadas como lidas.')
     } catch (cause) {
