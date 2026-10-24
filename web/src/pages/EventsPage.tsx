@@ -14,7 +14,7 @@ import { Chip } from "@/components/ui/chip";
 import { EmptyState } from "@/components/ui/empty-state";
 import { feedbackVariants } from "@/components/ui/feedback";
 import { ListGroup, ListHeading } from "@/components/ui/list-row";
-import { cn } from "@/lib/utils";
+import { LoadError } from "@/components/ui/load-error";
 import { eventDateParts } from "@/utils/format";
 
 /** Linha abaixo do cartaz: o motivo do cadeado ou por que não dá para se inscrever agora. */
@@ -43,15 +43,7 @@ function EventGrid({ path, sport, cityName, onAllCities, onOpen, onExpired }: {
   const list = usePagedList<EventCard>(path, onExpired);
   const noun = eventNoun[sport];
   if (list.loading) return <p role="status">Carregando {noun.many.toLowerCase()}…</p>;
-  if (list.error)
-    return (
-      <div className={feedbackVariants()} role="alert">
-        {list.error.message}{" "}
-        <Button variant="text" className="inline min-h-0 p-0" onClick={list.reload}>
-          Tentar novamente
-        </Button>
-      </div>
-    );
+  if (list.error) return <LoadError size="section" title={`Não foi possível carregar ${noun.many.toLowerCase()}`} text={list.error.message} cause={list.error} onRetry={list.reload} />;
   if (list.items.length === 0)
     return (
       <EmptyState
@@ -129,7 +121,7 @@ function MyEntries({ entries, onOpen }: { entries: MyEntry[]; onOpen: (entry: My
             <button
               key={entry.id}
               type="button"
-              className="flex min-h-[58px] w-full items-center gap-3 border-0 bg-transparent px-3.5 py-2.5 text-left text-inherit enabled:hover:bg-[#f6f7f9] [&+&]:border-t [&+&]:border-solid [&+&]:border-line"
+              className="flex min-h-[58px] w-full items-center gap-3 border-0 bg-transparent px-3.5 py-2.5 text-left text-inherit enabled:hover:bg-hover [&+&]:border-t [&+&]:border-solid [&+&]:border-line"
               onClick={() => onOpen(entry)}
             >
               <span className="grid w-10 flex-none justify-items-center rounded-[10px] bg-forest py-1 text-mint" aria-hidden="true">
@@ -194,7 +186,7 @@ export default function EventsPage({ sport, profiles, cities, loading, onSport, 
           );
         })}
       </div>
-      <div className="mb-4 flex min-h-11 items-center gap-2 rounded-xl bg-white px-[13px] py-1.5 text-[11px]">
+      <div className="mb-4 flex min-h-11 items-center gap-2 surface rounded-xl inset-ring inset-ring-surface-edge px-[13px] py-1.5 text-[11px]">
         <MapPin size={16} className="flex-none text-brand" aria-hidden="true" />
         <span className="min-w-0 flex-1 truncate">
           {loading ? "Carregando cidade…" : filtered && city ? city.name : city ? "Todas as cidades" : `Sem cidade no perfil de ${label} · todas as cidades`}
@@ -211,11 +203,7 @@ export default function EventsPage({ sport, profiles, cities, loading, onSport, 
           ))}
       </div>
       {myEntries.length > 0 && <MyEntries entries={myEntries} onOpen={(entry) => onOpen(entry.event.id, sport)} />}
-      {mine.error && (
-        <p className={cn(feedbackVariants(), "mt-0")} role="alert">
-          Não foi possível carregar as suas inscrições. {mine.error.message}
-        </p>
-      )}
+      {mine.error && <LoadError size="section" title="Não foi possível carregar suas inscrições" text={mine.error.message} cause={mine.error} onRetry={mine.reload} className="mb-4" />}
       {loading ? (
         <p role="status">Carregando {eventNoun[sport].many.toLowerCase()}…</p>
       ) : (

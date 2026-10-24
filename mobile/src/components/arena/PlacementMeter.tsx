@@ -2,6 +2,8 @@ import type { ReactNode } from 'react'
 import { Text, View } from 'react-native'
 import { placementRequired } from '../../data/arena'
 import { colors } from '../../theme'
+import { useThemeColors } from '../../hooks/useTheme'
+import type { ThemeColors } from '../../theme'
 
 /*
  * Círculo tracejado "n/3". Tamanhos: xs 16 (pílulas) · sm 26 (cabeçalho da partida) · md 30 (célula de formato) ·
@@ -14,14 +16,14 @@ const badgeSizes = {
   md: { box: 30, border: 1.5, font: 9 },
   lg: { box: 44, border: 2, font: 12 },
 } as const
-const badgeTones = {
+const badgeTones = (c: ThemeColors) => ({
   mint: { border: 'rgba(255,255,255,0.35)', text: colors.mint, opacity: 1 },
   dark: { border: '#ffffff', text: '#ffffff', opacity: 0.75 },
-  light: { border: colors['ink-muted'], text: colors['ink-muted'], opacity: 1 },
-} as const
+  light: { border: c['ink-muted'], text: c['ink-muted'], opacity: 1 },
+}) as const
 
 export type PlacementBadgeSize = keyof typeof badgeSizes
-export type PlacementTone = keyof typeof badgeTones
+export type PlacementTone = keyof ReturnType<typeof badgeTones>
 
 /** Partidas contadas, limitadas a 0…required. */
 const clampPlayed = (played: number, required: number) => Math.min(Math.max(0, Math.floor(played)), required)
@@ -41,7 +43,7 @@ export interface PlacementBadgeProps {
 export function PlacementBadge({ played, required = placementRequired, size = 'sm', tone = 'dark', decorative = false }: PlacementBadgeProps) {
   const done = clampPlayed(played, required)
   const measure = badgeSizes[size]
-  const look = badgeTones[tone]
+  const look = badgeTones(useThemeColors())[tone]
   return <View accessible={!decorative} accessibilityRole={decorative ? undefined : 'image'} accessibilityLabel={decorative ? undefined : `${done} de ${required} partidas de classificação`}
     importantForAccessibility={decorative ? 'no-hide-descendants' : 'auto'}
     style={{ width: measure.box, height: measure.box, borderRadius: measure.box / 2, borderWidth: measure.border, borderStyle: 'dashed', borderColor: look.border, opacity: look.opacity, alignItems: 'center', justifyContent: 'center' }}>
@@ -66,16 +68,17 @@ export interface PlacementMeterProps {
  */
 export function PlacementMeter({ played, required = placementRequired, title = 'Em classificação', hint, tone = 'dark' }: PlacementMeterProps) {
   const done = clampPlayed(played, required)
+  const c = useThemeColors()
   const dark = tone === 'dark'
   const text = `${done} de ${required} partidas${hint ? ` · ${hint}` : ''}`
   return <View accessible accessibilityLabel={`${typeof title === 'string' ? title : 'Em classificação'}, ${text}`} className="flex-row items-center gap-2.5">
     <PlacementBadge played={done} required={required} size="lg" tone={dark ? 'mint' : 'light'} decorative />
     <View className="shrink">
       {title ? <Text className={dark ? 'text-[14px] font-bold text-white' : 'text-[14px] font-bold text-ink'}>{title}</Text> : null}
-      <Text className="mt-0.5 text-[10.5px]" style={{ color: dark ? 'rgba(255,255,255,0.65)' : colors['ink-muted'] }}>{text}</Text>
+      <Text className="mt-0.5 text-[10.5px]" style={{ color: dark ? 'rgba(255,255,255,0.65)' : c['ink-muted'] }}>{text}</Text>
       <View className="mt-1.5 flex-row gap-1">
         {Array.from({ length: required }, (_, index) => <View key={index} testID={index < done ? 'placement-bar-on' : 'placement-bar'}
-          style={{ height: 5, width: 22, borderRadius: 3, backgroundColor: index < done ? (dark ? colors.mint : colors.brand) : (dark ? 'rgba(255,255,255,0.15)' : colors.line) }} />)}
+          style={{ height: 5, width: 22, borderRadius: 3, backgroundColor: index < done ? (dark ? colors.mint : c.brand) : (dark ? 'rgba(255,255,255,0.15)' : c.line) }} />)}
       </View>
     </View>
   </View>

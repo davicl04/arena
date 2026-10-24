@@ -1,8 +1,8 @@
 """Responses of the result routes (Jogar, fase 5) that compose the shared shapes of `schemas.matches`.
 
 Contract: docs/decisoes/0002-jogar.md, section 12.2. Inputs (`ResultInput`, `AttendanceInput`, `MyStatsInput`,
-`StatReviewInput`, `StatContestInput`) and the objects (`LineupOut`, `PointsPreviewOut`, `RankingPageOut`) are in
-`schemas.matches`.
+`StatReviewInput`, `StatContestInput`) and the objects (`LineupOut`, `PointsPreviewOut`) are in
+`schemas.matches`; the ranking pages are in `schemas.rankings`.
 """
 from __future__ import annotations
 

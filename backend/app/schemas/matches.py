@@ -15,7 +15,7 @@ from app.models.identity import City
 from app.models.matches import Court
 from app.schemas.common import PersonOut, StrictInput
 from app.schemas.identity import CityOut
-from app.schemas.rankings import FootballFormat, PositionName, StandingLineOut, TeamRefOut, Tier
+from app.schemas.rankings import FootballFormat, PositionName, TeamRefOut, Tier
 from app.services.match_rules import tennis_sets_from_json
 
 MatchSport = Literal['futebol', 'tenis']
@@ -37,8 +37,6 @@ StatField = Literal['gols', 'assistencias', 'estatistica_posicao']
 ResultSource = Literal['confirmacao', 'wo', 'organizador', 'administracao']
 ResultState = Literal['aguardando', 'divergente', 'confirmado', 'wo_registrado', 'wo_contestado', 'sem_resultado']
 BookingState = Literal['a_confirmar', 'confirmada']
-RankingKey = Literal['futebol_time', 'futebol_individual', 'tenis', 'corrida_3', 'corrida_5', 'corrida_10',
-                     'corrida_21', 'corrida_42']
 
 
 # ----- Inputs ------------------------------------------------------------------------------------------------
@@ -465,39 +463,6 @@ class AdminCourtSuggestionOut(BaseModel):
 class AdminWalkoverDisputeOut(BaseModel):
     match: MatchCardOut
     walkover: WalkoverOut
-
-
-class RankingRowOut(BaseModel):
-    rank_position: int
-    tier: Tier
-    metric_value: float
-    matches_played: int
-    wins: int
-    draws: int
-    losses: int
-    goals_for: int | None
-    goals_against: int | None
-    team: TeamRefOut | None
-    athlete: PersonOut | None
-    is_mine: bool
-
-
-class MyRankingLineOut(StandingLineOut):
-    team: TeamRefOut | None
-
-
-class RankingPageOut(BaseModel):
-    ranking: RankingKey
-    format: FootballFormat | None
-    position: PositionName | None
-    distance_km: int | None
-    calc_version: int
-    classified_count: int
-    legend_slots: int
-    required: int
-    items: list[RankingRowOut]
-    next_cursor: str | None
-    mine: list[MyRankingLineOut]
 
 
 # ----- Pure builders -----------------------------------------------------------------------------------------

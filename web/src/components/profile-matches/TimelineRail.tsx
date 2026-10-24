@@ -7,7 +7,7 @@ import { groupByMonth, itemSport } from './timelineView'
 
 /** Nó do trilho: círculo branco com o ícone da modalidade, sobre a linha vertical. */
 function Node({ sport }: { sport: TimelineSport }) {
-  return <span data-slot="timeline-node" className="absolute top-2.5 left-0 grid size-8 place-items-center overflow-hidden rounded-full border border-solid border-line bg-white">
+  return <span data-slot="timeline-node" className="absolute top-2.5 left-0 grid size-8 place-items-center overflow-hidden rounded-full border border-solid border-line bg-surface noite:border-surface-edge">
     <SportIcon sport={sport} size={20} />
   </span>
 }

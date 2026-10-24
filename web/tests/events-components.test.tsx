@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { FileSearch } from 'lucide-react'
 import { EventPoster, NewEventPoster } from '../src/components/events/EventPoster'
 import { PaymentInfoSheet } from '../src/components/events/PaymentInfoSheet'
@@ -7,6 +7,7 @@ import { PixBlock } from '../src/components/events/PixBlock'
 import type { PixInfo } from '../src/components/events/pix'
 import { StateBadge } from '../src/components/events/StateBadge'
 import { DeadlineRing, StatusCard, StatusCardButton } from '../src/components/events/StatusCard'
+import { findToast, queryToast, renderWithToaster } from './toast-utils'
 
 const pix: PixInfo = {
   holder: 'Rafa Nunes',
@@ -183,33 +184,34 @@ describe('PixBlock', () => {
     let rejectCopy!: (reason: Error) => void
     const pending = new Promise<void>((resolve, reject) => { resolveCopy = resolve; rejectCopy = reject })
     stubClipboard(() => pending)
-    render(<PixBlock pix={pix} />)
+    renderWithToaster(<PixBlock pix={pix} />)
 
     fireEvent.click(screen.getByRole('button', { name: 'Copiar chave Pix' }))
-    // A região viva já existe enquanto writeText está pendente; encontrar o role não aguarda o texto.
-    expect((await screen.findByRole('status')).textContent).toBe('')
+    // Com writeText pendente, ainda não há toast nem ✓: o retorno só sai depois da resposta assíncrona.
+    await act(async () => {})
+    expect(queryToast(/copiada|copiar/)).toBeNull()
     expect(screen.getByRole('button', { name: 'Copiar chave Pix' }).querySelector('.lucide-check')).toBeNull()
 
     await act(async () => { if (outcome === 'sucesso') resolveCopy(); else rejectCopy(new Error('negado')) })
-    await waitFor(() => expect(screen.getByRole('status').textContent).toBe(outcome === 'sucesso'
-      ? 'Chave Pix copiada.' : 'Não foi possível copiar. Selecione a chave e copie manualmente.'))
+    const toast = await findToast(outcome === 'sucesso' ? 'Chave Pix copiada.' : 'Não foi possível copiar. Selecione a chave e copie manualmente.')
+    expect(toast.closest('[data-tone]')?.getAttribute('data-tone')).toBe(outcome === 'sucesso' ? 'success' : 'warning')
   })
 
   it('copia a chave e o Copia e Cola e anuncia o retorno', async () => {
     const writeText = stubClipboard(async () => {})
     const onInfo = vi.fn()
-    render(<PixBlock pix={pix} priceCents={24000} onInfo={onInfo} />)
+    renderWithToaster(<PixBlock pix={pix} priceCents={24000} onInfo={onInfo} />)
     expect(screen.getByText('Rafa Nunes · chave por e-mail')).toBeTruthy()
     expect(screen.getByText(pix.key).tagName).toBe('CODE')
 
     fireEvent.click(screen.getByRole('button', { name: 'Copiar chave Pix' }))
     expect(writeText).toHaveBeenCalledWith(pix.key)
-    await waitFor(() => expect(screen.getByRole('status').textContent).toBe('Chave Pix copiada.'))
+    expect(await findToast('Chave Pix copiada.')).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Copiar chave Pix' }).querySelector('.lucide-check')).toBeTruthy()
 
     fireEvent.click(screen.getByRole('button', { name: /Copiar Pix Copia e Cola · R\$/ }))
     expect(writeText).toHaveBeenLastCalledWith(pix.copyPaste)
-    expect((await screen.findByText('Pix Copia e Cola copiado. Cole no app do seu banco.')).getAttribute('aria-live')).toBe('polite')
+    expect(await findToast('Pix Copia e Cola copiado. Cole no app do seu banco.')).toBeTruthy()
 
     fireEvent.click(screen.getByRole('button', { name: 'Informações de pagamento' }))
     expect(onInfo).toHaveBeenCalledOnce()
@@ -217,9 +219,9 @@ describe('PixBlock', () => {
 
   it('deixa a chave selecionada e mostra o código quando a cópia falha', async () => {
     stubClipboard(async () => { throw new Error('negado') })
-    render(<PixBlock pix={pix} />)
+    renderWithToaster(<PixBlock pix={pix} />)
     fireEvent.click(screen.getByRole('button', { name: 'Copiar chave Pix' }))
-    await waitFor(() => expect(screen.getByRole('status').textContent).toBe('Não foi possível copiar. Selecione a chave e copie manualmente.'))
+    expect(await findToast('Não foi possível copiar. Selecione a chave e copie manualmente.')).toBeTruthy()
     expect(window.getSelection()?.getRangeAt(0).toString()).toBe(pix.key)
     expect(screen.queryByRole('textbox')).toBeNull()
 
@@ -229,17 +231,17 @@ describe('PixBlock', () => {
     expect(code.readOnly).toBe(true)
     expect(document.activeElement).toBe(code)
     expect([code.selectionStart, code.selectionEnd]).toEqual([0, pix.copyPaste!.length])
-    expect(screen.getByRole('status').textContent).toContain('Selecione o código')
+    expect(await findToast(/Selecione o código/)).toBeTruthy()
   })
 
   it('falha sem área de transferência e omite o Copia e Cola quando não foi informado', async () => {
-    render(<PixBlock pix={{ ...pix, copyPaste: null, keyType: 'cpf' }} title="Pix informado" />)
+    renderWithToaster(<PixBlock pix={{ ...pix, copyPaste: null, keyType: 'cpf' }} title="Pix informado" />)
     expect(screen.getByText('Pix informado')).toBeTruthy()
     expect(screen.getByText('Rafa Nunes · chave por CPF')).toBeTruthy()
     expect(screen.queryByRole('button', { name: /Copia e Cola/ })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Informações de pagamento' })).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: 'Copiar chave Pix' }))
-    await waitFor(() => expect(screen.getByRole('status').textContent).toContain('Não foi possível copiar'))
+    expect(await findToast(/Não foi possível copiar/)).toBeTruthy()
   })
 })
 
@@ -252,7 +254,7 @@ describe('PaymentInfoSheet', () => {
   it('reúne valor, favorecido, chave, código, prazo, passos, instruções e o aviso', async () => {
     const writeText = stubClipboard(async () => {})
     const onClose = vi.fn()
-    render(<PaymentInfoSheet eventName="Copa Sudoeste Society" priceCents={24000} sport="futebol" pix={pix}
+    renderWithToaster(<PaymentInfoSheet eventName="Copa Sudoeste Society" priceCents={24000} sport="futebol" pix={pix}
       receiptDeadline={localIso(2026, 9, 13, 21, 40)} onClose={onClose} />)
     const sheet = screen.getByRole('dialog', { name: 'Pagamento e informações' })
     expect(sheet.textContent).toContain('Copa Sudoeste Society')
@@ -266,7 +268,7 @@ describe('PaymentInfoSheet', () => {
 
     fireEvent.click(within(sheet).getByRole('button', { name: 'Copiar Pix Copia e Cola' }))
     expect(writeText).toHaveBeenCalledWith(pix.copyPaste)
-    await waitFor(() => expect(within(sheet).getByRole('status').textContent).toContain('Pix Copia e Cola copiado'))
+    expect(await findToast(/Pix Copia e Cola copiado/)).toBeTruthy()
     fireEvent.click(within(sheet).getByRole('button', { name: 'Copiar contato' }))
     expect(writeText).toHaveBeenLastCalledWith(pix.contact)
 
@@ -276,7 +278,7 @@ describe('PaymentInfoSheet', () => {
 
   it('explica o prazo sem reserva, omite o que não foi informado e seleciona o item quando a cópia falha', async () => {
     stubClipboard(async () => { throw new Error('negado') })
-    render(<PaymentInfoSheet eventName="Corrida do Lago" priceCents={6000} sport="corrida"
+    renderWithToaster(<PaymentInfoSheet eventName="Corrida do Lago" priceCents={6000} sport="corrida"
       pix={{ holder: 'Assessoria Passo Certo', keyType: 'aleatoria', key: '7f3c-91aa' }} onClose={() => {}} />)
     const sheet = screen.getByRole('dialog')
     expect(sheet.textContent).toContain('Comprovante em até 48 h após reservar')
@@ -286,13 +288,13 @@ describe('PaymentInfoSheet', () => {
     expect(within(sheet).queryByRole('region', { name: 'Instruções do organizador' })).toBeNull()
 
     fireEvent.click(within(sheet).getByRole('button', { name: 'Copiar chave Pix' }))
-    await waitFor(() => expect(within(sheet).getByRole('status').textContent).toContain('Selecione a chave'))
+    expect(await findToast(/Selecione a chave/)).toBeTruthy()
     expect(window.getSelection()?.getRangeAt(0).toString()).toBe('7f3c-91aa')
   })
 
   it('mostra o código selecionável quando o Copia e Cola não copia', async () => {
     stubClipboard(async () => { throw new Error('negado') })
-    render(<PaymentInfoSheet eventName="Copa" priceCents={24000} pix={pix} onClose={() => {}} />)
+    renderWithToaster(<PaymentInfoSheet eventName="Copa" priceCents={24000} pix={pix} onClose={() => {}} />)
     fireEvent.click(screen.getByRole('button', { name: 'Copiar Pix Copia e Cola' }))
     const code = await screen.findByRole('textbox', { name: 'Código Pix Copia e Cola' }) as HTMLTextAreaElement
     expect(code.value).toBe(pix.copyPaste)

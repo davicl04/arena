@@ -1,11 +1,12 @@
-import { Text, View } from 'react-native'
+import { Text } from 'react-native'
 import { getQueueCounts } from '../../api/admin'
 import { listOpenOrganizerEvents } from '../../api/events'
 import { getOrganizerStatus } from '../../api/organizer'
 import { useResource } from '../../hooks/useResource'
 import type { Navigation } from '../../navigation/useNavigation'
 import { cx, tw } from '../../styles'
-import { Notice, MenuRow, TextAction } from '../arena/controls'
+import { MenuRow } from '../arena/controls'
+import { LoadError } from '../arena/LoadError'
 import { OrganizerCard, OrganizerEvents } from './OrganizerCard'
 
 /**
@@ -34,9 +35,9 @@ export default function OrganizerMenu({ isAdmin, navigation, onLeave, onExpired 
   return <>
     <Text className={cx(tw.eyebrow, 'mt-5')}>ORGANIZADOR</Text>
     {organizer.loading ? <Text accessibilityLiveRegion="polite" className="mb-2 text-[12px] text-ink-muted">Carregando a área do organizador…</Text> : null}
-    {organizer.error ? <View><Notice>{organizer.error}</Notice><TextAction title="Tentar novamente" onPress={organizer.reload} /></View> : null}
+    {organizer.error ? <LoadError size="section" title="Não foi possível carregar a área do organizador" text={organizer.error} cause={organizer.errorCause} onRetry={organizer.reload} /> : null}
     {status && status.state !== 'aprovado' ? <OrganizerCard status={status} onRequest={() => go('organizer-request')} onChange={organizer.setData} onExpired={onExpired} /> : null}
-    {showEvents ? <OrganizerEvents status={status} events={eventItems} loading={events.loading} error={status?.state === 'aprovado' ? events.error : ''}
+    {showEvents ? <OrganizerEvents status={status} events={eventItems} loading={events.loading} error={status?.state === 'aprovado' ? events.error : ''} errorCause={events.errorCause}
       onReload={events.reload} onOpenList={() => go('organizer-events')} onOpenEvent={eventId => go('event-manage', { eventId })} onCreate={() => go('event-wizard')} /> : null}
     {isAdmin ? <>
       <Text className={cx(tw.eyebrow, 'mt-5')}>ADMINISTRAÇÃO</Text>

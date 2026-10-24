@@ -9,8 +9,8 @@ export const teamButton = cva('inline-flex min-w-0 items-center justify-center g
     tone: {
       mint: 'border-transparent bg-mint text-night',
       line: 'border-white/25 bg-transparent text-white hover:bg-white/8',
-      brand: 'border-transparent bg-brand text-white hover:bg-brand-hover',
-      outline: 'border-line-strong bg-white text-brand hover:bg-subtle',
+      brand: 'border-transparent bg-brand text-on-brand hover:bg-brand-hover',
+      outline: 'border-line-strong bg-surface text-brand hover:bg-subtle',
       danger: 'border-transparent bg-danger text-white',
     },
     size: {
@@ -31,8 +31,8 @@ export const groupLabel = 'mt-4 mb-1 text-[10px] font-extrabold tracking-[0.08em
 /** Ação de texto verde (.lnk; menta sobre o escuro com `text-mint`). */
 export const textAction = 'min-h-9 border-0 bg-transparent px-0 py-1.5 text-[11px] font-bold text-brand'
 
-/** Mensagens sobre o escuro (aviso de sucesso e erro), no lugar de `feedbackVariants`, que é claro. */
+/** Erro que fica na tela sobre o escuro (formulário, estado), no lugar de `feedbackVariants`, que é claro. Confirmações viram toast. */
 export const darkNotice = cva('mt-3 rounded-[10px] px-2.5 py-2 text-[11.5px] leading-[1.5]', {
-  variants: { tone: { success: 'bg-mint/12 text-[#c9f2db]', error: 'bg-[#b9374940] text-[#ffd0d7]' } },
-  defaultVariants: { tone: 'success' },
+  variants: { tone: { error: 'bg-[#b9374940] text-[#ffd0d7]' } },
+  defaultVariants: { tone: 'error' },
 })

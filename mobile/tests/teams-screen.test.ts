@@ -10,6 +10,7 @@ import { byLabel, enableAct, press, textOf } from './support/native'
 import { answer, fakeNavigation, joinRequest, member, me, receivedInvite, sentInvite, team, TOKEN } from './support/teams'
 import type { FakeNavigation, Handler } from './support/teams'
 import { playContext } from './support/play'
+import { textWithin, toastText, toasts } from './support/toast'
 
 vi.mock('react-native', async () => (await import('./support/native')).reactNativeMock())
 vi.mock('react-native-svg', async () => (await import('./support/native')).svgMock())
@@ -44,6 +45,12 @@ function serve(extra: Handler = () => undefined) {
   }))
 }
 const calls = () => vi.mocked(request).mock.calls
+/** Toca no botão (sem rótulo de acessibilidade) cujo texto é exatamente `text`, como o "Tentar novamente" do `LoadError`. */
+async function pressText(tree: ReactTestRenderer, text: string) {
+  const target = tree.root.findAllByType('Pressable' as never).find(node => textWithin(node) === text)
+  expect(target, `Pressable "${text}"`).toBeTruthy()
+  await act(async () => { target!.props.onPress() })
+}
 
 let navigation: FakeNavigation
 const onExpired = vi.fn()
@@ -172,11 +179,11 @@ describe('Meus times: placa, carrossel de carteirinhas e elenco', () => {
   })
 
   it('erro ao carregar oferece tentar de novo; 401 expira a sessão', async () => {
-    serve(path => { if (path === '/me/teams') throw new ApiError('Sem conexão.', 0); return undefined })
+    serve(path => { if (path === '/me/teams') throw new ApiError('Servidor com problema.', 500); return undefined })
     const tree = await mount()
-    expect(textOf(tree)).toContain('Sem conexão.')
+    expect(textOf(tree)).toContain('Servidor com problema.')
     serve()
-    await press(tree, 'Tentar novamente')
+    await pressText(tree, 'Tentar novamente')
     expect(textOf(tree)).toContain('Ferrugem FC')
     serve(path => { if (path === '/me/teams') throw new ApiError('Sessão expirada.', 401); return undefined })
     await act(async () => { tree.unmount() })
@@ -217,7 +224,7 @@ describe('Meus times: convites recebidos (faixa e folha K1)', () => {
     expect(textOf(tree)).toContain('Carlos Lima convidou você')
     await press(tree, 'Aceitar convite do Tigres')
     expect(calls()).toContainEqual(['/team-invites/9', 'PUT', { decision: 'aceitar' }])
-    expect(textOf(tree)).toContain('Você entrou no Tigres.')
+    expect(toastText()).toContain('Você entrou no Tigres.')
     expect(navigation.setParams).toHaveBeenCalledWith('teams', { teamId: 40 })
     expect(tree.root.findAllByType('Modal' as never)).toHaveLength(0)
     await act(async () => { tree.unmount() })
@@ -235,7 +242,7 @@ describe('Meus times: convites recebidos (faixa e folha K1)', () => {
     await press(tree, '2 convites para times. Abrir convites')
     expect(textOf(tree)).toContain('Convites para times · 2')
     await press(tree, 'Recusar convite do Tigres')
-    expect(textOf(tree)).toContain('Convite do Tigres recusado.')
+    expect(toastText()).toContain('Convite do Tigres recusado.')
     expect(tree.root.findAllByType('Modal' as never)).toHaveLength(1)
     await act(async () => { tree.unmount() })
   })
@@ -289,7 +296,7 @@ describe('Meus times: folha do atleta', () => {
     await press(tree, memberLabel({}, 2))
     await press(tree, 'Tornar representante. Convida atletas, aprova pedidos e gere o elenco.')
     expect(calls()).toContainEqual(['/teams/10/members/2', 'PATCH', { role: 'representante' }])
-    expect(textOf(tree)).toContain('Atleta2 agora é representante do Ferrugem FC.')
+    expect(toastText()).toContain('Atleta2 agora é representante do Ferrugem FC.')
     expect(tree.root.findAllByType('Modal' as never)).toHaveLength(0)
     await act(async () => { tree.unmount() })
   })
@@ -338,7 +345,7 @@ describe('Meus times: folha do atleta', () => {
     await press(tree, 'Remover do time')
     await press(tree, 'Remover')
     expect(calls()).toContainEqual(['/teams/10/members/2', 'DELETE'])
-    expect(textOf(tree)).toContain('Atleta 2 Silva foi removido do Ferrugem FC.')
+    expect(toastText()).toContain('Atleta 2 Silva foi removido do Ferrugem FC.')
     await act(async () => { tree.unmount() })
   })
 
@@ -359,7 +366,7 @@ describe('Meus times: folha do atleta', () => {
     expect(textOf(tree)).toContain('Sair do Leões do Cerrado?')
     await press(tree, 'Sair do time')
     expect(calls()).toContainEqual(['/teams/20/members/1', 'DELETE'])
-    expect(textOf(tree)).toContain('Você saiu do Leões do Cerrado.')
+    expect(toastText()).toContain('Você saiu do Leões do Cerrado.')
     await act(async () => { tree.unmount() })
   })
 })
@@ -379,11 +386,11 @@ describe('Meus times: pedidos para entrar e convites enviados (representante)', 
     expect(textOf(tree)).toContain('Rita Alves')
     await press(tree, 'Aprovar pedido de Paulo Ramos')
     expect(calls()).toContainEqual(['/team-join-requests/5', 'PUT', { decision: 'aprovar' }])
-    expect(textOf(tree)).toContain('Paulo Ramos entrou no elenco.')
+    expect(toastText()).toContain('Paulo Ramos entrou no elenco.')
     expect(textOf(tree)).not.toContain('Pedidos para entrar')
     await press(tree, 'Cancelar convite de Rita Alves')
     expect(calls()).toContainEqual(['/team-invites/3', 'DELETE'])
-    expect(textOf(tree)).toContain('Convite para Rita Alves cancelado.')
+    expect(toastText()).toContain('Convite para Rita Alves cancelado.')
     await act(async () => { tree.unmount() })
   })
 
@@ -395,13 +402,14 @@ describe('Meus times: pedidos para entrar e convites enviados (representante)', 
     })
     const tree = await mount()
     await press(tree, 'Recusar pedido de Paulo Ramos')
-    expect(textOf(tree)).toContain('Pedido de Paulo Ramos recusado.')
+    expect(toastText()).toContain('Pedido de Paulo Ramos recusado.')
     expect(textOf(tree)).not.toContain('Pedidos para entrar')
     await act(async () => { tree.unmount() })
     const failing = await mount()
     serve((path, method) => { if (path === '/team-join-requests/5' && method === 'PUT') throw new ApiError('Este pedido não está mais pendente.', 409); return undefined })
     await press(failing, 'Aprovar pedido de Paulo Ramos')
-    expect(textOf(failing)).toContain('Este pedido não está mais pendente.')
+    expect(toastText()).toContain('Este pedido não está mais pendente.')
+    expect(toasts().at(-1)?.tone).toBe('warning')
     await act(async () => { failing.unmount() })
   })
 

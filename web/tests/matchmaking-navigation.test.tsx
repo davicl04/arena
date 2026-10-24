@@ -6,6 +6,7 @@ import type { User } from '../src/api/client'
 import ArenaPage from '../src/pages/ArenaPage'
 import { apiError, mockApi, reply } from './teams-fixtures'
 import { brasilia, football, matchCard, playBoard, proposal, search, standings, teamSide, leoes } from './matchmaking-fixtures'
+import { summaryOf } from './notifications-fixtures'
 
 /*
  * Ligações da placa do Jogar com o ArenaPage inteiro (etapa 3, frente J1): o ponto menta da navegação lido de
@@ -19,7 +20,7 @@ function api(board: unknown, extra: Record<string, unknown> = {}) {
   return mockApi({
     'GET /me/sports-profiles': [football],
     'GET /cities': [brasilia],
-    'GET /me/notifications/unread-count': { unread_count: 0 },
+    'GET /me/notifications/summary': summaryOf({ unread_count: 0 }),
     'GET /me/standings': standings(),
     'GET /me/play': board,
     ...extra,

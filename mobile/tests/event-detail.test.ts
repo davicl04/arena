@@ -10,6 +10,7 @@ import EventScreen from '../src/screens/EventScreen'
 import { formatDeadline, formatPrice } from '../src/utils/format'
 import { enableAct } from './support/native'
 import { playContext } from './support/play'
+import { toasts } from './support/toast'
 import {
   allText, byId, callsTo, eventDetail, findButton, flush, inDays, inHours, isDisabled, labelled, me, myEntry, navigationMock, page, pressButton, receipt, render, serve, team,
 } from './support/events'
@@ -221,7 +222,7 @@ describe('Inscrição gratuita e escolha do time', () => {
     expect(text(tree)).toContain('confirmada na hora')
     await pressButton(tree, 'Confirmar inscrição')
     expect(callsTo('POST', '/events/5/entries')[0][2]).toEqual({ team_id: 3 })
-    expect(byId(tree, 'toast')[0].props.children).toBe('Inscrição confirmada em Copa Sudoeste.')
+    expect(toasts()[0]?.title).toBe('Inscrição confirmada em Copa Sudoeste.')
     expect(byId(tree, 'entry-confirmada')).toHaveLength(1)
     expect(text(tree)).toContain('Inscrição confirmada')
     expect(byId(tree, 'entry-bar')).toHaveLength(0)
@@ -324,7 +325,8 @@ describe('Inscrição paga: reservar, Pix, comprovante', () => {
     expect(findButton(tree, 'Compartilhar chave Pix')).toBeTruthy()
     await pressButton(tree, 'Reservar vaga')
     expect(callsTo('POST', '/events/5/entries')[0][2]).toEqual({})
-    expect(byId(tree, 'toast')[0].props.children).toBe(`Vaga reservada. Envie o comprovante até ${formatDeadline(state.entry?.reserved_until)}.`)
+    // Reserva sem pagamento ainda: exige o próximo passo (comprovante), então é aviso, com o prazo na descrição.
+    expect(toasts()).toMatchObject([{ tone: 'warning', title: 'Vaga reservada.', description: `Envie o comprovante até ${formatDeadline(state.entry?.reserved_until)}.` }])
     expect(byId(tree, 'entry-reservada')).toHaveLength(1)
     expect(byId(tree, 'deadline-ring')).toHaveLength(1)
     expect(text(tree)).toContain('Vaga reservada')
@@ -408,7 +410,7 @@ describe('Inscrição paga: reservar, Pix, comprovante', () => {
     await pressButton(tree, 'Enviar para análise')
     expect(callsTo('PUT', '/entries/9/receipt')).toHaveLength(1)
     expect(parts).toEqual([['file', { uri: 'file:///cache/pix-12-10.PDF', name: 'pix-12-10.PDF', type: 'application/pdf' }]])
-    expect(byId(tree, 'toast')[0].props.children).toBe('Comprovante enviado. Liga Sul vai analisar o pagamento.')
+    expect(toasts()[0]?.title).toBe('Comprovante enviado. Liga Sul vai analisar o pagamento.')
     expect(byId(tree, 'entry-em_analise')).toHaveLength(1)
     expect(text(tree)).toContain('Comprovante em análise')
     expect(byId(tree, 'entry-bar')).toHaveLength(0)
@@ -516,7 +518,7 @@ describe('Inscrição paga: reservar, Pix, comprovante', () => {
     expect(text(tree)).toContain('A reserva é cancelada e a vaga fica livre.')
     await pressButton(tree, 'Desistir')
     expect(callsTo('DELETE', '/entries/9')).toHaveLength(1)
-    expect(byId(tree, 'toast')[0].props.children).toBe('Inscrição cancelada. A vaga ficou livre.')
+    expect(toasts()[0]?.title).toBe('Inscrição cancelada. A vaga ficou livre.')
     expect(byId(tree, 'entry-reservada')).toHaveLength(0)
     expect(findButton(tree, `Inscrever-se · ${brl(12000)}`)).toBeTruthy()
   })
@@ -561,7 +563,7 @@ describe('Devolução do evento cancelado', () => {
     expect(callsTo('POST', '/entries/9/refund-response')).toHaveLength(0)
     await pressButton(tree, 'Confirmar recebimento')
     expect(callsTo('POST', '/entries/9/refund-response')[0][2]).toEqual({ response: 'confirmar' })
-    expect(byId(tree, 'toast')[0].props.children).toBe('Recebimento da devolução confirmado.')
+    expect(toasts()[0]?.title).toBe('Recebimento da devolução confirmado.')
     expect(byId(tree, 'entry-devolvida')).toHaveLength(1)
     expect(text(tree)).toContain('O recebimento da devolução foi confirmado.')
   })
@@ -586,7 +588,7 @@ describe('Devolução do evento cancelado', () => {
     await act(async () => { field().props.onChangeText('  O valor que voltou é menor que o pago.  ') })
     await pressButton(tree, 'Contestar devolução')
     expect(callsTo('POST', '/entries/9/refund-response')[0][2]).toEqual({ response: 'contestar', reason: 'O valor que voltou é menor que o pago.' })
-    expect(byId(tree, 'toast')[0].props.children).toBe('Contestação enviada à administração.')
+    expect(toasts()[0]?.title).toBe('Contestação enviada à administração.')
     expect(text(tree)).toContain('Contestação em análise pela administração')
     expect(text(tree)).toContain('“O valor que voltou é menor que o pago.”')
   })
@@ -632,7 +634,8 @@ describe('Situação que mudou no servidor (404 ou 409) e sessão que expira na 
   const athlete = { kind: 'atleta' as const, team: null, athlete: { id: 1, name: 'Maria', username: 'maria.s', avatar_url: null } }
   const reserved = () => myEntry({ id: 9, state: 'reservada', price_cents: 12000, subject: athlete, my_role: 'atleta' })
   const expired = () => myEntry({ id: 9, state: 'expirada', price_cents: 12000, can_send_receipt: false, can_cancel: false, subject: athlete, my_role: 'atleta' })
-  const toast = (tree: Tree) => byId(tree, 'toast')[0]?.props.children
+  /** Título do primeiro toast; a situação que mudou no servidor (404/409) sai como aviso, e a árvore já não guarda o toast. */
+  const toast = (_tree: Tree) => toasts()[0]?.title
 
   it('inscrição: 409 fecha a folha, mostra a mensagem do servidor e relê o evento (o botão vira "Vagas esgotadas")', async () => {
     const state = world(eventDetail({ price_cents: 0 }), null, {

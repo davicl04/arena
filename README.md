@@ -29,6 +29,18 @@ Espere o banco aparecer como `healthy`. A API não cria tabelas automaticamente:
 
 API: [localhost:8000/docs](http://localhost:8000/docs). Saúde do processo: `/health/live`; prontidão do banco e esquema: `/health/ready`. O OpenAPI é gerado em `/openapi.json`.
 
+### Forma recente do Ranking (recalcular uma vez após a `0013`)
+
+A migração `0014`, também aplicada por `alembic upgrade head`, corrige as notificações de divergência ainda não resolvidas do organizador: elas continuam pendentes depois das 48 h destinadas à correção pelos atletas. Não altera contas, placares ou notificações já resolvidas e não exige outro comando de recálculo.
+
+A migração `0013` acrescenta a `standings` a forma recente (`recent_form`, os últimos 5 resultados V/E/D) e, na corrida, o dia da melhor marca (`best_mark_on`). Ela só cria as colunas vazias e não chama serviços da aplicação. Em cada ambiente, depois de `alembic upgrade head`, rode **uma vez**, em `backend/`:
+
+```powershell
+.venv/Scripts/python.exe -m app.admin_cli recalculate-rankings
+```
+
+O comando recalcula todas as categorias (times e individual por formato e posição, tênis e as cinco distâncias de corrida) e preenche as linhas antigas. É idempotente: uma segunda execução não altera nada e imprime `0 linhas alteradas`. Até ele rodar, as linhas antigas mostram a forma vazia (sem quadradinhos na tela), nunca uma forma errada; o próximo resultado de uma categoria também a preenche. O contrato está em [0002, seção 20](docs/decisoes/0002-jogar.md#20-ranking-por-elo-janela-forma-recente-e-salão).
+
 ### Imagens e avatar local
 
 O Compose também fornece MinIO local, construído do código na versão fixada no `docker-compose.yml`, com API S3 em `localhost:9000`, console em `localhost:9001` e volume persistente `miniodata`. Inicie o serviço sem recriar nem apagar o PostgreSQL:
@@ -159,6 +171,7 @@ O Expo tem as telas das etapas 1 a 5: Meus times, Convidar e Entrar pelo link, o
 - **Copiar Pix e link:** sem `expo-clipboard`, a chave Pix, o Copia e Cola e o link do time aparecem como texto selecionável, com o botão de compartilhar do sistema (`Share`).
 - **Dependências acrescentadas no Expo**, todas aprovadas pelo usuário: `react-native-svg` (chaveamento e marca), `react-native-qrcode-svg` (QR do time), `expo-camera` (ler o QR) e `expo-document-picker` (comprovantes). `expo-clipboard`, `expo-file-system` e `expo-sharing` foram recusadas.
 - **Marca:** `npm run generate:brand` (em `mobile/`) regenera `src/assets/brand-svgs.ts` a partir de `web/public/images/brand/*.svg`; rode depois de alterar esses SVGs. O arquivo gerado é versionado.
+- **Ícones de esporte do tema escuro:** `python -I web/scripts/gerar-icones-alfa.py` (requer Pillow) gera `web/public/images/sports/{futebol,tenis,corrida}-alfa.png`, com o traço opaco e o fundo transparente, e os copia para `mobile/assets/sports/`. Rode depois de trocar os PNGs provisórios. Os arquivos gerados são versionados ([decisão do tema](docs/decisoes/0004-tema.md)).
 - **Verificação:** em `mobile/`, `npm run lint`, `npm run typecheck`, `npm run test:coverage`, `npm run export:android` e `npx expo install --check` (que hoje só aponta `expo@57.0.27` contra `~57.0.28`, um desvio conhecido). Os números e os pisos estão em [qualidade do código](docs/qualidade-codigo.md).
 
 ## Demonstrar a primeira entrega

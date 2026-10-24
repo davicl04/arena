@@ -5,7 +5,8 @@ import { decideResult } from '../api/brackets'
 import type { ResultDecisionInput } from '../api/brackets'
 import { getMatch, getMessages } from '../api/matches'
 import type { MatchDetail, MatchMessageOut } from '../api/matches'
-import { ErrorText, Notice, TextAction } from '../components/arena/controls'
+import { TextAction } from '../components/arena/controls'
+import { LoadError } from '../components/arena/LoadError'
 import { DarkTopBar, TeamsPlate } from '../components/arena/TeamsPlate'
 import { Icon } from '../components/Icon'
 import type { IconName } from '../components/Icon'
@@ -16,7 +17,7 @@ import { headerNames, orderedSides, sideName, sideOf, whenText } from '../data/m
 import { useResource } from '../hooks/useResource'
 import { useSubmit } from '../hooks/useSubmit'
 import type { ScreenProps } from '../navigation/screens'
-import { colors } from '../theme'
+import { useResolvedTheme, useThemeColors } from '../hooks/useTheme'
 import { formatClock, parseIso } from '../utils/format'
 
 interface TimelineEvent { icon: IconName; title: string; detail: string; bad?: boolean }
@@ -46,6 +47,7 @@ export function timelineOf(match: MatchDetail, now = Date.now()): TimelineEvent[
 
 /** Resumo do que foi decidido (partida já encerrada pelo organizador). */
 function DecidedCard({ match }: { match: MatchDetail }) {
+  const colors = useThemeColors()
   const result = match.result
   const score = result?.final ? scoreText(match.sport, result.final, 'a') : null
   const wo = match.walkover?.absent_side
@@ -58,6 +60,7 @@ function DecidedCard({ match }: { match: MatchDetail }) {
 }
 
 function ChatLine({ message, match }: { message: MatchMessageOut; match: MatchDetail }) {
+  const colors = useThemeColors()
   const side = sideOf(match, message.side)
   const time = parseIso(message.created_at)
   const author = message.author?.name ?? 'Participante'
@@ -79,9 +82,12 @@ function ChatLine({ message, match }: { message: MatchMessageOut; match: MatchDe
  * Placar divergente (D3), do lado do organizador: a linha do tempo da partida (o jogo, os dois envios e a divergência), o
  * trecho do chat com "Abrir chat" e a decisão (um dos placares, outro placar ou W.O.) com a justificativa obrigatória. O
  * servidor valida (na eliminação não há empate); ao registrar, a tela volta e quem a abriu relê os dados. Num `409` (a
- * decisão já não cabe), a partida é relida e o estado atual toma o lugar do formulário, com a mensagem do servidor.
+ * decisão já não cabe), a partida é relida e o estado atual toma o lugar do formulário; o toast de aviso traz a mensagem do
+ * servidor. A recusa de campo (`422`) fica no formulário e as demais falhas de ação saem em toast.
  */
 export default function ResultDecisionScreen({ params, navigation, onExpired }: ScreenProps<'result-decision'>) {
+  const colors = useThemeColors()
+  const dark = useResolvedTheme() === 'dark'
   const matchId = params.matchId
   const loadMatch = useCallback(() => getMatch(matchId), [matchId])
   const loadChat = useCallback(() => getMessages(matchId, { limit: 20 }), [matchId])
@@ -99,16 +105,10 @@ export default function ResultDecisionScreen({ params, navigation, onExpired }: 
     }
   }
   async function decide(input: ResultDecisionInput) {
-    const done = await action.run(async () => {
-      try {
-        return await decideResult<MatchDetail>(matchId, input)
-      } catch (cause) {
-        // 409: a decisão já não cabe (os times acertaram, outra pessoa decidiu, o prazo mudou). O estado atual substitui o
-        // formulário e a mensagem do servidor continua visível.
-        if (cause instanceof ApiError && cause.status === 409) await reread()
-        throw cause
-      }
-    }, 'Não foi possível registrar a decisão.')
+    const done = await action.run(() => decideResult<MatchDetail>(matchId, input), 'Não foi possível registrar a decisão.',
+      // 409: a decisão já não cabe (os times acertaram, outra pessoa decidiu, o prazo mudou). O estado atual substitui o
+      // formulário e a mensagem do servidor já saiu no toast de aviso.
+      async cause => { if (cause instanceof ApiError && cause.status === 409) await reread() })
     if (done) navigation.back()
   }
 
@@ -117,8 +117,8 @@ export default function ResultDecisionScreen({ params, navigation, onExpired }: 
       <TeamsPlate bottom={16}><DarkTopBar eyebrow="Organizador" title="Decidir resultado" onBack={navigation.back} /></TeamsPlate>
       <View style={{ padding: 20 }}>
         {match.loading ? <Text accessibilityLiveRegion="polite" style={{ color: colors['ink-muted'], fontSize: 12 }}>Carregando a partida…</Text> : null}
-        {match.error ? <View><Notice>{match.error}</Notice><TextAction title="Tentar novamente" onPress={match.reload} /></View> : null}
       </View>
+      {match.error ? <LoadError size="screen" title="Não foi possível carregar a partida" text={match.error} cause={match.errorCause} onRetry={match.reload} /> : null}
     </View>
   }
 
@@ -137,7 +137,7 @@ export default function ResultDecisionScreen({ params, navigation, onExpired }: 
 
       <View style={{ padding: 16, gap: 14 }}>
         <View testID="decision-vs" accessible accessibilityRole="header" accessibilityLabel={sides.map(side => sideName(side)).join(' contra ')}
-          style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, borderRadius: 16, backgroundColor: '#ffffff', paddingHorizontal: 12, paddingVertical: 10 }}>
+          style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, borderRadius: 16, backgroundColor: colors.surface, paddingHorizontal: 12, paddingVertical: 10 }}>
           {sides[0] ? <TeamMark side={sides[0]} /> : null}
           <Text numberOfLines={1} style={{ flexShrink: 1, color: colors.ink, fontSize: 13, fontWeight: '700' }}>{names[0]}</Text>
           <Text style={{ color: colors.brand, fontSize: 14, fontWeight: '800' }}>×</Text>
@@ -145,10 +145,10 @@ export default function ResultDecisionScreen({ params, navigation, onExpired }: 
           {sides[1] ? <TeamMark side={sides[1]} /> : null}
         </View>
 
-        <View accessibilityLabel="Linha do tempo da partida" style={{ borderRadius: 16, backgroundColor: '#ffffff', padding: 14 }}>
+        <View accessibilityLabel="Linha do tempo da partida" style={{ borderRadius: 16, backgroundColor: colors.surface, padding: 14 }}>
           {timeline.map((item, index) => <View key={`${item.title}-${index}`} accessible accessibilityLabel={`${item.title}. ${item.detail}`}
             style={{ flexDirection: 'row', gap: 12, paddingBottom: index < timeline.length - 1 ? 14 : 0 }}>
-            <View style={{ width: 27, height: 27, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: item.bad ? '#fff0f2' : 'rgba(0,90,54,0.07)' }}>
+            <View style={{ width: 27, height: 27, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: item.bad ? (dark ? '#ff8a8022' : '#fff0f2') : (dark ? 'rgba(143,224,180,0.12)' : 'rgba(0,90,54,0.07)') }}>
               <Icon name={item.icon} size={14} color={item.bad ? colors.danger : colors.brand} />
             </View>
             <View style={{ flex: 1, minWidth: 0 }}>
@@ -167,10 +167,10 @@ export default function ResultDecisionScreen({ params, navigation, onExpired }: 
             <TextAction title="Abrir chat" onPress={() => navigation.go('match', { matchId })} />
           </View>
           {chat.loading ? <Text accessibilityLiveRegion="polite" style={{ color: colors['ink-muted'], fontSize: 11 }}>Carregando o chat…</Text> : null}
-          {chat.error ? <Text accessibilityLiveRegion="polite" style={{ color: colors['ink-muted'], fontSize: 11 }}>{chat.error}</Text> : null}
+          {chat.error ? <LoadError size="section" title="Não foi possível carregar o chat" text={chat.error} cause={chat.errorCause} onRetry={chat.reload} /> : null}
           {!chat.loading && !chat.error && recent.length === 0
-            ? <Text style={{ borderRadius: 16, backgroundColor: '#ffffff', overflow: 'hidden', padding: 12, color: colors['ink-muted'], fontSize: 11.5 }}>Ainda não há mensagens no chat desta partida.</Text> : null}
-          {recent.length > 0 ? <View testID="chat-excerpt" style={{ gap: 10, borderRadius: 16, backgroundColor: '#ffffff', padding: 12 }}>
+            ? <Text style={{ borderRadius: 16, backgroundColor: colors.surface, overflow: 'hidden', padding: 12, color: colors['ink-muted'], fontSize: 11.5 }}>Ainda não há mensagens no chat desta partida.</Text> : null}
+          {recent.length > 0 ? <View testID="chat-excerpt" style={{ gap: 10, borderRadius: 16, backgroundColor: colors.surface, padding: 12 }}>
             {recent.map(item => <ChatLine key={item.id} message={item} match={detail} />)}
           </View> : null}
         </View> : null}
@@ -178,10 +178,9 @@ export default function ResultDecisionScreen({ params, navigation, onExpired }: 
         {decided ? <DecidedCard match={detail} /> : null}
 
         {canDecide ? <DecisionForm key={detail.id} match={detail} busy={action.busy} error={action.error} onSubmit={input => void decide(input)} /> : null}
-        {!canDecide && action.error ? <ErrorText>{action.error}</ErrorText> : null}
 
         {!canDecide && !decided
-          ? <Text accessibilityRole="text" style={{ borderRadius: 16, backgroundColor: '#ffffff', overflow: 'hidden', padding: 14, color: colors['ink-muted'], fontSize: 12, lineHeight: 18 }}>
+          ? <Text accessibilityRole="text" style={{ borderRadius: 16, backgroundColor: colors.surface, overflow: 'hidden', padding: 14, color: colors['ink-muted'], fontSize: 12, lineHeight: 18 }}>
             {detail.state === 'cancelada' ? 'Esta partida foi cancelada.' : detail.state === 'agendada' ? 'A partida ainda não começou: a decisão fica disponível depois do horário.' : 'Não há resultado para decidir nesta partida agora.'}
           </Text> : null}
       </View>

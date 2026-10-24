@@ -5,7 +5,7 @@ import { footballFormat, positionShort } from '../../data/arena'
 import { currentSlotCounts, guestSlots, maxSlots, shortName, sideOf, slotPositions, slotTotal } from '../../data/match'
 import type { SlotCounts } from '../../data/match'
 import { useNow } from '../../hooks/useNow'
-import { colors } from '../../theme'
+import { useThemeColors } from '../../hooks/useTheme'
 import { ActionButton, BusyStatus, ErrorText } from '../arena/controls'
 import { Avatar } from '../media'
 import Sheet from '../Sheet'
@@ -21,12 +21,14 @@ import { Stepper } from '../results/Stepper'
 export function SlotsSheet({ detail, busy, error, onSave, onRemove, onClose, token }: {
   detail: MatchDetail
   busy: boolean
+  /** Recusa do servidor ao formulário (`422`/`409` com conflito): as demais falhas de ação saem em toast. */
   error: string
   onSave: (slots: OpenSlots) => void
   onRemove: (slot: MatchSlotOut) => void
   onClose: () => void
   token?: string | null
 }) {
+  const colors = useThemeColors()
   const initial = currentSlotCounts(detail)
   const guests = guestSlots(detail.slots, detail.my_side)
   const waiting = detail.slots.filter(slot => slot.side === detail.my_side && slot.state === 'oferecida').length

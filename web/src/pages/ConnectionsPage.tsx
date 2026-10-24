@@ -5,9 +5,11 @@ import type { SocialUser } from '../api/client'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { feedbackVariants } from '@/components/ui/feedback'
+import { LoadError } from '@/components/ui/load-error'
 import { PersonList, PersonRow } from '@/components/ui/person-row'
 import { Tabs } from '@/components/ui/tabs'
 import { usePagedList } from '../hooks/usePagedList'
+import { reportActionError } from '../hooks/useSubmit'
 import type { ConnectionsTab } from '../data/arena'
 
 type Entry = { user: SocialUser; state: string }
@@ -26,17 +28,15 @@ export default function ConnectionsPage({ ownUserId, userId, tab, mutual, onTab,
   const path = mutual ? `/users/${userId}/mutual-followers` : `/users/${userId}/${tab}`
   const list = usePagedList<Entry | SocialUser>(path, onExpired)
   const [pending, setPending] = useState<number | null>(null)
-  const [actionError, setActionError] = useState('')
   const people = list.items.map(item => 'user' in item ? item.user : item)
   async function remove(person: SocialUser) {
-    setPending(person.id); setActionError('')
+    setPending(person.id)
     try {
       if (tab === 'followers') await request<void>(`/me/followers/${person.id}`, 'DELETE')
       else await request<void>(`/users/${person.id}/follow`, 'DELETE')
       list.setItems(old => old.filter(item => ('user' in item ? item.user.id : item.id) !== person.id))
     } catch (cause) {
-      if (cause instanceof ApiError && cause.status === 401) onExpired()
-      setActionError(cause instanceof Error ? cause.message : 'Não foi possível atualizar a conexão.')
+      reportActionError(cause, 'Não foi possível atualizar a conexão.', onExpired)
     } finally { setPending(null) }
   }
   const closed = list.error instanceof ApiError && list.error.status === 404
@@ -50,8 +50,7 @@ export default function ConnectionsPage({ ownUserId, userId, tab, mutual, onTab,
     <div id="connections-list" role={mutual ? undefined : 'tabpanel'} aria-labelledby={mutual ? undefined : `conn-tab-${tab}`}>
       {list.loading && <p role="status">Carregando…</p>}
       {closed && <EmptyState Icon={Lock} title="Lista fechada" text={mutual ? 'Não foi possível abrir esta lista.' : 'Esta conta é privada. Siga para ver seguidores e contas seguidas, quando a solicitação for aprovada.'} />}
-      {list.error && !closed && <div className={feedbackVariants()} role="alert">{list.error.message} <Button variant="text" onClick={list.reload}>Tentar novamente</Button></div>}
-      {actionError && <p className={feedbackVariants()} role="alert">{actionError}</p>}
+      {list.error && !closed && <LoadError size="section" title={mutual ? 'Não foi possível carregar a lista' : 'Não foi possível carregar as conexões'} text={list.error.message} cause={list.error} onRetry={list.reload} />}
       {!list.loading && !list.error && !people.length && <EmptyState Icon={Users} title="Nenhuma pessoa por aqui" text={emptyText} />}
       <PersonList>
         {people.map(person => <PersonRow key={person.id} person={person} onOpen={onOpenUser}

@@ -1,6 +1,7 @@
 import { Pressable, Text, TextInput, View } from 'react-native'
 import { cx } from '../styles'
 import { colors } from '../theme'
+import { NotificationBell } from './notifications/NotificationBell'
 
 /** Altura da linha do título (classe h-14): é o quanto a barra recolhe ao rolar o feed. */
 export const TITLE_ROW_HEIGHT = 56
@@ -12,12 +13,15 @@ export type CommunityTab = typeof communityTabs[number]
  * Barra escura da Comunidade: título com o botão de nova publicação, abas sublinhadas em menta
  * e, na aba Atletas, o campo de busca. O recolhimento da linha do título é feito por quem a posiciona.
  */
-export default function CommunityBar({ tab, onTab, onCompose, query, onQuery }: {
+export default function CommunityBar({ tab, onTab, onCompose, query, onQuery, notificationCount = 0, onOpenNotifications }: {
   tab: CommunityTab; onTab: (tab: CommunityTab) => void; onCompose: () => void; query: string; onQuery: (value: string) => void
+  /** Sino das Notificações (círculo de vidro antes do "+"); sem `onOpenNotifications`, a barra não o mostra. */
+  notificationCount?: number; onOpenNotifications?: () => void
 }) {
   return <View className="bg-forest">
     <View className="h-14 flex-row items-center gap-2 px-4">
       <Text accessibilityRole="header" numberOfLines={1} className="grow basis-0 text-[24px] font-extrabold tracking-[-0.5px] text-white">Comunidade</Text>
+      {onOpenNotifications ? <NotificationBell tone="dark" count={notificationCount} onOpen={onOpenNotifications} /> : null}
       <Pressable accessibilityRole="button" accessibilityLabel="Nova publicação" onPress={onCompose} className="min-h-11 min-w-11 items-center justify-center">
         <View className="h-10 w-10 items-center justify-center rounded-full bg-glass-accent">
           <Text className="text-[26px] leading-[28px] font-bold text-forest">+</Text>

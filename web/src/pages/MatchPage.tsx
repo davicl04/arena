@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { ArrowLeft, Hourglass, ShieldQuestion } from "lucide-react";
 import { ApiError } from "../api/client";
 import {
@@ -28,9 +28,10 @@ import { useMatchDeadlines } from "../hooks/useMatchDeadlines";
 import { useSubmit } from "../hooks/useSubmit";
 import { Button, IconButton } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
-import { feedbackVariants } from "@/components/ui/feedback";
 import { Glass } from "@/components/ui/glass";
 import { glassMessageVariants } from "@/components/ui/glass-variants";
+import { LoadError } from "@/components/ui/load-error";
+import { toast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 import { formatDeadline } from "@/utils/format";
 
@@ -82,11 +83,8 @@ export default function MatchPage({ matchId, viewerId, onBack, onSchedule, onDec
   const { setError } = action;
   const [sheet, setSheet] = useState<SheetKind | null>(null);
   const [reporting, setReporting] = useState<MatchMessageOut | null>(null);
-  const [toast, setToast] = useState("");
-  const toastTimer = useRef<number | undefined>(undefined);
   const setDetail = match.setData;
   const root = useRef<HTMLDivElement>(null);
-  useEffect(() => () => window.clearTimeout(toastTimer.current), []);
 
   /** Relê o detalhe sem esconder a tela (a próxima leitura corrige uma falha). */
   const refresh = useCallback(async () => {
@@ -108,11 +106,6 @@ export default function MatchPage({ matchId, viewerId, onBack, onSchedule, onDec
     target?.scrollIntoView?.({ block: "nearest" });
   }
 
-  function notify(message: string) {
-    window.clearTimeout(toastTimer.current);
-    setToast(message);
-    toastTimer.current = window.setTimeout(() => setToast(""), 6000);
-  }
   function open(kind: SheetKind) {
     setError("");
     setSheet(kind);
@@ -127,7 +120,7 @@ export default function MatchPage({ matchId, viewerId, onBack, onSchedule, onDec
     if (!next) return false;
     setDetail(next);
     setSheet(null);
-    notify(typeof success === "function" ? success(next) : success);
+    toast.success(typeof success === "function" ? success(next) : success);
     return true;
   }
   /** Ação sem corpo na resposta (`204`): lê o detalhe de novo. */
@@ -139,7 +132,7 @@ export default function MatchPage({ matchId, viewerId, onBack, onSchedule, onDec
     if (!done) return false;
     setDetail(done);
     setSheet(null);
-    notify(success);
+    toast.success(success);
     return true;
   }
 
@@ -169,12 +162,7 @@ export default function MatchPage({ matchId, viewerId, onBack, onSchedule, onDec
           />
         ) : (
           <div className="px-5">
-            <div className={feedbackVariants()} role="alert">
-              {match.error}{" "}
-              <Button variant="text" className="inline min-h-0 p-0" onClick={match.reload}>
-                Tentar novamente
-              </Button>
-            </div>
+            <LoadError size="screen" title="Não foi possível carregar a partida" text={match.error} cause={match.errorCause} onRetry={match.reload} />
           </div>
         )}
       </div>
@@ -193,7 +181,7 @@ export default function MatchPage({ matchId, viewerId, onBack, onSchedule, onDec
       <MatchHeader detail={current} onBack={onBack} />
       {!arranging ? (
         <div className="grid flex-1 content-start gap-3 overflow-y-auto px-5 pt-4">
-          <div role="note" className="flex gap-2.5 rounded-card bg-white p-3.5 shadow-card">
+          <div role="note" className="flex gap-2.5 rounded-card surface inset-ring inset-ring-surface-edge p-3.5 shadow-card">
             <Hourglass size={20} className="mt-px flex-none text-brand" aria-hidden="true" />
             <p className="m-0 min-w-0 flex-1 text-[12px] leading-normal text-ink">
               <b className="block text-[13px]">
@@ -248,18 +236,6 @@ export default function MatchPage({ matchId, viewerId, onBack, onSchedule, onDec
           <MatchChat detail={current} onExpired={onExpired} onReport={setReporting} onPropose={() => open("terms")} onEvent={() => void refresh()} />
         </>
       )}
-
-      <div
-        role="status"
-        aria-live="polite"
-        className="pointer-events-none absolute inset-x-5 bottom-[150px] z-[19] flex justify-center app-narrow:bottom-[calc(150px+env(safe-area-inset-bottom))]"
-      >
-        {toast && (
-          <p className="m-0 max-w-full rounded-card bg-forest px-3.5 py-2.5 text-[11.5px] leading-normal font-semibold text-white shadow-sheet motion-safe:animate-glass-in">
-            {toast}
-          </p>
-        )}
-      </div>
 
       {sheet === "terms" && (
         <TermsSheet
@@ -379,7 +355,7 @@ export default function MatchPage({ matchId, viewerId, onBack, onSchedule, onDec
             onExpired={onExpired}
             onSent={() => {
               setReporting(null);
-              notify("Denúncia enviada para análise.");
+              toast.success("Denúncia enviada para análise.");
             }}
           />
         </Glass>

@@ -189,7 +189,7 @@ function CalendarDayButton({
       className={cn(
         "relative isolate z-10 flex size-full min-w-(--cell-size) items-center justify-center rounded-[9px] border-0 bg-transparent p-0 text-[12px] leading-none font-semibold text-ink tabular-nums hover:bg-subtle",
         "data-today:shadow-[inset_0_0_0_1px_var(--color-line-strong)] data-outside:text-ink-muted/60",
-        "data-[selected-single=true]:bg-brand data-[selected-single=true]:text-white data-[range-start=true]:bg-brand data-[range-start=true]:text-white data-[range-end=true]:bg-brand data-[range-end=true]:text-white data-[range-middle=true]:rounded-none data-[range-middle=true]:bg-subtle",
+        "data-[selected-single=true]:bg-brand data-[selected-single=true]:text-on-brand data-[range-start=true]:bg-brand data-[range-start=true]:text-on-brand data-[range-end=true]:bg-brand data-[range-end=true]:text-on-brand data-[range-middle=true]:rounded-none data-[range-middle=true]:bg-subtle",
         "disabled:cursor-default disabled:bg-transparent disabled:text-line-strong disabled:opacity-100",
         defaultClassNames.day,
         className

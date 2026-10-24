@@ -1,5 +1,6 @@
 import { positions } from '../api/client'
 import type { Position, Sport } from '../api/client'
+import { colors } from '../theme'
 
 /*
  * Mapeamentos do produto (porta de `web/src/data/arena.ts`): elos, formatos, papéis, estados e motivos. As chaves são as
@@ -19,6 +20,14 @@ export type TierKey = (typeof rankingTiers)[number]['image']
 export interface TierInfo { key: TierKey; name: string }
 /** Elos por chave, derivados de `rankingTiers` (mesma ordem de progressão). O brasão está em `assets/brand-svgs`. */
 export const tiers = Object.fromEntries(rankingTiers.map(tier => [tier.image, { key: tier.image, name: tier.name }])) as Record<TierKey, TierInfo>
+
+/** Os elos do mais baixo ao mais alto (a ordem da progressão e da troca de elo do Ranking). */
+export const tierOrder: readonly TierKey[] = rankingTiers.map(tier => tier.image)
+/** Tom de cada elo na placa contínua do Ranking (o topo da placa tinge deste tom para `forest`). */
+export const tierTint: Record<TierKey, string> = {
+  bronze: colors['tier-bronze-tint'], prata: colors['tier-prata-tint'], ouro: colors['tier-ouro-tint'],
+  diamante: colors['tier-diamante-tint'], lendario: colors['tier-lendario-tint'],
+}
 
 /** Partidas confirmadas para sair da classificação no futebol e no tênis (a corrida classifica na primeira marca). */
 export const placementRequired = 3

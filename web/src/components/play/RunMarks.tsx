@@ -3,6 +3,7 @@ import type { RunBest, RunFilter } from '@/api/runs'
 import { ArenaMark } from '@/components/Brand'
 import { TierEmblem } from '@/components/arena/TierEmblem'
 import { Button } from '@/components/ui/button'
+import { LoadError } from '@/components/ui/load-error'
 import { SectionTitle } from '@/components/ui/section-title'
 import { runDistances, shownTier, tiers } from '@/data/arena'
 import type { RunDistance } from '@/data/arena'
@@ -28,7 +29,7 @@ function Card({ card, selected, onAdd, onOpen }: {
   const tier = shownTier(card.tier, card.marks, 1)
   const best = card.best
   return <article data-slot="run-mark" data-distance={card.distance_km} aria-current={selected ? 'true' : undefined}
-    className={cn('relative min-w-0 rounded-[16px] bg-white shadow-[0_3px_12px_#0000000d]', selected && 'shadow-[inset_0_0_0_2px_var(--color-brand)]')}>
+    className={cn('relative min-w-0 rounded-[16px] surface inset-ring inset-ring-surface-edge shadow-card', selected && 'shadow-[inset_0_0_0_2px_var(--color-brand)]')}>
     <button type="button" aria-haspopup="dialog" aria-label={`Histórico dos ${label}`} onClick={() => onOpen(`${card.distance_km}`)}
       className="grid w-full min-w-0 gap-2 rounded-[16px] border-0 bg-transparent p-3 text-left text-inherit hover:bg-subtle/60">
       <span className="flex min-w-0 items-center gap-2 pr-[34px]">
@@ -54,16 +55,18 @@ function Card({ card, selected, onAdd, onOpen }: {
         : <small className="text-[9.5px] leading-[1.4] text-ink-muted">Registre um treino ou prova para entrar no ranking dos {label}.</small>}
     </button>
     <button type="button" aria-label={`Registrar ${label}`} onClick={() => onAdd(card.distance_km)}
-      className="absolute top-2.5 right-2.5 grid size-[30px] place-items-center rounded-full border-[1.5px] border-solid border-line-strong bg-white text-brand hover:bg-subtle">
+      className="absolute top-2.5 right-2.5 grid size-[30px] place-items-center rounded-full border-[1.5px] border-solid border-line-strong bg-surface text-brand hover:bg-subtle">
       <Plus size={17} aria-hidden="true" />
     </button>
   </article>
 }
 
-export function RunMarks({ items, loading, error, selected, onAdd, onOpen, onRetry, onOpenRanking }: {
+export function RunMarks({ items, loading, error, errorCause, selected, onAdd, onOpen, onRetry, onOpenRanking }: {
   items: RunBest[]
   loading: boolean
   error: string
+  /** O erro lançado pelo carregamento (para o `LoadError` reconhecer a falta de conexão). */
+  errorCause?: unknown
   /** Distância escolhida nos chips da placa: o cartão ganha o contorno verde. */
   selected: RunDistance
   onAdd: (distance: RunDistance) => void
@@ -75,15 +78,13 @@ export function RunMarks({ items, loading, error, selected, onAdd, onOpen, onRet
   return <section aria-label="Suas marcas" data-slot="run-marks" className="px-5">
     <SectionTitle title="Suas marcas" action={<Button variant="link" onClick={() => onOpenRanking(selected)}>Ver ranking</Button>} />
     {loading && !items.length && <p role="status" className="m-0 text-[12px] text-ink-muted">Carregando suas marcas…</p>}
-    {error && !items.length && <p role="alert" className="m-0 text-[12px] leading-[1.6] text-error">
-      {error} <Button variant="text" className="inline min-h-0 py-0" onClick={onRetry}>Tentar novamente</Button>
-    </p>}
+    {error && !items.length && <LoadError size="section" text={error} cause={errorCause} onRetry={onRetry} />}
     {/* Duas colunas a partir de 360 px; em telas mais estreitas, um cartão por linha, para o nome e o elo não se espremerem. */}
     {items.length > 0 && <div className="grid grid-cols-1 gap-2.5 min-[360px]:grid-cols-2">
       {items.map(card => <Card key={card.distance_km} card={card} selected={card.distance_km === selected} onAdd={onAdd} onOpen={onOpen} />)}
       <button type="button" aria-haspopup="dialog" onClick={() => onOpen('outra')}
-        className="min-[360px]:col-span-2 flex min-h-[54px] min-w-0 items-center gap-3 rounded-[16px] border border-dashed border-line-strong bg-transparent px-3.5 py-2.5 text-left text-inherit hover:bg-white/60">
-        <span className="grid size-[34px] flex-none place-items-center rounded-[10px] bg-[#005a3612] text-brand"><History size={17} aria-hidden="true" /></span>
+        className="min-[360px]:col-span-2 flex min-h-[54px] min-w-0 items-center gap-3 rounded-[16px] border border-dashed border-line-strong bg-transparent px-3.5 py-2.5 text-left text-inherit hover:bg-white/60 noite:hover:bg-[#ffffff0d]">
+        <span className="grid size-[34px] flex-none place-items-center rounded-[10px] bg-icon-tile text-icon-tile-ink"><History size={17} aria-hidden="true" /></span>
         <span className="min-w-0 flex-1">
           <b className="block text-[12px]">Outras distâncias</b>
           <small className="block text-[10px] leading-[1.45] text-ink-muted">Fora de 3, 5, 10, 21 e 42 km, a marca fica só no histórico.</small>

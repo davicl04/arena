@@ -3,12 +3,13 @@ import { KeyboardAvoidingView, Platform, ScrollView, Text, View } from 'react-na
 import { getOrganizerStatus, refusalText, sentence } from '../api/organizer'
 import type { OrganizerRequest } from '../api/organizer'
 import { ArenaMark } from '../components/arena/ArenaMark'
-import { ActionButton, Notice, Situation, TextAction } from '../components/arena/controls'
+import { ActionButton, Notice, Situation } from '../components/arena/controls'
+import { LoadError } from '../components/arena/LoadError'
 import { OrganizerRequestForm } from '../components/organizer/OrganizerRequestForm'
 import { loadProfiles, useCities } from '../hooks/useCities'
 import { useResource } from '../hooks/useResource'
 import type { ScreenProps } from '../navigation/screens'
-import { colors } from '../theme'
+import { useThemeColors } from '../hooks/useTheme'
 import { Icon } from '../components/Icon'
 
 
@@ -24,6 +25,7 @@ const rules: { icon: Parameters<typeof Icon>[0]['name']; title: string; text: st
  * mostra a situação no lugar do formulário.
  */
 export default function OrganizerRequestScreen({ navigation, onExpired }: ScreenProps<'organizer-request'>) {
+  const colors = useThemeColors()
   const status = useResource(getOrganizerStatus, onExpired, { fallback: 'Não foi possível conferir o seu pedido de organizador.' })
   const cities = useCities(onExpired)
   const profiles = useResource(loadProfiles, onExpired)
@@ -44,8 +46,8 @@ export default function OrganizerRequestScreen({ navigation, onExpired }: Screen
       </View>
 
       {status.loading ? <Text accessibilityLiveRegion="polite" style={{ marginTop: 16, color: colors.ink, fontSize: 12 }}>Carregando…</Text> : null}
-      {status.error ? <View><Notice>{status.error}</Notice><TextAction title="Tentar novamente" onPress={status.reload} /></View> : null}
-      {cities.error && !status.error ? <View><Notice>{cities.error}</Notice><TextAction title="Tentar novamente" onPress={cities.reload} /></View> : null}
+      {status.error ? <LoadError size="screen" title="Não foi possível conferir o seu pedido" text={status.error} cause={status.errorCause} onRetry={status.reload} /> : null}
+      {cities.error && !status.error ? <LoadError size="section" title="Não foi possível carregar as cidades" text={cities.error} cause={cities.errorCause} onRetry={cities.reload} /> : null}
 
       {sent ? <View style={{ marginTop: 16 }} accessibilityLiveRegion="polite">
         <Situation tone="wait" icon="hourglass" title="Pedido enviado">{`O pedido de ${sent.display_name} está em análise. A resposta chega nas notificações.`}</Situation>
@@ -62,7 +64,7 @@ export default function OrganizerRequestScreen({ navigation, onExpired }: Screen
             : state && ready && !status.error ? <>
               <Text accessibilityRole="header" style={{ marginTop: 22, marginBottom: 8, color: colors.ink, fontSize: 16, fontWeight: '700' }}>Como funciona</Text>
               <View accessibilityLabel="Regras do organizador" style={{ gap: 8 }}>
-                {rules.map(rule => <View key={rule.title} accessible accessibilityLabel={`${rule.title}. ${rule.text}`} style={{ flexDirection: 'row', gap: 12, borderRadius: 14, backgroundColor: '#ffffff', padding: 12 }}>
+                {rules.map(rule => <View key={rule.title} accessible accessibilityLabel={`${rule.title}. ${rule.text}`} style={{ flexDirection: 'row', gap: 12, borderRadius: 14, backgroundColor: colors.surface, padding: 12 }}>
                   <Icon name={rule.icon} size={20} color={colors.brand} />
                   <View style={{ flex: 1, minWidth: 0 }}>
                     <Text style={{ color: colors.ink, fontSize: 12.5, fontWeight: '700' }}>{rule.title}</Text>

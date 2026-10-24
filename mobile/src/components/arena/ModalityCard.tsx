@@ -1,7 +1,7 @@
 import { Text, View } from 'react-native'
 import type { Sport } from '../../api/client'
 import { sports } from '../../api/client'
-import { colors } from '../../theme'
+import { useThemeColors } from '../../hooks/useTheme'
 import { plural } from '../../utils/format'
 import { formatDuration } from '../play/tierLines'
 import { SportIcon } from './SportIcon'
@@ -28,6 +28,7 @@ export function ModalityCard({ sport, standing, loading, onOpenRanking }: {
   loading: boolean
   onOpenRanking: () => void
 }) {
+  const c = useThemeColors()
   const label = sports.find(item => item.value === sport)?.label ?? sport
   const metric = standing?.metric
   const value = metric ? (metric.unit === 'tempo' ? formatDuration(metric.value) : metric.value.toLocaleString('pt-BR', { maximumFractionDigits: 2 })) : '—'
@@ -35,23 +36,23 @@ export function ModalityCard({ sport, standing, loading, onOpenRanking }: {
   const badge = standing?.tier
     ? <TierEmblem tier={standing.tier} size="xs" showName />
     : standing
-      ? <Text style={{ color: colors.ink, fontSize: 11, fontWeight: '700' }}>{sport === 'corrida' ? 'Sem marca' : `${standing.played} de ${standing.required} partidas`}</Text>
+      ? <Text style={{ color: c.ink, fontSize: 11, fontWeight: '700' }}>{sport === 'corrida' ? 'Sem marca' : `${standing.played} de ${standing.required} partidas`}</Text>
       : loading
-        ? <Text accessibilityLabel="Carregando classificação" style={{ color: colors['ink-muted'], fontSize: 11, fontWeight: '700' }}>…</Text>
-        : <Text style={{ color: colors['ink-muted'], fontSize: 11, fontWeight: '700' }}>Classificação indisponível</Text>
+        ? <Text accessibilityLabel="Carregando classificação" style={{ color: c['ink-muted'], fontSize: 11, fontWeight: '700' }}>…</Text>
+        : <Text style={{ color: c['ink-muted'], fontSize: 11, fontWeight: '700' }}>Classificação indisponível</Text>
   const context = standing ? (standing.tier ? standing.context : nextStep(sport, standing)) : ''
-  return <View testID={`modality-${sport}`} accessible={false} style={{ width: 286, borderRadius: 20, backgroundColor: '#ffffff', padding: 17 }}>
+  return <View testID={`modality-${sport}`} accessible={false} style={{ width: 286, borderRadius: 20, backgroundColor: c.surface, padding: 17 }}>
     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-      <View style={{ width: 48, height: 48, alignItems: 'center', justifyContent: 'center', borderRadius: 14, backgroundColor: colors.tile }}><SportIcon sport={sport} size={30} /></View>
-      <View testID={`standing-${sport}`} style={{ flexShrink: 1, borderRadius: 999, backgroundColor: colors.subtle, paddingHorizontal: 10, paddingVertical: 6 }}>{badge}</View>
+      <View style={{ width: 48, height: 48, alignItems: 'center', justifyContent: 'center', borderRadius: 14, backgroundColor: c.tile }}><SportIcon sport={sport} size={30} /></View>
+      <View testID={`standing-${sport}`} style={{ flexShrink: 1, borderRadius: 999, backgroundColor: c.subtle, paddingHorizontal: 10, paddingVertical: 6 }}>{badge}</View>
     </View>
-    <Text accessibilityRole="header" style={{ marginTop: 11, color: colors['ink-muted'], fontSize: 12 }}>{label}</Text>
+    <Text accessibilityRole="header" style={{ marginTop: 11, color: c['ink-muted'], fontSize: 12 }}>{label}</Text>
     <View style={{ marginTop: 3, flexDirection: 'row', alignItems: 'baseline', gap: 7 }}>
-      <Text style={{ color: colors.ink, fontSize: 28, fontWeight: '700' }}>{value}</Text>
-      <Text style={{ color: colors['ink-muted'], fontSize: 12 }}>{unit}</Text>
+      <Text style={{ color: c.ink, fontSize: 28, fontWeight: '700' }}>{value}</Text>
+      <Text style={{ color: c['ink-muted'], fontSize: 12 }}>{unit}</Text>
     </View>
     <View style={{ marginTop: 6, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-      <Text style={{ flex: 1, minWidth: 0, color: colors['ink-muted'], fontSize: 10.5, lineHeight: 15 }}>{context}</Text>
+      <Text style={{ flex: 1, minWidth: 0, color: c['ink-muted'], fontSize: 10.5, lineHeight: 15 }}>{context}</Text>
       <TextAction title="Ver ranking" accessibilityLabel={`Ver ranking de ${label}`} onPress={onOpenRanking} />
     </View>
   </View>

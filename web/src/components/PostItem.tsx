@@ -1,13 +1,14 @@
 import { useState } from 'react'
 import { Ellipsis, Heart, MessageCircle } from 'lucide-react'
-import { ApiError, apiUrl } from '../api/client'
+import { apiUrl } from '../api/client'
 import type { Post } from '../api/client'
 import { setLike } from '../api/social'
+import { reportActionError } from '../hooks/useSubmit'
 import PostActions from './PostActions'
 import PostComments from './PostComments'
 import { SocialPhoto } from './SocialPhoto'
 import { IconButton } from '@/components/ui/button'
-import { feedbackVariants } from '@/components/ui/feedback'
+import { toast } from '@/components/ui/toast'
 import { cn } from '@/lib/utils'
 
 /** Data curta da legenda ("10 de out."); posts de outros anos mostram o ano. */
@@ -18,7 +19,7 @@ function day(value: string) {
 }
 
 /* Pílulas de curtir/comentar sobre a foto; curtida marcada (aria-pressed) fica branca com coração vermelho. */
-const pill = 'inline-flex min-h-9 items-center gap-1.5 rounded-[18px] border-0 bg-[#0b2218a6] px-[13px] py-0 text-[11px] font-bold text-white tabular-nums backdrop-blur-[10px] aria-pressed:bg-white aria-pressed:text-danger'
+const pill = 'inline-flex min-h-9 items-center gap-1.5 rounded-[18px] border-0 bg-[#0b2218a6] px-[13px] py-0 text-[11px] font-bold text-white tabular-nums backdrop-blur-[10px] aria-pressed:bg-white aria-pressed:text-danger noite:aria-pressed:text-[#b93749]'
 /* Etiqueta do autor (A5): vidro escuro com foto sem contorno e @usuário; o tom escuro garante leitura em foto clara. */
 const authorChip = 'flex min-w-0 items-center gap-2 rounded-full border border-solid border-[#ffffff2e] bg-[#0c161199] py-[3px] pr-[11px] pl-[3px] text-left text-white backdrop-blur-[14px] backdrop-saturate-[1.7]'
 
@@ -40,20 +41,18 @@ export default function PostItem({ post, viewerId, onUpdate, onRemoved, onOpenPr
 }) {
   const [glass, setGlass] = useState<'menu' | 'comments' | null>(null)
   const [liking, setLiking] = useState(false)
-  const [feedback, setFeedback] = useState<{ kind: 'error' | 'success'; text: string } | null>(null)
   const { name, username } = post.author
-  const toggle = (next: 'menu' | 'comments') => { setFeedback(null); setGlass(old => old === next ? null : next) }
+  const toggle = (next: 'menu' | 'comments') => setGlass(old => old === next ? null : next)
 
   async function like() {
     if (liking) return
-    setLiking(true); setFeedback(null)
+    setLiking(true)
     const liked = !post.liked_by_me
     try {
       await setLike(post.id, liked)
       onUpdate(post.id, old => ({ ...old, liked_by_me: liked, like_count: Math.max(0, old.like_count + (liked ? 1 : -1)) }))
     } catch (cause) {
-      if (cause instanceof ApiError && cause.status === 401) onExpired()
-      setFeedback({ kind: 'error', text: cause instanceof Error && cause.message ? cause.message : 'Não foi possível atualizar a curtida.' })
+      reportActionError(cause, 'Não foi possível atualizar a curtida.', onExpired)
     } finally { setLiking(false) }
   }
 
@@ -81,9 +80,8 @@ export default function PostItem({ post, viewerId, onUpdate, onRemoved, onOpenPr
       {glass === 'comments' && <PostComments post={post} viewerId={viewerId} onClose={() => setGlass(null)} onExpired={onExpired}
         onCountChange={delta => onUpdate(post.id, old => ({ ...old, comment_count: Math.max(0, old.comment_count + delta) }))} />}
       {glass === 'menu' && <PostActions post={post} onClose={() => setGlass(null)} onChange={updated => onUpdate(post.id, () => updated)} onRemoved={onRemoved} onExpired={onExpired}
-        onReported={() => { setGlass(null); setFeedback({ kind: 'success', text: 'Denúncia enviada para análise.' }) }} />}
+        onReported={() => { setGlass(null); toast.success('Denúncia enviada para análise.') }} />}
     </div>
-    {feedback && <p className={cn(feedbackVariants({ tone: feedback.kind }), 'mx-4 mt-2 mb-0')} role={feedback.kind === 'error' ? 'alert' : 'status'}>{feedback.text}</p>}
     <p className="px-4 pt-2.5 pb-3 text-[12px] leading-[1.55] whitespace-pre-wrap wrap-anywhere">
       <time className="mr-1.5 text-[10.5px] text-ink-muted" dateTime={post.created_at}>{day(post.created_at)}</time>{post.caption}
     </p>

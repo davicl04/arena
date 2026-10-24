@@ -1,10 +1,11 @@
 import type { ReactNode } from 'react'
 import { ActivityIndicator, Text, View } from 'react-native'
 import type { PagedList } from '../../hooks/usePagedList'
-import { colors } from '../../theme'
+import { useResolvedTheme, useThemeColors } from '../../hooks/useTheme'
 import { Icon } from '../Icon'
 import type { IconName } from '../Icon'
 import { Button, Field } from '../ui'
+import { LoadError } from '../arena/LoadError'
 
 /*
  * Primitivos das telas de análise (comprovantes, devoluções, filas da administração e denúncias): linha de botões,
@@ -19,7 +20,9 @@ export function ActionRow({ children }: { children: ReactNode }) {
 
 /** Faixa de informação (amarela por padrão) com ícone. */
 export function Banner({ children, icon = 'info', tone = 'warning' }: { children: ReactNode; icon?: IconName; tone?: 'warning' | 'success' | 'danger' }) {
-  const look = tone === 'warning' ? { bg: colors['warning-bg'], fg: colors.warning } : tone === 'success' ? { bg: colors['success-bg'], fg: colors.brand } : { bg: '#fff0f2', fg: colors.danger }
+  const colors = useThemeColors()
+  const dark = useResolvedTheme() === 'dark'
+  const look = tone === 'warning' ? { bg: colors['warning-bg'], fg: colors.warning } : tone === 'success' ? { bg: colors['success-bg'], fg: colors.brand } : { bg: dark ? '#ff8a8022' : '#fff0f2', fg: colors.danger }
   return <View style={{ marginTop: 12, flexDirection: 'row', alignItems: 'flex-start', gap: 8, borderRadius: 12, backgroundColor: look.bg, padding: 12 }}>
     <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ marginTop: 1 }}><Icon name={icon} size={15} color={look.fg} /></View>
     <Text style={{ flex: 1, color: look.fg, fontSize: 12, lineHeight: 18 }}>{children}</Text>
@@ -28,11 +31,13 @@ export function Banner({ children, icon = 'info', tone = 'warning' }: { children
 
 /** Rótulo de seção em caixa alta (9 pt). */
 export function Eyebrow({ children }: { children: string }) {
+  const colors = useThemeColors()
   return <Text accessibilityRole="header" style={{ marginTop: 14, marginBottom: 4, color: colors['ink-muted'], fontSize: 10, fontWeight: '800', letterSpacing: 0.8, textTransform: 'uppercase' }}>{children}</Text>
 }
 
 /** Termos e valores em duas colunas, no fundo sutil da folha. */
 export function InfoGrid({ items, children }: { items: [string, ReactNode][]; children?: ReactNode }) {
+  const colors = useThemeColors()
   return <View style={{ marginTop: 12, borderRadius: 12, backgroundColor: colors.subtle, padding: 13 }}>
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', rowGap: 10 }}>
       {items.map(([term, value]) => <View key={term} accessible={typeof value === 'string'} accessibilityLabel={typeof value === 'string' ? `${term}: ${value}` : undefined} style={{ width: '50%', paddingRight: 8 }}>
@@ -46,6 +51,7 @@ export function InfoGrid({ items, children }: { items: [string, ReactNode][]; ch
 
 /** Bloco de rótulo e texto corrido dentro do `InfoGrid` (experiência, percurso). */
 export function InfoText({ title, text, empty }: { title: string; text: string | null | undefined; empty: string }) {
+  const colors = useThemeColors()
   return <View style={{ marginTop: 10 }}>
     <Text style={{ color: colors['ink-muted'], fontSize: 9.5, fontWeight: '800', letterSpacing: 0.8, textTransform: 'uppercase' }}>{title}</Text>
     <Text selectable style={{ marginTop: 2, color: text ? colors.ink : colors['ink-muted'], fontSize: 12.5, lineHeight: 18 }}>{text || empty}</Text>
@@ -56,12 +62,20 @@ export function InfoText({ title, text, empty }: { title: string; text: string |
 export function LongField({ label, value, onChangeText, max, disabled = false, invalid = false, placeholder }: {
   label: string; value: string; onChangeText: (text: string) => void; max: number; disabled?: boolean; invalid?: boolean; placeholder?: string
 }) {
+  const colors = useThemeColors()
   return <Field label={label} multiline maxLength={max} value={value} onChangeText={onChangeText} editable={!disabled} placeholder={placeholder}
     textAlignVertical="top" accessibilityHint={invalid ? 'Campo com erro' : undefined} style={{ minHeight: 88, ...(invalid ? { borderColor: colors.error } : {}) }} />
 }
 
-/** Carregando (com texto e indicador) ou erro com "Tentar novamente"; nada quando já há dados. */
-export function LoadState({ loading, error, onRetry, loadingText }: { loading: boolean; error: string | null; onRetry: () => void; loadingText: string }) {
+/**
+ * Carregando (com texto e indicador) ou erro de carregamento com "Tentar novamente" (`LoadError`: `size="section"` por
+ * padrão, `"screen"` quando a falha deixa a tela sem conteúdo; `cause` é o erro lançado, para reconhecer a falta de
+ * conexão); nada quando já há dados.
+ */
+export function LoadState({ loading, error, onRetry, loadingText, cause, size = 'section', title }: {
+  loading: boolean; error: string | null; onRetry: () => void; loadingText: string; cause?: unknown; size?: 'screen' | 'section'; title?: string
+}) {
+  const colors = useThemeColors()
   if (loading) {
     return <View accessibilityLiveRegion="polite" style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 16 }}>
       <ActivityIndicator accessibilityLabel={loadingText} color={colors.brand} />
@@ -69,10 +83,7 @@ export function LoadState({ loading, error, onRetry, loadingText }: { loading: b
     </View>
   }
   if (error) {
-    return <View style={{ paddingVertical: 8 }}>
-      <Text accessibilityRole="alert" style={{ color: colors.error, fontSize: 13, lineHeight: 19 }}>{error}</Text>
-      <Button secondary title="Tentar novamente" onPress={onRetry} />
-    </View>
+    return <LoadError size={size} title={title} text={error} cause={cause} onRetry={onRetry} />
   }
   return null
 }
@@ -87,9 +98,10 @@ export function ListMessage({ list, loadingText, emptyTitle, emptyText }: {
   emptyTitle: string
   emptyText: string
 }) {
-  if (list.loading || list.error) return <LoadState loading={list.loading} error={list.error?.message ?? null} onRetry={list.reload} loadingText={loadingText} />
+  const colors = useThemeColors()
+  if (list.loading || list.error) return <LoadState loading={list.loading} error={list.error?.message ?? null} cause={list.error} onRetry={list.reload} loadingText={loadingText} />
   if (!list.items.length) {
-    return <View testID="list-empty" style={{ alignItems: 'center', gap: 6, borderRadius: 16, backgroundColor: '#ffffff', padding: 22, marginTop: 8 }}>
+    return <View testID="list-empty" style={{ alignItems: 'center', gap: 6, borderRadius: 16, backgroundColor: colors.surface, padding: 22, marginTop: 8 }}>
       <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 22, backgroundColor: colors['success-bg'] }}><Icon name="check" size={22} color={colors.brand} /></View>
       <Text accessibilityRole="header" style={{ color: colors.ink, fontSize: 14, fontWeight: '700', textAlign: 'center' }}>{emptyTitle}</Text>
       <Text style={{ color: colors['ink-muted'], fontSize: 12, lineHeight: 18, textAlign: 'center' }}>{emptyText}</Text>
@@ -102,13 +114,15 @@ export function ListMessage({ list, loadingText, emptyTitle, emptyText }: {
 export function ListMessageInline({ list, loadingText, emptyText }: {
   list: Pick<PagedList<unknown>, 'loading' | 'error' | 'items' | 'reload'>; loadingText: string; emptyText: string
 }) {
-  if (list.loading || list.error) return <LoadState loading={list.loading} error={list.error?.message ?? null} onRetry={list.reload} loadingText={loadingText} />
+  const colors = useThemeColors()
+  if (list.loading || list.error) return <LoadState loading={list.loading} error={list.error?.message ?? null} cause={list.error} onRetry={list.reload} loadingText={loadingText} />
   if (!list.items.length) return <Text style={{ marginHorizontal: 4, color: colors['ink-muted'], fontSize: 12, lineHeight: 18 }}>{emptyText}</Text>
   return null
 }
 
-/** Rodapé da lista: erro ao carregar mais e "Carregar mais …". */
+/** Rodapé da lista: erro ao carregar mais (continua no rodapé, é a trava da rolagem) e "Carregar mais …". */
 export function LoadMore({ list, label }: { list: Pick<PagedList<unknown>, 'moreError' | 'hasMore' | 'busy' | 'loadMore'>; label: string }) {
+  const colors = useThemeColors()
   return <>
     {list.moreError ? <Text accessibilityRole="alert" style={{ marginTop: 10, color: colors.error, fontSize: 12.5 }}>{list.moreError}</Text> : null}
     {list.hasMore ? <Button secondary title={list.busy ? 'Carregando…' : label} disabled={list.busy} onPress={() => void list.loadMore()} /> : null}

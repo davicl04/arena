@@ -20,7 +20,7 @@ function PersonLine({ person, detail, children }: { person: Person; detail: stri
   </li>
 }
 
-const listCard = 'm-0 list-none rounded-card bg-white px-[13px] py-0.5 shadow-card'
+const listCard = 'm-0 list-none surface rounded-card px-[13px] py-0.5 shadow-card inset-ring inset-ring-surface-edge'
 
 /** Pedidos para entrar pelo link (só representantes): Aprovar | Recusar. */
 export function JoinRequestsList({ requests, busyId, onDecide, onOpenLink }: {

@@ -6,6 +6,8 @@ import type {
   CourtOut, MatchCard, MatchDetail, MatchMessageOut, MatchPermissions, MatchSideOut, MatchSlotOut, MatchTermsOut, WalkoverOut,
 } from '../../src/api/matches'
 import type { MeStandings } from '../../src/api/play'
+import type { NotificationSummary } from '../../src/api/notifications'
+import type { NotificationSummaryState } from '../../src/hooks/useNotificationSummary'
 import type { PlayBoardState } from '../../src/hooks/usePlayBoard'
 
 /*
@@ -36,10 +38,20 @@ export function playBoardState(board: PlayBoard | null = null, overrides: Partia
   return { board, loading: board === null, error: '', reload: vi.fn(async () => board), deferred: [], defer: vi.fn(), ...overrides }
 }
 
+/** Resumo das notificações sem novidades (o que o servidor devolve para quem não tem nada a ler nem a responder). */
+export const emptySummary = (overrides: Partial<NotificationSummary> = {}): NotificationSummary => ({
+  unread_count: 0, follow_requests_count: 0, pending_count: 0, unread_by_category: { partidas: 0, times: 0, eventos: 0 }, ...overrides,
+})
+
+/** Estado do `useNotificationSummary` para as telas: o resumo dado (ou ainda não lido) e as funções espiãs. */
+export function notificationSummaryState(data: NotificationSummary | null = null, overrides: Partial<NotificationSummaryState> = {}): NotificationSummaryState {
+  return { data, count: data ? data.unread_count + data.follow_requests_count : 0, reload: vi.fn(), setData: vi.fn(), ...overrides }
+}
+
 /** Os campos do `ScreenContext` que o shell acrescenta à navegação: espalhe nas props das telas testadas. */
-export function playContext(board: PlayBoard | null = null) {
+export function playContext(board: PlayBoard | null = null, summary: NotificationSummary | null = null) {
   const playBoard = playBoardState(board)
-  return { playBoard, refreshPlayBoard: playBoard.reload }
+  return { playBoard, refreshPlayBoard: playBoard.reload, notificationSummary: notificationSummaryState(summary) }
 }
 
 export const football: Profile = { id: 1, sport: 'futebol', city_id: brasilia.id, position: 'atacante', looking_for: false, is_public: false, level: null }

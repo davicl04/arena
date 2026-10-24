@@ -53,6 +53,11 @@ export type NotificationType =
   | 'decisao_registrada'
   | 'evento_encerrado'
 
+/** Categoria da notificação (derivada do tipo no servidor); `conta` só aparece em *Tudo*. */
+export type NotificationCategory = 'partidas' | 'times' | 'eventos' | 'conta'
+/** Categorias que têm chip e filtro próprios na tela de notificações. */
+export type NotificationFilterCategory = Exclude<NotificationCategory, 'conta'>
+
 export interface ArenaNotification {
   id: number
   type: NotificationType | (string & {})
@@ -61,10 +66,37 @@ export interface ArenaNotification {
   actor: Person | null
   created_at: string
   read_at: string | null
+  category: NotificationCategory
+  /** Ainda pede uma resposta da pessoa (tipos com ação, não resolvidos e dentro do prazo); ler não resolve. */
+  pending: boolean
+  /** Prazo para responder; null quando a pendência não tem prazo (ou a notificação não é uma pendência). */
+  action_until: string | null
 }
 export interface UnreadCount { unread_count: number }
 
+/** Resumo para o sino, os chips e a placa do Início (`GET /me/notifications/summary`). */
+export interface NotificationSummary {
+  unread_count: number
+  follow_requests_count: number
+  pending_count: number
+  unread_by_category: Record<NotificationFilterCategory, number>
+}
+
 export const NOTIFICATIONS_PATH = '/me/notifications'
-export const getUnreadCount = () => request<UnreadCount>('/me/notifications/unread-count')
-export const markNotificationRead = (id: number) => request<UnreadCount>(`/me/notifications/${id}/read`, 'PUT', {})
-export const markAllNotificationsRead = () => request<UnreadCount>('/me/notifications/read-all', 'PUT', {})
+export const getUnreadCount = () => request<UnreadCount>('/me/notifications/unread-count', 'GET', undefined, { background: true })
+export const getNotificationSummary = () => request<NotificationSummary>('/me/notifications/summary', 'GET', undefined, { background: true })
+export const markNotificationRead = (id: number) => request<NotificationSummary>(`/me/notifications/${id}/read`, 'PUT', {})
+export const markAllNotificationsRead = () => request<NotificationSummary>('/me/notifications/read-all', 'PUT', {})
+
+const query = (params: Record<string, string | number | boolean | undefined>) => {
+  const parts = Object.entries(params).filter(([, value]) => value !== undefined).map(([key, value]) => `${key}=${encodeURIComponent(String(value))}`)
+  return parts.length ? `?${parts.join('&')}` : ''
+}
+
+/** Caminho da lista paginada, com os filtros do servidor; `usePagedList` acrescenta o cursor. */
+export const notificationsPath = ({ categoria, pendente }: { categoria?: NotificationFilterCategory; pendente?: boolean } = {}) =>
+  `${NOTIFICATIONS_PATH}${query({ categoria, pendente })}`
+
+/** Pendências abertas, da mais urgente à menos urgente, com cursor (`limit` de 1 a 50). */
+export const listPendingNotifications = ({ categoria, limit, cursor }: { categoria?: NotificationFilterCategory; limit?: number; cursor?: string } = {}) =>
+  request<{ items: ArenaNotification[]; next_cursor?: string | null }>(`${NOTIFICATIONS_PATH}/pending${query({ categoria, limit, cursor })}`)

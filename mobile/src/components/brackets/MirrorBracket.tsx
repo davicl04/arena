@@ -3,7 +3,7 @@ import { Pressable, ScrollView, useWindowDimensions, View } from 'react-native'
 import Svg, { Path, Rect, Text as SvgText } from 'react-native-svg'
 import type { Bracket, BracketSlot, Competitor } from '../../api/brackets'
 import { useSessionToken } from '../../hooks/useSessionToken'
-import { colors } from '../../theme'
+import { useThemeColors } from '../../hooks/useTheme'
 import { TeamCrest } from '../arena/TeamCrest'
 import { Icon } from '../Icon'
 import { Avatar } from '../media'
@@ -26,6 +26,7 @@ const GOLD = '#d9a937'
 const MARGIN = 8
 
 function Ghost({ x, y, question }: { x: number; y: number; question: boolean }) {
+  const colors = useThemeColors()
   return <>
     <Path d={shieldPath(x, y)} fill="none" stroke={colors['ink-muted']} strokeOpacity={0.55} strokeWidth={1.4} strokeDasharray="3 3" />
     {question ? <SvgText x={x + CREST_W / 2} y={y + 18} textAnchor="middle" fontSize={12} fontWeight="800" fill={colors['ink-muted']} fillOpacity={0.7}>?</SvgText> : null}
@@ -43,6 +44,7 @@ function CompetitorLayer({ competitor, x, y, token }: { competitor: Competitor; 
 
 /** Um lado do confronto no SVG: escudo tracejado (folga, vencedor) ou a sigla, e o placar. */
 function SlotShapes({ box, score, dark, picked }: { box: SlotBox; score: number | null; dark: boolean; picked: boolean }) {
+  const colors = useThemeColors()
   const { slot, x, y, w } = box
   const cx = x + w / 2
   const competitor = slot.kind === 'competidor' ? slot.competitor : null
@@ -61,6 +63,7 @@ function SlotShapes({ box, score, dark, picked }: { box: SlotBox; score: number 
 }
 
 function NodeShapes({ placed, picked }: { placed: PlacedNode; picked: number | null }) {
+  const colors = useThemeColors()
   const { node, x, y, w, h, side } = placed
   const final = side === 'center'
   const [a, b] = slotBoxes(placed)
@@ -73,8 +76,8 @@ function NodeShapes({ placed, picked }: { placed: PlacedNode; picked: number | n
         <SvgText x={x + w / 2} y={y + 52} textAnchor="middle" fontSize={11} fontWeight="800" letterSpacing={0.9} fill="#ffffff">FINAL</SvgText>
       </>
       : node.bye
-        ? <Rect x={x} y={y} width={w} height={h} rx={16} fill="#ffffff" fillOpacity={0.7} stroke={colors['ink-muted']} strokeOpacity={0.35} strokeWidth={1} strokeDasharray="3 3" />
-        : <Rect x={x} y={y} width={w} height={h} rx={16} fill="#ffffff" stroke={colors.line} strokeWidth={1} />}
+        ? <Rect x={x} y={y} width={w} height={h} rx={16} fill={colors.surface} fillOpacity={0.7} stroke={colors['ink-muted']} strokeOpacity={0.35} strokeWidth={1} strokeDasharray="3 3" />
+        : <Rect x={x} y={y} width={w} height={h} rx={16} fill={colors.surface} stroke={colors.line} strokeWidth={1} />}
     {node.label ? <>
       <Rect x={x + w / 2 - 12} y={y - 7} width={24} height={14} rx={6} fill={final ? colors.mint : colors.forest} />
       <SvgText x={x + w / 2} y={y + 3.5} textAnchor="middle" fontSize={8.5} fontWeight="800" fill={final ? colors.night : colors.mint}>{node.label}</SvgText>
@@ -106,6 +109,7 @@ export interface MirrorBracketProps {
 
 export function MirrorBracket({ bracket, picked = null, onPick, busy = false, width }: MirrorBracketProps) {
   const window = useWindowDimensions().width
+  const colors = useThemeColors()
   const token = useSessionToken()
   const available = (width ?? window) - 2 * MARGIN
   const total = bracket.rounds.length

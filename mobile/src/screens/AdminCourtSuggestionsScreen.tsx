@@ -6,8 +6,8 @@ import type { User } from '../api/client'
 import AdminGate from '../components/admin/AdminGate'
 import { TileRow } from '../components/admin/AdminMatchParts'
 import { CourtSheet } from '../components/admin/CourtSheet'
-import { useNotice } from '../components/admin/QueueBody'
-import { Hint, LiveNotice } from '../components/arena/controls'
+import { Hint } from '../components/arena/controls'
+import { toast } from '../components/toast/toastStore'
 import { StateBadge } from '../components/arena/StateBadge'
 import { SectionTabs } from '../components/events/SectionTabs'
 import { RowList } from '../components/review/Rows'
@@ -21,7 +21,7 @@ const tabs: { value: CourtQueue; label: string }[] = [
 ]
 
 /** Fila "Para analisar" (com a folha de decisão) ou "Decididas" (só leitura). */
-function CourtQueueList({ queue, onNotice, onExpired }: { queue: CourtQueue; onNotice: (text: string) => void; onExpired: () => void }) {
+function CourtQueueList({ queue, onExpired }: { queue: CourtQueue; onExpired: () => void }) {
   const list = usePagedList<AdminCourtSuggestion>(courtSuggestionsPath(queue), onExpired)
   const [open, setOpen] = useState<AdminCourtSuggestion | null>(null)
   const pending = queue === 'em_revisao'
@@ -35,7 +35,7 @@ function CourtQueueList({ queue, onNotice, onExpired }: { queue: CourtQueue; onN
         const author = by?.name ?? 'conta removida'
         if (pending) {
           const duplicate = item.possible_duplicates.length > 0
-          return <TileRow key={court.id} icon="map-pin" title={court.name} onOpen={() => { setOpen(item); onNotice('') }}
+          return <TileRow key={court.id} icon="map-pin" title={court.name} onOpen={() => setOpen(item)}
             lines={[...base, `Sugerida por ${author} ${relativeTime(item.created_at)}${origin ? ` · partida #${origin.id}` : ''}`]}
             badge={duplicate ? <StateBadge tone="pending">Possível duplicidade</StateBadge> : undefined} status={duplicate ? 'Possível duplicidade' : undefined} />
         }
@@ -51,23 +51,22 @@ function CourtQueueList({ queue, onNotice, onExpired }: { queue: CourtQueue; onN
       onDecided={message => {
         list.setItems(old => old.filter(item => item.court.id !== open.court.id))
         setOpen(null)
-        onNotice(message)
+        toast.success(message)
       }}
-      onStale={message => { setOpen(null); onNotice(message); list.reload() }} /> : null}
+      // Já decidida (404/409): o toast de aviso mostra a mensagem; a fila relê.
+      onStale={() => { setOpen(null); list.reload() }} /> : null}
   </>
 }
 
 function CourtQueues({ onExpired }: { onExpired: () => void }) {
   const [tab, setTab] = useState<CourtQueue>('em_revisao')
-  const { notice, say, clear } = useNotice()
   return <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 48 }} keyboardShouldPersistTaps="handled">
     <Hint>As quadras sugeridas valem só na partida de origem até a sua decisão. Publique as que existem; quem sugeriu recebe a resposta nas notificações.</Hint>
     <View style={{ marginTop: 10 }}>
-      <SectionTabs label="Filas de quadras" items={tabs} value={tab} onChange={value => { setTab(value); clear() }} />
+      <SectionTabs label="Filas de quadras" items={tabs} value={tab} onChange={setTab} />
     </View>
-    <LiveNotice text={notice} />
     <View style={{ paddingTop: 8 }}>
-      <CourtQueueList key={tab} queue={tab} onNotice={say} onExpired={onExpired} />
+      <CourtQueueList key={tab} queue={tab} onExpired={onExpired} />
     </View>
   </ScrollView>
 }

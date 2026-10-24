@@ -1,4 +1,5 @@
-import type { FootballStat, Lineup, PointsPreview, RankingPage, RankingRow, ResultMatch } from '../../src/api/results'
+import type { FootballStat, Lineup, MyRankingOverviewLine, PointsPreview, RankingOverview, RankingPage, RankingRow, ResultMatch, TierCounts } from '../../src/api/results'
+import type { TierKey } from '../../src/data/arena'
 import type { MatchPermissions, MatchResultOut, MatchSideOut, ScoreOut, ScoreReport, Side, TeamRef, WalkoverOut } from '../../src/api/matches'
 import { person } from './play'
 
@@ -86,9 +87,13 @@ export const lineup = (user: ReturnType<typeof person>, overrides: Partial<Lineu
 
 // ----- Ranking -----------------------------------------------------------------------------------------------
 
+export const tierCounts = (overrides: Partial<TierCounts> = {}): TierCounts => ({ bronze: 0, prata: 0, ouro: 0, diamante: 0, lendario: 0, ...overrides })
+
+/** Linha do ranking: `position` é a posição no elo (a geral fica em `rank_position`, sem uso na tela). */
 export const rankingRow = (position: number, name: string, overrides: Partial<RankingRow> = {}): RankingRow => ({
-  rank_position: position, tier: 'ouro', metric_value: 40 - position, matches_played: 8, wins: 5, draws: 1, losses: 2,
-  goals_for: 20, goals_against: 12, team: { id: 100 + position, name, initials: name.slice(0, 2).toUpperCase(), crest_url: null },
+  rank_position: position, tier: 'ouro', tier_position: position, metric_value: 40 - position, matches_played: 8, wins: 5, draws: 1, losses: 2,
+  goals_for: 20, goals_against: 12, form: ['V', 'E', 'D', 'V', 'V'], best_mark_on: null,
+  team: { id: 100 + position, name, initials: name.slice(0, 2).toUpperCase(), crest_url: null },
   athlete: null, is_mine: false, ...overrides,
 })
 export const athleteRow = (position: number, id: number, name: string, overrides: Partial<RankingRow> = {}): RankingRow =>
@@ -96,5 +101,18 @@ export const athleteRow = (position: number, id: number, name: string, overrides
 
 export const rankingPage = (overrides: Partial<RankingPage> = {}): RankingPage => ({
   ranking: 'futebol_time', format: 'society', position: null, distance_km: null, calc_version: 1, classified_count: 3, legend_slots: 0,
-  required: 3, items: [], next_cursor: null, mine: [], ...overrides,
+  required: 3, tier_counts: tierCounts(), items: [], next_cursor: null, mine: [], ...overrides,
+})
+
+/** Linha do titular no overview: ranqueado no `tier` (posição `position` de `size`), com as diferenças para o 1º e o próximo. */
+export const myLine = (tier: TierKey | null, position: number | null, size: number | null, overrides: Partial<MyRankingOverviewLine> = {}): MyRankingOverviewLine => ({
+  team: { id: 102, name: 'Ferrugem FC', initials: 'FE', crest_url: null }, state: tier ? 'ranqueado' : 'classificacao', tier, played: tier ? 8 : 2, required: 3,
+  rank_position: position, metric_value: 38, faces: [], faces_any_level: true, tier_position: position, tier_size: size,
+  leader_gap: position && position > 1 ? 7 : null, next_gap: position && size && position < size ? 1 : null, next_tier_position: position && size && position < size ? position + 1 : null,
+  ...overrides,
+})
+
+export const rankingOverview = (overrides: Partial<RankingOverview> = {}): RankingOverview => ({
+  ranking: 'futebol_time', format: 'society', position: null, distance_km: null, calc_version: 1, required: 3, classified_count: 3, legend_slots: 0,
+  tier_counts: tierCounts(), mine: [], selected_team_id: null, window: null, legends_preview: [], ...overrides,
 })

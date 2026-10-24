@@ -131,14 +131,14 @@ export function ReceiptPreview({
         data-type="pdf"
         className={cn("mt-2 flex items-center gap-3 rounded-xl border border-solid border-line bg-subtle p-3", className)}
       >
-        <span className="grid size-11 flex-none place-items-center rounded-[10px] bg-white text-brand">
+        <span className="grid size-11 flex-none place-items-center rounded-[10px] bg-surface text-brand">
           <FileText size={22} aria-hidden="true" />
         </span>
         <span className="min-w-0 flex-1">
           <b className="block text-[12.5px]">Comprovante em PDF</b>
           <small className="text-[10.5px] text-ink-muted">{fileSize(receipt.size_bytes)} · abre numa nova aba</small>
         </span>
-        <ReceiptLink receipt={receipt} label={`Abrir PDF: ${title} (nova aba)`} className="rounded-[10px] bg-white px-3">
+        <ReceiptLink receipt={receipt} label={`Abrir PDF: ${title} (nova aba)`} className="rounded-[10px] bg-surface px-3">
           <ExternalLink aria-hidden="true" />
           Abrir PDF
         </ReceiptLink>

@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import { ChevronRight } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
-const rowClass = 'flex w-full items-center gap-3 rounded-card border-0 bg-white p-2.5 text-left text-inherit shadow-[0_2px_8px_#0000000a]'
+const rowClass = 'flex w-full items-center gap-3 rounded-card border-0 bg-surface p-2.5 text-left text-inherit shadow-[0_2px_8px_#0000000a] noite:shadow-none noite:inset-ring noite:inset-ring-surface-edge'
 
 /**
  * Linha das filas de quadras e de W.O.: quadro com o ícone, título, linhas de apoio, selo e chevron. Com `onOpen` é um
@@ -26,7 +26,7 @@ export function TileRow({ Icon, title, lines, badge, onOpen }: {
   </>
   return <li>
     {onOpen
-      ? <button type="button" className={`${rowClass} hover:bg-[#fbfbfc]`} onClick={onOpen}>{content}</button>
+      ? <button type="button" className={`${rowClass} hover:bg-[#fbfbfc] noite:hover:bg-[#16241d]`} onClick={onOpen}>{content}</button>
       : <div className={rowClass}>{content}</div>}
   </li>
 }

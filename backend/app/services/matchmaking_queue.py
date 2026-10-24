@@ -192,9 +192,13 @@ class PostgresMatchmakingQueue:
         names = subject_names(db, sides)
         actors = side_users(db, sides)
         for side, other in ((sides[0], sides[1]), (sides[1], sides[0])):
-            notifications.notify_many(db, actors[side.id], 'proposta_partida', {
-                'match_id': match.id, 'sport': match.sport, 'format': match.format, 'opponent_name': names[other.id],
-                'expires_at': _iso(match.proposal_expires_at)})
+            payload = {'match_id': match.id, 'sport': match.sport, 'format': match.format,
+                       'opponent_name': names[other.id], 'expires_at': _iso(match.proposal_expires_at)}
+            # One key per person: when one side answers, only its own pending actions close.
+            for user_id in dict.fromkeys(actors[side.id]):
+                notifications.notify(db, user_id, 'proposta_partida', payload,
+                                     action_key=notifications.proposal_key(match.id, user_id),
+                                     action_until=match.proposal_expires_at)
         audit.record(db, actor_id=None, action='partida.proposta_criada', target_type='match', target_id=match.id,
                      data={'search_ids': [waiting.id, newcomer.id], 'automatico': True})
         return Pairing('proposta', match, (waiting, newcomer))
@@ -275,7 +279,8 @@ class PostgresMatchmakingQueue:
         team_name = db.scalar(select(Team.name).where(Team.id == side.team_id)) or ''
         notifications.notify(db, search.user_id, 'vaga_encontrada', {
             'match_id': match.id, 'slot_id': slot.id, 'position': slot.position, 'format': match.format,
-            'team_name': team_name, 'starts_at': _iso(match.starts_at), 'expires_at': _iso(search.offer_expires_at)})
+            'team_name': team_name, 'starts_at': _iso(match.starts_at), 'expires_at': _iso(search.offer_expires_at)},
+            action_key=notifications.slot_key(slot.id, search.user_id), action_until=search.offer_expires_at)
         audit.record(db, actor_id=None, action='vaga.oferecida', target_type='match_slot', target_id=slot.id,
                      data={'match_id': match.id, 'search_id': search.id, 'automatico': True})
         return Pairing('oferta', match, (search,), slot)
@@ -311,6 +316,7 @@ class PostgresMatchmakingQueue:
                              slot_id=slot.id, position=slot.position, created_at=now, updated_at=now)
         db.add(lineup)
         db.flush()
+        notifications.resolve_actions(db, notifications.slot_key(slot.id, user.id))
         notifications.notify_many(db, side_users(db, [side])[side.id], 'vaga_preenchida', {
             'match_id': match.id, 'slot_id': slot.id, 'position': slot.position}, actor_id=user.id)
         post_event(db, match.id, 'avulso_entrou',
@@ -340,6 +346,10 @@ class PostgresMatchmakingQueue:
         reopens. 'devolvida' (the slot closed or the match was cancelled, `reason` says which): the search returns
         to the queue, the walk-in is told the offer was withdrawn (`oferta_retirada`) and the caller closes the
         slot."""
+        # Every way an offer ends (refused, unanswered, withdrawn) closes the walk-in's pending action.
+        slot_id = slot.id if slot is not None else search.slot_id
+        if slot_id is not None:
+            notifications.resolve_actions(db, notifications.slot_key(slot_id, search.user_id))
         if outcome == 'devolvida':
             requeued = self.requeue(db, search, now=now)
             if slot is not None:
@@ -387,6 +397,9 @@ class PostgresMatchmakingQueue:
             return False
         mine.accepted_at, mine.accepted_by_id = now, user.id
         complete = other.accepted_at is not None
+        # The side that answered closes the proposal for all of its representatives, not for the other side.
+        notifications.resolve_actions_many(db, [notifications.proposal_key(match.id, user_id)
+                                                for user_id in side_users(db, [mine])[mine.id]])
         names = subject_names(db, sides.values())
         audit.record(db, actor_id=user.id, action='partida.proposta_aceita', target_type='match', target_id=match.id,
                      data={'side': side_label, 'complete': complete})
@@ -394,6 +407,7 @@ class PostgresMatchmakingQueue:
             notifications.notify_many(db, side_users(db, [other])[other.id], 'proposta_aceita', {
                 'match_id': match.id, 'opponent_name': names[mine.id], 'complete': False}, actor_id=user.id)
             return False
+        notifications.resolve_actions_prefix(db, notifications.proposal_prefix(match.id))
         match.state = next_match_state(match.state, 'aceitar_proposta')
         match.updated_at = now
         searches = db.scalars(select(MatchSearch).where(MatchSearch.id.in_(
@@ -421,6 +435,8 @@ class PostgresMatchmakingQueue:
         self.lock_bucket(db, proposal_bucket(match))
         match.state = next_match_state(match.state, 'recusar_proposta' if outcome == 'recusada' else 'expirar_proposta')
         match.closed_at = match.updated_at = now
+        # Declined or expired: nobody has a proposal left to answer (every caller goes through here).
+        notifications.resolve_actions_prefix(db, notifications.proposal_prefix(match.id))
         sides = db.scalars(select(MatchSide).where(MatchSide.match_id == match.id).order_by(MatchSide.side)).all()
         ids = [side.search_id for side in sides if side.search_id is not None]
         searches = {search.id: search for search in db.scalars(

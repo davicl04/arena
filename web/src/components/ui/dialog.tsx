@@ -75,7 +75,7 @@ function DialogContent({
       <DialogPrimitive.Popup
         data-slot="dialog-content"
         className={cn(
-          "top-1/2 left-1/2 z-sheet grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-card bg-white p-5 text-[12px] text-ink shadow-sheet outline-none sm:max-w-sm motion-safe:data-open:animate-glass-in",
+          "top-1/2 left-1/2 z-sheet grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-card bg-sheet p-5 noite:inset-ring noite:inset-ring-surface-edge text-[12px] text-ink shadow-sheet outline-none sm:max-w-sm motion-safe:data-open:animate-glass-in",
           inFrame ? "absolute" : "fixed",
           className
         )}

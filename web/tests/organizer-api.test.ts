@@ -31,7 +31,7 @@ it('usa os caminhos, métodos e corpos dos contratos 0002 e 0003', async () => {
     ['/admin/queue-counts'],
     ['/admin/organizer-requests/4/decision', 'POST', { decision: 'aprovar' }],
     ['/admin/organizers/9/revoke', 'POST', { reason: 'Motivo da revogação' }],
-    ['/me/notifications/unread-count'],
+    ['/me/notifications/unread-count', 'GET', undefined, { background: true }],
     ['/me/notifications/5/read', 'PUT', {}],
     ['/me/notifications/read-all', 'PUT', {}],
     ['/me/standings'],

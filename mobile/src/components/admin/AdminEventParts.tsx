@@ -3,7 +3,7 @@ import { Pressable, Text, View } from 'react-native'
 import type { AdminEvent } from '../../api/admin'
 import type { EventPix, EventPoster as EventPosterData } from '../../api/events'
 import { entryStates, eventFormatParts, eventNoun, pixKeyType } from '../../data/arena'
-import { colors } from '../../theme'
+import { useThemeColors } from '../../hooks/useTheme'
 import { formatDeadline, formatPrice, plural } from '../../utils/format'
 import { EventPoster } from '../arena/EventPoster'
 import { StateBadge } from '../arena/StateBadge'
@@ -44,6 +44,7 @@ export function AdminEventInfo({ event }: { event: AdminEvent }) {
 
 /** "Pix informado" pelo organizador, para conferir antes de publicar; o Copia e Cola abre sob demanda. */
 export function PixInformed({ pix }: { pix: EventPix | null }) {
+  const colors = useThemeColors()
   const [code, setCode] = useState(false)
   const kind = pix?.key_type ? pixKeyType[pix.key_type] : null
   const items: [string, string][] = [
@@ -74,6 +75,7 @@ export function PixInformed({ pix }: { pix: EventPix | null }) {
 
 /** O que está em jogo na revogação: inscrições por estado e as pendências de comprovantes e devoluções. */
 export function AtStake({ event }: { event: AdminEvent }) {
+  const colors = useThemeColors()
   const states = entryStates.filter(state => (event.entries_by_state[state.value] ?? 0) > 0)
   const { pending } = event
   const pendencies = [

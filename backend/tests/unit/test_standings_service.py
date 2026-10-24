@@ -7,6 +7,7 @@ PostgreSQL (`tests/integration/test_standings_recalc.py`).
 """
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
+from itertools import count
 from types import SimpleNamespace
 
 import pytest
@@ -50,6 +51,16 @@ def scene(monkeypatch):
     return state
 
 
+_ids = count(1)
+
+
+def game(subject, side, score_a, score_b, number=None):
+    """A row of the team and tennis queries: (subject, side, score a, score b, match start, match id); the matches
+    are one day apart in the order they are written."""
+    number = next(_ids) if number is None else number
+    return (subject, side, score_a, score_b, NOW - timedelta(days=100 - number), number)
+
+
 def rows_by_subject(db, attribute):
     return {getattr(row, attribute): row for row in db.added if isinstance(row, Standing)}
 
@@ -71,11 +82,11 @@ def test_a_tennis_match_touches_only_the_tennis_ranking(scene):
 
 
 def test_recalculating_a_match_recalculates_each_category_it_touches(scene):
-    scene.db.on('match_sides', [(51, 'a', 2, 0)] * 3)
+    scene.db.on('match_sides', [game(51, 'a', 2, 0) for _ in range(3)])
     standings.recalculate_for_match(scene.db, Match(id=1, sport='tenis'), now=NOW)
     assert [row.user_id for row in scene.db.added if isinstance(row, Standing)] == [51]     # the tennis ranking
     scene.db.then('match_lineups', ['atacante'], [], [])           # the positions played, then two empty rankings
-    scene.db.on('match_sides', [(1, 'a', 1, 0)] * 3)
+    scene.db.on('match_sides', [game(1, 'a', 1, 0) for _ in range(3)])
     standings.recalculate_for_match(scene.db, Match(id=2, sport='futebol', format='campo'), now=NOW,
                                     positions=['defesa'])
     assert 'match_lineups' in scene.db.statements and scene.db.statements.count('match_sides') == 2
@@ -83,9 +94,9 @@ def test_recalculating_a_match_recalculates_each_category_it_touches(scene):
 
 # ----- Teams --------------------------------------------------------------------------------------------------
 
-TEAM_GAMES = [(1, 'a', 2, 0), (1, 'b', 0, 1), (1, 'a', 3, 1),            # team 1: three wins
-              (2, 'b', 2, 0), (2, 'a', 0, 1), (2, 'b', 1, 0),            # team 2: three losses
-              (3, 'a', 1, 1)]                                             # team 3: one draw, still in placement
+TEAM_GAMES = [game(1, 'a', 2, 0, 1), game(1, 'b', 0, 1, 2), game(1, 'a', 3, 1, 3),    # team 1: three wins
+              game(2, 'b', 2, 0, 4), game(2, 'a', 0, 1, 5), game(2, 'b', 1, 0, 6),    # team 2: three losses
+              game(3, 'a', 1, 1, 7)]                                                  # team 3: a draw, in placement
 
 
 def test_the_classified_teams_get_position_and_tier_and_the_others_stay_in_placement(scene):
@@ -101,6 +112,9 @@ def test_the_classified_teams_get_position_and_tier_and_the_others_stay_in_place
     assert (second.rank_position, second.tier, second.losses, float(second.metric_value)) == (2, 'bronze', 3, 0.0)
     assert (placement.rank_position, placement.tier, placement.draws, placement.matches_played) == (None, None, 1, 1)
     assert first.updated_at == NOW and first.calc_version == 1
+    # The recent form (oldest first) is written for everyone, the ones in placement included.
+    assert (first.recent_form, second.recent_form, placement.recent_form) == ('VVV', 'DDD', 'E')
+    assert first.best_mark_on is None
 
 
 def test_rows_are_rewritten_only_when_a_value_changes_and_leave_with_their_matches(scene):
@@ -133,7 +147,9 @@ def test_a_ranking_without_cuts_in_the_version_is_refused(scene, monkeypatch):
 # ----- Athletes -----------------------------------------------------------------------------------------------
 
 def appearance(user_id, side='a', winner='a', stat=None, goals=None, reviewed=None, absent=None):
-    return (user_id, side, winner, absent, stat, goals, None, None, None, reviewed)
+    number = next(_ids)
+    return (user_id, side, winner, absent, NOW - timedelta(days=100 - number), number, stat, goals, None, None, None,
+            reviewed)
 
 
 def test_the_individual_ranking_averages_presence_result_and_the_reviewed_stats(scene):
@@ -151,19 +167,22 @@ def test_the_individual_ranking_averages_presence_result_and_the_reviewed_stats(
     assert (rows[42].rank_position, rows[42].tier, float(rows[42].metric_value)) == (2, 'bronze', 2.0)
     assert (rows[43].rank_position, rows[43].tier) == (None, None)
     assert rows[41].goals_for == rows[41].goals_against == 0              # an average: no goals to keep
+    assert (rows[41].recent_form, rows[42].recent_form, rows[43].recent_form) == ('VVV', 'EEE', 'V')
     assert (rows[41].sport, rows[41].format, rows[41].position, rows[41].team_id) == (
         'futebol', 'society', 'atacante', None)
 
 
 def test_the_tennis_ranking_gives_ten_points_per_win(scene):
     db = scene.db
-    wins = [(51, 'a', 2, 0), (51, 'b', 0, 2), (51, 'a', 2, 1), (52, 'b', 2, 0), (52, 'a', 0, 2), (52, 'b', 1, 2)]
+    wins = [game(51, 'a', 2, 0), game(51, 'b', 0, 2), game(51, 'a', 2, 1), game(52, 'b', 2, 0), game(52, 'a', 0, 2),
+            game(52, 'b', 1, 2)]
     db.on('match_sides', wins)
     standings.recalculate_rankings(db, [RankingKey('tenis')], now=NOW)
     rows = rows_by_subject(db, 'user_id')
     assert (float(rows[51].metric_value), rows[51].wins, rows[51].rank_position, rows[51].tier) == (30.0, 3, 1, 'prata')
     assert (float(rows[52].metric_value), rows[52].losses, rows[52].rank_position) == (10.0, 2, 2)
     assert (rows[51].sport, rows[51].format, rows[51].position) == ('tenis', None, None)
+    assert (rows[51].recent_form, rows[52].recent_form) == ('VVV', 'DDV')            # tennis has no draw
 
 
 def test_the_championship_bonus_adds_to_the_tennis_points_of_whoever_played(scene):
@@ -171,7 +190,7 @@ def test_the_championship_bonus_adds_to_the_tennis_points_of_whoever_played(scen
     # athlete (the grouped query returns the sum); 10 per win plus the bonus. An athlete with a bonus but no
     # confirmed match in the window has no row: the bonus accompanies the matches, it does not classify anyone.
     db = scene.db
-    db.on('match_sides', [(51, 'a', 2, 0), (51, 'b', 0, 2), (51, 'a', 2, 1), (52, 'b', 2, 0)])
+    db.on('match_sides', [game(51, 'a', 2, 0), game(51, 'b', 0, 2), game(51, 'a', 2, 1), game(52, 'b', 2, 0)])
     db.on('event_placements', [(51, 60), (99, 40)])
     standings.recalculate_rankings(db, [RankingKey('tenis')], now=NOW)
     rows = rows_by_subject(db, 'user_id')
@@ -196,6 +215,8 @@ def test_a_running_ranking_orders_by_best_time_then_by_who_ran_it_first(scene):
     assert (rows[63].sport, rows[63].distance_km, rows[63].matches_played, float(rows[63].metric_value)) == (
         'corrida', 5, 2, 1290.0)
     assert rows[63].goals_for == rows[63].goals_against == 0 and rows[63].format is None
+    assert (rows[63].best_mark_on, rows[62].best_mark_on, rows[63].recent_form) == (date(2026, 9, 20),
+                                                                                   date(2026, 9, 1), '')
     assert scene.tried == [] and scene.locked == []          # running has no search: nothing is paired again
 
 

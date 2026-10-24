@@ -73,7 +73,7 @@ export function MyStatsCard({ match, lineup, outcome, onSaved, onExpired }: {
   const counted = server?.counted.map(field => statFieldLabel(field, position).toLowerCase()) ?? []
 
   return (
-    <section aria-labelledby={headingId} data-slot="my-stats" className="grid grid-cols-[minmax(0,1fr)] gap-3 rounded-card bg-white p-3.5 shadow-card">
+    <section aria-labelledby={headingId} data-slot="my-stats" className="grid grid-cols-[minmax(0,1fr)] gap-3 rounded-card surface p-3.5 shadow-card noite:inset-ring noite:inset-ring-surface-edge">
       <div className="flex items-center gap-2">
         <UserRound size={16} className="flex-none text-brand" aria-hidden="true" />
         <h3 id={headingId} className="text-[13px]">Suas estatísticas</h3>

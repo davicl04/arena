@@ -10,6 +10,7 @@ import AdminRevokedEventsScreen from '../src/screens/AdminRevokedEventsScreen'
 import { formatPrice } from '../src/utils/format'
 import { enableAct } from './support/native'
 import type { Call } from './support/review'
+import { toastText, toasts } from './support/toast'
 import {
   admin, adminEvent, adminOrganizer, allText, bodyOf, byId, callsTo, dispute, entry, findButton, hasField, inHours, lastBodyOf, me, organizerRequest, page, person, pressButton, pressPrefix, receipt, render, serve,
   typeInto,
@@ -97,8 +98,8 @@ describe('Pedidos de organizador (AD1)', () => {
     await pressPrefix(tree, 'Liga Sudoeste.')
     await pressButton(tree, 'Aprovar organizador')
     expect(bodyOf('POST', '/admin/organizer-requests/31/decision')).toEqual({ decision: 'aprovar' })
-    const text = allText(tree)
-    expect(text).toContain('Liga Sudoeste agora é organizador.')
+    expect(toastText()).toContain('Liga Sudoeste agora é organizador.')
+    expect(toasts().map(item => item.tone)).toEqual(['success'])
     expect(findButton(tree, 'Aprovar organizador')).toBeUndefined()
     expect(findByRow(tree, 'Liga Sudoeste.')).toBeUndefined()
     expect(findByRow(tree, 'Pace Lago Assessoria.')).toBeTruthy()
@@ -119,7 +120,7 @@ describe('Pedidos de organizador (AD1)', () => {
     await typeInto(tree, 'Detalhe para quem pediu (obrigatório)', '  Perfil sem atividade  ')
     await pressButton(tree, 'Recusar pedido')
     expect(bodyOf('POST', '/admin/organizer-requests/31/decision')).toEqual({ decision: 'recusar', reason_code: 'outro', reason_detail: 'Perfil sem atividade' })
-    expect(allText(tree)).toContain('Pedido de Liga Sudoeste recusado.')
+    expect(toastText()).toContain('Pedido de Liga Sudoeste recusado.')
   })
 
   it('recusa com motivo da lista omite o detalhe', async () => {
@@ -138,7 +139,7 @@ describe('Pedidos de organizador (AD1)', () => {
     const tree = await mount(expired)
     await pressPrefix(tree, 'Liga Sudoeste.')
     await pressButton(tree, 'Aprovar organizador')
-    expect(allText(tree)).toContain('Este pedido já foi decidido.')
+    expect(toastText()).toContain('Este pedido já foi decidido.')
     expect(findButton(tree, 'Aprovar organizador')).toBeUndefined()
     expect(callsTo('GET', OPEN)).toHaveLength(2)
     expect(expired).not.toHaveBeenCalled()
@@ -150,7 +151,7 @@ describe('Pedidos de organizador (AD1)', () => {
     const tree = await mount(expired)
     await pressPrefix(tree, 'Liga Sudoeste.')
     await pressButton(tree, 'Aprovar organizador')
-    expect(allText(tree)).toContain('Este atleta já é organizador.')
+    expect(toastText()).toContain('Este atleta já é organizador.')
     expect(findButton(tree, 'Aprovar organizador')).toBeTruthy()
     world({ 'POST /admin/organizer-requests/31/decision': new ApiError('Sessão expirada.', 401) })
     await pressButton(tree, 'Aprovar organizador')
@@ -174,10 +175,11 @@ describe('Pedidos de organizador (AD1)', () => {
     openURL.mockRejectedValueOnce(new Error('sem navegador'))
     await pressButton(tree, 'Abrir o link do pedido: https://instagram.com/ligasudoeste')
     expect(openURL).toHaveBeenCalledWith('https://instagram.com/ligasudoeste')
-    expect(allText(tree)).toContain('Não foi possível abrir o link.')
+    expect(toastText()).toContain('Não foi possível abrir o link.')
     openURL.mockResolvedValueOnce(undefined)
     await pressButton(tree, 'Abrir o link do pedido: https://instagram.com/ligasudoeste')
-    expect(allText(tree)).not.toContain('Não foi possível abrir o link.')
+    // Abrir de novo com sucesso não acrescenta aviso: o único toast é o do primeiro erro.
+    expect(toasts().map(item => item.tone)).toEqual(['error'])
 
     world({ [OPEN]: () => page([organizerRequest({ link: 'javascript:alert(1)' })]) })
     const unsafe = await mount()
@@ -240,7 +242,7 @@ describe('Pedidos de organizador (AD1)', () => {
     await typeInto(tree, 'Motivo da revogação', '  Descumpriu as regras  ')
     await pressButton(tree, 'Revogar')
     expect(bodyOf('POST', '/admin/organizers/4/revoke')).toEqual({ reason: 'Descumpriu as regras' })
-    expect(allText(tree)).toContain('Permissão de Liga Sudoeste revogada.')
+    expect(toastText()).toContain('Permissão de Liga Sudoeste revogada.')
     expect(findByRow(tree, 'Liga Sudoeste.')).toBeUndefined()
   })
 
@@ -256,7 +258,7 @@ describe('Pedidos de organizador (AD1)', () => {
     await pressButton(tree, 'Revogar permissão')
     await typeInto(tree, 'Motivo da revogação', 'Descumpriu as regras')
     await pressButton(tree, 'Revogar')
-    expect(allText(tree)).toContain('Organizador não encontrado.')
+    expect(toastText()).toContain('Organizador não encontrado.')
     await pressButton(tree, 'Voltar')
     await pressButton(tree, 'Ver perfil de Rafa')
     expect(onOpenProfile).toHaveBeenCalledWith(2)
@@ -305,7 +307,7 @@ describe('Eventos pagos (AD1)', () => {
     expect(byId(tree, 'pix-code')).toHaveLength(0)
     await pressButton(tree, 'Aprovar e publicar')
     expect(bodyOf('POST', '/admin/events/5/decision')).toEqual({ decision: 'aprovar' })
-    expect(allText(tree)).toContain('Copa Sudoeste foi aprovado e publicado.')
+    expect(toastText()).toContain('Copa Sudoeste foi aprovado e publicado.')
     expect(allText(tree)).toContain('Nada para aprovar')
   })
 
@@ -323,7 +325,7 @@ describe('Eventos pagos (AD1)', () => {
     await pressButton(tree, 'Preço ou datas inconsistentes')
     await pressButton(tree, 'Recusar evento')
     expect(bodyOf('POST', '/admin/events/5/decision')).toEqual({ decision: 'recusar', reason_code: 'preco_ou_datas' })
-    expect(allText(tree)).toContain('Copa Sudoeste voltou para rascunho com o motivo.')
+    expect(toastText()).toContain('Copa Sudoeste voltou para rascunho com o motivo.')
   })
 
   it('recusa com detalhe e erro do servidor (data passada) na folha', async () => {
@@ -331,7 +333,7 @@ describe('Eventos pagos (AD1)', () => {
     const tree = await mount()
     await pressPrefix(tree, 'Copa Sudoeste.')
     await pressButton(tree, 'Aprovar e publicar')
-    expect(allText(tree)).toContain('As datas deste evento já passaram. Recuse para o organizador corrigir.')
+    expect(toastText()).toContain('As datas deste evento já passaram. Recuse para o organizador corrigir.')
     await pressButton(tree, 'Recusar')
     await pressButton(tree, 'Dados do Pix incompletos')
     await typeInto(tree, 'Detalhe para o organizador (opcional)', 'Falta o Copia e Cola')
@@ -371,7 +373,7 @@ describe('Organizador revogado (eventos)', () => {
     expect(allText(tree)).toContain('Seguir com o evento?')
     await pressButton(tree, 'Confirmar')
     expect(bodyOf('POST', '/admin/events/5/revocation-decision')).toEqual({ decision: 'seguir' })
-    expect(allText(tree)).toContain('Copa Sudoeste segue com o organizador.')
+    expect(toastText()).toContain('Copa Sudoeste segue com o organizador.')
   })
 
   it('cancela com motivo obrigatório e explica a devolução do evento pago', async () => {
@@ -386,7 +388,7 @@ describe('Organizador revogado (eventos)', () => {
     await typeInto(tree, 'Motivo do cancelamento (aparece aos inscritos)', '  Organizador revogado  ')
     await pressButton(tree, 'Cancelar evento')
     expect(bodyOf('POST', '/admin/events/5/revocation-decision')).toEqual({ decision: 'cancelar', reason: 'Organizador revogado' })
-    expect(allText(tree)).toContain('Copa Sudoeste foi cancelado. O organizador envia as devoluções.')
+    expect(toastText()).toContain('Copa Sudoeste foi cancelado. O organizador envia as devoluções.')
   })
 
   it('evento gratuito: o aviso diz que os inscritos foram avisados; voltar e erros', async () => {
@@ -402,7 +404,7 @@ describe('Organizador revogado (eventos)', () => {
     expect(allText(tree)).toContain('Os inscritos recebem o aviso de cancelamento com o motivo.')
     await typeInto(tree, 'Motivo do cancelamento (aparece aos inscritos)', 'Sem organizador')
     await pressButton(tree, 'Cancelar evento')
-    expect(allText(tree)).toContain('Este evento não aguarda decisão da administração.')
+    expect(toastText()).toContain('Este evento não aguarda decisão da administração.')
   })
 
   it('fila vazia mostra a orientação', async () => {
@@ -452,7 +454,7 @@ describe('Devoluções contestadas (administração)', () => {
     await typeInto(tree, 'Motivo da decisão (o organizador e o participante veem)', '  Comprovante confere  ')
     await pressButton(tree, 'Registrar decisão')
     expect(bodyOf('POST', '/admin/entries/14/refund-decision')).toEqual({ decision: 'devolvida', reason: 'Comprovante confere' })
-    expect(allText(tree)).toContain('Devolução de Ferrugem FC considerada feita.')
+    expect(toastText()).toContain('Devolução de Ferrugem FC considerada feita.')
     expect(allText(tree)).toContain('Nenhuma devolução contestada')
   })
 
@@ -465,7 +467,7 @@ describe('Devoluções contestadas (administração)', () => {
     await typeInto(tree, 'Motivo da decisão (o organizador e o participante veem)', 'O valor não confere com o pago')
     await pressButton(tree, 'Registrar decisão')
     expect(bodyOf('POST', '/admin/entries/14/refund-decision')).toEqual({ decision: 'pendente', reason: 'O valor não confere com o pago' })
-    expect(allText(tree)).toContain('Rafa Nunes vai enviar outro comprovante para Ferrugem FC.')
+    expect(toastText()).toContain('Rafa Nunes vai enviar outro comprovante para Ferrugem FC.')
   })
 
   it('erros: decisão recusada pelo servidor, histórico indisponível e comprovante ausente', async () => {

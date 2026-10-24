@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button'
 import { feedbackVariants } from '@/components/ui/feedback'
 import { Sheet, SheetActions } from '@/components/ui/sheet'
 import { Tabs } from '@/components/ui/tabs'
+import { toast } from '@/components/ui/toast'
 import { footballFormat } from '@/data/arena'
 import { formatDeadline } from '@/utils/format'
 import { relativeTime } from '@/utils/relativeTime'
@@ -67,8 +68,8 @@ function CourtSheet({ item, onClose, onDecided, onStale, onExpired }: {
   item: AdminCourtSuggestion
   onClose: () => void
   onDecided: (message: string) => void
-  /** A sugestão já foi decidida em outro lugar (409/404): a fila recarrega e a folha fecha. */
-  onStale: (message: string) => void
+  /** A sugestão já foi decidida em outro lugar (409/404): o `useSubmit` avisa com a mensagem do servidor; a fila recarrega e a folha fecha. */
+  onStale: () => void
   onExpired: () => void
 }) {
   const id = useId()
@@ -84,17 +85,11 @@ function CourtSheet({ item, onClose, onDecided, onStale, onExpired }: {
   const rejectProblem = attempted ? courtRejectError(reason, duplicateId !== null) : null
   const chosen = duplicates.find(other => other.id === duplicateId)
 
-  async function decide(input: CourtDecisionInput, fallback: string) {
-    let stale = ''
-    const decided = await run(async () => {
-      try { return await decideCourt(court.id, input) } catch (cause) {
-        // 404 e "já foi decidida" são sugestão fora da fila; o 409 de nome repetido fica na folha (rejeitar como duplicada).
-        if (cause instanceof ApiError && (cause.status === 404 || (cause.status === 409 && /já foi decidida/i.test(cause.message)))) stale = cause.message
-        throw cause
-      }
-    }, fallback)
-    if (!decided && stale) onStale(stale)
-    return decided
+  function decide(input: CourtDecisionInput, fallback: string) {
+    // 404 e "já foi decidida" são sugestão fora da fila; o 409 de nome repetido fica na folha (rejeitar como duplicada).
+    return run(() => decideCourt(court.id, input), fallback, cause => {
+      if (cause instanceof ApiError && (cause.status === 404 || (cause.status === 409 && /já foi decidida/i.test(cause.message)))) onStale()
+    })
   }
   async function publish() {
     setAttempted(true)
@@ -132,7 +127,7 @@ function CourtSheet({ item, onClose, onDecided, onStale, onExpired }: {
       <Button variant="secondary" disabled={busy} onClick={() => { setMode('reject'); setError('') }}><X size={17} aria-hidden="true" />Rejeitar</Button>
     </SheetActions>}
 
-    {mode === 'publish' && <div className="mt-3 grid gap-2.5 rounded-card p-3.5 shadow-[inset_0_0_0_1.5px_#005a3655]">
+    {mode === 'publish' && <div className="mt-3 grid gap-2.5 rounded-card p-3.5 shadow-[inset_0_0_0_1.5px_#005a3655] noite:shadow-[inset_0_0_0_1.5px_#8fe0b455]">
       <b className="text-[13px]">Publicar no catálogo</b>
       <label htmlFor={`${id}-name`} className="m-0">Nome da quadra</label>
       <input id={`${id}-name`} data-autofocus value={name} maxLength={COURT_LIMITS.nameMax} aria-invalid={Boolean(publishProblems.name)}
@@ -160,12 +155,12 @@ function CourtSheet({ item, onClose, onDecided, onStale, onExpired }: {
         ? `As partidas que usavam esta sugestão passam a usar ${chosen.name}, do catálogo, sem novo aceite.`
         : 'Quem sugeriu vê o motivo nas notificações. A partida segue com a quadra combinada, marcada como "Sugestão recusada".'}
       confirmLabel="Rejeitar sugestão" busyLabel="Rejeitando…" busy={busy} onConfirm={() => void reject()} onCancel={back} />}
-    <div aria-live="polite">{error && <p className={feedbackVariants()} role="alert">{error}</p>}</div>
+    {error && <p className={feedbackVariants()} role="alert">{error}</p>}
   </Sheet>
 }
 
 /** Fila de sugestões (`GET /admin/court-suggestions`): em revisão, com a folha de decisão; decididas, só leitura. */
-function CourtQueueList({ queue, onNotice, onExpired }: { queue: CourtQueue; onNotice: (text: string) => void; onExpired: () => void }) {
+function CourtQueueList({ queue, onExpired }: { queue: CourtQueue; onExpired: () => void }) {
   const list = usePagedList<AdminCourtSuggestion>(courtSuggestionsPath(queue), onExpired)
   const [open, setOpen] = useState<AdminCourtSuggestion | null>(null)
   const pending = queue === 'em_revisao'
@@ -178,7 +173,7 @@ function CourtQueueList({ queue, onNotice, onExpired }: { queue: CourtQueue; onN
         const { court, suggested_by: by, origin_match: origin } = item
         const base = [court.address ?? 'Sem endereço', `${category(court)} · ${place(court)}`]
         if (pending) {
-          return <TileRow key={court.id} Icon={MapPin} title={court.name} onOpen={() => { setOpen(item); onNotice('') }}
+          return <TileRow key={court.id} Icon={MapPin} title={court.name} onOpen={() => setOpen(item)}
             lines={[...base, `Sugerida por ${by?.name ?? 'conta removida'} ${relativeTime(item.created_at)}${origin ? ` · partida #${origin.id}` : ''}`]}
             badge={item.possible_duplicates.length > 0 ? <StateBadge tone="pending">Possível duplicidade</StateBadge> : undefined} />
         }
@@ -195,9 +190,9 @@ function CourtQueueList({ queue, onNotice, onExpired }: { queue: CourtQueue; onN
       onDecided={message => {
         list.setItems(old => old.filter(item => item.court.id !== open.court.id))
         setOpen(null)
-        onNotice(message)
+        toast.success(message)
       }}
-      onStale={message => { setOpen(null); onNotice(message); list.reload() }} />}
+      onStale={() => { setOpen(null); list.reload() }} />}
   </>
 }
 
@@ -208,15 +203,13 @@ function CourtQueueList({ queue, onNotice, onExpired }: { queue: CourtQueue; onN
 export default function AdminCourtSuggestions({ onExpired }: { onExpired: () => void }) {
   const ids = useId()
   const [tab, setTab] = useState<CourtQueue>('em_revisao')
-  const [notice, setNotice] = useState('')
   return <section aria-label="Sugestões de quadra">
     <p className="mb-1 flex items-start gap-2 text-[11.5px] leading-[1.5] text-ink-muted"><MapPin size={16} className="mt-px flex-none text-brand" aria-hidden="true" />
       As quadras sugeridas valem só na partida de origem até a sua decisão. Publique as que existem; quem sugeriu recebe a resposta nas notificações.</p>
     <Tabs variant="segmented" className="mt-1" items={tabs} value={tab} label="Filas de quadras" idPrefix={`${ids}-tab-`} controls={`${ids}-panel`}
-      onChange={value => { setTab(value); setNotice('') }} />
-    <div aria-live="polite">{notice && <p className={feedbackVariants({ tone: 'success' })} role="status">{notice}</p>}</div>
+      onChange={setTab} />
     <div id={`${ids}-panel`} role="tabpanel" aria-labelledby={`${ids}-tab-${tab}`} className="pt-1">
-      <CourtQueueList key={tab} queue={tab} onNotice={setNotice} onExpired={onExpired} />
+      <CourtQueueList key={tab} queue={tab} onExpired={onExpired} />
     </div>
   </section>
 }

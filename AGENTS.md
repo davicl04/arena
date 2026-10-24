@@ -47,6 +47,7 @@ Não há `package.json` na raiz: execute comandos npm em `web/` ou `mobile/`. O 
 - Os ícones provisórios enviados pelo usuário estão em `web/public/images/sports/`: futebol, tênis e corrida. Use `SportIcon` e o mapeamento de `web/src/data/arena.ts` para manter consistência entre cards, filtros e chips.
 - Use componentes reutilizáveis, tipos explícitos e o cliente existente em `src/api/client.ts`. Centralize dados visuais e evite duplicar requisições, regras ou mapeamentos.
 - Mantenha textos em português, codificação UTF-8, labels, foco visível, navegação por teclado e estados de carregamento, erro e sucesso.
+- Há tema claro e escuro ([decisão 0004](docs/decisoes/0004-tema.md)). Confira toda tela nova ou alterada nos dois temas. Use tokens (`surface`/`bg-surface` no lugar de `bg-white`, `text-on-brand` sobre `bg-brand`) e use `noite:` (web) ou `dark:` (Expo) só quando o token não resolver. Na web, `dark:` é a variante do vidro. Blocos escuros por design ficam iguais nos dois temas.
 - Em alterações de layout, confira telas estreitas, navegação inferior, rolagem e ausência de overflow horizontal. Referências úteis: 320 e 390 px no mobile e 1440 px no desktop.
 
 ## API, autenticação e persistência

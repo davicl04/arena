@@ -1,13 +1,14 @@
 import { useState } from 'react'
 import { Search, SearchX, UserRoundPlus } from 'lucide-react'
-import { ApiError, request } from '../api/client'
+import { request } from '../api/client'
 import type { SocialUser } from '../api/client'
 import { usePagedList } from '../hooks/usePagedList'
+import { reportActionError } from '../hooks/useSubmit'
 import { SocialPhoto } from './SocialPhoto'
 import { Button } from '@/components/ui/button'
 import { feedbackVariants } from '@/components/ui/feedback'
+import { LoadError } from '@/components/ui/load-error'
 import { PersonList, PersonRow } from '@/components/ui/person-row'
-import { cn } from '@/lib/utils'
 
 const section = 'mt-4 mb-1 text-[9.5px] font-bold tracking-[0.1em] text-ink-muted uppercase'
 
@@ -56,32 +57,28 @@ function Following({ viewerId, onOpenUser, onExpired }: { viewerId: number; onOp
 function SearchResults({ query, onOpenUser, onExpired }: { query: string; onOpenUser: (id: number) => void; onExpired: () => void }) {
   const { items, loading, error, hasMore, busy, moreError, loadMore, setItems, reload } = usePagedList<SocialUser>(`/users?q=${encodeURIComponent(query)}`, onExpired)
   const [following, setFollowing] = useState<number | null>(null)
-  const [failure, setFailure] = useState('')
 
   async function follow(person: SocialUser) {
     if (following !== null) return
-    setFollowing(person.id); setFailure('')
+    setFollowing(person.id)
     try {
       let next: SocialUser['follow_state'] = 'none'
       if (person.follow_state === 'pending' || person.follow_state === 'approved') await request<void>(`/users/${person.id}/follow`, 'DELETE')
       else next = (await request<{ state: 'approved' | 'pending' }>(`/users/${person.id}/follow`, 'PUT')).state
       setItems(old => old.map(item => item.id === person.id ? { ...item, follow_state: next } : item))
     } catch (cause) {
-      if (cause instanceof ApiError && cause.status === 401) onExpired()
-      setFailure(cause instanceof Error && cause.message ? cause.message : 'Não foi possível atualizar.')
+      reportActionError(cause, 'Não foi possível atualizar.', onExpired)
     } finally { setFollowing(null) }
   }
 
   if (loading) return <p className="py-6 text-center text-[11.5px] text-ink-muted" role="status">Buscando atletas…</p>
-  if (error) return <div className={cn(feedbackVariants(), 'mt-4')} role="alert">{error.message}
-    <Button type="button" variant="text" onClick={reload}>Tentar de novo</Button></div>
+  if (error) return <LoadError size="section" title="Busca indisponível" text={error.message} cause={error} onRetry={reload} className="mt-4" />
   if (items.length === 0) return <div className="grid justify-items-center gap-1.5 px-5 py-10 text-center text-[11.5px] leading-[1.5] text-ink-muted">
     <SearchX size={26} className="text-brand" />
     <b className="font-display text-[14px] text-ink">Nenhum atleta encontrado</b>
     Confira a grafia ou busque pelo @ exato.
   </div>
   return <>
-    {failure && <p className={cn(feedbackVariants(), 'mt-3')} role="alert">{failure}</p>}
     <PersonList aria-label="Resultados da busca">{items.map(person => <PersonRow key={person.id} person={person} onOpen={onOpenUser}
       info={[person.social_public ? 'Conta pública' : 'Conta privada', person.follows_you && 'Segue você'].filter(Boolean).join(' · ')}
       actions={person.follow_state === 'self' ? undefined : person.follow_state === 'none'

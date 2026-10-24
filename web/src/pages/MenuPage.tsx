@@ -4,16 +4,22 @@ import { getOrganizerStatus } from '../api/organizer'
 import { listOpenOrganizerEvents } from '../api/events'
 import { OrganizerCard, OrganizerEvents } from '../components/organizer/OrganizerCard'
 import { useResource } from '../hooks/useResource'
-import { Button } from '@/components/ui/button'
-import { feedbackVariants } from '@/components/ui/feedback'
+import { LoadError } from '@/components/ui/load-error'
 import { ListGroup, ListHeading, ListRow } from '@/components/ui/list-row'
-import { cn } from '@/lib/utils'
 import { appVersion } from '../data/arena'
+import { AppearanceCard } from '../components/menu/AppearanceCard'
 
 /** Contador de pendências da fila (AD1). */
 function QueueCount({ count }: { count: number }) {
-  return <span className="inline-grid h-[17px] min-w-[17px] place-items-center rounded-[9px] bg-danger px-1 text-[9.5px] font-extrabold text-white">
+  return <span className="inline-grid h-[17px] min-w-[17px] place-items-center rounded-[9px] bg-danger px-1 text-[9.5px] font-extrabold text-white noite:text-[#2a0710]">
     {count > 99 ? '99+' : count}<span className="sr-only"> {count === 1 ? 'pendente' : 'pendentes'}</span>
+  </span>
+}
+
+/** Contador da linha "Notificações" do Menu (o mesmo número do sino). */
+function NotificationCount({ count }: { count: number }) {
+  return <span className="inline-grid h-[17px] min-w-[17px] place-items-center rounded-[9px] bg-brand px-1 text-[9.5px] font-extrabold text-on-brand">
+    {count > 99 ? '99+' : count}<span className="sr-only"> {count === 1 ? 'nova' : 'novas'}</span>
   </span>
 }
 
@@ -22,9 +28,9 @@ const queueValue = (count: number | undefined) => typeof count === 'number' && c
 
 /**
  * Menu do perfil (hambúrguer): atalhos da conta, o cartão "Organizar no Arena" (P3) ou, com a permissão, a seção
- * Organizador; para a administração, as filas (AD1); informações do app e saída.
+ * Organizador; para a administração, as filas (AD1); a aparência (tema), informações do app e saída.
  */
-export default function MenuPage({ isAdmin, busy, onEditProfile, onSports, onModeration, onOrganizerRequest, onOrganizerRequests, onPaidEvents, onRevokedEvents, onRefundDisputes, onCourtSuggestions, onWalkoverDisputes, onOrganizerEvents, onOpenEvent, onNewEvent, onNotifications, onLogout, onExpired }: {
+export default function MenuPage({ isAdmin, busy, onEditProfile, onSports, onModeration, onOrganizerRequest, onOrganizerRequests, onPaidEvents, onRevokedEvents, onRefundDisputes, onCourtSuggestions, onWalkoverDisputes, onOrganizerEvents, onOpenEvent, onNewEvent, onNotifications, notificationCount = 0, onLogout, onExpired }: {
   isAdmin: boolean
   busy: boolean
   onEditProfile: () => void
@@ -50,8 +56,10 @@ export default function MenuPage({ isAdmin, busy, onEditProfile, onSports, onMod
   onOpenEvent: (eventId: number) => void
   /** Abre o Criar evento (V4). */
   onNewEvent: () => void
-  /** Abre a tela Notificações (a mesma do sino do Início). */
+  /** Abre a tela Notificações (a mesma do sino das abas). */
   onNotifications: () => void
+  /** Não lidas mais pedidos para seguir (resumo das notificações do ArenaPage): o número na linha "Notificações". */
+  notificationCount?: number
   onLogout: () => void
   onExpired: () => void
 }) {
@@ -69,10 +77,10 @@ export default function MenuPage({ isAdmin, busy, onEditProfile, onSports, onMod
       <ListRow Icon={Trophy} label="Minhas modalidades" onClick={onSports} />
     </ListGroup>
     {organizer.loading && <p role="status" className="mx-1 mt-5 text-[11px] text-ink-muted">Carregando a área do organizador…</p>}
-    {organizer.error && <div className={cn(feedbackVariants(), 'mt-5')} role="alert">{organizer.error} <Button variant="text" onClick={organizer.reload}>Tentar novamente</Button></div>}
+    {organizer.error && <LoadError size="section" className="mt-5" title="Não foi possível carregar a área do organizador" text={organizer.error} cause={organizer.errorCause} onRetry={organizer.reload} />}
     {status && status.state !== 'aprovado' && <OrganizerCard status={status} onRequest={onOrganizerRequest} onChange={organizer.setData} onExpired={onExpired} />}
     {showEvents && <OrganizerEvents status={status} events={eventItems} loading={events.loading} error={status?.state === 'aprovado' ? events.error : ''}
-      onReload={events.reload} onOpenList={onOrganizerEvents} onOpenEvent={onOpenEvent} onCreate={onNewEvent} />}
+      errorCause={events.errorCause} onReload={events.reload} onOpenList={onOrganizerEvents} onOpenEvent={onOpenEvent} onCreate={onNewEvent} />}
     {isAdmin && <>
       <ListHeading>Administração</ListHeading>
       <ListGroup>
@@ -85,9 +93,11 @@ export default function MenuPage({ isAdmin, busy, onEditProfile, onSports, onMod
         <ListRow Icon={Flag} label="Denúncias" value={queueValue(counts.data?.reports)} onClick={onModeration} />
       </ListGroup>
     </>}
+    <ListHeading>Aparência</ListHeading>
+    <AppearanceCard />
     <ListHeading>App</ListHeading>
     <ListGroup>
-      <ListRow Icon={Bell} label="Notificações" onClick={onNotifications} />
+      <ListRow Icon={Bell} label="Notificações" value={notificationCount > 0 ? <NotificationCount count={notificationCount} /> : undefined} onClick={onNotifications} />
       <ListRow Icon={Info} label="Sobre o ARENA" value={`Versão ${appVersion}`} />
     </ListGroup>
     <ListGroup className="mt-5">

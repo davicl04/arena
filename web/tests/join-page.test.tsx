@@ -1,11 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import App from '../src/App'
 import type { User } from '../src/api/client'
 import JoinPage from '../src/pages/JoinPage'
 import { clearJoinPath, joinTokenFrom } from '../src/utils/joinLink'
 import { apiError, brasilia, member, mockApi, person, reply, roster, team } from './teams-fixtures'
+import { findToast, renderWithToaster } from './toast-utils'
 
 const me: User = { id: 1, name: 'Ricardo Moura', username: 'ricardo', email: 'ricardo@example.com', birth_date: '1990-01-01', social_public: true, is_admin: false, avatar: null, cover: null }
 const TOKEN = 'AbC_123-xyz'
@@ -18,7 +19,7 @@ afterEach(() => { cleanup(); vi.unstubAllGlobals(); window.history.replaceState(
 
 function renderJoin(token = TOKEN) {
   const handlers = { onClose: vi.fn(), onOpenTeams: vi.fn(), onExpired: vi.fn() }
-  render(<JoinPage token={token} {...handlers} />)
+  renderWithToaster(<JoinPage token={token} {...handlers} />)
   return handlers
 }
 
@@ -33,7 +34,9 @@ describe('Entrar no time pelo link', () => {
     expect(screen.getByText(/sua posição preferida do futebol aparece no elenco/)).toBeTruthy()
     await ui.click(screen.getByRole('button', { name: 'Pedir para entrar' }))
     expect(await screen.findByText('Pedido enviado · aguardando um representante')).toBeTruthy()
-    expect(screen.getByRole('status').textContent).toBe('Pedido enviado · aguardando um representante.')
+    const sent = await findToast('Pedido enviado.')
+    expect(sent.closest('[data-tone]')?.getAttribute('data-tone')).toBe('success')
+    expect(await findToast(/Um representante do Real Sudoeste vai responder/)).toBeTruthy()
     expect(api.find('POST', `/join/${TOKEN}`)[0].body).toEqual({})
     await ui.click(screen.getByRole('button', { name: 'Cancelar pedido' }))
     expect(await screen.findByRole('button', { name: 'Pedir para entrar' })).toBeTruthy()
@@ -50,7 +53,7 @@ describe('Entrar no time pelo link', () => {
     renderJoin()
     await ui.click(await screen.findByRole('button', { name: 'Cancelar pedido' }))
     expect((await screen.findAllByRole('status')).map(node => node.textContent).join(' ')).toContain('Você já está no elenco do Real Sudoeste.')
-    expect(screen.getByRole('alert').textContent).toBe('Este pedido já foi decidido.')
+    expect(await findToast('Este pedido já foi decidido.')).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Cancelar pedido' })).toBeNull()
     expect(screen.getByRole('button', { name: 'Abrir Meus times' })).toBeTruthy()
     expect(api.find('GET', `/join/${TOKEN}`)).toHaveLength(2)
@@ -85,7 +88,7 @@ describe('Entrar no time pelo link', () => {
     const ui = userEvent.setup()
     renderJoin()
     await ui.click(await screen.findByRole('button', { name: 'Pedir para entrar' }))
-    expect((await screen.findByRole('alert')).textContent).toBe('Você já está no elenco.')
+    expect(await findToast('Você já está no elenco.')).toBeTruthy()
     expect(await screen.findByRole('button', { name: 'Abrir Meus times' })).toBeTruthy()
   })
 
@@ -114,7 +117,7 @@ describe('Link do time no App', () => {
       [`GET /join/${TOKEN}`]: preview('disponivel'),
     })
     const ui = userEvent.setup()
-    render(<App />)
+    renderWithToaster(<App />)
     expect(await screen.findByRole('button', { name: 'Entrar no Arena →' })).toBeTruthy()
     // O token sai do endereço na hora e não vai para nenhum armazenamento.
     expect(window.location.pathname).toBe('/')
@@ -140,7 +143,7 @@ describe('Link do time no App', () => {
       [`GET /join/${TOKEN}`]: () => (++previews === 1 ? apiError(401, 'Entre na sua conta para continuar.') : preview('disponivel')),
     })
     const ui = userEvent.setup()
-    render(<App />)
+    renderWithToaster(<App />)
     // A primeira consulta do link responde 401: volta ao login, avisando que a sessão expirou.
     expect(await screen.findByRole('button', { name: 'Entrar no Arena →' })).toBeTruthy()
     expect(screen.getByText('Sua sessão expirou. Entre novamente para continuar.')).toBeTruthy()
@@ -174,7 +177,7 @@ describe('Link do time no App', () => {
       'GET /teams/40/members': { items: [member(1, 'Ricardo Moura', { role: 'representante' })] },
     })
     const ui = userEvent.setup()
-    render(<App />)
+    renderWithToaster(<App />)
     await ui.click(await screen.findByRole('button', { name: 'Abrir Meus times' }))
     expect(await screen.findByRole('heading', { level: 1, name: 'Meus times' })).toBeTruthy()
     const nav = screen.getByRole('navigation', { name: 'Navegação principal' })

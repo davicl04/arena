@@ -113,6 +113,9 @@ def cancel_event_matches(db: Session, event: Event, *, actor_id: int, now: datet
     matches = db.scalars(select(Match).where(
         Match.event_id == event.id, Match.state.in_(OPEN_MATCH_STATES)).order_by(Match.id).with_for_update()
         .execution_options(populate_existing=True)).all()
+    # Nothing is left to decide or to correct: the organizer's pending and both sides' divergence close with it.
+    notifications.resolve_actions_many(db, [key for match in matches for key in (
+        notifications.decision_key(match.id), notifications.result_key(match.id))])
     for match in matches:
         match.state = next_match_state(match.state, 'cancelar')
         match.cancelled_at, match.cancelled_by_id, match.cancel_reason = now, actor_id, 'Evento cancelado.'
@@ -130,7 +133,9 @@ def on_divergence(db: Session, match: Match, *, now: datetime) -> None:
     """The two sides informed different scores in a championship: the organizer is asked to decide (no commit)."""
     event = db.get(Event, match.event_id)
     notifications.notify(db, event.organizer_user_id, 'divergencia_para_decidir', {
-        'match_id': match.id, 'event_id': event.id, 'event_name': event.name, 'deadline': iso(match.result_deadline)})
+        'match_id': match.id, 'event_id': event.id, 'event_name': event.name, 'deadline': iso(match.result_deadline)},
+        # The athletes' correction window ends after 48 h; the organizer can still decide afterwards.
+        action_key=notifications.decision_key(match.id))
 
 
 def lock_following(db: Session, match: Match) -> None:

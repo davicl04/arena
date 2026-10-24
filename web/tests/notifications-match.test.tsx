@@ -5,10 +5,12 @@ import type { Profile, User } from '../src/api/client'
 import type { ArenaNotification } from '../src/api/notifications'
 import { notificationView } from '../src/data/notifications'
 import ArenaPage from '../src/pages/ArenaPage'
-import NotificationsPage from '../src/pages/NotificationsPage'
 import { brasilia, mockApi, person } from './teams-fixtures'
 import { dispute, fromNow } from './admin-match-fixtures'
 import { matchDetail, page } from './match-fixtures'
+import { listed, summaryOf } from './notifications-fixtures'
+import { NotificationsHarness } from './notifications-harness'
+import { findToast } from './toast-utils'
 
 /*
  * Notificações da etapa 3 (0002-jogar, seção 13): texto e destino dos 16 tipos do Jogar e a navegação até a partida
@@ -127,21 +129,22 @@ describe('tela Notificações com os tipos da etapa 3', () => {
   ]
   const routes = () => mockApi({
     'GET /me/follow-requests': { items: [], next_cursor: null },
-    'GET /me/notifications': { items, next_cursor: null },
-    'GET /me/notifications/unread-count': { unread_count: 4 },
-    'PUT /me/notifications/1/read': { unread_count: 3 },
-    'PUT /me/notifications/2/read': { unread_count: 2 },
-    'PUT /me/notifications/3/read': { unread_count: 1 },
-    'PUT /me/notifications/4/read': { unread_count: 0 },
-    'PUT /me/notifications/read-all': { unread_count: 0 },
+    'GET /me/notifications/pending?limit=50': { items: [] },
+    'GET /me/notifications?pendente=false': { items, next_cursor: null },
+    'GET /me/notifications/summary': summaryOf({ unread_count: 4 }),
+    'PUT /me/notifications/1/read': summaryOf({ unread_count: 3 }),
+    'PUT /me/notifications/2/read': summaryOf({ unread_count: 2 }),
+    'PUT /me/notifications/3/read': summaryOf({ unread_count: 1 }),
+    'PUT /me/notifications/4/read': summaryOf({ unread_count: 0 }),
+    'PUT /me/notifications/read-all': summaryOf({ unread_count: 0 }),
   })
 
   it('lista com os ícones, o tempo relativo e o não lido; cada toque marca como lida e navega', async () => {
     const calls = routes()
     const onNavigate = vi.fn()
     const ui = userEvent.setup()
-    render(<NotificationsPage isAdmin onOpenUser={vi.fn()} onNavigate={onNavigate} onExpired={vi.fn()} />)
-    const list = await screen.findByRole('list', { name: 'Notificações da conta' })
+    render(<NotificationsHarness isAdmin onNavigate={onNavigate} />)
+    const list = await listed()
     const rows = within(list).getAllByRole('listitem')
     expect(rows[0].querySelector('.lucide-zap')).not.toBeNull()
     expect(rows[1].querySelector('.lucide-calendar-clock')).not.toBeNull()
@@ -164,15 +167,15 @@ describe('tela Notificações com os tipos da etapa 3', () => {
     expect(calls.find('PUT', '/me/notifications/4/read')).toHaveLength(1)
   })
 
-  it('"Marcar todas como lidas" zera as não lidas', async () => {
+  it('"Ler todas" zera as não lidas', async () => {
     const calls = routes()
     const ui = userEvent.setup()
-    render(<NotificationsPage onOpenUser={vi.fn()} onNavigate={vi.fn()} onExpired={vi.fn()} />)
-    await screen.findByRole('list', { name: 'Notificações da conta' })
-    await ui.click(screen.getByRole('button', { name: 'Marcar todas como lidas' }))
-    expect((await screen.findByRole('status')).textContent).toBe('Todas as notificações foram marcadas como lidas.')
+    render(<NotificationsHarness />)
+    await listed()
+    await ui.click(screen.getByRole('button', { name: 'Ler todas' }))
+    expect(await findToast('Todas as notificações foram marcadas como lidas.')).not.toBeNull()
     expect(calls.find('PUT', '/me/notifications/read-all')).toHaveLength(1)
-    expect(screen.queryByRole('button', { name: 'Marcar todas como lidas' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Ler todas' })).toBeNull()
   })
 })
 
@@ -185,10 +188,11 @@ describe('ArenaPage: a notificação abre a partida e as filas da administraçã
     return mockApi({
       'GET /me/sports-profiles': [football],
       'GET /cities': [brasilia],
-      'GET /me/notifications/unread-count': { unread_count: notifications.length },
+      'GET /me/notifications/summary': summaryOf({ unread_count: notifications.length }),
       'GET /me/follow-requests': { items: [], next_cursor: null },
-      'GET /me/notifications': { items: notifications, next_cursor: null },
-      'PUT /me/notifications/1/read': { unread_count: 0 },
+      'GET /me/notifications/pending?limit=50': { items: [] },
+      'GET /me/notifications?pendente=false': { items: notifications, next_cursor: null },
+      'PUT /me/notifications/1/read': summaryOf({ unread_count: 0 }),
       // A tela da partida (J2) lê o detalhe e o chat da partida 12.
       'GET /matches/12': matchDetail({ id: 12 }),
       'GET /matches/12/messages': page([]),
@@ -200,7 +204,7 @@ describe('ArenaPage: a notificação abre a partida e as filas da administraçã
     api([note('partida_agendada', { match_id: 12, starts_at: kickoff, court_name: 'Quadra do Lago', changed: false })])
     const ui = userEvent.setup()
     render(<ArenaPage user={me} onUser={vi.fn()} onLogout={vi.fn()} onExpired={vi.fn()} />)
-    await ui.click(await screen.findByRole('button', { name: 'Notificações, 1 não lida' }))
+    await ui.click(await screen.findByRole('button', { name: 'Notificações, 1 nova' }))
     await ui.click(await screen.findByRole('button', { name: /Partida agendada/ }))
     // A navegação é síncrona: a região principal já se chama "Partida". O título "Partida" da barra de carregamento é
     // transitório (some assim que o detalhe chega), então a espera é pelo cabeçalho do detalhe, com os dois lados.
@@ -208,7 +212,7 @@ describe('ArenaPage: a notificação abre a partida e as filas da administraçã
     expect(await screen.findByRole('heading', { level: 1, name: /^Ferrugem FC contra / })).not.toBeNull()
     expect(nav().getByRole('button', { name: 'JOGAR' }).getAttribute('aria-current')).toBe('page')
     await ui.click(screen.getByRole('button', { name: 'Voltar' }))
-    expect(await screen.findByRole('list', { name: 'Notificações da conta' })).not.toBeNull()
+    expect(await listed()).not.toBeNull()
   })
 
   it('o W.O. contestado, para a administração, abre a fila com o Perfil aceso', async () => {
@@ -218,7 +222,7 @@ describe('ArenaPage: a notificação abre a partida e as filas da administraçã
     })
     const ui = userEvent.setup()
     render(<ArenaPage user={{ ...me, is_admin: true }} onUser={vi.fn()} onLogout={vi.fn()} onExpired={vi.fn()} />)
-    await ui.click(await screen.findByRole('button', { name: 'Notificações, 1 não lida' }))
+    await ui.click(await screen.findByRole('button', { name: 'Notificações, 1 nova' }))
     await ui.click(await screen.findByRole('button', { name: /contestou o W\.O\./ }))
     expect(await screen.findByRole('heading', { level: 1, name: 'W.O. contestados' })).not.toBeNull()
     expect(nav().getByRole('button', { current: 'page' }).textContent).toBe('Perfil')

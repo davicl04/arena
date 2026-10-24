@@ -7,6 +7,7 @@ import { Card } from '@/components/ui/card'
 import { SectionTitle } from '@/components/ui/section-title'
 import { Tabs } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
+import { LoadError } from '@/components/ui/load-error'
 import { usePagedList } from '@/hooks/usePagedList'
 import { SideMark } from './SideBadge'
 import { matchPhases } from '@/data/match'
@@ -23,7 +24,7 @@ export function MatchRow({ card, onOpen }: { card: MatchCard; onOpen: (matchId: 
   return <button type="button" data-slot="match-row" data-phase={card.phase} onClick={() => onOpen(card.id)}
     className="flex min-h-[64px] w-full items-center gap-3 border-0 bg-transparent px-0 py-2.5 text-left text-inherit [&+&]:border-t [&+&]:border-solid [&+&]:border-line">
     <span className="flex flex-none -space-x-2" aria-hidden="true">
-      <SideMark side={mine} className="relative z-1 ring-2 ring-white" />
+      <SideMark side={mine} className="relative z-1 ring-2 ring-white noite:ring-surface" />
       <SideMark side={other} />
     </span>
     <span className="min-w-0 flex-1">
@@ -42,9 +43,7 @@ function History({ sport, onOpen, onExpired }: { sport: MatchCard['sport']; onOp
   const list = usePagedList<MatchCard>(MY_MATCHES_HISTORY_PATH, onExpired)
   const items = list.items.filter(card => card.sport === sport)
   if (list.loading) return <p role="status" className="m-0 py-4 text-center text-[11.5px] text-ink-muted">Carregando o histórico…</p>
-  if (list.error) return <p role="alert" className="m-0 py-4 text-center text-[11.5px] text-error">
-    {list.error.message} <Button variant="text" className="inline min-h-0 p-0" onClick={list.reload}>Tentar novamente</Button>
-  </p>
+  if (list.error) return <LoadError size="section" text={list.error.message} cause={list.error} onRetry={list.reload} />
   return <>
     {items.length
       ? items.map(card => <MatchRow key={card.id} card={card} onOpen={onOpen} />)

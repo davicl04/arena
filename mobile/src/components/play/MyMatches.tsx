@@ -4,8 +4,9 @@ import { MY_MATCHES_HISTORY_PATH } from '../../api/matchmaking'
 import type { MatchCard } from '../../api/matches'
 import { matchPhases, sideOf } from '../../data/match'
 import { usePagedList } from '../../hooks/usePagedList'
-import { colors } from '../../theme'
+import { useResolvedTheme, useThemeColors } from '../../hooks/useTheme'
 import { ActionButton } from '../arena/controls'
+import { LoadError } from '../arena/LoadError'
 import { StateBadge } from '../arena/StateBadge'
 import { Icon } from '../Icon'
 import { matchDetail, matchTitle } from './matchView'
@@ -16,6 +17,7 @@ const scopes: { value: Scope; label: string }[] = [{ value: 'proximas', label: '
 
 /** Cartão de uma partida nas listas da placa: os dois lados, o título, quando e onde, e a fase. Leva à tela da partida. */
 export function MatchRow({ card, divider = false, onOpen }: { card: MatchCard; divider?: boolean; onOpen: (matchId: number) => void }) {
+  const c = useThemeColors()
   const phase = matchPhases[card.phase]
   const mine = sideOf(card, card.my_side) ?? card.sides[0]
   const other = card.sides.find(side => side !== mine)
@@ -23,38 +25,37 @@ export function MatchRow({ card, divider = false, onOpen }: { card: MatchCard; d
   const detail = matchDetail(card)
   const label = [title, detail, phase?.label ?? card.phase, card.needs_my_action ? 'sua vez' : ''].filter(Boolean).join(', ')
   return <Pressable testID="match-row" accessibilityRole="button" accessibilityLabel={label} onPress={() => onOpen(card.id)}
-    style={{ minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, borderTopWidth: divider ? 1 : 0, borderTopColor: colors.line }}>
+    style={{ minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, borderTopWidth: divider ? 1 : 0, borderTopColor: c.line }}>
     <View accessible={false} importantForAccessibility="no-hide-descendants" style={{ flexDirection: 'row' }}>
       <SideMark side={mine} />
       <View style={{ marginLeft: -8 }}><SideMark side={other} /></View>
     </View>
     <View style={{ flex: 1, minWidth: 0 }}>
-      <Text style={{ color: colors.ink, fontSize: 12.5, fontWeight: '700' }}>{title}</Text>
-      <Text style={{ marginTop: 2, color: colors['ink-muted'], fontSize: 10.5, lineHeight: 16 }}>{detail}</Text>
+      <Text style={{ color: c.ink, fontSize: 12.5, fontWeight: '700' }}>{title}</Text>
+      <Text style={{ marginTop: 2, color: c['ink-muted'], fontSize: 10.5, lineHeight: 16 }}>{detail}</Text>
       <View style={{ marginTop: 4, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 4 }}>
         <StateBadge tone={phase?.tone ?? 'closed'}>{phase?.label ?? card.phase}</StateBadge>
         {card.needs_my_action ? <StateBadge tone="pending">Sua vez</StateBadge> : null}
       </View>
     </View>
-    <Icon name="chevron" size={18} color={colors['ink-muted']} />
+    <Icon name="chevron" size={18} color={c['ink-muted']} />
   </Pressable>
 }
 
-const message = { color: colors['ink-muted'], fontSize: 11.5, lineHeight: 17, textAlign: 'center' as const, paddingVertical: 16 }
+const messageStyle = (color: string) => ({ color, fontSize: 11.5, lineHeight: 17, textAlign: 'center' as const, paddingVertical: 16 })
 
 function History({ sport, onOpen, onExpired }: { sport: MatchCard['sport']; onOpen: (matchId: number) => void; onExpired: () => void }) {
+  const c = useThemeColors()
+  const message = messageStyle(c['ink-muted'])
   const list = usePagedList<MatchCard>(MY_MATCHES_HISTORY_PATH, onExpired)
   const items = list.items.filter(card => card.sport === sport)
   if (list.loading) return <Text accessibilityLiveRegion="polite" style={message}>Carregando o histórico…</Text>
-  if (list.error) return <View>
-    <Text accessibilityRole="alert" style={{ ...message, color: colors.error }}>{list.error.message}</Text>
-    <ActionButton tone="outline" title="Tentar novamente" onPress={list.reload} />
-  </View>
+  if (list.error) return <LoadError size="section" title="Não foi possível carregar o histórico" text={list.error.message} cause={list.error} onRetry={list.reload} />
   return <View>
     {items.length
       ? items.map((card, index) => <MatchRow key={card.id} card={card} divider={index > 0} onOpen={onOpen} />)
       : <Text style={message}>Suas partidas encerradas, sem resultado ou canceladas aparecem aqui.</Text>}
-    {list.moreError ? <Text accessibilityRole="alert" style={{ ...message, color: colors.error, paddingVertical: 8 }}>{list.moreError}</Text> : null}
+    {list.moreError ? <Text accessibilityRole="alert" style={{ ...message, color: c.error, paddingVertical: 8 }}>{list.moreError}</Text> : null}
     {list.hasMore ? <ActionButton tone="outline" title={list.busy ? 'Carregando…' : 'Carregar mais'} disabled={list.busy} onPress={() => void list.loadMore()} /> : null}
   </View>
 }
@@ -69,26 +70,28 @@ export function MyMatches({ sport, upcoming, onOpen, onExpired }: {
   onOpen: (matchId: number) => void
   onExpired: () => void
 }) {
+  const c = useThemeColors()
+  const night = useResolvedTheme() === 'dark'
   const [scope, setScope] = useState<Scope>('proximas')
   const shown = upcoming.filter(card => card.sport === sport)
   return <View style={{ paddingHorizontal: 20 }}>
-    <Text accessibilityRole="header" style={{ marginTop: 22, marginBottom: 10, color: colors.brand, fontSize: 11, fontWeight: '700', letterSpacing: 2 }}>MINHAS PARTIDAS</Text>
-    <View accessibilityRole="tablist" accessibilityLabel="Minhas partidas" style={{ marginBottom: 8, flexDirection: 'row', gap: 4, borderRadius: 12, padding: 3, backgroundColor: colors.tile }}>
+    <Text accessibilityRole="header" style={{ marginTop: 22, marginBottom: 10, color: night ? c.eyebrow : c.brand, fontSize: 11, fontWeight: '700', letterSpacing: 2 }}>MINHAS PARTIDAS</Text>
+    <View accessibilityRole="tablist" accessibilityLabel="Minhas partidas" style={{ marginBottom: 8, flexDirection: 'row', gap: 4, borderRadius: 12, padding: 3, backgroundColor: c.tile }}>
       {scopes.map(item => {
         const selected = item.value === scope
         return <Pressable key={item.value} accessibilityRole="tab" accessibilityLabel={item.label} accessibilityState={{ selected }} onPress={() => setScope(item.value)}
-          style={{ flex: 1, minHeight: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 10, backgroundColor: selected ? '#ffffff' : 'transparent' }}>
-          <Text style={{ color: selected ? colors.brand : colors['ink-muted'], fontSize: 12.5, fontWeight: selected ? '800' : '600' }}>{item.label}</Text>
+          style={{ flex: 1, minHeight: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 10, backgroundColor: selected ? c.surface : 'transparent' }}>
+          <Text style={{ color: selected ? c.brand : c['ink-muted'], fontSize: 12.5, fontWeight: selected ? '800' : '600' }}>{item.label}</Text>
         </Pressable>
       })}
     </View>
-    <View style={{ borderRadius: 16, paddingHorizontal: 14, paddingVertical: 4, backgroundColor: '#ffffff' }}>
+    <View style={{ borderRadius: 16, paddingHorizontal: 14, paddingVertical: 4, backgroundColor: c.surface }}>
       {scope === 'proximas'
         ? shown.length
           ? shown.map((card, index) => <MatchRow key={card.id} card={card} divider={index > 0} onOpen={onOpen} />)
           : <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 20 }}>
-            <Icon name="swords" size={16} color={colors['ink-muted']} />
-            <Text style={{ flexShrink: 1, color: colors['ink-muted'], fontSize: 11.5, lineHeight: 17, textAlign: 'center' }}>Nenhuma partida em andamento. Encontre um adversário para começar.</Text>
+            <Icon name="swords" size={16} color={c['ink-muted']} />
+            <Text style={{ flexShrink: 1, color: c['ink-muted'], fontSize: 11.5, lineHeight: 17, textAlign: 'center' }}>Nenhuma partida em andamento. Encontre um adversário para começar.</Text>
           </View>
         : <History sport={sport} onOpen={onOpen} onExpired={onExpired} />}
     </View>

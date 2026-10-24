@@ -18,7 +18,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "./popover"
  */
 const triggerTones = {
   light:
-    "border-field-border bg-white text-ink data-popup-open:border-brand data-popup-open:shadow-[inset_0_0_0_1px_var(--color-brand)] [&_[data-icon=lead]]:text-brand [&_[data-icon=trail]]:text-ink-muted",
+    "border-field-border bg-field text-ink data-popup-open:border-brand data-popup-open:shadow-[inset_0_0_0_1px_var(--color-brand)] [&_[data-icon=lead]]:text-brand [&_[data-icon=trail]]:text-ink-muted",
   dark:
     "border-white/18 bg-white/5 text-white data-popup-open:border-mint data-popup-open:shadow-[inset_0_0_0_1px_var(--color-mint)] [&_[data-icon=lead]]:text-mint [&_[data-icon=trail]]:text-white/60",
 }

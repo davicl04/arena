@@ -637,7 +637,8 @@ def submit_event(db: Session, user: User, event_id: int) -> OrganizerEventDetail
     else:
         event.submitted_at = now
         notifications.notify_many(db, admin_ids(db), 'evento_para_aprovar',
-                                  {'event_id': event.id, 'event_name': event.name}, actor_id=user.id)
+                                  {'event_id': event.id, 'event_name': event.name}, actor_id=user.id,
+                                  action_key=notifications.event_review_key(event.id))
         audit.record(db, actor_id=user.id, action='evento.enviado', target_type='event', target_id=event.id,
                      data={'price_cents': event.price_cents})
     db.commit()
@@ -652,6 +653,7 @@ def withdraw_event(db: Session, user: User, event_id: int) -> OrganizerEventDeta
     except TransitionError as error:
         raise _conflict(error) from None
     event.submitted_at = None
+    notifications.resolve_actions(db, notifications.event_review_key(event.id))
     audit.record(db, actor_id=user.id, action='evento.retirado', target_type='event', target_id=event.id)
     db.commit()
     return event_detail(db, event)
@@ -676,18 +678,28 @@ def cancel_event(db: Session, event: Event, *, actor_id: int, reason: str, now: 
     lapsed_ids = {entry.id for entry in lapsed}
     refunds: list[EventEntry] = []
     cancelled: list[EventEntry] = []
+    analysing: list[int] = []
     for entry in entries:
         if entry.id in lapsed_ids:
             continue
         new_state = entry_state_on_event_cancel(entry.state, paid=entry.price_cents > 0)
         if new_state is None:
             continue
+        if entry.state == 'em_analise':
+            analysing.append(entry.id)
         entry.state = new_state
         if new_state == 'cancelada':
             entry.cancelled_at, entry.cancelled_by_id, entry.cancel_origin = now, actor_id, 'evento'
             cancelled.append(entry)
         else:
             refunds.append(entry)
+    # Nothing is left to answer: a refused receipt no longer awaits a new one (those expired were closed by
+    # `expire_entries`), and a receipt under analysis cannot be decided once the entry waits for its refund.
+    notifications.resolve_actions_many(db, [notifications.entry_receipt_key(entry.id) for entry in cancelled])
+    if analysing:
+        notifications.resolve_actions_many(db, [notifications.receipt_key(receipt_id) for receipt_id in db.scalars(
+            select(EntryReceipt.id).where(EntryReceipt.entry_id.in_(analysing), EntryReceipt.kind == 'pagamento',
+                                          EntryReceipt.decision.is_(None)))])
     event.state = target
     event.cancelled_at, event.cancelled_by_id, event.cancel_reason = now, actor_id, reason
     # Championship matches still being arranged or scheduled are cancelled with the event (fase 6).
@@ -732,6 +744,7 @@ def on_organizer_revoked(db: Session, organizer: Organizer, *, actor_id: int) ->
         if event.state == 'em_aprovacao':
             event.state = next_event_state(event.state, 'revogar')
             event.submitted_at = None
+            notifications.resolve_actions(db, notifications.event_review_key(event.id))
             audit.record(db, actor_id=actor_id, action='evento.retirado', target_type='event', target_id=event.id,
                          data={'automatico': True, 'organizer_id': organizer.id})
             continue
@@ -825,8 +838,19 @@ def decide_receipt(db: Session, user: User, receipt_id: int, data: ReceiptDecisi
         payload.update(decision='recusado', reason_code=receipt.reason_code, reason_detail=receipt.reason_detail,
                        entry_state=new_state, reserved_until=entry.reserved_until.isoformat()
                        if new_state == 'rejeitada' and entry.reserved_until else None)
+    notifications.resolve_actions(db, notifications.receipt_key(receipt.id))
     recipients = entry_recipients(db, [entry], scope='representantes')[entry.id]
-    notifications.notify_many(db, recipients, 'comprovante_decidido', payload, actor_id=user.id)
+    if refusal is None:
+        notifications.notify_many(db, recipients, 'comprovante_decidido', payload, actor_id=user.id)
+    elif new_state == 'rejeitada':
+        # Time left to send another receipt: pending until the reservation ends or a new receipt arrives.
+        notifications.notify_many(db, recipients, 'comprovante_decidido', payload, actor_id=user.id,
+                                  action_key=notifications.entry_receipt_key(entry.id),
+                                  action_until=entry.reserved_until)
+    else:
+        # Refused after the reservation ended: the entry expired at once, there is nothing to answer.
+        notifications.notify_many(db, recipients, 'comprovante_decidido', payload, actor_id=user.id,
+                                  informative=True)
     audit.record(db, actor_id=user.id, action=f'comprovante.{receipt.decision}', target_type='entry_receipt',
                  target_id=receipt.id, data={'entry_id': entry.id, 'event_id': event.id, 'entry_state': new_state,
                                              'reason_code': receipt.reason_code})
@@ -928,6 +952,8 @@ def admin_decide_event(db: Session, admin: User, event_id: int, data: AdminEvent
         event.review_reason_code, event.review_reason_detail = refusal
         payload.update(decision='recusado', reason_code=event.review_reason_code,
                        reason_detail=event.review_reason_detail)
+    # Decided by any administrator: the pending of all of them closes (the 409 above leaves it open).
+    notifications.resolve_actions(db, notifications.event_review_key(event.id))
     # actor null: the organizer sees "A administração".
     notifications.notify(db, event.organizer_user_id, 'evento_decidido', payload)
     audit.record(db, actor_id=admin.id, action=f"evento.{payload['decision']}", target_type='event',

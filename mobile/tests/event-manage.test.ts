@@ -8,6 +8,7 @@ import type { OrganizerEntry } from '../src/api/events'
 import { entryInfo } from '../src/components/organizer/EventEntries'
 import EventManageScreen from '../src/screens/EventManageScreen'
 import { byLabel, enableAct, press, textOf, type } from './support/native'
+import { textWithin, toastText, toasts } from './support/toast'
 import { calls, card, checklistItems, detail, draftDetail, mount, navigationMock, noPending, page, routeRequest } from './support/organizer'
 
 vi.mock('react-native', async () => (await import('./support/native')).reactNativeMock())
@@ -27,6 +28,12 @@ const pressable = (tree: ReactTestRenderer, prefix: string) => tree.root.findAll
 const pressPrefix = async (tree: ReactTestRenderer, prefix: string) => {
   const target = pressable(tree, prefix)
   expect(target, `Pressable "${prefix}…"`).toBeTruthy()
+  await act(async () => { target!.props.onPress() })
+}
+/** Toca no botão (sem rótulo de acessibilidade) cujo texto é exatamente `text`, como o "Tentar novamente" do `LoadError`. */
+const pressText = async (tree: ReactTestRenderer, text: string) => {
+  const target = tree.root.findAllByType('Pressable' as never).find(entry => textWithin(entry) === text)
+  expect(target, `Pressable "${text}"`).toBeTruthy()
   await act(async () => { target!.props.onPress() })
 }
 const state = (tree: ReactTestRenderer, label: string) => tree.root.findAllByType('Pressable' as never).filter(entry => entry.props.accessibilityLabel === label).pop()!.props.accessibilityState
@@ -146,7 +153,8 @@ describe('Gestão do evento (G3): cartaz, "Agora" e seções', () => {
     expect(navigation.go).toHaveBeenLastCalledWith('event-wizard', { eventId: 5 })
     await press(tree, 'Publicar')
     expect(calls('POST', `${EVENT}/submit`)[0][2]).toEqual({})
-    expect(textOf(tree)).toContain('Evento publicado: as inscrições estão abertas.')
+    expect(toastText()).toContain('Evento publicado. As inscrições estão abertas.')
+    expect(toasts().map(item => item.tone)).toEqual(['success'])
     expect(textOf(tree)).toContain('Inscrições abertas até')
     expect(textOf(tree)).toContain('Avisos do evento')
   })
@@ -158,14 +166,14 @@ describe('Gestão do evento (G3): cartaz, "Agora" e seções', () => {
     const tree = await screen()
     expect(textOf(tree)).toContain('Pronto para enviar à aprovação')
     await press(tree, 'Enviar para aprovação')
-    expect(textOf(tree)).toContain('Enviado para aprovação. Você recebe a resposta nas notificações.')
+    expect(toastText()).toContain('Enviado para aprovação. Você recebe a resposta nas notificações.')
     expect(textOf(tree)).toContain('Em aprovação pela administração')
     expect(textOf(tree)).toContain('Para editar, retire da aprovação.')
     await pressPrefix(tree, 'Dados do evento')
     expect(textOf(tree)).toContain('Para editar, retire o evento da aprovação.')
     await press(tree, 'Retirar da aprovação')
     expect(calls('POST', `${EVENT}/withdraw`)[0][2]).toEqual({})
-    expect(textOf(tree)).toContain('Evento retirado da aprovação. Edite e envie de novo quando quiser.')
+    expect(toastText()).toContain('Evento retirado da aprovação. Edite e envie de novo quando quiser.')
     expect(textOf(tree)).toContain('Pronto para enviar à aprovação')
   })
 
@@ -174,7 +182,9 @@ describe('Gestão do evento (G3): cartaz, "Agora" e seções', () => {
     routeRequest({ [EVENT]: ready, [`POST ${EVENT}/submit`]: () => { throw new ApiError('Complete o rascunho para publicar.', 422, [{ field: 'datas', message: 'Escolha as datas.' }]) } })
     const tree = await screen()
     await press(tree, 'Publicar')
+    // 422 com campos fica na tela (erro de formulário), sem toast.
     expect(textOf(tree)).toContain('Complete o rascunho para publicar.')
+    expect(toasts()).toEqual([])
     expect(calls('GET', EVENT).length).toBeGreaterThanOrEqual(2)
     routeRequest({ [EVENT]: ready, [`POST ${EVENT}/submit`]: () => { throw new ApiError('Sessão expirada', 401) } })
     const expired = await screen()
@@ -306,7 +316,7 @@ describe('Gestão do evento (G3): comprovantes, devoluções, dados e Pix', () =
     const tree = await screen()
     expect(textOf(tree)).toContain('Evento não encontrado.')
     routeRequest({ [EVENT]: detail(), [MESSAGES]: page([]) })
-    await press(tree, 'Tentar novamente')
+    await pressText(tree, 'Tentar novamente')
     expect(textOf(tree)).toContain('Copa Sudoeste')
     routeRequest({ [EVENT]: () => { throw new ApiError('Sessão expirada', 401) } })
     await screen()
@@ -344,7 +354,7 @@ describe('Gestão do evento (G3): cancelar, excluir e editar', () => {
     await press(tree, 'Continuar')
     await press(tree, 'Cancelar evento')
     expect(calls('POST', `${EVENT}/cancel`)[0][2]).toEqual({ reason: 'Quadra interditada pela prefeitura' })
-    expect(textOf(tree)).toContain('Evento cancelado. Os inscritos foram avisados no canal e nas notificações.')
+    expect(toastText()).toContain('Evento cancelado. Os inscritos foram avisados no canal e nas notificações.')
     expect(textOf(tree)).toContain('3 devoluções para enviar')
     expect(byLabel(tree, 'Motivo do cancelamento')).toHaveLength(0)
   })
@@ -401,7 +411,7 @@ describe('Gestão do evento (G3): cancelar, excluir e editar', () => {
     await type(tree, 'Contato para dúvidas (opcional)', '')
     await press(tree, 'Salvar')
     expect(calls('PATCH', EVENT)[0][2]).toEqual({ venue: 'Nova Arena', contact: null })
-    expect(textOf(tree)).toContain('Dados do evento salvos.')
+    expect(toastText()).toContain('Dados do evento salvos.')
     expect(byLabel(tree, 'Local')).toHaveLength(0)
   })
 
@@ -471,7 +481,7 @@ describe('Gestão do evento (G3): canal de avisos', () => {
     expect(calls('POST', MESSAGES)[0][2]).toEqual({ body: 'Mudamos para as 9h.' })
     const text = textOf(tree)
     expect(text.indexOf('Mudamos para as 9h.')).toBeLessThan(text.indexOf('Trazer documento.'))
-    expect(text).toContain('Aviso publicado. Os inscritos recebem uma notificação.')
+    expect(toastText()).toContain('Aviso publicado. Os inscritos recebem uma notificação.')
     const field = tree.root.findAllByType('TextInput' as never).find(input => input.props.accessibilityLabel === 'Novo aviso')!
     expect(field.props.value).toBe('')
   })
@@ -482,8 +492,9 @@ describe('Gestão do evento (G3): canal de avisos', () => {
     expect(textOf(tree)).toContain('Nenhum aviso ainda.')
     await type(tree, 'Novo aviso', 'Olá')
     await press(tree, 'Publicar aviso')
-    expect(textOf(tree)).toContain('Publique o evento antes de enviar avisos.')
-    expect(textOf(tree)).not.toContain('Aviso publicado.')
+    // 409 de uma situação que mudou: aviso do servidor em toast.
+    expect(toastText()).toContain('Publique o evento antes de enviar avisos.')
+    expect(toastText()).not.toContain('Aviso publicado.')
   })
 
   it('falha ao ler os avisos mostra o erro e tenta de novo', async () => {

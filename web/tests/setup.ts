@@ -1,4 +1,7 @@
 import { configure } from '@testing-library/react'
+import { afterEach } from 'vitest'
+import { connection } from '../src/api/connection'
+import { toast } from '../src/components/ui/toast'
 
 /*
  * Folga para máquinas ocupadas (várias suítes, Vite, API e navegador ao mesmo tempo): as esperas do Testing Library
@@ -6,3 +9,9 @@ import { configure } from '@testing-library/react'
  * demora mais a aparecer. O tempo de cada teste (`testTimeout`) está em `vitest.config.ts`.
  */
 configure({ asyncUtilTimeout: 4000 })
+
+/* Isolamento: nenhum toast nem estado de conexão (faixa, folha, temporizadores de reconexão) passa de um teste para o próximo. */
+afterEach(() => {
+  toast.dismiss()
+  connection.reset()
+})

@@ -1,15 +1,20 @@
 """In-app notifications. `notify` only adds rows: the caller commits in the same transaction as the change."""
 from __future__ import annotations
 
+import base64
+import binascii
 from collections.abc import Iterable
+from datetime import datetime
+from typing import Literal
 
-from sqlalchemy import func, select, update
+from fastapi import HTTPException
+from sqlalchemy import ColumnElement, and_, exists, func, or_, select, tuple_, update
 from sqlalchemy.orm import Session
 
 from app.core.pagination import paginate
-from app.models.identity import User, utcnow
+from app.models.identity import Follow, User, UserBlock, utcnow
 from app.models.notifications import Notification
-from app.schemas.notifications import NotificationOut
+from app.schemas.notifications import NotificationOut, NotificationSummaryOut, UnreadByCategoryOut
 from app.services.people import blocked_ids, person_out
 
 # Type -> payload keys the clients rely on to build the text and navigate (docs/decisoes/0003).
@@ -64,40 +69,160 @@ NOTIFICATION_TYPES: dict[str, frozenset[str]] = {
 }
 
 
-def _check(type_: str, payload: dict) -> None:
+NotificationCategory = Literal['partidas', 'times', 'eventos', 'conta']
+
+# Type -> category shown by the clients (docs/plano-notificacoes.md). `conta` only appears in the full list.
+NOTIFICATION_CATEGORY: dict[str, NotificationCategory] = {
+    **dict.fromkeys((
+        'proposta_partida', 'proposta_aceita', 'proposta_encerrada', 'vaga_encontrada', 'condicoes_propostas',
+        'partida_agendada', 'partida_cancelada', 'wo_registrado', 'wo_contestado', 'wo_decidido', 'resultado_partida',
+        'resultado_divergente', 'estatistica_contestada', 'vaga_preenchida', 'removido_da_partida', 'oferta_retirada',
+        'adversario_definido', 'divergencia_para_decidir', 'decisao_registrada'), 'partidas'),
+    **dict.fromkeys((
+        'convite_time', 'convite_aceito', 'pedido_entrada', 'pedido_entrada_decidido', 'removido_do_time',
+        'time_encerrado'), 'times'),
+    **dict.fromkeys((
+        'evento_para_aprovar', 'evento_decidido', 'evento_cancelado', 'evento_revogacao_decidida', 'aviso_evento',
+        'time_inscrito', 'comprovante_recebido', 'comprovante_decidido', 'reserva_expirada', 'devolucao_enviada',
+        'devolucao_confirmada', 'devolucao_contestada', 'devolucao_decidida', 'tabela_publicada',
+        'evento_encerrado'), 'eventos'),
+    **dict.fromkeys(('pedido_organizador_decidido', 'organizador_revogado', 'quadra_decidida'), 'conta'),
+}
+CATEGORY_TYPES: dict[str, tuple[str, ...]] = {
+    category: tuple(sorted(name for name, value in NOTIFICATION_CATEGORY.items() if value == category))
+    for category in ('partidas', 'times', 'eventos', 'conta')}
+
+
+def types_of(category: str) -> tuple[str, ...]:
+    """Notification types of a category, for `Notification.type.in_(...)`."""
+    return CATEGORY_TYPES[category]
+
+
+# Types that ask the recipient for an answer: they carry an `action_key` until the action is resolved.
+ACTION_TYPES: frozenset[str] = frozenset({
+    'convite_time', 'pedido_entrada', 'proposta_partida', 'vaga_encontrada', 'condicoes_propostas', 'wo_registrado',
+    'resultado_divergente', 'comprovante_decidido', 'devolucao_enviada', 'comprovante_recebido',
+    'divergencia_para_decidir', 'evento_para_aprovar', 'devolucao_contestada', 'wo_contestado'})
+
+ACTION_KEY_MAX = 80
+# Value of `payload['decision']` in `comprovante_decidido` when the receipt was refused (the only case with action).
+RECEIPT_REFUSED = 'recusado'
+
+
+def _needs_key(type_: str, payload: dict) -> bool:
+    if type_ == 'comprovante_decidido':
+        return payload.get('decision') == RECEIPT_REFUSED
+    return type_ in ACTION_TYPES
+
+
+def _check(type_: str, payload: dict, action_key: str | None = None, informative: bool = False) -> None:
     required = NOTIFICATION_TYPES.get(type_)
     if required is None:
         raise ValueError(f'Tipo de notificação desconhecido: {type_}')
     missing = required - payload.keys()
     if missing:
         raise ValueError(f'Notificação {type_} sem os campos {sorted(missing)}')
+    if action_key is not None and informative:
+        raise ValueError(f'Notificação {type_} não pode ter chave de ação e ser informativa')
+    if action_key is not None:
+        if type_ not in ACTION_TYPES:
+            raise ValueError(f'Notificação {type_} não pede ação: não aceita action_key')
+        if not action_key or len(action_key) > ACTION_KEY_MAX:
+            raise ValueError(f'action_key de {type_} deve ter de 1 a {ACTION_KEY_MAX} caracteres')
+    elif not informative and _needs_key(type_, payload):
+        raise ValueError(f'Notificação {type_} pede action_key (ou informative=True para quem não decide)')
 
 
-def notify(db: Session, user_id: int, type_: str, payload: dict, *, actor_id: int | None = None) -> Notification | None:
-    """Queues a notification for `user_id`. Nobody is notified of their own action (returns None)."""
-    _check(type_, payload)
+def notify(db: Session, user_id: int, type_: str, payload: dict, *, actor_id: int | None = None,
+           action_key: str | None = None, action_until: datetime | None = None,
+           informative: bool = False) -> Notification | None:
+    """Queues a notification for `user_id`. Nobody is notified of their own action (returns None).
+    `action_key` marks it as pending until `resolve_actions` closes it (or `action_until` passes); `informative`
+    states that a type that usually asks for an answer goes to someone who does not decide."""
+    _check(type_, payload, action_key, informative)
     if actor_id is not None and actor_id == user_id:
         return None
     notification = Notification(user_id=user_id, actor_id=actor_id, type=type_, payload=dict(payload),
-                                created_at=utcnow())
+                                created_at=utcnow(), action_key=action_key, action_until=action_until)
     db.add(notification)
     return notification
 
 
 def notify_many(db: Session, user_ids: Iterable[int], type_: str, payload: dict, *,
-                actor_id: int | None = None) -> list[Notification]:
+                actor_id: int | None = None, action_key: str | None = None, action_until: datetime | None = None,
+                informative: bool = False) -> list[Notification]:
     """Same notification for several recipients (e.g. every representative), once per person."""
-    _check(type_, payload)
+    _check(type_, payload, action_key, informative)
     created = []
     for user_id in dict.fromkeys(user_ids):
-        notification = notify(db, user_id, type_, payload, actor_id=actor_id)
+        notification = notify(db, user_id, type_, payload, actor_id=actor_id, action_key=action_key,
+                              action_until=action_until, informative=informative)
         if notification is not None:
             created.append(notification)
     return created
 
 
-def serialize(db: Session, viewer: User, notifications: list[Notification]) -> list[NotificationOut]:
+def resolve_actions(db: Session, key: str, *, user_ids: Iterable[int] | None = None) -> int:
+    """Closes the open actions with this key (every recipient, or only `user_ids`). No commit: the caller commits
+    in the same transaction as the change that resolved them. Returns how many were closed."""
+    return resolve_actions_many(db, [key], user_ids=user_ids)
+
+
+def resolve_actions_many(db: Session, keys: Iterable[str], *, user_ids: Iterable[int] | None = None) -> int:
+    """Same as `resolve_actions` for several keys in a single UPDATE."""
+    key_list = list(dict.fromkeys(keys))
+    recipients = None if user_ids is None else list(dict.fromkeys(user_ids))
+    if not key_list or recipients == []:
+        return 0
+    statement = update(Notification).where(Notification.action_key.in_(key_list), Notification.resolved_at.is_(None))
+    if recipients is not None:
+        statement = statement.where(Notification.user_id.in_(recipients))
+    return db.execute(statement.values(resolved_at=utcnow())).rowcount or 0
+
+
+# Action keys (docs/decisoes/0003, section 7). Per-user keys keep one side's answer from closing the other's.
+def invite_key(invite_id: int) -> str: return f'invite:{invite_id}'
+def join_request_key(request_id: int) -> str: return f'join_request:{request_id}'
+def proposal_prefix(match_id: int) -> str: return f'proposal:{match_id}:'
+def proposal_key(match_id: int, user_id: int) -> str: return f'{proposal_prefix(match_id)}user:{user_id}'
+def slot_key(slot_id: int, user_id: int) -> str: return f'slot:{slot_id}:user:{user_id}'
+def terms_key(terms_id: int) -> str: return f'terms:{terms_id}'
+def walkover_key(match_id: int) -> str: return f'wo:{match_id}'
+def result_key(match_id: int) -> str: return f'result:{match_id}'
+def entry_receipt_key(entry_id: int) -> str: return f'entry_receipt:{entry_id}'
+def refund_key(receipt_id: int) -> str: return f'refund:{receipt_id}'
+def receipt_key(receipt_id: int) -> str: return f'receipt:{receipt_id}'
+def decision_key(match_id: int) -> str: return f'decision:{match_id}'
+def event_review_key(event_id: int) -> str: return f'event_review:{event_id}'
+def refund_dispute_key(receipt_id: int) -> str: return f'refund_dispute:{receipt_id}'
+def walkover_dispute_key(match_id: int) -> str: return f'wo_dispute:{match_id}'
+
+
+def resolve_actions_prefix(db: Session, prefix: str) -> int:
+    """Closes every open action whose key starts with `prefix` (e.g. `proposal:17:` closes both sides of a
+    proposal, whoever its recipients were). No commit, as `resolve_actions`."""
+    if not prefix:
+        raise ValueError('Prefixo de chave de ação vazio')
+    statement = update(Notification).where(Notification.action_key.startswith(prefix, autoescape=True),
+                                           Notification.resolved_at.is_(None))
+    return db.execute(statement.values(resolved_at=utcnow())).rowcount or 0
+
+
+def pending_clause(now: datetime) -> ColumnElement[bool]:
+    """Open action whose deadline (if any) has not passed. Same rule as `is_pending`."""
+    return and_(Notification.action_key.is_not(None), Notification.resolved_at.is_(None),
+                or_(Notification.action_until.is_(None), Notification.action_until > now))
+
+
+def is_pending(item: Notification, now: datetime) -> bool:
+    return (item.action_key is not None and item.resolved_at is None
+            and (item.action_until is None or item.action_until > now))
+
+
+def serialize(db: Session, viewer: User, notifications: list[Notification],
+              now: datetime | None = None) -> list[NotificationOut]:
     """Resolves actors in one query; inactive or blocked actors are shown as null."""
+    now = now or utcnow()
     actor_ids = {item.actor_id for item in notifications if item.actor_id is not None}
     actors = {user.id: user for user in db.scalars(select(User).where(User.id.in_(actor_ids))).all()} if actor_ids else {}
     hidden = blocked_ids(db, viewer.id, actor_ids)
@@ -105,16 +230,64 @@ def serialize(db: Session, viewer: User, notifications: list[Notification]) -> l
     for item in notifications:
         actor = actors.get(item.actor_id)
         visible = actor is not None and actor.active and actor.id not in hidden
-        items.append(NotificationOut(id=item.id, type=item.type, payload=item.payload or {},
-                                     actor=person_out(actor) if visible else None,
-                                     created_at=item.created_at, read_at=item.read_at))
+        items.append(NotificationOut(id=item.id, type=item.type, category=NOTIFICATION_CATEGORY[item.type],
+                                     payload=item.payload or {}, actor=person_out(actor) if visible else None,
+                                     created_at=item.created_at, read_at=item.read_at,
+                                     pending=is_pending(item, now), action_until=item.action_until))
     return items
 
 
-def list_page(db: Session, viewer: User, cursor: str | None, limit: int) -> tuple[list[NotificationOut], str | None]:
+def list_page(db: Session, viewer: User, cursor: str | None, limit: int, *, category: str | None = None,
+              pending: bool | None = None) -> tuple[list[NotificationOut], str | None]:
+    now = utcnow()
     statement = select(Notification).where(Notification.user_id == viewer.id)
+    if category is not None:
+        statement = statement.where(Notification.type.in_(types_of(category)))
+    if pending is not None:
+        statement = statement.where(pending_clause(now) if pending else ~pending_clause(now))
     rows, next_cursor = paginate(statement, cursor, limit, Notification.created_at, Notification.id, db)
-    return serialize(db, viewer, rows), next_cursor
+    return serialize(db, viewer, rows, now), next_cursor
+
+
+def _pending_cursor(item: Notification) -> str:
+    until = item.action_until.isoformat() if item.action_until is not None else ''
+    raw = f'{until}|{item.created_at.isoformat()}|{item.id}'.encode()
+    return base64.urlsafe_b64encode(raw).decode().rstrip('=')
+
+
+def _pending_after(cursor: str):
+    try:
+        raw = base64.urlsafe_b64decode(cursor + '=' * (-len(cursor) % 4)).decode()
+        until, stamp, item_id = raw.split('|')
+        deadline = datetime.fromisoformat(until) if until else None
+        created = datetime.fromisoformat(stamp)
+        number = int(item_id)
+        if number < 1 or created.tzinfo is None or (deadline is not None and deadline.tzinfo is None):
+            raise ValueError
+    except (ValueError, UnicodeDecodeError, binascii.Error):
+        raise HTTPException(422, 'Cursor de paginação inválido.') from None
+    older = tuple_(Notification.created_at, Notification.id) < tuple_(created, number)
+    if deadline is None:
+        return and_(Notification.action_until.is_(None), older)
+    return or_(Notification.action_until > deadline, Notification.action_until.is_(None),
+               and_(Notification.action_until == deadline, older))
+
+
+def list_pending(db: Session, viewer: User, *, category: str | None = None, limit: int = 20,
+                 cursor: str | None = None) -> tuple[list[NotificationOut], str | None]:
+    """Open actions, most urgent first: nearest deadline, no deadline last, then newest; keyset pagination."""
+    now = utcnow()
+    statement = select(Notification).where(Notification.user_id == viewer.id, pending_clause(now))
+    if category is not None:
+        statement = statement.where(Notification.type.in_(types_of(category)))
+    if cursor is not None:
+        statement = statement.where(_pending_after(cursor))
+    statement = statement.order_by(Notification.action_until.asc().nulls_last(), Notification.created_at.desc(),
+                                   Notification.id.desc()).limit(limit + 1)
+    rows = list(db.scalars(statement).all())
+    more = len(rows) > limit
+    rows = rows[:limit]
+    return serialize(db, viewer, rows, now), _pending_cursor(rows[-1]) if more else None
 
 
 def unread_count(db: Session, user_id: int) -> int:
@@ -122,8 +295,32 @@ def unread_count(db: Session, user_id: int) -> int:
         Notification.user_id == user_id, Notification.read_at.is_(None))) or 0
 
 
+def follow_requests_count(db: Session, user_id: int) -> int:
+    """Pending follow requests from active people without a block in either direction (as `/me/follow-requests`)."""
+    blocked = exists().where(or_(
+        and_(UserBlock.blocker_id == user_id, UserBlock.blocked_id == Follow.follower_id),
+        and_(UserBlock.blocked_id == user_id, UserBlock.blocker_id == Follow.follower_id)))
+    return db.scalar(select(func.count()).select_from(Follow).join(User, User.id == Follow.follower_id).where(
+        Follow.followed_id == user_id, Follow.approved.is_(False), User.active.is_(True), ~blocked)) or 0
+
+
+def summary(db: Session, user: User) -> NotificationSummaryOut:
+    """Counters of the bell, the pinned block and the chips: two aggregate queries, no loop."""
+    unread = Notification.read_at.is_(None)
+    categories = ('partidas', 'times', 'eventos')
+    counts = db.execute(select(
+        func.count().filter(unread),
+        func.count().filter(pending_clause(utcnow())),
+        *(func.count().filter(unread, Notification.type.in_(types_of(name))) for name in categories),
+    ).where(Notification.user_id == user.id)).one()
+    return NotificationSummaryOut(
+        unread_count=counts[0], follow_requests_count=follow_requests_count(db, user.id), pending_count=counts[1],
+        unread_by_category=UnreadByCategoryOut(**dict(zip(categories, counts[2:], strict=True))))
+
+
 def mark_read(db: Session, user_id: int, notification_id: int) -> bool:
-    """Marks one of the user's notifications as read (idempotent). False when it is not theirs."""
+    """Marks one of the user's notifications as read (idempotent). False when it is not theirs. Reading never
+    resolves a pending action."""
     notification = db.scalar(select(Notification).where(
         Notification.id == notification_id, Notification.user_id == user_id))
     if notification is None:

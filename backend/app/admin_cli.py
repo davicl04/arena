@@ -5,6 +5,8 @@
   proposals and slot offers, pairing again, result deadlines and championships whose matches are all done).
   In development, run
   `python -m app.admin_cli sweep --loop 60` in a terminal; production scheduling is decided at deployment.
+- `recalculate-rankings`: recalculates every ranking category whole (the recent form and the best mark day included),
+  keeping the update stamps of unchanged rows. Idempotent; run once after the migration that added those columns.
 """
 import argparse
 import time
@@ -13,6 +15,9 @@ from sqlalchemy import select
 
 from app.core.database import SessionLocal
 from app.models.identity import User, utcnow
+from app.models.rankings import FOOTBALL_FORMATS, RUN_DISTANCES_KM
+from app.models.teams import POSITIONS
+from app.services.standings import RankingKey, recalculate_rankings
 from app.services.sweep import run_sweep
 
 
@@ -36,6 +41,23 @@ def sweep(loop: int | None, *, sleep=time.sleep) -> None:
         print('Varredura encerrada.', flush=True)
 
 
+def all_ranking_keys() -> list[RankingKey]:
+    """Every category: teams and each position by format, tennis and each running distance."""
+    return [*(RankingKey('futebol_time', fmt) for fmt in FOOTBALL_FORMATS),
+            *(RankingKey('futebol_individual', fmt, position) for fmt in FOOTBALL_FORMATS for position in POSITIONS),
+            RankingKey('tenis'), *(RankingKey.run(km) for km in RUN_DISTANCES_KM)]
+
+
+def recalculate_all_rankings() -> int:
+    """Recalculates all categories in one transaction without stamping unchanged rows (`touch=False`), so a second
+    run changes nothing; returns how many `standings` rows were written, created or removed."""
+    with SessionLocal() as db:
+        changed = recalculate_rankings(db, all_ranking_keys(), now=utcnow(), touch=False)
+        db.commit()
+    print(f'Rankings recalculados {utcnow().isoformat(timespec="seconds")}: {changed} linhas alteradas.', flush=True)
+    return changed
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description='Operações administrativas explícitas do Arena.')
     commands = parser.add_subparsers(dest='command', required=True)
@@ -48,7 +70,12 @@ def main(argv=None):
                                    'campeonatos concluídos.')
     periodic.add_argument('--loop', type=int, metavar='SEGUNDOS',
                           help='Repete a varredura a cada SEGUNDOS (por exemplo, 60) até Ctrl+C.')
+    commands.add_parser('recalculate-rankings', help='Recalcula todos os rankings (forma recente e melhor marca '
+                        'incluídas). Idempotente; rode uma vez depois da migração que criou essas colunas.')
     args = parser.parse_args(argv)
+    if args.command == 'recalculate-rankings':
+        recalculate_all_rankings()
+        return
     if args.command == 'sweep':
         if args.loop is not None and args.loop < 1:
             parser.error('Use --loop com pelo menos 1 segundo.')

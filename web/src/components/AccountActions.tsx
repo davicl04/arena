@@ -1,13 +1,12 @@
 import { useState } from 'react'
 import { Ban, Flag } from 'lucide-react'
-import { ApiError } from '../api/client'
 import type { SocialUser } from '../api/client'
 import { blockUser } from '../api/social'
 import ReportForm from './ReportForm'
 import { SocialPhoto } from './SocialPhoto'
+import { useSubmit } from '../hooks/useSubmit'
 import { Button } from '@/components/ui/button'
 import { Glass, GlassChoice, GlassChoices, GlassConfirm } from '@/components/ui/glass'
-import { glassMessageVariants } from '@/components/ui/glass-variants'
 
 type Step = 'menu' | 'block' | 'report'
 const titles: Record<Step, string> = { menu: 'Ações da conta', block: 'Bloquear conta', report: 'Denunciar conta' }
@@ -21,19 +20,14 @@ export default function AccountActions({ person, onClose, onBlocked, onReported,
   onExpired: () => void
 }) {
   const [step, setStep] = useState<Step>('menu')
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
+  // Falha ao bloquear: toast de erro (ou aviso de conexão), pelo useSubmit.
+  const { busy, run } = useSubmit(onExpired)
 
-  function go(next: Step) { setError(''); setStep(next) }
+  function go(next: Step) { setStep(next) }
   async function block() {
     if (busy) return
-    setBusy(true); setError('')
-    try { await blockUser(person.id); onBlocked() }
-    catch (cause) {
-      if (cause instanceof ApiError && cause.status === 401) onExpired()
-      setError(cause instanceof Error && cause.message ? cause.message : 'Não foi possível bloquear a conta.')
-      setBusy(false)
-    }
+    const done = await run(async () => { await blockUser(person.id); return true }, 'Não foi possível bloquear a conta.')
+    if (done) onBlocked()
   }
 
   return <Glass key={step} variant="screen" label={titles[step]} title={step === 'menu' ? undefined : titles[step]}
@@ -54,6 +48,5 @@ export default function AccountActions({ person, onClose, onBlocked, onReported,
       <Button type="button" variant="glass-danger" disabled={busy} onClick={() => void block()}>{busy ? 'Bloqueando…' : 'Bloquear'}</Button>
     </>}>Os vínculos atuais são removidos e esta conta deixa de ver seu perfil. Você pode desbloquear depois em Contas bloqueadas.</GlassConfirm>}
     {step === 'report' && <ReportForm target="user" targetId={person.id} title="Por que você quer denunciar esta conta?" onSent={onReported} onExpired={onExpired} />}
-    {error && <p className={glassMessageVariants()} role="alert">{error}</p>}
   </Glass>
 }

@@ -6,10 +6,11 @@ import { MESSAGE_MAX } from '../../api/matches'
 import type { MatchDetail, MatchMessageOut } from '../../api/matches'
 import { eventWhen, shortName, sideOf } from '../../data/match'
 import { useMatchChat } from '../../hooks/useMatchChat'
-import { colors } from '../../theme'
+import { useResolvedTheme, useThemeColors } from '../../hooks/useTheme'
 import { formatClock, parseIso } from '../../utils/format'
 import { Armband } from '../arena/Armband'
-import { ActionButton, ErrorText } from '../arena/controls'
+import { ActionButton } from '../arena/controls'
+import { LoadError } from '../arena/LoadError'
 import { TeamCrest } from '../arena/TeamCrest'
 import { Icon } from '../Icon'
 import { Avatar } from '../media'
@@ -31,10 +32,12 @@ const clock = (iso: string) => {
 }
 
 function EventStrip({ detail, message, token }: { detail: MatchDetail; message: MatchMessageOut; token?: string | null }) {
+  const colors = useThemeColors()
+  const dark = useResolvedTheme() === 'dark'
   const team = sideOf(detail, message.side)?.team ?? null
   const when = eventWhen(message.payload)
   return <View testID="chat-event" accessibilityLabel={`${when ? `${when}. ` : ''}${message.body ?? ''}`} accessible
-    style={{ alignSelf: 'stretch', flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.65)', paddingHorizontal: 12, paddingVertical: 8 }}>
+    style={{ alignSelf: 'stretch', flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 12, backgroundColor: dark ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.65)', paddingHorizontal: 12, paddingVertical: 8 }}>
     {team ? <TeamCrest name={team.name} initials={team.initials} path={team.crest_url} size="xs" decorative token={token} />
       : <Icon name="info" size={15} color={colors.brand} />}
     <Text style={{ flex: 1, minWidth: 0, color: colors.ink, fontSize: 11.5, lineHeight: 16 }}>
@@ -45,16 +48,18 @@ function EventStrip({ detail, message, token }: { detail: MatchDetail; message: 
 }
 
 function Bubble({ message, own, onReport }: { message: MatchMessageOut; own: boolean; onReport?: () => void }) {
+  const colors = useThemeColors()
+  const dark = useResolvedTheme() === 'dark'
   if (message.removed) {
-    return <View testID="chat-removed" style={{ flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.6)', paddingHorizontal: 12, paddingVertical: 8 }}>
+    return <View testID="chat-removed" style={{ flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 16, backgroundColor: dark ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.6)', paddingHorizontal: 12, paddingVertical: 8 }}>
       <Icon name="eye-off" size={14} color={colors['ink-muted']} />
       <Text style={{ color: colors['ink-muted'], fontSize: 12, fontStyle: 'italic' }}>Mensagem removida</Text>
     </View>
   }
   const mine = message.is_mine
   return <View style={{ maxWidth: '100%', flexDirection: own ? 'row-reverse' : 'row', alignItems: 'center', gap: 2 }}>
-    <View testID="chat-bubble" style={{ flexShrink: 1, borderRadius: 16, borderBottomRightRadius: mine ? 6 : 16, borderBottomLeftRadius: !own ? 6 : 16, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: mine ? colors.brand : own ? '#d5e9dc' : '#ffffff' }}>
-      <Text selectable style={{ color: mine ? '#ffffff' : colors.ink, fontSize: 13, lineHeight: 19 }}>{message.body}</Text>
+    <View testID="chat-bubble" style={{ flexShrink: 1, borderRadius: 16, borderBottomRightRadius: mine ? 6 : 16, borderBottomLeftRadius: !own ? 6 : 16, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: mine ? colors.brand : own ? (dark ? '#16301f' : '#d5e9dc') : colors.surface }}>
+      <Text selectable style={{ color: mine ? colors['on-brand'] : colors.ink, fontSize: 13, lineHeight: 19 }}>{message.body}</Text>
     </View>
     {!mine && onReport ? <Pressable accessibilityRole="button" accessibilityLabel={`Denunciar mensagem de ${message.author?.name ?? 'participante'}`} onPress={onReport} hitSlop={{ left: 2, right: 2 }}
       style={{ width: 40, height: 44, alignItems: 'center', justifyContent: 'center' }}>
@@ -64,6 +69,7 @@ function Bubble({ message, own, onReport }: { message: MatchMessageOut; own: boo
 }
 
 function Group({ detail, messages, onReport, token }: { detail: MatchDetail; messages: MatchMessageOut[]; onReport: (message: MatchMessageOut) => void; token?: string | null }) {
+  const colors = useThemeColors()
   const first = messages[0]
   const last = messages[messages.length - 1]
   const side = sideOf(detail, first.side)
@@ -100,6 +106,8 @@ function Composer({ detail, sending, error, onSend, onPropose, inputRef }: {
   onPropose?: () => void
   inputRef?: RefObject<TextInput | null>
 }) {
+  const colors = useThemeColors()
+  const dark = useResolvedTheme() === 'dark'
   const [text, setText] = useState('')
   const { write_chat: canWrite, read_chat: canRead, propose_terms: canPropose } = detail.permissions
   const body = text.trim()
@@ -112,7 +120,7 @@ function Composer({ detail, sending, error, onSend, onPropose, inputRef }: {
 
   if (!canWrite) {
     const admin = detail.my_role === 'administracao'
-    return <View testID="chat-closed" style={{ flexDirection: 'row', alignItems: 'center', gap: 8, borderTopWidth: 1, borderTopColor: colors.line, backgroundColor: '#ffffff', paddingHorizontal: 16, paddingVertical: 12 }}>
+    return <View testID="chat-closed" style={{ flexDirection: 'row', alignItems: 'center', gap: 8, borderTopWidth: 1, borderTopColor: colors.line, backgroundColor: colors.surface, paddingHorizontal: 16, paddingVertical: 12 }}>
       <Icon name="info" size={15} color={colors['ink-muted']} />
       <Text style={{ flex: 1, color: colors['ink-muted'], fontSize: 11.5, lineHeight: 16 }}>
         {detail.my_role === 'historico' ? 'O acesso pelo histórico não inclui o chat.' : !canRead ? 'O chat abre quando os dois lados aceitam a proposta.' : admin ? 'A administração só lê o chat.' : 'O chat desta partida está fechado.'}
@@ -122,7 +130,7 @@ function Composer({ detail, sending, error, onSend, onPropose, inputRef }: {
   const status = sending ? 'Enviando mensagem…' : error
   const counter = text.length >= COUNTER_FROM ? `${text.length}/${MESSAGE_MAX}` : ''
   return <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-    <View testID="chat-composer" style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 4, borderTopWidth: 1, borderTopColor: colors.line, backgroundColor: '#ffffff', padding: 8 }}>
+    <View testID="chat-composer" style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 4, borderTopWidth: 1, borderTopColor: colors.line, backgroundColor: colors.surface, padding: 8 }}>
       {canPropose && onPropose ? <Pressable accessibilityRole="button" accessibilityLabel="Propor dia, horário e quadra" onPress={onPropose}
         style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
         <Icon name="calendar-plus" size={20} color={colors.brand} />
@@ -135,9 +143,9 @@ function Composer({ detail, sending, error, onSend, onPropose, inputRef }: {
         <Icon name="send-horizontal" size={20} color={colors.brand} />
       </Pressable>
     </View>
-    {counter ? <Text testID="chat-counter" style={{ backgroundColor: '#ffffff', paddingHorizontal: 16, paddingBottom: 4, textAlign: 'right', color: text.length >= MESSAGE_MAX ? colors.error : colors['ink-muted'], fontSize: 10.5 }}>{`${counter} caracteres`}</Text> : null}
+    {counter ? <Text testID="chat-counter" style={{ backgroundColor: colors.surface, paddingHorizontal: 16, paddingBottom: 4, textAlign: 'right', color: text.length >= MESSAGE_MAX ? colors.error : colors['ink-muted'], fontSize: 10.5 }}>{`${counter} caracteres`}</Text> : null}
     <Text accessibilityLiveRegion="polite" accessibilityRole={error && !sending ? 'alert' : undefined}
-      style={status ? { backgroundColor: error && !sending ? '#fff0f2' : '#ffffff', paddingHorizontal: 16, paddingVertical: 6, color: error && !sending ? colors.error : colors['ink-muted'], fontSize: 11.5 } : { height: 0 }}>{status}</Text>
+      style={status ? { backgroundColor: error && !sending ? (dark ? '#ff8a8022' : '#fff0f2') : colors.surface, paddingHorizontal: 16, paddingVertical: 6, color: error && !sending ? colors.error : colors['ink-muted'], fontSize: 11.5 } : { height: 0 }}>{status}</Text>
   </KeyboardAvoidingView>
 }
 
@@ -155,6 +163,8 @@ export function MatchChat({ detail, onExpired, onReport, onPropose, onEvent, com
   composerRef?: RefObject<TextInput | null>
   token?: string | null
 }) {
+  const colors = useThemeColors()
+  const dark = useResolvedTheme() === 'dark'
   const chat = useMatchChat(detail.id, detail.permissions.read_chat, onExpired, onEvent, !FINISHED.includes(detail.state))
   const scroller = useRef<ScrollView>(null)
   const stick = useRef(true)
@@ -203,13 +213,13 @@ export function MatchChat({ detail, onExpired, onReport, onPropose, onEvent, com
             <ActionButton tone="outline" size="sm" fit title={chat.loadingOlder ? 'Carregando…' : 'Carregar anteriores'} accessibilityLabel="Carregar anteriores" busy={chat.loadingOlder} onPress={() => void chat.loadOlder()} />
           </View> : null}
           {chat.loading ? <Text accessibilityLiveRegion="polite" style={{ paddingVertical: 16, textAlign: 'center', color: colors['ink-muted'], fontSize: 12 }}>Carregando o chat…</Text> : null}
-          {chat.error && !chat.items.length ? <ErrorText>{chat.error}</ErrorText> : null}
+          {chat.error && !chat.items.length ? <LoadError size="section" title="Não foi possível carregar o chat" text={chat.error} cause={chat.errorCause} onRetry={chat.reload} /> : null}
           {!chat.loading && !chat.error && rows.length === 0
             ? <Text style={{ paddingVertical: 16, textAlign: 'center', color: colors['ink-muted'], fontSize: 12, lineHeight: 18 }}>
               {championship ? 'Nenhuma mensagem ainda. Conversem por aqui.' : 'Nenhuma mensagem ainda. Combinem dia, horário e quadra por aqui.'}
             </Text> : null}
           {rows.map(row => row.kind === 'day'
-            ? <Text key={row.key} testID="chat-day" style={{ alignSelf: 'center', borderRadius: 999, overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.6)', paddingHorizontal: 10, paddingVertical: 3, color: colors['ink-muted'], fontSize: 10, fontWeight: '700' }}>{row.label}</Text>
+            ? <Text key={row.key} testID="chat-day" style={{ alignSelf: 'center', borderRadius: 999, overflow: 'hidden', backgroundColor: dark ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.6)', paddingHorizontal: 10, paddingVertical: 3, color: colors['ink-muted'], fontSize: 10, fontWeight: '700' }}>{row.label}</Text>
             : row.kind === 'event'
               ? <EventStrip key={row.key} detail={detail} message={row.message} token={token} />
               : <Group key={row.key} detail={detail} messages={row.messages} onReport={onReport} token={token} />)}

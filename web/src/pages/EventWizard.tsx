@@ -19,10 +19,13 @@ import { darkEyebrow, darkNotice, groupLabel, teamButton } from '@/components/te
 import { StepBars } from '@/components/teams/TeamsPlate'
 import { IconButton } from '@/components/ui/button'
 import { DatePicker } from '@/components/ui/date-picker'
+import { LoadError } from '@/components/ui/load-error'
 import { Sheet } from '@/components/ui/sheet'
 import { TimeField } from '@/components/ui/time-field'
+import { toast } from '@/components/ui/toast'
 import { eliminationCapacities, eventNoun, eventTypes, footballFormats, pixKeyType, pixKeyTypes, runDistances } from '@/data/arena'
 import { sports } from '@/api/client'
+import { reportActionError } from '@/hooks/useSubmit'
 import { cn } from '@/lib/utils'
 
 /** Id do elemento de cada campo (o primeiro com erro recebe o foco). */
@@ -60,12 +63,16 @@ export default function EventWizard({ eventId, initialStep, cities, onClose, onD
 }) {
   const [savedId, setSavedId] = useState<number | undefined>(eventId)
   const [loading, setLoading] = useState(Boolean(eventId))
-  const [loadError, setLoadError] = useState('')
+  /** O rascunho não pode ser editado aqui (já foi para aprovação ou publicado): é um estado, não uma falha. */
+  const [notEditable, setNotEditable] = useState('')
+  /** A leitura do rascunho falhou: a mensagem e o erro lançado, para o `LoadError` reconhecer a falta de conexão. */
+  const [loadFailure, setLoadFailure] = useState<{ message: string; cause: unknown } | null>(null)
+  const [loadAttempt, setLoadAttempt] = useState(0)
   const [form, setForm] = useState<EventForm>(emptyForm)
   const [step, setStep] = useState(0)
   const [errors, setErrors] = useState<FormErrors>({})
-  const [general, setGeneral] = useState('')
-  const [notice, setNotice] = useState('')
+  /** Resumo que acompanha campos com erro ("Revise o campo indicado.") ou um 422 sem campo conhecido; falhas de envio viram toast. */
+  const [summary, setSummary] = useState('')
   const [busy, setBusy] = useState<Busy>(null)
   const [dirty, setDirty] = useState(false)
   const [picking, setPicking] = useState(false)
@@ -81,7 +88,7 @@ export default function EventWizard({ eventId, initialStep, cities, onClose, onD
     getOrganizerEvent(eventId).then(detail => {
       if (!alive) return
       if (detail.state !== 'rascunho') {
-        setLoadError(detail.state === 'em_aprovacao' ? 'Retire o evento da aprovação para editar.' : 'Este evento não é mais um rascunho. Edite os dados pela gestão do evento.')
+        setNotEditable(detail.state === 'em_aprovacao' ? 'Retire o evento da aprovação para editar.' : 'Este evento não é mais um rascunho. Edite os dados pela gestão do evento.')
         return
       }
       const loaded = formFromDetail(detail)
@@ -91,10 +98,10 @@ export default function EventWizard({ eventId, initialStep, cities, onClose, onD
     }).catch((cause: unknown) => {
       if (!alive) return
       if (cause instanceof ApiError && cause.status === 401) onExpired()
-      setLoadError(cause instanceof Error && cause.message ? cause.message : 'Não foi possível carregar o rascunho.')
+      setLoadFailure({ message: cause instanceof Error && cause.message ? cause.message : 'Não foi possível carregar o rascunho.', cause })
     }).finally(() => { if (alive) setLoading(false) })
     return () => { alive = false }
-  }, [eventId, initialStep, onExpired])
+  }, [eventId, initialStep, onExpired, loadAttempt])
 
   // A cada passo, o foco vai para a pergunta (ou para o primeiro campo com erro, quando o erro trouxe o passo).
   useEffect(() => {
@@ -112,8 +119,7 @@ export default function EventWizard({ eventId, initialStep, cities, onClose, onD
   function update(change: Partial<EventForm>) {
     setForm(old => ({ ...old, ...change }))
     setDirty(true)
-    setNotice('')
-    setGeneral('')
+    setSummary('')
     setErrors(old => {
       const keys = Object.keys(change) as FormField[]
       if (!keys.some(key => old[key])) return old
@@ -125,8 +131,7 @@ export default function EventWizard({ eventId, initialStep, cities, onClose, onD
   function category(change: Parameters<typeof withCategory>[1]) {
     setForm(old => withCategory(old, change))
     setDirty(true)
-    setNotice('')
-    setGeneral('')
+    setSummary('')
     setErrors(old => {
       const next = { ...old }
       for (const key of ['sport', 'format', 'distanceKm', 'competitionType', 'capacity'] as FormField[]) delete next[key]
@@ -139,7 +144,7 @@ export default function EventWizard({ eventId, initialStep, cities, onClose, onD
     pendingFocus.current = first
     if (first) setStep(FIELD_STEP[first])
     setErrors(found)
-    setGeneral(message)
+    setSummary(message)
     setFocusRequest(n => n + 1)
   }
 
@@ -148,14 +153,26 @@ export default function EventWizard({ eventId, initialStep, cities, onClose, onD
     if (step === LAST_STEP) return
     const found = validateStep(form, step)
     if (Object.keys(found).length) { showErrors(found); return }
-    setErrors({}); setGeneral('')
+    setErrors({}); setSummary('')
     setStep(step + 1)
     setFocusRequest(n => n + 1)
   }
   function previous() {
-    setErrors({}); setGeneral('')
+    setErrors({}); setSummary('')
     setStep(Math.max(0, step - 1))
     setFocusRequest(n => n + 1)
+  }
+
+  /**
+   * Uma falha do servidor: campos recusados (422) vão para o passo do campo, com o resumo junto ao formulário; o resto segue a
+   * regra única dos erros de ação (sessão expirada, aviso de conexão, aviso de estado velho ou toast de erro).
+   */
+  function reportFailure(cause: unknown, fallback: string, fieldsSummary: string) {
+    const mapped = apiFormErrors(cause, form, fallback)
+    if (mapped.step !== null) { showErrors(mapped.errors, fieldsSummary); return }
+    setErrors({})
+    const report = reportActionError(cause, fallback, onExpired)
+    if (report.kind === 'form') setSummary(report.message)
   }
 
   /** Cria ou atualiza o rascunho; erros vão para o passo do campo. Devolve o rascunho salvo. */
@@ -167,43 +184,35 @@ export default function EventWizard({ eventId, initialStep, cities, onClose, onD
       setDirty(false)
       return detail
     } catch (cause) {
-      if (cause instanceof ApiError && cause.status === 401) onExpired()
-      const mapped = apiFormErrors(cause, form, fallback)
-      if (mapped.step !== null) showErrors(mapped.errors, 'Revise o campo indicado.')
-      else { setErrors({}); setGeneral(mapped.general) }
+      reportFailure(cause, fallback, 'Revise o campo indicado.')
       return null
     }
   }
 
   async function saveDraft(): Promise<boolean> {
-    setNotice('')
     const found = validateDraft(form)
     if (Object.keys(found).length) { showErrors(found); return false }
-    setBusy('draft'); setGeneral('')
+    setBusy('draft'); setSummary('')
     const saved = await persist('Não foi possível salvar o rascunho.')
     setBusy(null)
     if (saved) {
       setErrors({})
-      setNotice('Rascunho salvo. Ele fica em Meus eventos, com o checklist do que falta.')
+      toast.success('Rascunho salvo.', { description: 'Ele fica em Meus eventos, com o checklist do que falta.' })
     }
     return Boolean(saved)
   }
 
   async function publish() {
-    setNotice('')
     const missing = validateAll(form)
     if (missing) { showErrors(missing.errors, 'Complete este passo para publicar.'); return }
-    setBusy('publish'); setGeneral('')
+    setBusy('publish'); setSummary('')
     const saved = await persist('Não foi possível salvar o evento.')
     if (!saved) { setBusy(null); return }
     try {
       const sent = await submitEvent(saved.id)
       onDone(sent)
     } catch (cause) {
-      if (cause instanceof ApiError && cause.status === 401) onExpired()
-      const mapped = apiFormErrors(cause, form, form.paid ? 'Não foi possível enviar para aprovação.' : 'Não foi possível publicar.')
-      if (mapped.step !== null) showErrors(mapped.errors, 'Complete este passo para publicar.')
-      else setGeneral(mapped.general)
+      reportFailure(cause, form.paid ? 'Não foi possível enviar para aprovação.' : 'Não foi possível publicar.', 'Complete este passo para publicar.')
     } finally {
       setBusy(null)
     }
@@ -220,15 +229,17 @@ export default function EventWizard({ eventId, initialStep, cities, onClose, onD
       <span className={darkEyebrow}>Organizador</span>
       <h1 className="text-[17px] leading-[1.2] text-white">{eventId ? 'Editar rascunho' : 'Novo evento'}</h1>
     </div>
-    {!loading && !loadError && <span aria-hidden="true" className="mr-2 rounded-full bg-white/8 px-2.5 py-1 text-[11px] font-bold text-white/80 tabular-nums">{step + 1}/{WIZARD_STEPS.length}</span>}
+    {!loading && !loadFailure && !notEditable && <span aria-hidden="true" className="mr-2 rounded-full bg-white/8 px-2.5 py-1 text-[11px] font-bold text-white/80 tabular-nums">{step + 1}/{WIZARD_STEPS.length}</span>}
   </div>
 
-  if (loading || loadError) {
+  if (loading || notEditable || loadFailure) {
     return <div className="min-h-full text-white">
       {heading}
       <div className="px-4 pt-3">
-        {loadError ? <p className={darkNotice({ tone: 'error' })} role="alert">{loadError}</p>
-          : <p role="status" className="text-[12px] text-white/70">Carregando o rascunho…</p>}
+        {loadFailure ? <LoadError size="screen" tone="dark" title="Não foi possível carregar o rascunho" text={loadFailure.message} cause={loadFailure.cause}
+          onRetry={() => { setLoadFailure(null); setLoading(true); setLoadAttempt(n => n + 1) }} />
+          : notEditable ? <p className={darkNotice({ tone: 'error' })} role="alert">{notEditable}</p>
+            : <p role="status" className="text-[12px] text-white/70">Carregando o rascunho…</p>}
       </div>
     </div>
   }
@@ -257,11 +268,8 @@ export default function EventWizard({ eventId, initialStep, cities, onClose, onD
       {step === 3 && <WhenStep form={form} errors={errors} update={update} city={city} onPickCity={() => setPicking(true)} />}
       {step === 4 && <PriceStep form={form} errors={errors} update={update} />}
 
-      <div aria-live="polite">
-        {general && <p className={darkNotice({ tone: 'error' })} role="alert">{general}</p>}
-        {notice && <p className={darkNotice()} role="status">{notice}</p>}
-        <p role="status" className="sr-only">{status}</p>
-      </div>
+      {summary && <p className={darkNotice({ tone: 'error' })} role="alert">{summary}</p>}
+      <p role="status" className="sr-only">{status}</p>
 
       <div className="mt-[18px] flex gap-2">
         {step > 0 && <button type="button" className={cn(teamButton({ tone: 'line', size: 'md' }), 'w-[52px] flex-none px-0')} aria-label="Voltar ao passo anterior" onClick={previous} disabled={Boolean(busy)}>
@@ -400,9 +408,9 @@ function WhenStep({ form, errors, update, city, onPickCity }: StepProps & { city
   return <>
     <label htmlFor={FIELD_ID.startDate} className={darkLabel}>Data e hora do evento</label>
     <div className="grid grid-cols-[minmax(0,1fr)_118px] gap-2">
-      <DatePicker id={FIELD_ID.startDate} label="Data do evento" tone="dark" disablePast value={form.startDate} invalid={Boolean(errors.startDate)}
+      <DatePicker id={FIELD_ID.startDate} label="Data do evento" tone="dark" disablePast className="noite:aria-invalid:border-[#94351e]" value={form.startDate} invalid={Boolean(errors.startDate)}
         aria-describedby={errors.startDate ? `${FIELD_ID.startDate}-error` : undefined} onChange={value => update({ startDate: value })} />
-      <TimeField id={FIELD_ID.startTime} aria-label="Hora do início" tone="dark" stepMinutes={5} value={form.startTime} invalid={Boolean(errors.startTime)}
+      <TimeField id={FIELD_ID.startTime} aria-label="Hora do início" tone="dark" stepMinutes={5} className="noite:data-invalid:border-[#94351e]" value={form.startTime} invalid={Boolean(errors.startTime)}
         aria-describedby={errors.startTime ? `${FIELD_ID.startTime}-error` : undefined} onChange={value => update({ startTime: value })} />
     </div>
     <DarkFieldError id={FIELD_ID.startDate} error={errors.startDate} />
@@ -410,7 +418,7 @@ function WhenStep({ form, errors, update, city, onPickCity }: StepProps & { city
 
     <label htmlFor={FIELD_ID.closeDate} className={darkLabel}>Inscrições até</label>
     <div className="grid grid-cols-[minmax(0,1fr)_118px] gap-2">
-      <DatePicker id={FIELD_ID.closeDate} label="Fim das inscrições" tone="dark" disablePast max={closeDateMax(form)} value={form.closeDate}
+      <DatePicker id={FIELD_ID.closeDate} label="Fim das inscrições" tone="dark" disablePast className="noite:aria-invalid:border-[#94351e]" max={closeDateMax(form)} value={form.closeDate}
         invalid={Boolean(errors.closeDate)} aria-describedby={describedBy(FIELD_ID.closeDate, errors.closeDate)} onChange={value => update({ closeDate: value })} />
       <TimeField id={FIELD_ID.closeTime} aria-label="Hora do fim das inscrições (opcional)" tone="dark" stepMinutes={5} value={form.closeTime}
         placeholder="23:59" onChange={value => update({ closeTime: value })} />
@@ -488,9 +496,9 @@ function PriceStep({ form, errors, update }: StepProps) {
     </>}
     {textField('contact', 'Contato para dúvidas (opcional)', { max: contactMax, placeholder: 'WhatsApp ou e-mail' })}
     {paid
-      ? <div className="mt-3.5 flex gap-3 rounded-[14px] bg-warning-bg p-3 text-[12px] text-ink">
-        <Hourglass size={20} className="flex-none text-warning" aria-hidden="true" />
-        <div><b className="block">Evento pago passa pela administração</b><small className="mt-0.5 text-[10.5px] leading-[1.45] text-ink-muted">Depois de enviar, ele fica “Em aprovação” até a conferência e só então abre as inscrições.</small></div>
+      ? <div className="mt-3.5 flex gap-3 rounded-[14px] bg-warning-bg p-3 text-[12px] text-ink noite:bg-[#fdf3e2] noite:text-[#495057]">
+        <Hourglass size={20} className="flex-none text-warning noite:text-[#6f4305]" aria-hidden="true" />
+        <div><b className="block">Evento pago passa pela administração</b><small className="mt-0.5 text-[10.5px] leading-[1.45] text-ink-muted noite:text-[#626970]">Depois de enviar, ele fica “Em aprovação” até a conferência e só então abre as inscrições.</small></div>
       </div>
       : form.paid === false && <Note>Evento gratuito publica direto: as inscrições abrem na hora.</Note>}
   </>

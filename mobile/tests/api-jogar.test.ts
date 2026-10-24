@@ -89,7 +89,7 @@ describe('cliente da busca, da proposta e da placa (contrato 0002, seções 9 e 
       ['/me/proposals'],
       ['/matches/50/accept', 'PUT', {}],
       ['/matches/50/decline', 'PUT', {}],
-      ['/me/play'],
+      ['/me/play', 'GET', undefined, undefined],
       ['/me/slot-offers'],
       ['/match-slots/9/accept', 'PUT', {}],
       ['/match-slots/9/decline', 'PUT', {}],
@@ -134,6 +134,24 @@ describe('cliente do resultado, das estatísticas e do Ranking (contrato 0002, s
     expect(results.rankingPath({ sport: 'corrida', distance_km: 5, cursor: 'a b' })).toBe('/rankings?sport=corrida&distance_km=5&cursor=a+b')
     await results.getRankings({ sport: 'futebol', kind: 'time', format: 'futsal' })
     expect(calls()).toEqual([['/rankings?sport=futebol&kind=time&format=futsal']])
+  })
+
+  it('o elo entra no caminho do Ranking antes do limite e do cursor', () => {
+    expect(results.rankingPath({ sport: 'tenis', tier: 'ouro', limit: 6 })).toBe('/rankings?sport=tenis&tier=ouro&limit=6')
+    expect(results.rankingPath({ sport: 'futebol', kind: 'time', format: 'society', tier: 'lendario', limit: 20, cursor: 'c1' }))
+      .toBe('/rankings?sport=futebol&kind=time&format=society&tier=lendario&limit=20&cursor=c1')
+  })
+
+  it('lê o overview do Ranking com os parâmetros da categoria e o time opcional (GET /rankings/overview)', async () => {
+    expect(results.rankingOverviewPath({ sport: 'tenis' })).toBe('/rankings/overview?sport=tenis')
+    expect(results.rankingOverviewPath({ sport: 'corrida', distance_km: 10 }, null)).toBe('/rankings/overview?sport=corrida&distance_km=10')
+    expect(results.rankingOverviewPath({ sport: 'futebol', kind: 'time', format: 'campo' }, 7)).toBe('/rankings/overview?sport=futebol&kind=time&format=campo&team_id=7')
+    await results.getRankingOverview({ sport: 'futebol', kind: 'individual', format: 'society', position: 'goleiro' })
+    await results.getRankingOverview({ sport: 'futebol', kind: 'time', format: 'society' }, 3)
+    expect(calls()).toEqual([
+      ['/rankings/overview?sport=futebol&kind=individual&format=society&position=goleiro'],
+      ['/rankings/overview?sport=futebol&kind=time&format=society&team_id=3'],
+    ])
   })
 
   it('lê as classificações do titular (GET /me/standings)', async () => {
@@ -259,5 +277,16 @@ describe('filas da administração do Jogar (contrato 0002, seções 10.4 e 10.7
     expect(admin.courtRejectError('', true)).toBeNull()
     expect(admin.courtRejectError('abc', true)).toBe('O motivo, se informado, tem de 5 a 300 caracteres.')
     expect(admin.courtRejectError('Mesmo endereço', true)).toBeNull()
+  })
+})
+
+describe('leituras em segundo plano (plano de toasts, C2)', () => {
+  it('a placa e o chat repassam `background` ao cliente, que nunca abre a folha de conexão por elas', async () => {
+    await matchmaking.getPlayBoard({ background: true })
+    await matches.getMessages(1, { after: 3 }, { background: true })
+    expect(calls()).toEqual([
+      ['/me/play', 'GET', undefined, { background: true }],
+      ['/matches/1/messages?after=3', 'GET', undefined, { background: true }],
+    ])
   })
 })

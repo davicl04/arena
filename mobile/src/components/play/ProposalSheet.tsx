@@ -1,12 +1,11 @@
 import { Text, View } from 'react-native'
-import { ApiError } from '../../api/client'
 import { acceptProposal, declineProposal } from '../../api/matchmaking'
 import type { Proposal } from '../../api/matchmaking'
 import { footballFormat } from '../../data/arena'
 import { sideName } from '../../data/match'
-import { useSubmit } from '../../hooks/useSubmit'
+import { isStale, useSubmit } from '../../hooks/useSubmit'
 import { colors } from '../../theme'
-import { ActionButton, Notice, TextAction } from '../arena/controls'
+import { ActionButton, TextAction } from '../arena/controls'
 import { StateBadge } from '../arena/StateBadge'
 import { Icon } from '../Icon'
 import { ActionSheet } from '../arena/ActionSheet'
@@ -31,11 +30,11 @@ export function ProposalSheet({ proposal, onLater, onAnswer, onOpenMatch, onElap
   onOpenMatch: (matchId: number) => void
   /** O prazo de 2 h passou: a placa lê de novo. */
   onElapsed: () => void
-  /** O servidor recusou a resposta porque a proposta mudou (404 ou 409): recebe a mensagem dele; a tela fecha a folha e lê a placa de novo. */
-  onStale: (message: string) => void
+  /** O servidor recusou a resposta porque a proposta mudou (404 ou 409; o toast de aviso já mostrou a mensagem dele): a tela fecha a folha e lê a placa de novo. */
+  onStale: () => void
   onExpired: () => void
 }) {
-  const { busy, error, run } = useSubmit(onExpired)
+  const { busy, run } = useSubmit(onExpired)
   const mine = proposal.sides.find(side => side.side === proposal.my_side)
   const other = proposal.sides.find(side => side.side !== proposal.my_side)
   const open = proposal.state === 'proposta'
@@ -46,17 +45,12 @@ export function ProposalSheet({ proposal, onLater, onAnswer, onOpenMatch, onElap
   const heading = open ? 'Adversário encontrado' : proposal.state === 'combinando' ? 'Partida confirmada' : 'Proposta encerrada'
 
   async function answer(kind: ProposalAnswer) {
-    let stale = ''
     await run(async () => {
-      let updated: Proposal
-      try { updated = await (kind === 'aceitar' ? acceptProposal : declineProposal)(proposal.match_id) } catch (cause) {
-        // Proposta que já não está pendente (404 ou 409: o outro lado recusou, o prazo passou): a placa lê de novo.
-        if (cause instanceof ApiError && (cause.status === 404 || cause.status === 409)) stale = cause.message
-        throw cause
-      }
+      const updated = await (kind === 'aceitar' ? acceptProposal : declineProposal)(proposal.match_id)
       await onAnswer(updated, kind)
-    }, kind === 'aceitar' ? 'Não foi possível aceitar a proposta.' : 'Não foi possível recusar a proposta.')
-    if (stale) onStale(stale)
+    }, kind === 'aceitar' ? 'Não foi possível aceitar a proposta.' : 'Não foi possível recusar a proposta.',
+    // Proposta que já não está pendente (404 ou 409: o outro lado recusou, o prazo passou): o toast de aviso já saiu; a placa lê de novo.
+    cause => { if (isStale(cause)) onStale() })
   }
 
   return <ActionSheet title={`${heading} · ${format}`} dark locked={busy} onClose={onLater}>
@@ -88,7 +82,6 @@ export function ProposalSheet({ proposal, onLater, onAnswer, onOpenMatch, onElap
       {!open && proposal.state !== 'combinando' ? <Text accessibilityLiveRegion="polite" style={{ textAlign: 'center', color: 'rgba(255,255,255,0.8)', fontSize: 12, lineHeight: 18 }}>
         {proposal.state === 'recusada' ? 'A proposta foi recusada.' : 'O prazo da proposta terminou.'}
       </Text> : null}
-      {error ? <Notice surface="dark">{error}</Notice> : null}
       <View style={{ alignItems: 'center' }}>
         <TextAction surface="dark" title={open && proposal.can_respond ? 'Responder depois' : 'Fechar'} disabled={busy} onPress={onLater} />
       </View>

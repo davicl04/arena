@@ -99,7 +99,7 @@ function NodeCard({ placed, picked }: { placed: PlacedNode; picked: number | nul
   return (
     <g data-node={node.label ?? `bye-${placed.round}-${placed.index}`}>
       <rect x={x} y={y} width={w} height={h} rx={16}
-        className={final ? 'fill-forest' : node.bye ? 'fill-white/70 stroke-ink-muted/30' : 'fill-white'}
+        className={final ? 'fill-forest' : node.bye ? 'fill-white/70 noite:fill-[#ffffff0d] stroke-ink-muted/30' : 'fill-white noite:fill-[#0f1813]'}
         strokeWidth={final ? 0 : 1} strokeDasharray={node.bye ? '3 3' : undefined}
         style={final ? undefined : { filter: 'drop-shadow(0 2px 6px rgb(0 0 0 / 0.08))' }} />
       {final && <rect x={x + 1} y={y + 1} width={w - 2} height={h - 2} rx={15} fill="none" stroke="#d9a937" strokeWidth={2} />}

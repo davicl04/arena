@@ -1,6 +1,7 @@
 import { Check } from 'lucide-react'
 import type { RunRace } from '@/api/runs'
 import { Button } from '@/components/ui/button'
+import { LoadError } from '@/components/ui/load-error'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { distanceLabel, formatRunDate } from './runView'
 
@@ -8,10 +9,12 @@ import { distanceLabel, formatRunDate } from './runView'
  * "Prova do Arena" (K2): as provas de corrida em que o titular tem inscrição confirmada, com a largada já passada, dentro
  * das últimas 52 semanas e sem marca (`GET /me/run-races`). Sem prova, o texto diz por quê, sem inventar nenhuma.
  */
-export function RunRaces({ races, loading, error, selected, onSelect, onRetry, onFind, describedBy }: {
+export function RunRaces({ races, loading, error, errorCause, selected, onSelect, onRetry, onFind, describedBy }: {
   races: RunRace[]
   loading: boolean
   error: string
+  /** O erro lançado pelo carregamento (para o `LoadError` reconhecer a falta de conexão). */
+  errorCause?: unknown
   selected: number | null
   onSelect: (race: RunRace | null) => void
   onRetry: () => void
@@ -20,9 +23,7 @@ export function RunRaces({ races, loading, error, selected, onSelect, onRetry, o
   describedBy?: string
 }) {
   if (loading) return <p role="status" className="m-0 text-[11.5px] text-white/65">Carregando suas provas…</p>
-  if (error) return <p role="alert" className="m-0 text-[11.5px] leading-normal text-danger-soft">
-    {error} <Button variant="glass-link" className="inline min-h-0 p-0 align-baseline" onClick={onRetry}>Tentar novamente</Button>
-  </p>
+  if (error) return <LoadError size="section" tone="dark" text={error} cause={errorCause} onRetry={onRetry} />
   if (!races.length) return <div data-slot="run-races-empty" className="grid gap-1 rounded-[14px] bg-white/6 p-3">
     <b className="font-display text-[12.5px] text-white">Nenhuma prova para registrar</b>
     <small className="text-[10.5px] leading-[1.5] text-white/65">

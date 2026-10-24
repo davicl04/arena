@@ -1,7 +1,7 @@
 import { ScrollView, Text, View } from 'react-native'
 import type { Bracket, Competitor, TableRow } from '../../api/brackets'
 import { useSessionToken } from '../../hooks/useSessionToken'
-import { colors } from '../../theme'
+import { useThemeColors } from '../../hooks/useTheme'
 import { TeamCrest } from '../arena/TeamCrest'
 import { Avatar } from '../media'
 import { scoreText } from '../results/format'
@@ -30,7 +30,7 @@ const shortLabel = (competitor: Competitor) => competitorName(competitor).split(
 
 const CELL = 46
 const NAME_W = 92
-const head = { color: colors['ink-muted'], fontSize: 9.5, fontWeight: '700' } as const
+const head = (color: string) => ({ color, fontSize: 9.5, fontWeight: '700' }) as const
 
 interface Cell { round: number; label: string | null; text: string | null }
 
@@ -52,11 +52,12 @@ export function crossCells(bracket: Pick<Bracket, 'rounds' | 'sport'>): Map<stri
 
 /** Tabela cruzada: a célula (A, B) é o jogo que reúne os dois, com a rodada ("R2") e o placar. */
 export function CrossTable({ bracket }: { bracket: Bracket }) {
+  const colors = useThemeColors()
   const competitors = planCompetitors(bracket.rounds)
   if (!competitors.length) return null
   const cells = crossCells(bracket)
   return <ScrollView horizontal nestedScrollEnabled showsHorizontalScrollIndicator accessibilityLabel="Tabela cruzada (role para os lados se não couber)"
-    style={{ borderRadius: 14, backgroundColor: '#ffffff' }} contentContainerStyle={{ padding: 8 }}>
+    style={{ borderRadius: 14, backgroundColor: colors.surface }} contentContainerStyle={{ padding: 8 }}>
     <View testID="cross-table" accessibilityRole="list" accessibilityLabel="Tabela cruzada: a rodada de cada confronto e, depois do jogo, o placar">
       <View style={{ flexDirection: 'row' }}>
         <View style={{ width: NAME_W }} />
@@ -89,6 +90,7 @@ export function CrossTable({ bracket }: { bracket: Bracket }) {
 
 /** Quem folga em cada rodada (número ímpar de competidores). */
 export function RestList({ bracket }: { bracket: Bracket }) {
+  const colors = useThemeColors()
   const rests = bracket.rounds.filter(round => round.rest)
   if (!rests.length) return null
   return <Text testID="rest-list" style={{ color: colors['ink-muted'], fontSize: 11, lineHeight: 17 }}>
@@ -113,17 +115,18 @@ export function standingSentence(row: TableRow, tennis: boolean): string {
 
 /** Classificação: pontos (3/1/0), saldo e gols pró desempatam. No tênis, os gols são os sets. */
 export function StandingsTable({ rows, sport }: { rows: TableRow[]; sport: Bracket['sport'] }) {
+  const colors = useThemeColors()
   const tennis = sport === 'tenis'
   const unit = tennis ? 'sets' : 'gols'
   const cols = columns(tennis)
   return <ScrollView horizontal nestedScrollEnabled showsHorizontalScrollIndicator accessibilityLabel="Classificação (role para os lados se não couber)"
-    style={{ borderRadius: 14, backgroundColor: '#ffffff' }}>
+    style={{ borderRadius: 14, backgroundColor: colors.surface }}>
     <View testID="standings" accessibilityLabel={`Classificação: vitória vale 3 pontos, empate 1 e derrota 0; saldo, ${unit} pró e vitórias desempatam`} style={{ minWidth: 340, paddingHorizontal: 10, paddingBottom: 4 }}>
       <View accessible={false} importantForAccessibility="no-hide-descendants" style={{ minHeight: 34, flexDirection: 'row', alignItems: 'center' }}>
-        <Text style={[head, { width: 22 }]}>#</Text>
-        <Text style={[head, { flex: 1, minWidth: 100 }]}>{tennis ? 'Atleta' : 'Time'}</Text>
-        {cols.map(column => <Text key={column.key} style={[head, { width: 28, textAlign: 'center' }]}>{column.head}</Text>)}
-        <Text style={[head, { width: 34, textAlign: 'center' }]}>Pts</Text>
+        <Text style={[head(colors['ink-muted']), { width: 22 }]}>#</Text>
+        <Text style={[head(colors['ink-muted']), { flex: 1, minWidth: 100 }]}>{tennis ? 'Atleta' : 'Time'}</Text>
+        {cols.map(column => <Text key={column.key} style={[head(colors['ink-muted']), { width: 28, textAlign: 'center' }]}>{column.head}</Text>)}
+        <Text style={[head(colors['ink-muted']), { width: 34, textAlign: 'center' }]}>Pts</Text>
       </View>
       {rows.map(row => <View key={row.competitor.entry_id} accessible accessibilityLabel={standingSentence(row, tennis)}
         style={{ minHeight: 44, flexDirection: 'row', alignItems: 'center', borderTopWidth: 1, borderTopColor: colors.line }}>

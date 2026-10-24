@@ -16,7 +16,7 @@ import { DarkTopBar } from '@/components/teams/TeamsPlate'
 import { normalizeTeamName, TEAM_NAME_MAX, TEAM_NAME_MIN } from '@/components/teams/teamView'
 import type { TeamCardView } from '@/components/teams/teamView'
 import { Button } from '@/components/ui/button'
-import { feedbackVariants } from '@/components/ui/feedback'
+import { LoadError } from '@/components/ui/load-error'
 import { Sheet } from '@/components/ui/sheet'
 import { useSubmit } from '@/hooks/useSubmit'
 import { cn } from '@/lib/utils'
@@ -56,7 +56,8 @@ export default function TeamFormPage({ teamId, user, profiles, cities, onDone, o
 }) {
   const football = profiles.find(profile => profile.sport === 'futebol')
   const [team, setTeam] = useState<TeamCard | null>(null)
-  const [loadError, setLoadError] = useState('')
+  const [loadFailure, setLoadFailure] = useState<{ message: string; cause: unknown } | null>(null)
+  const [attempt, setAttempt] = useState(0)
   const [name, setName] = useState('')
   const [cityId, setCityId] = useState<number | null>(teamId ? null : football?.city_id ?? null)
   const [crest, setCrest] = useState<CrestChange>({ kind: 'keep' })
@@ -78,10 +79,10 @@ export default function TeamFormPage({ teamId, user, profiles, cities, onDone, o
       .catch((cause: unknown) => {
         if (!alive) return
         if (cause instanceof ApiError && cause.status === 401) onExpired()
-        setLoadError(cause instanceof Error ? cause.message : 'Não foi possível carregar o time.')
+        setLoadFailure({ message: cause instanceof Error && cause.message ? cause.message : 'Não foi possível carregar o time.', cause })
       })
     return () => { alive = false }
-  }, [teamId, onExpired])
+  }, [teamId, attempt, onExpired])
   // Libera as prévias locais (arquivo escolhido e recorte) quando trocam ou ao sair da tela.
   useEffect(() => () => { if (source) URL.revokeObjectURL(source) }, [source])
   const preview = crest.kind === 'upload' ? crest.url : ''
@@ -162,7 +163,8 @@ export default function TeamFormPage({ teamId, user, profiles, cities, onDone, o
     return <div className="min-h-full text-white">
       <DarkTopBar eyebrow="Meus times" title={title} onBack={onBack} icon="close" />
       <div className="px-4 pt-3">
-        {loadError ? <p className={darkNotice({ tone: 'error' })} role="alert">{loadError}</p>
+        {loadFailure ? <LoadError size="screen" tone="dark" title="Não foi possível carregar o time" text={loadFailure.message} cause={loadFailure.cause}
+          onRetry={() => { setLoadFailure(null); setAttempt(n => n + 1) }} />
           : <p role="status" className="text-[12px] text-white/66">Carregando o time…</p>}
       </div>
     </div>
@@ -246,7 +248,6 @@ export default function TeamFormPage({ teamId, user, profiles, cities, onDone, o
         <b>Encerrar o {team.name}?</b><br />Os {team.member_count} {team.member_count === 1 ? 'atleta deixa' : 'atletas deixam'} o elenco e são avisados; convites, pedidos e o link deixam de valer.
         O histórico de partidas e o ranking continuam registrados. Não dá para desfazer.
       </ConfirmBox>
-      {close.error && <p className={feedbackVariants()} role="alert">{close.error}</p>}
     </Sheet>}
   </div>
 }

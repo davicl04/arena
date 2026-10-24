@@ -27,7 +27,7 @@ function DateBlock({ iso }: { iso: string | null }) {
 export function AdminEventRow({ event, text, badge, onOpen }: { event: Pick<EventPosterData, 'name' | 'starts_at'>; text: string; badge?: ReactNode; onOpen: () => void }) {
   const date = eventDateParts(event.starts_at)
   return <li>
-    <button type="button" className="flex w-full items-center gap-3 rounded-card border-0 bg-white p-2.5 text-left text-inherit shadow-[0_2px_8px_#0000000a] hover:bg-[#fbfbfc]" onClick={onOpen}>
+    <button type="button" className="flex w-full items-center gap-3 rounded-card border-0 bg-surface p-2.5 text-left text-inherit shadow-[0_2px_8px_#0000000a] hover:bg-[#fbfbfc] noite:shadow-none noite:hover:bg-[#16241d] noite:inset-ring noite:inset-ring-surface-edge" onClick={onOpen}>
       <DateBlock iso={event.starts_at} />
       <span className="grid min-w-0 flex-1 justify-items-start gap-[3px]">
         <b className="max-w-full truncate text-[13px]">{event.name}</b>
@@ -119,7 +119,7 @@ export function ReasonPanel({ title, options, option, onOption, textLabel, text,
   tone?: 'danger' | 'brand'
 }) {
   const id = useId()
-  return <div className={cn('mt-3 grid gap-2.5 rounded-card p-3.5', tone === 'danger' ? 'shadow-[inset_0_0_0_1.5px_#b9374955]' : 'shadow-[inset_0_0_0_1.5px_#005a3655]')}>
+  return <div className={cn('mt-3 grid gap-2.5 rounded-card p-3.5', tone === 'danger' ? 'shadow-[inset_0_0_0_1.5px_#b9374955] noite:shadow-[inset_0_0_0_1.5px_#ff8a8055]' : 'shadow-[inset_0_0_0_1.5px_#005a3655] noite:shadow-[inset_0_0_0_1.5px_#8fe0b455]')}>
     <b id={`${id}-title`} className="text-[13px]">{title}</b>
     {options && <div role="group" aria-labelledby={`${id}-title`} className="flex flex-wrap gap-1.5">
       {options.map(item => <Chip key={item.value} type="button" aria-pressed={option === item.value}
@@ -132,7 +132,7 @@ export function ReasonPanel({ title, options, option, onOption, textLabel, text,
     <p id={`${id}-note`} className="flex items-start gap-2 text-[11px] leading-[1.5] text-ink-muted"><Info size={15} className="mt-px flex-none text-brand" aria-hidden="true" />{note}</p>
     <SheetActions className="mt-0">
       <Button variant="secondary" disabled={busy} onClick={onCancel}>Voltar</Button>
-      <Button className={tone === 'danger' ? 'bg-danger-ink shadow-none hover:bg-[#9a1e14]' : undefined} disabled={busy} onClick={onConfirm}>{busy ? busyLabel : confirmLabel}</Button>
+      <Button className={tone === 'danger' ? 'bg-danger-ink shadow-none hover:bg-[#9a1e14] noite:hover:bg-[#ffa39b]' : undefined} disabled={busy} onClick={onConfirm}>{busy ? busyLabel : confirmLabel}</Button>
     </SheetActions>
   </div>
 }

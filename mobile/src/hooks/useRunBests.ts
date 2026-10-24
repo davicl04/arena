@@ -17,5 +17,5 @@ export function useRunBests(onExpired: () => void, enabled: boolean) {
     try { setData(await getRunBests()) }
     catch (cause) { if (cause instanceof ApiError && cause.status === 401) onExpired() }
   }, [setData, onExpired])
-  return { items: resource.data?.items ?? none, loaded: Boolean(resource.data), loading: resource.loading, error: resource.error, reload: resource.reload, refresh }
+  return { items: resource.data?.items ?? none, loaded: Boolean(resource.data), loading: resource.loading, error: resource.error, errorCause: resource.errorCause, reload: resource.reload, refresh }
 }

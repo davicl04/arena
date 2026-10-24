@@ -6,6 +6,7 @@ import type { Post, SocialComment } from '../src/api/client'
 import PostImage from '../src/components/PostImage'
 import PostItem, { postDate } from '../src/components/PostItem'
 import { button, byLabel, click, enableAct, hardwareBack, press, textOf, type } from './support/native'
+import { toasts } from './support/toast'
 
 vi.mock('react-native', async () => (await import('./support/native')).reactNativeMock())
 vi.mock('../src/components/ui', async () => (await import('./support/native')).uiMock())
@@ -53,7 +54,8 @@ describe('PostItem, PostActions, ReportForm e PostComments', () => {
     expect(latest).toMatchObject({ liked_by_me: false, like_count: 2 })
     vi.mocked(request).mockRejectedValueOnce(new Error('Sem conexão.'))
     await press(tree, 'Curtir, 2 curtidas')
-    expect(textOf(tree)).toContain('Sem conexão.')
+    expect(toasts().map(item => [item.tone, item.title])).toEqual([['error', 'Sem conexão.']])
+    expect(textOf(tree)).not.toContain('Sem conexão.')
     await act(async () => { tree.unmount() })
   })
 
@@ -112,7 +114,8 @@ describe('PostItem, PostActions, ReportForm e PostComments', () => {
     await press(tree, 'Excluir publicação')
     vi.mocked(request).mockRejectedValueOnce(new ApiError('Sessão expirada', 401))
     await click(tree, 'Excluir')
-    expect(textOf(tree)).toContain('Sessão expirada')
+    // 401 vai ao fluxo de sessão expirada, sem mensagem local nem toast.
+    expect(toasts()).toEqual([])
     await click(tree, 'Excluir')
     expect(request).toHaveBeenLastCalledWith('/posts/7', 'DELETE')
     expect(latest).toBeNull()
@@ -131,8 +134,8 @@ describe('PostItem, PostActions, ReportForm e PostComments', () => {
     await type(tree, 'Detalhes (opcional)', ' foto ofensiva ')
     await click(tree, 'Enviar denúncia')
     expect(request).toHaveBeenCalledWith('/reports', 'POST', { target_type: 'post', target_id: 7, reason: 'conteudo_inadequado', description: 'foto ofensiva' })
-    expect(textOf(tree)).toContain('Denúncia enviada para análise.')
-    await click(tree, 'Concluir')
+    expect(toasts().map(item => [item.tone, item.title])).toEqual([['success', 'Denúncia enviada para análise.']])
+    // O formulário se fecha sozinho: não há mais o passo "Concluir".
     expect(byLabel(tree, 'Ações da publicação')[0].props.accessibilityState.expanded).toBe(false)
     await act(async () => { tree.unmount() })
   })
@@ -153,7 +156,7 @@ describe('PostItem, PostActions, ReportForm e PostComments', () => {
     await act(async () => { tree.unmount() })
   })
 
-  it('mostra o erro da denúncia e trata a sessão expirada', async () => {
+  it('a sessão expirada na denúncia vai ao login, sem toast, e o formulário continua aberto', async () => {
     const onExpired = vi.fn()
     vi.mocked(request).mockRejectedValue(new ApiError('Sessão expirada', 401))
     const tree = await mount({}, onExpired)
@@ -162,7 +165,7 @@ describe('PostItem, PostActions, ReportForm e PostComments', () => {
     await press(tree, 'Spam')
     await click(tree, 'Enviar denúncia')
     expect(onExpired).toHaveBeenCalled()
-    expect(textOf(tree)).toContain('Sessão expirada')
+    expect(toasts()).toEqual([])
     await press(tree, 'Voltar')
     expect(byLabel(tree, 'Denunciar publicação')).toHaveLength(1)
     await act(async () => { tree.unmount() })
@@ -213,8 +216,8 @@ describe('PostItem, PostActions, ReportForm e PostComments', () => {
     await type(tree, 'Detalhes (opcional)', 'xingamento')
     await click(tree, 'Enviar denúncia')
     expect(request).toHaveBeenCalledWith('/reports', 'POST', { target_type: 'comment', target_id: 21, reason: 'assedio', description: 'xingamento' })
-    expect(textOf(tree)).toContain('Denúncia do comentário enviada.')
-    await click(tree, 'Concluir')
+    expect(toasts().map(item => [item.tone, item.title])).toEqual([['success', 'Denúncia do comentário enviada.']])
+    // De volta à lista de comentários, sem o passo "Concluir".
     expect(byLabel(tree, 'Escreva um comentário')).toHaveLength(1)
     await act(async () => { tree.unmount() })
   })
@@ -227,13 +230,15 @@ describe('PostItem, PostActions, ReportForm e PostComments', () => {
     })
     const tree = await mount()
     await press(tree, 'Comentários, 2')
+    // Erro de carregamento da seção (LoadError escuro); o envio falho abaixo sai em toast.
     expect(textOf(tree)).toContain('Comentários indisponíveis.')
+    expect(tree.root.findAll(node => typeof node.type === 'string' && node.props.testID === 'load-error-section')).toHaveLength(1)
     fail = false
-    await press(tree, 'Tentar carregar os comentários novamente')
+    await press(tree, 'Tentar novamente')
     expect(textOf(tree)).toContain('Nenhum comentário ainda. Escreva o primeiro.')
     await type(tree, 'Escreva um comentário', 'Oi')
     await press(tree, 'Enviar comentário')
-    expect(textOf(tree)).toContain('Não deu.')
+    expect(toasts().map(item => [item.tone, item.title])).toEqual([['error', 'Não deu.']])
     expect(latest?.comment_count).toBe(2)
     // Abrir o menu fecha os comentários: só um vidro por vez.
     await press(tree, 'Ações da publicação')

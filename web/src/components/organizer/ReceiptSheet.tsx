@@ -66,7 +66,7 @@ function RefusalHistory({ previous, name }: { previous: Receipt[]; name: string 
 /** Decisão já tomada (aba Decididos). */
 function Decision({ receipt }: { receipt: Receipt }) {
   const approved = receipt.decision === 'aprovado'
-  return <div className={cn('mt-3 flex items-start gap-2.5 rounded-xl p-3 text-[12px] leading-[1.5]', approved ? 'bg-success-bg text-brand' : 'bg-[#fff0f2] text-danger')}>
+  return <div className={cn('mt-3 flex items-start gap-2.5 rounded-xl p-3 text-[12px] leading-[1.5]', approved ? 'bg-success-bg text-brand' : 'bg-[#fff0f2] noite:bg-error-bg text-danger')}>
     {approved ? <CircleCheck size={17} className="mt-px flex-none" aria-hidden="true" /> : <CircleX size={17} className="mt-px flex-none" aria-hidden="true" />}
     <span className="min-w-0">
       <b>{approved ? 'Aprovado' : 'Recusado'}{receipt.decided_at && ` em ${formatDeadline(receipt.decided_at)}`}</b>
@@ -148,9 +148,9 @@ export function ReceiptSheet({ review, pix, locked = false, onClose, onDecided, 
       </p>
       <SheetActions className="mt-0">
         <Button variant="secondary" disabled={busy} onClick={() => { setRefusing(false); setAttempted(false); setError('') }}>Voltar</Button>
-        <Button className="bg-danger-ink shadow-none hover:bg-[#9a1e14]" disabled={busy} onClick={() => void refuse()}>{busy ? 'Recusando…' : 'Recusar'}</Button>
+        <Button className="bg-danger-ink shadow-none hover:bg-[#9a1e14] noite:hover:bg-[#ff8a80]" disabled={busy} onClick={() => void refuse()}>{busy ? 'Recusando…' : 'Recusar'}</Button>
       </SheetActions>
     </div>}
-    <div aria-live="polite">{error && <p className={feedbackVariants()} role="alert">{error}</p>}</div>
+    {error && <p className={feedbackVariants()} role="alert">{error}</p>}
   </Sheet>
 }

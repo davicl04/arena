@@ -11,6 +11,8 @@ import { MemberFace } from './MemberFace'
 import { GroupLabel, TeamIdCard } from './TeamIdCard'
 import { DarkTopBar } from '../arena/TeamsPlate'
 import { ActionButton, Notice, TextAction } from '../arena/controls'
+import { LoadError } from '../arena/LoadError'
+import { toast } from '../toast/toastStore'
 import { StepBars } from '../arena/StepBars'
 import { onDark } from './ui'
 import { Icon } from '../Icon'
@@ -50,23 +52,21 @@ function CandidateRow({ candidate, last, onChoose }: { candidate: InviteCandidat
  * Depois de enviar, volta ao passo 1 com o aviso, para convidar mais gente. A aba Link e QR é o `TeamLinkPanel`.
  */
 export function InviteFlow({ teamId, initialTab = 'pessoa', onClose, onExpired }: { teamId: number; initialTab?: InviteTab; onClose: () => void; onExpired: () => void }) {
-  const { data: team, error: loadError } = useResource(useCallback(() => getTeam(teamId), [teamId]), onExpired, { fallback: 'Não foi possível carregar o time.' })
+  const { data: team, error: loadError, errorCause: loadCause, reload: reloadTeam } = useResource(useCallback(() => getTeam(teamId), [teamId]), onExpired, { fallback: 'Não foi possível carregar o time.' })
   const [tab, setTab] = useState<InviteTab>(initialTab)
   const [query, setQuery] = useState('')
   const [search, setSearch] = useState('')
   const [chosen, setChosen] = useState<InviteCandidate | null>(null)
   const [message, setMessage] = useState('')
-  const [notice, setNotice] = useState('')
   const send = useSubmit(onExpired)
   const candidates = usePagedList<InviteCandidate>(inviteCandidatesPath(teamId, search), onExpired)
-  const { setError: clearSendError } = send
 
   // Busca com espera curta enquanto se digita; o teclado (buscar) busca na hora.
   useEffect(() => {
     const timer = setTimeout(() => setSearch(query.trim()), SEARCH_DELAY_MS)
     return () => clearTimeout(timer)
   }, [query])
-  const backToList = useCallback(() => { clearSendError(''); setChosen(null) }, [clearSendError])
+  const backToList = useCallback(() => setChosen(null), [])
   // No passo 2, o botão do Android volta ao passo 1 em vez de sair da tela.
   useAndroidBack(chosen !== null, backToList)
 
@@ -76,7 +76,7 @@ export function InviteFlow({ teamId, initialTab = 'pessoa', onClose, onExpired }
     const sent = await send.run(() => sendInvite(teamId, chosen.person.id, text || null), 'Não foi possível enviar o convite.')
     if (!sent) return
     candidates.setItems(items => items.map(item => item.person.id === chosen.person.id ? { ...item, team_status: 'convite_pendente' } : item))
-    setNotice(`Convite enviado para ${chosen.person.name}.`)
+    toast.success(`Convite enviado para ${chosen.person.name}.`)
     setChosen(null); setMessage('')
   }
 
@@ -103,13 +103,13 @@ export function InviteFlow({ teamId, initialTab = 'pessoa', onClose, onExpired }
               </>} />
           </View>
         </View>
-        : <Text accessibilityLiveRegion="polite" style={{ color: onDark.soft, fontSize: 12 }}>{loadError || 'Carregando o time…'}</Text>}
+        : loadError ? <LoadError size="section" tone="dark" title="Não foi possível carregar o time" text={loadError} cause={loadCause} onRetry={reloadTeam} />
+        : <Text accessibilityLiveRegion="polite" style={{ color: onDark.soft, fontSize: 12 }}>Carregando o time…</Text>}
       <GroupLabel>Mensagem (opcional)</GroupLabel>
       <TextInput accessibilityLabel="Mensagem (opcional)" value={message} onChangeText={setMessage} maxLength={MESSAGE_MAX} multiline editable={!send.busy}
         placeholder="Ex.: jogamos society às quintas, 20h, no Sudoeste." placeholderTextColor="rgba(255,255,255,0.44)" textAlignVertical="top"
         style={{ minHeight: 84, borderRadius: 8, borderWidth: 1, borderColor: onDark.line, backgroundColor: onDark.card, paddingHorizontal: 12, paddingVertical: 11, color: '#ffffff', fontSize: 14, lineHeight: 21 }} />
       <Text accessibilityLabel={`${message.length} de ${MESSAGE_MAX} caracteres`} style={{ marginTop: 4, textAlign: 'right', color: 'rgba(255,255,255,0.5)', fontSize: 10 }}>{message.length}/{MESSAGE_MAX}</Text>
-      {send.error ? <Notice surface="dark" tone="error">{send.error}</Notice> : null}
       <View style={{ marginTop: 14 }}>
         <ActionButton tone="mint" block icon="send-horizontal" title={send.busy ? 'Enviando…' : 'Enviar convite'} accessibilityLabel={send.busy ? 'Enviando convite' : 'Enviar convite'} disabled={send.busy} onPress={() => void submitInvite()} />
       </View>
@@ -130,7 +130,6 @@ export function InviteFlow({ teamId, initialTab = 'pessoa', onClose, onExpired }
         </Pressable>
       })}
     </View>
-    <Text accessibilityLiveRegion="polite" style={notice ? { marginTop: 12, borderRadius: 10, overflow: 'hidden', paddingHorizontal: 10, paddingVertical: 8, fontSize: 11.5, lineHeight: 17, color: '#c9f2db', backgroundColor: 'rgba(143,224,180,0.12)' } : { height: 0 }}>{notice}</Text>
     {tab === 'link'
       ? <Suspense fallback={<Text accessibilityLiveRegion="polite" style={{ paddingVertical: 40, textAlign: 'center', color: onDark.soft, fontSize: 12 }}>Carregando o link do time…</Text>}>
         <TeamLinkPanel teamId={teamId} teamName={team?.name ?? 'time'} onExpired={onExpired} />
@@ -144,15 +143,12 @@ export function InviteFlow({ teamId, initialTab = 'pessoa', onClose, onExpired }
         </View>
         <GroupLabel color="rgba(255,255,255,0.56)">{search ? 'Resultados' : 'Quem você segue'}</GroupLabel>
         {candidates.loading ? <View accessibilityLabel="Carregando atletas" style={{ paddingVertical: 14, alignItems: 'center' }}><ActivityIndicator color={colors.mint} /></View>
-          : candidates.error ? <View>
-            <Notice surface="dark" tone="error">{candidates.error.message}</Notice>
-            <ActionButton tone="line" title="Tentar novamente" onPress={candidates.reload} fit />
-          </View>
+          : candidates.error ? <LoadError size="section" tone="dark" title="Não foi possível carregar os atletas" text={candidates.error.message} cause={candidates.error} onRetry={candidates.reload} />
           : candidates.items.length === 0
             ? <Text style={{ paddingVertical: 14, color: onDark.soft, fontSize: 11.5, lineHeight: 17 }}>{search ? 'Ninguém com esse nome ou @usuário.' : 'Você ainda não segue ninguém aqui. Busque pelo nome ou @usuário.'}</Text>
             : <View accessibilityLabel={search ? 'Resultados da busca' : 'Quem você segue'}>
               {candidates.items.map((candidate, index) => <CandidateRow key={candidate.person.id} candidate={candidate} last={index === candidates.items.length - 1}
-                onChoose={() => { setNotice(''); clearSendError(''); setChosen(candidate) }} />)}
+                onChoose={() => setChosen(candidate)} />)}
             </View>}
         {candidates.moreError ? <Notice surface="dark" tone="error">{candidates.moreError}</Notice> : null}
         {candidates.hasMore ? <View style={{ marginTop: 12 }}>

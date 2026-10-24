@@ -9,7 +9,7 @@ import {
   statsText, timelineTitle,
 } from './timelineView'
 
-const cardClass = 'block w-full overflow-hidden rounded-card border border-solid border-line bg-white p-0 text-left text-inherit shadow-card'
+const cardClass = 'block w-full overflow-hidden rounded-card border border-solid border-line surface p-0 text-left text-inherit shadow-card noite:border-surface-edge'
 
 /**
  * Duelo: a partida como um mini placar claro. Os dois lados em linhas (marca, nome, "você" no lado do titular só no

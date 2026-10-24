@@ -16,10 +16,10 @@ import { selectText, useClipboard } from "@/hooks/useClipboard";
 import { CopyIconButton, PixBlock } from "./PixBlock";
 import { Term } from "./EventFacts";
 import { refusalText, reservationDeadline } from "./eventText";
-import { copyFeedback } from "./pix";
+import { notifyCopy } from "./pix";
 import type { PixInfo } from "./pix";
 
-/** Mensagem de erro de envio dentro da folha. */
+/** Erro de formulário dentro da folha (campos recusados pelo servidor); as demais falhas de envio saem como toast. */
 function SheetError({ message }: { message: string }) {
   return message ? (
     <p className={cn(feedbackVariants(), "mb-0")} role="alert">
@@ -253,7 +253,7 @@ export function ContestRefundSheet({ entry, busy, error, onContest, onClose }: {
           aria-invalid={touched && short ? true : undefined}
           aria-describedby={`${id}-help`}
           onChange={(event) => setReason(event.target.value)}
-          className="w-full resize-none rounded-field border border-solid border-field-border bg-white p-2.5 text-[12px] leading-normal text-ink"
+          className="w-full resize-none rounded-field border border-solid border-field-border bg-field p-2.5 text-[12px] leading-normal text-ink"
           placeholder="Ex.: o valor que voltou é menor que o pago."
         />
         <small id={`${id}-help`} className="flex justify-between gap-2 px-0.5 text-[10.5px] text-ink-muted">
@@ -308,11 +308,13 @@ export function ContactSheet({ name, contact, onClose }: { name: string; contact
   const { status, copy } = useClipboard();
   const text = useRef<HTMLElement>(null);
   async function copyContact() {
-    if (!(await copy("contato", contact))) selectText(text.current);
+    const copied = await copy("contato", contact);
+    notifyCopy(copied, "contato");
+    if (!copied) selectText(text.current);
   }
   return (
     <Sheet title="Contato do organizador" description={name} onClose={onClose}>
-      <div className="mt-1 flex min-w-0 items-center gap-2 rounded-xl border border-dashed border-line-strong bg-white py-2 pr-2 pl-3">
+      <div className="mt-1 flex min-w-0 items-center gap-2 rounded-xl border border-dashed border-line-strong bg-field py-2 pr-2 pl-3">
         <Phone size={17} className="flex-none text-brand" aria-hidden="true" />
         <span ref={text} className="min-w-0 flex-1 text-[12.5px] font-semibold wrap-anywhere text-ink select-all">
           {contact}
@@ -321,9 +323,6 @@ export function ContactSheet({ name, contact, onClose }: { name: string; contact
       </div>
       <p className="m-0 mt-1 px-0.5 text-[10.5px] leading-normal text-ink-muted">
         Dúvidas sobre o evento, o pagamento ou a devolução são combinadas com o organizador, fora do Arena.
-      </p>
-      <p role="status" aria-live="polite" className={cn("m-0 px-0.5 text-[11px]", status === "failed" ? "text-error" : "text-brand")}>
-        {copyFeedback(status, "contato")}
       </p>
     </Sheet>
   );

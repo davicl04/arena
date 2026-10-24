@@ -796,6 +796,8 @@ def decide_result(db: Session, user: User, match_id: int, data: ResultDecisionIn
         walkover_absent_side=data.walkover_absent_side, justification=justification,
         reports=_report_snapshot(reports), created_at=now))
     db.flush()
+    # The decision settles the match: the organizer's pending and the correction both sides were asked for close.
+    notifications.resolve_actions_many(db, [notifications.decision_key(match.id), notifications.result_key(match.id)])
     championship_lifecycle.lock_following(db, match)       # a match lock, so it comes before the rankings
     recalculate_for_match(db, match, now=now)
 

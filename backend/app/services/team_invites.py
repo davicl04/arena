@@ -168,7 +168,8 @@ def create_invite(db: Session, viewer: User, team_id: int, invitee_id: int,
         lambda: pending_invite(db, team.id, invitee.id))
     if created:
         notifications.notify(db, invitee.id, 'convite_time',
-                             {'team_id': team.id, 'team_name': team.name, 'invite_id': invite.id}, actor_id=viewer.id)
+                             {'team_id': team.id, 'team_name': team.name, 'invite_id': invite.id}, actor_id=viewer.id,
+                             action_key=notifications.invite_key(invite.id))
         audit.record(db, actor_id=viewer.id, action='convite.criado', target_type='team_invite', target_id=invite.id,
                      data={'team_id': team.id, 'invitee_id': invitee.id})
         db.commit()
@@ -198,6 +199,7 @@ def cancel_invite(db: Session, viewer: User, invite_id: int) -> None:
     if invite.state != 'pendente':
         raise HTTPException(409, INVITE_NOT_PENDING)
     invite.state, invite.decided_at, invite.decided_by_id = 'cancelado', utcnow(), viewer.id
+    notifications.resolve_actions(db, notifications.invite_key(invite.id))
     audit.record(db, actor_id=viewer.id, action='convite.cancelado', target_type='team_invite', target_id=invite.id,
                  data={'team_id': invite.team_id, 'invitee_id': invite.invitee_id})
     db.commit()
@@ -230,11 +232,13 @@ def decide_invite(db: Session, viewer: User, invite_id: int, decision: str) -> I
     invite.decided_at, invite.decided_by_id = now, viewer.id
     if decision == 'recusar':
         invite.state = 'recusado'
+        notifications.resolve_actions(db, notifications.invite_key(invite.id))
         audit.record(db, actor_id=viewer.id, action='convite.recusado', target_type='team_invite',
                      target_id=invite.id, data={'team_id': team.id})
         db.commit()
         return InviteDecisionResultOut(state='recusado', team=None)
     invite.state = 'aceito'
+    notifications.resolve_actions(db, notifications.invite_key(invite.id))
     if viewer.id not in context.roster:
         add_member(db, team, viewer.id, role=MEMBER, joined_via='convite')
         notifications.notify_many(db, context.representative_ids(), 'convite_aceito',
@@ -243,6 +247,7 @@ def decide_invite(db: Session, viewer: User, invite_id: int, decision: str) -> I
     request = pending_request(db, team.id, viewer.id, lock=True)
     if request is not None:
         request.state, request.decided_at, request.decided_by_id = 'cancelado', now, viewer.id
+        notifications.resolve_actions(db, notifications.join_request_key(request.id))
         audit.record(db, actor_id=viewer.id, action='pedido_entrada.cancelado', target_type='team_join_request',
                      target_id=request.id, data={'team_id': team.id, 'user_id': viewer.id, 'automatico': True})
     audit.record(db, actor_id=viewer.id, action='convite.aceito', target_type='team_invite', target_id=invite.id,
@@ -306,7 +311,7 @@ def request_to_join(db: Session, viewer: User, token: str) -> tuple[JoinRequestO
     if created:
         notifications.notify_many(db, context.representative_ids(), 'pedido_entrada',
                                   {'team_id': team.id, 'team_name': team.name, 'request_id': request.id},
-                                  actor_id=viewer.id)
+                                  actor_id=viewer.id, action_key=notifications.join_request_key(request.id))
         audit.record(db, actor_id=viewer.id, action='pedido_entrada.criado', target_type='team_join_request',
                      target_id=request.id, data={'team_id': team.id})
         db.commit()
@@ -322,6 +327,7 @@ def cancel_request(db: Session, viewer: User, request_id: int) -> None:
     if request.state != 'pendente':
         raise HTTPException(409, REQUEST_NOT_PENDING)
     request.state, request.decided_at, request.decided_by_id = 'cancelado', utcnow(), viewer.id
+    notifications.resolve_actions(db, notifications.join_request_key(request.id))
     audit.record(db, actor_id=viewer.id, action='pedido_entrada.cancelado', target_type='team_join_request',
                  target_id=request.id, data={'team_id': request.team_id})
     db.commit()
@@ -354,12 +360,14 @@ def decide_request(db: Session, viewer: User, request_id: int, decision: str) ->
     now = utcnow()
     approved = decision == 'aprovar'
     request.state, request.decided_at, request.decided_by_id = ('aprovado' if approved else 'recusado'), now, viewer.id
+    notifications.resolve_actions(db, notifications.join_request_key(request.id))
     if approved:
         if request.user_id not in context.roster:
             add_member(db, team, request.user_id, role=MEMBER, joined_via='pedido')
         invite = pending_invite(db, team.id, request.user_id, lock=True)
         if invite is not None:
             invite.state, invite.decided_at, invite.decided_by_id = 'cancelado', now, viewer.id
+            notifications.resolve_actions(db, notifications.invite_key(invite.id))
             audit.record(db, actor_id=viewer.id, action='convite.cancelado', target_type='team_invite',
                          target_id=invite.id, data={'team_id': team.id, 'invitee_id': request.user_id,
                                                     'automatico': True})

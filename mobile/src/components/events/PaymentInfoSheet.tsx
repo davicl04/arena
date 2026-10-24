@@ -1,7 +1,7 @@
 import { Text, View } from 'react-native'
 import type { Sport } from '../../api/client'
 import { eventNoun } from '../../data/arena'
-import { colors } from '../../theme'
+import { useThemeColors } from '../../hooks/useTheme'
 import { formatDeadline, formatPrice } from '../../utils/format'
 import { PixBlock } from '../arena/PixBlock'
 import type { PixInfo } from '../arena/pix'
@@ -32,6 +32,7 @@ const steps = [
 ]
 
 function SectionLabel({ children }: { children: string }) {
+  const colors = useThemeColors()
   return <Text accessibilityRole="header" style={{ color: colors['ink-muted'], fontSize: 10, fontWeight: '700', letterSpacing: 0.8 }}>{children.toUpperCase()}</Text>
 }
 
@@ -41,6 +42,7 @@ function SectionLabel({ children }: { children: string }) {
  * Arena não recebe pagamentos. O app não usa a área de transferência: segure o texto para copiar.
  */
 export function PaymentInfoSheet({ eventName, priceCents, sport, pix, receiptDeadline, onClose, onBack }: PaymentInfoSheetProps) {
+  const colors = useThemeColors()
   const deadline = formatDeadline(receiptDeadline)
   return <Sheet title="Pagamento e informações" onClose={onClose} onBack={onBack}>
     <Text style={{ color: colors['ink-muted'], fontSize: 12, marginBottom: 8 }}>{eventName}</Text>

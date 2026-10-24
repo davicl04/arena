@@ -17,9 +17,9 @@ export const buttonVariants = cva('', {
   variants: {
     variant: {
       primary:
-        'inline-flex min-h-11 items-center justify-center gap-[9px] rounded-control border-[1.5px] border-transparent bg-brand px-4 py-2.5 text-[12px] font-bold text-white shadow-primary hover:bg-brand-hover motion-safe:active:scale-[0.99]',
+        'inline-flex min-h-11 items-center justify-center gap-[9px] rounded-control border-[1.5px] border-transparent bg-brand px-4 py-2.5 text-[12px] font-bold text-on-brand shadow-primary hover:bg-brand-hover motion-safe:active:scale-[0.99]',
       secondary:
-        'inline-flex min-h-11 items-center justify-center gap-[9px] rounded-control border-[1.5px] border-line-strong bg-transparent px-4 py-2.5 text-[12px] font-bold text-ink hover:bg-[#fff6]',
+        'inline-flex min-h-11 items-center justify-center gap-[9px] rounded-control border-[1.5px] border-line-strong bg-transparent px-4 py-2.5 text-[12px] font-bold text-ink hover:bg-[#fff6] noite:hover:bg-hover',
       text: 'block min-h-11 border-0 bg-transparent px-0 py-2 text-[12px] text-brand underline',
       link: 'min-h-8 border-0 bg-transparent px-0.5 py-0 text-[12px] font-bold text-brand',
       glass: 'min-h-10 rounded-xl border-0 bg-mint px-4 py-0 text-[11.5px] font-bold text-night disabled:opacity-45',
@@ -49,13 +49,13 @@ export const buttonVariants = cva('', {
 export const iconButtonVariants = cva('grid size-11 place-items-center rounded-full border-0', {
   variants: {
     tone: {
-      default: 'bg-transparent hover:bg-[#49505712]',
+      default: 'bg-transparent hover:bg-[#49505712] noite:hover:bg-[#ffffff12]',
       glass: 'shrink-0 bg-transparent text-white hover:bg-[#ffffff1a]',
       media: 'size-[38px] border border-solid border-[#ffffff2e] bg-[#0c161199] text-white backdrop-blur-[14px] backdrop-saturate-[1.7] hover:bg-[#0c1611cc]',
       cover:
-        'border border-solid border-[#ffffff2e] bg-[#0b221859] text-white backdrop-blur-[10px] hover:bg-[#0b221880] motion-safe:transition-[background-color,border-color,opacity] motion-safe:duration-200 motion-safe:ease-[ease] group-data-[condensed=true]/topbar:border-transparent group-data-[condensed=true]/topbar:bg-transparent group-data-[condensed=true]/topbar:text-ink group-data-[condensed=true]/topbar:backdrop-blur-none group-data-[condensed=true]/topbar:hover:bg-[#49505712]',
+        'border border-solid border-[#ffffff2e] bg-[#0b221859] text-white backdrop-blur-[10px] hover:bg-[#0b221880] motion-safe:transition-[background-color,border-color,opacity] motion-safe:duration-200 motion-safe:ease-[ease] group-data-[condensed=true]/topbar:border-transparent group-data-[condensed=true]/topbar:bg-transparent group-data-[condensed=true]/topbar:text-ink group-data-[condensed=true]/topbar:backdrop-blur-none group-data-[condensed=true]/topbar:hover:bg-[#49505712] noite:group-data-[condensed=true]/topbar:hover:bg-[#ffffff12]',
       outline: 'size-10 border-[1.5px] border-solid border-line-strong bg-transparent',
-      approve: 'size-10 border-[1.5px] border-solid border-brand bg-brand text-white',
+      approve: 'size-10 border-[1.5px] border-solid border-brand bg-brand text-on-brand',
       'glass-small': 'size-8 shrink-0 bg-transparent text-[#ffffffb3] hover:bg-[#ffffff1a]',
       send: 'size-[38px] shrink-0 bg-mint text-night disabled:bg-[#ffffff1a] disabled:text-[#ffffff80] disabled:opacity-100',
     },

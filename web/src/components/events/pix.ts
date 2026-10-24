@@ -1,3 +1,4 @@
+import { toast } from "@/components/ui/toast";
 import type { PixKeyType } from "@/data/arena";
 import type { CopyStatus } from "@/hooks/useClipboard";
 
@@ -34,8 +35,18 @@ const copyMessages: Record<PixCopyItem, Record<Exclude<CopyStatus, "idle">, stri
   },
 };
 
-/** Retorno anunciado em `aria-live` para o último item copiado (vazio quando não há nada a dizer). */
+/** Mensagem do retorno da cópia do último item (vazia quando não há nada a dizer). */
 export function copyFeedback(status: CopyStatus, item: string | null): string {
   if (status === "idle" || !item || !(item in copyMessages)) return "";
   return copyMessages[item as PixCopyItem][status];
+}
+
+/**
+ * Retorno da cópia como toast: sucesso, ou aviso quando falhou. Na falha, o campo ou o texto selecionado para copiar à mão
+ * continua visível na tela (o aviso só diz o que fazer).
+ */
+export function notifyCopy(copied: boolean, item: PixCopyItem): void {
+  const message = copyFeedback(copied ? "copied" : "failed", item);
+  if (copied) toast.success(message);
+  else toast.warning(message);
 }

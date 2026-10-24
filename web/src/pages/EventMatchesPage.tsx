@@ -9,9 +9,9 @@ import { ScheduleSheet } from '@/components/organizer/ScheduleSheet'
 import { rowBadge, rowNames, rowSubtitle } from '@/components/organizer/scheduleRows'
 import { TeamMark } from '@/components/match/TeamMark'
 import { DarkTopBar, TeamsPlate } from '@/components/teams/TeamsPlate'
-import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
-import { feedbackVariants } from '@/components/ui/feedback'
+import { LoadError } from '@/components/ui/load-error'
+import { toast } from '@/components/ui/toast'
 import { whenText } from '@/data/match'
 import { useResource } from '@/hooks/useResource'
 import { isStale, useSubmit } from '@/hooks/useSubmit'
@@ -64,7 +64,6 @@ export default function EventMatchesPage({ eventId, initialMatchId, onInitialSho
   const action = useSubmit(onExpired)
   const [selected, setSelected] = useState<number | null>(initialMatchId ?? null)
   const [conflict, setConflict] = useState<ScheduleConflict | null>(null)
-  const [status, setStatus] = useState('')
   const consumed = useRef(false)
   const { setData } = matches
 
@@ -90,9 +89,8 @@ export default function EventMatchesPage({ eventId, initialMatchId, onInitialSho
     try {
       const fresh = await listEventMatches(eventId)
       setData(fresh)
-      // A folha só continua aberta se a partida ainda aceita o agendamento; a mensagem do servidor fica na tela.
+      // A folha só continua aberta se a partida ainda aceita o agendamento; a mensagem do servidor já saiu como aviso.
       setSelected(current => fresh.items.some(item => item.card.id === current && item.can_schedule) ? current : null)
-      setStatus('')
     } catch (failure) {
       if (failure instanceof ApiError && failure.status === 401) onExpired()
     }
@@ -112,7 +110,7 @@ export default function EventMatchesPage({ eventId, initialMatchId, onInitialSho
     }, 'Não foi possível agendar a partida.', reread)
     if (!saved) { setConflict(found); return }
     setSelected(null)
-    setStatus(`${saved.label} ${row.card.starts_at ? 'reagendado' : 'agendado'} para ${whenText(saved.card.starts_at)}${saved.card.court ? ` em ${saved.card.court.name}` : ''}. Os dois elencos foram avisados.`)
+    toast.success(`${saved.label} ${row.card.starts_at ? 'reagendado' : 'agendado'} para ${whenText(saved.card.starts_at)}${saved.card.court ? ` em ${saved.card.court.name}` : ''}.`, { description: 'Os dois elencos foram avisados.' })
     try {
       setData(await listEventMatches(eventId))
     } catch (cause) {
@@ -138,7 +136,7 @@ export default function EventMatchesPage({ eventId, initialMatchId, onInitialSho
       {header}
       <div className="px-5 pt-4">
         {matches.loading && <p role="status" className="text-[12px] text-ink-muted">Carregando as partidas…</p>}
-        {matches.error && <div className={feedbackVariants()} role="alert">{matches.error} <Button variant="text" onClick={matches.reload}>Tentar novamente</Button></div>}
+        {matches.error && <LoadError size="screen" text={matches.error} cause={matches.errorCause} onRetry={matches.reload} />}
       </div>
     </div>
   }
@@ -147,18 +145,13 @@ export default function EventMatchesPage({ eventId, initialMatchId, onInitialSho
   return <div>
     {header}
     <div className="grid grid-cols-[minmax(0,1fr)] gap-3 px-4 pt-4">
-      <div aria-live="polite" className="grid gap-2">
-        {status && <p className={cn(feedbackVariants({ tone: 'success' }), 'my-0')} role="status">{status}</p>}
-        {action.error && !row && <p className={cn(feedbackVariants(), 'my-0')} role="alert">{action.error}</p>}
-      </div>
-
       {list.items.length === 0
-        ? <EmptyState Icon={CalendarDays} title="Nenhuma partida ainda" text="As partidas aparecem quando você confirma o chaveamento do campeonato." className="rounded-card bg-white" />
+        ? <EmptyState Icon={CalendarDays} title="Nenhuma partida ainda" text="As partidas aparecem quando você confirma o chaveamento do campeonato." className="surface rounded-card inset-ring inset-ring-surface-edge" />
         : <>
           {chips.length > 0 && (
             <ul aria-label="Resumo das partidas" className="m-0 flex list-none flex-wrap gap-1.5 p-0">
               {chips.map(item => (
-                <li key={item.label} className={cn('rounded-full px-2.5 py-1 text-[10.5px] font-bold', item.hot ? 'bg-warning-bg text-warning' : 'bg-white text-ink-muted')}>
+                <li key={item.label} className={cn('rounded-full px-2.5 py-1 text-[10.5px] font-bold', item.hot ? 'bg-warning-bg text-warning' : 'surface text-ink-muted')}>
                   <b className="font-display text-[11.5px]">{item.value}</b> {item.label}
                 </li>
               ))}
@@ -187,11 +180,11 @@ export default function EventMatchesPage({ eventId, initialMatchId, onInitialSho
                   {interactive && <ChevronRight size={16} className="flex-none text-ink-muted" aria-hidden="true" />}
                 </>
               )
-              const frame = 'flex min-h-[60px] w-full items-center gap-2.5 rounded-card border-0 bg-white px-3 py-2.5 text-left text-ink shadow-card'
+              const frame = 'flex min-h-[60px] w-full items-center gap-2.5 surface rounded-card border-0 px-3 py-2.5 text-left text-ink shadow-card inset-ring inset-ring-surface-edge'
               return (
                 <li key={item.card.id} data-match={item.card.id}>
                   {interactive
-                    ? <button type="button" className={cn(frame, 'cursor-pointer enabled:hover:bg-[#f6f7f9]')} onClick={() => open(item)}
+                    ? <button type="button" className={cn(frame, 'cursor-pointer enabled:hover:bg-hover')} onClick={() => open(item)}
                       aria-label={`${item.label}, ${first} contra ${second}. ${rowSubtitle(item)}. ${badge.label}.`}>{content}</button>
                     : <div className={cn(frame, 'opacity-80')}>{content}</div>}
                 </li>

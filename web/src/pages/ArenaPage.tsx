@@ -4,11 +4,17 @@ import { ApiError, request, sports } from "../api/client";
 import type { City, Profile, ProfileInput, Sport, User } from "../api/client";
 import SportCard from "../components/SportCard";
 import BottomNav from "../components/BottomNav";
-import { Button, IconButton } from "@/components/ui/button";
-import { feedbackVariants } from "@/components/ui/feedback";
+import { IconButton } from "@/components/ui/button";
+import { LoadError } from "@/components/ui/load-error";
 import { DialogContainerProvider } from "@/components/ui/dialog";
+import { Toaster } from "@/components/ui/toast";
+import { ConnectionNotice } from "../components/ConnectionNotice";
 import { cn } from "@/lib/utils";
 import { usePlayBoard } from "../hooks/usePlayBoard";
+import { useNotificationSummary } from "../hooks/useNotificationSummary";
+import { NotificationBell } from "../components/notifications/NotificationBell";
+import { connection } from "../api/connection";
+import { reportActionError } from "../hooks/useSubmit";
 import HomePage from "./HomePage";
 import ProfilePage from "./ProfilePage";
 import EditProfilePage from "./EditProfilePage";
@@ -19,13 +25,17 @@ import ConnectionsPage from "./ConnectionsPage";
 import type { ProfileTab } from "../components/ProfileTabs";
 import UserProfilePage from "./UserProfilePage";
 import NotificationsPage from "./NotificationsPage";
+import FollowRequestsPage from "./FollowRequestsPage";
 import PlayPage from "./PlayPage";
 import RankingPage from "./RankingPage";
+import LegendsPage from "./LegendsPage";
+import type { RankingState } from "../components/ranking/category";
 import OrganizerRequestPage from "./OrganizerRequestPage";
 import AdminOrganizerRequests from "../components/admin/AdminOrganizerRequests";
 import SocialCommunity from "../components/SocialCommunity";
 import { activeNavFor, eventNoun } from "../data/arena";
 import type { ConnectionsTab, RunDistance, Screen } from "../data/arena";
+import type { NotificationFilter } from "../data/notifications";
 // Meus times (frente C): carteirinhas, criar/editar, convidar e entrar pelo link.
 import TeamsPage from "./TeamsPage";
 import TeamFormPage from "./TeamFormPage";
@@ -84,13 +94,18 @@ interface Entry {
   matchId?: number;
   /** Distância da corrida escolhida ao abrir o Ranking pelo "Ver ranking" de "Suas marcas" (com `sport: "corrida"`). */
   distance?: RunDistance;
+  /** Categoria e time do Ranking (`ranking`): guarda a escolha ao abrir o Salão (`legends`) e a devolve ao voltar. */
+  ranking?: RankingState;
   /** Aba do detalhe do evento (`event`) a abrir: a Tabela (notificações da tabela e do encerramento). */
   section?: "tabela";
+  /** Filtro (chip) da tela de notificações: abre num chip (a placa do Início abre "Para responder") e guarda o escolhido. */
+  filter?: NotificationFilter;
 }
 const rootScreens: Screen[] = ["home", "ranking", "play", "community", "profile"];
 const titles: Record<Screen, string> = {
   home: "Início",
   ranking: "Ranking",
+  legends: "Salão dos Lendários",
   play: "Jogar",
   community: "Comunidade",
   profile: "Perfil",
@@ -101,6 +116,7 @@ const titles: Record<Screen, string> = {
   connections: "Conexões",
   "user-profile": "Perfil",
   notifications: "Notificações",
+  "follow-requests": "Pedidos para seguir",
   sports: "Suas modalidades",
   teams: "Meus times",
   "team-form": "Criar time",
@@ -157,7 +173,8 @@ export default function ArenaPage({
   const [profileTab, setProfileTab] = useState<ProfileTab>("Fotos");
   const [cities, setCities] = useState<City[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  // Erro de carregamento de perfis e cidades (LoadError); o erro de uma ação (sair, salvar perfil) é toast.
+  const [loadFailure, setLoadFailure] = useState<{ message: string; cause: unknown } | null>(null);
   const [busy, setBusy] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const [stack, setStack] = useState<Entry[]>(() =>
@@ -184,6 +201,10 @@ export default function ArenaPage({
   const [frame, setFrame] = useState<HTMLDivElement | null>(null);
   // Placa do Jogar (GET /me/play): alimenta a tela Jogar e o ponto menta da navegação.
   const playBoard = usePlayBoard(onExpired, screen === "play" || screen === "home");
+  // Resumo das notificações (GET /me/notifications/summary): sino das abas raiz, chips, Menu e placa do Início.
+  // Relido quando a aba raiz muda ou quando se entra ou se volta a ela vindo de uma subtela (uma ação em Meus times,
+  // na partida ou no evento pode ter resolvido uma pendência), ao voltar à janela e a cada 60 s.
+  const notifications = useNotificationSummary(onExpired, rootScreens.includes(screen) ? screen : `${stack[0].screen}:subtela`);
   useEffect(() => {
     let alive = true;
     Promise.all([
@@ -198,7 +219,7 @@ export default function ArenaPage({
       })
       .catch((err) => {
         if (alive) {
-          setError(err.message);
+          setLoadFailure({ message: err instanceof Error && err.message ? err.message : "Não foi possível carregar os seus dados.", cause: err });
           if (err instanceof ApiError && err.status === 401) onExpired();
         }
       })
@@ -210,6 +231,16 @@ export default function ArenaPage({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [attempt]);
+  // Falha por conexão: relê uma única vez quando a conexão volta (as demais esperam o "Tentar novamente").
+  const loadLost = loadFailure?.cause instanceof ApiError && loadFailure.cause.isConnection;
+  useEffect(() => {
+    if (!loadLost) return;
+    return connection.onRestored(() => {
+      setLoading(true);
+      setLoadFailure(null);
+      setAttempt((v) => v + 1);
+    });
+  }, [loadLost]);
   function show(update: (old: Entry[]) => Entry[]) {
     setStack(update);
     mainRef.current?.scrollTo({ top: 0 });
@@ -242,6 +273,10 @@ export default function ArenaPage({
   function openConnections(userId: number, tab: ConnectionsTab, mutual = false) {
     show((old) => [...old, { screen: "connections", userId, tab, mutual }]);
   }
+  /** Guarda na tela de notificações o chip escolhido, para voltar do aviso ao mesmo filtro. */
+  const selectNotificationFilter = useCallback((filter: NotificationFilter) => {
+    setStack((old) => [...old.slice(0, -1), { ...old[old.length - 1], filter }]);
+  }, []);
   function changeTab(tab: ConnectionsTab) {
     setStack((old) => [...old.slice(0, -1), { ...old[old.length - 1], tab }]);
   }
@@ -249,6 +284,10 @@ export default function ArenaPage({
   /** Guarda na tela atual o time do cartão centralizado, para voltar ao mesmo cartão. */
   const selectTeam = useCallback((teamId: number) => {
     setStack((old) => [...old.slice(0, -1), { ...old[old.length - 1], teamId }]);
+  }, []);
+  /** Guarda na entrada do Ranking a categoria e o time escolhidos, para voltar do Salão à mesma escolha. */
+  const selectRanking = useCallback((ranking: RankingState) => {
+    setStack((old) => [...old.slice(0, -1), { ...old[old.length - 1], ranking }]);
   }, []);
   /** A folha de convites abre uma vez; ao voltar a Meus times, não reabre. */
   const consumeInvitesRequest = useCallback(() => {
@@ -293,31 +332,22 @@ export default function ArenaPage({
     });
   }
 
-  function handleError(err: unknown) {
-    if (err instanceof ApiError && err.status === 401) onExpired();
-    setError(err instanceof Error ? err.message : "Tente novamente.");
-  }
+  // A falha ao salvar sobe ao SportCard, que a classifica (reportActionError) e a mostra como toast ou junto ao formulário.
   async function save(sport: Sport, input: ProfileInput) {
-    try {
-      const profile = await request<Profile>(
-        `/me/sports-profiles/${sport}`,
-        "PUT",
-        input,
-      );
-      setProfiles((old) => [...old.filter((p) => p.sport !== sport), profile]);
-    } catch (err) {
-      if (err instanceof ApiError && err.status === 401) onExpired();
-      throw err;
-    }
+    const profile = await request<Profile>(
+      `/me/sports-profiles/${sport}`,
+      "PUT",
+      input,
+    );
+    setProfiles((old) => [...old.filter((p) => p.sport !== sport), profile]);
   }
   async function logout() {
     setBusy(true);
-    setError("");
     try {
       await request("/auth/logout", "POST");
       onLogout();
     } catch (err) {
-      handleError(err);
+      reportActionError(err, "Não foi possível sair da conta. Tente novamente.", onExpired);
     } finally {
       setBusy(false);
     }
@@ -331,17 +361,20 @@ export default function ArenaPage({
   // Meus times: placa ou tela escura própria, de ponta a ponta, com o título e o voltar/fechar dentro dela.
   const teamsLayout = (["teams", "team-form", "team-invite", "join"] as Screen[]).includes(screen);
   const darkLayout = screen === "team-form" || screen === "team-invite" || screen === "event-wizard";
-  // Comprovantes (A2): placa `forest` própria, com o voltar e o nome do evento dentro dela.
-  const plateLayout = screen === "event-receipts";
+  // Comprovantes (A2) e Notificações: placa `forest` própria, com o voltar e o título dentro dela.
+  const plateLayout = screen === "event-receipts" || screen === "notifications";
   // Eventos do organizador: placa ou tela escura própria (o Criar evento é escuro de ponta a ponta).
   const eventsLayout = (["organizer-events", "event-wizard", "event-manage", "event-bracket", "event-matches", "result-decision"] as Screen[]).includes(screen);
   // Partida (P2 + C1): cabeçalho próprio e chat que rola por dentro, acima da navegação inferior.
   const matchLayout = screen === "match";
+  // Ranking: barra própria (título e sino, sem voltar). Salão dos Lendários: tela escura com o voltar dentro dela.
+  const rankingLayout = screen === "ranking";
+  const legendsLayout = screen === "legends";
 
   return (
     <DialogContainerProvider container={frame}>
     <div className="grid min-h-dvh place-items-center p-6 app-narrow:p-0">
-      <div ref={setFrame} data-slot="app-frame" className="relative h-[844px] max-h-[calc(100dvh-48px)] w-[390px] overflow-hidden rounded-app border border-solid border-line bg-app shadow-app app-narrow:h-dvh app-narrow:max-h-none app-narrow:w-full app-narrow:rounded-none app-narrow:border-0 app-narrow:shadow-none">
+      <div ref={setFrame} data-slot="app-frame" className="relative h-[844px] max-h-[calc(100dvh-48px)] w-[390px] overflow-hidden rounded-app border border-solid border-line bg-app bg-(image:--app-glow) bg-no-repeat shadow-app app-narrow:h-dvh app-narrow:max-h-none app-narrow:w-full app-narrow:rounded-none app-narrow:border-0 app-narrow:shadow-none">
         <main
           id="main"
           ref={mainRef}
@@ -352,11 +385,12 @@ export default function ArenaPage({
             communityLayout && "px-0 pt-0",
             (teamsLayout || plateLayout || eventsLayout) && "px-0 pt-0",
             darkLayout && "bg-forest",
+            legendsLayout && "bg-night px-0 pt-0",
             matchLayout && "overflow-y-hidden px-0 pt-0 pb-[82px] app-narrow:pb-[calc(82px+env(safe-area-inset-bottom))]",
           )}
           aria-label={title}
         >
-          {screen !== "home" && !profileLayout && !communityLayout && !teamsLayout && !plateLayout && !eventsLayout && !matchLayout && (
+          {screen !== "home" && !profileLayout && !communityLayout && !teamsLayout && !plateLayout && !eventsLayout && !matchLayout && !rankingLayout && !legendsLayout && (
             <header className="-mx-2 -mt-2 mb-[18px] flex min-h-[54px] items-center justify-between">
               <IconButton aria-label="Voltar" onClick={back}>
                 <ArrowLeft size={21} />
@@ -365,20 +399,24 @@ export default function ArenaPage({
               <span className="w-11" />
             </header>
           )}
-          {error && (
-            <div className={feedbackVariants()} role="alert">
-              {error}
-              <Button
-                variant="text"
-                onClick={() => {
-                  setLoading(true);
-                  setError("");
-                  setAttempt((v) => v + 1);
-                }}
-              >
-                Recarregar dados
-              </Button>
-            </div>
+          {rankingLayout && (
+            <header className="-mt-2 -mr-2 mb-3 flex min-h-[54px] items-center justify-between">
+              <h1 className="text-[17px]">{title}</h1>
+              <NotificationBell tone="light" count={notifications.count} onOpen={() => go("notifications")} />
+            </header>
+          )}
+          {loadFailure && (
+            <LoadError
+              size="section"
+              title="Não foi possível carregar seus dados"
+              text={loadFailure.message}
+              cause={loadFailure.cause}
+              onRetry={() => {
+                setLoading(true);
+                setLoadFailure(null);
+                setAttempt((v) => v + 1);
+              }}
+            />
           )}
           {screen === "home" && (
             <HomePage
@@ -386,6 +424,8 @@ export default function ArenaPage({
               profiles={profiles}
               loading={loading}
               matches={playBoard.board?.matches}
+              summary={notifications}
+              isAdmin={user.is_admin}
               go={go}
               onExpired={onExpired}
             />
@@ -398,6 +438,7 @@ export default function ArenaPage({
               matches={playBoard.board?.matches ?? null}
               tab={profileTab}
               onTabChange={setProfileTab}
+              notificationCount={notifications.count}
               onNewPhoto={openComposer}
               openConnections={openConnections}
               onExpired={onExpired}
@@ -410,6 +451,7 @@ export default function ArenaPage({
               loading={loading}
               board={playBoard}
               openMatch={current.matchId}
+              notificationCount={notifications.count}
               go={go}
               onExpired={onExpired}
             />
@@ -428,6 +470,7 @@ export default function ArenaPage({
                       profile={profiles.find((p) => p.sport === s.value)}
                       cities={cities}
                       onSave={save}
+                      onExpired={onExpired}
                     />
                   ))}
                 </div>
@@ -441,21 +484,29 @@ export default function ArenaPage({
               </aside>
             </>
           )}
-          {screen === "ranking" && (
+          {screen === "ranking" && !loadFailure && (
             <RankingPage
               profiles={profiles}
+              loading={loading}
               initialSport={current.sport}
               initialDistance={current.distance}
+              initial={current.ranking}
+              onChange={selectRanking}
               go={go}
               onOpenUser={openUser}
               onExpired={onExpired}
             />
+          )}
+          {screen === "legends" && current.ranking && (
+            <LegendsPage ranking={current.ranking} onBack={back} onOpenUser={openUser} onExpired={onExpired} />
           )}
           {screen === "community" && (
             <SocialCommunity
               viewerId={user.id}
               onOpenUser={openUser}
               onExpired={onExpired}
+              notificationCount={notifications.count}
+              onNotifications={() => go("notifications")}
               composeOnOpen={Boolean(current.compose)}
               onComposeStarted={consumeComposeRequest}
             />
@@ -463,10 +514,17 @@ export default function ArenaPage({
           {screen === "notifications" && (
             <NotificationsPage
               isAdmin={user.is_admin}
-              onOpenUser={openUser}
+              summary={notifications}
+              filter={current.filter ?? "tudo"}
+              onFilter={selectNotificationFilter}
+              onBack={back}
+              onOpenFollowRequests={() => go("follow-requests")}
               onNavigate={({ screen: next, ...context }) => go(next, context)}
               onExpired={onExpired}
             />
+          )}
+          {screen === "follow-requests" && (
+            <FollowRequestsPage summary={notifications} onOpenUser={openUser} onExpired={onExpired} />
           )}
           {screen === "edit-profile" && (
             <EditProfilePage
@@ -517,6 +575,7 @@ export default function ArenaPage({
               onOpenEvent={(eventId) => go("event-manage", { eventId })}
               onNewEvent={() => go("event-wizard")}
               onNotifications={() => go("notifications")}
+              notificationCount={notifications.count}
               onLogout={logout}
               onExpired={onExpired}
             />
@@ -697,6 +756,8 @@ export default function ArenaPage({
           )}
         </main>
         <BottomNav active={activeNav} onGo={go} playAttention={playBoard.board?.attention} />
+        <ConnectionNotice frame={frame} />
+        <Toaster container={frame} />
       </div>
     </div>
     </DialogContainerProvider>

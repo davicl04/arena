@@ -5,7 +5,6 @@ import { request } from '../src/api/client'
 import SocialCommunity from '../src/components/SocialCommunity'
 import AdminReports from '../src/components/AdminReports'
 import BlockedAccountsPage from '../src/pages/BlockedAccountsPage'
-import NotificationsPage from '../src/pages/NotificationsPage'
 import ProfilePage from '../src/pages/ProfilePage'
 
 vi.mock('../src/api/client', async original => ({
@@ -29,46 +28,6 @@ it('mantém foco e todos os caracteres enquanto digita comentário', async () =>
   await user.type(input, 'Boa!')
   expect((screen.getByLabelText('Escreva um comentário') as HTMLInputElement).value).toBe('Boa!')
   expect(document.activeElement).toBe(screen.getByLabelText('Escreva um comentário'))
-})
-
-it('lista solicitações para seguir nas notificações e continua na segunda página', async () => {
-  vi.mocked(request).mockImplementation(async path => {
-    if (path.startsWith('/me/notifications')) return { items: [], next_cursor: null, unread_count: 0 } as never
-    if (path.includes('cursor=')) return { items: [{ user: { ...person, id: 3, name: 'Outra conta' }, state: 'pending' }], next_cursor: null } as never
-    return { items: [{ user: person, state: 'pending' }], next_cursor: 'more-requests' } as never
-  })
-  render(<NotificationsPage onOpenUser={vi.fn()} onNavigate={vi.fn()} onExpired={vi.fn()} />)
-  await screen.findByRole('button', { name: 'Aprovar solicitação de Atleta' })
-  await userEvent.setup().click(screen.getByRole('button', { name: 'Carregar mais solicitações' }))
-  await waitFor(() => expect(request).toHaveBeenCalledWith('/me/follow-requests?cursor=more-requests'))
-  expect(await screen.findByText('Outra conta')).not.toBeNull()
-  expect(screen.queryByRole('button', { name: 'Carregar mais solicitações' })).toBeNull()
-})
-
-it('aprova, recusa e aprova todas as solicitações', async () => {
-  const user = userEvent.setup()
-  let items = [2, 3, 4].map(id => ({ user: { ...person, id, name: `Conta ${id}` }, state: 'pending' }))
-  vi.mocked(request).mockImplementation(async (path, method) => {
-    if (method === 'PUT') { items = items.filter(item => !path.includes(`/${item.user.id}?`)); return { state: 'approved' } as never }
-    if (path.startsWith('/me/notifications')) return { items: [], next_cursor: null, unread_count: 0 } as never
-    return { items, next_cursor: null } as never
-  })
-  render(<NotificationsPage onOpenUser={vi.fn()} onNavigate={vi.fn()} onExpired={vi.fn()} />)
-  await user.click(await screen.findByRole('button', { name: 'Recusar solicitação de Conta 2' }))
-  expect(request).toHaveBeenCalledWith('/me/follow-requests/2?approve=false', 'PUT')
-  await waitFor(() => expect(screen.queryByText('Conta 2')).toBeNull())
-  await user.click(screen.getByRole('button', { name: 'Aprovar solicitação de Conta 3' }))
-  expect(request).toHaveBeenCalledWith('/me/follow-requests/3?approve=true', 'PUT')
-  await waitFor(() => expect(screen.queryByText('Conta 3')).toBeNull())
-  await user.click(screen.getByRole('button', { name: 'Aprovar todas' }))
-  expect(await screen.findByText('Tudo em dia')).not.toBeNull()
-  expect(request).toHaveBeenCalledWith('/me/follow-requests/4?approve=true', 'PUT')
-})
-
-it('mostra o estado vazio quando não há solicitações', async () => {
-  vi.mocked(request).mockResolvedValue({ items: [], next_cursor: null } as never)
-  render(<NotificationsPage onOpenUser={vi.fn()} onNavigate={vi.fn()} onExpired={vi.fn()} />)
-  expect(await screen.findByText('Tudo em dia')).not.toBeNull()
 })
 
 it('pagina contas bloqueadas e desbloqueia', async () => {

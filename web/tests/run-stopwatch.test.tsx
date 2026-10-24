@@ -1,11 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { RunInput } from '../src/api/runs'
 import { RunStopwatchDialog } from '../src/components/play/RunStopwatchDialog'
 import { toDateKey } from '../src/utils/dateKey'
 import { apiError, mockApi, reply } from './teams-fixtures'
 import { created, impact, lagoRace, preview, run, sec } from './run-fixtures'
+import { findToast, queryToast, renderWithToaster } from './toast-utils'
 
 /*
  * Registrar corrida (K2), etapa 5: distância, tempo, ritmo, Treino | Prova do Arena, data e a prévia do servidor.
@@ -22,7 +23,7 @@ type Routes = Parameters<typeof mockApi>[0]
 function setup(routes: Routes = {}, props: Partial<Parameters<typeof RunStopwatchDialog>[0]> = {}) {
   const api = mockApi(routes)
   const handlers = { onClose: vi.fn(), onSaved: vi.fn(), onExpired: vi.fn(), onFindRaces: vi.fn() }
-  render(<RunStopwatchDialog initialDistance={5} {...handlers} {...props} />)
+  renderWithToaster(<RunStopwatchDialog initialDistance={5} {...handlers} {...props} />)
   return { api, ...handlers, ui: userEvent.setup() }
 }
 const field = (name: string) => screen.getByRole('spinbutton', { name }) as HTMLInputElement
@@ -219,11 +220,20 @@ describe('K2: prévia do servidor', () => {
     expect(saveButton().disabled).toBe(true)
   })
 
-  it('erro sem campo (conexão ou servidor): aviso em alerta, e Salvar continua possível para tentar de novo', async () => {
+  it('erro do servidor sem campo: aviso em alerta junto da prévia, e Salvar continua possível para tentar de novo', async () => {
+    setup({ [PREVIEW]: apiError(500, 'Falha ao calcular a prévia.') })
+    time(0, 24, 0)
+    expect((await screen.findByRole('alert')).textContent).toBe('Falha ao calcular a prévia.')
+    // 500 não é recusa do pedido: repetir pode dar certo.
+    expect(saveButton().disabled).toBe(false)
+  })
+
+  it('falta de conexão na prévia não escreve mensagem local (o aviso de conexão cuida) e deixa tentar de novo', async () => {
     setup({ [PREVIEW]: apiError(503, 'Serviço indisponível.') })
     time(0, 24, 0)
-    expect((await screen.findByRole('alert')).textContent).toBe('Serviço indisponível.')
-    // 503 não é recusa do pedido: repetir pode dar certo.
+    await waitFor(() => expect(screen.getByRole('status').textContent).not.toContain('Calculando'))
+    expect(screen.queryByRole('alert')).toBeNull()
+    expect(screen.queryByText('Serviço indisponível.')).toBeNull()
     expect(saveButton().disabled).toBe(false)
   })
 
@@ -264,25 +274,48 @@ describe('K2: salvar', () => {
     expect(screen.getByRole('button', { name: 'Salvar corrida' })).toHaveProperty('disabled', true)
   })
 
-  it('conflito (409) vira alerta no rodapé e bloqueia repetir o mesmo pedido', async () => {
-    const { ui } = setup({ [PREVIEW]: preview(), [SAVE]: apiError(409, 'Você já registrou a marca desta prova.') })
+  it('conflito (409) ao salvar vira toast de aviso, sem alerta no rodapé, e a folha continua aberta', async () => {
+    const { ui, onSaved } = setup({ [PREVIEW]: preview(), [SAVE]: apiError(409, 'Você já registrou a marca desta prova.') })
     time(0, 24, 12)
     await screen.findByText('Primeira marca nos 5 km')
     await ui.click(saveButton())
-    expect((await screen.findByRole('alert')).textContent).toBe('Você já registrou a marca desta prova.')
-    expect(saveButton().disabled).toBe(true)
-    // Mudar o tempo é outro pedido: Salvar volta.
-    time(0, 24, 30)
+    expect((await findToast('Você já registrou a marca desta prova.')).closest('[data-tone]')?.getAttribute('data-tone')).toBe('warning')
     expect(screen.queryByRole('alert')).toBeNull()
+    expect(onSaved).not.toHaveBeenCalled()
+    expect(saveButton().disabled).toBe(false)
   })
 
-  it('queda de conexão ao salvar deixa tentar de novo', async () => {
+  it('erro do servidor ao salvar vira toast de erro e deixa tentar de novo', async () => {
+    const { ui } = setup({ [PREVIEW]: preview(), [SAVE]: apiError(500, 'Não deu para gravar a corrida.') })
+    time(0, 24, 12)
+    await screen.findByText('Primeira marca nos 5 km')
+    await ui.click(saveButton())
+    expect((await findToast('Não deu para gravar a corrida.')).closest('[data-tone]')?.getAttribute('data-tone')).toBe('error')
+    expect(within(screen.getByRole('dialog', { name: 'Registrar corrida' })).queryByRole('alert')).toBeNull()
+    expect(saveButton().disabled).toBe(false)
+  })
+
+  it('queda de conexão ao salvar não vira toast nem alerta local (o aviso de conexão cuida) e deixa tentar de novo', async () => {
     const { ui } = setup({ [PREVIEW]: preview(), [SAVE]: apiError(503, 'Serviço indisponível.') })
     time(0, 24, 12)
     await screen.findByText('Primeira marca nos 5 km')
     await ui.click(saveButton())
-    expect((await screen.findByRole('alert')).textContent).toBe('Serviço indisponível.')
-    expect(saveButton().disabled).toBe(false)
+    await waitFor(() => expect(saveButton().disabled).toBe(false))
+    expect(screen.queryByRole('alert')).toBeNull()
+    expect(queryToast('Serviço indisponível.')).toBeNull()
+  })
+
+  it('a recusa de campo (422) ao salvar fica junto do campo e bloqueia repetir o mesmo pedido', async () => {
+    const message = 'O tempo informado é impossível para esta distância.'
+    const { ui } = setup({ [PREVIEW]: preview(), [SAVE]: fieldsError('duration_s', message) })
+    time(0, 24, 12)
+    await screen.findByText('Primeira marca nos 5 km')
+    await ui.click(saveButton())
+    expect(await screen.findByText(message)).not.toBeNull()
+    expect(saveButton().disabled).toBe(true)
+    // Mudar o tempo é outro pedido: Salvar volta.
+    time(0, 24, 30)
+    expect(screen.queryByText(message)).toBeNull()
   })
 })
 
@@ -326,10 +359,10 @@ describe('K2: Prova do Arena', () => {
   })
 
   it('erro ao ler as provas oferece tentar de novo; voltar a Treino traz a data de volta', async () => {
-    const routes = { 'GET /me/run-races': apiError(503, 'Serviço indisponível.') }
+    const routes = { 'GET /me/run-races': apiError(500, 'Erro ao ler as provas.') }
     const { ui } = setup(routes)
     await ui.click(screen.getByRole('button', { name: 'Prova do Arena' }))
-    expect((await screen.findByRole('alert')).textContent).toContain('Serviço indisponível.')
+    expect((await screen.findByRole('alert')).textContent).toContain('Erro ao ler as provas.')
     vi.mocked(fetch).mockImplementation(async () => new Response(JSON.stringify({ items: [lagoRace()] }), { status: 200 }))
     await ui.click(screen.getByRole('button', { name: 'Tentar novamente' }))
     expect(await screen.findByRole('group', { name: 'Prova do Arena' })).not.toBeNull()
@@ -375,8 +408,8 @@ describe('K2: teclado e saída', () => {
     await ui.click(close)
     await ui.keyboard('{Escape}')
     expect(onClose).not.toHaveBeenCalled()
-    release(apiError(503, 'Serviço indisponível.'))
-    expect((await screen.findByRole('alert')).textContent).toBe('Serviço indisponível.')
+    release(apiError(500, 'Não deu para gravar a corrida.'))
+    expect(await findToast('Não deu para gravar a corrida.')).toBeTruthy()
     expect(onSaved).not.toHaveBeenCalled()
     await waitFor(() => expect((screen.getByRole('button', { name: 'Fechar' }) as HTMLButtonElement).disabled).toBe(false))
     await ui.click(screen.getByRole('button', { name: 'Fechar' }))

@@ -6,7 +6,9 @@ import { getOrganizerEvent, PUBLISHED_STATES, submitEvent, withdrawEvent } from 
 import type { OrganizerEventDetail } from '../api/events'
 import { eventFormatParts, pixKeyType, tiers } from '../data/arena'
 import { EventPoster } from '../components/arena/EventPoster'
-import { ActionButton, Notice, TextAction } from '../components/arena/controls'
+import { ActionButton, Notice } from '../components/arena/controls'
+import { LoadError } from '../components/arena/LoadError'
+import { toast } from '../components/toast/toastStore'
 import { DarkTopBar, TeamsPlate } from '../components/arena/TeamsPlate'
 import { EventEntries } from '../components/organizer/EventEntries'
 import { EventNotices } from '../components/organizer/EventNotices'
@@ -16,7 +18,7 @@ import { NextActionCard } from '../components/organizer/NextActionCard'
 import { useResource } from '../hooks/useResource'
 import { useSubmit } from '../hooks/useSubmit'
 import type { ScreenProps } from '../navigation/screens'
-import { colors } from '../theme'
+import { useThemeColors } from '../hooks/useTheme'
 import { formatDeadline, formatPrice, plural } from '../utils/format'
 import { Icon } from '../components/Icon'
 import type { IconName } from '../components/Icon'
@@ -26,8 +28,9 @@ type SheetKind = 'cancel' | 'delete' | 'edit' | null
 
 /** Linha de seção (`.nl`): ícone, título em negrito e o resumo abaixo. */
 function RowBody({ icon, title, value, hot, trailing }: { icon: IconName; title: string; value: string; hot?: boolean; trailing?: ReactNode }) {
+  const colors = useThemeColors()
   return <>
-    <View style={{ width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,90,54,0.07)' }}><Icon name={icon} size={17} color={colors.brand} /></View>
+    <View style={{ width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: colors['icon-tile'] }}><Icon name={icon} size={17} color={colors['icon-tile-ink']} /></View>
     <View style={{ flex: 1, minWidth: 0 }}>
       <Text style={{ color: colors.ink, fontSize: 13, fontWeight: '700' }}>{title}</Text>
       <Text style={{ marginTop: 1, color: hot ? colors.danger : colors['ink-muted'], fontSize: 10.5, lineHeight: 15, fontWeight: hot ? '700' : '400' }}>{value}</Text>
@@ -48,6 +51,7 @@ function SectionPanel({ icon, title, value, hot, open, onToggle, onLayout, child
   onLayout?: (y: number) => void
   children: ReactNode
 }) {
+  const colors = useThemeColors()
   return <View onLayout={event => onLayout?.(event.nativeEvent.layout.y)} style={{ borderBottomWidth: 1, borderBottomColor: colors.line }}>
     <Pressable accessibilityRole="button" accessibilityLabel={`${title}, ${value}`} accessibilityState={{ expanded: open }} onPress={onToggle} style={rowStyle}>
       <RowBody icon={icon} title={title} value={value} hot={hot} trailing={<View style={{ transform: [{ rotate: open ? '180deg' : '0deg' }] }}><Icon name="chevron-down" size={17} color={colors['ink-muted']} /></View>} />
@@ -58,6 +62,7 @@ function SectionPanel({ icon, title, value, hot, open, onToggle, onLayout, child
 
 /** Seção com tela própria (comprovantes e devoluções). */
 function SectionLink({ icon, title, value, hot, onPress }: { icon: IconName; title: string; value: string; hot?: boolean; onPress: () => void }) {
+  const colors = useThemeColors()
   return <View style={{ borderBottomWidth: 1, borderBottomColor: colors.line }}>
     <Pressable accessibilityRole="button" accessibilityLabel={`${title}, ${value}`} onPress={onPress} style={rowStyle}>
       <RowBody icon={icon} title={title} value={value} hot={hot} trailing={<Icon name="chevron" size={17} color={colors['ink-muted']} />} />
@@ -67,6 +72,7 @@ function SectionLink({ icon, title, value, hot, onPress }: { icon: IconName; tit
 
 /** Seção que ainda não pode ser aberta (chaveamento antes do sorteio, resultados da corrida): apagada, sem ação, com o aviso. */
 function SectionLater({ icon, title, value }: { icon: IconName; title: string; value: string }) {
+  const colors = useThemeColors()
   return <View accessible accessibilityLabel={`${title}, ${value}`} accessibilityState={{ disabled: true }} style={{ borderBottomWidth: 1, borderBottomColor: colors.line, opacity: 0.6 }}>
     <View style={rowStyle}><RowBody icon={icon} title={title} value={value} /></View>
   </View>
@@ -74,6 +80,7 @@ function SectionLater({ icon, title, value }: { icon: IconName; title: string; v
 
 /** Lista de dados do evento ou do Pix; valor ausente aparece como "—". */
 function DataList({ rows }: { rows: [string, ReactNode, boolean?][] }) {
+  const colors = useThemeColors()
   return <View style={{ borderRadius: 12, backgroundColor: colors.subtle, paddingHorizontal: 12, paddingVertical: 4 }}>
     {rows.map(([label, value, mono], index) => {
       const empty = value === null || value === ''
@@ -93,21 +100,22 @@ function DataList({ rows }: { rows: [string, ReactNode, boolean?][] }) {
  * excluir rascunho, retirar da aprovação e cancelar.
  */
 export default function EventManageScreen({ params, navigation, onExpired }: ScreenProps<'event-manage'>) {
+  const colors = useThemeColors()
   const eventId = params.eventId
   const load = useCallback(() => getOrganizerEvent(eventId), [eventId])
   const resource = useResource(load, onExpired, { fallback: 'Não foi possível carregar o evento.' })
   const [open, setOpen] = useState<Record<SectionKey, boolean>>({ entries: false, data: false, pix: false })
   const [sheet, setSheet] = useState<SheetKind>(null)
-  const [status, setStatus] = useState('')
   const action = useSubmit(onExpired)
   const scroll = useRef<ScrollView>(null)
   const entriesY = useRef(0)
   const detail = resource.data
 
   const toggle = (key: SectionKey) => () => setOpen(old => ({ ...old, [key]: !old[key] }))
-  function update(next: OrganizerEventDetail, message: string) {
+  /** Guarda o evento atualizado e confirma a ação com um toast de sucesso (o título e, se houver, o próximo passo). */
+  function update(next: OrganizerEventDetail, message: string, description?: string) {
     resource.setData(next)
-    setStatus(message)
+    toast.success(message, description ? { description } : undefined)
   }
   const receipts = () => navigation.go('event-receipts', { eventId })
   const bracket = () => navigation.go('event-bracket', { eventId })
@@ -120,7 +128,7 @@ export default function EventManageScreen({ params, navigation, onExpired }: Scr
       <TeamsPlate bottom={16}>{topBar}</TeamsPlate>
       <View style={{ padding: 20 }}>
         {resource.loading ? <Text accessibilityLiveRegion="polite" style={{ color: colors['ink-muted'], fontSize: 12 }}>Carregando o evento…</Text> : null}
-        {resource.error ? <View><Notice>{resource.error}</Notice><TextAction title="Tentar novamente" onPress={resource.reload} /></View> : null}
+        {resource.error ? <LoadError size="screen" title="Não foi possível carregar o evento" text={resource.error} cause={resource.errorCause} onRetry={resource.reload} /> : null}
       </View>
     </View>
   }
@@ -143,13 +151,16 @@ export default function EventManageScreen({ params, navigation, onExpired }: Scr
   async function submit() {
     if (!detail) return
     const sent = await action.run(() => submitEvent(detail.id), paid ? 'Não foi possível enviar para aprovação.' : 'Não foi possível publicar.')
-    if (sent) update(sent, sent.state === 'em_aprovacao' ? 'Enviado para aprovação. Você recebe a resposta nas notificações.' : 'Evento publicado: as inscrições estão abertas.')
+    if (sent) {
+      if (sent.state === 'em_aprovacao') update(sent, 'Enviado para aprovação.', 'Você recebe a resposta nas notificações.')
+      else update(sent, 'Evento publicado.', 'As inscrições estão abertas.')
+    }
     else getOrganizerEvent(detail.id).then(fresh => resource.setData(fresh)).catch((cause: unknown) => { if (cause instanceof ApiError && cause.status === 401) onExpired() })
   }
   async function withdraw() {
     if (!detail) return
     const back = await action.run(() => withdrawEvent(detail.id), 'Não foi possível retirar da aprovação.')
-    if (back) update(back, 'Evento retirado da aprovação. Edite e envie de novo quando quiser.')
+    if (back) update(back, 'Evento retirado da aprovação.', 'Edite e envie de novo quando quiser.')
   }
   function showEntries() {
     setOpen(old => ({ ...old, entries: true }))
@@ -203,17 +214,15 @@ export default function EventManageScreen({ params, navigation, onExpired }: Scr
       </TeamsPlate>
 
       <View style={{ padding: 16 }}>
-      <View accessibilityLiveRegion="polite">
-        {status ? <Notice tone="success">{status}</Notice> : null}
-        {action.error ? <Notice>{action.error}</Notice> : null}
-      </View>
+      {/* Só a validação do servidor com campos (422) fica na tela; os demais erros de ação são toast ou aviso de conexão. */}
+      {action.error ? <Notice>{action.error}</Notice> : null}
 
       <View style={{ marginTop: 14 }}>
         <NextActionCard detail={detail} busy={action.busy} onSubmit={() => void submit()} onWithdraw={() => void withdraw()} onFill={edit} onReceipts={receipts} onShowEntries={showEntries} onBracket={bracket} onMatches={matches} />
       </View>
 
       <Text accessibilityRole="header" style={{ marginTop: 20, marginBottom: 8, color: colors.ink, fontSize: 16, fontWeight: '700' }}>Seções</Text>
-      <View style={{ borderRadius: 16, backgroundColor: '#ffffff', paddingHorizontal: 14 }}>
+      <View style={{ borderRadius: 16, backgroundColor: colors.surface, paddingHorizontal: 14 }}>
         {beforeRegistration
           ? <SectionLater icon="users" title={entriesTitle(detail.sport)} value={detail.capacity ? `0 de ${detail.capacity} · depois de publicar` : 'Depois de publicar'} />
           : <SectionPanel icon="users" title={entriesTitle(detail.sport)} open={open.entries} onToggle={toggle('entries')} onLayout={y => { entriesY.current = y }}
@@ -271,7 +280,7 @@ export default function EventManageScreen({ params, navigation, onExpired }: Scr
     </ScrollView>
 
     {sheet === 'cancel' ? <CancelEventSheet detail={detail} onClose={() => setSheet(null)} onExpired={onExpired}
-      onCancelled={next => { setSheet(null); update(next, 'Evento cancelado. Os inscritos foram avisados no canal e nas notificações.') }} /> : null}
+      onCancelled={next => { setSheet(null); update(next, 'Evento cancelado.', 'Os inscritos foram avisados no canal e nas notificações.') }} /> : null}
     {sheet === 'delete' ? <DeleteDraftSheet detail={detail} onClose={() => setSheet(null)} onExpired={onExpired} onDeleted={() => { setSheet(null); navigation.back() }} /> : null}
     {sheet === 'edit' ? <EditPublishedSheet detail={detail} onClose={() => setSheet(null)} onExpired={onExpired}
       onSaved={next => { setSheet(null); update(next, 'Dados do evento salvos.') }} /> : null}

@@ -5,7 +5,7 @@ import { RECEIPT_LIMITS, decideReceipt, receiptRefusalError, receiptRefusalInput
 import { pixKeyType, receiptRefusalReasons } from '../../data/arena'
 import type { ReceiptRefusalReason } from '../../data/arena'
 import { useSubmit } from '../../hooks/useSubmit'
-import { colors } from '../../theme'
+import { useResolvedTheme, useThemeColors } from '../../hooks/useTheme'
 import { formatDeadline, formatPrice, parseIso } from '../../utils/format'
 import { relativeTime } from '../../utils/relativeTime'
 import { ReceiptImage } from '../arena/ReceiptImage'
@@ -36,6 +36,7 @@ function Expected({ priceCents, pix }: { priceCents: number; pix: EventPix | nul
 
 /** Recusas anteriores da inscrição, da mais recente à mais antiga, com a miniatura de cada envio. */
 function RefusalHistory({ previous, name, token }: { previous: Receipt[]; name: string; token: string | null }) {
+  const colors = useThemeColors()
   const refused = previous.filter(item => item.decision === 'recusado')
   if (!refused.length) return null
   return <View testID="refusal-history">
@@ -56,9 +57,11 @@ function RefusalHistory({ previous, name, token }: { previous: Receipt[]; name: 
 
 /** Decisão já tomada (aba Decididos). */
 function Decision({ receipt }: { receipt: Receipt }) {
+  const colors = useThemeColors()
+  const dark = useResolvedTheme() === 'dark'
   const approved = receipt.decision === 'aprovado'
   return <View testID="receipt-decision" accessible accessibilityLabel={approved ? 'Comprovante aprovado' : 'Comprovante recusado'}
-    style={{ marginTop: 12, flexDirection: 'row', alignItems: 'flex-start', gap: 10, borderRadius: 12, padding: 12, backgroundColor: approved ? colors['success-bg'] : '#fff0f2' }}>
+    style={{ marginTop: 12, flexDirection: 'row', alignItems: 'flex-start', gap: 10, borderRadius: 12, padding: 12, backgroundColor: approved ? colors['success-bg'] : dark ? '#ff8a801a' : '#fff0f2' }}>
     <Icon name={approved ? 'check' : 'alert'} size={17} color={approved ? colors.brand : colors.danger} />
     <View style={{ flex: 1, minWidth: 0 }}>
       <Text style={{ color: approved ? colors.brand : colors.danger, fontSize: 12.5, fontWeight: '700' }}>{approved ? 'Aprovado' : 'Recusado'}{receipt.decided_at ? ` em ${formatDeadline(receipt.decided_at)}` : ''}</Text>
@@ -82,6 +85,7 @@ export function ReceiptSheet({ review, pix, locked = false, token, onClose, onDe
   onDecided: (decided: ReceiptReview, message: string) => void
   onExpired: () => void
 }) {
+  const colors = useThemeColors()
   const { receipt, entry, attempt, previous } = review
   const name = subjectName(entry.subject)
   const [refusing, setRefusing] = useState(false)

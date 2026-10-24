@@ -16,6 +16,7 @@ import { court, ferrugemRef, fromNow, leoesRef, matchCard, matchDetail, messageP
 import { confirmed as confirmedResult, report, result as resultOf } from './support/results'
 import { allText, bodyOf, byId, callsTo, findByPrefix, flush, me, pressButton, pressPrefix, serve, typeInto } from './support/review'
 import type { Route } from './support/review'
+import { toastText } from './support/toast'
 
 vi.mock('react-native', async () => (await import('./support/native')).reactNativeMock())
 vi.mock('react-native-svg', async () => (await import('./support/native')).svgMock())
@@ -37,6 +38,7 @@ vi.mock('../src/screens/UserProfileScreen', () => ({ default: () => null }))
 const h = React.createElement
 const trees: ReactTestRenderer[] = []
 const EVENT = '/organizer/events/5'
+const summaryOf = () => ({ unread_count: 0, follow_requests_count: 0, pending_count: 0, unread_by_category: { partidas: 0, times: 0, eventos: 0 } })
 const ORG_BRACKET = '/organizer/events/5/bracket'
 const MATCHES = '/organizer/events/5/matches'
 const courtsOf = (id: number) => `/courts?city_id=7&kind=society&match_id=${id}`
@@ -51,7 +53,9 @@ const eventAt = (kind: string, count: number | null, championship: ReturnType<ty
 const base = (event: () => unknown, extra: Record<string, Route> = {}): Record<string, Route> => ({
   '/me/play': { attention: false, searches: [], proposals: [], offers: [], matches: [] },
   '/me/standings': { items: [], next_cursor: null },
-  '/me/notifications/unread-count': { unread_count: 0 },
+  '/me/notifications/summary': { unread_count: 0, follow_requests_count: 0, pending_count: 0, unread_by_category: { partidas: 0, times: 0, eventos: 0 } },
+  '/me/notifications/pending?limit=2': { items: [] },
+  '/me/notifications/pending?limit=50': { items: [] },
   '/me/organizer-request': approved(),
   '/organizer/events?scope=abertos': () => page([card({ id: 5, name: 'Copa Sudoeste', competition_type: 'eliminacao_simples' })]),
   '/organizer/events?scope=encerrados': page([]),
@@ -108,7 +112,7 @@ describe('G3 → Chaveamento', () => {
     await pressButton(tree, 'Confirmar chaveamento')
     await pressButton(tree, 'Confirmar')
     expect(bodyOf('POST', `${ORG_BRACKET}/confirm`)).toEqual({})
-    expect(allText(tree)).toContain('Chaveamento confirmado. As partidas foram criadas e os times foram avisados.')
+    expect(toastText()).toContain('Chaveamento confirmado. As partidas foram criadas e os times foram avisados.')
     const reads = callsTo('GET', EVENT).length
     await pressButton(tree, 'Voltar')
     // A gestão volta relida: o chaveamento está confirmado e a próxima ação é agendar.
@@ -209,11 +213,11 @@ describe('Partida do campeonato → Decidir resultado', () => {
   })
 
   it('a notificação "divergencia_para_decidir" abre a decisão real; registrar volta às notificações', async () => {
-    const notification = { id: 31, type: 'divergencia_para_decidir', payload: { match_id: 7, event_id: 5, event_name: 'Copa Sudoeste', deadline: null }, actor: null, created_at: new Date(Date.now() - 5 * 60_000).toISOString(), read_at: null }
+    const notification = { id: 31, type: 'divergencia_para_decidir', payload: { match_id: 7, event_id: 5, event_name: 'Copa Sudoeste', deadline: null }, actor: null, category: 'partidas', pending: false, action_until: null, created_at: new Date(Date.now() - 5 * 60_000).toISOString(), read_at: null }
     const tree = await mountShell(routes({
-      '/me/notifications': page([notification]),
+      '/me/notifications?pendente=false': page([notification]),
       '/me/follow-requests': page([]),
-      'PUT /me/notifications/31/read': { unread_count: 0 },
+      'PUT /me/notifications/31/read': summaryOf(),
     }))
     await pressButton(tree, 'Notificações')
     await pressPrefix(tree, 'Os placares de uma partida de Copa Sudoeste não batem')
@@ -232,13 +236,13 @@ describe('Partida do campeonato → Decidir resultado', () => {
   })
 
   it('"tabela_publicada" abre o detalhe do evento na aba Tabela', async () => {
-    const notification = { id: 32, type: 'tabela_publicada', payload: { event_id: 5, event_name: 'Copa Sudoeste' }, actor: null, created_at: new Date(Date.now() - 5 * 60_000).toISOString(), read_at: null }
+    const notification = { id: 32, type: 'tabela_publicada', payload: { event_id: 5, event_name: 'Copa Sudoeste' }, actor: null, category: 'eventos', pending: false, action_until: null, created_at: new Date(Date.now() - 5 * 60_000).toISOString(), read_at: null }
     const entry = myEntry({ state: 'confirmada', can_cancel: false, can_send_receipt: false })
     const published = confirmed(eliminationBracket(eightTeams, { is_organizer: false }))
     const tree = await mountShell(routes({
-      '/me/notifications': page([notification]),
+      '/me/notifications?pendente=false': page([notification]),
       '/me/follow-requests': page([]),
-      'PUT /me/notifications/32/read': { unread_count: 0 },
+      'PUT /me/notifications/32/read': summaryOf(),
       '/events/5': { ...eventDetail({ competition_type: 'eliminacao_simples' }), my_entry: { id: entry.id, state: entry.state, team, reserved_until: entry.reserved_until } },
       '/events/5/entries': page([]),
       '/events/5/bracket': published,

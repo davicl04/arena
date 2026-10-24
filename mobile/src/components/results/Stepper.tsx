@@ -1,6 +1,6 @@
 import { Pressable, Text, View } from 'react-native'
 import type { AccessibilityActionEvent } from 'react-native'
-import { colors } from '../../theme'
+import { useThemeColors } from '../../hooks/useTheme'
 import { Icon } from '../Icon'
 
 /*
@@ -32,6 +32,7 @@ export interface StepperProps {
 }
 
 export function Stepper({ value, onChange, label, min = 0, max = 99, size = 'md', disabled = false, tone = 'light' }: StepperProps) {
+  const colors = useThemeColors()
   const set = (next: number) => {
     const clamped = Math.min(max, Math.max(min, next))
     if (!disabled && clamped !== value) onChange(clamped)
@@ -46,7 +47,7 @@ export function Stepper({ value, onChange, label, min = 0, max = 99, size = 'md'
     const off = disabled || (kind === 'minus' ? value <= min : value >= max)
     return <Pressable testID={`stepper-${kind}`} accessible={false} importantForAccessibility="no" disabled={off} onPress={() => set(value + (kind === 'plus' ? 1 : -1))}
       hitSlop={look.slop}
-      style={{ width: look.box, height: look.box, borderRadius: 9, borderWidth: 1, borderColor: dark ? 'rgba(255,255,255,0.35)' : colors['line-strong'], backgroundColor: dark ? 'rgba(255,255,255,0.08)' : '#ffffff', alignItems: 'center', justifyContent: 'center', opacity: off ? 0.35 : 1 }}>
+      style={{ width: look.box, height: look.box, borderRadius: 9, borderWidth: 1, borderColor: dark ? 'rgba(255,255,255,0.35)' : colors['line-strong'], backgroundColor: dark ? 'rgba(255,255,255,0.08)' : colors.surface, alignItems: 'center', justifyContent: 'center', opacity: off ? 0.35 : 1 }}>
       <Icon name={kind} size={14} color={dark ? '#ffffff' : colors.brand} />
     </Pressable>
   }

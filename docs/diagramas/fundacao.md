@@ -2,6 +2,8 @@
 
 O desenho registra apenas a primeira entrega. Os diagramas PNG do roteiro permanecem referências do MVP futuro.
 
+Exceção: `banco-*.png` mostram o esquema **implementado**, obtidos por engenharia reversa do catálogo do PostgreSQL na revisão Alembic 0014 (23/10/2026): uma visão geral das 40 tabelas e cinco diagramas por domínio. São usados na seção 3.4 do roteiro e devem ser gerados de novo quando uma migração mudar o esquema.
+
 ```mermaid
 flowchart LR
     Web[React e Vite] -->|JSON e cookie HttpOnly| API[FastAPI]

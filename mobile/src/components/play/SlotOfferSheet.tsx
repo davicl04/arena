@@ -1,13 +1,12 @@
 import { Text, View } from 'react-native'
-import { ApiError } from '../../api/client'
 import { acceptSlotOffer, declineSlotOffer } from '../../api/matchmaking'
 import type { SlotOffer } from '../../api/matchmaking'
 import { footballFormat } from '../../data/arena'
 import { sideName } from '../../data/match'
-import { useSubmit } from '../../hooks/useSubmit'
+import { isStale, useSubmit } from '../../hooks/useSubmit'
 import { colors } from '../../theme'
 import { eventDateParts, formatClock, parseIso } from '../../utils/format'
-import { ActionButton, Notice, TextAction } from '../arena/controls'
+import { ActionButton, TextAction } from '../arena/controls'
 import { Icon } from '../Icon'
 import { ActionSheet } from '../arena/ActionSheet'
 import { Countdown } from './Countdown'
@@ -26,11 +25,11 @@ export function SlotOfferSheet({ offer, onLater, onAccepted, onDeclined, onElaps
   onAccepted: (matchId: number) => void
   onDeclined: () => void
   onElapsed: () => void
-  /** O servidor recusou a resposta porque a oferta mudou (404 ou 409): recebe a mensagem dele; a tela fecha a folha e lê a placa de novo. */
-  onStale: (message: string) => void
+  /** O servidor recusou a resposta porque a oferta mudou (404 ou 409; o toast de aviso já mostrou a mensagem dele): a tela fecha a folha e lê a placa de novo. */
+  onStale: () => void
   onExpired: () => void
 }) {
-  const { busy, error, run } = useSubmit(onExpired)
+  const { busy, run } = useSubmit(onExpired)
   const { match } = offer
   const opening = match.sides.find(side => side.side === offer.side)
   const against = match.sides.find(side => side.side !== offer.side)
@@ -39,17 +38,9 @@ export function SlotOfferSheet({ offer, onLater, onAccepted, onDeclined, onElaps
   const format = match.format ? footballFormat[match.format]?.label : null
   const position = positionLabel(offer.position).toLocaleLowerCase('pt-BR')
 
-  /** Roda a resposta; se a oferta já não vale (404 ou 409: a vaga foi preenchida, o prazo passou), avisa a tela com a mensagem do servidor. */
-  async function respond<T>(task: () => Promise<T>, fallback: string): Promise<T | undefined> {
-    let stale = ''
-    const result = await run(async () => {
-      try { return await task() } catch (cause) {
-        if (cause instanceof ApiError && (cause.status === 404 || cause.status === 409)) stale = cause.message
-        throw cause
-      }
-    }, fallback)
-    if (stale) onStale(stale)
-    return result
+  /** Roda a resposta; se a oferta já não vale (404 ou 409: a vaga foi preenchida, o prazo passou), o toast de aviso sai e a tela lê a placa de novo. */
+  function respond<T>(task: () => Promise<T>, fallback: string): Promise<T | undefined> {
+    return run(task, fallback, cause => { if (isStale(cause)) onStale() })
   }
   async function accept() {
     const accepted = await respond(() => acceptSlotOffer(offer.slot_id), 'Não foi possível aceitar a vaga.')
@@ -96,7 +87,6 @@ export function SlotOfferSheet({ offer, onLater, onAccepted, onDeclined, onElaps
         <ActionButton grow tone="line" title="Agora não" disabled={busy} onPress={() => void decline()} />
         <ActionButton grow tone="mint" title="Quero jogar" disabled={busy} onPress={() => void accept()} />
       </View>
-      {error ? <Notice surface="dark">{error}</Notice> : null}
       <View style={{ alignItems: 'center' }}><TextAction surface="dark" title="Responder depois" disabled={busy} onPress={onLater} /></View>
     </View>
   </ActionSheet>
