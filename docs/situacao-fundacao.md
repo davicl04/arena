@@ -1,5 +1,31 @@
 # Situação da fundação do Arena
 
+## Expo: correções do primeiro teste no iPhone — 24 de outubro de 2026
+
+O primeiro uso do app no iPhone (Expo Go, SDK 58), com prints enviados pelo usuário, mostrou problemas de layout, datas e ícones. Correções na branch `chore/expo-sdk-58`:
+
+- **Área segura nos modais:** o `SafeAreaView` nativo não aplicava a área segura dentro do `Modal` do iOS. Com isso, o fechar e o voltar ficavam sob a barra de status (Registrar corrida, perfil visitado, publicação, compositor, leitor de QR e assistente de evento). O `Screen` passou a aplicar como padding os insets do `SafeAreaProvider`, com `edges` opcional.
+- **Navegação inferior até a borda:** na área logada, a raiz não reserva mais a base da área segura. A `BottomNav` cresce o tamanho do indicador de início e pinta até a borda, com os itens acima dele. O toast e a faixa de conexão, que ficam sobre a barra, sobem o mesmo tanto. `Sheet` e `ActionSheet` somam a base da área segura ao espaçamento inferior.
+- **Datas:** no Hermes do iOS, o `formatToParts` devolvia as partes com tipos trocados ("qua, de · 13:00" e "sex, de"). `formatShortDate` e `eventDateParts` passaram a usar um formatador por campo (dia da semana e mês) e o dia de `getDate()`. Um teste simula a resposta do iPhone e falha sem a correção.
+- **Ícones:** caracteres usados como ícone, que no iPhone pareciam emojis, viraram os SVG do conjunto lucide do app, os mesmos da web. São eles: `‹` (`arrow-left`), `✕` (`x`), `•••` (`ellipsis`), `☰` (`menu`), `♥`/`♡` (`heart`, preenchido quando curtido), `➤` (`send-horizontal`) e `✓` (`check`). O `Icon` ganhou `menu`, `ellipsis`, `heart` e a opção `filled`.
+- **"Suas estatísticas":** os blocos seguem a web, com valor centralizado em cima e rótulo embaixo. O nome do elo, com o brasão, fica em uma linha e encolhe em vez de partir a palavra ("Diamant e").
+
+**Verificações:** em `mobile/`, `npm run lint`, `npm run typecheck`, `npm run test:coverage` (103 arquivos, 1582 testes, 96,35% de instruções) e `npm run export:android` aprovados.
+
+**Limitações e pendências:** as correções ainda precisam ser conferidas no iPhone pelo usuário. O botão azul de engrenagem no canto superior direito dos prints é o menu de desenvolvimento do Expo Go, não faz parte do app. Ainda não houve comparação sistemática de cada tela do Expo com a web; restam diferenças de layout a levantar.
+
+## Expo atualizado para o SDK 58 — 23 de outubro de 2026
+
+O Expo Go da App Store abre apenas projetos do SDK mais recente (58), e o app estava no 57, o que impedia o teste no iPhone. A pedido do usuário, o mobile foi atualizado na branch `chore/expo-sdk-58`.
+
+- **Dependências:** `npx expo install expo@^58.0.0` e `npx expo install --fix` levaram `expo` a `~58.0.19`, os módulos `expo-*` à linha 58, React a 19.3.0, React Native a 0.88.0, Reanimated a 4.7.1, Worklets a 0.13.0, `react-native-svg` a 15.16.0, `react-native-safe-area-context` a `~5.10.1`, `@types/react` a `~19.3.0` e `eslint-config-expo` a `~58.0.4`. `react-test-renderer` foi fixado em 19.3.0, porque a 19.3.1 exige React `^19.3.1`. O `--fix` acrescentou o plugin `expo-status-bar` ao `app.json` e o reescreveu com indentação, sem mudar os outros valores. NativeWind `5.0.0-rc.0` e `react-native-css` `3.1.0-rc.0` foram mantidos.
+- **Tipos do React Native 0.88:** `ScrollView`, `View` e `TextInput` passaram a ser tipados como componentes de função. As refs passaram a usar `ScrollViewInstance`, `TextInputInstance` e `HostInstance`. `AppState.currentState` agora admite `null`/`undefined`, e o `ListFooterComponent` da Comunidade recebe `undefined` no lugar de `null`. Os mocks de `Share.share` nos testes passaram a informar `activityType`. Não houve mudança de comportamento.
+- **`mobile/.env`** (não versionado) passou a apontar para o IP atual do computador na rede local.
+
+**Verificações:** em `mobile/`, `npx expo install --check` sem apontamentos, `npm run lint`, `npm run typecheck`, `npm run test:coverage` (103 arquivos, 1581 testes, 96,35% de instruções e 90,78% de ramos) e `npm run export:android` aprovados. Também foi gerado o bundle iOS (`npx expo export --platform ios`, em pasta temporária). Os testes continuam emitindo o aviso de depreciação do `react-test-renderer`.
+
+**Limitações e pendências:** o app ainda não foi aberto no iPhone; o bundle e os testes não comprovam o funcionamento em aparelho. O React Native 0.88 declara suporte a Node `^22.13.0 || ^24.3.0 || >=26.0.0`: o Node 25.9 local gera avisos `EBADENGINE` na instalação, e o CI usa Node 24. O `npm audit` aponta 11 alertas (6 moderados e 5 altos), a rever antes de publicar ou assinar builds. Registros anteriores que citam o desvio `expo@57.0.27` contra `~57.0.28` ficam como histórico.
+
 ## Versionamento das correções do PR #4 — 23 de outubro de 2026
 
 Commit e push das correções de leitura de notificações web e expansão do ranking Expo autorizados pelo usuário na branch `feat/notifications-ranking`. Incluídos somente os dois componentes, seus testes de regressão e este registro; o arquivo temporário de bloqueio do Word foi preservado fora do commit. Diff e whitespace conferidos. Os checks e a validação integrada registrados abaixo não foram repetidos nesta etapa de versionamento; a execução remota do CI permanece pendente.

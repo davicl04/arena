@@ -1,4 +1,5 @@
 import { Pressable, Text, View } from 'react-native'
+import type { HostInstance } from 'react-native'
 import type { Ref } from 'react'
 import type { RankingKey, RankingRow } from '../../api/results'
 import { useSessionToken } from '../../hooks/useSessionToken'
@@ -40,7 +41,7 @@ export function RankingLine({ row, ranking, onOpenUser, selected = false, varian
   variant?: 'plate' | 'hall'
   /** Cópia visual da borda esmaecida: sem testID, sem toque e fora da árvore de acessibilidade. */
   decorative?: boolean
-  rowRef?: Ref<View>
+  rowRef?: Ref<HostInstance>
 }) {
   const token = useSessionToken()
   const name = row.team?.name ?? row.athlete?.name ?? 'Atleta'

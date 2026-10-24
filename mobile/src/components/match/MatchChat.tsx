@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { RefObject } from 'react'
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native'
-import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native'
+import type { NativeScrollEvent, NativeSyntheticEvent, ScrollViewInstance, TextInputInstance } from 'react-native'
 import { MESSAGE_MAX } from '../../api/matches'
 import type { MatchDetail, MatchMessageOut } from '../../api/matches'
 import { eventWhen, shortName, sideOf } from '../../data/match'
@@ -104,7 +104,7 @@ function Composer({ detail, sending, error, onSend, onPropose, inputRef }: {
   error: string
   onSend: (body: string) => Promise<boolean>
   onPropose?: () => void
-  inputRef?: RefObject<TextInput | null>
+  inputRef?: RefObject<TextInputInstance | null>
 }) {
   const colors = useThemeColors()
   const dark = useResolvedTheme() === 'dark'
@@ -160,13 +160,13 @@ export function MatchChat({ detail, onExpired, onReport, onPropose, onEvent, com
   /** Chegou um evento novo da partida (aceite, cancelamento, vagas…): a tela relê o detalhe. */
   onEvent?: () => void
   /** Campo de mensagem, para o "Conversar" do cartão de resultado levar o foco até ele. */
-  composerRef?: RefObject<TextInput | null>
+  composerRef?: RefObject<TextInputInstance | null>
   token?: string | null
 }) {
   const colors = useThemeColors()
   const dark = useResolvedTheme() === 'dark'
   const chat = useMatchChat(detail.id, detail.permissions.read_chat, onExpired, onEvent, !FINISHED.includes(detail.state))
-  const scroller = useRef<ScrollView>(null)
+  const scroller = useRef<ScrollViewInstance>(null)
   const stick = useRef(true)
   const lastSeen = useRef<number | null>(null)
   const [unseen, setUnseen] = useState(0)

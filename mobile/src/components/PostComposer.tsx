@@ -9,6 +9,7 @@ import { Screen } from './Screen'
 import { ToastViewport } from './toast/ToastViewport'
 import { cx } from '../styles'
 import { colors } from '../theme'
+import { Icon } from './Icon'
 
 export const POST_IMAGE_MAX_BYTES = 5 * 1024 * 1024
 export type PhotoAsset = ImagePicker.ImagePickerAsset
@@ -68,12 +69,12 @@ export default function PostComposer({ initial, onClose, onPublished, onExpired 
     <Screen className="grow basis-0 bg-forest"><KeyboardAvoidingView className="grow basis-0" behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <View className="flex-row items-center gap-2 px-2 py-1.5">
         <Pressable accessibilityRole="button" accessibilityLabel="Fechar nova publicação" accessibilityState={{ disabled: busy }} disabled={busy} onPress={onClose} className="min-h-11 min-w-11 items-center justify-center">
-          <Text className="text-[22px] text-white">✕</Text>
+          <Icon name="x" size={22} color="#ffffff" />
         </Pressable>
         <View accessibilityLabel="Etapas da publicação" className="grow basis-0 flex-row items-center justify-center gap-2 pr-13">
           <Pressable accessibilityRole="button" accessibilityLabel="Passo 1, Recorte concluído. Trocar foto" accessibilityState={{ disabled: busy }} disabled={busy} onPress={() => void changePhoto()} className="min-h-11 flex-row items-center gap-1.5">
             <Text className="text-[13px] font-semibold text-glass-muted">Recorte</Text>
-            <View className="h-5 w-5 items-center justify-center rounded-full bg-glass-accent"><Text className="text-[11px] font-bold text-forest">✓</Text></View>
+            <View className="h-5 w-5 items-center justify-center rounded-full bg-glass-accent"><Icon name="check" size={12} strokeWidth={3} color={colors.forest} /></View>
           </Pressable>
           <Text className="text-glass-muted">·</Text>
           <View accessible accessibilityLabel="Passo 2 de 2, Legenda" className="flex-row items-center gap-1.5">

@@ -249,7 +249,7 @@ export default function ProfileScreen({ user, onUser, onLogout, onExpired, onNew
     <ProfileTopBar condensed={condensed} username={user.username} trailingWidth={onOpenNotifications ? 96 : 52}
       trailing={<>
         {onOpenNotifications ? <NotificationBell tone="cover" condensed={condensed} count={notificationCount} onOpen={onOpenNotifications} /> : null}
-        <TopBarButton label="Menu" glyph="☰" condensed={condensed} onPress={() => open('menu')} />
+        <TopBarButton label="Menu" icon="menu" condensed={condensed} onPress={() => open('menu')} />
       </>} />
 
     {sheet === 'edit' ? <Sheet title="Editar perfil" onClose={() => open(null)} onBack={fromMenu ? () => open('menu') : undefined}>

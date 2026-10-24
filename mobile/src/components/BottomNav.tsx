@@ -1,4 +1,5 @@
 import { Pressable, Text, View } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { tabItems } from '../navigation/routes'
 import type { TabScreen } from '../navigation/routes'
 import { useResolvedTheme, useThemeColors } from '../hooks/useTheme'
@@ -19,11 +20,14 @@ export const playAttentionLabel = (label: string) => `${label}, há uma busca, p
  * `playAttention` (o `attention` de `GET /me/play`: busca, proposta, oferta ou amistoso combinando) acende o ponto menta no
  * canto do botão JOGAR, como o ponto da web (contrato 0002, seção 9.3). O aviso vai no nome acessível do botão ("JOGAR, há
  * uma busca, proposta ou partida em andamento") e o ponto, decorativo, fica oculto para leitores de tela.
+ *
+ * A barra ocupa também a área segura da base (o indicador de início do iPhone), com os itens acima dela.
  */
 export default function BottomNav({ active, onGo, playAttention = false }: { active: TabScreen; onGo: (screen: TabScreen) => void; playAttention?: boolean }) {
   const colors = useThemeColors()
   const ring = useResolvedTheme() === 'dark' ? '#f4de9a55' : colors.line
-  return <View accessibilityRole="tablist" style={{ height: BAR_HEIGHT, flexDirection: 'row' }}>
+  const { bottom: inset } = useSafeAreaInsets()
+  return <View accessibilityRole="tablist" style={{ height: BAR_HEIGHT + inset, flexDirection: 'row' }}>
     <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, bottom: 0, top: PLAY_RISE, borderTopWidth: 1, borderTopColor: colors.line, backgroundColor: colors.nav }} />
     {tabItems.map(item => {
       const on = active === item.screen
@@ -31,7 +35,7 @@ export default function BottomNav({ active, onGo, playAttention = false }: { act
       const tint = on ? colors.ink : colors['ink-muted']
       return <Pressable key={item.screen} accessibilityRole="tab" accessibilityLabel={play && playAttention ? playAttentionLabel(item.label) : item.label} accessibilityState={{ selected: on }}
         onPress={() => onGo(item.screen)}
-        style={{ flex: 1, alignItems: 'center', justifyContent: 'flex-end', gap: 4, paddingBottom: 8 }}>
+        style={{ flex: 1, alignItems: 'center', justifyContent: 'flex-end', gap: 4, paddingBottom: 8 + inset }}>
         {play ? <View style={{ width: 55, height: 55, borderRadius: 28, borderWidth: 4, borderColor: colors.app, backgroundColor: colors.brand, alignItems: 'center', justifyContent: 'center', elevation: 4 }}>
           <ArenaMark compact width={26} height={28} color={colors['on-brand']} />
           {playAttention ? <View testID="play-attention" accessible={false} importantForAccessibility="no-hide-descendants"

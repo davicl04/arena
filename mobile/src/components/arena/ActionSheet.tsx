@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, View } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { colors } from '../../theme'
 import { useThemeColors } from '../../hooks/useTheme'
 import { Icon } from '../Icon'
@@ -13,13 +14,14 @@ import { ToastViewport } from '../toast/ToastViewport'
  */
 export function ActionSheet({ title, onClose, dark = false, locked = false, children }: { title: string; onClose: () => void; dark?: boolean; locked?: boolean; children: ReactNode }) {
   const theme = useThemeColors()
+  const { bottom: inset } = useSafeAreaInsets()
   const close = () => { if (!locked) onClose() }
   const ink = dark ? '#ffffff' : theme.heading
   return <Modal visible transparent animationType="slide" onRequestClose={close}>
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: colors.scrim }}>
         <Pressable accessibilityRole="button" accessibilityLabel="Fechar folha" onPress={close} style={{ flex: 1 }} />
-        <View accessibilityViewIsModal style={{ maxHeight: '88%', borderTopLeftRadius: 20, borderTopRightRadius: 20, backgroundColor: dark ? colors.forest : theme.sheet, paddingHorizontal: 20, paddingTop: 14, paddingBottom: 24 }}>
+        <View accessibilityViewIsModal style={{ maxHeight: '88%', borderTopLeftRadius: 20, borderTopRightRadius: 20, backgroundColor: dark ? colors.forest : theme.sheet, paddingHorizontal: 20, paddingTop: 14, paddingBottom: 24 + inset }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
             <Text accessibilityRole="header" style={{ flex: 1, color: ink, fontSize: 18, fontWeight: '800' }}>{title}</Text>
             <Pressable accessibilityRole="button" accessibilityLabel="Fechar" accessibilityState={{ disabled: locked }} disabled={locked} onPress={close}

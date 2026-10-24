@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Pressable, ScrollView, Text, View } from 'react-native'
+import type { ScrollViewInstance } from 'react-native'
 import { ApiError, sports } from '../api/client'
 import { getOrganizerEvent, PUBLISHED_STATES, submitEvent, withdrawEvent } from '../api/events'
 import type { OrganizerEventDetail } from '../api/events'
@@ -107,7 +108,7 @@ export default function EventManageScreen({ params, navigation, onExpired }: Scr
   const [open, setOpen] = useState<Record<SectionKey, boolean>>({ entries: false, data: false, pix: false })
   const [sheet, setSheet] = useState<SheetKind>(null)
   const action = useSubmit(onExpired)
-  const scroll = useRef<ScrollView>(null)
+  const scroll = useRef<ScrollViewInstance>(null)
   const entriesY = useRef(0)
   const detail = resource.data
 

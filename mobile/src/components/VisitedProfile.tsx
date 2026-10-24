@@ -57,8 +57,8 @@ export default function VisitedProfile({ profile, user, token, mutualText, modal
       </> : <Text className={cx(tw.body, 'p-5.5')}>Esta conta é privada. Solicite acesso para ver as publicações; as listas de seguidores também ficam fechadas até lá.</Text>}
     </ScrollView>
     <ProfileTopBar condensed={condensed} username={profile.username}
-      leading={<TopBarButton label="Voltar" glyph="‹" condensed={condensed} onPress={onClose} />}
-      trailing={own ? undefined : <TopBarButton label="Ações da conta" glyph="•••" condensed={condensed} onPress={() => setActions(true)} />} />
+      leading={<TopBarButton label="Voltar" icon="arrow-left" condensed={condensed} onPress={onClose} />}
+      trailing={own ? undefined : <TopBarButton label="Ações da conta" icon="ellipsis" condensed={condensed} onPress={() => setActions(true)} />} />
     {actions ? <AccountActions person={profile} token={token} onClose={() => setActions(false)} onBlocked={onBlocked} onExpired={onExpired} /> : null}
   </>
   if (!modal) return <View className="grow basis-0 bg-app">{content}</View>

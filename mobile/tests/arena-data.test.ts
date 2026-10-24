@@ -135,6 +135,20 @@ describe('formatação em pt-BR', () => {
     expect(parseIso('')).toBeNull()
   })
 
+  it('não depende do formatToParts, que no Hermes do iOS troca os tipos das partes ("qua, de · 13:00")', () => {
+    // O que o Hermes devolveu no iPhone: o literal " de " com o tipo do dia e o "." final com o tipo do mês.
+    const spy = vi.spyOn(Intl.DateTimeFormat.prototype, 'formatToParts').mockReturnValue([
+      { type: 'weekday', value: 'qua.' }, { type: 'weekday', value: ', ' }, { type: 'day', value: '15' }, { type: 'day', value: ' de ' },
+      { type: 'month', value: 'out' }, { type: 'month', value: '.' },
+    ])
+    try {
+      expect(formatDeadline(localIso(2026, 9, 14, 13, 0), now)).toBe('qua, 14 out · 13:00')
+      expect(eventDateParts(localIso(2026, 9, 25, 20, 0), now)).toMatchObject({ day: '25', month: 'out', weekday: 'dom' })
+    } finally {
+      spy.mockRestore()
+    }
+  })
+
   it('separa as partes da data do cartaz', () => {
     expect(eventDateParts(localIso(2026, 9, 25, 20, 0), now)).toEqual({ day: '25', month: 'out', weekday: 'dom', label: 'domingo, 25 de outubro' })
     expect(eventDateParts(localIso(2027, 6, 12), now)?.label).toBe('segunda-feira, 12 de julho de 2027')

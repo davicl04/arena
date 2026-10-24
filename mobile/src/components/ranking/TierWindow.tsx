@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Text, View } from 'react-native'
+import type { HostInstance } from 'react-native'
 import type { MyRankingOverviewLine, RankingCategory, RankingKey, RankingRow, TierCounts } from '../../api/results'
 import type { TierKey } from '../../data/arena'
 import { ActionButton, TextAction } from '../arena/controls'
@@ -37,7 +38,7 @@ export function TierWindow({ category, ranking, tier, counts, line, window, noun
   onExpired: () => void
   onOpenUser?: (userId: number) => void
   /** Rola a tela até a linha do titular depois de expandir. */
-  reveal?: (node: View | null) => void
+  reveal?: (node: HostInstance | null) => void
 }) {
   const [expanded, setExpanded] = useState(false)
   const at = line?.tier_position ?? null
@@ -47,7 +48,7 @@ export function TierWindow({ category, ranking, tier, counts, line, window, noun
     enabled: (expanded || !windowed) && total > 0,
     pageSize: expanded ? RANKING_PAGE_SIZE : PREVIEW_PAGE_SIZE,
   })
-  const mineRef = useRef<View>(null)
+  const mineRef = useRef<HostInstance>(null)
   const loaded = expanded && !list.loading && list.items.length > 0
   useEffect(() => { if (loaded && reveal) reveal(mineRef.current) }, [loaded, reveal])
 

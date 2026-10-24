@@ -10,14 +10,21 @@ import { TierEmblem } from '../arena/TierEmblem'
 /** "62%" (arredondado) ou "—" sem partidas. */
 export const winRateText = (stats: ProfileStats | null) => stats?.win_rate == null ? '—' : `${Math.round(stats.win_rate)}%`
 
+/**
+ * Bloco como o da web: o valor centralizado em cima e o rótulo pequeno embaixo. Nome de elo (com o brasão) em 14 e uma
+ * linha, que encolhe em telas estreitas em vez de partir a palavra; "Em classificação" em 12, podendo ir a duas linhas.
+ */
 function Block({ label, value, children }: { label: string; value: string; children?: ReactNode }) {
   const colors = useThemeColors()
-  return <View accessible accessibilityLabel={`${label}: ${value}`} style={{ flex: 1, minWidth: 0, borderRadius: 12, backgroundColor: colors['brand-soft'], padding: 12, gap: 4 }}>
-    <Text style={{ color: colors['ink-muted'], fontSize: 10.5, fontWeight: '700' }}>{label}</Text>
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 24 }}>
+  const words = value.includes(' ')
+  const size = children ? 14 : words ? 12 : 18
+  return <View accessible accessibilityLabel={`${label}: ${value}`} style={{ flex: 1, minWidth: 0, borderRadius: 12, backgroundColor: colors['brand-soft'], paddingHorizontal: 8, paddingVertical: 13, alignItems: 'center', gap: 3 }}>
+    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, minHeight: 22, maxWidth: '100%' }}>
       {children}
-      <Text numberOfLines={2} style={{ flexShrink: 1, color: colors.ink, fontSize: value.length > 6 ? 13 : 20, fontWeight: '800' }}>{value}</Text>
+      <Text numberOfLines={words ? 2 : 1} adjustsFontSizeToFit={!words} minimumFontScale={0.7}
+        style={{ flexShrink: 1, color: colors.ink, fontSize: size, fontWeight: '800', textAlign: 'center' }}>{value}</Text>
     </View>
+    <Text style={{ color: colors['ink-muted'], fontSize: 10, fontWeight: '600', textAlign: 'center' }}>{label}</Text>
   </View>
 }
 

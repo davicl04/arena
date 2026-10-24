@@ -6,6 +6,7 @@ import { usePagedList } from '../hooks/usePagedList'
 import { reportActionError } from '../hooks/useSubmit'
 import { cx } from '../styles'
 import { colors } from '../theme'
+import { Icon } from './Icon'
 import { LoadError } from './arena/LoadError'
 import GlassOverlay from './GlassOverlay'
 import ReportForm from './ReportForm'
@@ -57,7 +58,7 @@ export default function PostComments({ post, viewerId, token, onClose, onCountCh
       className="min-h-11 grow basis-0 rounded-[22px] border border-glass-line bg-glass-field px-3.5 text-white" />
     <Pressable accessibilityRole="button" accessibilityLabel="Enviar comentário" accessibilityState={{ disabled: !canSend, busy: sending }} disabled={!canSend} onPress={() => void send()}
       className={cx('size-11 items-center justify-center rounded-[22px] bg-glass-accent', !canSend && 'opacity-45')}>
-      <Text className="text-[18px] text-glass-ink">➤</Text>
+      <Icon name="send-horizontal" size={18} color={colors['glass-ink']} />
     </Pressable>
   </View>
   return <GlassOverlay title={`Comentários (${post.comment_count})`} onClose={onClose} closeLabel="Fechar comentários" footer={composer}>

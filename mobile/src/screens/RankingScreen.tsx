@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { ScrollView, Text, View } from 'react-native'
+import type { HostInstance, ScrollViewInstance } from 'react-native'
 import type { Position, Profile, Sport } from '../api/client'
 import type { MyRankingOverviewLine, RankingOverview } from '../api/results'
 import { ActionButton, TextAction } from '../components/arena/controls'
@@ -46,7 +47,7 @@ type Chosen = Omit<CategoryChoice, 'position'> & { position: Position | null }
 function RankingBody({ user, navigation, params, onExpired, available, profilePosition, reveal }: Pick<ScreenProps<'ranking'>, 'user' | 'navigation' | 'params' | 'onExpired'> & {
   available: Sport[]
   profilePosition: Position | null
-  reveal: (node: View | null) => void
+  reveal: (node: HostInstance | null) => void
 }) {
   const startSport = params?.sport && available.includes(params.sport) ? params.sport : available[0]
   const [chosen, setChosen] = useState<Chosen>({ sport: startSport, kind: 'time', format: 'society', position: null, distance: params?.distanceKm ?? 5 })
@@ -132,10 +133,10 @@ export default function RankingScreen({ user, navigation, params, onExpired, not
   const list: Profile[] = Array.isArray(profiles.data) ? profiles.data : []
   const available = activeSports(list)
   const profilePosition = list.find(profile => profile.sport === 'futebol')?.position ?? null
-  const scroll = useRef<ScrollView>(null)
-  const content = useRef<View>(null)
+  const scroll = useRef<ScrollViewInstance>(null)
+  const content = useRef<HostInstance>(null)
   // Depois de expandir o elo, leva a linha do titular à vista (a posição na tela é medida em relação ao conteúdo da rolagem).
-  const reveal = useCallback((node: View | null) => {
+  const reveal = useCallback((node: HostInstance | null) => {
     const base = content.current
     if (!node || !base || typeof node.measureLayout !== 'function') return
     node.measureLayout(base, (_x, y) => scroll.current?.scrollTo({ y: Math.max(0, y - 200), animated: true }), () => undefined)

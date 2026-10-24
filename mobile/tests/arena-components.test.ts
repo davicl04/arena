@@ -278,7 +278,7 @@ describe('PixBlock: texto selecionável e Compartilhar', () => {
   })
 
   it('Compartilhar chave Pix envia só a chave ao menu do aparelho e anuncia o resultado', async () => {
-    vi.mocked(Share.share).mockResolvedValue({ action: Share.sharedAction })
+    vi.mocked(Share.share).mockResolvedValue({ action: Share.sharedAction, activityType: undefined })
     const tree = await render(h(PixBlock, { pix }))
     await press(tree, 'Compartilhar chave Pix')
     expect(Share.share).toHaveBeenCalledWith({ message: 'copa@example.com' })
@@ -286,7 +286,7 @@ describe('PixBlock: texto selecionável e Compartilhar', () => {
   })
 
   it('Compartilhar Pix Copia e Cola envia só o código', async () => {
-    vi.mocked(Share.share).mockResolvedValue({ action: Share.sharedAction })
+    vi.mocked(Share.share).mockResolvedValue({ action: Share.sharedAction, activityType: undefined })
     const tree = await render(h(PixBlock, { pix }))
     await press(tree, 'Compartilhar Pix Copia e Cola')
     expect(Share.share).toHaveBeenCalledWith({ message: pix.copyPaste })
@@ -295,7 +295,7 @@ describe('PixBlock: texto selecionável e Compartilhar', () => {
 
   it('fechar o menu não diz nada; uma falha manda selecionar e copiar à mão', async () => {
     const tree = await render(h(PixBlock, { pix }))
-    vi.mocked(Share.share).mockResolvedValue({ action: Share.dismissedAction })
+    vi.mocked(Share.share).mockResolvedValue({ action: Share.dismissedAction, activityType: undefined })
     await press(tree, 'Compartilhar chave Pix')
     expect(textOf(tree)).not.toContain('enviada')
     vi.mocked(Share.share).mockRejectedValue(new Error('indisponível'))

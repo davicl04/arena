@@ -9,6 +9,7 @@ import { ToastViewport } from './toast/ToastViewport'
 import { Button } from './ui'
 import { tw } from '../styles'
 import { useThemeColors } from '../hooks/useTheme'
+import { Icon } from './Icon'
 
 /**
  * Página "Publicações": feed vertical em tela cheia que abre no post tocado.
@@ -27,7 +28,7 @@ export default function PostViewer({ list, index, username, viewerId, token, onU
   return <Modal visible animationType="slide" onRequestClose={onClose}>
     <Screen className={tw.screen}><KeyboardAvoidingView className="grow basis-0" behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <View className="flex-row items-center gap-2 border-b border-line bg-surface px-2 py-1.5">
-        <Pressable accessibilityRole="button" accessibilityLabel="Voltar" onPress={onClose} className="min-h-11 min-w-11 items-center justify-center"><Text className="text-[24px] text-brand">‹</Text></Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel="Voltar" onPress={onClose} className="min-h-11 min-w-11 items-center justify-center"><Icon name="arrow-left" size={22} color={colors.brand} /></Pressable>
         <View className="grow basis-0">
           <Text numberOfLines={1} className="text-[11px] font-bold tracking-[1.5px] text-brand">@{username.toUpperCase()}</Text>
           <Text accessibilityRole="header" className="text-[18px] font-bold text-ink">Publicações</Text>

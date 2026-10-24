@@ -17,6 +17,9 @@ const icons = {
   moon: [{ d: 'M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401' }],
   monitor: [{ rect: [2, 3, 20, 14, 2] }, { d: 'M8 21h8' }, { d: 'M12 17v4' }],
   'arrow-left': [{ d: 'm12 19-7-7 7-7' }, { d: 'M19 12H5' }],
+  menu: [{ d: 'M4 5h16' }, { d: 'M4 12h16' }, { d: 'M4 19h16' }],
+  ellipsis: [{ circle: [12, 12, 1] }, { circle: [19, 12, 1] }, { circle: [5, 12, 1] }],
+  heart: [{ d: 'M2 9.5a5.5 5.5 0 0 1 9.591-3.676.56.56 0 0 0 .818 0A5.49 5.49 0 0 1 22 9.5c0 2.29-1.5 4-3 5.5l-5.492 5.313a2 2 0 0 1-3 .019L5 15c-1.5-1.5-3-3.2-3-5.5' }],
   'arrow-right': [{ d: 'M5 12h14' }, { d: 'm12 5 7 7-7 7' }],
   chevron: [{ d: 'm9 18 6-6-6-6' }],
   'chevron-down': [{ d: 'm6 9 6 6 6-6' }],
@@ -115,8 +118,9 @@ const icons = {
 
 export type IconName = keyof typeof icons
 
-export function Icon({ name, size = 20, color = '#343d39', strokeWidth = 2 }: { name: IconName; size?: number; color?: string; strokeWidth?: number }) {
-  return <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+/** `filled` preenche as formas com a cor do traço (o coração da curtida, como o `fill="currentColor"` da web). */
+export function Icon({ name, size = 20, color = '#343d39', strokeWidth = 2, filled = false }: { name: IconName; size?: number; color?: string; strokeWidth?: number; filled?: boolean }) {
+  return <Svg width={size} height={size} viewBox="0 0 24 24" fill={filled ? color : 'none'} stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
     {(icons[name] as Shape[]).map((shape, index) => 'd' in shape ? <Path key={index} d={shape.d} />
       : 'circle' in shape ? <Circle key={index} cx={shape.circle[0]} cy={shape.circle[1]} r={shape.circle[2]} />
       : <Rect key={index} x={shape.rect[0]} y={shape.rect[1]} width={shape.rect[2]} height={shape.rect[3]} rx={shape.rect[4]} />)}

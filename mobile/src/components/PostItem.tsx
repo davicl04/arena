@@ -7,7 +7,8 @@ import PostActions from './PostActions'
 import PostComments from './PostComments'
 import PostImage from './PostImage'
 import { Avatar } from './media'
-import { cx } from '../styles'
+import { colors } from '../theme'
+import { Icon } from './Icon'
 
 export type PostUpdate = (id: number, update: (post: Post) => Post) => void
 
@@ -57,13 +58,13 @@ export default function PostItem({ post, viewerId, token, onUpdate, onRemove, on
         <Pressable accessibilityRole="button" accessibilityLabel="Ações da publicação" accessibilityState={{ expanded: panel === 'actions' }} onPress={() => setPanel(panel === 'actions' ? null : 'actions')}
           className="min-h-11 min-w-11 items-center justify-center">
           <View className="h-8 w-8 items-center justify-center rounded-full border border-forest-line bg-glass-tag">
-            <Text className="text-[13px] font-extrabold text-white">•••</Text>
+            <Icon name="ellipsis" size={18} color="#ffffff" />
           </View>
         </Pressable>
       </View>
       <View className="absolute bottom-2.5 left-2.5 flex-row gap-2">
         <Pressable accessibilityRole="togglebutton" accessibilityLabel={`Curtir, ${post.like_count} ${post.like_count === 1 ? 'curtida' : 'curtidas'}`} accessibilityState={{ checked: post.liked_by_me, disabled: liking }} disabled={liking} onPress={() => void toggleLike()} className={pill}>
-          <Text className={cx('text-[16px]', post.liked_by_me ? 'text-like' : 'text-white')}>{post.liked_by_me ? '♥' : '♡'}</Text>
+          <Icon name="heart" size={17} filled={post.liked_by_me} color={post.liked_by_me ? colors.like : '#ffffff'} />
           <Text className="font-bold text-white">{post.like_count}</Text>
         </Pressable>
         <Pressable accessibilityRole="button" accessibilityLabel={`Comentários, ${post.comment_count}`} accessibilityState={{ expanded: panel === 'comments' }} onPress={() => setPanel(panel === 'comments' ? null : 'comments')} className={pill}>

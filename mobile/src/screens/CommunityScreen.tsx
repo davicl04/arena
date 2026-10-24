@@ -146,7 +146,7 @@ export default function CommunityScreen({ user, onExpired, composeOnOpen = false
       <Button secondary title="Carregar mais publicações" onPress={() => void feed.loadMore()} />
     </View> : null}
     {!feed.hasMore ? <FeedEnd onPublish={compose} /> : null}
-  </View> : null
+  </View> : undefined
   // Com a área medida, barra e feed sobem juntos a altura do título; no feed, o quadro ganha essa altura para não abrir vão embaixo.
   const frame = height ? { height: height + (onFeed ? TITLE_ROW_HEIGHT : 0) } : { flexGrow: 1 }
 

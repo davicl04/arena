@@ -24,7 +24,7 @@ export function FollowRequestList({ items, busy, onResolve }: { items: FollowReq
       </Pressable>
       <Pressable accessibilityRole="button" accessibilityLabel={`Recusar solicitação de ${person.name}`} accessibilityState={{ disabled: busy }} disabled={busy} onPress={() => onResolve(person, false)}
         style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 22, borderWidth: 1, borderColor: colors['line-strong'], opacity: busy ? 0.5 : 1 }}>
-        <Text style={{ color: colors.ink, fontSize: 16, fontWeight: '700' }}>✕</Text>
+        <Icon name="x" size={18} color={colors.ink} />
       </Pressable>
     </View>)}
   </View>

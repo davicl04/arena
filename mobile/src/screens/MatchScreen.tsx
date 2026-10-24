@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ScrollView, Text, View } from 'react-native'
-import type { TextInput } from 'react-native'
+import type { TextInputInstance } from 'react-native'
 import { ApiError } from '../api/client'
 import {
   acceptTerms, cancelMatch, contestWalkover, getMatch, proposeTerms, registerWalkover, removeGuest, setBooking, updateSlots, withdrawWalkover,
@@ -63,7 +63,7 @@ export default function MatchScreen({ user, params, navigation, onExpired, refre
   const { setError } = action
   const [sheet, setSheet] = useState<SheetKind | null>(null)
   const [reporting, setReporting] = useState<MatchMessageOut | null>(null)
-  const composer = useRef<TextInput | null>(null)
+  const composer = useRef<TextInputInstance | null>(null)
   const latest = useRef<MatchDetail | null>(null)
   useEffect(() => { latest.current = detail }, [detail])
 

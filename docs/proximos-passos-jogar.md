@@ -141,7 +141,7 @@ Tomadas ao iniciar a implementação da etapa 1; os contratos estão em [0003-ti
 | Prova de corrida **paga** e passagem do dia em Brasília na web | Antes de abrir provas pagas a atletas reais (a verificação cobriu só prova gratuita) |
 | `expo-clipboard`, `expo-file-system` e `expo-sharing` (recusadas: copiar Pix e link, abrir e salvar PDF no app) | Se o usuário rever a recusa |
 | Validação do Expo em aparelho, com leitor de tela e API real; paridade visual com a web | Antes de declarar o Expo pronto para uso |
-| `expo@57.0.27` para `~57.0.28` e os alertas do `npm audit` do mobile | Antes de publicar ou assinar builds |
+| Alertas do `npm audit` do mobile (11 no SDK 58: 6 moderados e 5 altos) | Antes de publicar ou assinar builds |
 
 ## Referências
 

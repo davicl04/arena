@@ -6,7 +6,9 @@
 
 const brl = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
 const brlWhole = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 0, maximumFractionDigits: 0 })
-const shortDate = new Intl.DateTimeFormat('pt-BR', { weekday: 'short', day: 'numeric', month: 'short' })
+// Um campo por formatador: o `formatToParts` do Hermes no iOS troca os tipos das partes (o dia vinha " de " e o mês vazio).
+const shortWeekday = new Intl.DateTimeFormat('pt-BR', { weekday: 'short' })
+const shortMonth = new Intl.DateTimeFormat('pt-BR', { month: 'short' })
 const clock = new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
 const longDate = new Intl.DateTimeFormat('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })
 
@@ -40,14 +42,9 @@ export function parseIso(iso: string | null | undefined): Date | null {
 /** Abreviações do `Intl` sem o ponto final ("seg." → "seg", "out." → "out"). */
 const bare = (value = '') => value.replace(/\.$/, '').toLowerCase()
 
-function partsOf(format: Intl.DateTimeFormat, date: Date) {
-  return Object.fromEntries(format.formatToParts(date).map(part => [part.type, part.value])) as Partial<Record<Intl.DateTimeFormatPartTypes, string>>
-}
-
 /** "sáb, 25 out" no fuso local; o ano aparece quando não é o de `now`. */
 export function formatShortDate(date: Date, now: Date = new Date()): string {
-  const part = partsOf(shortDate, date)
-  const text = `${bare(part.weekday)}, ${part.day} ${bare(part.month)}`
+  const text = `${bare(shortWeekday.format(date))}, ${date.getDate()} ${bare(shortMonth.format(date))}`
   return date.getFullYear() === now.getFullYear() ? text : `${text} ${date.getFullYear()}`
 }
 
@@ -75,12 +72,11 @@ export interface EventDateParts {
 export function eventDateParts(iso: string | null | undefined, now: Date = new Date()): EventDateParts | null {
   const date = parseIso(iso)
   if (!date) return null
-  const part = partsOf(shortDate, date)
   const label = longDate.format(date)
   return {
     day: String(date.getDate()),
-    month: bare(part.month),
-    weekday: bare(part.weekday),
+    month: bare(shortMonth.format(date)),
+    weekday: bare(shortWeekday.format(date)),
     label: date.getFullYear() === now.getFullYear() ? label : `${label} de ${date.getFullYear()}`,
   }
 }

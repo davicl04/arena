@@ -2,7 +2,10 @@ import { useCallback, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Pressable, Text, View } from 'react-native'
 import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native'
+import { useThemeColors } from '../hooks/useTheme'
 import { cx } from '../styles'
+import { Icon } from './Icon'
+import type { IconName } from './Icon'
 
 // Mesma altura da classe h-14 da barra.
 export const TOP_BAR_HEIGHT = 56
@@ -22,10 +25,11 @@ export function useCondensedTopBar(coverHeight: number) {
 }
 
 /** Botão redondo da barra: vidro claro sobre a capa, sem fundo quando a barra está condensada. */
-export function TopBarButton({ label, glyph, onPress, condensed }: { label: string; glyph: string; onPress: () => void; condensed: boolean }) {
+export function TopBarButton({ label, icon, onPress, condensed }: { label: string; icon: IconName; onPress: () => void; condensed: boolean }) {
+  const colors = useThemeColors()
   return <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={onPress}
     className={cx('min-h-11 min-w-11 items-center justify-center rounded-[22px]', condensed ? 'bg-transparent' : 'bg-glass-light')}>
-    <Text className={cx(condensed ? 'text-ink' : 'text-[#343d39]', glyph === '‹' ? 'text-[26px]' : 'text-[20px]', glyph === '•••' ? 'font-extrabold' : 'font-normal')}>{glyph}</Text>
+    <Icon name={icon} size={22} color={condensed ? colors.ink : '#343d39'} />
   </Pressable>
 }
 
