@@ -1,5 +1,19 @@
 # Situação da fundação do Arena
 
+## Roteiro: seções 3.3 e 3.4 preenchidas — 23 de outubro de 2026
+
+Atualizadas apenas as seções 3.3 (Interfaces com usuário) e 3.4 (Banco de dados) de `docs/roteiro-projeto.docx`, sem mudança de código, contrato ou esquema.
+
+- **3.3:** a tabela descreve o estado atual da web e do Expo, as tecnologias de interface, as telas implementadas, a navegação, a acessibilidade e as evidências. Inclui 12 prints da web (390 × 844 px, um no tema escuro) capturados com Playwright. O quadro "Durante a apresentação" foi mantido.
+- **3.4:** registra o SGBD, a contagem do catálogo (40 tabelas, 486 colunas, 126 FKs, 17 UNIQUE, 167 CHECK e 164 índices), as migrações 0001 a 0014, os locais dos scripts, a organização por domínio, os dados iniciais (6 municípios na 0001 e 8 cortes de elo na 0005, além do seed opcional) e os testes com banco.
+- **Diagramas do banco:** gerados por engenharia reversa do catálogo do banco local `arena`, na head 0014, no estilo do MySQL Workbench. São uma visão geral e cinco diagramas por domínio, versionados em `docs/diagramas/banco-*.png` e incluídos na 3.4. O DOT foi renderizado com Graphviz (WASM) e Playwright; os scripts ficam em `.local/roteiro/` e não são versionados.
+
+**Ambiente dos prints:** banco `arena_docs`, criado como cópia do `arena_video` e migrado de 0013 para 0014. A API rodou na porta 8030 e a web na 5195. Ao final, os servidores foram encerrados e o banco temporário removido; o `arena_video` e o `arena` não foram alterados. Os dados vieram dos fluxos da API no seed do vídeo, que reduziu os cortes dos elos e inseriu quadras por SQL (ver a seção de 14/10). O roteiro informa essa ressalva.
+
+**Verificações:** `alembic current` (0014) e `alembic check` sem diferenças no banco local. O .docx passou no validador OOXML, foi aberto pelo Word e exportado para PDF (30 páginas), e as páginas das seções 3.3 e 3.4 foram conferidas visualmente. Prints e PDF ficam em `artifacts/roteiro/`, fora do versionamento.
+
+**Limitações e pendências:** não houve prints do Expo, porque o projeto não tem `react-native-web`, e o Expo continua sem validação em aparelho. A versão desktop (1440 px) mostra a mesma interface móvel centralizada e não entrou no roteiro. Nos diagramas detalhados, o texto fica pequeno no papel; os PNGs em alta resolução permitem ampliar. O roteiro continua desatualizado fora da 3.3 e da 3.4: nota de estado de 9/10, 2.2.4, 3.1, 3.2 (números de testes e cobertura), 4.x e 5.x. Esta entrega não declara o MVP completo.
+
 ## Correções da revisão da branch e preparação do MR — 14 de outubro de 2026
 
 Corrigidos os cinco achados da revisão de `feat/notifications-ranking` contra `origin/main`:
