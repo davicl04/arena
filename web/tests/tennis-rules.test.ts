@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { TennisSetInput } from '../src/api/results'
-import { localPreview, outcomeFor, pointsPill, scoreText, statSummary, walkoverScoreText } from '../src/components/results/format'
+import { localPreview, outcomeFor, pointsPill, scoreText, setsCount, statSummary, walkoverScoreText } from '../src/components/results/format'
 import { draftToInput, emptySets, needsTiebreak, reportToDraft, setWinner, showsThirdSet, validateTennisSets } from '../src/components/results/tennis'
 import { lineup, score, stat, tiago } from './results-fixtures'
 
@@ -97,6 +97,12 @@ describe('textos do resultado', () => {
     expect(scoreText('tenis', score(2, 0), 'b')).toBe('0-2')
     expect(walkoverScoreText('futebol')).toBe('3 × 0')
     expect(walkoverScoreText('tenis')).toBe('6-0 6-0')
+  })
+
+  it('conta os sets com a concordância certa (1 set, 2 sets)', () => {
+    expect(setsCount(0)).toBe('0 sets')
+    expect(setsCount(1)).toBe('1 set')
+    expect(setsCount(2)).toBe('2 sets')
   })
 
   it('formata a pílula de pontos e o resumo do elenco', () => {

@@ -100,6 +100,9 @@ describe('Criar evento (V4): uma pergunta por vez', () => {
 
     // Passo 3: vagas (contador) e elos aceitos.
     expect(question(tree)).toBe('Quantas vagas e quem pode entrar?')
+    // Aberto a todos (padrão): a nota explica a regra sem o código interno da especificação.
+    expect(textOf(tree)).toContain('Quem ainda está em classificação só se inscreve em evento aberto a todos.')
+    expect(textOf(tree)).not.toMatch(/\((RN|HU)\d+\)/)
     await next(tree)
     expect(textOf(tree)).toContain('Informe as vagas.')
     for (let n = 0; n < 3; n += 1) await press(tree, 'Mais vagas')

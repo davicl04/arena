@@ -63,7 +63,7 @@ export function ResultStatus({ match, result, onCorrect, onChat, walkoverActions
         <StatusCard tone="aguardando" title="Aguardando o placar" deadline={result.deadline} windowStart={match.starts_at}>
           {informed.length
             ? <>{informed[0]} já informou o placar. Fecha <b>{fecha}</b>.</>
-            : <>Os representantes informam o placar até <b>{fecha}</b>.</>}
+            : <>{match.sport === 'tenis' ? 'Os dois tenistas' : 'Os representantes'} informam o placar até <b>{fecha}</b>.</>}
         </StatusCard>
       )
     }

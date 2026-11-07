@@ -183,9 +183,21 @@ describe('Stepper: o contador acessível do placar e do tempo', () => {
     })
     expect(stepper(tree).props.accessibilityActions).toEqual([{ name: 'increment', label: 'Aumentar' }, { name: 'decrement', label: 'Diminuir' }])
     expect(stepperActions.map(item => item.name)).toEqual(['increment', 'decrement'])
-    expect(textOf(tree)).toBe('2')
+    expect(byId(tree, 'stepper-value')[0].props).toMatchObject({ value: '2', keyboardType: 'number-pad', selectTextOnFocus: true, editable: true })
     // Os botões são só do toque: o leitor de tela ajusta pelas ações do elemento.
     expect(byId(tree, 'stepper-plus')[0].props).toMatchObject({ accessible: false, importantForAccessibility: 'no' })
+  })
+
+  it('aceita digitar o número, preso entre o mínimo e o máximo', async () => {
+    const onChange = vi.fn()
+    const tree = await render(h(Stepper, { value: 0, onChange, label: 'Games seus no set 1', max: 7 }))
+    const input = byId(tree, 'stepper-value')[0]
+    await act(async () => { input.props.onChangeText('6') })
+    await act(async () => { input.props.onChangeText('09') })
+    await act(async () => { input.props.onChangeText('') })
+    expect(onChange.mock.calls).toEqual([[6], [7]])
+    const off = await render(h(Stepper, { value: 1, onChange: vi.fn(), label: 'Gols', disabled: true }))
+    expect(byId(off, 'stepper-value')[0].props.editable).toBe(false)
   })
 
   it('os botões e as ações de acessibilidade mudam o valor de um em um', async () => {

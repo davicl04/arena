@@ -227,7 +227,7 @@ function FriendlyConditions({ detail, busy, error, onPropose, onAccept, onBookin
         {'Continua valendo: '}<Text style={{ fontWeight: '800' }}>{whenText(current.starts_at)}</Text>{` em ${current.court.name}, até os dois lados aceitarem a nova.`}
       </Text> : null}
     </> : current ? <TermsRows detail={detail} terms={current} booked={detail.booking ? booked : null} />
-      : !closed ? <Text style={{ color: muted, fontSize: 12, lineHeight: 18 }}>Os representantes combinam dia, horário e quadra. Quem propõe já aceita; o outro lado aceita ou propõe outra.</Text> : null}
+      : !closed ? <Text style={{ color: muted, fontSize: 12, lineHeight: 18 }}>{detail.sport === 'tenis' ? 'Os dois tenistas' : 'Os representantes'} combinam dia, horário e quadra. Quem propõe já aceita; o outro lado aceita ou propõe outra.</Text> : null}
 
     {permissions.accept_terms && pending ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
       {permissions.propose_terms ? <ActionButton grow tone="outline" title="Propor outra" disabled={busy} onPress={onPropose} /> : null}

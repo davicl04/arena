@@ -1,11 +1,12 @@
-import type { KeyboardEvent } from 'react'
+import type { ChangeEvent, KeyboardEvent } from 'react'
 import { Minus, Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 /*
- * Contador −/+ dos protótipos (R4): os botões atendem toque e leitor de tela; o número é um `spinbutton` focável, que
- * muda com as setas (cima/direita soma, baixo/esquerda subtrai), Page Up e Page Down (±5), Home e End. Os botões saem da
- * ordem de Tab para um placar de tênis não pedir 18 paradas.
+ * Contador −/+ dos protótipos (R4): os botões atendem toque e leitor de tela; o número é um `spinbutton` focável e
+ * digitável (teclado numérico no celular; o campo vem selecionado, e digitar troca o valor), que também muda com as setas
+ * (cima/direita soma, baixo/esquerda subtrai), Page Up e Page Down (±5), Home e End. Os botões saem da ordem de Tab para
+ * um placar de tênis não pedir 18 paradas, e digitar evita um toque por game.
  */
 const lowerFirst = (text: string) => text.charAt(0).toLowerCase() + text.slice(1)
 
@@ -28,7 +29,12 @@ export function Stepper({ value, onChange, label, min = 0, max = 99, size = 'md'
     const clamped = Math.min(max, Math.max(min, next))
     if (clamped !== value) onChange(clamped)
   }
-  function onKeyDown(event: KeyboardEvent<HTMLSpanElement>) {
+  /** Digitação: valem os últimos dígitos (tantos quanto os do máximo), com o valor preso entre `min` e `max`. */
+  function type(event: ChangeEvent<HTMLInputElement>) {
+    const digits = event.target.value.replace(/\D/g, '').slice(-String(max).length)
+    set(digits ? Number(digits) : min)
+  }
+  function onKeyDown(event: KeyboardEvent<HTMLInputElement>) {
     if (disabled) return
     const delta = ({ ArrowUp: 1, ArrowRight: 1, ArrowDown: -1, ArrowLeft: -1, PageUp: 5, PageDown: -5 } as Record<string, number>)[event.key]
     if (delta !== undefined) set(value + delta)
@@ -42,14 +48,13 @@ export function Stepper({ value, onChange, label, min = 0, max = 99, size = 'md'
       <button type="button" tabIndex={-1} className={cn(step, stepSize[size])} disabled={disabled || value <= min} aria-label={`Menos ${lowerFirst(label)}`} onClick={() => set(value - 1)}>
         <Minus size={14} aria-hidden="true" />
       </button>
-      <span
-        role="spinbutton" tabIndex={disabled ? -1 : 0} aria-label={label} aria-valuenow={value} aria-valuemin={min} aria-valuemax={max}
-        aria-disabled={disabled || undefined} onKeyDown={onKeyDown}
-        className={cn('min-w-[1.4ch] rounded-md text-center font-display leading-none font-extrabold text-ink tabular-nums outline-focus focus-visible:outline-3 focus-visible:outline-offset-2',
+      <input
+        role="spinbutton" inputMode="numeric" autoComplete="off" tabIndex={disabled ? -1 : 0} aria-label={label}
+        aria-valuenow={value} aria-valuemin={min} aria-valuemax={max} aria-disabled={disabled || undefined} readOnly={disabled}
+        value={String(value)} onChange={type} onKeyDown={onKeyDown} onFocus={event => event.currentTarget.select()}
+        className={cn('min-h-0 w-[2.2ch] rounded-md border-0 bg-transparent p-0 text-center font-display leading-none font-extrabold text-ink tabular-nums outline-focus read-only:bg-transparent read-only:text-ink focus-visible:outline-3 focus-visible:outline-offset-2',
           size === 'lg' ? 'text-[30px]' : 'text-[18px]')}
-      >
-        {value}
-      </span>
+      />
       <button type="button" tabIndex={-1} className={cn(step, stepSize[size])} disabled={disabled || value >= max} aria-label={`Mais ${lowerFirst(label)}`} onClick={() => set(value + 1)}>
         <Plus size={14} aria-hidden="true" />
       </button>

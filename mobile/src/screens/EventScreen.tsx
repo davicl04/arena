@@ -21,6 +21,7 @@ import { placeText } from '../components/events/eventText'
 import { Icon } from '../components/Icon'
 import { toast } from '../components/toast/toastStore'
 import { eventFormatParts } from '../data/arena'
+import type { EntryState } from '../data/arena'
 import { useResource } from '../hooks/useResource'
 import { isStale, useSubmit } from '../hooks/useSubmit'
 import type { ScreenProps } from '../navigation/screens'
@@ -33,6 +34,10 @@ type SheetKind = 'enter' | 'info' | 'receipt' | 'confirm-refund' | 'contest' | '
 const BADGE_STATES = ['em_andamento', 'encerrado', 'cancelado'] as const
 /** Intervalo em que a tela confere se a reserva venceu enquanto está aberta. */
 const EXPIRY_CHECK_MS = 30_000
+/** Enquanto a inscrição espera o organizador ou a administração, a tela a relê neste intervalo. */
+export const ENTRY_POLL_MS = 15_000
+/** Estados em que a próxima mudança vem de outra pessoa: comprovante em análise e devolução a enviar ou contestada. */
+const WAITING_STATES: readonly EntryState[] = ['em_analise', 'devolucao_pendente', 'devolucao_contestada']
 
 function Banner({ icon, title, tone, children }: { icon: 'alert' | 'info' | 'lock' | 'trophy'; title: string; tone: 'danger' | 'neutral'; children: string }) {
   const colors = useThemeColors()
@@ -109,6 +114,14 @@ export default function EventScreen({ params, navigation, onExpired }: ScreenPro
     }, EXPIRY_CHECK_MS)
     return () => clearInterval(id)
   }, [waitsReceipt, reservedUntil, refresh])
+
+  // A decisão do organizador (ou da administração) chega sem puxar a tela: relê enquanto a inscrição espera por ela.
+  const waitsOthers = entry ? WAITING_STATES.includes(entry.state) : false
+  useEffect(() => {
+    if (!waitsOthers) return
+    const id = setInterval(() => void refresh(), ENTRY_POLL_MS)
+    return () => clearInterval(id)
+  }, [waitsOthers, refresh])
 
   function open(kind: SheetKind) {
     setError('')

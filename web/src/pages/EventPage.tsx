@@ -30,6 +30,7 @@ import { EventBracketPanel } from "../components/events/EventBracketPanel";
 import { PaymentInfoSheet } from "../components/events/PaymentInfoSheet";
 import { entryCta, isLocked } from "../components/events/entryCta";
 import { eventFormatParts } from "../data/arena";
+import type { EntryState } from "../data/arena";
 import { useResource } from "../hooks/useResource";
 import { useSubmit } from "../hooks/useSubmit";
 import { Button } from "@/components/ui/button";
@@ -42,6 +43,10 @@ import { formatDeadline, parseIso } from "@/utils/format";
 type Section = "info" | "tabela" | "percurso" | "inscritos";
 type SheetKind = "enter" | "info" | "receipt" | "confirm-refund" | "contest" | "cancel" | "contact";
 const DAY = 86_400_000;
+/** Enquanto a inscrição espera o organizador ou a administração, o detalhe a relê neste intervalo (e ao voltar à aba). */
+export const ENTRY_POLL_MS = 15_000;
+/** Estados em que a próxima mudança vem de outra pessoa: comprovante em análise e devolução a enviar ou contestada. */
+const WAITING_STATES: readonly EntryState[] = ["em_analise", "devolucao_pendente", "devolucao_contestada"];
 /** Estados do evento em que o cartaz do detalhe mostra o selo (aberto não precisa de selo). */
 const BADGE_STATES = ["em_andamento", "encerrado", "cancelado"] as const;
 
@@ -104,6 +109,21 @@ export default function EventPage({ eventId, initialSection, onSport, onTeams, o
     const id = window.setTimeout(() => void refresh(), left + 1500);
     return () => window.clearTimeout(id);
   }, [entry, refresh]);
+
+  // A decisão do organizador (ou da administração) chega sem recarregar: relê enquanto a inscrição espera por ela.
+  const waiting = entry !== null && WAITING_STATES.includes(entry.state);
+  useEffect(() => {
+    if (!waiting) return;
+    const tick = () => {
+      if (!document.hidden) void refresh();
+    };
+    const id = window.setInterval(tick, ENTRY_POLL_MS);
+    document.addEventListener("visibilitychange", tick);
+    return () => {
+      window.clearInterval(id);
+      document.removeEventListener("visibilitychange", tick);
+    };
+  }, [waiting, refresh]);
 
   function open(kind: SheetKind) {
     setError("");

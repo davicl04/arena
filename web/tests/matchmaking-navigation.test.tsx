@@ -5,7 +5,7 @@ import userEvent from '@testing-library/user-event'
 import type { User } from '../src/api/client'
 import ArenaPage from '../src/pages/ArenaPage'
 import { apiError, mockApi, reply } from './teams-fixtures'
-import { brasilia, football, matchCard, playBoard, proposal, search, standings, teamSide, leoes } from './matchmaking-fixtures'
+import { athleteSide, brasilia, football, matchCard, playBoard, proposal, search, standings, teamSide, leoes, tennis } from './matchmaking-fixtures'
 import { summaryOf } from './notifications-fixtures'
 
 /*
@@ -90,5 +90,29 @@ describe('diálogo e navegação', () => {
     expect(await screen.findByRole('heading', { level: 1, name: 'Partida' })).not.toBeNull()
     expect(nav().getByRole('button', { current: 'page' }).textContent).toBe('JOGAR')
     expect(screen.queryByRole('dialog')).toBeNull()
+  })
+})
+
+describe('aba do Jogar', () => {
+  it('voltar da partida de tênis reabre o Jogar na aba Tênis', async () => {
+    const card = matchCard({
+      id: 77, sport: 'tenis', format: null, state: 'agendada', phase: 'agendada', my_role: 'atleta',
+      sides: [athleteSide('a', 1, 'Ricardo Leão', { is_mine: true }), athleteSide('b', 2, 'Duda Raquete')],
+    })
+    mockApi({
+      'GET /me/sports-profiles': [football, tennis],
+      'GET /cities': [brasilia],
+      'GET /me/notifications/summary': summaryOf({ unread_count: 0 }),
+      'GET /me/standings': standings(),
+      'GET /me/play': playBoard({ matches: [card] }),
+    })
+    const ui = renderArena()
+    await ui.click(nav().getByRole('button', { name: 'JOGAR' }))
+    await ui.click(await screen.findByRole('tab', { name: /Tênis/ }))
+    await ui.click(await screen.findByText('Ricardo Leão × Duda Raquete'))
+    expect(await screen.findByRole('heading', { level: 1, name: 'Partida' })).not.toBeNull()
+    await ui.click(screen.getAllByRole('button', { name: 'Voltar' })[0])
+    await waitFor(() => expect(screen.getByRole('tab', { name: /Tênis/ }).getAttribute('aria-selected')).toBe('true'))
+    expect(screen.getByRole('tab', { name: /Futebol/ }).getAttribute('aria-selected')).toBe('false')
   })
 })

@@ -78,7 +78,7 @@ function searchHint(sport: Sport, mode: Mode, city: string, position: AvulsoPosi
  * à tela da partida. Na Corrida (K2 + K4, etapa 5), o botão REGISTRAR abre o cronômetro em tela cheia; a placa mostra o elo e
  * o melhor tempo da distância escolhida (`GET /me/run-bests`) e, abaixo, "Suas marcas" com o histórico de cada distância.
  */
-export default function PlayPage({ profiles, cities, loading, board, openMatch, notificationCount = 0, go, onExpired }: {
+export default function PlayPage({ profiles, cities, loading, board, openMatch, initialSport, onSportChange, notificationCount = 0, go, onExpired }: {
   profiles: Profile[]
   cities: City[]
   /** Perfis esportivos ainda carregando (ArenaPage). */
@@ -87,13 +87,17 @@ export default function PlayPage({ profiles, cities, loading, board, openMatch, 
   board: PlayBoardState
   /** Partida cuja proposta (ou oferta de vaga) abre em tela cheia ao entrar: as notificações "Partida encontrada" e "Vaga encontrada". */
   openMatch?: number
+  /** Modalidade guardada na entrada da pilha: a volta da partida ou do evento reabre a mesma aba. */
+  initialSport?: Sport
+  /** Guarda a aba escolhida na entrada da pilha (ArenaPage). */
+  onSportChange?: (sport: Sport) => void
   /** Não lidas mais pedidos para seguir (resumo das notificações do ArenaPage): o número do sino. */
   notificationCount?: number
   go: (screen: Screen, context?: { teamId?: number; sport?: Sport; matchId?: number; distance?: RunDistance }) => void
   onExpired: () => void
 }) {
   const ids = useId()
-  const [sport, setSport] = useState<Sport>('futebol')
+  const [sport, setSport] = useState<Sport>(initialSport ?? 'futebol')
   const [mode, setMode] = useState<Mode>('time')
   const [format, setFormat] = useState<FootballFormat>('society')
   const [teamChoice, setTeamChoice] = useState<number | null>(null)
@@ -278,7 +282,7 @@ export default function PlayPage({ profiles, cities, loading, board, openMatch, 
         </button>
         <NotificationBell tone="dark" count={notificationCount} onOpen={() => go('notifications')} />
       </div>
-      <Tabs variant="dark" items={sportTabs} value={sport} onChange={next => { setSport(next); setSavedRun(null) }} label="Modalidade" idPrefix={`${ids}-tab-`} controls={`${ids}-panel`}
+      <Tabs variant="dark" items={sportTabs} value={sport} onChange={next => { setSport(next); setSavedRun(null); onSportChange?.(next) }} label="Modalidade" idPrefix={`${ids}-tab-`} controls={`${ids}-panel`}
         className="relative border-b border-solid border-white/7" />
       <div id={`${ids}-panel`} role="tabpanel" aria-labelledby={`${ids}-tab-${sport}`} className="relative grid justify-items-center gap-3.5 px-5 pt-4 text-center">
         {sport === 'futebol' && <PlateChips variant="segmented" label="Jogar como" options={modeOptions} value={mode} onChange={setMode} />}

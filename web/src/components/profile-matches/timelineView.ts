@@ -1,7 +1,7 @@
 import type { MatchSideOut, Side } from '@/api/matches'
 import type { TimelineItem, TimelineMatch, TimelineRun, TimelineSide, TimelineSport } from '@/api/profile'
 import type { StateTone } from '@/data/arena'
-import { positionStat } from '@/components/results/format'
+import { positionStat, setsCount } from '@/components/results/format'
 import { footballFormat } from '@/data/arena'
 import { sideName } from '@/data/match'
 import { formatClock, formatShortDate, parseIso } from '@/utils/format'
@@ -108,7 +108,7 @@ export function scoreSpoken(match: Pick<TimelineMatch, 'sport' | 'score' | 'side
   const names = orderedTimelineSides(match).map(side => sideName(asSideOut(side)))
   if (match.sport === 'futebol') return `${names[0] ?? 'Lado A'} ${match.score.a}, ${names[1] ?? 'Lado B'} ${match.score.b}`
   const sets = match.score.sets?.map(set => `${set.a}-${set.b}`).join(', ')
-  return sets ? `sets ${sets}` : `${match.score.a} sets a ${match.score.b}`
+  return sets ? `sets ${sets}` : `${setsCount(match.score.a)} a ${match.score.b}`
 }
 
 const months = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro']

@@ -96,7 +96,8 @@ describe('placar e textos do resultado (results/format)', () => {
   it('texto para leitor de tela e lado de quem vê', () => {
     expect(scoreSpoken(football(), score(3, 1))).toBe('Leões do Cerrado 3, Ferrugem FC 1')
     expect(scoreSpoken(asFerrugem(), score(3, 1))).toBe('Ferrugem FC 1, Leões do Cerrado 3')
-    expect(scoreSpoken(tennis(), score(2, 0))).toBe('Ana Souza 2 sets, Beatriz Lima 0')
+    expect(scoreSpoken(tennis(), score(2, 0))).toBe('Ana Souza 2 sets, Beatriz Lima 0 sets')
+    expect(scoreSpoken(tennis(), score(1, 2))).toBe('Ana Souza 1 set, Beatriz Lima 2 sets')
     expect(scoreSpoken({ ...football(), my_side: null }, score(0, 0))).toBe('Leões do Cerrado 0, Ferrugem FC 0')
     expect(viewSide({ my_side: null })).toBe('a')
     expect(viewSide({ my_side: 'b' })).toBe('b')

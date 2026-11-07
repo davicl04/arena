@@ -1,5 +1,42 @@
 # Situação da fundação do Arena
 
+## Correções dos problemas de usabilidade PU01 a PU07 (web e Expo) — 7 de novembro de 2026
+
+Corrigidos os sete problemas registrados na avaliação heurística da seção 4.3 do roteiro. Sem mudança de contrato, esquema ou dependências.
+
+- **PU01 — placar digitável:** o `Stepper` (placar de futebol e tênis, estatísticas e decisão do organizador) passou a ter o número como campo digitável (`input` com papel `spinbutton` e teclado numérico na web; `TextInput` com `number-pad` no Expo), selecionado ao tocar e preso entre o mínimo e o máximo. Botões −/+, setas, Page Up/Down, Home e End continuam.
+- **PU02 — códigos internos:** removidos "(RN18)" do assistente de evento e "(RN16)" do bônus do tênis na gestão do evento, na web e no Expo.
+- **PU03 — tênis sem "representantes":** no tênis, o cartão de condições diz "Os dois tenistas combinam…" e o cartão de resultado "Os dois tenistas informam o placar…" (web e Expo).
+- **PU04 — "1 set":** `setsCount` em `results/format.ts` (web e Expo) faz a concordância no texto do placar lido pelo leitor de tela; a linha do tempo do perfil web usa o mesmo helper.
+- **PU05 — aba do Jogar:** a web guarda a modalidade escolhida na entrada da pilha (`setScreenSport`), e voltar da partida ou do evento reabre a mesma aba. O Expo já fazia isso com `setParams`.
+- **PU06 — evento sem recarregar:** com a inscrição em análise, devolução pendente ou devolução contestada, o detalhe do evento relê a inscrição a cada 15 s (`ENTRY_POLL_MS`); na web, também ao voltar à aba. Web e Expo.
+- **PU07 — "Seu próximo passo":** o cartão "Complete seu perfil esportivo" do Início web só aparece enquanto falta perfil em alguma modalidade.
+- **Roteiro:** a seção 4.3 passou a registrar a correção de cada PU e a reavaliação das heurísticas (nove "Sim" e "Ajuda e documentação" ainda "Parcial", sem central de ajuda).
+
+**Testes:** novos testes de regressão na web (digitação no placar, nota do assistente sem código, texto do tênis, `setsCount`, aba do Jogar ao voltar, releitura do evento em análise e cartão do Início) e no Expo (digitação no `Stepper`, nota do assistente, texto do tênis, concordância dos sets e releitura do evento). O teste da aba do Jogar falha sem a correção e passa com ela.
+
+**Verificações:** web com `npm run lint` e `npm run build` aprovados (permanece o aviso do bundle acima de 500 kB) e `npm run test:coverage` com **1238 aprovados** em 88 arquivos e 93,65% de instruções (uma primeira execução teve dois arquivos sem iniciar por tempo esgotado de worker com a máquina sobrecarregada pelo `npm ci` do Expo; a repetição passou inteira). Expo, depois de `npm ci` (o `node_modules` desta cópia estava incompleto e fazia lint, typecheck e exportação falharem por módulos ausentes): `npm run lint`, `npm run typecheck`, `npm run test:coverage` (**1583 aprovados**, 96,35% de instruções) e `npm run export:android` aprovados.
+
+**Navegador com API e PostgreSQL:** banco temporário `arena_tf` (migrado até a 0014), API na porta 8050 e web na 5198. Conferidos na web, a 390 px no tema escuro: cartão do Início que some ao cadastrar a corrida (PU07), placar 6-4 6-3 digitado e enviado (PU01), "1 set" e "2 sets" no placar divergente (PU04), volta à aba Tênis (PU05), evento que passou de "Comprovante em análise" a "Inscrição confirmada" sem recarregar depois da aprovação pela API (PU06), "Os dois tenistas combinam…" (PU03) e a nota do assistente sem "(RN18)" (PU02). O placar digitável também foi conferido no tema claro a 320 px, sem overflow horizontal. Servidores encerrados e banco temporário removido ao final; `arena` e volumes preservados.
+
+**Achado à parte, não corrigido:** ao preparar os dados, um PNG corrompido enviado como comprovante fez `PUT /entries/{id}/receipt` responder **500** (`SyntaxError: broken PNG file` em `media.prepare_receipt`), em vez de uma recusa 4xx. Fica como pendência do backend.
+
+**Limitações:** o Expo não foi validado em aparelho; a verificação dele é por testes, typecheck e exportação. Checks locais não comprovam o CI remoto. Esta entrega não declara o MVP completo.
+
+## Roteiro: seções 4.1, 4.2 e 4.3 preenchidas — 7 de novembro de 2026
+
+Atualizadas apenas as seções 4.1 (Teste funcional), 4.2 (Teste de integração) e 4.3 (Heurísticas de Nielsen) de `docs/roteiro-projeto.docx`, sem mudança de código, contrato ou esquema.
+
+- **4.1:** os oito cenários planejados foram substituídos por 11 cenários de caixa-preta executados (TF01 a TF11, cobrindo HU01 a HU16): cadastro adulto e de menor, perfis, time e convite, pareamento de futebol com aceite bilateral, condições e chat, avulso, resultado com estatísticas e pontos, tênis com placar divergente e corrigido, corrida, campeonato gratuito criado pelo assistente, evento pago com comprovante recusado e reenviado, sugestão de quadra e privacidade do perfil. Todos aprovados (11 de 11).
+- **4.2:** a 4.2.1 agrupa os 600 testes de integração com PostgreSQL por domínio (TI01 a TI06) e cita a conferência no banco feita nos testes funcionais; a 4.2.2 registra web ↔ API (cookie HttpOnly e verificação de Origin), contrato Bearer do Expo ↔ API, API ↔ MinIO e os testes dos clientes com dublês (TI07 a TI10).
+- **4.3:** avaliação das dez heurísticas (seis "Parcial" e quatro "Sim") e sete problemas de usabilidade (PU01 a PU07), registrados como pendentes: placar de tênis só por + e −, "(RN18)" no assistente de evento, "representantes" na partida de tênis, "1 sets", volta da partida de tênis para a aba Futebol, detalhe do evento sem atualização após a decisão do comprovante e cartão "Complete seu perfil esportivo" sempre visível no Início (`HomePage.tsx`, sem condição).
+
+**Ambiente dos testes funcionais:** banco `arena_tf` criado no PostgreSQL do Compose e migrado até a 0014; API temporária na porta 8050 (bucket `arena-media-test`) e web na 5198, no painel de navegador do desktop (390 × 844 px). O usuário principal agiu pela web; a contraparte (adversário, avulso, organizadora e administradora) agiu pela API com Bearer. O início das duas partidas foi antecipado só no banco de teste para permitir informar o placar. No TF05, um toque no placar se perdeu durante o fechamento da folha de presença, e os dois lados informaram 2 × 1; o contador foi conferido em seguida e funciona. Contas de teste e scripts ficam em `.local/roteiro4/`; logs e relatórios em `artifacts/roteiro-4/`, fora do versionamento.
+
+**Verificações:** backend `pytest -q --cov=app --cov-branch` com `TEST_DATABASE_URL` e `MEDIA_TEST_S3=1`: **1697 aprovados, 0 pulados** (1097 unitários e 600 de integração), cobertura combinada de 98%. Web `vitest run`: **1233 aprovados** (88 arquivos); Expo `vitest run`: **1581 aprovados** (103 arquivos). Checagens manuais de integração: login web sem token no corpo e cookie HttpOnly com SameSite; alteração com Origin estranha recusada (403); logout Bearer revoga a sessão (401); comprovantes gravados no bucket de teste e GET anônimo recusado (403). O .docx passou no validador OOXML, foi aberto pelo Word e exportado para PDF (33 páginas), e as páginas da seção 4 foram conferidas visualmente; PDF e imagens em `artifacts/roteiro-4/`. Ao final, os servidores temporários foram encerrados e o banco `arena_tf` removido; o banco `arena` e os volumes não foram alterados. Os dois comprovantes de teste continuam no bucket `arena-media-test` do MinIO local.
+
+**Limitações e pendências:** a execução funcional foi manual, sem automação de interface versionada; o Expo não foi executado em aparelho ou emulador; os problemas PU01 a PU07 não foram corrigidos. O roteiro continua desatualizado fora das seções 3.3, 3.4 e 4.x: nota de estado de 9/10, 2.2.4, 3.1, 3.2 (números de testes e cobertura) e 5.x. Esta entrega não declara o MVP completo.
+
 ## Versionamento das correções do PR #4 — 23 de outubro de 2026
 
 Commit e push das correções de leitura de notificações web e expansão do ranking Expo autorizados pelo usuário na branch `feat/notifications-ranking`. Incluídos somente os dois componentes, seus testes de regressão e este registro; o arquivo temporário de bloqueio do Word foi preservado fora do commit. Diff e whitespace conferidos. Os checks e a validação integrada registrados abaixo não foram repetidos nesta etapa de versionamento; a execução remota do CI permanece pendente.

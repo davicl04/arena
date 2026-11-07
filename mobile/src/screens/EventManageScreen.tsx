@@ -248,7 +248,7 @@ export default function EventManageScreen({ params, navigation, onExpired }: Scr
           value={draft ? (missing ? `${missing === 1 ? 'Falta 1 item' : `Faltam ${missing} itens`} do checklist` : 'Rascunho completo') : 'Modalidade, datas, local e elos'}>
           <DataList rows={dataRows} />
           {detail.tennis_bonus ? <Text style={{ marginTop: 8, color: colors['ink-muted'], fontSize: 10.5, lineHeight: 16 }}>
-            Bônus do ranking do tênis (RN16): campeão +{detail.tennis_bonus.champion}, vice +{detail.tennis_bonus.runner_up} e semifinalistas +{detail.tennis_bonus.semifinalist}, com pelo menos {detail.tennis_bonus.min_entries} inscritos{detail.tennis_bonus.applies ? ' (já vale).' : '.'}
+            Bônus do ranking do tênis: campeão +{detail.tennis_bonus.champion}, vice +{detail.tennis_bonus.runner_up} e semifinalistas +{detail.tennis_bonus.semifinalist}, com pelo menos {detail.tennis_bonus.min_entries} inscritos{detail.tennis_bonus.applies ? ' (já vale).' : '.'}
           </Text> : null}
           {draft && editable ? <View style={{ marginTop: 10 }}><ActionButton fit tone="outline" icon="pencil" title="Editar no assistente" onPress={() => edit()} /></View> : null}
           {canEditPublished ? <View style={{ marginTop: 10 }}><ActionButton fit tone="outline" icon="pencil" title="Editar local e contato" onPress={() => setSheet('edit')} /></View> : null}

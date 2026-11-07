@@ -12,12 +12,15 @@ export const otherSide = (side: Side): Side => (side === 'a' ? 'b' : 'a')
 /** Lado do ponto de vista de quem vê: o próprio lado, ou o lado A quando a pessoa não joga a partida. */
 export const viewSide = (match: Pick<ResultMatch, 'my_side'>): Side => match.my_side ?? 'a'
 
-/** Texto de leitor de tela de um placar: "Ferrugem FC 3, Leões 1" (futebol) ou os sets (tênis). */
+/** "1 set" e "2 sets": a contagem de sets com a concordância certa. */
+export const setsCount = (count: number) => `${count} ${count === 1 ? 'set' : 'sets'}`
+
+/** Texto de leitor de tela de um placar: "Ferrugem FC 3, Leões 1" (futebol) ou os sets ("Lucas 1 set, Duda 2 sets", tênis). */
 export function scoreSpoken(match: Pick<ResultMatch, 'sides' | 'my_side' | 'sport'>, score: ScoreOut): string {
   const mine = viewSide(match)
   const names = [sideName(sideOf(match, mine), 'Seu lado'), sideName(sideOf(match, otherSide(mine)))]
   const [first, second] = mine === 'a' ? [score.a, score.b] : [score.b, score.a]
-  return match.sport === 'futebol' ? `${names[0]} ${first}, ${names[1]} ${second}` : `${names[0]} ${first} sets, ${names[1]} ${second}`
+  return match.sport === 'futebol' ? `${names[0]} ${first}, ${names[1]} ${second}` : `${names[0]} ${setsCount(first)}, ${names[1]} ${setsCount(second)}`
 }
 
 /** "3 × 1" (futebol) ou "6-4 3-6 7-6(5)" (tênis), do ponto de vista de `side`. */

@@ -283,7 +283,7 @@ describe('Gestão do evento (G3): comprovantes, devoluções, dados e Pix', () =
     const text = textOf(tree)
     for (const expected of ['Futebol · Society 7×7 · Todos contra todos', '8 times', 'Ouro, Diamante', 'Arena Sudoeste', 'Brasília · DF', 'R$ 50,00', 'copa@example.com', 'Fecham de fato', '(12 h antes, por ser pago)'])
       expect(text).toContain(expected)
-    expect(text).toContain('Bônus do ranking do tênis (RN16): campeão +30, vice +20 e semifinalistas +10, com pelo menos 4 inscritos (já vale).')
+    expect(text).toContain('Bônus do ranking do tênis: campeão +30, vice +20 e semifinalistas +10, com pelo menos 4 inscritos (já vale).')
     await pressPrefix(tree, 'Pagamento e Pix')
     expect(textOf(tree)).toContain('Liga Candanga')
     expect(textOf(tree)).toContain('E-mail')
