@@ -1,5 +1,28 @@
 # Situação da fundação do Arena
 
+## Correções dos problemas de usabilidade PU01 a PU07 (web e Expo) — 7 de novembro de 2026
+
+Corrigidos os sete problemas registrados na avaliação heurística da seção 4.3 do roteiro. Sem mudança de contrato, esquema ou dependências.
+
+- **PU01 — placar digitável:** o `Stepper` (placar de futebol e tênis, estatísticas e decisão do organizador) passou a ter o número como campo digitável (`input` com papel `spinbutton` e teclado numérico na web; `TextInput` com `number-pad` no Expo), selecionado ao tocar e preso entre o mínimo e o máximo. Botões −/+, setas, Page Up/Down, Home e End continuam.
+- **PU02 — códigos internos:** removidos "(RN18)" do assistente de evento e "(RN16)" do bônus do tênis na gestão do evento, na web e no Expo.
+- **PU03 — tênis sem "representantes":** no tênis, o cartão de condições diz "Os dois tenistas combinam…" e o cartão de resultado "Os dois tenistas informam o placar…" (web e Expo).
+- **PU04 — "1 set":** `setsCount` em `results/format.ts` (web e Expo) faz a concordância no texto do placar lido pelo leitor de tela; a linha do tempo do perfil web usa o mesmo helper.
+- **PU05 — aba do Jogar:** a web guarda a modalidade escolhida na entrada da pilha (`setScreenSport`), e voltar da partida ou do evento reabre a mesma aba. O Expo já fazia isso com `setParams`.
+- **PU06 — evento sem recarregar:** com a inscrição em análise, devolução pendente ou devolução contestada, o detalhe do evento relê a inscrição a cada 15 s (`ENTRY_POLL_MS`); na web, também ao voltar à aba. Web e Expo.
+- **PU07 — "Seu próximo passo":** o cartão "Complete seu perfil esportivo" do Início web só aparece enquanto falta perfil em alguma modalidade.
+- **Roteiro:** a seção 4.3 passou a registrar a correção de cada PU e a reavaliação das heurísticas (nove "Sim" e "Ajuda e documentação" ainda "Parcial", sem central de ajuda).
+
+**Testes:** novos testes de regressão na web (digitação no placar, nota do assistente sem código, texto do tênis, `setsCount`, aba do Jogar ao voltar, releitura do evento em análise e cartão do Início) e no Expo (digitação no `Stepper`, nota do assistente, texto do tênis, concordância dos sets e releitura do evento). O teste da aba do Jogar falha sem a correção e passa com ela.
+
+**Verificações:** web com `npm run lint` e `npm run build` aprovados (permanece o aviso do bundle acima de 500 kB) e `npm run test:coverage` com **1238 aprovados** em 88 arquivos e 93,65% de instruções (uma primeira execução teve dois arquivos sem iniciar por tempo esgotado de worker com a máquina sobrecarregada pelo `npm ci` do Expo; a repetição passou inteira). Expo, depois de `npm ci` (o `node_modules` desta cópia estava incompleto e fazia lint, typecheck e exportação falharem por módulos ausentes): `npm run lint`, `npm run typecheck`, `npm run test:coverage` (**1583 aprovados**, 96,35% de instruções) e `npm run export:android` aprovados.
+
+**Navegador com API e PostgreSQL:** banco temporário `arena_tf` (migrado até a 0014), API na porta 8050 e web na 5198. Conferidos na web, a 390 px no tema escuro: cartão do Início que some ao cadastrar a corrida (PU07), placar 6-4 6-3 digitado e enviado (PU01), "1 set" e "2 sets" no placar divergente (PU04), volta à aba Tênis (PU05), evento que passou de "Comprovante em análise" a "Inscrição confirmada" sem recarregar depois da aprovação pela API (PU06), "Os dois tenistas combinam…" (PU03) e a nota do assistente sem "(RN18)" (PU02). O placar digitável também foi conferido no tema claro a 320 px, sem overflow horizontal. Servidores encerrados e banco temporário removido ao final; `arena` e volumes preservados.
+
+**Achado à parte, não corrigido:** ao preparar os dados, um PNG corrompido enviado como comprovante fez `PUT /entries/{id}/receipt` responder **500** (`SyntaxError: broken PNG file` em `media.prepare_receipt`), em vez de uma recusa 4xx. Fica como pendência do backend.
+
+**Limitações:** o Expo não foi validado em aparelho; a verificação dele é por testes, typecheck e exportação. Checks locais não comprovam o CI remoto. Esta entrega não declara o MVP completo.
+
 ## Roteiro: seções 4.1, 4.2 e 4.3 preenchidas — 7 de novembro de 2026
 
 Atualizadas apenas as seções 4.1 (Teste funcional), 4.2 (Teste de integração) e 4.3 (Heurísticas de Nielsen) de `docs/roteiro-projeto.docx`, sem mudança de código, contrato ou esquema.
