@@ -91,7 +91,7 @@ export function CapacityStep({ form, errors, update, onBack }: StepProps & { onB
         <View style={{ marginTop: 8 }}><TierChips value={form.tiers} error={errors.tiers} onChange={value => update({ tiers: value })} /></View>
         <Note>{tierHint} Quem ainda está em classificação não entra em evento com elos escolhidos.</Note>
       </>
-      : <Note>Quem ainda está em classificação só se inscreve em evento aberto a todos (RN18).</Note>}
+      : <Note>Quem ainda está em classificação só se inscreve em evento aberto a todos.</Note>}
   </>
 }
 

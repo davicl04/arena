@@ -79,6 +79,8 @@ export default function HomePage({
   }
   // Classificação de cada modalidade: o elo de quem já se classificou, ou "n de 3 partidas".
   const standings = useResource(getMyStandings, onExpired);
+  /** Modalidades ainda sem perfil: o cartão "Seu próximo passo" só aparece enquanto houver alguma. */
+  const missingSports = sports.filter((s) => !profiles.some((p) => p.sport === s.value)).length;
   return (
     <>
       <header className="flex items-center justify-between">
@@ -237,22 +239,27 @@ export default function HomePage({
           </small>
         </div>
       </div>
-      <SectionTitle title="Seu próximo passo" />
-      <button
-        className="flex w-full items-center gap-[11px] rounded-card border border-solid border-line bg-surface p-3.5 text-left noite:border-surface-edge"
-        onClick={() => go("sports")}
-      >
-        <IconTile>
-          <Medal size={22} />
-        </IconTile>
-        <span className="flex-1">
-          <b className="text-[12px] text-heading">Complete seu perfil esportivo</b>
-          <small className="mt-1 text-[10px] leading-[1.5] text-ink-muted">
-            Mostre onde e como você gosta de jogar.
-          </small>
-        </span>
-        <ChevronRight size={19} />
-      </button>
+      {/* Só enquanto falta alguma modalidade: com as três cadastradas, o passo já foi dado. */}
+      {!loading && missingSports > 0 && (
+        <>
+          <SectionTitle title="Seu próximo passo" />
+          <button
+            className="flex w-full items-center gap-[11px] rounded-card border border-solid border-line bg-surface p-3.5 text-left noite:border-surface-edge"
+            onClick={() => go("sports")}
+          >
+            <IconTile>
+              <Medal size={22} />
+            </IconTile>
+            <span className="flex-1">
+              <b className="text-[12px] text-heading">Complete seu perfil esportivo</b>
+              <small className="mt-1 text-[10px] leading-[1.5] text-ink-muted">
+                Mostre onde e como você gosta de jogar.
+              </small>
+            </span>
+            <ChevronRight size={19} />
+          </button>
+        </>
+      )}
     </>
   );
 }

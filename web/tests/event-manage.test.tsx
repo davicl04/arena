@@ -321,13 +321,14 @@ describe('gestão do evento (G3): seções e ações', () => {
     expect(request).toHaveBeenCalledWith('/organizer/events/9', 'DELETE')
   })
 
-  it('mostra o bônus do tênis (RN16) e os dados do evento', async () => {
+  it('mostra o bônus do tênis, sem código de regra, e os dados do evento', async () => {
     const user = userEvent.setup()
     mockApi(eventDetail({ sport: 'tenis', format: null, competition_type: 'todos_contra_todos', accepted_tiers: null,
       tennis_bonus: { champion: 40, runner_up: 20, semifinalist: 10, min_entries: 4, applies: false } }))
     renderPage()
     await user.click(await screen.findByRole('button', { name: /Dados do evento/ }))
     expect(screen.getByText(/campeão \+40, vice \+20 e semifinalistas \+10/)).toBeTruthy()
+    expect(screen.queryByText(/\(RN\d+\)/)).toBeNull()
     expect(screen.getAllByText('Aberto a todos').length).toBeGreaterThan(0)
     expect(screen.getByText('Tênis · Todos contra todos')).toBeTruthy()
   })

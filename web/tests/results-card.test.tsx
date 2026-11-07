@@ -121,6 +121,21 @@ describe('Placar do tênis', () => {
     }
   }
 
+  it('aceita digitar os games: o número vem selecionado e o valor fica preso ao máximo do set', async () => {
+    const { api } = setup(tennis(), { 'PUT /matches/8/result': tennis() })
+    const ui = userEvent.setup()
+    const typeIn = (name: string, text: string) => ui.type(spin(name), text, { initialSelectionStart: 0, initialSelectionEnd: 1 })
+    await typeIn('Games seus no set 1', '6')
+    await typeIn('Games de Beatriz Lima no set 1', '4')
+    await typeIn('Games seus no set 2', '9') // acima do máximo do set: fica em 7
+    expect(spin('Games seus no set 2').getAttribute('aria-valuenow')).toBe('7')
+    await typeIn('Games seus no set 2', '6')
+    await typeIn('Games de Beatriz Lima no set 2', '3')
+    expect((spin('Games seus no set 1') as HTMLInputElement).inputMode).toBe('numeric')
+    await ui.click(button('Enviar placar'))
+    expect(body(api, 'PUT', '/matches/8/result')).toEqual({ sets: [{ a: 6, b: 4 }, { a: 6, b: 3 }] })
+  })
+
   it('recusa sets inválidos com a mensagem do servidor, sem enviar', async () => {
     const { api } = setup(tennis())
     const ui = userEvent.setup()

@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiError, request } from '../src/api/client'
 import type { EventDetail, MyEntry, PublicEntry } from '../src/api/entries'
 import type { EventMessage } from '../src/api/events'
-import EventScreen from '../src/screens/EventScreen'
+import EventScreen, { ENTRY_POLL_MS } from '../src/screens/EventScreen'
 import { formatDeadline, formatPrice } from '../src/utils/format'
 import { enableAct } from './support/native'
 import { playContext } from './support/play'
@@ -506,6 +506,24 @@ describe('Inscrição paga: reservar, Pix, comprovante', () => {
       await flush()
       expect(byId(tree, 'entry-expirada')).toHaveLength(1)
       expect(callsTo('GET', '/events/5').length).toBeGreaterThanOrEqual(2)
+    } finally { vi.useRealTimers() }
+  })
+
+  it('comprovante em análise: a decisão do organizador aparece sem puxar a tela', async () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] })
+    try {
+      const state = world(paid(), myEntry({ id: 9, state: 'em_analise', can_send_receipt: false, subject: athlete, my_role: 'atleta', latest_payment: receipt() }))
+      const tree = await mountEvent()
+      expect(byId(tree, 'entry-em_analise')).toHaveLength(1)
+      state.entry = myEntry({ id: 9, state: 'confirmada', can_send_receipt: false, subject: athlete, my_role: 'atleta' })
+      await act(async () => { vi.advanceTimersByTime(ENTRY_POLL_MS) })
+      await flush()
+      expect(byId(tree, 'entry-confirmada')).toHaveLength(1)
+      // Confirmada, a tela não espera mais ninguém e para de reler.
+      const reads = callsTo('GET', '/entries/9').length
+      await act(async () => { vi.advanceTimersByTime(ENTRY_POLL_MS * 3) })
+      await flush()
+      expect(callsTo('GET', '/entries/9')).toHaveLength(reads)
     } finally { vi.useRealTimers() }
   })
 

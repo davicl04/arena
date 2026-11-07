@@ -352,6 +352,10 @@ describe('Quem acompanha sem agir pelo lado', () => {
     expect(allText(informed.tree)).not.toContain('Informe o placar')
     const none = await mount({ match: football({ my_side: null, my_role: 'administracao', permissions: permissions(), result: result() }) })
     expect(allText(none.tree)).toContain('Os representantes informam o placar até')
+    serve({ [TENNIS_STATS]: { items: [] } })
+    const tennisNone = await mount({ match: tennis({ my_side: null, my_role: 'administracao', permissions: permissions(), result: result() }) })
+    expect(allText(tennisNone.tree)).toContain('Os dois tenistas informam o placar até')
+    expect(allText(tennisNone.tree)).not.toContain('representantes')
   })
 
   it('falha 401 ao ler o elenco expira a sessão', async () => {

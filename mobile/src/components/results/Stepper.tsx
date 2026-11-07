@@ -1,4 +1,4 @@
-import { Pressable, Text, View } from 'react-native'
+import { Pressable, TextInput, View } from 'react-native'
 import type { AccessibilityActionEvent } from 'react-native'
 import { useThemeColors } from '../../hooks/useTheme'
 import { Icon } from '../Icon'
@@ -7,6 +7,7 @@ import { Icon } from '../Icon'
  * Contador −/+ dos protótipos (R4), para o placar, os sets e as estatísticas. É um único elemento ajustável para leitores de
  * tela (`accessibilityRole="adjustable"`, com as ações "increment" e "decrement": o deslizar para cima e para baixo do
  * TalkBack e do VoiceOver), e os botões −/+ atendem o toque com área de 44 pt (botão de 32 ou 36 pt mais a margem de toque).
+ * O número também é digitável (teclado numérico, selecionado ao tocar): no placar do tênis, evita um toque por game.
  */
 /** Botão (`box`), margem de toque (`slop`, para chegar a 44 pt) e tamanho do número (`value`). */
 const sizes = { md: { box: 32, slop: 6, value: 18 }, lg: { box: 36, slop: 4, value: 30 } } as const
@@ -39,6 +40,11 @@ export function Stepper({ value, onChange, label, min = 0, max = 99, size = 'md'
   }
   const look = sizes[size]
   const dark = tone === 'dark'
+  /** Digitação: valem os últimos dígitos (tantos quanto os do máximo), com o valor preso entre `min` e `max`. */
+  const type = (text: string) => {
+    const digits = text.replace(/\D/g, '').slice(-String(max).length)
+    set(digits ? Number(digits) : min)
+  }
   const onAction = (event: AccessibilityActionEvent) => {
     if (event.nativeEvent.actionName === 'increment') set(value + 1)
     else if (event.nativeEvent.actionName === 'decrement') set(value - 1)
@@ -56,7 +62,9 @@ export function Stepper({ value, onChange, label, min = 0, max = 99, size = 'md'
     accessibilityState={{ disabled }} onAccessibilityAction={onAction}
     style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 6 }}>
     {button('minus')}
-    <Text accessibilityElementsHidden importantForAccessibility="no" style={{ minWidth: 26, textAlign: 'center', color: dark ? '#ffffff' : colors.ink, fontSize: look.value, fontWeight: '800', fontVariant: ['tabular-nums'] }}>{value}</Text>
+    <TextInput testID="stepper-value" accessibilityElementsHidden importantForAccessibility="no" editable={!disabled}
+      keyboardType="number-pad" inputMode="numeric" selectTextOnFocus autoComplete="off" value={String(value)} onChangeText={type}
+      style={{ minWidth: 26, padding: 0, textAlign: 'center', color: dark ? '#ffffff' : colors.ink, fontSize: look.value, fontWeight: '800', fontVariant: ['tabular-nums'] }} />
     {button('plus')}
   </View>
 }

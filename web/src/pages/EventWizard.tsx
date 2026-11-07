@@ -399,7 +399,7 @@ function CapacityStep({ form, errors, update, unit, onBack }: StepProps & { unit
           onChange={value => update({ tiers: value })} />
         <Note id="ev-tiers-hint">{tierHint} Quem ainda está em classificação não entra em evento com elos escolhidos.</Note>
       </>
-      : <Note>Quem ainda está em classificação só se inscreve em evento aberto a todos (RN18).</Note>}
+      : <Note>Quem ainda está em classificação só se inscreve em evento aberto a todos.</Note>}
   </>
 }
 

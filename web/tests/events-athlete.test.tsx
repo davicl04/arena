@@ -6,7 +6,7 @@ import { receiptFileError } from '../src/api/receipts'
 import type { EventDetail, MyEntry } from '../src/api/entries'
 import { entryCta, isLocked } from '../src/components/events/entryCta'
 import { reservationDeadline } from '../src/components/events/eventText'
-import EventPage from '../src/pages/EventPage'
+import EventPage, { ENTRY_POLL_MS } from '../src/pages/EventPage'
 import EventsPage from '../src/pages/EventsPage'
 import { apiError, brasilia, mockApi } from './teams-fixtures'
 import type { Call } from './teams-fixtures'
@@ -312,6 +312,29 @@ describe('detalhe do evento (D2)', () => {
     await ui.click(within(dialog()).getByRole('button', { name: 'Enviar para análise' }))
     expect(await screen.findByText('Comprovante em análise')).not.toBeNull()
     expect(calls.find('PUT', '/entries/5/receipt')).toHaveLength(1)
+  })
+
+  it('comprovante em análise: a decisão do organizador aparece sem recarregar a tela', async () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] })
+    try {
+      const analysing = myEntry({ state: 'em_analise', can_send_receipt: false, can_cancel: false, latest_payment: myReceipt() })
+      const refused = myEntry({ state: 'rejeitada', latest_payment: myReceipt({ decision: 'recusado', reason_code: 'valor_diferente', reason_detail: null }) })
+      const flow = stateful(withEntry(detail(), analysing), analysing)
+      const calls = mockApi({ 'GET /events/1': () => flow.state.detail, 'GET /entries/5': () => flow.state.entry })
+      renderEvent()
+      expect(await screen.findByText('Comprovante em análise')).not.toBeNull()
+      const reads = calls.find('GET', '/entries/5').length
+      flow.set(refused) // o organizador recusou em outra sessão
+      await vi.advanceTimersByTimeAsync(ENTRY_POLL_MS)
+      expect(await screen.findByText('Comprovante recusado')).not.toBeNull()
+      expect(calls.find('GET', '/entries/5').length).toBeGreaterThan(reads)
+      // Sem esperar ninguém, a tela não fica relendo.
+      const settled = calls.find('GET', '/entries/5').length
+      await vi.advanceTimersByTimeAsync(ENTRY_POLL_MS * 3)
+      expect(calls.find('GET', '/entries/5')).toHaveLength(settled)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('erro do servidor no envio fica na folha, sem fechar', async () => {

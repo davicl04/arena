@@ -277,7 +277,7 @@ function FriendlyConditions({
         ) : (
           !closed && (
             <p className="m-0 text-[12px] leading-normal text-ink-muted">
-              Os representantes combinam dia, horário e quadra. Quem propõe já aceita; o outro lado aceita ou propõe outra.
+              {detail.sport === "tenis" ? "Os dois tenistas" : "Os representantes"} combinam dia, horário e quadra. Quem propõe já aceita; o outro lado aceita ou propõe outra.
             </p>
           )
         )}

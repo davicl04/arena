@@ -93,6 +93,9 @@ describe('Criar evento (V4): uma pergunta por vez', () => {
     await user.click(screen.getByRole('button', { name: /Próxima/ }))
     await user.click(screen.getByRole('button', { name: /Próxima/ }))
     expect(screen.getByText('Informe as vagas.')).toBeTruthy()
+    // Aberto a todos (padrão): a nota explica a regra sem o código interno da especificação.
+    expect(screen.getByText('Quem ainda está em classificação só se inscreve em evento aberto a todos.')).toBeTruthy()
+    expect(screen.queryByText(/\((RN|HU)\d+\)/)).toBeNull()
     await user.click(screen.getByRole('button', { name: '8 times' }))
     await user.click(screen.getByRole('button', { name: 'Só alguns elos' }))
     await user.click(screen.getByRole('button', { name: /Próxima/ }))

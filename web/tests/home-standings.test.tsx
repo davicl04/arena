@@ -138,3 +138,16 @@ describe('modalityStanding', () => {
     })
   })
 })
+
+describe('"Seu próximo passo" no Início', () => {
+  it('pede o perfil esportivo só enquanto falta alguma modalidade', async () => {
+    renderHome(standings(), profiles.slice(0, 2))
+    expect(await screen.findByText('Complete seu perfil esportivo')).not.toBeNull()
+    expect(screen.getByText('Seu próximo passo')).not.toBeNull()
+    cleanup()
+    renderHome(standings())
+    expect(await screen.findByText('Seu elo')).not.toBeNull()
+    expect(screen.queryByText('Complete seu perfil esportivo')).toBeNull()
+    expect(screen.queryByText('Seu próximo passo')).toBeNull()
+  })
+})

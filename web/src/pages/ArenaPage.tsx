@@ -451,6 +451,8 @@ export default function ArenaPage({
               loading={loading}
               board={playBoard}
               openMatch={current.matchId}
+              initialSport={current.sport}
+              onSportChange={setScreenSport}
               notificationCount={notifications.count}
               go={go}
               onExpired={onExpired}

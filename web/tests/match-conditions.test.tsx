@@ -303,6 +303,9 @@ describe('condições: propor', () => {
       'GET /courts?city_id=5300108&kind=tenis&match_id=1': { items: [court({ kind: 'tenis', name: 'Clube de Tênis' })] },
       'POST /matches/1/terms': tennis,
     })
+    // No tênis não há representantes: quem combina são os dois tenistas.
+    expect(await screen.findByText(/Os dois tenistas combinam dia, horário e quadra/)).not.toBeNull()
+    expect(screen.queryByText(/representantes/)).toBeNull()
     await user.click(await screen.findByRole('button', { name: 'Propor condições' }))
     expect(screen.getByRole('heading', { level: 1, name: 'Ricardo Moura contra Caio Ramos' })).not.toBeNull()
     const sheet = await screen.findByRole('dialog', { name: 'Propor condições' })
