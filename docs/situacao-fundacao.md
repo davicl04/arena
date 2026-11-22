@@ -1,5 +1,28 @@
 # Situação da fundação do Arena
 
+## Início do Expo: Pílulas de elo — 22 de novembro de 2026
+
+Terceira entrega do [plano do Início](plano-inicio.md) no Expo (ticket 07).
+
+- No Início do Expo, o carrossel de cartões de modalidade (`ModalityCard`) deu lugar às **Pílulas** (`mobile/src/components/home/Pilulas.tsx`): cabeçalho "Seu elo" com "Ver elos" (abre o Ranking) e um bloco escuro por design (`forest` com o Coliseu em marca-d'água, igual nos dois temas) com três pílulas, na ordem futebol, tênis e corrida, cada uma com o ícone e o nome da modalidade.
+- Cada pílula segue a regra existente de `modalityStanding` (`GET /me/standings`, lido uma única vez):
+  - com elo: emblema, nome do elo e métrica ("{n} pts", "{n} média" ou "{tempo} · {distância} km", na distância de maior elo);
+  - em classificação: "{n} de 3" e "Sem classificação";
+  - corrida sem marca: "Sem marca" e "Sem classificação";
+  - sem perfil esportivo na modalidade (lista de perfis confirmada): "Sem perfil" e "Configurar";
+  - carregando: "…";
+  - falha: "Classificação indisponível".
+- Nunca aparece elo para quem está em classificação, e a posição no ranking não é exibida.
+- O toque abre o Ranking da modalidade (na corrida, na distância do elo, quando houver) ou, sem perfil, o Perfil, onde fica a tela de modalidades do Expo (não há rota própria; o Jogar usa o mesmo destino). O nome acessível informa a modalidade e o elo ou a situação.
+- A lógica pura fica em `mobile/src/data/home.ts`: `pillStatus`, `pillMetric`, `pillTexts` e `pillAccessibilityLabel`. A web (ticket 03) deve aplicar as mesmas regras com os mesmos nomes.
+- `ModalityCard.tsx` ficou sem uso no Início e será removido na limpeza do ticket 08.
+
+**Verificações** (em `mobile/`, no commit do ticket; a árvore consolidada é idêntica): `npm run lint` e `npm run typecheck` sem erros; `npm run test:coverage` com 108 arquivos e 1646 testes aprovados (96,24% statements, 90,59% branches, 95,66% funções, 98,15% linhas); `npm run export:android` aprovado.
+
+**Limitações:** sem validação em aparelho Android ou iOS; não se declara paridade visual do Expo. O ajuste em 320 px (truncamento com reticências) foi feito por `numberOfLines` e não foi conferido em aparelho.
+
+**Pendências:** Campeonatos, "Complete seu perfil esportivo", saída dos atalhos e remoção de `ModalityCard` (ticket 08); Pílulas na web (03); documentação e verificação final (09).
+
 ## Destaque das pendências no Início do Expo — 22 de novembro de 2026
 
 Segunda entrega do [plano do Início](plano-inicio.md) no Expo (ticket 06).
