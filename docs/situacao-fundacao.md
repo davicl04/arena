@@ -1,5 +1,25 @@
 # Situação da fundação do Arena
 
+## Campeonatos, próximo passo e fim dos atalhos no Início do Expo — 22 de novembro de 2026
+
+Quarta entrega do [plano do Início](plano-inicio.md) no Expo (ticket 08). Com ela, o Início do Expo tem todas as seções da spec.
+
+- **Seu próximo passo:** o cartão "Complete seu perfil esportivo" ("Mostre onde e como você gosta de jogar.", texto do cartão da web, porque o Expo não tinha um) aparece depois das Pílulas enquanto a lista de perfis confirmada não tem as três modalidades, e abre a tela de modalidades (`profile`).
+- **Campeonatos:** uma leitura `GET /events?sport={modalidade}&city_id={cidade do perfil}&limit=2` por perfil esportivo, em paralelo e uma vez por montagem, reaproveitando a lista de perfis já lida pelo Início (sem segunda leitura de `/me/sports-profiles`); sem perfis, nenhuma leitura. Os resultados são unidos sem duplicatas por `id`, ordenados por `starts_at` e cortados nos 2 primeiros (`mergeChampionships`).
+  - Título "Campeonatos em {cidade}", "Campeonatos perto de você" ou "Perto de você" (`championshipsTitle`). "Ver todos" abre a lista na modalidade do primeiro campeonato exibido ou, sem campeonatos, na do primeiro perfil (`championshipsSport`).
+  - Linha com ícone, nome, "{data e hora} · {local}" e etiquetas: preço ("Gratuita" ou o formato dos cartazes), vagas ("{n} de {vagas} {times|atletas|corredores}" ou "Vagas esgotadas"), "Você pode se inscrever" (com `eligibility.eligible`, exceto em evento em andamento) e "Em andamento" (`state = em_andamento`). O toque abre o campeonato.
+  - Estados: vazio ("Nenhum campeonato aberto em {cidade}" ou "…perto de você", com "Ver campeonatos"); sem perfis, o cartão "Configure suas modalidades" ("Para ver campeonatos perto de você"), que abre as modalidades; falha só na seção, com "Tentar novamente"; 401 segue o fluxo de sessão expirada.
+- **Atalhos removidos:** saem do Início os grupos JOGAR (Meus times, Campeonatos, Provas de corrida), ORGANIZADOR e ADMINISTRAÇÃO. Os destinos seguem no Jogar ("Outras formas de jogar": Meu time e Campeonatos ou Provas, em `PlayScreen`/`OtherWays`) e no menu do Perfil (`OrganizerMenu`, com as seções de organizador e administração).
+- **Limpeza:** removidos `PendingPlate` e `ModalityCard`, sem uso no Expo. `ListRow` continua (usado no Perfil).
+- `eventsPath` aceita `limit` opcional; novo `loadProfileEvents` em `api/entries.ts`. Sem mudança de backend, contrato ou dependência (`limit` já existia em `GET /events`).
+- Testes: novo `tests/home-campeonatos.test.ts` (lógica pura e tela). `home-standings`, `navigation-shell`, `moderation`, `championship-flow` e `app-join-link` passaram a abrir as telas pela navegação que o shell entrega ao Início, no lugar dos atalhos removidos.
+
+**Verificações** (em `mobile/`, nos commits do ticket; a árvore de `mobile/` consolidada é idêntica): `npm run lint` e `npm run typecheck` sem erros; `npm run test:coverage` com 109 arquivos e 1664 testes aprovados (96,52% instruções, 90,97% ramos, 95,89% funções, 98,47% linhas); `npm run export:android` aprovado.
+
+**Limitações:** sem validação em Android ou iOS. Não se declara paridade visual do Expo, e o truncamento a 320 px e o contraste das etiquetas no tema escuro não foram conferidos em aparelho. "Você pode se inscrever" é omitido em evento em andamento, porque a elegibilidade da API considera só o elo e o evento já não recebe inscrição; é uma leitura da implementação sobre o texto da spec, a confirmar na revisão. As vagas seguem o formato dos cartazes do Expo ("8 de 16 times"), e não o "8 de 16 vagas" do protótipo.
+
+**Pendências:** Pílulas (ticket 03) e Campeonatos com próximo passo (04) na web, com os mesmos nomes e regras; documentação e verificação final (09).
+
 ## Destaque das pendências no Início da web — 22 de novembro de 2026
 
 Segunda entrega do [plano do Início](plano-inicio.md) na web (ticket 02), com os mesmos textos e regras do Expo (ticket 06).
