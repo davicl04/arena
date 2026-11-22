@@ -1,5 +1,5 @@
 import { fileForm, request } from './client'
-import type { Person, Sport, UploadFile } from './client'
+import type { Page, Person, Profile, Sport, UploadFile } from './client'
 import type { EntryState, TierKey } from '../data/arena'
 import type { PixInfo } from '../components/arena/pix'
 import type { EntrySubject, EventPix, EventPoster, Receipt, TeamRef, TennisBonus } from './events'
@@ -98,8 +98,17 @@ function query(params: Record<string, string | number | null | undefined>) {
   return text ? `?${text}` : ''
 }
 
-/** Lista E2 (para `usePagedList`): eventos publicados ou em andamento da modalidade, na cidade escolhida. */
-export const eventsPath = (sport: Sport, cityId?: number | null) => `/events${query({ sport, city_id: cityId })}`
+/**
+ * Lista E2 (para `usePagedList`): eventos publicados ou em andamento da modalidade, na cidade escolhida, do mais próximo ao
+ * mais distante. `limit` (opcional) limita a página: os Campeonatos do Início pedem só os primeiros.
+ */
+export const eventsPath = (sport: Sport, cityId?: number | null, limit?: number) => `/events${query({ sport, city_id: cityId, limit })}`
+/**
+ * Campeonatos do Início: uma leitura `GET /events?sport=&city_id=&limit=` por perfil esportivo (modalidade e cidade do
+ * perfil), em paralelo. Devolve os itens de cada leitura, na ordem dos perfis; qualquer falha rejeita o conjunto.
+ */
+export const loadProfileEvents = (profiles: readonly Pick<Profile, 'sport' | 'city'>[], limit: number) =>
+  Promise.all(profiles.map(profile => request<Page<EventCard>>(eventsPath(profile.sport, profile.city.id, limit)).then(page => page.items)))
 /** Inscrições de quem vê: `ativas` (ocupam vaga ou com devolução em curso) ou `historico`. */
 export const myEntriesPath = (scope: 'ativas' | 'historico' = 'ativas', limit = 50) => `/me/entries${query({ scope, limit })}`
 /** Inscritos confirmados do evento (aba Inscritos do D2, pública). */

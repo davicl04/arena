@@ -263,28 +263,21 @@ describe('Pílulas: regras puras', () => {
 })
 
 describe('Início: o que já existia continua', () => {
-  it('sino com contador e atalhos de times, campeonatos e provas', async () => {
+  it('sino com contador; os atalhos de times, campeonatos e provas saíram (ficam no Jogar)', async () => {
     const { tree, navigation } = await mount(standings(), { unread: 12 })
     const text = allText(tree)
     expect(text).not.toContain('em breve')
     expect(text).toContain('9+')
     await pressButton(tree, 'Notificações, 12 novas')
     expect(navigation.go).toHaveBeenLastCalledWith('notifications')
-    await pressButton(tree, 'Meus times')
-    expect(navigation.go).toHaveBeenLastCalledWith('teams')
-    await pressButton(tree, 'Campeonatos')
-    expect(navigation.go).toHaveBeenLastCalledWith('events', { sport: 'futebol' })
-    await pressButton(tree, 'Provas de corrida')
-    expect(navigation.go).toHaveBeenLastCalledWith('events', { sport: 'corrida' })
-    expect(findButton(tree, 'Sugestões de quadra')).toBeUndefined()
+    for (const label of ['Meus times', 'Campeonatos', 'Provas de corrida', 'Seja organizador', 'Meus eventos', 'Sugestões de quadra']) expect(findButton(tree, label)).toBeUndefined()
+    expect(text).not.toMatch(/JOGAR|ORGANIZADOR|ADMINISTRAÇÃO/)
   })
 
-  it('a administração mantém as filas, inclusive quadras e W.O.', async () => {
-    const { tree, navigation } = await mount(standings(), { user: admin })
-    await pressButton(tree, 'Sugestões de quadra')
-    expect(navigation.go).toHaveBeenLastCalledWith('admin-court-suggestions')
-    await pressButton(tree, 'W.O. contestados')
-    expect(navigation.go).toHaveBeenLastCalledWith('admin-walkover-disputes')
+  it('a administração não tem mais atalhos no Início (as filas ficam no menu do Perfil); a classificação é lida uma vez', async () => {
+    const { tree } = await mount(standings(), { user: admin })
+    for (const label of ['Pedidos de organizador', 'Eventos pagos', 'Organizador revogado', 'Devoluções contestadas', 'Sugestões de quadra', 'W.O. contestados', 'Denúncias']) expect(findButton(tree, label)).toBeUndefined()
+    expect(allText(tree)).not.toContain('ADMINISTRAÇÃO')
     expect(callsTo('GET', STANDINGS)).toHaveLength(1)
   })
 })

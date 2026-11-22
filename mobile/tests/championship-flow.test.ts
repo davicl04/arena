@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { request } from '../src/api/client'
 import type { MatchDetail } from '../src/api/matches'
 import ArenaShell from '../src/screens/ArenaShell'
+import HomeScreen from '../src/screens/HomeScreen'
 import { dayLabel } from '../src/utils/calendar'
 import { combineDateTime } from '../src/utils/dateKey'
 import { confirmed, eightTeams, eliminationBracket, matchList, row } from './support/brackets'
@@ -75,9 +76,13 @@ async function mountShell(routes: Record<string, Route>) {
   await flush()
   return tree
 }
-/** Início → Meus eventos → cartaz do evento: a gestão (G3). */
+/**
+ * Meus eventos → cartaz do evento: a gestão (G3). Meus eventos fica no menu do Perfil (sem atalho no Início): a lista abre
+ * pela navegação que o shell entrega ao Início.
+ */
 async function openManagement(tree: ReactTestRenderer) {
-  await pressButton(tree, 'Meus eventos')
+  await act(async () => { tree.root.findByType(HomeScreen).props.navigation.go('organizer-events') })
+  await flush()
   await pressPrefix(tree, 'Copa Sudoeste')
 }
 

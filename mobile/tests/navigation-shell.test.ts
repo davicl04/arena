@@ -9,6 +9,7 @@ import type { ScreenComponent } from '../src/navigation/screens'
 import { useJoinLink } from '../src/navigation/useJoinLink'
 import type { Navigation } from '../src/navigation/useNavigation'
 import ArenaShell from '../src/screens/ArenaShell'
+import HomeScreen from '../src/screens/HomeScreen'
 import { appState, byLabel, enableAct, hardwareBack, linking, ownBar, press, textOf } from './support/native'
 import { matchCard, playBoard, search } from './support/play'
 
@@ -79,6 +80,13 @@ const host = (tree: ReactTestRenderer, type: string) => tree.root.findAll(node =
 const tabs = (tree: ReactTestRenderer) => tree.root.findAllByType('Pressable' as never).filter(entry => entry.props.accessibilityRole === 'tab')
 const selectedTab = (tree: ReactTestRenderer) => tabs(tree).filter(entry => entry.props.accessibilityState.selected).map(entry => entry.props.accessibilityLabel)
 const back = async () => { let handled = false; await act(async () => { handled = hardwareBack.press() }); return handled }
+/**
+ * Abre uma tela a partir do Início pela navegação que o shell entrega a ele. O Início não tem mais atalhos: times e
+ * campeonatos ficam no Jogar ("Outras formas de jogar"), organizador e administração no menu do Perfil.
+ */
+const goFromHome = async (tree: ReactTestRenderer, ...args: Parameters<Navigation['go']>) => {
+  await act(async () => { tree.root.findByType(HomeScreen).props.navigation.go(...args) })
+}
 
 beforeEach(() => {
   enableAct()
@@ -142,7 +150,7 @@ const byId = (tree: ReactTestRenderer, id: string) => tree.root.findAll(node => 
 describe('pilha de telas e voltar', () => {
   it('empilha a tela, mostra o título com Voltar e acende a aba da área', async () => {
     const tree = await mount()
-    await press(tree, 'Meus times')
+    await goFromHome(tree, 'teams')
     expect(textOf(tree)).toContain('Meus times')
     expect(host(tree, 'TeamsScreen')).toHaveLength(1)
     expect(selectedTab(tree)).toEqual(['JOGAR'])
@@ -155,24 +163,24 @@ describe('pilha de telas e voltar', () => {
     const tree = await mount()
     // Campeonatos e provas leem o perfil e as cidades (listas simples) antes dos cartazes.
     vi.mocked(request).mockImplementation(async path => (path === '/me/sports-profiles' ? [] : { items: [], next_cursor: null }) as never)
-    await press(tree, 'Provas de corrida')
+    await goFromHome(tree, 'events', { sport: 'corrida' })
     expect(textOf(tree)).toContain('Provas')
     await press(tree, 'Voltar')
-    await press(tree, 'Campeonatos')
+    await goFromHome(tree, 'events', { sport: 'futebol' })
     expect(textOf(tree)).toContain('Campeonatos')
     await press(tree, 'Voltar')
     expect(textOf(tree)).toContain('A arena te chama, Maria')
-    await press(tree, 'Seja organizador')
+    await goFromHome(tree, 'organizer-request')
     expect(selectedTab(tree)).toEqual(['Perfil'])
     await press(tree, 'Voltar')
-    await press(tree, 'Meus eventos')
+    await goFromHome(tree, 'organizer-events')
     expect(textOf(tree)).toContain('Meus eventos')
   })
 
   it('o botão voltar do Android volta uma tela; no Início, deixa o app sair', async () => {
     const tree = await mount()
     expect(await back()).toBe(false)
-    await press(tree, 'Meus times')
+    await goFromHome(tree, 'teams')
     expect(await back()).toBe(true)
     expect(textOf(tree)).toContain('A arena te chama, Maria')
     expect(await back()).toBe(false)
@@ -196,7 +204,7 @@ describe('pilha de telas e voltar', () => {
 
   it('"Ver perfil" (Meus times) empilha o perfil do atleta sobre a tela de origem e o voltar a restaura', async () => {
     const tree = await mount()
-    await press(tree, 'Meus times')
+    await goFromHome(tree, 'teams')
     await act(async () => { host(tree, 'TeamsScreen')[0].props.navigation.go('user-profile', { userId: 9 }) })
     expect(host(tree, 'UserProfileScreen')[0].props.params).toEqual({ userId: 9 })
     expect(host(tree, 'TeamsScreen')).toHaveLength(0)
@@ -209,7 +217,7 @@ describe('pilha de telas e voltar', () => {
 
   it('as telas com barra própria dispensam o cabeçalho claro do shell; as demais telas empilhadas o usam', async () => {
     const tree = await mount()
-    await press(tree, 'Meus times')
+    await goFromHome(tree, 'teams')
     // Só o Voltar da própria barra (o sósia de Meus times), sem o do shell.
     expect(byLabel(tree, 'Voltar')).toHaveLength(1)
     expect(textOf(tree).split('Meus times')).toHaveLength(2)
@@ -229,7 +237,7 @@ describe('pilha de telas e voltar', () => {
   })
 })
 
-describe('Início: sino e atalhos', () => {
+describe('Início: sino e filas da administração', () => {
   it('mostra o sino sem contador quando não há notificações não lidas', async () => {
     const tree = await mount()
     expect(byLabel(tree, 'Notificações')).toHaveLength(1)
@@ -275,16 +283,16 @@ describe('Início: sino e atalhos', () => {
     expect(vi.mocked(request)).toHaveBeenCalledWith('/me/play', 'GET', undefined, { background: true })
   })
 
-  it('administração só aparece para quem é administrador e cada fila abre a própria tela', async () => {
-    const plain = await mount()
-    expect(byLabel(plain, 'Eventos pagos')).toHaveLength(0)
+  it('o Início não tem os atalhos da administração (ficam no menu do Perfil); cada fila abre a própria tela pelo shell', async () => {
     const tree = await mount({ user: { ...me, is_admin: true } })
-    for (const [label, title, screen] of [
-      ['Pedidos de organizador', 'Pedidos de organizador', 'AdminOrganizerRequestsScreen'], ['Eventos pagos', 'Eventos pagos', 'AdminPaidEventsScreen'],
-      ['Organizador revogado', 'Organizador revogado', 'AdminRevokedEventsScreen'], ['Devoluções contestadas', 'Devoluções contestadas', 'AdminRefundDisputesScreen'],
-      ['Sugestões de quadra', 'Sugestões de quadra', 'AdminCourtSuggestionsScreen'], ['W.O. contestados', 'W.O. contestados', 'AdminWalkoverDisputesScreen'], ['Denúncias', 'Denúncias', 'ModerationScreen'],
+    expect(byLabel(tree, 'Eventos pagos')).toHaveLength(0)
+    expect(textOf(tree)).not.toContain('ADMINISTRAÇÃO')
+    for (const [route, title, screen] of [
+      ['admin-organizer-requests', 'Pedidos de organizador', 'AdminOrganizerRequestsScreen'], ['admin-paid-events', 'Eventos pagos', 'AdminPaidEventsScreen'],
+      ['admin-revoked-events', 'Organizador revogado', 'AdminRevokedEventsScreen'], ['admin-refund-disputes', 'Devoluções contestadas', 'AdminRefundDisputesScreen'],
+      ['admin-court-suggestions', 'Sugestões de quadra', 'AdminCourtSuggestionsScreen'], ['admin-walkover-disputes', 'W.O. contestados', 'AdminWalkoverDisputesScreen'], ['moderation', 'Denúncias', 'ModerationScreen'],
     ] as const) {
-      await press(tree, label)
+      await goFromHome(tree, route)
       expect(host(tree, screen)).toHaveLength(1)
       expect(host(tree, screen)[0].props.user.is_admin).toBe(true)
       expect(textOf(tree)).toContain(title)
@@ -295,7 +303,7 @@ describe('Início: sino e atalhos', () => {
 
   it('"Ver perfil" da fila de pedidos de organizador empilha o perfil do atleta e volta à fila; o próprio perfil é a aba Perfil', async () => {
     const tree = await mount({ user: { ...me, is_admin: true } })
-    await press(tree, 'Pedidos de organizador')
+    await goFromHome(tree, 'admin-organizer-requests')
     await act(async () => { host(tree, 'AdminOrganizerRequestsScreen')[0].props.onOpenProfile(9) })
     expect(host(tree, 'UserProfileScreen')[0].props.params).toEqual({ userId: 9 })
     expect(await back()).toBe(true)
@@ -451,7 +459,7 @@ describe('Jogar e campeonatos: rotas declaradas (em breve até as frentes)', () 
 
   it('a partida abre a própria tela com os parâmetros e o voltar dela, e acende a aba JOGAR', async () => {
     const tree = await mount()
-    await press(tree, 'Meus times')
+    await goFromHome(tree, 'teams')
     await act(async () => { shellNavigation(tree).go('match', { matchId: 3 }) })
     expect(host(tree, 'MatchScreen')).toHaveLength(1)
     expect(host(tree, 'MatchScreen')[0].props.params).toEqual({ matchId: 3 })
@@ -464,7 +472,7 @@ describe('Jogar e campeonatos: rotas declaradas (em breve até as frentes)', () 
 
   it('chaveamento, partidas e decisão abrem as telas próprias com os parâmetros e o voltar da barra, e acendem a aba da área', async () => {
     const tree = await mount()
-    await press(tree, 'Meus times')
+    await goFromHome(tree, 'teams')
     for (const [route, params, host_, title] of [
       ['event-bracket', { eventId: 5 }, 'BracketScreen', 'Chaveamento'],
       ['event-matches', { eventId: 5, matchId: 11 }, 'EventMatchesScreen', 'Partidas'],
@@ -488,7 +496,7 @@ describe('Jogar e campeonatos: rotas declaradas (em breve até as frentes)', () 
     screens.play = ((props: { params: unknown; navigation: unknown }) => { seen.play = props.params; seen.navigation = props.navigation; return h('PlayProbe', {}) }) as unknown as ScreenComponent<'play'>
     screens.ranking = ((props: { params: unknown }) => { seen.ranking = props.params; return h('RankingProbe', {}) }) as unknown as ScreenComponent<'ranking'>
     const tree = await mount()
-    await press(tree, 'Meus times')
+    await goFromHome(tree, 'teams')
     await act(async () => { shellNavigation(tree).go('play', { matchId: 50 }) })
     expect(seen.play).toEqual({ matchId: 50 })
     expect(selectedTab(tree)).toEqual(['JOGAR'])
@@ -507,7 +515,7 @@ describe('Jogar e campeonatos: rotas declaradas (em breve até as frentes)', () 
     board = playBoard({ searches: [search()], matches: [matchCard()] })
     const tree = await mount()
     expect(vi.mocked(request)).toHaveBeenCalledWith('/me/play', 'GET', undefined, { background: true })
-    await press(tree, 'Meus times')
+    await goFromHome(tree, 'teams')
     await act(async () => { shellNavigation(tree).go('match', { matchId: 50 }) })
     const props = probe.mock.calls.at(-1)![0]
     expect(props.playBoard.board).toEqual(board)

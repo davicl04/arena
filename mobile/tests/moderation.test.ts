@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiError, request } from '../src/api/client'
 import type { AdminReport } from '../src/api/moderation'
 import ArenaShell from '../src/screens/ArenaShell'
+import HomeScreen from '../src/screens/HomeScreen'
 import ModerationScreen from '../src/screens/ModerationScreen'
 import { enableAct, press, textOf } from './support/native'
 import type { Call } from './support/review'
@@ -58,10 +59,11 @@ describe('Moderação (Denúncias)', () => {
     expect(vi.mocked(request)).not.toHaveBeenCalled()
   })
 
-  it('o atalho Denúncias do Início abre a fila pelo shell, com o título e a aba Perfil acesa', async () => {
+  it('Denúncias abre a fila pelo shell, com o título e a aba Perfil acesa; o Início não tem mais o atalho (fica no menu do Perfil)', async () => {
     world({}, { '/me/notifications/unread-count': { unread_count: 0 } })
     const tree = await render(h(ArenaShell, { user: admin, onUser: vi.fn(), onLogout: vi.fn(), onExpired: vi.fn() }))
-    await press(tree, 'Denúncias')
+    expect(findButton(tree, 'Denúncias')).toBeUndefined()
+    await act(async () => { tree.root.findByType(HomeScreen).props.navigation.go('moderation') })
     expect(textOf(tree)).toContain('Comentário · #55')
     const nav = ['Início', 'Ranking', 'JOGAR', 'Comunidade', 'Perfil']
     expect(tree.root.findAllByType('Pressable' as never).filter(item => nav.includes(item.props.accessibilityLabel) && item.props.accessibilityState?.selected).map(item => item.props.accessibilityLabel)).toEqual(['Perfil'])

@@ -1,17 +1,20 @@
-import type { ReactNode } from 'react'
+import { useCallback } from 'react'
 import { ScrollView, Text, View } from 'react-native'
 import type { User } from '../api/client'
+import { loadProfileEvents } from '../api/entries'
 import type { ArenaNotification } from '../api/notifications'
 import type { MatchCard } from '../api/matches'
 import { getMyStandings } from '../api/play'
 import { ActionButton } from '../components/arena/controls'
-import ListRow from '../components/ListRow'
+import { Campeonatos } from '../components/home/Campeonatos'
+import type { CampeonatosState } from '../components/home/Campeonatos'
 import { Destaque } from '../components/home/Destaque'
 import { Pilulas } from '../components/home/Pilulas'
 import { Placar } from '../components/home/Placar'
+import { ProximoPasso } from '../components/home/ProximoPasso'
 import { NotificationBell } from '../components/notifications/NotificationBell'
 import { nextScheduledMatch } from '../components/play/matchView'
-import { primaryButtonLabel } from '../data/home'
+import { CHAMPIONSHIPS_LIMIT, championshipsSport, mergeChampionships, missingSportsCount, primaryButtonLabel } from '../data/home'
 import type { NotificationSummaryState } from '../hooks/useNotificationSummary'
 import { loadProfiles } from '../hooks/useCities'
 import { useNow } from '../hooks/useNow'
@@ -22,10 +25,6 @@ import type { Navigation } from '../navigation/useNavigation'
 import { tw } from '../styles'
 import { formatLongDate } from '../utils/format'
 
-function Group({ title, children }: { title: string; children: ReactNode }) {
-  return <View className="mb-1.5"><Text className="mt-3.5 mb-1.5 text-[11px] font-bold tracking-[2px] text-brand">{title}</Text><View className="rounded-card bg-surface px-5.5">{children}</View></View>
-}
-
 /**
  * Início: sino das Notificações com o contador de novas (não lidas e pedidos para seguir, do resumo lido pelo shell), a data
  * por extenso e "A arena te chama, {primeiro nome}", o Placar (a próxima partida agendada entre as partidas da placa do Jogar,
@@ -34,8 +33,10 @@ function Group({ title, children }: { title: string; children: ReactNode }) {
  * (`GET /me/notifications/pending?limit=1`, com o total do resumo; só aparece com `pending_count > 0` e um item lido, e some
  * sem pendências ou se a leitura falhar), as Pílulas de "Seu elo" (`GET /me/standings`, lido uma vez: o elo com a métrica de
  * quem já se classificou, "n de 3" em classificação, "Sem marca" na corrida ou "Sem perfil" quando a lista de perfis não tem a
- * modalidade) e atalhos para as áreas do app. Sem pontos, partidas ou classificações fictícias: o que não vem da API aparece
- * vazio ou indisponível.
+ * modalidade), o cartão "Complete seu perfil esportivo" enquanto falta modalidade e os Campeonatos (uma leitura
+ * `GET /events?sport=&city_id=&limit=2` por perfil, em paralelo, uma vez por montagem; os 2 primeiros da união, sem leitura
+ * sem perfis). Os atalhos de times, campeonatos, organizador e administração ficam no Jogar e no menu do Perfil. Sem pontos,
+ * partidas, classificações ou campeonatos fictícios: o que não vem da API aparece vazio ou indisponível.
  */
 export default function HomeScreen({ user, navigation, onExpired, matches = [], notificationSummary }: {
   user: User; navigation: Navigation; onExpired: () => void
@@ -55,6 +56,18 @@ export default function HomeScreen({ user, navigation, onExpired, matches = [], 
   // Perfis esportivos (o shell não os lê): só uma lista vazia confirmada conta como "sem perfis"; carregando ou com falha, não.
   const profiles = useResource(loadProfiles, onExpired)
   const hasProfiles = !Array.isArray(profiles.data) || profiles.data.length > 0
+  const profileList = Array.isArray(profiles.data) ? profiles.data : null
+  // Campeonatos: reaproveitam a mesma lista de perfis (sem nova leitura dela); uma leitura por perfil, só quando há perfis.
+  const loadChampionships = useCallback(() => loadProfileEvents(profileList ?? [], CHAMPIONSHIPS_LIMIT).then(lists => mergeChampionships(lists)), [profileList])
+  const championships = useResource(loadChampionships, onExpired, { enabled: Boolean(profileList?.length), fallback: 'Não foi possível carregar os campeonatos.' })
+  const championshipsState: CampeonatosState = profiles.loading ? { kind: 'loading' }
+    : !profileList ? { kind: 'error', message: profiles.error || 'Não foi possível carregar os seus perfis esportivos.', cause: profiles.errorCause, onRetry: profiles.reload }
+      : profileList.length === 0 ? { kind: 'no-profiles' }
+        : championships.loading ? { kind: 'loading' }
+          : championships.error ? { kind: 'error', message: championships.error, cause: championships.errorCause, onRetry: championships.reload }
+            : { kind: 'ready', shown: championships.data ?? [] }
+  const allSport = profileList?.length ? championshipsSport(championshipsState.kind === 'ready' ? championshipsState.shown : [], profileList) : null
+  const openModalities = () => navigation.go('profile')
   const openAllPending = () => navigation.go('notifications', { filter: 'responder' })
   // Marca como lida e abre o destino do aviso; sem destino, as notificações no filtro Para responder.
   const openPending = (notification: ArenaNotification) => void openNotification(notification, {
@@ -72,24 +85,10 @@ export default function HomeScreen({ user, navigation, onExpired, matches = [], 
     <View className="mt-3 mb-3.5"><ActionButton block tone="brand" icon="zap" title={primaryButtonLabel({ hasProfiles, hasNextMatch: Boolean(nextMatch) })} accessibilityHint="Abre o Jogar" onPress={() => navigation.go('play')} /></View>
     {firstPending ? <Destaque notification={firstPending} total={pendingTotal} now={now} isAdmin={user.is_admin} onOpen={openPending} onOpenAll={openAllPending} /> : null}
     <Pilulas standings={standings.data} standingsLoading={standings.loading} profiles={profiles.data} profilesLoading={profiles.loading}
-      onOpenRanking={params => (params ? navigation.go('ranking', params) : navigation.go('ranking'))} onOpenModalities={() => navigation.go('profile')} />
-    <Group title="JOGAR">
-      <ListRow label="Meus times" onPress={() => navigation.go('teams')} />
-      <ListRow label="Campeonatos" onPress={() => navigation.go('events', { sport: 'futebol' })} />
-      <ListRow label="Provas de corrida" onPress={() => navigation.go('events', { sport: 'corrida' })} />
-    </Group>
-    <Group title="ORGANIZADOR">
-      <ListRow label="Seja organizador" onPress={() => navigation.go('organizer-request')} />
-      <ListRow label="Meus eventos" onPress={() => navigation.go('organizer-events')} />
-    </Group>
-    {user.is_admin ? <Group title="ADMINISTRAÇÃO">
-      <ListRow label="Pedidos de organizador" onPress={() => navigation.go('admin-organizer-requests')} />
-      <ListRow label="Eventos pagos" onPress={() => navigation.go('admin-paid-events')} />
-      <ListRow label="Organizador revogado" onPress={() => navigation.go('admin-revoked-events')} />
-      <ListRow label="Devoluções contestadas" onPress={() => navigation.go('admin-refund-disputes')} />
-      <ListRow label="Sugestões de quadra" onPress={() => navigation.go('admin-court-suggestions')} />
-      <ListRow label="W.O. contestados" onPress={() => navigation.go('admin-walkover-disputes')} />
-      <ListRow label="Denúncias" onPress={() => navigation.go('moderation')} />
-    </Group> : null}
+      onOpenRanking={params => (params ? navigation.go('ranking', params) : navigation.go('ranking'))} onOpenModalities={openModalities} />
+    {profileList && missingSportsCount(profileList) > 0 ? <ProximoPasso onOpen={openModalities} /> : null}
+    <Campeonatos state={championshipsState} profiles={profileList} allSport={allSport} onOpenModalities={openModalities}
+      onOpenEvents={sport => navigation.go('events', { sport })}
+      onOpenEvent={card => navigation.go('event', card.sport ? { eventId: card.id, sport: card.sport } : { eventId: card.id })} />
   </ScrollView>
 }

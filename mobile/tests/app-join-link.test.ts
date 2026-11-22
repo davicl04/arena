@@ -7,6 +7,7 @@ import { ApiError, clearToken, request } from '../src/api/client'
 import type { User } from '../src/api/client'
 import { screens } from '../src/navigation/screens'
 import type { ScreenComponent } from '../src/navigation/screens'
+import HomeScreen from '../src/screens/HomeScreen'
 import { enableAct, hardwareBack, linking, ownBar, press, textOf } from './support/native'
 import { textWithin } from './support/toast'
 
@@ -118,7 +119,8 @@ describe('App: link do time depois do login', () => {
     expect(joins).toEqual(['web-token'])
     await press(tree, 'Voltar')
     expect(textOf(tree)).toContain('A arena te chama, Maria')
-    await press(tree, 'Meus times')
+    // Meus times fica no Jogar ("Outras formas de jogar"), sem atalho no Início: abre pela navegação que o shell entrega ao Início.
+    await act(async () => { tree.root.findByType(HomeScreen).props.navigation.go('teams') })
     await press(tree, 'Voltar')
     expect(joins).toEqual(['web-token'])
   })
