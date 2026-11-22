@@ -1,6 +1,6 @@
 import { ChevronRight, Medal, Zap } from "lucide-react";
 import { ApiError, sports } from "../api/client";
-import type { Profile } from "../api/client";
+import type { Profile, Sport } from "../api/client";
 import { markNotificationRead } from "../api/notifications";
 import type { ArenaNotification } from "../api/notifications";
 import type { MatchCard } from "../api/matches";
@@ -10,22 +10,18 @@ import { useResource } from "../hooks/useResource";
 import { usePendingNotifications } from "../hooks/usePendingNotifications";
 import type { NotificationSummaryState } from "../hooks/useNotificationSummary";
 import { nextScheduledMatch } from "../components/play/matchView";
-import { formatDuration } from "../components/play/tierLines";
 import { Logo } from "../components/Brand";
 import { NotificationBell } from "../components/notifications/NotificationBell";
 import { Placar } from "../components/home/Placar";
 import { primaryButtonLabel } from "../data/home";
 import { Destaque } from "../components/home/Destaque";
-import { TierEmblem } from "../components/arena/TierEmblem";
-import { modalityStanding } from "../components/arena/modalityStanding";
-import { Badge } from "@/components/ui/badge";
+import { Pilulas } from "../components/home/Pilulas";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Eyebrow } from "@/components/ui/eyebrow";
 import { IconTile } from "@/components/ui/icon-tile";
 import { SectionTitle } from "@/components/ui/section-title";
-import { cover, sportIcons } from "../data/arena";
-import type { Screen } from "../data/arena";
+import { cover } from "../data/arena";
+import type { RunDistance, Screen } from "../data/arena";
 import { notificationView } from "../data/notifications";
 import type { NotificationFilter, NotificationTarget } from "../data/notifications";
 
@@ -51,7 +47,10 @@ export default function HomePage({
   summary?: NotificationSummaryState;
   /** Conta administrativa: alguns avisos levam às filas da administração. */
   isAdmin?: boolean;
-  go: (screen: Screen, context?: Omit<NotificationTarget, "screen"> & { filter?: NotificationFilter }) => void;
+  go: (
+    screen: Screen,
+    context?: Omit<NotificationTarget, "screen"> & { filter?: NotificationFilter; sport?: Sport; distance?: RunDistance },
+  ) => void;
   onExpired: () => void;
 }) {
   // Relógio de 60 s: recalcula a Contagem e troca o Placar para a partida seguinte quando `starts_at` passa.
@@ -84,7 +83,7 @@ export default function HomePage({
       go(screen, context);
     } else go("notifications", { filter: "responder" });
   }
-  // Classificação de cada modalidade: o elo de quem já se classificou, ou "n de 3 partidas".
+  // Classificação das Pílulas ("Seu elo"): uma única leitura; o elo de quem já se classificou, ou "n de 3".
   const standings = useResource(getMyStandings, onExpired);
   /** Modalidades ainda sem perfil: o cartão "Seu próximo passo" só aparece enquanto houver alguma. */
   const missingSports = sports.filter((s) => !profiles.some((p) => p.sport === s.value)).length;
@@ -123,80 +122,14 @@ export default function HomePage({
           onOpenAll={() => go("notifications", { filter: "responder" })}
         />
       )}
-      <SectionTitle
-        title="Seu elo"
-        action={
-          <Button variant="link" onClick={() => go("ranking")}>
-            Ver elos
-          </Button>
-        }
+      <Pilulas
+        standings={standings.data}
+        standingsLoading={standings.loading}
+        profiles={loading || profilesFailed ? null : profiles}
+        profilesLoading={loading}
+        onOpenRanking={(target) => (target ? go("ranking", target) : go("ranking"))}
+        onOpenModalities={() => go("sports")}
       />
-      {loading ? (
-        <p role="status">Carregando modalidades…</p>
-      ) : (
-        <div className="-mx-5 flex snap-x snap-mandatory gap-3 overflow-x-auto px-5 pb-2 scrollbar-none">
-          {sports.map((s) => {
-            const Icon = sportIcons[s.value];
-            const profile = profiles.find((p) => p.sport === s.value);
-            const standing = standings.data ? modalityStanding(s.value, standings.data) : null;
-            return (
-              <Card
-                as="article"
-                radius="panel"
-                elevated
-                key={s.value}
-                className="max-w-[calc(100vw-48px)] flex-[0_0_314px] snap-center p-[17px]"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <IconTile>
-                    <Icon size={30} />
-                  </IconTile>
-                  <Badge data-testid={`standing-${s.value}`} className="gap-1.5">
-                    {standing?.tier ? (
-                      <TierEmblem tier={standing.tier} size="xs" showName />
-                    ) : standing ? (
-                      s.value === "corrida" ? "Sem marca" : `${standing.played} de ${standing.required} partidas`
-                    ) : standings.loading ? (
-                      <span aria-label="Carregando classificação">…</span>
-                    ) : (
-                      "Classificação indisponível"
-                    )}
-                  </Badge>
-                </div>
-                <p className="mt-[11px] text-[12px] text-ink-muted">{s.label}</p>
-                <div className="mt-[3px] mb-[9px] flex items-baseline gap-[7px]">
-                  <strong className="font-display text-[28px] font-bold">
-                    {standing?.metric
-                      ? standing.metric.unit === "tempo"
-                        ? formatDuration(standing.metric.value)
-                        : standing.metric.value.toLocaleString("pt-BR", { maximumFractionDigits: 2 })
-                      : "—"}
-                  </strong>
-                  <span className="text-[12px] text-ink-muted">
-                    {s.value === "corrida" ? "melhor tempo" : (standing?.metric?.unit ?? "pontos")}
-                  </span>
-                </div>
-                <div className="h-[7px] rounded-[5px] bg-app" />
-                <div className="mt-2 flex items-center justify-between gap-2 text-[10px] text-ink-muted">
-                  <span>
-                    {standing?.context ??
-                      (profile
-                        ? "Sua trajetória começa aqui"
-                        : "Adicione seu perfil esportivo")}
-                  </span>
-                  <Button
-                    variant="link"
-                    className="text-[10px]"
-                    onClick={() => go("sports")}
-                  >
-                    {profile ? "Ver perfil" : "Configurar"}
-                  </Button>
-                </div>
-              </Card>
-            );
-          })}
-        </div>
-      )}
       <SectionTitle
         title="Perto de você"
         action={
