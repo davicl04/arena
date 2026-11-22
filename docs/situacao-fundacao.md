@@ -1,5 +1,34 @@
 # Situação da fundação do Arena
 
+## Início do Expo: saudação, Placar e botão principal — 22 de novembro de 2026
+
+Primeira entrega do [plano do Início](plano-inicio.md) no Expo (ticket 05).
+
+- O topo do `HomeScreen` passa a ter a data por extenso em pt-BR e o título "A arena te chama, {primeiro nome}", sem pontuação final. Sai o subtítulo "Veja o seu elo em cada modalidade e escolha por onde começar.".
+- Novo **Placar** (`mobile/src/components/home/Placar.tsx`): bloco escuro por design (`forest` com o Coliseu, igual nos dois temas) com a próxima partida agendada entre as partidas da placa do Jogar já lidas pelo shell (`nextScheduledMatch`, sem leitura nova). Mostra:
+  - o rótulo "Próxima partida" e a etiqueta da modalidade;
+  - a Contagem em números grandes ("{d} dia(s) {h} h", "{h} h {m} min" ou "{m} min", com minutos arredondados para baixo e no mínimo "1 min"), recalculada pelo relógio de 60 s da tela;
+  - a data e a hora locais ("qua, 25 nov · 20:00");
+  - a linha do confronto, com "Você" para o lado do titular em partida individual.
+- O Placar com partida é um único botão, com rótulo de acessibilidade (contagem, confronto, data e local), que abre a partida. Quando `starts_at` passa, ele mostra a partida seguinte ou o estado vazio. Sem partida: "—", "Nenhuma partida agendada" e "Prepare seus perfis esportivos e encontre a primeira." (sem perfis) ou "Que tal marcar a próxima?", sem toque.
+- O botão principal diz "Preparar perfis", "Encontrar outra partida" ou "Encontrar partida" e sempre abre o Jogar.
+- Os perfis esportivos vêm de `GET /me/sports-profiles`, lido pelo Início uma vez por montagem (o shell não lê essa rota). Só uma lista vazia confirmada conta como "sem perfis", e 401 encerra a sessão.
+- Sai a seção "Próxima partida".
+- A lógica pura fica em `mobile/src/data/home.ts` (`countdownText`, `sideLabel`, `matchupLabel`, `emptyPlacarText`, `primaryButtonLabel`); `formatLongDate` foi adicionado em `mobile/src/utils/format.ts`.
+- Testes: novo `mobile/tests/home-placar.test.ts`, com as faixas da contagem, o singular, "0 h", o mínimo de 1 min, "Você", o vazio com os dois textos, os três rótulos do botão, a troca para a partida seguinte com o relógio avançado, a navegação para a partida e a falha e o 401 dos perfis. Os testes do Início, do shell, do link do time e da moderação foram adaptados à nova saudação, e os testes da seção removida foram retirados.
+
+**Verificações** (em `mobile/`, no commit consolidado, com árvore idêntica à do worktree do ticket):
+- `npm run lint` e `npm run typecheck`: sem erros.
+- `npm run test:coverage`: 108 arquivos e 1630 testes aprovados; cobertura geral de 96,48% em instruções, 90,93% em ramos, 95,86% em funções e 98,45% em linhas. A suíte completa (`vitest run`, 1630 aprovados) foi repetida no commit final.
+- `npm run export:android`: bundle Android gerado.
+
+**Limitações:**
+- Sem validação em aparelho Android ou iOS. Não se declara paridade visual do Expo com a web.
+- A marca d'água reaproveita a placa `TeamsPlate` (Coliseu centralizado), sem a posição exata do protótipo.
+- Enquanto os perfis carregam, o botão mostra "Encontrar partida" até a leitura chegar.
+
+**Pendências:** Destaque das pendências (ticket 06), Pílulas de elo (07), Campeonatos e remoção dos atalhos (08) no Expo; a web (tickets 01 a 04) e o fechamento (09).
+
 ## Plano da nova tela de Início — 22 de novembro de 2026
 
 A nova tela de Início foi decidida numa sessão de protótipos com seis rodadas, que trataram da estrutura, do Placar, dos elos, das pendências e do rodapé. O desenho vale para a web e o Expo, que devem ficar iguais. As decisões estão no [plano do Início](plano-inicio.md), e a especificação de trabalho, em `.scratch/inicio/spec.md` (não versionado). O protótipo de referência é `artifacts/prototipos/inicio.html`, também não versionado.
