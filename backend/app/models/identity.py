@@ -6,6 +6,7 @@ from sqlalchemy import (
     CheckConstraint,
     Date,
     DateTime,
+    Double,
     ForeignKey,
     Index,
     Integer,
@@ -24,10 +25,20 @@ def utcnow():
 
 
 class City(Base):
+    """Município do IBGE (ID = código de 7 dígitos), com a coordenada da sede (migração 0015)."""
     __tablename__ = 'cities'
+    __table_args__ = (
+        # Prefixo usa o índice; ocorrência interna percorre o catálogo, de poucos milhares de linhas curtas.
+        Index('ix_cities_search_text', 'search_text', postgresql_ops={'search_text': 'text_pattern_ops'}),
+    )
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=False)
     name: Mapped[str] = mapped_column(String(100))
     state: Mapped[str] = mapped_column(String(2))
+    latitude: Mapped[float] = mapped_column(Double)
+    longitude: Mapped[float] = mapped_column(Double)
+    capital: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Nome + UF normalizados por app.services.cities.city_search_text ("goiania go").
+    search_text: Mapped[str] = mapped_column(String(120))
 
 
 class User(Base):
@@ -180,6 +191,7 @@ class SportsProfile(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey('users.id', ondelete='CASCADE'), index=True)
     sport: Mapped[str] = mapped_column(String(20))
     city_id: Mapped[int] = mapped_column(ForeignKey('cities.id'))
+    city: Mapped[City] = relationship()
     position: Mapped[str | None] = mapped_column(String(20))
     looking_for: Mapped[bool] = mapped_column(Boolean, default=False)
     is_public: Mapped[bool] = mapped_column(Boolean, default=False)

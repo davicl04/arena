@@ -78,7 +78,7 @@ _OPERATIONS: dict[str, tuple[tuple[str, str, str], ...]] = {
         ('GET', '/me', 'Obter a conta logada'),
         ('PATCH', '/me', 'Atualizar a conta logada'),
         ('GET', '/me/username-availability', 'Verificar disponibilidade do nome de usuário'),
-        ('GET', '/cities', 'Listar cidades'),
+        ('GET', '/cities', 'Buscar cidades'),
         ('PUT', '/me/avatar', 'Enviar avatar'),
         ('GET', '/me/avatar', 'Obter avatar'),
         ('DELETE', '/me/avatar', 'Remover avatar'),
@@ -290,6 +290,11 @@ DESCRIPTIONS: dict[tuple[str, str], str] = {
     ('GET', '/users/{user_id}/mutual-followers'): 'Contas que você segue e que também seguem o dono do perfil.',
     ('POST', '/auth/login'): ('Cria a sessão. Com cabeçalho `Origin` (navegador), grava o cookie `HttpOnly` '
                               '`arena_session`; sem `Origin` (mobile), devolve o `token` no corpo.'),
+    ('GET', '/cities'): ('Municípios do IBGE. `q` (2 ou mais caracteres) busca por nome e UF sem diferenciar acentos '
+                         'e maiúsculas e devolve até 20 cidades: prefixo do nome primeiro, depois capitais e ordem '
+                         'alfabética; com menos de 2 caracteres, lista vazia. `ids` (até 50, separados por vírgula) '
+                         'devolve as cidades pedidas e ignora IDs inexistentes. Sem `q` nem `ids`, devolve as 100 '
+                         'primeiras cidades por nome.'),
     ('PUT', '/me/avatar'): 'Envio em `multipart/form-data`, somente imagem, até 5 MiB.',
     ('PUT', '/me/cover'): 'Envio em `multipart/form-data`, somente imagem, até 5 MiB.',
     ('POST', '/posts'): 'Envio em `multipart/form-data` com a imagem e a legenda, até 5 MiB.',

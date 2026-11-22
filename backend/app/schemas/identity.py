@@ -108,6 +108,7 @@ class ProfileOut(ProfileInput):
     sport: Sport
     is_public: bool
     level: str | None = None
+    city: 'CityOut'
 
 
 class CityOut(BaseModel):

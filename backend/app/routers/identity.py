@@ -5,7 +5,7 @@ from fastapi.responses import Response as BinaryResponse
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.core.config import get_settings
 from app.core.database import get_db
@@ -23,6 +23,7 @@ from app.schemas.identity import (
     UsernameAvailabilityOut,
     UserOut,
 )
+from app.services.cities import cities_by_ids, list_cities, parse_city_ids, search_cities
 from app.services.identity import (
     RESERVED_USERNAMES,
     USERNAME_RE,
@@ -106,17 +107,21 @@ def username_availability(u: str = Query(min_length=1, max_length=60), user: Use
 
 
 @router.get('/cities', response_model=list[CityOut])
-def cities(q: str = Query('', max_length=100), db: Session = Depends(get_db)):
-    statement = select(City).order_by(City.name).limit(100)
-    if q:
-        statement = statement.where(City.name.ilike(f'%{q}%'))
-    return db.scalars(statement).all()
+def cities(q: str | None = Query(None, max_length=100), ids: str | None = Query(None, max_length=1000),
+           db: Session = Depends(get_db)):
+    if q is not None and ids is not None:
+        raise HTTPException(422, 'Use a busca (q) ou os IDs (ids), não os dois.')
+    if ids is not None:
+        return cities_by_ids(db, parse_city_ids(ids))
+    if q is None:
+        return list_cities(db)
+    return search_cities(db, q)
 
 
 @router.get('/me/sports-profiles', response_model=list[ProfileOut])
 def profiles(user: User = Depends(current_user), db: Session = Depends(get_db)):
-    return db.scalars(select(SportsProfile).where(SportsProfile.user_id == user.id)
-                      .order_by(SportsProfile.sport)).all()
+    return db.scalars(select(SportsProfile).options(joinedload(SportsProfile.city))
+                      .where(SportsProfile.user_id == user.id).order_by(SportsProfile.sport)).all()
 
 
 async def _read_upload(file: UploadFile) -> bytes:
