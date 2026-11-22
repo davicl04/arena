@@ -1,5 +1,48 @@
 # Situação da fundação do Arena
 
+## Catálogo nacional de municípios e busca de cidades (backend) — 22 de novembro de 2026
+
+Primeira entrega do [plano de modalidades](plano-modalidades.md), só no backend. A migração `0015_national_city_catalog.py` amplia `cities` com `latitude` e `longitude` da sede (não nulas), `capital` e `search_text` (nome + UF sem acento e em minúsculas), com índice B-tree `text_pattern_ops`. Ela insere os municípios a partir do arquivo versionado `backend/migrations/data/municipios/municipios.csv`, derivado de `kelvins/municipios-brasileiros` no commit `503e2f70bbf1b4b7ec0b1f68b09086ccc38fe861`. A licença MIT e a origem ficam em `LICENSE` e `FONTE.md`, ao lado do arquivo, e a migração não acessa a rede. O catálogo tem **5.571** municípios, e não os 5.570 do plano: o commit fixado já inclui Boa Esperança do Norte (MT, 5101837), instalado em 2025, e essa contagem foi mantida por decisão do usuário. Os 6 IDs originais mantêm nome e UF e só recebem as colunas novas.
+
+O downgrade remove as colunas e apaga os municípios fora dos 6 originais. Se algum deles estiver referenciado por qualquer chave estrangeira, o downgrade falha com mensagem explícita, sem apagar dados. A normalização de texto é uma função única (`app/services/cities.py`), usada pela migração e pela busca. Ela não depende de extensões do PostgreSQL.
+
+Contrato, só aditivo:
+- `GET /cities?q=` busca por nome e UF, sem diferenciar acentos e maiúsculas, com 2 ou mais caracteres. Devolve até 20 cidades, com prefixo do nome primeiro, depois capitais e ordem alfabética. Com menos de 2 caracteres, devolve lista vazia.
+- `GET /cities?ids=` aceita até 50 IDs (acima disso, 422) e ignora os inexistentes.
+- `q` junto com `ids` devolve 422.
+- Sem `q`, a rota mantém as 100 primeiras cidades por nome até o ticket 09.
+- `ProfileOut` ganhou `city` (`CityOut`) além de `city_id`, no `GET /me/sports-profiles` e na resposta do `PUT`.
+- A descrição da rota no OpenAPI e a tabela `cities` do diagrama da fundação foram atualizadas.
+
+**Verificações:**
+- `ruff check app migrations tests` aprovado.
+- `pytest -q` com `TEST_DATABASE_URL`: 1724 aprovados e 1 pulado (round-trip S3 real, `MEDIA_TEST_S3`).
+- Cobertura `--cov=app --cov-branch` de 98% (piso: 85%).
+- Num schema descartável do PostgreSQL local: `alembic upgrade head` deixou 5.571 cidades e `alembic check` não encontrou divergências; `alembic downgrade 0014` voltou a 6 cidades e às colunas originais; um novo upgrade restaurou o catálogo; o downgrade com um perfil numa cidade nova foi recusado sem alterar dados; o schema foi removido em seguida.
+- Depois da consolidação, o banco de desenvolvimento `arena` foi migrado da 0014 para a 0015 (5.571 cidades, 27 capitais) e `alembic check` não encontrou divergências; 35 testes focados de cidades, perfil e OpenAPI passaram na branch integrada.
+- Busca com o catálogo completo (TestClient, 50 amostras por termo): medianas de 3,3 a 4,7 ms e pico de 6,6 ms. A consulta SQL mais ampla (`sa`) executa em 2,3 ms.
+
+**Limitações:** a ocorrência interna percorre a tabela (seq scan, cerca de 2 ms); o índice atende o prefixo. A web e o Expo ainda carregam a lista global e não usam `q`, `ids` nem `city`. Não houve verificação pela API em execução nem pelo navegador. Os diagramas `banco-*.png` continuam na revisão 0014. O CI remoto não foi executado.
+
+**Pendências:** `POST /cities/nearest` (ticket 02), a migração dos clientes (tickets 03 a 08), a restrição de `GET /cities` sem `q` e a decisão 0005 (ticket 09).
+
+## Capturas de tela da web com dados de demonstração — 22 de novembro de 2026
+
+Capturas da web feitas com Playwright, sem mudança de código, contrato, esquema ou dependências do projeto. São 37 PNG de 1170 × 2532 px (viewport de 390 × 844 com DPR 3, `pt-BR`, fuso de São Paulo) em `artifacts/prints-demo/`. O seed (`seed.py`, `reset-and-seed.sh`) e o roteiro (`shots.mjs`) ficam em `.local/demo/`. Nada disso é versionado.
+
+**Ambiente:** isolado, como no vídeo de 14 de outubro. Banco `arena_demo` no PostgreSQL do Compose, migrado até a `0014`; bucket `arena-media-demo`; API na porta 8020 e web na 5190. O banco `arena` e o bucket `arena-media` não foram alterados.
+
+**Dados:**
+- **Pela API:** 22 contas em Brasília, com avatares e capas gerados com Pillow; 6 times de futebol com brasões e convites aceitos; seguidores; 12 posts com curtidas e comentários; 31 marcas de corrida; organizadora aprovada e um pedido de organizador pendente. Também quatro eventos: torneio de tênis gratuito, liga society gratuita, prova de 5 km paga aprovada pela administração e um rascunho, com inscrições.
+- **Direto pelos modelos, como nos testes de integração:** quadras publicadas, 27 amistosos de futebol e 77 de tênis já com placar confirmado (escalações e estatísticas revisadas), e duas partidas agendadas com chat. Os rankings foram recalculados com `recalculate-rankings`, mantendo os cortes reais de `rank_cuts`.
+
+**Telas:** login, Início (claro e escuro), notificações, Ranking (futebol, tênis e corrida, folha de categoria e Salão dos Lendários), Jogar nas três modalidades, cartão de resultado, partida agendada com chat, campeonatos e detalhe do evento, Comunidade e comentários, perfil próprio e de outra atleta, Menu, Meus times, Menu e Meus eventos da organizadora, gestão do evento, Menu da administração e fila de pedidos de organizador.
+
+**Limitações:**
+- O histórico de partidas foi inserido sem passar pelo fluxo de busca, proposta e confirmação de placar.
+- As fotos são cartazes gerados, não fotos reais.
+- O Expo não foi capturado.
+
 ## Plano da tela de modalidades com cidade por localização — 22 de novembro de 2026
 
 Registrado o plano [plano-modalidades.md](plano-modalidades.md), resultado de uma sessão de protótipos (fonte local em `artifacts/prototipos/modalidades.html`, não versionada). A tela "Suas modalidades" passa a ter faixas por modalidade e uma folha passo a passo: cidade → posição (no futebol) → revisão, com o `toast.success` do projeto na conclusão. A cidade é sugerida pela localização do aparelho, calculada no servidor ARENA (`POST /cities/nearest`, coordenadas no corpo, sem gravar nem usar serviço externo). O catálogo passa dos 6 municípios atuais para os 5.570 do conjunto `kelvins/municipios-brasileiros` (MIT, códigos IBGE, coordenadas da sede). Escopo: web e Expo nesta entrega.
