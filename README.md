@@ -10,9 +10,51 @@ Leia o [plano inicial](docs/plano-criacao-inicial.md), as [decisões adotadas](d
 - Docker Desktop funcionando, para PostgreSQL 16.
 - Expo Go compatível com SDK 57 no aparelho, ou ambiente Android configurado. iOS pode ser aberto em aparelho físico; simulador iOS exige macOS.
 
+## Instalação no macOS
+
+Fluxo validado num Mac com Apple Silicon recém-configurado, sem Homebrew e sem sudo. As ferramentas ficam no diretório do usuário. Pré-requisitos do sistema: Command Line Tools (`xcode-select --install`, traz o `git`) e Docker Desktop aberto (confira com `docker info`).
+
+**1. Python 3.13 e Node 24.** O `uv` instala o Python e o `nvm` instala o Node. Os dois instaladores acrescentam ao `~/.zprofile` as linhas que colocam as ferramentas no `PATH`; abra um terminal novo depois de executá-los.
+
+```sh
+curl -LsSf https://astral.sh/uv/install.sh | sh
+uv python install 3.13
+
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash
+nvm install 24
+nvm alias default 24
+```
+
+Quem já usa Homebrew pode instalar com `brew install python@3.13 node@24` e trocar `uv venv` e `uv pip` abaixo por `python3.13 -m venv .venv` e `.venv/bin/python -m pip install -r requirements.lock.txt`.
+
+**2. Banco, MinIO e API.** A partir da raiz. A primeira subida compila o MinIO e leva alguns minutos:
+
+```sh
+docker compose up -d --build --wait db minio
+cd backend
+uv venv --python 3.13 .venv
+uv pip install --python .venv/bin/python -r requirements.lock.txt
+[ -f .env ] || cp .env.example .env
+.venv/bin/python -m alembic upgrade head
+.venv/bin/python -m app.admin_cli recalculate-rankings
+.venv/bin/python -m app.media_admin ensure-bucket
+.venv/bin/python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+**3. Web.** Em outro terminal, a partir da raiz:
+
+```sh
+cd web
+npm ci
+[ -f .env ] || cp .env.example .env
+npm run dev
+```
+
+Confira em [localhost:8000/health/ready](http://localhost:8000/health/ready), que deve responder `{"status":"ready"}`, e abra [localhost:5173](http://localhost:5173). O banco começa vazio: crie a conta pela web. Os valores padrão de `backend/.env` e `web/.env` já correspondem ao Compose. Para a varredura periódica, use `.venv/bin/python -m app.admin_cli sweep --loop 60` em `backend/`. Nos dias seguintes, basta `docker compose up -d`, o `uvicorn` e o `npm run dev`. As demais seções usam comandos do PowerShell; no macOS, troque `.venv/Scripts/python.exe` por `.venv/bin/python`, `Copy-Item` por `cp` e `if (!(Test-Path .env)) { … }` por `[ -f .env ] || …`.
+
 ## Banco e API
 
-Comandos abaixo em PowerShell, começando na raiz:
+Comandos abaixo em PowerShell (Windows), começando na raiz. No macOS, siga a [instalação no macOS](#instalação-no-macos).
 
 ```powershell
 docker compose up -d
@@ -350,3 +392,7 @@ Pare o banco com `docker compose down`; o volume `pgdata` mantém os dados para 
 Os clientes possuem `npm test` e `npm run test:coverage`, executados em `web/` ou `mobile/`. No backend, execute `pytest tests/unit -q --cov=app --cov-branch` pelo Python da `.venv`; para incluir integração, configure `TEST_DATABASE_URL` e execute `pytest -q --cov=app --cov-branch`.
 
 Resultados, escopos e pisos de cobertura estão em [qualidade do código](docs/qualidade-codigo.md). O CI executa as suítes e publica relatórios em artifacts e no resumo de cada job. Relatórios locais ficam em `artifacts/coverage/`, sem versionamento. Testes isolados de SecureStore usam um double e não comprovam armazenamento seguro em aparelho.
+
+## Commits
+
+Mensagens em português, no padrão `tipo: descrição` (`feat:`, `fix:`, `docs:` etc.). **Não inclua `Co-Authored-By`** nem outras linhas de atribuição automática, inclusive em commits feitos com ferramentas de IA: use apenas a mensagem descritiva.

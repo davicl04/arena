@@ -1,5 +1,13 @@
 # Situação da fundação do Arena
 
+## Instalação no macOS documentada no README — 22 de novembro de 2026
+
+Acrescentada ao README a seção "Instalação no macOS", com o fluxo executado num Mac com Apple Silicon recém-configurado, sem Homebrew e sem sudo: Python 3.13 pelo `uv`, Node 24 pelo `nvm`, `docker compose up -d --build --wait db minio`, ambiente do backend com `uv venv` e `uv pip`, migrações, recálculo de rankings, bucket do MinIO, API e web. A seção "Banco e API" passou a apontar para ela. O README também ganhou a seção "Commits", com o padrão `tipo: descrição` em português e sem linhas `Co-Authored-By`. Também há a alternativa com Homebrew, que não foi executada. Sem mudança de código, contrato, esquema ou dependências.
+
+**Verificações:** documentação, sem testes de código. Os comandos da seção foram executados nesta máquina antes de documentados: containers `arena-db` e `arena-minio` `healthy`, `alembic current` em `0014 (head)`, `recalculate-rankings` com `0 linhas alteradas` (banco novo), bucket `arena-media` pronto, `/health/ready` com `{"status":"ready"}` e a web respondendo 200 em `localhost:5173`. O usuário confirmou que a aplicação abriu e funcionou.
+
+**Limitações:** não foram instalados nem verificados o Expo e os testes no macOS; a alternativa com Homebrew e Macs Intel também não foram testados.
+
 ## Correções dos problemas de usabilidade PU01 a PU07 (web e Expo) — 7 de novembro de 2026
 
 Corrigidos os sete problemas registrados na avaliação heurística da seção 4.3 do roteiro. Sem mudança de contrato, esquema ou dependências.
