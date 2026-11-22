@@ -125,7 +125,7 @@ describe('Início: saudação, Placar e botão', () => {
     expect(text).not.toContain('Seu próximo encontro aparecerá aqui.')
     expect(text.indexOf('A arena te chama')).toBeLessThan(text.indexOf('Próxima partida'))
     expect(text.indexOf('Próxima partida')).toBeLessThan(text.indexOf('Encontrar partida'))
-    expect(text.indexOf('Encontrar partida')).toBeLessThan(text.indexOf('SEU ELO'))
+    expect(text.indexOf('Encontrar partida')).toBeLessThan(text.indexOf('Seu elo'))
     expect(callsTo('GET', PROFILES)).toHaveLength(1)
   })
 

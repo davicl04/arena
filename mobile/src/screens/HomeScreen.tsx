@@ -1,15 +1,13 @@
 import type { ReactNode } from 'react'
 import { ScrollView, Text, View } from 'react-native'
 import type { User } from '../api/client'
-import { sports } from '../api/client'
 import type { ArenaNotification } from '../api/notifications'
 import type { MatchCard } from '../api/matches'
 import { getMyStandings } from '../api/play'
-import { ModalityCard } from '../components/arena/ModalityCard'
-import { modalityStanding } from '../components/arena/modalityStanding'
-import { ActionButton, TextAction } from '../components/arena/controls'
+import { ActionButton } from '../components/arena/controls'
 import ListRow from '../components/ListRow'
 import { Destaque } from '../components/home/Destaque'
+import { Pilulas } from '../components/home/Pilulas'
 import { Placar } from '../components/home/Placar'
 import { NotificationBell } from '../components/notifications/NotificationBell'
 import { nextScheduledMatch } from '../components/play/matchView'
@@ -34,10 +32,10 @@ function Group({ title, children }: { title: string; children: ReactNode }) {
  * `matches`, com a Contagem recalculada a cada minuto), o botão principal (abre o Jogar; o rótulo depende dos perfis
  * esportivos, `GET /me/sports-profiles`, e da próxima partida), o Destaque "Para responder" com a pendência mais urgente
  * (`GET /me/notifications/pending?limit=1`, com o total do resumo; só aparece com `pending_count > 0` e um item lido, e some
- * sem pendências ou se a leitura falhar), "Seu elo" em cada modalidade
- * (`GET /me/standings`: o elo de quem já se classificou, a classificação "n de 3" ou, na corrida, a distância de maior elo com
- * o melhor tempo) e atalhos para as áreas do app. Sem pontos, partidas ou classificações fictícias: o que não vem da API
- * aparece vazio ou indisponível.
+ * sem pendências ou se a leitura falhar), as Pílulas de "Seu elo" (`GET /me/standings`, lido uma vez: o elo com a métrica de
+ * quem já se classificou, "n de 3" em classificação, "Sem marca" na corrida ou "Sem perfil" quando a lista de perfis não tem a
+ * modalidade) e atalhos para as áreas do app. Sem pontos, partidas ou classificações fictícias: o que não vem da API aparece
+ * vazio ou indisponível.
  */
 export default function HomeScreen({ user, navigation, onExpired, matches = [], notificationSummary }: {
   user: User; navigation: Navigation; onExpired: () => void
@@ -73,17 +71,8 @@ export default function HomeScreen({ user, navigation, onExpired, matches = [], 
     <Placar match={nextMatch} now={now} hasProfiles={hasProfiles} onOpen={matchId => navigation.go('match', { matchId })} />
     <View className="mt-3 mb-3.5"><ActionButton block tone="brand" icon="zap" title={primaryButtonLabel({ hasProfiles, hasNextMatch: Boolean(nextMatch) })} accessibilityHint="Abre o Jogar" onPress={() => navigation.go('play')} /></View>
     {firstPending ? <Destaque notification={firstPending} total={pendingTotal} now={now} isAdmin={user.is_admin} onOpen={openPending} onOpenAll={openAllPending} /> : null}
-    <View className="mb-2 flex-row items-center justify-between">
-      <Text accessibilityRole="header" className="text-[11px] font-bold tracking-[2px] text-brand">SEU ELO</Text>
-      <TextAction title="Ver elos" accessibilityLabel="Ver elos no Ranking" onPress={() => navigation.go('ranking')} />
-    </View>
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -24 }} contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 8, gap: 12 }}>
-      {sports.map(sport => {
-        const standing = standings.data ? modalityStanding(sport.value, standings.data) : null
-        return <ModalityCard key={sport.value} sport={sport.value} standing={standing} loading={standings.loading}
-          onOpenRanking={() => navigation.go('ranking', standing?.distanceKm ? { sport: sport.value, distanceKm: standing.distanceKm } : { sport: sport.value })} />
-      })}
-    </ScrollView>
+    <Pilulas standings={standings.data} standingsLoading={standings.loading} profiles={profiles.data} profilesLoading={profiles.loading}
+      onOpenRanking={params => (params ? navigation.go('ranking', params) : navigation.go('ranking'))} onOpenModalities={() => navigation.go('profile')} />
     <Group title="JOGAR">
       <ListRow label="Meus times" onPress={() => navigation.go('teams')} />
       <ListRow label="Campeonatos" onPress={() => navigation.go('events', { sport: 'futebol' })} />

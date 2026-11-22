@@ -22,7 +22,10 @@ vi.mock('react-native', async () => (await import('./support/native')).reactNati
 vi.mock('react-native-svg', async () => (await import('./support/native')).svgMock())
 vi.mock('expo-secure-store', () => ({ getItemAsync: vi.fn(), setItemAsync: vi.fn(), deleteItemAsync: vi.fn() }))
 vi.mock('../src/api/client', async original => ({ ...await original<typeof import('../src/api/client')>(), request: vi.fn() }))
-vi.mock('../src/data/sportIcons', () => ({ sportIcons: { futebol: 'futebol.png', tenis: 'tenis.png', corrida: 'corrida.png' } }))
+vi.mock('../src/data/sportIcons', () => ({
+  sportIcons: { futebol: 'futebol.png', tenis: 'tenis.png', corrida: 'corrida.png' },
+  sportIconsAlpha: { futebol: 'futebol-alfa.png', tenis: 'tenis-alfa.png', corrida: 'corrida-alfa.png' },
+}))
 // Telas que carregam módulos nativos do Expo e não entram neste fluxo (a Comunidade, o Perfil, Meus times e o perfil de outro atleta).
 vi.mock('../src/screens/CommunityScreen', () => ({ default: () => null }))
 vi.mock('../src/screens/ProfileScreen', () => ({ default: () => null }))

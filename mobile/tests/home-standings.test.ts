@@ -3,18 +3,24 @@ import * as SecureStore from 'expo-secure-store'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiError, request } from '../src/api/client'
 import type { MatchCard } from '../src/api/matches'
+import type { Profile } from '../src/api/client'
 import type { MeStandings, RunStanding, StandingLine } from '../src/api/play'
 import { modalityStanding } from '../src/components/arena/modalityStanding'
+import type { ModalityStanding } from '../src/components/arena/modalityStanding'
+import { pillAccessibilityLabel, pillMetric, pillStatus, pillTexts } from '../src/data/home'
 import HomeScreen from '../src/screens/HomeScreen'
 import { enableAct } from './support/native'
 import { admin, allText, byId, callsTo, findButton, me, navigationMock, pressButton, render, serve } from './support/review'
-import { emptySummary, ferrugemRef, notificationSummaryState, standings } from './support/play'
+import { emptySummary, ferrugemRef, football, notificationSummaryState, standings } from './support/play'
 
 vi.mock('react-native', async () => (await import('./support/native')).reactNativeMock())
 vi.mock('react-native-svg', async () => (await import('./support/native')).svgMock())
 vi.mock('expo-secure-store', () => ({ getItemAsync: vi.fn(), setItemAsync: vi.fn(), deleteItemAsync: vi.fn() }))
 vi.mock('../src/api/client', async original => ({ ...await original<typeof import('../src/api/client')>(), request: vi.fn() }))
-vi.mock('../src/data/sportIcons', () => ({ sportIcons: { futebol: 'futebol.png', tenis: 'tenis.png', corrida: 'corrida.png' } }))
+vi.mock('../src/data/sportIcons', () => ({
+  sportIcons: { futebol: 'futebol.png', tenis: 'tenis.png', corrida: 'corrida.png' },
+  sportIconsAlpha: { futebol: 'futebol-alfa.png', tenis: 'tenis-alfa.png', corrida: 'corrida-alfa.png' },
+}))
 
 const h = React.createElement
 const STANDINGS = '/me/standings'
@@ -47,96 +53,212 @@ function withLines(lines: { society?: StandingLine; tenis?: StandingLine; corrid
 }
 
 const noSummary = () => notificationSummaryState(emptySummary())
+const PROFILES = '/me/sports-profiles'
 
-function mount(data: unknown, options: { unread?: number; user?: typeof me; matches?: MatchCard[] } = {}) {
+/** Monta o Início. Sem `profiles`, a lista de perfis não é simulada (falha): as pílulas seguem só a classificação. */
+function mount(data: unknown, options: { unread?: number; user?: typeof me; matches?: MatchCard[]; profiles?: Profile[] } = {}) {
   const navigation = navigationMock()
   const onExpired = vi.fn()
-  serve({ [STANDINGS]: data })
+  serve({ [STANDINGS]: data, ...(options.profiles ? { [PROFILES]: options.profiles } : {}) })
   const notificationSummary = notificationSummaryState(emptySummary({ unread_count: options.unread ?? 0 }))
   return render(h(HomeScreen, { user: options.user ?? me, navigation, onExpired, matches: options.matches, notificationSummary })).then(tree => ({ tree, navigation, onExpired }))
 }
-const card = (tree: Awaited<ReturnType<typeof mount>>['tree'], sport: string) => allText({ root: byId(tree, `modality-${sport}`).find(node => typeof node.type === 'string')! } as never)
+type Tree = Awaited<ReturnType<typeof mount>>['tree']
+const pillNode = (tree: Tree, sport: string) => byId(tree, `pilula-${sport}`)[0]
+const pill = (tree: Tree, sport: string) => allText({ root: pillNode(tree, sport) } as never)
+const pillLabel = (tree: Tree, sport: string) => String(pillNode(tree, sport).props.accessibilityLabel)
+const tennisProfile: Profile = { ...football, id: 2, sport: 'tenis', position: null }
 
-describe('Início: "Seu elo" por modalidade', () => {
-  it('sem jogos: classificação "0 de 3 partidas", sem elo nem pontos, e a corrida "Sem marca"', async () => {
+describe('Início: Pílulas de "Seu elo"', () => {
+  it('cabeçalho "Seu elo" e três pílulas na ordem futebol, tênis e corrida, com o nome; sem o carrossel de cartões', async () => {
     const { tree } = await mount(standings())
-    expect(allText(tree)).toContain('SEU ELO')
-    expect(card(tree, 'futebol')).toContain('0 de 3 partidas')
-    expect(card(tree, 'futebol')).toContain('3 partidas confirmadas definem o seu elo.')
-    expect(card(tree, 'tenis')).toContain('0 de 3 partidas')
-    expect(card(tree, 'corrida')).toContain('Sem marca')
-    expect(card(tree, 'corrida')).toContain('A primeira marca já define o seu elo.')
-    expect(card(tree, 'futebol')).toContain('—')
+    const text = allText(tree)
+    expect(text).toContain('Seu elo')
+    expect(text).not.toContain('SEU ELO')
+    expect(byId(tree, 'pilulas-plate')).toHaveLength(1)
+    const order = ['futebol', 'tenis', 'corrida'].map(sport => text.indexOf(pill(tree, sport)))
+    expect(order).toEqual([...order].sort((a, b) => a - b))
+    expect(pill(tree, 'futebol')).toContain('Futebol')
+    expect(pill(tree, 'tenis')).toContain('Tênis')
+    expect(pill(tree, 'corrida')).toContain('Corrida')
+    expect(byId(tree, 'modality-futebol')).toHaveLength(0)
+    expect(findButton(tree, 'Ver ranking de Futebol')).toBeUndefined()
+    expect(text).not.toContain('melhor tempo')
+  })
+
+  it('sem jogos: "0 de 3" e "Sem classificação", a corrida "Sem marca"; nenhum elo', async () => {
+    const { tree } = await mount(standings())
+    expect(pill(tree, 'futebol')).toContain('0 de 3')
+    expect(pill(tree, 'futebol')).toContain('Sem classificação')
+    expect(pill(tree, 'tenis')).toContain('0 de 3')
+    expect(pill(tree, 'corrida')).toContain('Sem marca')
+    expect(pill(tree, 'corrida')).toContain('Sem classificação')
+    expect(pill(tree, 'corrida')).not.toContain('de 1')
+    expect(pillLabel(tree, 'futebol')).toBe('Futebol: sem classificação, 0 de 3 partidas')
+    expect(pillLabel(tree, 'corrida')).toBe('Corrida: sem marca, sem classificação')
     expect(allText(tree)).not.toMatch(/Bronze|Prata|Ouro|Diamante|Lendário/)
-    expect(byId(tree, 'modality-futebol')).not.toHaveLength(0)
   })
 
-  it('ranqueado: o elo com o nome, a pontuação e onde ele vale; o tênis em classificação mostra "n de 3" e o que falta', async () => {
+  it('com elo: emblema, nome do elo e "{n} pts"; o tênis em classificação mostra "2 de 3"; sem posição no ranking', async () => {
     const { tree } = await mount(withLines({ society: ranked('ouro', 38), tenis: placement(2) }))
-    const football = card(tree, 'futebol')
+    const football = pill(tree, 'futebol')
     expect(football).toContain('Ouro')
-    expect(football).toContain('38')
-    expect(football).toContain('pontos')
-    expect(football).toContain('Society · Ferrugem FC')
-    const tennis = card(tree, 'tenis')
-    expect(tennis).toContain('2 de 3 partidas')
-    expect(tennis).toContain('Falta 1 partida para o seu elo.')
+    expect(football).toContain('38 pts')
+    expect(football).not.toContain('Sem classificação')
+    expect(pillNode(tree, 'futebol').findAll(node => node.props.xml !== undefined).length).toBeGreaterThan(0)
+    expect(pillLabel(tree, 'futebol')).toBe('Futebol: elo Ouro, 38 pontos')
+    const tennis = pill(tree, 'tenis')
+    expect(tennis).toContain('2 de 3')
+    expect(tennis).toContain('Sem classificação')
     expect(tennis).not.toMatch(/Bronze|Prata|Ouro|Diamante|Lendário/)
+    expect(pillLabel(tree, 'tenis')).toBe('Tênis: sem classificação, 2 de 3 partidas')
+    expect(allText(tree)).not.toMatch(/4º|#4|posição/i)
   })
 
-  it('classificação com 1 partida pede as duas que faltam', async () => {
-    const { tree } = await mount(withLines({ tenis: placement(1) }))
-    expect(card(tree, 'tenis')).toContain('Faltam 2 partidas para o seu elo.')
+  it('individual com elo: a média por partida como "{n} média"', async () => {
+    const data = standings()
+    data.futebol.individual[0] = { ...data.futebol.individual[0], ...ranked('prata', 4.25) }
+    const { tree } = await mount(data)
+    expect(pill(tree, 'futebol')).toContain('Prata')
+    expect(pill(tree, 'futebol')).toContain('4,25 média')
+    expect(pillLabel(tree, 'futebol')).toBe('Futebol: elo Prata, 4,25 de média')
   })
 
-  it('corrida: a distância de maior elo e o melhor tempo dela; "Ver ranking" abre o Ranking nessa distância', async () => {
+  it('corrida: o tempo e a distância de maior elo; o toque abre o Ranking nessa distância, as outras na modalidade, e "Ver elos" no Ranking', async () => {
     const { tree, navigation } = await mount(withLines({ corrida: [
       run(5, { state: 'ranqueado', tier: 'ouro', played: 3, rank_position: 6, metric_value: 1452 }),
       run(21, { state: 'ranqueado', tier: 'diamante', played: 1, rank_position: 2, metric_value: 6330 }),
     ] }))
-    const running = card(tree, 'corrida')
+    const running = pill(tree, 'corrida')
     expect(running).toContain('Diamante')
-    expect(running).toContain('1:45:30')
-    expect(running).toContain('melhor tempo')
-    expect(running).toContain('Nos 21 km')
-    await pressButton(tree, 'Ver ranking de Corrida')
+    expect(running).toContain('1:45:30 · 21 km')
+    expect(pillLabel(tree, 'corrida')).toBe('Corrida: elo Diamante, 1:45:30 nos 21 km')
+    await pressButton(tree, pillLabel(tree, 'corrida'))
     expect(navigation.go).toHaveBeenLastCalledWith('ranking', { sport: 'corrida', distanceKm: 21 })
-    await pressButton(tree, 'Ver ranking de Futebol')
+    await pressButton(tree, pillLabel(tree, 'futebol'))
     expect(navigation.go).toHaveBeenLastCalledWith('ranking', { sport: 'futebol' })
+    await pressButton(tree, pillLabel(tree, 'tenis'))
+    expect(navigation.go).toHaveBeenLastCalledWith('ranking', { sport: 'tenis' })
     await pressButton(tree, 'Ver elos no Ranking')
     expect(navigation.go).toHaveBeenLastCalledWith('ranking')
   })
 
-  it('nunca atribui elo a quem está em classificação, mesmo que a resposta traga a chave', async () => {
-    const { tree } = await mount(withLines({ tenis: placement(2, { tier: 'ouro', metric_value: 30 }) }))
-    expect(card(tree, 'tenis')).toContain('2 de 3 partidas')
-    expect(card(tree, 'tenis')).not.toContain('Ouro')
-    expect(card(tree, 'tenis')).toContain('—')
+  it('corrida sem marca abre o Ranking da corrida sem distância', async () => {
+    const { tree, navigation } = await mount(standings())
+    await pressButton(tree, pillLabel(tree, 'corrida'))
+    expect(navigation.go).toHaveBeenLastCalledWith('ranking', { sport: 'corrida' })
   })
 
-  it('falha ao ler a classificação: "Classificação indisponível" sem inventar números; 401 expira a sessão', async () => {
+  it('nunca atribui elo a quem está em classificação, mesmo que a resposta traga a chave', async () => {
+    const { tree } = await mount(withLines({ tenis: placement(2, { tier: 'ouro', metric_value: 30 }) }))
+    expect(pill(tree, 'tenis')).toContain('2 de 3')
+    expect(pill(tree, 'tenis')).not.toContain('Ouro')
+    expect(pill(tree, 'tenis')).not.toContain('30')
+  })
+
+  it('sem perfil na modalidade: "Sem perfil" e "Configurar", mesmo com elo na resposta; o toque abre as modalidades', async () => {
+    const { tree, navigation } = await mount(withLines({ society: ranked('ouro', 38), tenis: ranked('prata', 20) }), { profiles: [football] })
+    expect(pill(tree, 'futebol')).toContain('38 pts')
+    for (const sport of ['tenis', 'corrida']) {
+      expect(pill(tree, sport)).toContain('Sem perfil')
+      expect(pill(tree, sport)).toContain('Configurar')
+    }
+    expect(pill(tree, 'tenis')).not.toContain('Prata')
+    expect(pillLabel(tree, 'tenis')).toBe('Tênis: sem perfil, configurar')
+    expect(pillNode(tree, 'tenis').props.accessibilityHint).toBe('Abre suas modalidades')
+    await pressButton(tree, pillLabel(tree, 'tenis'))
+    expect(navigation.go).toHaveBeenLastCalledWith('profile')
+    await pressButton(tree, pillLabel(tree, 'corrida'))
+    expect(navigation.go).toHaveBeenLastCalledWith('profile')
+    await pressButton(tree, pillLabel(tree, 'futebol'))
+    expect(navigation.go).toHaveBeenLastCalledWith('ranking', { sport: 'futebol' })
+  })
+
+  it('conta nova: as três pílulas "Sem perfil"; com tênis e futebol, só a corrida', async () => {
+    const empty = await mount(standings(), { profiles: [] })
+    for (const sport of ['futebol', 'tenis', 'corrida']) expect(pill(empty.tree, sport)).toContain('Sem perfil')
+    const two = await mount(standings(), { profiles: [football, tennisProfile] })
+    expect(pill(two.tree, 'futebol')).toContain('0 de 3')
+    expect(pill(two.tree, 'tenis')).toContain('0 de 3')
+    expect(pill(two.tree, 'corrida')).toContain('Sem perfil')
+  })
+
+  it('falha ao ler a classificação: "Classificação indisponível" sem inventar números, ainda abrindo o Ranking; 401 expira a sessão', async () => {
     const failing = vi.fn()
+    const navigation = navigationMock()
     serve({ [STANDINGS]: new ApiError('Não foi possível carregar os dados.', 500) })
-    const tree = await render(h(HomeScreen, { user: me, navigation: navigationMock(), onExpired: failing, notificationSummary: noSummary() }))
-    expect(card(tree, 'futebol')).toContain('Classificação indisponível')
-    expect(card(tree, 'futebol')).toContain('—')
+    const tree = await render(h(HomeScreen, { user: me, navigation, onExpired: failing, notificationSummary: noSummary() }))
+    for (const sport of ['futebol', 'tenis', 'corrida']) expect(pill(tree, sport)).toContain('Classificação indisponível')
+    expect(pill(tree, 'futebol')).not.toMatch(/\d/)
+    expect(pillLabel(tree, 'futebol')).toBe('Futebol: classificação indisponível')
     expect(failing).not.toHaveBeenCalled()
+    await pressButton(tree, pillLabel(tree, 'futebol'))
+    expect(navigation.go).toHaveBeenLastCalledWith('ranking', { sport: 'futebol' })
     const expired = vi.fn()
     serve({ [STANDINGS]: new ApiError('Sessão expirada', 401) })
     await render(h(HomeScreen, { user: me, navigation: navigationMock(), onExpired: expired, notificationSummary: noSummary() }))
     expect(expired).toHaveBeenCalled()
   })
 
-  it('enquanto lê, o selo mostra o carregamento; uma resposta fora do formato não derruba o Início', async () => {
+  it('enquanto lê, as pílulas indicam o carregamento; uma resposta fora do formato não derruba o Início', async () => {
     let release!: (value: unknown) => void
     const pending = new Promise(resolve => { release = resolve })
     serve({ [STANDINGS]: () => pending })
     const tree = await render(h(HomeScreen, { user: me, navigation: navigationMock(), onExpired: vi.fn(), notificationSummary: noSummary() }))
-    expect(tree.root.findAll(node => typeof node.type === 'string' && node.props.accessibilityLabel === 'Carregando classificação').length).toBeGreaterThan(0)
+    expect(pillLabel(tree, 'futebol')).toBe('Futebol: carregando classificação')
+    expect(pill(tree, 'futebol')).toContain('…')
+    expect(pill(tree, 'futebol')).not.toContain('Sem classificação')
     release({ items: [], next_cursor: null })
     await render(h('View', null))
     const odd = await mount({ items: [], next_cursor: null })
-    expect(card(odd.tree, 'futebol')).toContain('0 de 3 partidas')
+    expect(pill(odd.tree, 'futebol')).toContain('0 de 3')
+  })
+
+  it('a classificação e os perfis são lidos uma única vez', async () => {
+    await mount(standings(), { profiles: [football] })
+    expect(callsTo('GET', STANDINGS)).toHaveLength(1)
+    expect(callsTo('GET', PROFILES)).toHaveLength(1)
+  })
+})
+
+describe('Pílulas: regras puras', () => {
+  const standing = (extra: Partial<ModalityStanding> = {}): ModalityStanding =>
+    ({ tier: null, played: 1, required: 3, context: null, metric: null, distanceKm: null, ...extra })
+
+  it('pillStatus: sem perfil confirmado vence; depois carregando, falha, elo, sem marca e classificação', () => {
+    const ouro = standing({ tier: 'ouro', played: 3, metric: { value: 38, unit: 'pontos' } })
+    expect(pillStatus('futebol', { standing: ouro, loading: false, hasProfile: false })).toEqual({ kind: 'no-profile' })
+    expect(pillStatus('futebol', { standing: null, loading: true, hasProfile: false })).toEqual({ kind: 'no-profile' })
+    expect(pillStatus('futebol', { standing: null, loading: true, hasProfile: null })).toEqual({ kind: 'loading' })
+    expect(pillStatus('futebol', { standing: ouro, loading: true, hasProfile: true })).toEqual({ kind: 'loading' })
+    expect(pillStatus('futebol', { standing: null, loading: false, hasProfile: true })).toEqual({ kind: 'unavailable' })
+    expect(pillStatus('futebol', { standing: ouro, loading: false, hasProfile: null })).toEqual({ kind: 'tier', tier: 'ouro', metric: { value: 38, unit: 'pontos' }, distanceKm: null })
+    expect(pillStatus('corrida', { standing: standing({ required: 1, played: 0 }), loading: false, hasProfile: true })).toEqual({ kind: 'no-mark' })
+    expect(pillStatus('tenis', { standing: standing({ played: 2 }), loading: false, hasProfile: true })).toEqual({ kind: 'placement', played: 2, required: 3 })
+  })
+
+  it('pillMetric: pontos, média, tempo com distância e os casos sem valor', () => {
+    expect(pillMetric({ value: 38, unit: 'pontos' })).toBe('38 pts')
+    expect(pillMetric({ value: 1234, unit: 'pontos' })).toBe('1.234 pts')
+    expect(pillMetric({ value: 7.5, unit: 'média' })).toBe('7,5 média')
+    expect(pillMetric({ value: 6330, unit: 'tempo' }, 21)).toBe('1:45:30 · 21 km')
+    expect(pillMetric({ value: 1452, unit: 'tempo' }, 5)).toBe('24:12 · 5 km')
+    expect(pillMetric({ value: 1452, unit: 'tempo' })).toBe('24:12')
+    expect(pillMetric(null, 10)).toBe('10 km')
+    expect(pillMetric(null)).toBeNull()
+  })
+
+  it('pillTexts e pillAccessibilityLabel: os textos de cada situação', () => {
+    expect(pillTexts({ kind: 'placement', played: 1, required: 3 })).toEqual({ status: '1 de 3', detail: 'Sem classificação' })
+    expect(pillTexts({ kind: 'no-mark' })).toEqual({ status: 'Sem marca', detail: 'Sem classificação' })
+    expect(pillTexts({ kind: 'no-profile' })).toEqual({ status: 'Sem perfil', detail: 'Configurar' })
+    expect(pillTexts({ kind: 'unavailable' })).toEqual({ status: 'Classificação indisponível', detail: null })
+    expect(pillTexts({ kind: 'loading' })).toBeNull()
+    expect(pillTexts({ kind: 'tier', tier: 'ouro', metric: null, distanceKm: null })).toBeNull()
+    expect(pillAccessibilityLabel('Tênis', { kind: 'tier', tier: 'lendario', metric: null, distanceKm: null })).toBe('Tênis: elo Lendário')
+    expect(pillAccessibilityLabel('Corrida', { kind: 'tier', tier: 'bronze', metric: null, distanceKm: 5 })).toBe('Corrida: elo Bronze, nos 5 km')
+    expect(pillAccessibilityLabel('Corrida', { kind: 'placement', played: 0, required: 1 })).toBe('Corrida: sem classificação, 0 de 1 partida')
+    expect(pillAccessibilityLabel('Futebol', { kind: 'loading' })).toBe('Futebol: carregando classificação')
   })
 })
 

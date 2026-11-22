@@ -15,7 +15,10 @@ vi.mock('react-native', async () => (await import('./support/native')).reactNati
 vi.mock('react-native-svg', async () => (await import('./support/native')).svgMock())
 vi.mock('expo-secure-store', () => ({ getItemAsync: vi.fn(), setItemAsync: vi.fn(), deleteItemAsync: vi.fn() }))
 vi.mock('../src/api/client', async original => ({ ...await original<typeof import('../src/api/client')>(), request: vi.fn() }))
-vi.mock('../src/data/sportIcons', () => ({ sportIcons: { futebol: 'futebol.png', tenis: 'tenis.png', corrida: 'corrida.png' } }))
+vi.mock('../src/data/sportIcons', () => ({
+  sportIcons: { futebol: 'futebol.png', tenis: 'tenis.png', corrida: 'corrida.png' },
+  sportIconsAlpha: { futebol: 'futebol-alfa.png', tenis: 'tenis-alfa.png', corrida: 'corrida-alfa.png' },
+}))
 // Telas que carregam módulos nativos do Expo e não entram neste fluxo (a Comunidade, o Perfil e Meus times).
 vi.mock('../src/screens/CommunityScreen', () => ({ default: () => null }))
 vi.mock('../src/screens/ProfileScreen', () => ({ default: () => null }))
@@ -102,7 +105,7 @@ describe('Corrida pelo Jogar', () => {
     expect(allText(tree)).toContain('Corrida · 10 km')
   })
 
-  it('voltar ao Início relê a classificação: a marca salva na corrida aparece no cartão da modalidade', async () => {
+  it('voltar ao Início relê a classificação: a marca salva na corrida chega à pílula da modalidade', async () => {
     const tree = await mountShell()
     const reads = () => vi.mocked(request).mock.calls.filter(([path]) => path === '/me/standings').length
     const before = reads()

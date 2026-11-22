@@ -13,7 +13,10 @@ vi.mock('react-native', async () => (await import('./support/native')).reactNati
 vi.mock('react-native-svg', async () => (await import('./support/native')).svgMock())
 vi.mock('expo-secure-store', () => ({ getItemAsync: vi.fn().mockResolvedValue('test-token'), setItemAsync: vi.fn(), deleteItemAsync: vi.fn() }))
 vi.mock('../src/api/client', async original => ({ ...await original<typeof import('../src/api/client')>(), request: vi.fn() }))
-vi.mock('../src/data/sportIcons', () => ({ sportIcons: { futebol: 'futebol.png', tenis: 'tenis.png', corrida: 'corrida.png' } }))
+vi.mock('../src/data/sportIcons', () => ({
+  sportIcons: { futebol: 'futebol.png', tenis: 'tenis.png', corrida: 'corrida.png' },
+  sportIconsAlpha: { futebol: 'futebol-alfa.png', tenis: 'tenis-alfa.png', corrida: 'corrida-alfa.png' },
+}))
 
 const h = React.createElement
 const PENDING = '/me/notifications/pending?limit=1'
@@ -69,7 +72,7 @@ describe('Início: Destaque "Para responder"', () => {
     expect(byId(tree, 'destaque')).toHaveLength(1)
     const text = allText(tree)
     expect(text.indexOf('Encontrar partida')).toBeLessThan(text.indexOf('Para responder'))
-    expect(text.indexOf('Para responder')).toBeLessThan(text.indexOf('SEU ELO'))
+    expect(text.indexOf('Para responder')).toBeLessThan(text.indexOf('Seu elo'))
     expect(textOf(tree, 'destaque-total')).toBe('3')
     expect(byId(tree, 'destaque-total')[0].props.accessibilityLabel).toBe('3 pendências')
     const shown = textOf(tree, 'destaque-card')
@@ -159,7 +162,7 @@ describe('Início: Destaque "Para responder"', () => {
     const empty = await mountHome({ items: [] })
     expect(byId(empty.tree, 'destaque')).toHaveLength(0)
     expect(allText(empty.tree)).not.toContain('Para responder')
-    expect(allText(empty.tree)).toContain('SEU ELO')
+    expect(allText(empty.tree)).toContain('Seu elo')
     const noItems = await mountHome({ items: [], summary: summaryOf({ pending_count: 2 }) })
     expect(byId(noItems.tree, 'destaque')).toHaveLength(0)
     const zero = await mountHome({ items: [proposal()], summary: summaryOf({ pending_count: 0 }) })
@@ -168,7 +171,7 @@ describe('Início: Destaque "Para responder"', () => {
     expect(byId(noSummary.tree, 'destaque')).toHaveLength(0)
     const failed = await mountHome({ summary: summaryOf({ pending_count: 2 }), extra: { [PENDING]: new ApiError('Fora do ar', 500) } })
     expect(byId(failed.tree, 'destaque')).toHaveLength(0)
-    expect(allText(failed.tree)).toContain('SEU ELO')
+    expect(allText(failed.tree)).toContain('Seu elo')
     expect(failed.onExpired).not.toHaveBeenCalled()
   })
 
