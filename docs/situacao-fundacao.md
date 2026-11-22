@@ -1,5 +1,27 @@
 # Situação da fundação do Arena
 
+## Destaque das pendências no Início da web — 22 de novembro de 2026
+
+Segunda entrega do [plano do Início](plano-inicio.md) na web (ticket 02), com os mesmos textos e regras do Expo (ticket 06).
+
+- No Início da web, a placa escura "Para responder" deu lugar ao **Destaque** (`web/src/components/home/Destaque.tsx`), logo abaixo do botão principal: cabeçalho "Para responder" com o total (`pending_count`) num selo âmbar e um cartão claro (`surface`) com a primeira pendência da lista do servidor. O cartão mostra o *lead* das notificações, "Mais urgente" (critério `warn` de `pendingDeadline`) ou "Aguardando você", o rótulo da pendência, a linha secundária, o prazo ("sem prazo" ou "faltam {tempo}", âmbar com `warn`) e o botão visual "Responder". Com `warn`, o cartão ganha uma borda âmbar à esquerda.
+- O cartão inteiro é um único botão com nome acessível. Ele usa o fluxo existente: marca como lida se ainda não foi e abre o destino do aviso ou, sem destino, as notificações no filtro *Para responder*. Sessão expirada encerra a sessão; nada se aceita ou recusa no Início.
+- Com `pending_count > 1`, o link "+ {n−1} pendência(s) · ver todas" abre as notificações no filtro *Para responder*. A lista de pendências do Início passou a pedir só 1 item (`?limit=1`).
+- Funções puras `urgencyLabel` e `morePendingLabel` em `web/src/data/home.ts`, com os mesmos nomes e textos do Expo. O título do cartão usa o rótulo da pendência em caixa alta, como no Expo.
+- O componente `PendingPlate` continua no código, sem uso no Início; a remoção fica para o ticket 04.
+
+**Verificações** (em `web/`, no commit do ticket; a árvore de `web/` consolidada é idêntica):
+- `npm run lint` e `npm run build` aprovados (só o aviso de chunk grande que já existia).
+- `npm run test:coverage`: 1284 de 1285 testes aprovados; a única falha é a intermitente já conhecida de `tests/matchmaking.test.tsx` (foco do diálogo de cancelar do Jogar), sem relação com o Início. Sem esse arquivo, 1245/1245, com cobertura geral de 92,36% statements, 86,35% branches, 91,58% funções e 95,43% linhas; `Destaque.tsx` com 100% de linhas.
+- `notifications-home` adaptado (21 testes): primeira pendência, "Mais urgente" e "Aguardando você", borda âmbar, leitura e destino, fallback para o filtro, 401 ao marcar e ao listar, link só com mais de 1 (singular e plural), ausência sem pendências, com a lista vazia, sem resumo e em falha, `limit=1` e teclado. `navigation` (14 testes) ajustado para o link do Destaque.
+- Navegador (Playwright headless) com API e PostgreSQL reais e contas sintéticas criadas pela API, em 320, 390 e 1440 px, claro e escuro: 0, 1 e 2 pendências e caso urgente (relógio do navegador adiantado sobre um prazo real). Sem overflow horizontal, sem erros de console, título sem corte em 320 px e foco visível. O toque marcou o aviso como lido (persistiu após recarregar) e abriu "Meus times"; o link abriu as notificações no filtro *Para responder*.
+
+**Limitações:**
+- O título em caixa alta segue o Expo; o protótipo usa caixa de frase.
+- Os formatos de prazo ("1 d 23 h" na web, "1 dia 23 h" no Expo) e da linha secundária ("society 7" na web, "society 7×7" no Expo) continuam os formatadores já existentes em cada cliente.
+
+**Pendências:** Pílulas de elo (ticket 03) e Campeonatos com remoção da placa (ticket 04) na web; fechamento (09).
+
 ## Início do Expo: Pílulas de elo — 22 de novembro de 2026
 
 Terceira entrega do [plano do Início](plano-inicio.md) no Expo (ticket 07).
