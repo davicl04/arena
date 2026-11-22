@@ -1,5 +1,26 @@
 # Situação da fundação do Arena
 
+## Cidade mais próxima pela localização (backend) — 22 de novembro de 2026
+
+Segunda entrega do [plano de modalidades](plano-modalidades.md), só no backend. A nova rota `POST /cities/nearest` exige sessão (cookie com a verificação de Origin existente na web; Bearer no Expo), recebe `{ "latitude", "longitude" }` no corpo JSON e devolve o `CityOut` do município cuja sede é a mais próxima, calculado com o catálogo local de 5.571 municípios, sem serviço externo.
+
+- Distância por haversine (raio médio de 6.371,0088 km), calculada em memória sobre as coordenadas de todas as sedes, com desempate pelo menor código IBGE. Nenhum valor derivado da localização vai para o SQL; não há índice, migração ou cache novos.
+- Sede mais próxima a mais de 100 km (`NEAREST_MAX_DISTANCE_KM`, valor inicial da questão Q3) responde 404 com "Não encontramos um município perto de você.".
+- Coordenadas fora de −90..90/−180..180, ausentes, não numéricas (texto, booleano, null), não finitas (NaN/Infinity) ou com campos extras resultam em 422; o tratamento global de validação já não ecoa os valores enviados.
+- As coordenadas não são gravadas, registradas em log, devolvidas na resposta nem incluídas em erros, e só trafegam no corpo (GET devolve 405).
+- Swagger: resumo "Sugerir a cidade mais próxima" e descrição da rota em `app/core/openapi.py`.
+
+**Verificações:**
+- Em `backend/`: `ruff check app migrations tests` sem apontamentos.
+- `pytest -q` com `TEST_DATABASE_URL` no PostgreSQL local: 1734 aprovados e 1 pulado (S3 isolado, `MEDIA_TEST_S3=1`); cobertura `--cov=app --cov-branch` de 98,49%, com `app/services/cities.py`, `app/routers/identity.py` e `app/schemas/identity.py` em 100%.
+- Testes de integração cobrem centro de Brasília → 5300108, Praça Cívica de Goiânia → 5208707, oceano e Paris → 404, faixas e tipos inválidos → 422 sem eco das coordenadas, 401 sem sessão, 403 para cookie com Origin externa ou sem Origin, e a resposta sem coordenadas. Testes unitários cobrem o haversine, a escolha da sede, o desempate e o limite de 100 km.
+- Desempenho no banco de desenvolvimento com o catálogo completo: serviço com mediana de 5,1 ms (p95 5,9 ms, 200 chamadas); HTTP real via uvicorn com mediana de 5,6 ms (p95 6,9 ms, 100 requisições). O log de acesso registrou apenas o caminho, sem coordenadas. A medição criou uma conta sintética (`orq-02-…@exemplo.com`) no banco de desenvolvimento.
+- Depois da consolidação na branch, 42 testes focados de cidades, perfil e OpenAPI e o `ruff` passaram.
+
+**Limitações:** a comparação usa a coordenada da sede municipal, não o território: perto da divisa, a sugestão pode ser o município vizinho; por isso é sempre editável. O limite de 100 km é inicial e pode ser ajustado após verificação real. O CI remoto não foi executado.
+
+**Pendências:** uso da rota na web (ticket 05) e no Expo (ticket 08); decisão 0005 e documentação final da API (ticket 09).
+
 ## Catálogo nacional de municípios e busca de cidades (backend) — 22 de novembro de 2026
 
 Primeira entrega do [plano de modalidades](plano-modalidades.md), só no backend. A migração `0015_national_city_catalog.py` amplia `cities` com `latitude` e `longitude` da sede (não nulas), `capital` e `search_text` (nome + UF sem acento e em minúsculas), com índice B-tree `text_pattern_ops`. Ela insere os municípios a partir do arquivo versionado `backend/migrations/data/municipios/municipios.csv`, derivado de `kelvins/municipios-brasileiros` no commit `503e2f70bbf1b4b7ec0b1f68b09086ccc38fe861`. A licença MIT e a origem ficam em `LICENSE` e `FONTE.md`, ao lado do arquivo, e a migração não acessa a rede. O catálogo tem **5.571** municípios, e não os 5.570 do plano: o commit fixado já inclui Boa Esperança do Norte (MT, 5101837), instalado em 2025, e essa contagem foi mantida por decisão do usuário. Os 6 IDs originais mantêm nome e UF e só recebem as colunas novas.
