@@ -1,14 +1,16 @@
 # Plano — tela de modalidades, cidade por localização e catálogo nacional de municípios (web + Expo)
 
-> Estado: **apenas planejamento, 22 de novembro de 2026**. Nenhum código foi alterado.
+> Estado: **implementado em 22 de novembro de 2026**, na web, no Expo e no backend, com as limitações listadas em [Implementação](#implementação). As decisões técnicas estão na [decisão 0005](decisoes/0005-catalogo-municipios.md), e as verificações, na [situação da fundação](situacao-fundacao.md). O MVP completo continua não implementado.
 
 ## Contexto
 
+> Esta seção descreve o estado **antes** da implementação. Os `SportCard` citados foram removidos: a web usa agora [`components/sports-profile/`](../web/src/components/sports-profile/), e o Expo, [`components/sports-profile/`](../mobile/src/components/sports-profile/).
+
 A tela "Suas modalidades" é onde a pessoa cria e edita os perfis esportivos. Conta nova chega a ela pelo cartão "Complete seu perfil esportivo" do Início, pelo botão Jogar ("Preparar perfil") e pelo Ranking. Quem já tem perfil chega pelo perfil e pelas configurações.
 
-- **Web:** a tela `sports` em [ArenaPage.tsx](../web/src/pages/ArenaPage.tsx) empilha três [SportCard.tsx](../web/src/components/SportCard.tsx). Cada cartão tem uma ficha (Cidade, Nível, Disponibilidade, Posição) e um formulário com `select` nativos e uma caixa de seleção.
-- **Expo:** a mesma estrutura, em [SportCard.tsx](../mobile/src/components/SportCard.tsx) dentro de [ProfileScreen.tsx](../mobile/src/screens/ProfileScreen.tsx).
-- **Cidades:** o catálogo tem só 6 municípios ([decisão 0001](decisoes/0001-fundacao.md#cidades)). `GET /cities` devolve no máximo 100 itens em ordem alfabética, com filtro `ilike` só pelo nome. Os dois clientes carregam essa lista uma única vez e a usam para nomear e escolher cidades em Jogar, Eventos, Times, Assistente de evento, Pedido de organizador e no perfil esportivo.
+- **Web:** a tela `sports` em [ArenaPage.tsx](../web/src/pages/ArenaPage.tsx) empilhava três `SportCard.tsx` (`web/src/components/`, removido). Cada cartão tinha uma ficha (Cidade, Nível, Disponibilidade, Posição) e um formulário com `select` nativos e uma caixa de seleção.
+- **Expo:** a mesma estrutura, em `SportCard.tsx` (`mobile/src/components/`, removido) dentro de [ProfileScreen.tsx](../mobile/src/screens/ProfileScreen.tsx).
+- **Cidades:** o catálogo tinha só 6 municípios ([decisão 0001](decisoes/0001-fundacao.md#cidades)). `GET /cities` devolvia no máximo 100 itens em ordem alfabética, com filtro `ilike` só pelo nome. Os dois clientes carregavam essa lista uma única vez e a usavam para nomear e escolher cidades em Jogar, Eventos, Times, Assistente de evento, Pedido de organizador e no perfil esportivo.
 - **"Procurando oportunidades"** (`looking_for`) só é gravado e exibido: nenhuma busca, convite ou descoberta usa esse dado.
 
 ## Decisões da sessão de protótipos
@@ -23,7 +25,7 @@ As decisões saíram do grilling de protótipos de 22 de novembro de 2026. A fon
 | Posição | **Lista de rádio com descrição:** Goleiro ("Defende a meta"), Defesa ("Segura a linha de trás"), Meio de campo ("Arma as jogadas"), Atacante ("Busca o gol") e "Ainda não sei". |
 | Disponibilidade | **Passo de revisão.** Linhas Cidade e Posição com "Alterar". Chave "Procurando oportunidades", com o texto "Aparece no seu perfil esportivo." e começando desligada. Botão "Ativar futebol" (ou "Salvar" ao editar). |
 | Conclusão | A folha fecha, a faixa fica ativa e aparece o **`toast.success` do projeto**: "Futebol ativado." para perfil novo ou "Perfil salvo." ao editar, com o resumo como descrição. |
-| Catálogo | **Todos os 5.570 municípios**, do conjunto [kelvins/municipios-brasileiros](https://github.com/kelvins/municipios-brasileiros) (licença MIT, código IBGE de 7 dígitos, latitude e longitude da sede). Os IDs atuais continuam válidos. |
+| Catálogo | **Todos os municípios** (5.570 no planejamento; 5.571 implementados, ver abaixo), do conjunto [kelvins/municipios-brasileiros](https://github.com/kelvins/municipios-brasileiros) (licença MIT, código IBGE de 7 dígitos, latitude e longitude da sede). Os IDs atuais continuam válidos. |
 | Escopo | **Web e Expo, nesta entrega.** |
 
 Exploradas e descartadas: Assistente, Abas, Ajustes e Cartas, como layouts gerais. Mosaico, Coliseu, Separadas e Placar, como cabeçalho e faixas. Grade, Rádio, Atalho e Por região, para escolher a cidade. Campinho, Cartões e Formação, para a posição. Tela de sucesso, sugestão da próxima modalidade e destaque na faixa, para a conclusão.
@@ -50,7 +52,7 @@ Exploradas e descartadas: Assistente, Abas, Ajustes e Cartas, como layouts gerai
 3. Web: nova tela de modalidades e a folha passo a passo.
 4. Expo: remoção da lista global e seletores de cidade com busca.
 5. Expo: nova tela, folha e `expo-location`.
-6. Documentação: [decisão 0005](decisoes/) sobre o catálogo nacional (fonte, licença, cidade sugerida, privacidade das coordenadas e efeito no pareamento), ajuste da seção "Cidades" da 0001, documentação da API e situação da fundação.
+6. Documentação: [decisão 0005](decisoes/0005-catalogo-municipios.md) sobre o catálogo nacional (fonte, licença, cidade sugerida, privacidade das coordenadas e efeito no pareamento), ajuste da seção "Cidades" da 0001, documentação da API e situação da fundação.
 
 ## Validação prevista
 
@@ -60,9 +62,29 @@ Exploradas e descartadas: Assistente, Abas, Ajustes e Cartas, como layouts gerai
 
 ## Questões em aberto (não bloqueiam)
 
-- Ao editar um perfil existente, abrir no passo 1 (como no protótipo) ou direto na revisão? Recomendação: direto na revisão.
+- Ao editar um perfil existente, abrir no passo 1 (como no protótipo) ou direto na revisão? Recomendação: direto na revisão. **Implementado:** abre no passo 1 com os valores atuais, até decisão do usuário.
 - Com o catálogo nacional, o pareamento por cidade terá menos gente por município fora das capitais. Agrupar por região fica para uma entrega futura, se for necessário.
 - O limite de cobertura (100 km) e o arredondamento (2 casas) são valores iniciais.
+
+## Implementação
+
+Entregue em nove tickets: catálogo e busca (01), cidade mais próxima (02), web sem lista global (03), tela da web (04), localização na web (05), Expo sem lista global (06), tela do Expo (07), localização no Expo (08) e contrato final com documentação (09). O registro de cada um, com as verificações executadas, está na [situação da fundação](situacao-fundacao.md).
+
+- **Catálogo:** 5.571 municípios, e não 5.570. O commit fixado da origem (`503e2f70bbf1b4b7ec0b1f68b09086ccc38fe861`) já inclui Boa Esperança do Norte (MT, 5101837), instalado em 2025, e o usuário decidiu mantê-lo. Fonte, licença e transformação estão em [FONTE.md](../backend/migrations/data/municipios/FONTE.md).
+- **Contrato:** `GET /cities` sem `q` devolve lista vazia; `q` e `ids` juntos devolvem 422. Os detalhes estão na [decisão 0005](decisoes/0005-catalogo-municipios.md#3-contrato-da-api).
+- **Web:** faixas e folha em [`web/src/components/sports-profile/`](../web/src/components/sports-profile/); seletores de cidade com [`CitySearch`](../web/src/components/cities/CitySearch.tsx).
+- **Expo:** faixas e folha em [`mobile/src/components/sports-profile/`](../mobile/src/components/sports-profile/); seletores de cidade em [`CitySearch.tsx`](../mobile/src/components/arena/CitySearch.tsx); nova dependência `expo-location`.
+
+### Limitações reais
+
+- **Expo sem verificação em aparelho:** não houve aparelho nem emulador. A tela do Expo não foi conferida visualmente, e a paridade visual com a web não foi verificada.
+- **Permissão e GPS reais não verificados:** o diálogo nativo de permissão (Android/iOS) e o GPS real não foram testados, nem o Android com `ACCESS_FINE_LOCATION` bloqueado. Na web, o fluxo foi conferido no Chromium com geolocalização simulada pelo Playwright; o pedido real do navegador e o leitor de tela também não foram verificados.
+- **Sem Sora no Expo:** o nome da cidade sugerida usa a fonte do sistema, porque o Expo não carrega Sora.
+- **Sem arrastar para fechar:** a folha não fecha por arraste em nenhum dos clientes. Na web, fecha pelo X, por Esc ou por toque fora; no Expo, pelo voltar do Android ou por toque fora.
+- **Texto do toast:** é literal, `<Modalidade> ativado.` ("Futebol ativado.", "Tênis ativado." e também "Corrida ativado."). O usuário ainda não decidiu sobre a forma "Corrida ativada.".
+- **Edição no passo 1:** a questão Q1 foi mantida como passo 1, conforme a spec.
+- **Sem nova tentativa de localização** na mesma folha depois de falha ou 404; resta a busca.
+- **Diagramas:** `docs/diagramas/banco-*.png` continuam na revisão 0014.
 
 ## Fora do escopo
 

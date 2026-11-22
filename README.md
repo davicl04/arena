@@ -219,7 +219,7 @@ O Expo tem as telas das etapas 1 a 5: Meus times, Convidar e Entrar pelo link, o
 ## Demonstrar a primeira entrega
 
 1. Crie conta com nome, e-mail, nascimento elegível e senha de pelo menos 10 caracteres.
-2. Entre, adicione perfis de futebol, tênis e corrida e selecione uma cidade do catálogo inicial.
+2. Entre, adicione perfis de futebol, tênis e corrida e escolha a cidade pela busca ou pela localização (catálogo nacional de municípios, [decisão 0005](docs/decisoes/0005-catalogo-municipios.md)).
 3. Edite posição preferida no futebol, status de procura e nome.
 4. Entre com a mesma conta no outro cliente e confira os dados.
 5. Reinicie API/clientes e confirme a persistência. Saia e verifique que a sessão encerrada não funciona mais.

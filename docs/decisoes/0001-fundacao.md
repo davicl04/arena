@@ -38,6 +38,8 @@ Usamos códigos de municípios do IBGE como identificadores estáveis. A migraç
 
 Fonte: [API de localidades do IBGE](https://servicodados.ibge.gov.br/api/docs/localidades).
 
+> **Atualização de 22 de novembro de 2026:** o catálogo inicial de 6 cidades foi substituído pelo catálogo nacional de 5.571 municípios, na migração `0015`. A mesma decisão trata da busca por `q` e `ids` e da cidade sugerida pela localização (`POST /cities/nearest`); `GET /cities` sem `q` passou a devolver lista vazia. Ver a [decisão 0005](0005-catalogo-municipios.md). Os IDs continuam sendo códigos IBGE, e as 6 cidades acima mantêm ID, nome e UF. O texto acima fica como registro da fundação.
+
 ## Autenticação e sessão
 
 Senhas usam Argon2 por `pwdlib`, conforme a [documentação de segurança do FastAPI](https://fastapi.tiangolo.com/tutorial/security/oauth2-jwt/). A sessão usa token opaco aleatório de 256 bits. Somente seu hash SHA-256 é persistido no banco; não usamos JWT nem uma chave global `SECRET_KEY`. O campo obsoleto foi removido do exemplo de configuração.
