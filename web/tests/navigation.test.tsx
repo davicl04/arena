@@ -204,19 +204,19 @@ describe('navegação do ArenaPage', () => {
     expect(screen.getByRole('heading', { name: /A arena te chama/ })).not.toBeNull()
   })
 
-  it('a placa "Para responder" do Início abre as notificações já no chip Para responder e volta ao Início', async () => {
+  it('o link do Destaque "Para responder" do Início abre as notificações já no chip Para responder e volta ao Início', async () => {
     const proposal = { id: 7, type: 'proposta_partida', payload: { match_id: 12, opponent_name: 'Tigres do Lago' }, actor: null, created_at: new Date(Date.now() - 60e3).toISOString(),
       read_at: null, category: 'partidas', pending: true, action_until: new Date(Date.now() + 3600e3).toISOString() }
     const base = vi.mocked(request).getMockImplementation()!
     vi.mocked(request).mockImplementation(async (path, method, body) => {
-      if (path === '/me/notifications/summary') return summaryOf({ unread_count: 1, pending_count: 1, unread_by_category: { partidas: 1 } }) as never
+      if (path === '/me/notifications/summary') return summaryOf({ unread_count: 1, pending_count: 2, unread_by_category: { partidas: 1 } }) as never
       if (path.startsWith('/me/notifications/pending')) return { items: [proposal] } as never
       return base(path, method, body)
     })
     const ui = userEvent.setup()
     renderArena()
-    await ui.click(await screen.findByRole('button', { name: 'Ver notificações' }))
-    expect(screen.getByRole('button', { name: 'Para responder, 1 pendência' }).getAttribute('aria-pressed')).toBe('true')
+    await ui.click(await screen.findByRole('button', { name: 'Ver todas as 2 pendências' }))
+    expect(screen.getByRole('button', { name: 'Para responder, 2 pendências' }).getAttribute('aria-pressed')).toBe('true')
     expect(await screen.findByRole('button', { name: 'Responder proposta' })).not.toBeNull()
     expect(current()).toBe('Início')
     await ui.click(screen.getByRole('button', { name: 'Voltar' }))

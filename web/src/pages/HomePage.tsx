@@ -15,7 +15,7 @@ import { Logo } from "../components/Brand";
 import { NotificationBell } from "../components/notifications/NotificationBell";
 import { Placar } from "../components/home/Placar";
 import { primaryButtonLabel } from "../data/home";
-import { PendingPlate } from "../components/notifications/PendingPlate";
+import { Destaque } from "../components/home/Destaque";
 import { TierEmblem } from "../components/arena/TierEmblem";
 import { modalityStanding } from "../components/arena/modalityStanding";
 import { Badge } from "@/components/ui/badge";
@@ -47,7 +47,7 @@ export default function HomePage({
   profilesFailed?: boolean;
   /** Partidas do titular lidas pela placa (`GET /me/play`): a próxima agendada vai ao Placar. */
   matches?: MatchCard[];
-  /** Resumo das notificações (ArenaPage): o número do sino e a placa "Para responder". */
+  /** Resumo das notificações (ArenaPage): o número do sino e o Destaque "Para responder". */
   summary?: NotificationSummaryState;
   /** Conta administrativa: alguns avisos levam às filas da administração. */
   isAdmin?: boolean;
@@ -59,10 +59,10 @@ export default function HomePage({
   const nextMatch = nextScheduledMatch(matches, now);
   // Só uma lista vazia confirmada conta como "sem perfis": carregando ou com falha, não convida a prepará-los.
   const hasProfiles = loading || profilesFailed || profiles.length > 0;
-  // Placa "Para responder": as 2 pendências mais urgentes; só é lida quando o resumo diz que há pendências.
+  // Destaque "Para responder": só a pendência mais urgente (o total vem do resumo); só é lida quando o resumo diz que há pendências.
   const pendingCount = summary?.data?.pending_count ?? 0;
   const pending = usePendingNotifications(onExpired, {
-    limit: 2,
+    limit: 1,
     enabled: pendingCount > 0,
     version: summary?.data ? `${summary.data.pending_count}:${summary.data.unread_count}` : undefined,
   });
@@ -114,16 +114,14 @@ export default function HomePage({
         {primaryButtonLabel({ hasProfiles, hasNextMatch: nextMatch !== null })}
       </Button>
       {pendingCount > 0 && pending.items.length > 0 && (
-        <div className="mt-5">
-          <PendingPlate
-            items={pending.items}
-            total={pendingCount}
-            now={now}
-            isAdmin={isAdmin}
-            onOpenItem={(notification) => void openPending(notification)}
-            onOpenAll={() => go("notifications", { filter: "responder" })}
-          />
-        </div>
+        <Destaque
+          notification={pending.items[0]}
+          total={pendingCount}
+          now={now}
+          isAdmin={isAdmin}
+          onOpen={(notification) => void openPending(notification)}
+          onOpenAll={() => go("notifications", { filter: "responder" })}
+        />
       )}
       <SectionTitle
         title="Seu elo"

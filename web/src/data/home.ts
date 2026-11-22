@@ -2,7 +2,7 @@ import type { MatchCard, MatchSideOut } from '@/api/matches'
 import { orderedSides, sideName } from '@/data/match'
 
 /*
- * Regras puras do Início (Placar e botão principal). O Início do Expo segue as mesmas regras e textos, com funções de
+ * Regras puras do Início (Placar, botão principal e Destaque). O Início do Expo segue as mesmas regras e textos, com funções de
  * mesmos nomes: mudar uma regra aqui exige mudar lá também.
  */
 
@@ -62,4 +62,17 @@ export function emptyPlacarText(hasProfiles: boolean): string {
 export function primaryButtonLabel({ hasProfiles, hasNextMatch }: { hasProfiles: boolean; hasNextMatch: boolean }): string {
   if (!hasProfiles) return 'Preparar perfis'
   return hasNextMatch ? 'Encontrar outra partida' : 'Encontrar partida'
+}
+
+/** Etiqueta do Destaque: "Mais urgente" quando o prazo está no fim (o critério `warn` de `pendingDeadline`), senão "Aguardando você". */
+export const urgencyLabel = (warn: boolean): string => (warn ? 'Mais urgente' : 'Aguardando você')
+
+/**
+ * Link abaixo do Destaque, a partir do total de pendências (`pending_count`): "+ 1 pendência · ver todas" ou
+ * "+ {n−1} pendências · ver todas". Com 1 pendência (ou nenhuma), não há link: `null`.
+ */
+export function morePendingLabel(total: number): string | null {
+  const rest = total - 1
+  if (!(rest >= 1)) return null
+  return `+ ${rest} ${rest === 1 ? 'pendência' : 'pendências'} · ver todas`
 }
