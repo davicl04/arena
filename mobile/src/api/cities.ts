@@ -28,3 +28,15 @@ export async function citiesByIds(ids: readonly number[]): Promise<City[]> {
   if (!unique.length) return []
   return request<City[]>(`/cities?ids=${unique.join(',')}`)
 }
+
+/** Arredonda uma coordenada para 2 casas decimais (cerca de 1 km): o aparelho nunca envia a posição exata. */
+export const roundCoordinate = (value: number) => Math.round(value * 100) / 100
+
+/**
+ * Cidade sugerida pela localização (`POST /cities/nearest`): a sede do município mais próxima das coordenadas, que vão
+ * arredondadas e só no corpo (nunca na URL), sem ficar gravadas no aparelho. Fora da cobertura, o servidor responde 404.
+ * É uma leitura: falha de conexão não abre a folha "Sem conexão" (o passo da cidade mostra o próprio aviso).
+ */
+export function nearestCity(latitude: number, longitude: number): Promise<City> {
+  return request<City>('/cities/nearest', 'POST', { latitude: roundCoordinate(latitude), longitude: roundCoordinate(longitude) }, { background: true })
+}

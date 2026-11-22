@@ -1,8 +1,11 @@
 // Isolamento entre testes: a loja de toasts e a de conexão são únicas no módulo; cada teste começa sem toasts e com a
-// conexão "online" (temporizadores cancelados).
-import { afterEach } from 'vitest'
+// conexão "online" (temporizadores cancelados). A localização simulada volta a "permissão não decidida, sem posição".
+import { afterEach, beforeEach } from 'vitest'
 import { connection } from '../../src/api/connection'
 import { toastStore } from '../../src/components/toast/toastStore'
+import { resetLocation } from './location'
+
+beforeEach(() => { resetLocation() })
 
 afterEach(() => {
   // Árvores de teste que ficaram montadas ouvem as lojas: sem o ambiente de `act`, o reset não gera aviso de atualização fora dele.

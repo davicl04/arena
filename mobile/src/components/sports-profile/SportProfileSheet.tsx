@@ -3,13 +3,14 @@ import { AccessibilityInfo, findNodeHandle, Text, View } from 'react-native'
 import { ApiError } from '../../api/client'
 import type { City, Position, Profile, ProfileInput, Sport } from '../../api/client'
 import { cityLabel } from '../../api/cities'
+import { useCityLocation } from '../../hooks/useCityLocation'
 import { actionErrorMessage, reportActionError } from '../../hooks/useSubmit'
 import { useThemeColors } from '../../hooks/useTheme'
 import { announce } from '../../utils/announce'
 import { ActionSheet } from '../arena/ActionSheet'
 import { ActionButton, ErrorText, SwitchRow, TextAction } from '../arena/controls'
 import { SportIcon } from '../arena/SportIcon'
-import { CityStep } from './CityStep'
+import { LocationCityStep } from './LocationCityStep'
 import { PositionStep } from './PositionStep'
 import { finishLabel, positionLabel, profileSteps, sportLabel, stepTitle } from './profileSteps'
 
@@ -29,7 +30,9 @@ function ReviewRow({ label, value, onChange, first = false }: { label: string; v
  * procura desligada. Concluir chama `onSave` (o `PUT /me/sports-profiles/{sport}`) e entrega o perfil salvo a `onSaved`.
  * O 422 fica na folha, no passo de revisão; os demais erros seguem `reportActionError`. Fechar (X, fundo ou voltar do
  * Android) não salva nada. A cada passo (inclusive ao abrir, em "Alterar" e em "Voltar"), o foco de acessibilidade vai
- * para o título do passo.
+ * para o título do passo. A localização (`useCityLocation`) vive na folha, não no passo: a sugestão e o estado da permissão
+ * sobrevivem a "Voltar" e "Alterar". Perfil novo com a permissão já concedida recebe a sugestão ao abrir (sem trocar uma
+ * cidade escolhida antes da resposta); perfil existente só troca a cidade salva por um toque em "Usar minha localização".
  */
 export function SportProfileSheet({ sport, profile, onSave, onSaved, onClose, onExpired }: {
   sport: Sport
@@ -48,6 +51,10 @@ export function SportProfileSheet({ sport, profile, onSave, onSaved, onClose, on
   const [looking, setLooking] = useState(profile?.looking_for ?? false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const location = useCityLocation({ auto: isNew, onExpired, onSuggested: (next, requested) => {
+    setCity(current => (requested || !current ? next : current))
+    setError('')
+  } })
   const step = steps[index]
   const title = stepTitle[step]
   const progress = `${index + 1} de ${steps.length}`
@@ -85,7 +92,7 @@ export function SportProfileSheet({ sport, profile, onSave, onSaved, onClose, on
     <Text ref={titleRef} accessibilityRole="header" accessibilityLabel={`${title} Passo ${progress}.`} accessibilityLiveRegion="polite"
       style={{ color: c.heading, fontSize: 20, fontWeight: '800' }}>{title}</Text>
 
-    {step === 'city' ? <CityStep city={city} onExpired={onExpired} onChange={next => { setCity(next); setError('') }} /> : null}
+    {step === 'city' ? <LocationCityStep city={city} location={location} onExpired={onExpired} onChange={next => { setCity(next); setError('') }} /> : null}
     {step === 'position' ? <PositionStep value={position} onChange={setPosition} /> : null}
     {step === 'review' ? <View style={{ marginTop: 12, overflow: 'hidden', borderRadius: 16, borderWidth: 1, borderColor: c['surface-edge'], backgroundColor: c.surface }}>
       <ReviewRow first label="Cidade" value={city ? cityLabel(city) : 'A definir'} onChange={() => go(0)} />
