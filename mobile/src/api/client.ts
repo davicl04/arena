@@ -103,5 +103,10 @@ export async function request<T>(path: string, method = 'GET', body?: unknown, {
   }
   return response.status === 204 ? undefined as T : response.json()
 }
-export const sports: { value: Sport; label: string }[] = [{ value: 'futebol', label: 'Futebol' }, { value: 'tenis', label: 'Tênis' }, { value: 'corrida', label: 'Corrida' }]
+/** Modalidades na ordem de exibição, com a frase de cada uma (a mesma da web, na faixa da tela de modalidades). */
+export const sports: { value: Sport; label: string; description: string }[] = [
+  { value: 'futebol', label: 'Futebol', description: 'Seu lugar dentro de campo.' },
+  { value: 'tenis', label: 'Tênis', description: 'Cada troca é um novo começo.' },
+  { value: 'corrida', label: 'Corrida', description: 'No seu ritmo, a cada passo.' },
+]
 export const positions: { value: Position; label: string }[] = [{ value: 'goleiro', label: 'Goleiro' }, { value: 'defesa', label: 'Defesa' }, { value: 'meio_campo', label: 'Meio de campo' }, { value: 'atacante', label: 'Atacante' }]

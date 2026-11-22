@@ -21,7 +21,7 @@ vi.mock('react-native-svg', async () => (await import('./support/native')).svgMo
 vi.mock('react-native-safe-area-context', async () => (await import('./support/native')).safeAreaMock())
 vi.mock('../src/components/ui', async () => (await import('./support/native')).uiMock())
 vi.mock('expo-image-picker', () => ({ launchImageLibraryAsync: vi.fn() }))
-vi.mock('../src/components/SportCard', () => ({ default: () => null }))
+vi.mock('../src/components/sports-profile/SportsProfiles', () => ({ SportsProfiles: () => null }))
 vi.mock('../src/api/client', async original => ({
   ...await original<typeof import('../src/api/client')>(),
   apiUrl: (path: string) => path,

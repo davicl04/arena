@@ -13,7 +13,7 @@ vi.mock('react-native', async () => (await import('./support/native')).reactNati
 vi.mock('react-native-safe-area-context', async () => (await import('./support/native')).safeAreaMock())
 vi.mock('../src/components/ui', async () => (await import('./support/native')).uiMock())
 vi.mock('expo-image-picker', () => ({ launchImageLibraryAsync: vi.fn() }))
-vi.mock('../src/components/SportCard', () => ({ default: () => null }))
+vi.mock('../src/components/sports-profile/SportsProfiles', () => ({ SportsProfiles: () => null }))
 vi.mock('../src/api/client', () => ({
   positions: [],
   ApiError: class ApiError extends Error { constructor(message: string, public status: number) { super(message) } },

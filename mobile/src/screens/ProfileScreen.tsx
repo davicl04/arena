@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native'
 import * as ImagePicker from 'expo-image-picker'
-import { ApiError, clearToken, getToken, request, sports } from '../api/client'
+import { ApiError, clearToken, getToken, request } from '../api/client'
 import { connection } from '../api/connection'
 import type { MatchCard } from '../api/matches'
 import type { Page, Profile, ProfileInput, SocialUser, Sport, User } from '../api/client'
@@ -17,7 +17,7 @@ import ProfileTitle from '../components/ProfileTitle'
 import Sheet from '../components/Sheet'
 import { AppearanceCard } from '../components/menu/AppearanceCard'
 import UsernameForm from '../components/UsernameForm'
-import SportCard from '../components/SportCard'
+import { SportsProfiles } from '../components/sports-profile/SportsProfiles'
 import ProfileGallery from '../components/ProfileGallery'
 import { NotificationBell } from '../components/notifications/NotificationBell'
 import { MatchTimeline } from '../components/profile-matches/MatchTimeline'
@@ -136,9 +136,10 @@ export default function ProfileScreen({ user, onUser, onLogout, onExpired, onNew
   // "Editar perfil" aberto pelo menu volta ao menu; aberto pelo selo do avatar apenas fecha.
   function editFromMenu() { open('edit'); setFromMenu(true) }
   async function save(sport: Sport, input: ProfileInput) {
-    // As falhas sobem para o SportCard, que as classifica (reportActionError) e trata a sessão expirada.
+    // As falhas sobem para a folha da modalidade, que mostra o 422 e classifica o resto (reportActionError).
     const p = await request<Profile>(`/me/sports-profiles/${sport}`, 'PUT', input)
     setProfiles(old => [...old.filter(v => v.sport !== sport), p])
+    return p
   }
   async function logout() {
     setBusy(true); setProblem('')
@@ -234,8 +235,8 @@ export default function ProfileScreen({ user, onUser, onLogout, onExpired, onNew
       </View>
       <View className={tw.content}>
         {!sheet && loadError ? <LoadError size="section" title="Não foi possível carregar o perfil" text={loadError.message} cause={loadError.cause} onRetry={retryLoad} /> : null}
-        <Text className={tw.heading}>Suas modalidades</Text>{loading ? <ActivityIndicator accessibilityLabel="Carregando modalidades" /> : sports.map(s => <SportCard key={s.value} sport={s.value} label={s.label} profile={profiles.find(p => p.sport === s.value)} onSave={save} onExpired={onExpired} />)}
-        {!loading && !profiles.length && !loadError ? <Text className={tw.body}>Adicione sua primeira modalidade acima.</Text> : null}
+        {/* Sem a leitura dos perfis, as faixas não fingem "0 de 3 ativas": o LoadError acima oferece tentar de novo. */}
+        {loading ? <ActivityIndicator accessibilityLabel="Carregando modalidades" /> : loadError ? null : <SportsProfiles profiles={profiles} onSave={save} onExpired={onExpired} />}
       </View>
       <ProfileStatsBlocks onExpired={onExpired} />
       <ProfileTabs value={contentTab} onChange={setContentTab} />

@@ -3,14 +3,12 @@ import { act, create } from 'react-test-renderer'
 import type { ReactTestRenderer } from 'react-test-renderer'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiError, request } from '../src/api/client'
-import type { City, Profile } from '../src/api/client'
+import type { City } from '../src/api/client'
 import { citiesByIds, CITY_SEARCH_LIMIT, cityLabel, searchCities } from '../src/api/cities'
 import { CityField, CitySearch } from '../src/components/arena/CitySearch'
-import SportCard from '../src/components/SportCard'
 import { CITY_SEARCH_DEBOUNCE_MS } from '../src/hooks/useCities'
-import { byLabel, click, enableAct, press, textOf, type } from './support/native'
+import { byLabel, enableAct, press, textOf, type } from './support/native'
 import { brasiliaCity, goianiaCity, searchCity, searchPath, valparaisoCity } from './support/cities'
-import { toasts } from './support/toast'
 
 vi.mock('react-native', async () => {
   const native = await import('./support/native')
@@ -22,8 +20,8 @@ vi.mock('../src/api/client', async original => ({ ...await original<typeof impor
 
 /*
  * Busca de cidade no catálogo nacional (Expo): o cliente da API, os estados da busca (mínimo de 2 caracteres, atraso de
- * digitação, vazio, erro com "Tentar novamente", resposta antiga descartada), o nome por `city`/`ids=` e o perfil esportivo
- * salvo com um município fora dos 100 primeiros.
+ * digitação, vazio, erro com "Tentar novamente", resposta antiga descartada), e o nome por `city`/`ids=` (o perfil esportivo salvo
+ * com um município fora dos 100 primeiros está em sports-profiles.test.ts).
  */
 
 const h = React.createElement
@@ -190,28 +188,5 @@ describe('CityField', () => {
     expect(paths().some(path => path.startsWith('/cities?ids='))).toBe(false)
     tree = await field(null, null, onChange)
     expect(textOf(tree)).toContain('Escolher')
-  })
-})
-
-describe('SportCard (perfil esportivo)', () => {
-  const tennis = (city: City): Profile => ({ id: 3, sport: 'tenis', city_id: city.id, city, position: null, looking_for: true, is_public: false, level: null })
-
-  it('mostra a cidade do objeto city e salva um município fora dos 100 primeiros escolhido pela busca', async () => {
-    serve({ [searchPath('valpa')]: [valparaisoCity] })
-    const onSave = vi.fn().mockResolvedValue(undefined)
-    const tree = await mount(h(SportCard, { sport: 'tenis', label: 'Tênis', profile: tennis(brasiliaCity), onSave, onExpired: vi.fn() }))
-    expect(textOf(tree)).toContain('Brasília · DF')
-    await click(tree, 'Editar perfil')
-    expect(byLabel(tree, 'Brasília, DF')[0].props.accessibilityState).toMatchObject({ selected: true })
-    await searchCity(tree, 'valpa')
-    await press(tree, 'Valparaíso de Goiás, GO')
-    expect(byLabel(tree, 'Valparaíso de Goiás, GO')[0].props.accessibilityState).toMatchObject({ selected: true })
-    await click(tree, 'Salvar perfil')
-    expect(onSave).toHaveBeenCalledWith('tenis', { city_id: 5221858, position: null, looking_for: true })
-    expect(toasts().map(item => item.title)).toEqual(['Perfil salvo.'])
-    // A tela troca o perfil pela resposta do PUT (com `city`): o cartão nomeia a nova cidade.
-    await act(async () => { tree.update(h(SportCard, { sport: 'tenis', label: 'Tênis', profile: tennis(valparaisoCity), onSave, onExpired: vi.fn() })) })
-    expect(textOf(tree)).toContain('Valparaíso de Goiás · GO')
-    expect(paths().every(path => path.startsWith('/cities?q='))).toBe(true)
   })
 })

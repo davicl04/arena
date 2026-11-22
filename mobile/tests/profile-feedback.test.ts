@@ -13,7 +13,10 @@ vi.mock('react-native', async () => (await import('./support/native')).reactNati
 vi.mock('react-native-safe-area-context', async () => (await import('./support/native')).safeAreaMock())
 vi.mock('expo-image-picker', () => ({ launchImageLibraryAsync: vi.fn() }))
 vi.mock('expo-secure-store', () => ({ getItemAsync: vi.fn(), setItemAsync: vi.fn(), deleteItemAsync: vi.fn() }))
-vi.mock('../src/components/SportCard', () => ({ default: () => null }))
+vi.mock('../src/components/sports-profile/SportsProfiles', async () => {
+  const ReactModule = await import('react')
+  return { SportsProfiles: () => ReactModule.createElement('SportsProfiles') }
+})
 vi.mock('../src/components/ui', async () => (await import('./support/native')).uiMock())
 vi.mock('../src/api/client', async original => ({
   ...await original<typeof import('../src/api/client')>(),
@@ -46,6 +49,8 @@ async function mount(onExpired = vi.fn(), onUser = vi.fn()) {
   trees.push(tree)
   return { tree, onExpired, onUser }
 }
+/** A seção de modalidades (simulada): só aparece com os perfis lidos, sem fingir "0 de 3 ativas" na falha. */
+const sportsSection = (tree: ReactTestRenderer) => tree.root.findAllByType('SportsProfiles' as never)
 const loadErrors = (tree: ReactTestRenderer) => tree.root.findAll(node => typeof node.type === 'string' && node.props.testID === 'load-error-section')
 const rowStartingWith = (tree: ReactTestRenderer, prefix: string) => tree.root.findAllByType('Pressable' as never).find(entry => String(entry.props.accessibilityLabel).startsWith(prefix))!
 async function openRename(tree: ReactTestRenderer) {
@@ -63,12 +68,12 @@ describe('Perfil próprio: carregamento', () => {
     expect(loadErrors(tree)).toHaveLength(1)
     expect(textOf(tree)).toContain('Não foi possível carregar o perfil')
     expect(textOf(tree)).toContain('Perfis fora do ar.')
-    expect(textOf(tree)).not.toContain('Adicione sua primeira modalidade acima.')
+    expect(sportsSection(tree)).toHaveLength(0)
     expect(toasts()).toEqual([])
     profileFailure = null
     await press(tree, 'Tentar novamente')
     expect(loadErrors(tree)).toHaveLength(0)
-    expect(textOf(tree)).toContain('Adicione sua primeira modalidade acima.')
+    expect(sportsSection(tree)).toHaveLength(1)
   })
 
   it('a falha de conexão diz que está sem conexão e o perfil é relido uma vez quando ela volta', async () => {
@@ -79,7 +84,7 @@ describe('Perfil próprio: carregamento', () => {
     profileFailure = null
     await act(async () => { connection.lost({ mutating: false }); connection.reached() })
     expect(loadErrors(tree)).toHaveLength(0)
-    expect(textOf(tree)).toContain('Adicione sua primeira modalidade acima.')
+    expect(sportsSection(tree)).toHaveLength(1)
   })
 
   it('sessão expirada ao carregar chama onExpired', async () => {

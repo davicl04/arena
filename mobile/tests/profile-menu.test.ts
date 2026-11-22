@@ -13,7 +13,10 @@ vi.mock('react-native-safe-area-context', async () => {
   return { useSafeAreaInsets: () => ({ top: 0, right: 0, bottom: 0, left: 0 }), SafeAreaView: ({ children, ...props }: Record<string, unknown>) => ReactModule.createElement('SafeAreaView', props, children as React.ReactNode) }
 })
 vi.mock('expo-image-picker', () => ({ launchImageLibraryAsync: vi.fn(), ImagePickerResult: undefined }))
-vi.mock('../src/components/SportCard', () => ({ default: () => null }))
+vi.mock('../src/components/sports-profile/SportsProfiles', async () => {
+  const ReactModule = await import('react')
+  return { SportsProfiles: () => ReactModule.createElement('SportsProfiles') }
+})
 vi.mock('../src/components/ui', async () => {
   const ReactModule = await import('react')
   return {
@@ -121,7 +124,7 @@ describe('menu do perfil', () => {
     await press(tree, 'Menu')
     await press(tree, 'Minhas modalidades')
     expect(texts(tree)).not.toContain('"CONTA"')
-    expect(texts(tree)).toContain('"Suas modalidades"')
+    expect(tree.root.findAllByType('SportsProfiles' as never)).toHaveLength(1)
     await act(async () => { tree.unmount() })
   })
 
