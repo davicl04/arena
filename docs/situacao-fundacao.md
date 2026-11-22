@@ -1,5 +1,26 @@
 # Situação da fundação do Arena
 
+## Campeonatos e próximo passo no Início da web — 22 de novembro de 2026
+
+Quarta entrega do [plano do Início](plano-inicio.md) na web (ticket 04), com os mesmos textos e regras do Expo (ticket 08). Com ela, o Início da web tem todas as seções da spec.
+
+- **Campeonatos:** a foto "Perto de você / Sua próxima arena" deu lugar à seção Campeonatos, com campeonatos reais. Há uma leitura `GET /events?sport=&city_id=&limit=2` por perfil esportivo, em paralelo, uma vez por montagem (`loadProfileEvents`; `eventsPath` ganhou o `limit` opcional), e nenhuma sem perfis. A união não repete `id`, ordena por `starts_at` e mostra os 2 primeiros.
+  - Título "Campeonatos em {cidade}", "Campeonatos perto de você" ou "Perto de você"; "Ver todos" abre a lista na modalidade do primeiro campeonato exibido ou do primeiro perfil.
+  - Cada linha é um único botão e mostra ícone, nome, "{data · hora} · {local}" e as etiquetas de preço ("Gratuita" ou o formato dos cartazes), vagas ("n de N times/atletas/corredores" ou "Vagas esgotadas"), "Você pode se inscrever" (não aparece em evento em andamento, como no Expo) e "Em andamento". O toque abre o campeonato.
+  - Estados: vazio com "Ver campeonatos"; sem perfis, "Configure suas modalidades"; falha só na seção, com "Tentar novamente"; 401 pelo fluxo existente. Com falha na leitura dos perfis, a seção fica sem leitura de eventos e mostra uma nota; o erro e a nova tentativa ficam no aviso do shell, que é quem lê os perfis na web (no Expo, o erro aparece na própria seção).
+- **Próximo passo:** "Complete seu perfil esportivo" virou o componente `ProximoPasso`, entre "Seu elo" e Campeonatos, só com a lista de perfis confirmada e enquanto falta modalidade.
+- **Paridade:** as funções puras têm os mesmos nomes e regras do Expo (`missingSportsCount`, `mergeChampionships`, `championshipsTitle`, `emptyChampionshipsText`, `championshipsSport`, `championshipMeta`, `championshipTags`).
+- **Limpeza:** removidos `PendingPlate` e `pendingTitle`, sem uso, com os testes que só os cobriam. `arena-cover.jpg` continua (capa padrão do Perfil). Os testes de modalidades e de localização chegam à tela de modalidades pelo cartão do próximo passo, no lugar do link "Minha cidade" da foto removida.
+
+**Verificações** (em `web/`, nos commits do ticket; a árvore consolidada é idêntica):
+- `npm run lint` e `npm run build` aprovados (aviso de chunk que já existia).
+- `npm run test:coverage`: 1310/1311, só com a falha intermitente que já existia em `tests/matchmaking.test.tsx`; sem esse arquivo, 1271/1271 (92,46% statements, 86,4% branches, 91,74% funções, 95,51% linhas). Novo `home-campeonatos.test.tsx` com 18 testes (os 12 de tela falhavam no Início anterior).
+- Navegador (Playwright headless) com API e PostgreSQL reais e contas sintéticas criadas pela API: perfis na mesma cidade, em cidades diferentes, sem campeonatos e conta nova, em 320, 390 e 1440 px, nos temas claro e escuro, sem overflow horizontal nem erros no console; teclado, foco visível, falha e nova tentativa conferidos.
+
+**Limitações:** o banco de desenvolvimento não tem campeonato publicado, e publicar exige organizador aprovado por um administrador. As linhas com campeonato foram conferidas no navegador com a resposta de `/events` simulada só no navegador, além dos testes; não há dado fictício no código. A 320 px o título da seção e o convite sem perfis truncam com reticências, como no Expo. As etiquetas seguem o formato dos cartazes ("R$ 40", "3 de 8 times"), e não o do protótipo.
+
+**Pendências:** documentação e verificação final da entrega (ticket 09).
+
 ## Pílulas de elo no Início da web — 22 de novembro de 2026
 
 Terceira entrega do [plano do Início](plano-inicio.md) na web (ticket 03), com os mesmos textos e regras do Expo (ticket 07).
