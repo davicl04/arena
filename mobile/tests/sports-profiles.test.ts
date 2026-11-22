@@ -10,7 +10,19 @@ import { byLabel, enableAct, press, textOf } from './support/native'
 import { brasiliaCity, searchCity, searchPath, valparaisoCity } from './support/cities'
 import { toasts } from './support/toast'
 
-vi.mock('react-native', async () => (await import('./support/native')).reactNativeMock())
+/**
+ * Foco de acessibilidade: `setAccessibilityFocus` recebe o nó simulado do título do passo e registra o título que está na
+ * tela naquele momento (`read`, ligado à árvore montada).
+ */
+const focus = vi.hoisted(() => ({ titles: [] as unknown[], read: (): unknown => undefined }))
+vi.mock('react-native', async () => {
+  const base = (await import('./support/native')).reactNativeMock()
+  return {
+    ...base,
+    AccessibilityInfo: { ...base.AccessibilityInfo, setAccessibilityFocus: (node: unknown) => { if (node) focus.titles.push(focus.read()) } },
+    findNodeHandle: (ref: unknown) => ref ?? null,
+  }
+})
 vi.mock('react-native-safe-area-context', async () => (await import('./support/native')).safeAreaMock())
 vi.mock('expo-image-picker', () => ({ launchImageLibraryAsync: vi.fn() }))
 vi.mock('expo-secure-store', () => ({ getItemAsync: vi.fn(), setItemAsync: vi.fn(), deleteItemAsync: vi.fn() }))
@@ -56,8 +68,11 @@ function serve() {
 }
 async function mount(onExpired = vi.fn()) {
   let tree!: ReactTestRenderer
-  await act(async () => { tree = create(React.createElement(ProfileScreen, { user: me, onExpired, onLogout: vi.fn(), onUser: vi.fn() })) })
+  // Só o título do passo ganha um nó nativo simulado (os demais refs seguem nulos, como no renderizador de teste).
+  const createNodeMock = (element: React.ReactElement<{ accessibilityLabel?: string }>) => String(element.props.accessibilityLabel).includes(' Passo ') ? { stepTitle: true } : null
+  await act(async () => { tree = create(React.createElement(ProfileScreen, { user: me, onExpired, onLogout: vi.fn(), onUser: vi.fn() }), { createNodeMock }) })
   trees.push(tree)
+  focus.read = () => stepHeader(tree)
   return { tree, onExpired }
 }
 const puts = () => vi.mocked(request).mock.calls.filter(call => call[1] === 'PUT').map(call => [call[0], call[2]])
@@ -77,7 +92,7 @@ async function pickValparaiso(tree: ReactTestRenderer) {
   await press(tree, 'Valparaíso de Goiás, GO')
 }
 
-beforeEach(() => { enableAct(); vi.mocked(request).mockReset(); stored = []; putFailure = null; serve() })
+beforeEach(() => { enableAct(); vi.mocked(request).mockReset(); stored = []; putFailure = null; focus.titles.length = 0; serve() })
 afterEach(async () => { vi.useRealTimers(); for (const tree of trees.splice(0)) await act(async () => { tree.unmount() }) })
 
 describe('Tela de modalidades: faixas', () => {
@@ -218,6 +233,22 @@ describe('Tela de modalidades: folha passo a passo', () => {
     expect(sheetOpen(tree)).toBe(false)
     expect(puts()).toEqual([])
     expect(toasts()).toEqual([])
+  })
+})
+
+describe('Tela de modalidades: foco no título do passo', () => {
+  it('o foco vai para o título ao abrir, ao continuar, em "Alterar", em "Voltar" e ao reabrir', async () => {
+    const { tree } = await mount()
+    await press(tree, 'Futebol, ativar')
+    await pickValparaiso(tree)
+    await press(tree, 'Continuar')
+    await press(tree, 'Continuar')
+    await press(tree, 'Alterar posição')
+    await press(tree, 'Voltar')
+    await press(tree, 'Fechar')
+    await press(tree, 'Futebol, ativar')
+    const [city, position, review] = ['Em que cidade você joga? Passo 1 de 3.', 'Onde você gosta de jogar? Passo 2 de 3.', 'Tudo certo? Passo 3 de 3.']
+    expect(focus.titles).toEqual([city, position, review, position, city, city])
   })
 })
 

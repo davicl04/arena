@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { Text, View } from 'react-native'
+import { useEffect, useRef, useState } from 'react'
+import { AccessibilityInfo, findNodeHandle, Text, View } from 'react-native'
 import { ApiError } from '../../api/client'
 import type { City, Position, Profile, ProfileInput, Sport } from '../../api/client'
 import { cityLabel } from '../../api/cities'
@@ -28,7 +28,8 @@ function ReviewRow({ label, value, onChange, first = false }: { label: string; v
  * Revisão. Perfil existente abre no passo 1 com os valores atuais; perfil novo começa sem cidade, sem posição e com a
  * procura desligada. Concluir chama `onSave` (o `PUT /me/sports-profiles/{sport}`) e entrega o perfil salvo a `onSaved`.
  * O 422 fica na folha, no passo de revisão; os demais erros seguem `reportActionError`. Fechar (X, fundo ou voltar do
- * Android) não salva nada.
+ * Android) não salva nada. A cada passo (inclusive ao abrir, em "Alterar" e em "Voltar"), o foco de acessibilidade vai
+ * para o título do passo.
  */
 export function SportProfileSheet({ sport, profile, onSave, onSaved, onClose, onExpired }: {
   sport: Sport
@@ -50,7 +51,13 @@ export function SportProfileSheet({ sport, profile, onSave, onSaved, onClose, on
   const step = steps[index]
   const title = stepTitle[step]
   const progress = `${index + 1} de ${steps.length}`
+  const titleRef = useRef<Text>(null)
   useEffect(() => { announce(`${title}. Passo ${progress}`) }, [title, progress])
+  // A folha só existe montada enquanto está aberta: o efeito roda ao abrir e a cada troca de passo.
+  useEffect(() => {
+    const node = findNodeHandle(titleRef.current)
+    if (node) AccessibilityInfo.setAccessibilityFocus(node)
+  }, [index])
 
   function go(next: number) { setError(''); setIndex(next) }
   async function finish() {
@@ -75,7 +82,7 @@ export function SportProfileSheet({ sport, profile, onSave, onSaved, onClose, on
       {steps.map((item, position) => <View key={item} testID={position <= index ? 'profile-step-done' : 'profile-step-todo'}
         style={{ flex: 1, height: 4, borderRadius: 9, backgroundColor: position <= index ? c.brand : c.line }} />)}
     </View>
-    <Text accessibilityRole="header" accessibilityLabel={`${title} Passo ${progress}.`} accessibilityLiveRegion="polite"
+    <Text ref={titleRef} accessibilityRole="header" accessibilityLabel={`${title} Passo ${progress}.`} accessibilityLiveRegion="polite"
       style={{ color: c.heading, fontSize: 20, fontWeight: '800' }}>{title}</Text>
 
     {step === 'city' ? <CityStep city={city} onExpired={onExpired} onChange={next => { setCity(next); setError('') }} /> : null}
