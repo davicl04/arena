@@ -1,5 +1,30 @@
 # Situação da fundação do Arena
 
+## Início da web: saudação, Placar e botão principal — 22 de novembro de 2026
+
+Primeira entrega do [plano do Início](plano-inicio.md) na web (ticket 01), com as mesmas regras e textos do Expo (ticket 05).
+
+- O topo do Início da web passou a ter a data por extenso em pt-BR e a saudação "A arena te chama, {primeiro nome}", sem pontuação final. Saíram "Bora jogar, {nome}?" e a seção separada "Próxima partida".
+- Novo **Placar** (`web/src/components/home/Placar.tsx`): bloco escuro por design (forest), igual nos dois temas, com a marca d'água do Coliseu. Mostra a próxima partida agendada da placa do Jogar já lida pelo shell (`nextScheduledMatch`, sem leitura nova):
+  - o rótulo "Próxima partida" e a etiqueta da modalidade;
+  - a Contagem em números grandes ("{d} dia(s) {h} h", "{h} h {m} min" ou "{m} min", com minutos arredondados para baixo e no mínimo "1 min"), recalculada pelo relógio de 60 s da tela;
+  - a data e a hora no padrão da placa ("qua, 25 nov · 20:00");
+  - o confronto, com "Você" para o lado do titular em partida individual, e o local.
+- O bloco inteiro é um único botão que abre a partida (`matchId`), com nome acessível que inclui a contagem, o confronto, a data e o local. Quando `starts_at` passa, o Placar mostra a partida seguinte ou o estado vazio.
+- Sem partida, o Placar não é tocável e mostra "—", "Nenhuma partida agendada" e "Prepare seus perfis esportivos e encontre a primeira." (lista de perfis vazia confirmada) ou "Que tal marcar a próxima?" (com perfis, carregando ou com falha na leitura dos perfis; o `ArenaPage` passa `profilesFailed` ao Início).
+- O botão principal subiu para logo abaixo do Placar, com o rótulo "Preparar perfis", "Encontrar outra partida" ou "Encontrar partida". Sempre abre o Jogar e mantém o ícone de raio.
+- Lógica pura em `web/src/data/home.ts`, com os mesmos nomes do Expo (`countdownParts`, `countdownText`, `sideLabel`, `matchupLabel`, `emptyPlacarText`, `primaryButtonLabel`); a web tem também `spokenMatchCountdown`, usado no nome acessível.
+- Testes novos em `web/tests/home-placar.test.tsx` (faixas da Contagem, "Você", textos do vazio, rótulos do botão, toque e troca para a partida seguinte e para o vazio com o relógio avançado); o caso "Início → próxima partida" de `stage3-navigation` e as referências à saudação em `navigation` e `notifications-home` foram adaptados.
+
+**Verificações** (em `web/`, no commit do ticket; a árvore de `web/` consolidada é idêntica):
+- `npm run lint` sem erros; `npm run build` aprovado (só o aviso de chunk acima de 500 kB, que já existia).
+- `npm run test:coverage`: 1276/1276 numa execução completa (93,8% statements, 87,87% branches, 93,35% funções, 96,67% linhas). Nas demais execuções, inclusive duas repetidas na consolidação, 1275/1276 pela falha intermitente já existente em `tests/matchmaking.test.tsx` (foco do diálogo de cancelar do Jogar), reproduzida também na base `71123a1` e já registrada na entrega de modalidades.
+- Navegador (Playwright headless), com API e PostgreSQL reais e contas sintéticas criadas pela API, incluindo uma partida de tênis agendada pelo fluxo real de pareamento, aceite e condições: com partida, com perfis e sem partida, e sem perfis, em 320, 390 e 1440 px, nos temas claro e escuro, sem overflow horizontal e sem erros de console. Também foram conferidos o foco por teclado, o Placar abrindo a partida e o botão abrindo o Jogar.
+
+**Limitações:** a troca para a partida seguinte acompanha o relógio de 60 s e pode atrasar até um minuto. O título mantém 25 px (o protótipo usa 22 px) e os lados usam os tamanhos existentes de escudo e avatar.
+
+**Pendências:** Destaque das pendências, Pílulas de elo e Campeonatos com próximo passo na web (tickets 02 a 04); a falha intermitente de `tests/matchmaking.test.tsx`, fora desta entrega.
+
 ## Início do Expo: saudação, Placar e botão principal — 22 de novembro de 2026
 
 Primeira entrega do [plano do Início](plano-inicio.md) no Expo (ticket 05).
