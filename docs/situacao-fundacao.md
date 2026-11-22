@@ -1,5 +1,22 @@
 # Situação da fundação do Arena
 
+## Web sem lista global de cidades — 22 de novembro de 2026
+
+A web deixou de carregar a lista de cidades (`GET /cities` sem `q`). Quem nomeia uma cidade usa o objeto `city` das respostas: Jogar e Eventos leem `ProfileOut.city`; Criar/Editar time, `team.city` e a cidade do perfil de futebol; o Assistente de evento, `detail.city`; o Pedido de organizador sugere a cidade do perfil já com o nome. Nenhum ponto da web precisou de `GET /cities?ids=`, porque todas as respostas usadas já trazem `city`. Quem escolhe uma cidade usa o novo componente `CitySearch` (`web/src/components/cities/`), com `useCitySearch` e `src/api/cities.ts`: busca no servidor com 2 ou mais caracteres e 250 ms de atraso, até 20 resultados "Nome · UF", "Nenhuma cidade encontrada.", erro com "Tentar novamente", resposta atrasada descartada e a cidade já escolhida marcada mesmo fora dos resultados. Ele é usado pelo `CitySheet` (time e evento), pela folha do Pedido de organizador (o `select` virou um campo que abre a folha) e pelo formulário atual da tela de modalidades (o `select` foi trocado pela busca, sem redesenho). O tipo `Profile` da web ganhou `city`.
+
+**Verificações** (em `web/`, Node 24.22.3, depois de `npm ci`, no worktree do ticket):
+- `npm run lint`: aprovado.
+- `npm run build`: aprovado (aviso de pacote acima de 500 kB, 1.339,72 kB).
+- `npm run test:coverage`: 1.246 de 1.247 aprovados, em 89 arquivos. A falha é `matchmaking.test.tsx` › "prepara a busca com vagas… cancela com confirmação" (foco do diálogo de cancelamento). Ela foi reproduzida também no código anterior a esta entrega (mesmo teste, 1 falhou e 39 passaram), portanto é pré-existente e não pertence a esta entrega.
+- Cobertura (`npx vitest run --coverage --coverage.reportOnFailure`): 93,67% instruções, 87,74% ramos, 93,07% funções, 96,51% linhas, acima dos pisos (30/30/20/30). `src/api/client.ts` e `src/api/cities.ts` com 100%.
+- Testes novos ou atualizados: busca com `q` e atraso, vazio, erro com nova tentativa, corrida de respostas, cidade marcada fora dos resultados, nomes vindos de `city`, salvamento de Valparaíso de Goiás (5221858, fora das 100 primeiras em ordem alfabética) no time e no perfil, e ausência de `GET /cities` sem `q` no ArenaPage.
+- Navegador real (Chromium headless pelo Playwright; API 8103 e web 5203, banco de desenvolvimento em 0015): cadastro sintético; time criado com Valparaíso de Goiás pela busca, mantido após recarregar; perfil de futebol salvo com Valparaíso e nomeado no Jogar após recarregar; folha de cidade nos temas claro e escuro em 390 e 1440 px, e em 320 px no escuro, sem overflow horizontal. Nenhuma chamada a `/cities` sem `q`/`ids` no registro de rede nem no log da API. A verificação criou contas sintéticas `orq-03-…@exemplo.com`, um time e um perfil no banco de desenvolvimento.
+- Na consolidação, a árvore `web/` da branch ficou idêntica à validada.
+
+**Limitações:** o backend ainda devolve as 100 primeiras cidades sem `q` até o ticket 09. A tela de modalidades continua com o `SportCard`, agora com a busca (redesenho no ticket 04). O CI remoto não foi executado.
+
+**Pendências:** nova tela de modalidades (04), cidade pela localização (05), Expo (07 e 08) e contrato final com `GET /cities` sem `q` vazio (09). Investigar a falha de foco já existente em `matchmaking.test.tsx`.
+
 ## Expo sem lista global de cidades — 22 de novembro de 2026
 
 O Expo deixou de carregar a lista de cidades (`GET /cities` sem `q`). `useCities`, `loadCities` e `loadPlaces` foram removidos, e o `ProfileScreen` não lê mais o catálogo. Jogar, Eventos, Times, Assistente de evento, Pedido de organizador e o perfil esportivo nomeiam a cidade pelo objeto `city` das respostas (`ProfileOut.city`, time, evento, pedido); o campo de cidade usa `GET /cities?ids=` quando só tem o ID. Ranking não exibe cidade. A cidade do time, do evento, do pedido de organizador e do perfil esportivo é escolhida pela busca no servidor (`components/arena/CitySearch.tsx`, reutilizável pelo passo da cidade da nova tela de modalidades): mínimo de 2 caracteres, atraso de digitação de 250 ms, até 20 resultados "Nome · UF", "Nenhuma cidade encontrada.", erro com "Tentar novamente", cidade escolhida marcada mesmo fora dos resultados e respostas antigas descartadas. O Expo não tem seletor de cidade em filtros; o filtro de Campeonatos e provas usa a cidade do perfil, agora correta para qualquer município. Bearer e SecureStore preservados; sem nova dependência.
