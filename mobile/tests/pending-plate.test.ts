@@ -39,11 +39,11 @@ async function mountHome({ items = [] as unknown[], summary = summaryOf({ pendin
 }
 
 describe('Início: placa "Para responder"', () => {
-  it('abaixo do cumprimento e antes de "Seu elo": título, pílula com o total, até 2 linhas e o link "Ver as N pendências"', async () => {
+  it('abaixo da saudação e antes de "Seu elo": título, pílula com o total, até 2 linhas e o link "Ver as N pendências"', async () => {
     const { tree } = await mountHome({ items: [proposal(), invite()], summary: summaryOf({ pending_count: 3 }) })
     expect(byId(tree, 'pending-plate')).toHaveLength(1)
     const text = allText(tree)
-    expect(text.indexOf('Bora jogar')).toBeLessThan(text.indexOf('Para responder'))
+    expect(text.indexOf('A arena te chama')).toBeLessThan(text.indexOf('Para responder'))
     expect(text.indexOf('Para responder')).toBeLessThan(text.indexOf('SEU ELO'))
     const plate = allText({ root: byId(tree, 'pending-plate')[0] } as never)
     expect(plate).toContain('Para responder')

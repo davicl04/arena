@@ -1,5 +1,4 @@
 import React from 'react'
-import { act } from 'react-test-renderer'
 import * as SecureStore from 'expo-secure-store'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiError, request } from '../src/api/client'
@@ -9,7 +8,7 @@ import { modalityStanding } from '../src/components/arena/modalityStanding'
 import HomeScreen from '../src/screens/HomeScreen'
 import { enableAct } from './support/native'
 import { admin, allText, byId, callsTo, findButton, me, navigationMock, pressButton, render, serve } from './support/review'
-import { emptySummary, ferrugemRef, fromNow, leoesRef, matchCard, notificationSummaryState, sides, standings, teamSide } from './support/play'
+import { emptySummary, ferrugemRef, notificationSummaryState, standings } from './support/play'
 
 vi.mock('react-native', async () => (await import('./support/native')).reactNativeMock())
 vi.mock('react-native-svg', async () => (await import('./support/native')).svgMock())
@@ -141,41 +140,10 @@ describe('Início: "Seu elo" por modalidade', () => {
   })
 })
 
-describe('Início: "Encontrar partida"', () => {
-  it('o atalho leva ao Jogar', async () => {
-    const { tree, navigation } = await mount(standings())
-    await pressButton(tree, 'Encontrar partida')
-    expect(navigation.go).toHaveBeenCalledWith('play')
-  })
-})
-
-describe('Início: "Próxima partida"', () => {
-  const duel = sides(teamSide('a', ferrugemRef), teamSide('b', leoesRef))
-  const scheduled = (id: number, hours: number, extra: Partial<MatchCard> = {}) => matchCard({ id, sides: duel, state: 'agendada', phase: 'agendada', starts_at: fromNow(hours), ...extra })
-
-  it('sem partida agendada, o cartão diz que o próximo encontro aparecerá aqui', async () => {
-    const { tree } = await mount(standings(), { matches: [matchCard({ id: 9, state: 'combinando' })] })
-    expect(allText(tree)).toContain('PRÓXIMA PARTIDA')
-    expect(byId(tree, 'next-match-empty')).toHaveLength(1)
-    expect(allText(tree)).toContain('Seu próximo encontro aparecerá aqui.')
-    expect(byId(tree, 'match-row')).toHaveLength(0)
-  })
-
-  it('mostra a agendada mais próxima que ainda não começou e leva à partida', async () => {
-    const { tree, navigation } = await mount(standings(), { matches: [scheduled(1, 96), scheduled(2, 30), scheduled(3, -2), scheduled(4, 50, { state: 'cancelada' })] })
-    expect(byId(tree, 'match-row')).toHaveLength(1)
-    expect(byId(tree, 'next-match-empty')).toHaveLength(0)
-    await act(async () => { byId(tree, 'match-row')[0].props.onPress() })
-    expect(navigation.go).toHaveBeenCalledWith('match', { matchId: 2 })
-  })
-})
-
 describe('Início: o que já existia continua', () => {
-  it('saudação, sino com contador e atalhos de times, campeonatos e provas', async () => {
+  it('sino com contador e atalhos de times, campeonatos e provas', async () => {
     const { tree, navigation } = await mount(standings(), { unread: 12 })
     const text = allText(tree)
-    expect(text).toContain('Bora jogar, Carlos?')
-    expect(text).toContain('Veja o seu elo em cada modalidade e escolha por onde começar.')
     expect(text).not.toContain('em breve')
     expect(text).toContain('9+')
     await pressButton(tree, 'Notificações, 12 novas')

@@ -51,6 +51,9 @@ export function formatShortDate(date: Date, now: Date = new Date()): string {
   return date.getFullYear() === now.getFullYear() ? text : `${text} ${date.getFullYear()}`
 }
 
+/** Data por extenso no fuso local, sem o ano: "domingo, 22 de novembro" (o topo do Início). */
+export const formatLongDate = (date: Date): string => longDate.format(date)
+
 /** "16:00" no fuso local. */
 export const formatClock = (date: Date): string => clock.format(date)
 

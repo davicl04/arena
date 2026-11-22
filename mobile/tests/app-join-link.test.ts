@@ -82,7 +82,7 @@ describe('App: falha ao conferir a sessão', () => {
     const retry = tree.root.findAllByType('Pressable' as never).find(node => textWithin(node) === 'Tentar novamente')
     expect(retry).toBeTruthy()
     await act(async () => { retry!.props.onPress() })
-    expect(textOf(tree)).toContain('Bora jogar, Maria?')
+    expect(textOf(tree)).toContain('A arena te chama, Maria')
   })
   it('login que falha por conexão liga o mesmo bloco de conexão, uma só vez, e Tentar novamente o limpa', async () => {
     const tree = await mountApp()
@@ -95,7 +95,7 @@ describe('App: falha ao conferir a sessão', () => {
     const retry = tree.root.findAllByType('Pressable' as never).find(node => textWithin(node) === 'Tentar novamente')
     expect(retry).toBeTruthy()
     await act(async () => { retry!.props.onPress() })
-    expect(textOf(tree)).toContain('Bora jogar, Maria?')
+    expect(textOf(tree)).toContain('A arena te chama, Maria')
   })
 })
 
@@ -117,7 +117,7 @@ describe('App: link do time depois do login', () => {
     await login(tree)
     expect(joins).toEqual(['web-token'])
     await press(tree, 'Voltar')
-    expect(textOf(tree)).toContain('Bora jogar, Maria?')
+    expect(textOf(tree)).toContain('A arena te chama, Maria')
     await press(tree, 'Meus times')
     await press(tree, 'Voltar')
     expect(joins).toEqual(['web-token'])
@@ -126,7 +126,7 @@ describe('App: link do time depois do login', () => {
   it('um link recebido com o app aberto e a sessão ativa abre a tela de entrada na hora', async () => {
     vi.mocked(request).mockImplementation(async path => (path === '/me' ? me : { unread_count: 0 }) as never)
     const tree = await mountApp()
-    expect(textOf(tree)).toContain('Bora jogar, Maria?')
+    expect(textOf(tree)).toContain('A arena te chama, Maria')
     await act(async () => { linking.emit('arena://entrar/novo-link') })
     expect(joins).toEqual(['novo-link'])
     expect(textOf(tree)).toContain('Entrar no time')
@@ -136,7 +136,7 @@ describe('App: link do time depois do login', () => {
     const tree = await mountApp()
     await login(tree)
     expect(joins).toEqual([])
-    expect(textOf(tree)).toContain('Bora jogar, Maria?')
+    expect(textOf(tree)).toContain('A arena te chama, Maria')
   })
 
   it('sessão expirada com a tela de entrada aberta devolve o token à memória e reabre depois do próximo login', async () => {
@@ -189,7 +189,7 @@ describe('App: link do time depois do login', () => {
     vi.mocked(request).mockImplementation(async path => (path === '/me' ? me : { unread_count: 0 }) as never)
     const retry = tree.root.findAllByType('Pressable' as never).find(entry => entry.props.accessibilityRole === 'button')
     await act(async () => { retry!.props.onPress() })
-    expect(textOf(tree)).toContain('Bora jogar, Maria?')
+    expect(textOf(tree)).toContain('A arena te chama, Maria')
   })
 })
 

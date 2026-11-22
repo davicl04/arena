@@ -66,7 +66,7 @@ describe('Moderação (Denúncias)', () => {
     const nav = ['Início', 'Ranking', 'JOGAR', 'Comunidade', 'Perfil']
     expect(tree.root.findAllByType('Pressable' as never).filter(item => nav.includes(item.props.accessibilityLabel) && item.props.accessibilityState?.selected).map(item => item.props.accessibilityLabel)).toEqual(['Perfil'])
     await press(tree, 'Voltar')
-    expect(textOf(tree)).toContain('Bora jogar, Ana?')
+    expect(textOf(tree)).toContain('A arena te chama, Ana')
   })
 
   it('lista as denúncias pendentes com tipo, motivo e trecho, inclusive a mensagem da partida', async () => {

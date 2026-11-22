@@ -9,32 +9,34 @@ import { ModalityCard } from '../components/arena/ModalityCard'
 import { modalityStanding } from '../components/arena/modalityStanding'
 import { ActionButton, TextAction } from '../components/arena/controls'
 import ListRow from '../components/ListRow'
-import { Icon } from '../components/Icon'
+import { Placar } from '../components/home/Placar'
 import { NotificationBell } from '../components/notifications/NotificationBell'
 import { PendingPlate } from '../components/notifications/PendingPlate'
-import { MatchRow } from '../components/play/MyMatches'
 import { nextScheduledMatch } from '../components/play/matchView'
+import { primaryButtonLabel } from '../data/home'
 import type { NotificationSummaryState } from '../hooks/useNotificationSummary'
+import { loadProfiles } from '../hooks/useCities'
 import { useNow } from '../hooks/useNow'
 import { usePendingNotifications } from '../hooks/usePendingNotifications'
 import { useResource } from '../hooks/useResource'
-import { useThemeColors } from '../hooks/useTheme'
 import { openNotification } from '../navigation/openNotification'
 import type { Navigation } from '../navigation/useNavigation'
 import { tw } from '../styles'
+import { formatLongDate } from '../utils/format'
 
 function Group({ title, children }: { title: string; children: ReactNode }) {
   return <View className="mb-1.5"><Text className="mt-3.5 mb-1.5 text-[11px] font-bold tracking-[2px] text-brand">{title}</Text><View className="rounded-card bg-surface px-5.5">{children}</View></View>
 }
 
 /**
- * Início: sino das Notificações com o contador de novas (não lidas e pedidos para seguir, do resumo lido pelo shell), a placa
- * "Para responder" com as 2 pendências mais urgentes (`GET /me/notifications/pending?limit=2`; some sem pendências ou se a leitura
- * falhar), "Seu elo" em cada
- * modalidade (`GET /me/standings`: o elo de quem já se classificou, a classificação "n de 3" ou, na corrida, a distância de
- * maior elo com o melhor tempo), a "Próxima partida" (a agendada mais próxima entre as partidas da placa do Jogar, `matches`)
- * o atalho "Encontrar partida" (abre o Jogar) e atalhos para as áreas do app. Sem pontos, partidas ou classificações fictícias: o que não vem da API aparece vazio ou
- * indisponível.
+ * Início: sino das Notificações com o contador de novas (não lidas e pedidos para seguir, do resumo lido pelo shell), a data
+ * por extenso e "A arena te chama, {primeiro nome}", o Placar (a próxima partida agendada entre as partidas da placa do Jogar,
+ * `matches`, com a Contagem recalculada a cada minuto), o botão principal (abre o Jogar; o rótulo depende dos perfis
+ * esportivos, `GET /me/sports-profiles`, e da próxima partida), a placa "Para responder" com as 2 pendências mais urgentes
+ * (`GET /me/notifications/pending?limit=2`; some sem pendências ou se a leitura falhar), "Seu elo" em cada modalidade
+ * (`GET /me/standings`: o elo de quem já se classificou, a classificação "n de 3" ou, na corrida, a distância de maior elo com
+ * o melhor tempo) e atalhos para as áreas do app. Sem pontos, partidas ou classificações fictícias: o que não vem da API
+ * aparece vazio ou indisponível.
  */
 export default function HomeScreen({ user, navigation, onExpired, matches = [], notificationSummary }: {
   user: User; navigation: Navigation; onExpired: () => void
@@ -43,13 +45,15 @@ export default function HomeScreen({ user, navigation, onExpired, matches = [], 
   /** Partidas do titular lidas pela placa (`GET /me/play`, entregue pelo shell). */
   matches?: MatchCard[]
 }) {
-  const colors = useThemeColors()
   const now = useNow(60_000)
   const nextMatch = nextScheduledMatch(Array.isArray(matches) ? matches : [], now)
   // A placa relê quando o total de pendências do resumo muda (o resumo é relido a cada minuto); falha ou lista vazia a escondem.
   const pending = usePendingNotifications({ limit: 2 }, onExpired, { refreshKey: notificationSummary.data?.pending_count ?? -1 })
   const pendingTotal = notificationSummary.data?.pending_count ?? pending.items.length
   const standings = useResource(getMyStandings, onExpired)
+  // Perfis esportivos (o shell não os lê): só uma lista vazia confirmada conta como "sem perfis"; carregando ou com falha, não.
+  const profiles = useResource(loadProfiles, onExpired)
+  const hasProfiles = !Array.isArray(profiles.data) || profiles.data.length > 0
   const openPending = (notification: ArenaNotification) => void openNotification(notification, {
     navigation, isAdmin: user.is_admin, onRead: notificationSummary.setData, onExpired,
   })
@@ -59,8 +63,10 @@ export default function HomeScreen({ user, navigation, onExpired, matches = [], 
       <Text className={tw.brand}>arena.</Text>
       <NotificationBell tone="light" count={notificationSummary.count} onOpen={() => navigation.go('notifications')} />
     </View>
-    <Text className="mt-4 mb-1.5 text-[25px] font-bold leading-[31px] text-ink">Bora jogar, {firstName}?</Text>
-    <Text className={tw.body}>Veja o seu elo em cada modalidade e escolha por onde começar.</Text>
+    <Text className="mt-4 text-[11px] font-bold uppercase tracking-[1px] text-eyebrow">{formatLongDate(new Date(now))}</Text>
+    <Text accessibilityRole="header" className="mt-1 mb-4 text-[25px] font-bold leading-[31px] text-heading">A arena te chama, {firstName}</Text>
+    <Placar match={nextMatch} now={now} hasProfiles={hasProfiles} onOpen={matchId => navigation.go('match', { matchId })} />
+    <View className="mt-3 mb-3.5"><ActionButton block tone="brand" icon="zap" title={primaryButtonLabel({ hasProfiles, hasNextMatch: Boolean(nextMatch) })} accessibilityHint="Abre o Jogar" onPress={() => navigation.go('play')} /></View>
     {pending.items.length > 0 ? <View className="mb-3.5">
       <PendingPlate items={pending.items} total={pendingTotal} now={now} isAdmin={user.is_admin} onOpenItem={openPending} onOpenAll={() => navigation.go('notifications', { filter: 'responder' })} />
     </View> : null}
@@ -75,18 +81,6 @@ export default function HomeScreen({ user, navigation, onExpired, matches = [], 
           onOpenRanking={() => navigation.go('ranking', standing?.distanceKm ? { sport: sport.value, distanceKm: standing.distanceKm } : { sport: sport.value })} />
       })}
     </ScrollView>
-    <View className="mt-3 mb-1"><ActionButton block tone="brand" icon="zap" title="Encontrar partida" accessibilityHint="Abre o Jogar" onPress={() => navigation.go('play')} /></View>
-    <Group title="PRÓXIMA PARTIDA">
-      {nextMatch
-        ? <MatchRow card={nextMatch} onOpen={matchId => navigation.go('match', { matchId })} />
-        : <View testID="next-match-empty" accessible accessibilityLabel="Nenhuma partida agendada. Seu próximo encontro aparecerá aqui." className="min-h-16 flex-row items-center gap-3 py-3">
-          <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" className="size-11 items-center justify-center rounded-xl bg-ink"><Icon name="calendar-days" size={22} color={colors.app} /></View>
-          <View className="grow basis-0">
-            <Text className="text-[13px] font-bold text-ink">Nenhuma partida agendada</Text>
-            <Text className="text-[11px] leading-[16px] text-ink-muted">Seu próximo encontro aparecerá aqui.</Text>
-          </View>
-        </View>}
-    </Group>
     <Group title="JOGAR">
       <ListRow label="Meus times" onPress={() => navigation.go('teams')} />
       <ListRow label="Campeonatos" onPress={() => navigation.go('events', { sport: 'futebol' })} />
