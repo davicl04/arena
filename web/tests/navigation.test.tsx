@@ -201,7 +201,7 @@ describe('navegação do ArenaPage', () => {
     await ui.click(screen.getByRole('button', { name: 'Voltar' }))
     expect(screen.getByRole('heading', { name: 'Notificações', level: 1 })).not.toBeNull()
     await ui.click(screen.getByRole('button', { name: 'Voltar' }))
-    expect(screen.getByRole('heading', { name: /Bora jogar/ })).not.toBeNull()
+    expect(screen.getByRole('heading', { name: /A arena te chama/ })).not.toBeNull()
   })
 
   it('a placa "Para responder" do Início abre as notificações já no chip Para responder e volta ao Início', async () => {
@@ -220,7 +220,7 @@ describe('navegação do ArenaPage', () => {
     expect(await screen.findByRole('button', { name: 'Responder proposta' })).not.toBeNull()
     expect(current()).toBe('Início')
     await ui.click(screen.getByRole('button', { name: 'Voltar' }))
-    expect(screen.getByRole('heading', { name: /Bora jogar/ })).not.toBeNull()
+    expect(screen.getByRole('heading', { name: /A arena te chama/ })).not.toBeNull()
   })
 
   it('mostra o sino com o total nas abas Início, Jogar, Comunidade e Perfil e o abre pela aba onde foi tocado', async () => {

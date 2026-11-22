@@ -418,6 +418,7 @@ export default function ArenaPage({
               firstName={firstName}
               profiles={profiles}
               loading={loading}
+              profilesFailed={loadFailure !== null}
               matches={playBoard.board?.matches}
               summary={notifications}
               isAdmin={user.is_admin}

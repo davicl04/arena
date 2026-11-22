@@ -1,4 +1,4 @@
-import { CalendarDays, ChevronRight, Medal, Zap } from "lucide-react";
+import { ChevronRight, Medal, Zap } from "lucide-react";
 import { ApiError, sports } from "../api/client";
 import type { Profile } from "../api/client";
 import { markNotificationRead } from "../api/notifications";
@@ -9,11 +9,12 @@ import { useNow } from "../hooks/useNow";
 import { useResource } from "../hooks/useResource";
 import { usePendingNotifications } from "../hooks/usePendingNotifications";
 import type { NotificationSummaryState } from "../hooks/useNotificationSummary";
-import { MatchRow } from "../components/play/MyMatches";
 import { nextScheduledMatch } from "../components/play/matchView";
 import { formatDuration } from "../components/play/tierLines";
 import { Logo } from "../components/Brand";
 import { NotificationBell } from "../components/notifications/NotificationBell";
+import { Placar } from "../components/home/Placar";
+import { primaryButtonLabel } from "../data/home";
 import { PendingPlate } from "../components/notifications/PendingPlate";
 import { TierEmblem } from "../components/arena/TierEmblem";
 import { modalityStanding } from "../components/arena/modalityStanding";
@@ -32,6 +33,7 @@ export default function HomePage({
   firstName,
   profiles,
   loading,
+  profilesFailed = false,
   matches = [],
   summary,
   isAdmin = false,
@@ -41,7 +43,9 @@ export default function HomePage({
   firstName: string;
   profiles: Profile[];
   loading: boolean;
-  /** Partidas do titular lidas pela placa (`GET /me/play`): a próxima agendada vai ao cartão "Próxima partida". */
+  /** A leitura dos perfis falhou (o shell mostra o erro): sem lista confirmada, não convida a preparar perfis. */
+  profilesFailed?: boolean;
+  /** Partidas do titular lidas pela placa (`GET /me/play`): a próxima agendada vai ao Placar. */
   matches?: MatchCard[];
   /** Resumo das notificações (ArenaPage): o número do sino e a placa "Para responder". */
   summary?: NotificationSummaryState;
@@ -50,8 +54,11 @@ export default function HomePage({
   go: (screen: Screen, context?: Omit<NotificationTarget, "screen"> & { filter?: NotificationFilter }) => void;
   onExpired: () => void;
 }) {
+  // Relógio de 60 s: recalcula a Contagem e troca o Placar para a partida seguinte quando `starts_at` passa.
   const now = useNow(60_000);
   const nextMatch = nextScheduledMatch(matches, now);
+  // Só uma lista vazia confirmada conta como "sem perfis": carregando ou com falha, não convida a prepará-los.
+  const hasProfiles = loading || profilesFailed || profiles.length > 0;
   // Placa "Para responder": as 2 pendências mais urgentes; só é lida quando o resumo diz que há pendências.
   const pendingCount = summary?.data?.pending_count ?? 0;
   const pending = usePendingNotifications(onExpired, {
@@ -91,25 +98,32 @@ export default function HomePage({
       </header>
       <section className="pt-[26px] pb-[21px]">
         <p className="mb-[5px] text-[10px] font-bold tracking-[0.08em] text-ink-muted uppercase">
-          {new Date().toLocaleDateString("pt-BR", {
+          {new Date(now).toLocaleDateString("pt-BR", {
             weekday: "long",
             day: "numeric",
             month: "long",
           })}
         </p>
         <h1 className="text-[25px] leading-[1.25] wrap-anywhere">
-          Bora jogar, {firstName}?
+          A arena te chama, {firstName}
         </h1>
       </section>
+      <Placar match={nextMatch} now={now} hasProfiles={hasProfiles} onOpen={(matchId) => go("match", { matchId })} />
+      <Button className="mt-3 mb-1 h-[52px] w-full text-[14px]" onClick={() => go("play")}>
+        <Zap size={20} fill="currentColor" />
+        {primaryButtonLabel({ hasProfiles, hasNextMatch: nextMatch !== null })}
+      </Button>
       {pendingCount > 0 && pending.items.length > 0 && (
-        <PendingPlate
-          items={pending.items}
-          total={pendingCount}
-          now={now}
-          isAdmin={isAdmin}
-          onOpenItem={(notification) => void openPending(notification)}
-          onOpenAll={() => go("notifications", { filter: "responder" })}
-        />
+        <div className="mt-5">
+          <PendingPlate
+            items={pending.items}
+            total={pendingCount}
+            now={now}
+            isAdmin={isAdmin}
+            onOpenItem={(notification) => void openPending(notification)}
+            onOpenAll={() => go("notifications", { filter: "responder" })}
+          />
+        </div>
       )}
       <SectionTitle
         title="Seu elo"
@@ -185,31 +199,6 @@ export default function HomePage({
           })}
         </div>
       )}
-      <Button className="mt-3 mb-1 h-[52px] w-full text-[14px]" onClick={() => go("play")}>
-        <Zap size={20} fill="currentColor" />
-        Encontrar partida
-      </Button>
-      <SectionTitle title="Próxima partida" />
-      <Card
-        as="article"
-        className={nextMatch ? "px-[13px] py-0.5 shadow-[0_2px_9px_#0000000c] noite:shadow-none" : "flex items-center gap-3 p-[13px] shadow-[0_2px_9px_#0000000c] noite:shadow-none"}
-      >
-        {nextMatch ? (
-          <MatchRow card={nextMatch} onOpen={(matchId) => go("match", { matchId })} />
-        ) : (
-          <>
-            <span className="grid h-[53px] w-[47px] place-items-center rounded-xl bg-ink text-app noite:bg-icon-tile noite:text-icon-tile-ink">
-              <CalendarDays size={23} />
-            </span>
-            <div>
-              <h3 className="mt-[3px] mb-1.5 text-[12px]">Nenhuma partida agendada</h3>
-              <p className="text-[10px] leading-[1.5] text-ink-muted">
-                Seu próximo encontro aparecerá aqui.
-              </p>
-            </div>
-          </>
-        )}
-      </Card>
       <SectionTitle
         title="Perto de você"
         action={

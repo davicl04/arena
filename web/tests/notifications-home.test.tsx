@@ -90,7 +90,7 @@ describe('Início: placa "Para responder"', () => {
     await userEvent.setup().click(within(plate).getByRole('button', { name: 'Ver as 3 pendências' }))
     expect(go).toHaveBeenCalledWith('notifications', { filter: 'responder' })
     // Vem abaixo do cumprimento e antes de "Seu elo".
-    const greeting = screen.getByRole('heading', { name: /Bora jogar/ })
+    const greeting = screen.getByRole('heading', { name: /A arena te chama/ })
     const elo = screen.getByRole('heading', { name: 'Seu elo' })
     expect(greeting.compareDocumentPosition(plate) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(plate.compareDocumentPosition(elo) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
@@ -151,7 +151,7 @@ describe('Início: placa "Para responder"', () => {
     serve({ failPending: true })
     renderHome(summaryState(summaryOf({ pending_count: 3 })))
     await waitFor(() => expect(calls).toContain('GET /me/notifications/pending?limit=2'))
-    expect(screen.getByRole('heading', { name: /Bora jogar/ })).not.toBeNull()
+    expect(screen.getByRole('heading', { name: /A arena te chama/ })).not.toBeNull()
     expect(screen.getByRole('heading', { name: 'Seu elo' })).not.toBeNull()
     expect(screen.queryByRole('region', { name: /Para responder/ })).toBeNull()
     expect(screen.queryByRole('alert')).toBeNull()
