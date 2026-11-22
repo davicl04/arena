@@ -8,9 +8,10 @@ import { Button } from '@/components/ui/button'
 import { feedbackVariants } from '@/components/ui/feedback'
 import { Sheet } from '@/components/ui/sheet'
 import { Switch } from '@/components/ui/switch'
+import { useCityLocation } from '@/hooks/useCityLocation'
 import { actionErrorMessage, reportActionError } from '@/hooks/useSubmit'
 import { cn } from '@/lib/utils'
-import { CityStep } from './CityStep'
+import { LocationCityStep } from './LocationCityStep'
 import { RadioList } from './RadioList'
 import { ReviewRow } from './ReviewRow'
 import { finishLabel, positionChoices, positionLabel, profileSteps, sportLabel, stepTitle } from './profileSteps'
@@ -21,6 +22,9 @@ import { finishLabel, positionChoices, positionLabel, profileSteps, sportLabel, 
  * cada passo o foco vai para o título (a pergunta, com "Passo n de m" para leitores de tela). Concluir chama `onSave` (o
  * `PUT /me/sports-profiles/{sport}`) e entrega o perfil salvo a `onSaved`. O 422 fica na folha, no passo de revisão; os
  * demais erros seguem `reportActionError`. Fechar (X, fundo ou Esc) não salva nada; durante o envio, a folha não fecha.
+ * A localização (`useCityLocation`) vive na folha, não no passo: a sugestão e o estado da permissão sobrevivem a "Voltar"
+ * e "Alterar". Perfil novo com a permissão já concedida recebe a sugestão ao abrir (sem trocar uma cidade escolhida antes
+ * da resposta); perfil existente só troca a cidade salva por um toque em "Trocar" e depois em "Usar minha localização".
  */
 export function SportProfileSheet({ sport, profile, onSave, onSaved, onClose, onExpired }: {
   sport: Sport
@@ -38,6 +42,10 @@ export function SportProfileSheet({ sport, profile, onSave, onSaved, onClose, on
   const [looking, setLooking] = useState(profile?.looking_for ?? false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const location = useCityLocation({ auto: isNew, onExpired, onSuggested: (next, requested) => {
+    setCity(current => (requested || !current ? next : current))
+    setError('')
+  } })
   const ids = useId()
   const heading = useRef<HTMLHeadingElement>(null)
   const first = useRef(true)
@@ -77,7 +85,7 @@ export function SportProfileSheet({ sport, profile, onSave, onSaved, onClose, on
         {title}<span className="sr-only"> Passo {index + 1} de {steps.length}.</span>
       </h3>
 
-      {step === 'city' && <CityStep city={city} onChange={next => { setCity(next); setError('') }} />}
+      {step === 'city' && <LocationCityStep city={city} location={location} onChange={next => { setCity(next); setError('') }} />}
       {step === 'position' && <RadioList className="mt-3" label="Posição preferida" options={positionChoices} value={position} onChange={setPosition} />}
       {step === 'review' && <>
         <div className="surface mt-3 overflow-hidden rounded-card border border-solid border-surface-edge shadow-card">
