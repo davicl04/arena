@@ -39,7 +39,7 @@ function renderSports(profiles: Profile[], routes: Record<string, unknown> = {})
   const ui = userEvent.setup()
   render(<ArenaPage user={me} onUser={vi.fn()} onLogout={vi.fn()} onExpired={vi.fn()} />)
   const open = async () => {
-    await ui.click(await screen.findByRole('button', { name: 'Minha cidade' }))
+    await ui.click(await screen.findByRole('button', { name: /Complete seu perfil esportivo/ }))
     await screen.findByRole('heading', { level: 2, name: 'Onde você joga?' })
   }
   return { api, ui, open }

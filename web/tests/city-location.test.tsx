@@ -81,7 +81,7 @@ function renderSports(profiles: Profile[], routes: Record<string, unknown> = {})
   const onExpired = vi.fn()
   render(<ArenaPage user={me} onUser={vi.fn()} onLogout={vi.fn()} onExpired={onExpired} />)
   const openSport = async (name: string) => {
-    await ui.click(await screen.findByRole('button', { name: 'Minha cidade' }))
+    await ui.click(await screen.findByRole('button', { name: /Complete seu perfil esportivo/ }))
     await ui.click(await screen.findByRole('button', { name }))
   }
   return { api, ui, onExpired, openSport }

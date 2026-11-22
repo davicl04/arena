@@ -1,13 +1,16 @@
-import type { Sport } from '@/api/client'
+import { sports } from '@/api/client'
+import type { City, Profile, Sport } from '@/api/client'
+import type { EventCard } from '@/api/entries'
 import type { MatchCard, MatchSideOut } from '@/api/matches'
 import type { ModalityStanding } from '@/components/arena/modalityStanding'
 import { formatDuration } from '@/components/play/tierLines'
-import { tiers } from '@/data/arena'
+import { eventNoun, tiers } from '@/data/arena'
 import type { RunDistance, TierKey } from '@/data/arena'
 import { orderedSides, sideName } from '@/data/match'
+import { formatDeadline, formatPrice } from '@/utils/format'
 
 /*
- * Regras puras do Início (Placar, botão principal, Destaque e Pílulas de "Seu elo"). O Início do Expo segue as mesmas regras e textos, com funções de
+ * Regras puras do Início (Placar, botão principal, Destaque, Pílulas de "Seu elo", próximo passo e Campeonatos). O Início do Expo segue as mesmas regras e textos, com funções de
  * mesmos nomes: mudar uma regra aqui exige mudar lá também.
  */
 
@@ -151,4 +154,90 @@ export function pillAccessibilityLabel(sportLabel: string, status: PillStatus): 
     case 'loading': return `${sportLabel}: carregando classificação`
     case 'unavailable': return `${sportLabel}: classificação indisponível`
   }
+}
+
+/** Quantas das três modalidades ainda não têm perfil esportivo: o cartão "Complete seu perfil esportivo" só aparece com alguma. */
+export const missingSportsCount = (profiles: readonly Pick<Profile, 'sport'>[]): number =>
+  sports.filter(sport => !profiles.some(profile => profile.sport === sport.value)).length
+
+/** Quantos campeonatos o Início pede a cada perfil e quantos mostra depois da união. */
+export const CHAMPIONSHIPS_LIMIT = 2
+
+const startsAtTime = (iso: string | null): number => {
+  const time = iso ? Date.parse(iso) : Number.NaN
+  return Number.isNaN(time) ? Number.POSITIVE_INFINITY : time
+}
+
+/**
+ * União dos campeonatos lidos por perfil: sem duplicatas por `id` (fica a primeira ocorrência), ordenados por `starts_at`
+ * crescente (sem data por último; empate pelo `id`) e cortados nos `limit` primeiros (2).
+ */
+export function mergeChampionships<T extends Pick<EventCard, 'id' | 'starts_at'>>(lists: readonly (readonly T[])[], limit: number = CHAMPIONSHIPS_LIMIT): T[] {
+  const byId = new Map<number, T>()
+  for (const list of lists) for (const card of list) if (!byId.has(card.id)) byId.set(card.id, card)
+  return [...byId.values()].sort((a, b) => startsAtTime(a.starts_at) - startsAtTime(b.starts_at) || a.id - b.id).slice(0, limit)
+}
+
+/** A cidade comum a todos os perfis (pelo `id`), ou `null` quando as cidades diferem ou não há perfis. */
+function sharedCity(profiles: readonly Pick<Profile, 'city'>[]): City | null {
+  const first = profiles[0]?.city
+  return first && profiles.every(profile => profile.city?.id === first.id) ? first : null
+}
+
+/**
+ * Título dos Campeonatos: "Campeonatos em {cidade}" quando todos os perfis têm a mesma cidade, "Campeonatos perto de você"
+ * quando as cidades diferem e "Perto de você" sem perfis. `null` (perfis carregando ou com falha) não conta como "sem
+ * perfis": fica "Campeonatos perto de você".
+ */
+export function championshipsTitle(profiles: readonly Pick<Profile, 'city'>[] | null): string {
+  if (profiles && profiles.length === 0) return 'Perto de você'
+  const city = profiles ? sharedCity(profiles) : null
+  return city ? `Campeonatos em ${city.name}` : 'Campeonatos perto de você'
+}
+
+/** Texto dos Campeonatos sem nenhum campeonato: "Nenhum campeonato aberto em {cidade}" ou "Nenhum campeonato aberto perto de você". */
+export function emptyChampionshipsText(profiles: readonly Pick<Profile, 'city'>[]): string {
+  const city = sharedCity(profiles)
+  return city ? `Nenhum campeonato aberto em ${city.name}` : 'Nenhum campeonato aberto perto de você'
+}
+
+/**
+ * Modalidade em que "Ver todos" abre a lista de campeonatos: a do primeiro campeonato exibido ou, sem campeonatos (ou sem a
+ * modalidade nele), a do primeiro perfil. Sem perfis, `null`.
+ */
+export function championshipsSport(shown: readonly Pick<EventCard, 'sport'>[], profiles: readonly Pick<Profile, 'sport'>[]): Sport | null {
+  return shown[0]?.sport ?? profiles[0]?.sport ?? null
+}
+
+/** Linha de baixo do campeonato: "{data e hora} · {local}" ("sáb, 6 dez · 08:00 · Arena Asa Norte"); sem local, a cidade. */
+export function championshipMeta(card: Pick<EventCard, 'starts_at' | 'venue' | 'city'>, now: Date = new Date()): string {
+  const when = formatDeadline(card.starts_at, now) || 'Data a definir'
+  const where = card.venue?.trim() || card.city?.name || ''
+  return where ? `${when} · ${where}` : when
+}
+
+/** Etiqueta da linha do campeonato, na ordem de exibição. */
+export interface ChampionshipTag {
+  kind: 'ongoing' | 'price' | 'spots' | 'eligible'
+  label: string
+}
+
+/**
+ * Etiquetas do campeonato, na ordem:
+ * - "Em andamento", quando o evento já começou (`state = em_andamento`: a lista também traz eventos em andamento);
+ * - o preço no formato dos cartazes ("R$ 40", "R$ 42,50") ou "Gratuita";
+ * - as vagas no formato dos cartazes ("3 de 8 times") ou "Vagas esgotadas" (a nota da lista de campeonatos); sem limite de
+ *   vagas, nenhuma;
+ * - "Você pode se inscrever", com `eligibility.eligible`, exceto no evento em andamento, que não recebe mais inscrições.
+ */
+export function championshipTags(card: Pick<EventCard, 'state' | 'price_cents' | 'capacity' | 'entries_count' | 'sport' | 'eligibility'>): ChampionshipTag[] {
+  const ongoing = card.state === 'em_andamento'
+  const tags: ChampionshipTag[] = ongoing ? [{ kind: 'ongoing', label: 'Em andamento' }] : []
+  tags.push({ kind: 'price', label: formatPrice(card.price_cents, { compact: true, free: 'Gratuita' }) })
+  if (card.capacity && card.capacity > 0) {
+    const unit = card.sport ? eventNoun[card.sport].entrants : 'inscritos'
+    tags.push({ kind: 'spots', label: card.entries_count >= card.capacity ? 'Vagas esgotadas' : `${card.entries_count} de ${card.capacity} ${unit}` })
+  }
+  if (card.eligibility?.eligible && !ongoing) tags.push({ kind: 'eligible', label: 'Você pode se inscrever' })
+  return tags
 }

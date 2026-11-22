@@ -1,6 +1,8 @@
-import { ChevronRight, Medal, Zap } from "lucide-react";
-import { ApiError, sports } from "../api/client";
+import { useCallback } from "react";
+import { Zap } from "lucide-react";
+import { ApiError } from "../api/client";
 import type { Profile, Sport } from "../api/client";
+import { loadProfileEvents } from "../api/entries";
 import { markNotificationRead } from "../api/notifications";
 import type { ArenaNotification } from "../api/notifications";
 import type { MatchCard } from "../api/matches";
@@ -13,14 +15,13 @@ import { nextScheduledMatch } from "../components/play/matchView";
 import { Logo } from "../components/Brand";
 import { NotificationBell } from "../components/notifications/NotificationBell";
 import { Placar } from "../components/home/Placar";
-import { primaryButtonLabel } from "../data/home";
+import { CHAMPIONSHIPS_LIMIT, championshipsSport, mergeChampionships, missingSportsCount, primaryButtonLabel } from "../data/home";
 import { Destaque } from "../components/home/Destaque";
 import { Pilulas } from "../components/home/Pilulas";
+import { ProximoPasso } from "../components/home/ProximoPasso";
+import { Campeonatos } from "../components/home/Campeonatos";
+import type { CampeonatosState } from "../components/home/Campeonatos";
 import { Button } from "@/components/ui/button";
-import { Eyebrow } from "@/components/ui/eyebrow";
-import { IconTile } from "@/components/ui/icon-tile";
-import { SectionTitle } from "@/components/ui/section-title";
-import { cover } from "../data/arena";
 import type { RunDistance, Screen } from "../data/arena";
 import { notificationView } from "../data/notifications";
 import type { NotificationFilter, NotificationTarget } from "../data/notifications";
@@ -85,8 +86,32 @@ export default function HomePage({
   }
   // Classificação das Pílulas ("Seu elo"): uma única leitura; o elo de quem já se classificou, ou "n de 3".
   const standings = useResource(getMyStandings, onExpired);
-  /** Modalidades ainda sem perfil: o cartão "Seu próximo passo" só aparece enquanto houver alguma. */
-  const missingSports = sports.filter((s) => !profiles.some((p) => p.sport === s.value)).length;
+  // Perfis confirmados pelo shell (sem nova leitura): `null` enquanto carregam ou se a leitura falhou.
+  const profileList = loading || profilesFailed ? null : profiles;
+  // Campeonatos: uma leitura `GET /events` por perfil (modalidade e cidade), em paralelo, só com perfis. A lista do shell é
+  // estado (mesma referência entre renderizações): a leitura acontece uma vez por montagem e de novo só se o shell a reler.
+  const loadChampionships = useCallback(
+    () => loadProfileEvents(profileList ?? [], CHAMPIONSHIPS_LIMIT).then((lists) => mergeChampionships(lists)),
+    [profileList],
+  );
+  const championships = useResource(loadChampionships, onExpired, {
+    enabled: Boolean(profileList?.length),
+    fallback: "Não foi possível carregar os campeonatos.",
+  });
+  const championshipsState: CampeonatosState = loading
+    ? { kind: "loading" }
+    : !profileList
+      ? { kind: "profiles-failed" }
+      : profileList.length === 0
+        ? { kind: "no-profiles" }
+        : championships.loading
+          ? { kind: "loading" }
+          : championships.error
+            ? { kind: "error", message: championships.error, cause: championships.errorCause, onRetry: championships.reload }
+            : { kind: "ready", shown: championships.data ?? [] };
+  const allSport = profileList?.length
+    ? championshipsSport(championshipsState.kind === "ready" ? championshipsState.shown : [], profileList)
+    : null;
   return (
     <>
       <header className="flex items-center justify-between">
@@ -130,56 +155,16 @@ export default function HomePage({
         onOpenRanking={(target) => (target ? go("ranking", target) : go("ranking"))}
         onOpenModalities={() => go("sports")}
       />
-      <SectionTitle
-        title="Perto de você"
-        action={
-          <Button variant="link" onClick={() => go("sports")}>
-            Minha cidade
-          </Button>
-        }
+      {/* Só enquanto falta alguma modalidade, com a lista confirmada: com as três cadastradas, o passo já foi dado. */}
+      {profileList && missingSportsCount(profileList) > 0 && <ProximoPasso onOpen={() => go("sports")} />}
+      <Campeonatos
+        state={championshipsState}
+        profiles={profileList}
+        allSport={allSport}
+        onOpenModalities={() => go("sports")}
+        onOpenEvents={(sport) => go("events", { sport })}
+        onOpenEvent={(event) => go("event", event.sport ? { eventId: event.id, sport: event.sport } : { eventId: event.id })}
       />
-      <div className="relative h-[178px] overflow-hidden rounded-panel bg-ink noite:bg-[#495057] shadow-[0_4px_14px_#0002]">
-        <img
-          className="size-full object-cover"
-          src={cover}
-          alt="Esporte ao ar livre ao pôr do sol"
-        />
-        <span className="absolute inset-0 bg-[linear-gradient(180deg,transparent_20%,#000c)]" />
-        <div className="absolute inset-x-4 bottom-[15px] flex flex-col gap-[3px] text-white">
-          <Eyebrow as="span" className="text-[#fffd]">
-            VIVA O ESPORTE
-          </Eyebrow>
-          <strong className="font-display text-[17px] font-bold">
-            Sua próxima arena
-          </strong>
-          <small className="text-[10px] text-[#fffd]">
-            {profiles.length
-              ? "Novas atividades em breve."
-              : "Configure sua cidade e suas modalidades."}
-          </small>
-        </div>
-      </div>
-      {/* Só enquanto falta alguma modalidade: com as três cadastradas, o passo já foi dado. */}
-      {!loading && missingSports > 0 && (
-        <>
-          <SectionTitle title="Seu próximo passo" />
-          <button
-            className="flex w-full items-center gap-[11px] rounded-card border border-solid border-line bg-surface p-3.5 text-left noite:border-surface-edge"
-            onClick={() => go("sports")}
-          >
-            <IconTile>
-              <Medal size={22} />
-            </IconTile>
-            <span className="flex-1">
-              <b className="text-[12px] text-heading">Complete seu perfil esportivo</b>
-              <small className="mt-1 text-[10px] leading-[1.5] text-ink-muted">
-                Mostre onde e como você gosta de jogar.
-              </small>
-            </span>
-            <ChevronRight size={19} />
-          </button>
-        </>
-      )}
     </>
   );
 }
