@@ -1,5 +1,32 @@
 # Situação da fundação do Arena
 
+## Pílulas de elo no Início da web — 22 de novembro de 2026
+
+Terceira entrega do [plano do Início](plano-inicio.md) na web (ticket 03), com os mesmos textos e regras do Expo (ticket 07).
+
+- No Início da web, o carrossel de cartões de modalidade e a barra de progresso vazia deram lugar às **Pílulas** (`web/src/components/home/Pilulas.tsx`): cabeçalho "Seu elo" com "Ver elos" (abre o Ranking) e um bloco escuro por design (`forest` com o Coliseu em marca-d'água, igual nos dois temas) com três pílulas, na ordem futebol, tênis e corrida, cada uma com o ícone (`SportIcon` em máscara) e o nome da modalidade.
+- Cada pílula segue a regra existente de `modalityStanding` (`GET /me/standings`, lido uma única vez):
+  - com elo: emblema (`TierEmblem`), nome do elo e métrica ("{n} pts", "{n} média" ou "{tempo} · {distância} km", na distância de maior elo);
+  - em classificação: "{n} de 3" e "Sem classificação";
+  - corrida sem marca: "Sem marca" e "Sem classificação";
+  - sem perfil esportivo na modalidade (lista de perfis confirmada): "Sem perfil" e "Configurar";
+  - carregando (classificação ou perfis): "…";
+  - falha: "Classificação indisponível".
+- Nunca aparece elo para quem está em classificação, e a posição no ranking não é exibida.
+- Cada pílula é um único botão com nome acessível (modalidade e elo ou situação), foco visível e teclado. Com perfil, abre o Ranking da modalidade (na corrida, na distância do elo, quando houver); sem perfil, a tela de modalidades.
+- Lógica pura em `web/src/data/home.ts` (`pillStatus`, `pillMetric`, `pillTexts` e `pillAccessibilityLabel`), com os mesmos nomes e textos do Expo. `modalityStanding` da web passou a devolver `distanceKm`, como no Expo.
+- Não havia componente separado para os cartões do carrossel na web; nada ficou sem uso.
+
+**Verificações** (em `web/`, no commit do ticket; a árvore de `web/` consolidada é idêntica):
+- `npm run lint` e `npm run build` aprovados (só o aviso de chunk grande que já existia).
+- `npm run test:coverage`: 1295/1295 numa execução; nas seguintes, 1294/1295, com a única falha sendo a intermitente já conhecida de `tests/matchmaking.test.tsx` (reproduzida também na base `bf4f8a9`). Sem esse arquivo, 1255/1255 (92,41% statements, 86,39% branches, 91,64% funções, 95,47% linhas); `Pilulas.tsx` e `data/home.ts` com 100% de linhas.
+- `home-standings` adaptado (22 testes): elo com pts, milhar, média, tempo e km; em classificação; sem marca; sem perfil (também na conta nova); carregando (classificação e perfis); perfis em falha; falha da classificação e 401; destinos dos toques, do teclado e do "Ver elos"; elo nunca em classificação; uma única leitura; regras puras e `distanceKm`.
+- Navegador (Playwright headless) com API e PostgreSQL reais e contas sintéticas criadas pela API (conta nova; tênis e corrida sem marca; três perfis com um treino de corrida de 21 km que deu elo Ouro), em 320, 390 e 1440 px, claro e escuro: sem overflow horizontal, nem nas pílulas em 320 px, sem erros de console e com foco visível. Os toques abriram o Ranking da corrida em 21 km, os do futebol e do tênis e, sem perfil, as modalidades. Carregamento e falha foram conferidos com a resposta retida ou simulada no navegador. No build de produção, `GET /me/standings` é lido uma vez (no servidor de desenvolvimento aparecem duas leituras, por causa do StrictMode).
+
+**Limitações:** o estado "em classificação" com partidas jogadas ("2 de 3") só foi coberto por testes; no navegador apareceu "0 de 3". O bloco usa `forest` liso, como o Placar e o Expo, sem o gradiente do protótipo. Em 320 px, "1:45:30 · 21 km" quebra em duas linhas, sem overflow.
+
+**Pendências:** Campeonatos, próximo passo e remoção da placa e da foto (ticket 04) na web; fechamento (09).
+
 ## Campeonatos, próximo passo e fim dos atalhos no Início do Expo — 22 de novembro de 2026
 
 Quarta entrega do [plano do Início](plano-inicio.md) no Expo (ticket 08). Com ela, o Início do Expo tem todas as seções da spec.
