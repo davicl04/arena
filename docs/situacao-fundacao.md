@@ -1,5 +1,33 @@
 # Situação da fundação do Arena
 
+## Contrato final de cidades e documentação do catálogo nacional — 22 de novembro de 2026
+
+Fecha a entrega da tela de modalidades com cidade por localização e catálogo nacional de municípios (tickets 01 a 09). Com a web e o Expo fora da lista global de cidades, `GET /api/v1/cities` sem `q`, ou com menos de 2 caracteres, passa a devolver lista vazia. É a etapa de restrição do contrato. A busca por `q` (até 20 resultados), a consulta por `ids=` (até 50) e o 422 para `q` e `ids` juntos não mudam. O caminho da listagem das 100 primeiras cidades (`list_cities`) foi removido do serviço.
+
+- **API:** a descrição de `/cities` no OpenAPI foi atualizada. `GET /me/sports-profiles` e `PUT /me/sports-profiles/{sport}` ganharam descrições do objeto `city` (`id`, `name`, `state`) devolvido junto de `city_id`.
+- **Decisão nova:** a [decisão 0005](decisoes/0005-catalogo-municipios.md) registra a fonte (`kelvins/municipios-brasileiros`, commit `503e2f70bbf1b4b7ec0b1f68b09086ccc38fe861`), a licença MIT e a atribuição; os 5.571 municípios e o motivo; a normalização única em Python, sem extensão do PostgreSQL; o contrato da API; a cidade sugerida por haversine em memória, com limite de 100 km e arredondamento para 2 casas nos clientes; a privacidade das coordenadas e as permissões da web e do Expo; as etapas de ampliação e restrição, as consequências para o pareamento por cidade e a reversão.
+- **Outras atualizações:** a seção "Cidades" da [decisão 0001](decisoes/0001-fundacao.md#cidades) aponta para a 0005, sem apagar o histórico. O [plano de modalidades](plano-modalidades.md) passa a indicar que foi implementado, com as limitações reais. O roteiro "Demonstrar a primeira entrega" do README deixou de citar o catálogo inicial. Nenhum comando mudou.
+
+**Verificações do ticket** (em `backend/`, com `TEST_DATABASE_URL` no PostgreSQL local): teste de integração novo `test_without_q_returns_an_empty_list`, que falhou antes da mudança e passou depois; `ruff check app migrations tests` aprovado; `pytest -q` com 1.734 aprovados e 1 pulado (envio real ao S3, `MEDIA_TEST_S3`); cobertura `--cov=app --cov-branch` de 98% (`services/cities.py` e `routers/identity.py` em 100%). Ausência de chamadas à lista global: `` grep -rnE "['\"\`]/cities['\"\`]" web/src mobile/src `` e `grep -rnE "loadCities|useCities\(|loadPlaces" web/src mobile/src` sem ocorrências; todas as chamadas `request(...'/cities...')` usam `q=`, `ids=` ou `/cities/nearest`. Caminhos e links dos documentos alterados conferidos.
+
+**Verificações finais da entrega** (branch `feat/modalidades-page` consolidada; as árvores `web/` e `mobile/` são idênticas às validadas nos tickets 05 e 08):
+- Backend: `ruff check app migrations tests` aprovado; `pytest -q` com 1.734 aprovados e 1 pulado; `alembic check` no banco de desenvolvimento (na 0015) sem divergências.
+- Web: `npm run lint` e `npm run build` aprovados; `npx vitest run --coverage` com 91 arquivos e 1.263 testes aprovados (93,76% instruções, 87,85% ramos, 93,28% funções, 96,64% linhas).
+- Expo: `npm run lint` e `npm run typecheck` aprovados; `npm run test:coverage` com 107 arquivos e 1.620 testes aprovados (96,47% instruções, 90,94% ramos, 95,84% funções, 98,44% linhas); `CI=1 npm run export:android` aprovado.
+
+**Limitações (da entrega inteira):**
+- O Expo não foi verificado em aparelho nem emulador, e a tela do Expo não foi conferida visualmente. O diálogo nativo de permissão, o GPS real e o Android com `ACCESS_FINE_LOCATION` bloqueado não foram verificados.
+- Na web, a localização foi conferida no Chromium headless com geolocalização simulada pelo Playwright; o pedido real do navegador e o leitor de tela real não foram verificados.
+- O Expo usa a fonte do sistema no nome da cidade sugerida (sem Sora). Nenhum dos clientes fecha a folha por arraste.
+- O toast é literal, "<Modalidade> ativado.", inclusive "Corrida ativado."; a forma "Corrida ativada." ainda não foi decidida.
+- A edição de perfil existente abre no passo 1 (Q1 mantida). Não há nova tentativa de localização na mesma folha depois de falha ou 404.
+- A sugestão usa a sede mais próxima, não o território: perto de divisas pode sugerir o vizinho. O pareamento continua por município, com menos pessoas por cidade fora das capitais (Q2).
+- `npx expo install --check` acusa uma diferença anterior à entrega (`expo` e `expo-image-picker`). O teste `tests/matchmaking.test.tsx` da web falha de forma intermitente e é anterior à entrega (passou nas verificações finais).
+- As verificações no navegador criaram contas sintéticas `orq-0N-…@exemplo.com` (com times e perfis) no banco de desenvolvimento `arena`.
+- O CI remoto não foi executado.
+
+**Pendências:** verificação em aparelho Android/iOS (permissão, GPS, manifesto, visual do Expo); ajuste do limite de 100 km e do arredondamento depois de uso real (Q3); decisões sobre Q1 e o texto do toast; agrupamento regional do pareamento, se necessário (Q2); regenerar `docs/diagramas/banco-*.png` (ainda na revisão 0014); atualizar a menção "catálogo inicial de municípios" em `AGENTS.md`, se desejado; revisão final da entrega. O MVP completo não está implementado.
+
 ## Cidade pela localização na web — 22 de novembro de 2026
 
 - O passo da cidade da folha de modalidades da web ganhou a sugestão pela localização do navegador, com os mesmos estados e textos do Expo. Sem permissão decidida, aparecem "Usar minha localização", o divisor "ou" e a busca; o pedido de permissão só acontece no clique (o `getCurrentPosition` abre o pedido do navegador), nunca ao abrir a tela. Durante a obtenção, "Buscando sua localização…" fica visível e é anunciado numa região viva educada, com a busca ainda disponível. Com sucesso, a confirmação mostra o pino, "Pela sua localização", o nome da cidade em destaque (Sora), a UF em selo e "Não, escolher outra cidade", que leva à busca mantendo a sugestão (oferecida de novo acima do campo, e o cartão escolhido passa a dizer "Pela sua localização").
