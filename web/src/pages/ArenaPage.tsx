@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowLeft, Shield } from "lucide-react";
 import { ApiError, request, sports } from "../api/client";
-import type { City, Profile, ProfileInput, Sport, User } from "../api/client";
+import type { Profile, ProfileInput, Sport, User } from "../api/client";
 import SportCard from "../components/SportCard";
 import BottomNav from "../components/BottomNav";
 import { IconButton } from "@/components/ui/button";
@@ -171,9 +171,8 @@ export default function ArenaPage({
   const [profiles, setProfiles] = useState<Profile[]>([]);
   // Aba do perfil próprio: fica em memória para a volta da tela da partida cair em Partidas.
   const [profileTab, setProfileTab] = useState<ProfileTab>("Fotos");
-  const [cities, setCities] = useState<City[]>([]);
   const [loading, setLoading] = useState(true);
-  // Erro de carregamento de perfis e cidades (LoadError); o erro de uma ação (sair, salvar perfil) é toast.
+  // Erro de carregamento dos perfis (LoadError); o erro de uma ação (sair, salvar perfil) é toast.
   const [loadFailure, setLoadFailure] = useState<{ message: string; cause: unknown } | null>(null);
   const [busy, setBusy] = useState(false);
   const [attempt, setAttempt] = useState(0);
@@ -207,15 +206,10 @@ export default function ArenaPage({
   const notifications = useNotificationSummary(onExpired, rootScreens.includes(screen) ? screen : `${stack[0].screen}:subtela`);
   useEffect(() => {
     let alive = true;
-    Promise.all([
-      request<Profile[]>("/me/sports-profiles"),
-      request<City[]>("/cities"),
-    ])
-      .then(([p, c]) => {
-        if (alive) {
-          setProfiles(p);
-          setCities(c);
-        }
+    // A cidade de cada perfil vem no próprio perfil (`city`): a web não carrega a lista de cidades.
+    request<Profile[]>("/me/sports-profiles")
+      .then((p) => {
+        if (alive) setProfiles(p);
       })
       .catch((err) => {
         if (alive) {
@@ -447,7 +441,6 @@ export default function ArenaPage({
           {screen === "play" && (
             <PlayPage
               profiles={profiles}
-              cities={cities}
               loading={loading}
               board={playBoard}
               openMatch={current.matchId}
@@ -470,7 +463,6 @@ export default function ArenaPage({
                       {...s}
                       sport={s.value}
                       profile={profiles.find((p) => p.sport === s.value)}
-                      cities={cities}
                       onSave={save}
                       onExpired={onExpired}
                     />
@@ -587,7 +579,6 @@ export default function ArenaPage({
           )}
           {screen === "organizer-request" && (
             <OrganizerRequestPage
-              cities={cities}
               profiles={profiles}
               onBack={back}
               onExpired={onExpired}
@@ -629,7 +620,6 @@ export default function ArenaPage({
               teamId={current.teamId}
               user={user}
               profiles={profiles}
-              cities={cities}
               onDone={(team) => showTeams(team.id)}
               onClosed={() => showTeams()}
               onBack={back}
@@ -668,7 +658,6 @@ export default function ArenaPage({
               key={`${current.eventId ?? "novo"}-${current.step ?? ""}`}
               eventId={current.eventId}
               initialStep={current.step}
-              cities={cities}
               onClose={back}
               onDone={(event) => showEventManage(event.id)}
               onExpired={onExpired}
@@ -724,7 +713,6 @@ export default function ArenaPage({
             <EventsPage
               sport={current.sport ?? "futebol"}
               profiles={profiles}
-              cities={cities}
               loading={loading}
               onSport={setScreenSport}
               onOpen={(eventId, sport) => go("event", { eventId, sport })}

@@ -211,15 +211,16 @@ describe('cartão "Organizar no Arena" no Menu', () => {
 })
 
 describe('pedido de organizador (P5)', () => {
-  const profiles: Profile[] = [{ id: 1, sport: 'futebol', city_id: 7, position: null, looking_for: false, is_public: false, level: null }]
+  const profiles: Profile[] = [{ id: 1, sport: 'futebol', city_id: 7, city: brasilia, position: null, looking_for: false, is_public: false, level: null }]
   function renderPage(state: OrganizerStatus = status('sem_pedido'), post?: (body: unknown) => unknown) {
     vi.mocked(request).mockImplementation(async (path, method, body) => {
       if (path === '/me/organizer-request' && method === 'POST') return (post ? post(body) : { ...pedido, ...(body as object) }) as never
       if (path === '/me/organizer-request') return state as never
+      if (path === '/cities?q=goi') return [goiania] as never
       throw new Error(`rota inesperada ${path}`)
     })
     const onBack = vi.fn()
-    renderWithToaster(<OrganizerRequestPage cities={[brasilia, goiania]} profiles={profiles} onBack={onBack} onExpired={vi.fn()} />)
+    renderWithToaster(<OrganizerRequestPage profiles={profiles} onBack={onBack} onExpired={vi.fn()} />)
     return onBack
   }
 
@@ -229,7 +230,9 @@ describe('pedido de organizador (P5)', () => {
     expect(rules.textContent).toContain('Pagamento fora do Arena')
     expect(rules.textContent).toContain('Você analisa os comprovantes')
     expect(rules.textContent).toContain('Eventos pagos passam pela administração')
-    expect((screen.getByLabelText('Cidade') as HTMLSelectElement).value).toBe('7')
+    // A cidade sugerida é a do perfil, com o nome vindo do próprio perfil (`city`), sem a lista de cidades.
+    expect(screen.getByRole('button', { name: 'Cidade Brasília · DF' })).not.toBeNull()
+    expect(request).not.toHaveBeenCalledWith(expect.stringMatching(/^\/cities/))
   })
 
   it('valida no cliente como o servidor e não envia com erros', async () => {
@@ -257,7 +260,13 @@ describe('pedido de organizador (P5)', () => {
     const sent: unknown[] = []
     const onBack = renderPage(status('sem_pedido'), body => { sent.push(body); return { ...pedido, display_name: 'Liga do Bairro' } })
     await ui.type(await screen.findByLabelText('Nome do organizador'), '  Liga do Bairro ')
-    await ui.selectOptions(screen.getByLabelText('Cidade'), '8')
+    await ui.click(screen.getByRole('button', { name: 'Cidade Brasília · DF' }))
+    const sheet = screen.getByRole('dialog', { name: 'Cidade do pedido' })
+    await ui.type(within(sheet).getByLabelText('Buscar cidade'), 'goi')
+    await ui.click(await within(sheet).findByRole('button', { name: 'Goiânia · GO' }))
+    expect(request).toHaveBeenCalledWith('/cities?q=goi')
+    expect(screen.queryByRole('dialog', { name: 'Cidade do pedido' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Cidade Goiânia · GO' })).not.toBeNull()
     await ui.click(screen.getByRole('button', { name: 'Corrida' }))
     await ui.click(screen.getByRole('button', { name: 'Futebol' }))
     await ui.type(screen.getByLabelText('Contato'), '(61) 99999-0000')

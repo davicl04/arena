@@ -28,7 +28,7 @@ const standings = (extra: Partial<MeStandings> = {}): MeStandings =>
   ({ calc_version: 1, futebol: { teams: [], individual: individual() }, tenis: empty(), corrida: runs(), ...extra })
 
 const profiles: Profile[] = (['futebol', 'tenis', 'corrida'] as const).map((sport, index) =>
-  ({ id: index + 1, sport, city_id: 5300108, position: null, looking_for: false, is_public: false, level: null }))
+  ({ id: index + 1, sport, city_id: 5300108, city: { id: 5300108, name: 'Brasília', state: 'DF' }, position: null, looking_for: false, is_public: false, level: null }))
 
 function renderHome(reply: unknown, loadedProfiles: Profile[] = profiles) {
   const api = mockApi({ 'GET /me/notifications/summary': summaryOf({ unread_count: 0 }), 'GET /me/standings': reply as never })

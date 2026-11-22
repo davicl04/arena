@@ -22,7 +22,7 @@ import { findToast, renderWithToaster } from './toast-utils'
 
 afterEach(() => { cleanup(); vi.unstubAllGlobals() })
 
-const running: Profile = { id: 3, sport: 'corrida', city_id: brasilia.id, position: null, looking_for: false, is_public: false, level: null }
+const running: Profile = { id: 3, sport: 'corrida', city_id: brasilia.id, city: brasilia, position: null, looking_for: false, is_public: false, level: null }
 const idleBoard = (): PlayBoardState => ({
   board: { attention: false, searches: [], proposals: [], offers: [], matches: [] },
   loading: false, error: '', reload: vi.fn(async () => null), deferred: [], defer: vi.fn(),
@@ -258,7 +258,7 @@ describe('placa da corrida (K2 + K4 na PlayPage)', () => {
     const api = mockApi({ 'GET /me/standings': standings(), ...routes })
     const go = vi.fn()
     const onExpired = vi.fn()
-    renderWithToaster(<PlayPage profiles={profiles} cities={[brasilia]} loading={false} board={idleBoard()} go={go} onExpired={onExpired} />)
+    renderWithToaster(<PlayPage profiles={profiles} loading={false} board={idleBoard()} go={go} onExpired={onExpired} />)
     return { api, go, onExpired, ui: userEvent.setup() }
   }
   const openRunning = async (ui: ReturnType<typeof userEvent.setup>) => { await ui.click(screen.getByRole('tab', { name: 'Corrida' })) }
@@ -440,7 +440,6 @@ describe('"Ver ranking" no aplicativo inteiro', () => {
     const tenKm = '/rankings/overview?sport=corrida&distance_km=10'
     const api = mockApi({
       'GET /me/sports-profiles': [football, running],
-      'GET /cities': [brasilia],
       'GET /me/notifications/summary': summaryOf({ unread_count: 0 }),
       'GET /me/standings': standings(),
       'GET /me/play': playBoard(),

@@ -23,7 +23,7 @@ beforeEach(() => {
   Element.prototype.scrollTo = () => {} // jsdom não implementa rolagem
   vi.mocked(request).mockReset()
   vi.mocked(request).mockImplementation(async (path, method) => {
-    if (path === '/me/sports-profiles' || path === '/cities') return [] as never
+    if (path === '/me/sports-profiles') return [] as never
     if (path === '/users/1') return { ...other, id: 1, name: me.name, username: me.username, follower_count: 1, following_count: 0, follow_state: 'self' } as never
     if (path === '/users/2') return other as never
     if (path === '/users/1/posts') return page([{ ...post, author: { ...other, id: me.id, username: me.username } }]) as never

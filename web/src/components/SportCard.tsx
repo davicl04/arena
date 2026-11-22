@@ -8,7 +8,9 @@ import type {
   Sport,
   Position,
 } from "../api/client";
+import { cityLabel } from "../api/cities";
 import { reportActionError } from "../hooks/useSubmit";
+import { CitySearch } from "./cities/CitySearch";
 import SportIcon from "./SportIcon";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -22,7 +24,6 @@ export default function SportCard({
   label,
   description,
   profile,
-  cities,
   onSave,
   onExpired,
 }: {
@@ -31,21 +32,26 @@ export default function SportCard({
   symbol: string;
   description: string;
   profile?: Profile;
-  cities: City[];
   onSave: (sport: Sport, input: ProfileInput) => Promise<void>;
   onExpired: () => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  // Cidade escolhida na busca do servidor (o perfil já traz a atual em `city`).
+  const [city, setCity] = useState<City | null>(profile?.city ?? null);
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!city) {
+      setError("Escolha a cidade na busca.");
+      return;
+    }
     const form = new FormData(event.currentTarget);
     setBusy(true);
     setError("");
     try {
       await onSave(sport, {
-        city_id: Number(form.get("city_id")),
+        city_id: city.id,
         position:
           sport === "futebol"
             ? ((form.get("position") || null) as Position | null)
@@ -62,7 +68,6 @@ export default function SportCard({
       setBusy(false);
     }
   }
-  const city = cities.find((c) => c.id === profile?.city_id);
   return (
     <Card as="article" radius="panel" className="p-[17px]">
       <div className="mb-3 flex items-center justify-between">
@@ -76,22 +81,14 @@ export default function SportCard({
       {editing ? (
         <form onSubmit={save}>
           <fieldset disabled={busy}>
-            <label htmlFor={`${sport}-city`}>Cidade</label>
-            <select
-              id={`${sport}-city`}
-              name="city_id"
-              required
-              defaultValue={profile?.city_id || ""}
-            >
-              <option value="" disabled>
-                Selecione uma cidade
-              </option>
-              {cities.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name} · {c.state}
-                </option>
-              ))}
-            </select>
+            <CitySearch
+              label="Cidade"
+              selected={city}
+              onSelect={(choice) => {
+                setCity(choice);
+                setError("");
+              }}
+            />
             {sport === "futebol" && (
               <>
                 <label htmlFor={`${sport}-position`}>Posição preferida</label>
@@ -142,7 +139,7 @@ export default function SportCard({
           <dl className="my-[18px]">
             <Fact
               term="Cidade"
-              value={city ? `${city.name} · ${city.state}` : "A definir"}
+              value={profile ? cityLabel(profile.city) : "A definir"}
             />
             <Fact term="Nível" value="Sem classificação" />
             {profile && (
@@ -165,9 +162,9 @@ export default function SportCard({
           <Button
             variant="secondary"
             className="w-full justify-between"
-            disabled={!cities.length}
             onClick={() => {
               setEditing(true);
+              setCity(profile?.city ?? null);
               setError("");
             }}
           >

@@ -22,7 +22,7 @@ import { summaryOf } from './notifications-fixtures'
  */
 
 const me: User = { id: 1, name: 'Ricardo Moura', username: 'ricardo.moura', email: 'r@example.com', birth_date: '1990-01-01', social_public: false, is_admin: false, avatar: null, cover: null }
-const football: Profile = { id: 1, sport: 'futebol', city_id: brasilia.id, position: 'atacante', looking_for: false, is_public: false, level: null }
+const football: Profile = { id: 1, sport: 'futebol', city_id: brasilia.id, city: brasilia, position: 'atacante', looking_for: false, is_public: false, level: null }
 const list = <T,>(items: T[]) => ({ items, next_cursor: null })
 const note = (id: number, type: string, payload: Record<string, unknown>, extra: Partial<ArenaNotification> = {}): ArenaNotification =>
   ({ id, type, payload, actor: null, created_at: new Date(Date.now() - 60e3).toISOString(), read_at: null, ...extra })
@@ -38,7 +38,6 @@ const copa = () => eventDetail({
 function base(extra: Record<string, unknown> = {}) {
   return {
     'GET /me/sports-profiles': [football],
-    'GET /cities': [brasilia],
     'GET /me/notifications/summary': summaryOf({ unread_count: 0 }),
     'GET /me/follow-requests': list([]),
     'GET /me/organizer-request': { state: 'aprovado', request: null, organizer: { id: 3, display_name: 'Liga Sudoeste', approved_at: '2026-10-12T10:00:00Z' }, revocation: null },

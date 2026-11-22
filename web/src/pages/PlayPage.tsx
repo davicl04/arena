@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { MapPin, Shield, User } from 'lucide-react'
 import { sports } from '../api/client'
-import type { City, Profile, Sport } from '../api/client'
+import type { Profile, Sport } from '../api/client'
 import { cancelSearch, createSearch } from '../api/matchmaking'
 import type { MatchSearch, PlayBoard, SearchCreated } from '../api/matchmaking'
 import { getMyStandings } from '../api/play'
@@ -78,9 +78,8 @@ function searchHint(sport: Sport, mode: Mode, city: string, position: AvulsoPosi
  * à tela da partida. Na Corrida (K2 + K4, etapa 5), o botão REGISTRAR abre o cronômetro em tela cheia; a placa mostra o elo e
  * o melhor tempo da distância escolhida (`GET /me/run-bests`) e, abaixo, "Suas marcas" com o histórico de cada distância.
  */
-export default function PlayPage({ profiles, cities, loading, board, openMatch, initialSport, onSportChange, notificationCount = 0, go, onExpired }: {
+export default function PlayPage({ profiles, loading, board, openMatch, initialSport, onSportChange, notificationCount = 0, go, onExpired }: {
   profiles: Profile[]
-  cities: City[]
   /** Perfis esportivos ainda carregando (ArenaPage). */
   loading: boolean
   /** Placa do Jogar, lida pelo ArenaPage (também acende o ponto menta da navegação). */
@@ -126,7 +125,7 @@ export default function PlayPage({ profiles, cities, loading, board, openMatch, 
   const reload = board.reload
 
   const profile = profiles.find(item => item.sport === sport)
-  const city = cities.find(item => item.id === profile?.city_id)
+  const city = profile?.city
   const sportLabel = sports.find(item => item.value === sport)?.label ?? ''
   const timeMode = sport === 'futebol' && mode === 'time'
   const noteId = `${ids}-note`

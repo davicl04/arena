@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import type { City, Profile } from '../src/api/client'
+import type { Profile } from '../src/api/client'
 import { receiptFileError } from '../src/api/receipts'
 import type { EventDetail, MyEntry } from '../src/api/entries'
 import { entryCta, isLocked } from '../src/components/events/entryCta'
@@ -19,9 +19,8 @@ import { findToast, renderWithToaster } from './toast-utils'
  * pelas rotas do contrato.
  */
 
-const tennis: Profile = { id: 2, sport: 'tenis', city_id: brasilia.id, position: null, looking_for: false, is_public: false, level: null }
+const tennis: Profile = { id: 2, sport: 'tenis', city_id: brasilia.id, city: brasilia, position: null, looking_for: false, is_public: false, level: null }
 const football: Profile = { ...tennis, id: 1, sport: 'futebol', position: 'atacante' }
-const cities: City[] = [brasilia]
 const page = (items: unknown[], next: string | null = null) => ({ items, next_cursor: next })
 
 function renderEvent(props: Partial<{ onTeams: () => void; onManage: (id: number) => void }> = {}) {
@@ -110,7 +109,7 @@ describe('lista de campeonatos e provas (E2)', () => {
     const onOpen = vi.fn()
     const onSport = vi.fn()
     const onSports = vi.fn()
-    renderWithToaster(<EventsPage sport="futebol" profiles={profiles} cities={cities} loading={false} onSport={onSport} onOpen={onOpen} onSports={onSports} onExpired={vi.fn()} />)
+    renderWithToaster(<EventsPage sport="futebol" profiles={profiles} loading={false} onSport={onSport} onOpen={onOpen} onSports={onSports} onExpired={vi.fn()} />)
     return { calls, onOpen, onSport, onSports }
   }
 

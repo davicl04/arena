@@ -11,13 +11,13 @@ import { collapsedEntries, expandedEntries } from '../src/components/ranking/win
 import ArenaPage from '../src/pages/ArenaPage'
 import RankingPage from '../src/pages/RankingPage'
 import { athleteRow, leoes, myLine, rankingOverview, rankingPage, rankingRow, tierCounts, unrankedLine } from './results-fixtures'
-import { apiError, brasilia, mockApi, person } from './teams-fixtures'
+import { apiError, mockApi, person } from './teams-fixtures'
 import { summaryOf } from './notifications-fixtures'
 
 afterEach(cleanup)
 
 const profile = (sport: Profile['sport'], position: Profile['position'] = null): Profile =>
-  ({ id: 1, sport, city_id: 5300108, position, looking_for: false, is_public: false, level: null })
+  ({ id: 1, sport, city_id: 5300108, city: { id: 5300108, name: 'Brasília', state: 'DF' }, position, looking_for: false, is_public: false, level: null })
 const football = profile('futebol', 'goleiro')
 
 const base = '/rankings?sport=futebol&kind=time&format=society'
@@ -663,7 +663,6 @@ describe('Ranking no aplicativo', () => {
   const tennis = '/rankings/overview?sport=tenis'
   const app = (extra: Record<string, unknown> = {}) => mockApi({
     'GET /me/sports-profiles': [profile('futebol', 'atacante'), profile('tenis')],
-    'GET /cities': [brasilia],
     'GET /me/notifications/summary': summaryOf({ unread_count: 3, follow_requests_count: 1 }),
     'GET /me/standings': { calc_version: 1, futebol: { teams: [], individual: [] }, tenis: null, corrida: [] },
     'GET /me/notifications/pending?limit=50': { items: [] },

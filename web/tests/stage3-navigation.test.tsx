@@ -5,7 +5,7 @@ import userEvent from '@testing-library/user-event'
 import type { User } from '../src/api/client'
 import type { ArenaNotification } from '../src/api/notifications'
 import ArenaPage from '../src/pages/ArenaPage'
-import { brasilia, mockApi, person } from './teams-fixtures'
+import { mockApi, person } from './teams-fixtures'
 import { football, inFuture, leoes, matchCard, playBoard, proposal, search, slotOffer, standings, teamSide, tigres } from './matchmaking-fixtures'
 import { fromNow, message, noPermissions, page as chatPage, scheduled } from './match-fixtures'
 import { dispute, suggestion } from './admin-match-fixtures'
@@ -29,7 +29,6 @@ const list = <T,>(items: T[]) => ({ items, next_cursor: null })
 function base(extra: Record<string, unknown> = {}) {
   return {
     'GET /me/sports-profiles': [football],
-    'GET /cities': [brasilia],
     'GET /me/notifications/summary': summaryOf({ unread_count: 0 }),
     'GET /me/standings': standings(),
     'GET /me/follow-requests': list([]),

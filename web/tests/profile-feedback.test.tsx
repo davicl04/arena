@@ -32,9 +32,14 @@ afterEach(cleanup)
 describe('SportCard', () => {
   const open = async (onSave: () => Promise<void>, onExpired = vi.fn()) => {
     const ui = userEvent.setup()
-    renderWithToaster(<SportCard sport="tenis" label="Tênis" symbol="" description="Quadras" cities={cities} onSave={onSave} onExpired={onExpired} />)
+    vi.mocked(request).mockImplementation(async path => {
+      if (path === '/cities?q=bras') return cities as never
+      throw new Error(`rota inesperada ${path}`)
+    })
+    renderWithToaster(<SportCard sport="tenis" label="Tênis" symbol="" description="Quadras" onSave={onSave} onExpired={onExpired} />)
     await ui.click(screen.getByRole('button', { name: /Adicionar tênis/ }))
-    await ui.selectOptions(screen.getByLabelText('Cidade'), '1')
+    await ui.type(screen.getByLabelText('Cidade'), 'bras')
+    await ui.click(await screen.findByRole('button', { name: 'Brasília · DF' }))
     await ui.click(screen.getByRole('button', { name: 'Salvar perfil' }))
     return onExpired
   }
@@ -126,7 +131,7 @@ describe('ArenaPage: perfis e cidades', () => {
     vi.mocked(request).mockImplementation(async path => {
       if (path === '/me/sports-profiles' && failing) throw new ApiError('Perfis indisponíveis.', 500)
       if (path === '/auth/logout') throw new ApiError('Não foi possível sair agora.', 500)
-      if (path === '/me/sports-profiles' || path === '/cities') return [] as never
+      if (path === '/me/sports-profiles') return [] as never
       return { items: [], next_cursor: null } as never
     })
     const ui = userEvent.setup()

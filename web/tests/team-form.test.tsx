@@ -12,7 +12,7 @@ vi.mock('react-easy-crop', () => ({
 }))
 
 const user: User = { id: 1, name: 'Ricardo Moura', username: 'ricardo', email: 'r@example.com', birth_date: '1990-01-01', social_public: true, is_admin: false, avatar: null, cover: null }
-const football: Profile = { id: 1, sport: 'futebol', city_id: brasilia.id, position: 'atacante', looking_for: true, is_public: false, level: null }
+const football: Profile = { id: 1, sport: 'futebol', city_id: brasilia.id, city: brasilia, position: 'atacante', looking_for: true, is_public: false, level: null }
 const original = { create: URL.createObjectURL, revoke: URL.revokeObjectURL }
 
 beforeEach(() => {
@@ -25,7 +25,7 @@ afterEach(() => { cleanup(); vi.unstubAllGlobals(); Object.assign(URL, { createO
 
 function renderForm(props: Partial<React.ComponentProps<typeof TeamFormPage>> = {}) {
   const handlers = { onDone: vi.fn(), onClosed: vi.fn(), onBack: vi.fn(), onExpired: vi.fn() }
-  const view = renderWithToaster(<TeamFormPage user={user} profiles={[football]} cities={[brasilia, goiania]} {...handlers} {...props} />)
+  const view = renderWithToaster(<TeamFormPage user={user} profiles={[football]} {...handlers} {...props} />)
   return { ...handlers, ...view }
 }
 async function pickCrest(container: HTMLElement, ui: ReturnType<typeof userEvent.setup>) {
@@ -41,7 +41,7 @@ async function pickCrest(container: HTMLElement, ui: ReturnType<typeof userEvent
 describe('Criar time (F2)', () => {
   it('cria o time com nome normalizado, cidade trocada pelo catálogo e brasão enviado depois', async () => {
     const created = team({ id: 40, name: 'Leões do Cerrado', initials: 'LC', city: goiania, member_count: 1, representative_count: 1 })
-    const api = mockApi({ 'POST /teams': { ...created }, 'PUT /teams/40/crest': { ...created, crest_url: '/api/v1/teams/40/crest?v=7' } })
+    const api = mockApi({ 'GET /cities?q=goi': [goiania], 'POST /teams': { ...created }, 'PUT /teams/40/crest': { ...created, crest_url: '/api/v1/teams/40/crest?v=7' } })
     const ui = userEvent.setup()
     const { container, onDone } = renderForm()
     expect(screen.getByRole('heading', { level: 1, name: 'Criar time' })).toBeTruthy()
@@ -62,9 +62,11 @@ describe('Criar time (F2)', () => {
 
     await ui.click(screen.getByRole('button', { name: 'Trocar cidade' }))
     const cities = screen.getByRole('dialog', { name: 'Cidade do time' })
+    // A cidade atual (do perfil de futebol) segue marcada no topo, mesmo fora dos resultados da busca.
+    expect(within(cities).getByRole('button', { name: 'Brasília · DF', pressed: true })).toBeTruthy()
     await ui.type(within(cities).getByLabelText('Buscar cidade'), 'goi')
-    expect(within(cities).queryByRole('button', { name: /Brasília/ })).toBeNull()
-    await ui.click(within(cities).getByRole('button', { name: 'Goiânia · GO' }))
+    await ui.click(await within(cities).findByRole('button', { name: 'Goiânia · GO', pressed: false }))
+    expect(api.find('GET', '/cities?q=goi')).toHaveLength(1)
     expect(screen.getByText('Goiânia · GO')).toBeTruthy()
 
     await pickCrest(container, ui)
@@ -97,16 +99,41 @@ describe('Criar time (F2)', () => {
   })
 
   it('exige cidade quando o perfil de futebol não tem uma e mostra o erro da API', async () => {
-    mockApi({ 'POST /teams': apiError(422, 'Selecione uma cidade do catálogo.') })
+    mockApi({ 'GET /cities?q=bras': [brasilia], 'POST /teams': apiError(422, 'Selecione uma cidade do catálogo.') })
     const ui = userEvent.setup()
     renderForm({ profiles: [] })
     await ui.type(screen.getByLabelText('Nome do time'), 'Unidos do Lago')
     expect(screen.getByText('Escolha a cidade do time')).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Criar time' }).hasAttribute('disabled')).toBe(true)
     await ui.click(screen.getByRole('button', { name: 'Escolher cidade' }))
-    await ui.click(within(screen.getByRole('dialog', { name: 'Cidade do time' })).getByRole('button', { name: 'Brasília · DF' }))
+    const sheet = screen.getByRole('dialog', { name: 'Cidade do time' })
+    await ui.type(within(sheet).getByLabelText('Buscar cidade'), 'bras')
+    await ui.click(await within(sheet).findByRole('button', { name: 'Brasília · DF' }))
     await ui.click(screen.getByRole('button', { name: 'Criar time' }))
     expect(await findToast('Selecione uma cidade do catálogo.')).toBeTruthy()
+  })
+})
+
+describe('Cidade do time no catálogo nacional', () => {
+  it('cria o time com um município fora das 100 primeiras pela busca e o reabre com o nome vindo de `team.city`', async () => {
+    const valparaiso = { id: 5221858, name: 'Valparaíso de Goiás', state: 'GO' }
+    const created = team({ id: 42, name: 'Unidos do Entorno', initials: 'UE', city: valparaiso, member_count: 1, representative_count: 1 })
+    const api = mockApi({ 'GET /cities?q=valpara%C3%ADso+de': [valparaiso], 'POST /teams': created, 'GET /teams/42': created })
+    const ui = userEvent.setup()
+    const { onDone } = renderForm()
+    await ui.type(screen.getByLabelText('Nome do time'), 'Unidos do Entorno')
+    await ui.click(screen.getByRole('button', { name: 'Trocar cidade' }))
+    const sheet = screen.getByRole('dialog', { name: 'Cidade do time' })
+    await ui.type(within(sheet).getByLabelText('Buscar cidade'), 'valparaíso de')
+    await ui.click(await within(sheet).findByRole('button', { name: 'Valparaíso de Goiás · GO' }))
+    await ui.click(screen.getByRole('button', { name: 'Criar time' }))
+    await waitFor(() => expect(onDone).toHaveBeenCalled())
+    expect(api.find('POST', '/teams')[0].body).toEqual({ name: 'Unidos do Entorno', city_id: 5221858 })
+
+    cleanup()
+    renderForm({ teamId: 42 })
+    expect(await screen.findByText('Valparaíso de Goiás · GO')).toBeTruthy()
+    expect(api.calls.filter(call => call.path.startsWith('/cities')).map(call => call.path)).toEqual(['/cities?q=valpara%C3%ADso+de'])
   })
 })
 

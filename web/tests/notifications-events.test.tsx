@@ -97,14 +97,13 @@ describe('tela Notificações com os tipos novos', () => {
 
 describe('ArenaPage: notificação e Jogar levam aos campeonatos do atleta', () => {
   const me: User = { id: 1, name: 'Ricardo Moura', username: 'ricardo.moura', email: 'r@example.com', birth_date: '1990-01-01', social_public: false, is_admin: false, avatar: null, cover: null }
-  const running: Profile = { id: 3, sport: 'corrida', city_id: brasilia.id, position: null, looking_for: false, is_public: false, level: null }
+  const running: Profile = { id: 3, sport: 'corrida', city_id: brasilia.id, city: brasilia, position: null, looking_for: false, is_public: false, level: null }
   const race = detail({ id: 3, name: 'Corrida do Lago', sport: 'corrida', distance_km: 10, competition_type: null, price_cents: 0, pix: null })
   const standings = { calc_version: 1, futebol: { teams: [], individual: [] }, tenis: { state: 'sem_jogos', tier: null, played: 0, required: 3, rank_position: null, metric_value: null, faces: [], faces_any_level: true }, corrida: [] }
 
   function api(notifications: ArenaNotification[]) {
     return mockApi({
       'GET /me/sports-profiles': [running],
-      'GET /cities': [brasilia],
       'GET /me/notifications/summary': summaryOf({ unread_count: notifications.length }),
       'GET /me/follow-requests': { items: [], next_cursor: null },
       'GET /me/notifications/pending?limit=50': { items: [] },

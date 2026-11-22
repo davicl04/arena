@@ -16,7 +16,7 @@ import { summaryOf } from './notifications-fixtures'
  */
 
 const me: User = { id: 1, name: 'Ricardo Moura', username: 'ricardo.moura', email: 'r@example.com', birth_date: '1990-01-01', social_public: false, is_admin: false, avatar: null, cover: null }
-const football: Profile = { id: 1, sport: 'futebol', city_id: brasilia.id, position: 'atacante', looking_for: false, is_public: false, level: null }
+const football: Profile = { id: 1, sport: 'futebol', city_id: brasilia.id, city: brasilia, position: 'atacante', looking_for: false, is_public: false, level: null }
 const approved: OrganizerStatus = { state: 'aprovado', request: null, organizer: { id: 3, display_name: 'Liga Sudoeste', approved_at: '2026-10-12T10:00:00Z' }, revocation: null }
 const page = <T,>(items: T[]) => ({ items, next_cursor: null })
 const pending = { receipts: 2, refunds_to_send: 0, refunds_awaiting: 0, refund_disputes: 0, total: 2 }
@@ -29,7 +29,6 @@ const copaDetail = eventDetail(copa)
 function api(extra: Record<string, unknown> = {}) {
   return mockApi({
     'GET /me/sports-profiles': [football],
-    'GET /cities': [brasilia],
     'GET /me/notifications/summary': summaryOf({ unread_count: 0 }),
     'GET /me/follow-requests': page([]),
     'GET /me/organizer-request': approved,
@@ -181,7 +180,7 @@ describe('ligações da etapa 2: administração', () => {
 })
 
 describe('ligações da etapa 2: atleta', () => {
-  const tennis: Profile = { id: 2, sport: 'tenis', city_id: brasilia.id, position: null, looking_for: false, is_public: false, level: null }
+  const tennis: Profile = { id: 2, sport: 'tenis', city_id: brasilia.id, city: brasilia, position: null, looking_for: false, is_public: false, level: null }
   const standings = {
     calc_version: 1, futebol: { teams: [], individual: [] }, corrida: [],
     tenis: { state: 'sem_jogos', tier: null, played: 0, required: 3, rank_position: null, metric_value: null, faces: [], faces_any_level: true },

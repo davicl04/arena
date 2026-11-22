@@ -39,7 +39,7 @@ afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.useRealTimers() })
 /** A placa como o ArenaPage a monta: `usePlayBoard` + `PlayPage`. */
 function Harness({ go, onExpired, profiles, openMatch }: { go: (screen: string, context?: unknown) => void; onExpired: () => void; profiles: Profile[]; openMatch?: number }) {
   const board = usePlayBoard(onExpired, true)
-  return <PlayPage profiles={profiles} cities={[brasilia]} loading={false} board={board} openMatch={openMatch}
+  return <PlayPage profiles={profiles} loading={false} board={board} openMatch={openMatch}
     go={go as never} onExpired={onExpired} />
 }
 
