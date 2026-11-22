@@ -1,5 +1,36 @@
 # Situação da fundação do Arena
 
+## Expo: cidade pela localização no passo da cidade — 22 de novembro de 2026
+
+- O Expo passa a usar `expo-location` (~57.0.23, instalado com `npx expo install`), a única dependência nova autorizada pela spec. O `app.json` configura só a localização aproximada em primeiro plano:
+  - iOS: `NSLocationWhenInUseUsageDescription` em português, mais `NSLocationDefaultAccuracyReduced`; sem as chaves `Always`/`Motion` e sem modo de segundo plano.
+  - Android: só `ACCESS_COARSE_LOCATION`; `ACCESS_FINE_LOCATION` e `ACCESS_BACKGROUND_LOCATION` em `blockedPermissions` (`tools:node="remove"`), sem serviço em primeiro plano. O plugin, aplicado automaticamente, acrescentava FINE e textos em inglês por padrão.
+- No passo da cidade da folha de modalidades (`LocationCityStep`, sobre o `CityStep` do ticket 07, pelo slot `before` e por `chosenLabel`):
+  - "Usar minha localização" com divisor "ou" e a busca. A permissão só é pedida no toque; ao abrir a folha apenas o estado atual é lido.
+  - "Buscando sua localização…" em região viva.
+  - Sugestão com pino, "Pela sua localização", nome da cidade em destaque, UF em selo e "Não, escolher outra cidade", que leva à busca mantendo a sugestão disponível.
+  - Avisos de permissão negada (sem o botão), falha (tempo esgotado em 10 s, posição indisponível, localização desligada, erro de conexão) e 404 fora da cobertura, sempre com a busca e sem travar o fluxo.
+  - Com a permissão já concedida, perfil novo recebe a sugestão ao abrir, sem trocar uma cidade escolhida antes da resposta. Perfil existente mantém a cidade salva e só usa a localização por "Trocar" e "Usar minha localização".
+  - O cartão escolhido pela sugestão usa o rótulo "Pela sua localização".
+- Precisão baixa: última posição conhecida de até 5 min, ou `getCurrentPositionAsync` com `Accuracy.Low`. `nearestCity` arredonda para 2 casas e envia só no corpo de `POST /cities/nearest`, com Bearer. As coordenadas não vão na URL, não ficam gravadas no aparelho nem aparecem em logs. A falha de rede dessa leitura mostra o aviso do passo, sem abrir a folha "Sem conexão".
+- Os testes simulam `expo-location` por alias (`tests/support/location.ts`, com reset em `setup.ts`).
+
+**Verificações** (em `mobile/`, no worktree do ticket):
+- `npm ci`, `npm run lint` (sem problemas) e `npm run typecheck`: aprovados.
+- `npm run test:coverage`: 107 arquivos e 1.620 testes aprovados (novos: `tests/city-location.test.ts` e `tests/api-cities-nearest.test.ts`). Cobertura total: 96,47% instruções, 90,94% ramos, 95,84% funções, 98,44% linhas; `src/api/cities.ts` com 100%.
+- `CI=1 npm run export:android`: aprovado (1.789 módulos).
+- `npx expo install --check`: aponta só `expo@57.0.27` (esperado ~57.0.33) e `expo-image-picker@57.0.20` (esperado ~57.0.21), desvio que já existia antes desta entrega (reproduzido no código anterior); `expo-location` está na versão esperada.
+- `npx expo config --type introspect`: permissões Android `CAMERA`, `RECORD_AUDIO` e `ACCESS_COARSE_LOCATION`, com FINE e BACKGROUND removidas no manifest; Info.plist só com When-In-Use em português.
+- Na consolidação, a árvore `mobile/` da branch ficou idêntica à validada.
+
+**Limitações:**
+- O diálogo nativo de permissão, o GPS real e o comportamento no Android com FINE bloqueada não foram verificados (sem aparelho ou emulador). Build não comprova funcionamento em Android/iOS.
+- Sem revisão visual do Expo (não há renderizador web); não declaramos paridade visual. O Expo segue sem Sora: o nome da cidade usa a fonte do sistema.
+- Depois de uma falha ou de um 404, não há botão para tentar a localização de novo na mesma folha.
+- Sem as chaves `NSLocationAlways*`, um envio à App Store pode gerar aviso de "purpose string".
+
+**Pendências:** verificação em aparelho (permissão aproximada, diálogo e GPS); localização na web (ticket 05); documentação final e `GET /cities` sem `q` devolvendo vazio (ticket 09); atualizar `expo` e `expo-image-picker` para as versões esperadas pelo SDK, fora do escopo desta entrega.
+
 ## Web: nova tela de modalidades — 22 de novembro de 2026
 
 A tela "Suas modalidades" da web troca os três `SportCard` por faixas e uma folha passo a passo, conforme o protótipo aprovado no grilling de 22/11/2026 (F1–F17, sem a localização). O cabeçalho mostra "n de 3 ativas" e "Onde você joga?"; cada modalidade é uma faixa de 132 px (cantos de 20 px) com o símbolo grande e translúcido pela máscara alfa (`SportIcon mask`): inativa na superfície do tema com "Toque para ativar" e a frase da modalidade; ativa com o degradê `forest → #005a36` (igual nos dois temas), o selo menta "● Ativa" e o resumo "Cidade · UF · Posição · Procurando/Sem procura". A faixa inteira é um botão ("Futebol, ativa, editar" / "Tênis, ativar"); a tela não mostra nível, elo nem pontos; o aviso de privacidade continua no fim. A folha (o `Sheet` existente, que ganhou `icon` e `aside`) tem símbolo, nome, "n de m" e barra segmentada; futebol = Cidade → Posição → Revisão, tênis e corrida = Cidade → Revisão, com o foco no título ("Passo n de m" para leitores de tela) a cada passo. A cidade vem do `CitySearch` e aparece num cartão com "Escolhida por você" e "Trocar"; a posição é um `radiogroup` com descrição e setas ("Ainda não sei" grava `null`); a revisão tem "Alterar", a chave "Procurando oportunidades" ("Aparece no seu perfil esportivo.", desligada em perfil novo) e "Ativar <modalidade>"/"Salvar". Concluir usa o `PUT /me/sports-profiles/{sport}` existente; no sucesso, a folha fecha, a faixa fica ativa e o `toast.success` traz "<Modalidade> ativado." ou "Perfil salvo." com o resumo. O 422 fica na folha; os demais erros seguem `reportActionError`; fechar não salva. Componentes em `web/src/components/sports-profile/`; o `SportCard` foi removido. Sem mudança de contrato.
