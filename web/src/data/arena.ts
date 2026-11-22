@@ -177,6 +177,13 @@ export const positionShort: Record<Position, string> = {
   meio_campo: "MEI",
   atacante: "ATA",
 };
+/** Frase de cada posição no grupo de rádio da tela de modalidades. */
+export const positionDescription: Record<Position, string> = {
+  goleiro: "Defende a meta",
+  defesa: "Segura a linha de trás",
+  meio_campo: "Arma as jogadas",
+  atacante: "Busca o gol",
+};
 /** Posições com rótulo e sigla, na ordem de `positions`. */
 export const positionOptions = positions.map((position) => ({
   ...position,

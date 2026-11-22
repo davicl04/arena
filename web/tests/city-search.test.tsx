@@ -2,14 +2,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { City, Profile, User } from '../src/api/client'
-import SportCard from '../src/components/SportCard'
 import { CitySheet } from '../src/components/teams/CitySheet'
 import ArenaPage from '../src/pages/ArenaPage'
 import { playBoard, standings } from './matchmaking-fixtures'
 import { summaryOf } from './notifications-fixtures'
 import { apiError, goiania, mockApi } from './teams-fixtures'
 import type { Call } from './teams-fixtures'
-import { findToast, renderWithToaster } from './toast-utils'
+import { findToast } from './toast-utils'
 
 /*
  * Catálogo nacional na web (ticket 03): quem escolhe cidade busca no servidor (`GET /cities?q=`, 2+ caracteres, atraso de
@@ -107,31 +106,6 @@ describe('busca de cidade no servidor', () => {
   })
 })
 
-describe('formulário da modalidade (SportCard) com a busca', () => {
-  it('salva um município fora das 100 primeiras pela busca e nomeia a cidade pelo `city` do perfil', async () => {
-    const api = mockApi({ 'GET /cities?q=valpa': [{ id: 3556305, name: 'Valparaíso', state: 'SP' }, valparaiso] })
-    const onSave = vi.fn().mockResolvedValue(undefined)
-    const ui = userEvent.setup()
-    const view = renderWithToaster(<SportCard sport="tenis" label="Tênis" symbol="" description="Quadras" onSave={onSave} onExpired={vi.fn()} />)
-    await ui.click(screen.getByRole('button', { name: /Adicionar tênis/ }))
-    // Sem cidade, o envio não chega ao servidor.
-    await ui.click(screen.getByRole('button', { name: 'Salvar perfil' }))
-    expect(screen.getByRole('alert').textContent).toBe('Escolha a cidade na busca.')
-    expect(onSave).not.toHaveBeenCalled()
-    await ui.type(screen.getByLabelText('Cidade'), 'valpa')
-    await ui.click(await screen.findByRole('button', { name: 'Valparaíso de Goiás · GO' }))
-    expect(screen.queryByRole('alert')).toBeNull()
-    await ui.click(screen.getByRole('button', { name: 'Salvar perfil' }))
-    await waitFor(() => expect(onSave).toHaveBeenCalledWith('tenis', { city_id: 5221858, position: null, looking_for: false }))
-    expect(await findToast('Perfil salvo.')).toBeTruthy()
-
-    const saved: Profile = { id: 9, sport: 'tenis', city_id: valparaiso.id, city: valparaiso, position: null, looking_for: false, is_public: false, level: null }
-    view.rerender(<><SportCard sport="tenis" label="Tênis" symbol="" description="Quadras" profile={saved} onSave={onSave} onExpired={vi.fn()} /></>)
-    expect(screen.getByText('Valparaíso de Goiás · GO')).toBeTruthy()
-    expect(api.calls.map(call => call.path)).toEqual(['/cities?q=valpa'])
-  })
-})
-
 describe('ArenaPage sem a lista global de cidades', () => {
   it('nomeia a cidade do perfil pelo `city` no Jogar e nas modalidades, e salva pela busca, sem GET /cities sem q', async () => {
     const football: Profile = { id: 1, sport: 'futebol', city_id: valparaiso.id, city: valparaiso, position: 'atacante', looking_for: false, is_public: false, level: null }
@@ -150,16 +124,18 @@ describe('ArenaPage sem a lista global de cidades', () => {
     await ui.click(within(await screen.findByRole('navigation', { name: 'Navegação principal' })).getByRole('button', { name: 'JOGAR' }))
     await ui.click(await screen.findByRole('button', { name: 'Cidade do perfil de Futebol: Valparaíso de Goiás. Alterar em Suas modalidades' }))
     expect(await screen.findByRole('heading', { level: 1, name: 'Suas modalidades' })).toBeTruthy()
-    expect(screen.getByText('Valparaíso de Goiás · GO')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Futebol, ativa, editar' }).textContent).toContain('Valparaíso de Goiás · GO')
 
-    await ui.click(screen.getByRole('button', { name: /Adicionar tênis/ }))
-    await ui.type(screen.getByLabelText('Cidade'), 'goi')
-    await ui.click(await screen.findByRole('button', { name: 'Goiânia · GO' }))
-    await ui.click(screen.getByLabelText('Estou procurando oportunidades'))
-    await ui.click(screen.getByRole('button', { name: 'Salvar perfil' }))
-    expect(await findToast('Perfil salvo.')).toBeTruthy()
+    await ui.click(screen.getByRole('button', { name: 'Tênis, ativar' }))
+    const sheet = screen.getByRole('dialog', { name: 'Tênis' })
+    await ui.type(within(sheet).getByLabelText('Buscar cidade'), 'goi')
+    await ui.click(await within(sheet).findByRole('button', { name: 'Goiânia · GO' }))
+    await ui.click(within(sheet).getByRole('button', { name: 'Continuar' }))
+    await ui.click(within(sheet).getByRole('switch', { name: 'Procurando oportunidades' }))
+    await ui.click(within(sheet).getByRole('button', { name: 'Ativar tênis' }))
+    expect(await findToast('Tênis ativado.')).toBeTruthy()
     expect(api.find('PUT', '/me/sports-profiles/tenis')[0].body).toEqual({ city_id: goiania.id, position: null, looking_for: true })
-    expect(await screen.findByText('Goiânia · GO')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Tênis, ativa, editar' }).textContent).toContain('Goiânia · GO')
     expect(globalList(api.calls)).toEqual([])
   })
 })

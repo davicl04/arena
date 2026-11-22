@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowLeft, Shield } from "lucide-react";
-import { ApiError, request, sports } from "../api/client";
+import { ArrowLeft } from "lucide-react";
+import { ApiError, request } from "../api/client";
 import type { Profile, ProfileInput, Sport, User } from "../api/client";
-import SportCard from "../components/SportCard";
+import { SportsProfiles } from "../components/sports-profile/SportsProfiles";
 import BottomNav from "../components/BottomNav";
 import { IconButton } from "@/components/ui/button";
 import { LoadError } from "@/components/ui/load-error";
@@ -326,7 +326,7 @@ export default function ArenaPage({
     });
   }
 
-  // A falha ao salvar sobe ao SportCard, que a classifica (reportActionError) e a mostra como toast ou junto ao formulário.
+  // A falha ao salvar sobe à folha da modalidade, que mostra o 422 junto à revisão e o resto por reportActionError.
   async function save(sport: Sport, input: ProfileInput) {
     const profile = await request<Profile>(
       `/me/sports-profiles/${sport}`,
@@ -334,6 +334,7 @@ export default function ArenaPage({
       input,
     );
     setProfiles((old) => [...old.filter((p) => p.sport !== sport), profile]);
+    return profile;
   }
   async function logout() {
     setBusy(true);
@@ -452,31 +453,7 @@ export default function ArenaPage({
             />
           )}
           {screen === "sports" && (
-            <>
-              {loading ? (
-                <p role="status">Carregando modalidades…</p>
-              ) : (
-                <div className="grid gap-3">
-                  {sports.map((s) => (
-                    <SportCard
-                      key={s.value}
-                      {...s}
-                      sport={s.value}
-                      profile={profiles.find((p) => p.sport === s.value)}
-                      onSave={save}
-                      onExpired={onExpired}
-                    />
-                  ))}
-                </div>
-              )}
-              <aside className="my-[18px] flex items-start gap-2.5 rounded-control bg-[#005a360c] p-3.5 text-brand">
-                <Shield size={20} />
-                <p className="text-[11px] leading-[1.7] text-ink-muted">
-                  Seus perfis começam privados. Você cuida dos dados da sua
-                  trajetória.
-                </p>
-              </aside>
-            </>
+            <SportsProfiles profiles={profiles} loading={loading} onSave={save} onExpired={onExpired} />
           )}
           {screen === "ranking" && !loadFailure && (
             <RankingPage

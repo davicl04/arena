@@ -9,13 +9,15 @@ type IconProps = { size?: number };
  * pintada de branco, ou de `--sport-icon-color` (o chip ativo usa o texto sobre a marca). O estilo em linha anula as
  * inversões que telas escuras aplicam ao PNG do claro (`filter`, `mix-blend-mode`).
  * `data-slot="sport-icon"` permite ao chip ajustar tamanho mínimo e inversão quando ativo.
+ * `mask` usa a máscara nos dois temas: o símbolo grande e translúcido da faixa de modalidade, pintado pela cor do bloco.
  */
 export default function SportIcon({
   sport,
   size = 24,
-}: IconProps & { sport: Sport }) {
+  mask: alwaysMask = false,
+}: IconProps & { sport: Sport; mask?: boolean }) {
   const { resolved } = useTheme();
-  if (resolved === "dark") {
+  if (alwaysMask || resolved === "dark") {
     const mask = `url(/images/sports/${sport}-alfa.png) center / 138% no-repeat`;
     return (
       <span

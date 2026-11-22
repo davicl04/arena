@@ -2,9 +2,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ApiError, request } from '../src/api/client'
-import type { SocialUser, User } from '../src/api/client'
+import type { Profile, SocialUser, User } from '../src/api/client'
 import AccountActions from '../src/components/AccountActions'
-import SportCard from '../src/components/SportCard'
+import { SportProfileSheet } from '../src/components/sports-profile/SportProfileSheet'
 import ArenaPage from '../src/pages/ArenaPage'
 import BlockedAccountsPage from '../src/pages/BlockedAccountsPage'
 import EditProfilePage from '../src/pages/EditProfilePage'
@@ -29,41 +29,19 @@ beforeEach(() => {
 })
 afterEach(cleanup)
 
-describe('SportCard', () => {
-  const open = async (onSave: () => Promise<void>, onExpired = vi.fn()) => {
+describe('SportProfileSheet', () => {
+  it('no 401 chama onExpired, sem toast nem mensagem na folha', async () => {
     const ui = userEvent.setup()
-    vi.mocked(request).mockImplementation(async path => {
-      if (path === '/cities?q=bras') return cities as never
-      throw new Error(`rota inesperada ${path}`)
-    })
-    renderWithToaster(<SportCard sport="tenis" label="Tênis" symbol="" description="Quadras" onSave={onSave} onExpired={onExpired} />)
-    await ui.click(screen.getByRole('button', { name: /Adicionar tênis/ }))
-    await ui.type(screen.getByLabelText('Cidade'), 'bras')
-    await ui.click(await screen.findByRole('button', { name: 'Brasília · DF' }))
-    await ui.click(screen.getByRole('button', { name: 'Salvar perfil' }))
-    return onExpired
-  }
-
-  it('confirma o salvamento com um toast de sucesso, sem bloco na tela', async () => {
-    await open(vi.fn().mockResolvedValue(undefined))
-    expect(await tone('Perfil salvo.')).toBe('success')
-    expect(screen.queryByRole('status')).toBeNull()
-  })
-
-  it('mostra a falha comum como toast de erro e mantém o formulário aberto', async () => {
-    await open(vi.fn().mockRejectedValue(new ApiError('Cidade indisponível agora.', 500)))
-    expect(await tone('Cidade indisponível agora.')).toBe('error')
-    expect(screen.getByRole('button', { name: 'Salvar perfil' })).not.toBeNull()
-  })
-
-  it('deixa a recusa de campos junto ao formulário e chama onExpired no 401', async () => {
-    await open(vi.fn().mockRejectedValue(new ApiError('Revise a cidade.', 422, [{ field: 'city_id', message: 'Cidade inválida' }])))
-    const form = await screen.findByText('Revise a cidade.')
-    expect(form.getAttribute('role')).toBe('alert')
-    expect(form.closest('[data-tone]')).toBeNull()
-    cleanup()
-    const onExpired = await open(vi.fn().mockRejectedValue(new ApiError('Sessão expirada.', 401)))
+    const onExpired = vi.fn()
+    const onSave = vi.fn().mockRejectedValue(new ApiError('Sessão expirada.', 401))
+    const profile: Profile = { id: 3, sport: 'tenis', city_id: cities[0].id, city: cities[0], position: null, looking_for: false, is_public: false, level: null }
+    renderWithToaster(<SportProfileSheet sport="tenis" profile={profile} onSave={onSave} onSaved={vi.fn()} onClose={vi.fn()} onExpired={onExpired} />)
+    await ui.click(screen.getByRole('button', { name: 'Continuar' }))
+    await ui.click(screen.getByRole('button', { name: 'Salvar' }))
     await waitFor(() => expect(onExpired).toHaveBeenCalled())
+    expect(onSave).toHaveBeenCalledWith('tenis', { city_id: 1, position: null, looking_for: false })
+    expect(screen.queryByRole('alert')).toBeNull()
+    expect(screen.getByRole('dialog', { name: 'Tênis' })).not.toBeNull()
   })
 })
 
