@@ -1,5 +1,15 @@
 # Situação da fundação do Arena
 
+## Expo sem lista global de cidades — 22 de novembro de 2026
+
+O Expo deixou de carregar a lista de cidades (`GET /cities` sem `q`). `useCities`, `loadCities` e `loadPlaces` foram removidos, e o `ProfileScreen` não lê mais o catálogo. Jogar, Eventos, Times, Assistente de evento, Pedido de organizador e o perfil esportivo nomeiam a cidade pelo objeto `city` das respostas (`ProfileOut.city`, time, evento, pedido); o campo de cidade usa `GET /cities?ids=` quando só tem o ID. Ranking não exibe cidade. A cidade do time, do evento, do pedido de organizador e do perfil esportivo é escolhida pela busca no servidor (`components/arena/CitySearch.tsx`, reutilizável pelo passo da cidade da nova tela de modalidades): mínimo de 2 caracteres, atraso de digitação de 250 ms, até 20 resultados "Nome · UF", "Nenhuma cidade encontrada.", erro com "Tentar novamente", cidade escolhida marcada mesmo fora dos resultados e respostas antigas descartadas. O Expo não tem seletor de cidade em filtros; o filtro de Campeonatos e provas usa a cidade do perfil, agora correta para qualquer município. Bearer e SecureStore preservados; sem nova dependência.
+
+**Verificações** (em `mobile/`, após `npm ci`, no worktree do ticket): `npm run lint` sem erros nem avisos; `npm run typecheck` sem erros; `npm run test:coverage` com 104 arquivos e 1.599 testes aprovados, 96,35% de instruções, 90,86% de ramos, 95,41% de funções e 98,32% de linhas, com `src/api/cities.ts` em 100%; `npm run export:android` concluído (bundle Hermes de 5,1 MB). Os testes provam a busca com `q`, os estados vazio e de erro, o nome vindo de `city`/`ids=` e a escolha, o salvamento e a exibição de Valparaíso de Goiás (5221858), fora dos 100 primeiros, em time, pedido de organizador, rascunho de evento e perfil esportivo. Na consolidação, a árvore `mobile/` da branch ficou idêntica à validada.
+
+**Limitações:** sem validação em aparelho ou emulador; o build não comprova funcionamento em Android/iOS; sem conferência visual nos temas claro e escuro e sem declaração de paridade visual. A busca que falha por perda de conexão não repete sozinha; a pessoa toca em "Tentar novamente".
+
+**Pendências:** nova tela de modalidades no Expo (07), cidade pela localização (08) e a mudança de `GET /cities` sem `q` para lista vazia (09).
+
 ## Cidade mais próxima pela localização (backend) — 22 de novembro de 2026
 
 Segunda entrega do [plano de modalidades](plano-modalidades.md), só no backend. A nova rota `POST /cities/nearest` exige sessão (cookie com a verificação de Origin existente na web; Bearer no Expo), recebe `{ "latitude", "longitude" }` no corpo JSON e devolve o `CityOut` do município cuja sede é a mais próxima, calculado com o catálogo local de 5.571 municípios, sem serviço externo.
