@@ -1,5 +1,22 @@
 # Situação da fundação do Arena
 
+## Destaque das pendências no Início do Expo — 22 de novembro de 2026
+
+Segunda entrega do [plano do Início](plano-inicio.md) no Expo (ticket 06).
+
+- No Início do Expo, a placa escura "Para responder" deu lugar ao **Destaque**, logo abaixo do botão principal (`mobile/src/components/home/Destaque.tsx`). Ele aparece só quando o resumo indica `pending_count > 0` e a lista trouxe ao menos um item, e some sem pendências, sem resumo ou quando a leitura falha.
+- Cabeçalho "Para responder" com o total num selo âmbar. Cartão claro (`surface`) com a primeira pendência da lista do servidor: o *lead* das notificações, "Mais urgente" (prazo no fim, critério `warn`) ou "Aguardando você", o rótulo e a linha secundária, o prazo ("sem prazo" ou "faltam {tempo}", âmbar com `warn`) e o botão visual "Responder". Com `warn`, o cartão ganha uma borda âmbar à esquerda.
+- O cartão inteiro é uma única ação com rótulo de acessibilidade: marca como lido e abre o destino do aviso ou, sem destino, as notificações no filtro *Para responder* (nova opção `onNoTarget` de `openNotification`; os demais usos não mudam). A sessão expirada segue o fluxo existente. Não há aceitar nem recusar no Início.
+- Com `pending_count > 1`, o link "+ {n−1} pendência(s) · ver todas" abre o filtro *Para responder*.
+- A lista de pendências do Início passou a pedir 1 item (`GET /me/notifications/pending?limit=1`). Textos em funções puras de `mobile/src/data/home.ts`: `urgencyLabel` e `morePendingLabel`.
+- `PendingPlate` deixou de ser usado no Início e continua no código até o ticket 08. Os testes de `pending-plate.test.ts`, que renderizavam o Início, foram substituídos por `home-destaque.test.ts`.
+
+**Verificações** (em `mobile/`, no commit do ticket; a árvore de `mobile/` consolidada é idêntica): `npm run lint` e `npm run typecheck` sem erros; `npm run test:coverage` com 108 arquivos e 1638 testes aprovados (96,37% statements, 90,8% branches, 95,74% funções, 98,3% linhas); `npm run export:android` aprovado.
+
+**Limitações:** sem validação em aparelho Android ou iOS; não se declara paridade visual do Expo. A borda de urgência e os tons âmbar nos dois temas não foram conferidos em aparelho. O título do cartão usa o rótulo curto da pendência, em caixa alta, como a placa anterior.
+
+**Pendências:** Destaque da web (ticket 02); Pílulas (07); Campeonatos, remoção dos atalhos e de `PendingPlate`, se ficar sem uso (08); documentação e verificação final (09).
+
 ## Início da web: saudação, Placar e botão principal — 22 de novembro de 2026
 
 Primeira entrega do [plano do Início](plano-inicio.md) na web (ticket 01), com as mesmas regras e textos do Expo (ticket 05).
