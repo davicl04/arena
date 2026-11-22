@@ -35,7 +35,6 @@ let rename: () => unknown = () => ({ ...me, name: 'Novo Nome' })
 function serve() {
   vi.mocked(request).mockImplementation((async (path: string, method?: string) => {
     if (path === '/me/sports-profiles') { if (profileFailure) throw profileFailure; return [] }
-    if (path === '/cities') return []
     if (path === '/users/1') return { id: 1, follower_count: 0, following_count: 0 }
     if (path === '/me' && method === 'PATCH') return rename()
     return emptyPage

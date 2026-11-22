@@ -16,7 +16,8 @@ export interface City { id: number; name: string; state: string }
 /** Pessoa resumida dos contratos de times, organizador e notificações; `avatar_url` é null se houver bloqueio. */
 export interface Person { id: number; name: string; username: string; avatar_url: string | null }
 export interface ProfileInput { city_id: number; position: Position | null; looking_for: boolean }
-export interface Profile extends ProfileInput { id: number; sport: Sport; is_public: boolean; level: string | null }
+/** Perfil esportivo (`ProfileOut`): `city` nomeia a cidade sem depender de uma lista do catálogo. */
+export interface Profile extends ProfileInput { id: number; sport: Sport; is_public: boolean; level: string | null; city: City }
 /** Campo recusado num `422` (`{ detail, fields: [{ field, message }] }`). */
 export interface FieldError { field: string; message: string }
 export class ApiError extends Error {

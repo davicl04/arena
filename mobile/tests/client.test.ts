@@ -67,7 +67,7 @@ describe('sessão e transporte mobile', () => {
   it('faz chamada sem autenticação quando não há token', async () => {
     const fetch = vi.fn().mockResolvedValue(new Response('[]'))
     vi.stubGlobal('fetch', fetch)
-    await request('/cities')
+    await request('/cities?q=bra')
     expect(fetch.mock.calls[0][1]).toMatchObject({ method: 'GET', headers: {}, body: undefined })
   })
 

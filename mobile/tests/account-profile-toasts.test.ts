@@ -10,6 +10,7 @@ import SportCard from '../src/components/SportCard'
 import UsernameForm from '../src/components/UsernameForm'
 import { button, click, enableAct, press, textOf, type } from './support/native'
 import { toasts } from './support/toast'
+import { searchCity, searchPath } from './support/cities'
 
 vi.mock('react-native', async () => {
   const native = await import('./support/native')
@@ -28,7 +29,7 @@ vi.mock('../src/api/client', async original => ({
  * e só o que pertence ao campo (cidade faltando, 422 do formulário, @ em uso) fica dentro do componente.
  */
 
-const cities: City[] = [{ id: 7, name: 'Natal', state: 'RN' }]
+const natal: City = { id: 7, name: 'Natal', state: 'RN' }
 const person = { id: 5, name: 'Ana Lima', username: 'ana.lima', avatar_url: null, cover_url: null, social_public: true, post_count: 0, follower_count: 0, following_count: 0, follows_you: false, follow_state: 'none' as const }
 const trees: ReactTestRenderer[] = []
 async function mount(element: React.ReactElement) {
@@ -44,17 +45,20 @@ beforeEach(() => { enableAct(); vi.mocked(request).mockReset() })
 afterEach(async () => { vi.useRealTimers(); vi.restoreAllMocks(); for (const tree of trees.splice(0)) await act(async () => { tree.unmount() }) })
 
 describe('SportCard', () => {
-  const card = (onSave: () => Promise<void>, onExpired = vi.fn()) => mount(React.createElement(SportCard, { sport: 'tenis', label: 'Tênis', cities, onSave, onExpired }))
+  const card = (onSave: () => Promise<void>, onExpired = vi.fn()) => mount(React.createElement(SportCard, { sport: 'tenis', label: 'Tênis', onSave, onExpired }))
   async function openAndPickCity(tree: ReactTestRenderer) {
     await click(tree, 'Adicionar tênis')
-    const radio = tree.root.findAllByType('Pressable' as never).find(entry => entry.props.accessibilityRole === 'radio')!
-    await act(async () => { radio.props.onPress() })
+    vi.mocked(request).mockImplementation(async path => (path === searchPath('nat') ? [natal] : []) as never)
+    await searchCity(tree, 'nat')
+    await press(tree, 'Natal, RN')
   }
 
   it('salvar com sucesso avisa em toast e fecha a edição', async () => {
-    const tree = await card(vi.fn().mockResolvedValue(undefined))
+    const onSave = vi.fn().mockResolvedValue(undefined)
+    const tree = await card(onSave)
     await openAndPickCity(tree)
     await click(tree, 'Salvar perfil')
+    expect(onSave).toHaveBeenCalledWith('tenis', { city_id: 7, position: null, looking_for: false })
     expect(summary()).toEqual([['success', 'Perfil salvo.']])
     expect(textOf(tree)).not.toContain('Perfil salvo.')
     expect(textOf(tree)).not.toContain('Salvar perfil')

@@ -154,7 +154,7 @@ describe('pilha de telas e voltar', () => {
   it('empilha várias telas e volta uma a uma, com o título do contexto (Provas)', async () => {
     const tree = await mount()
     // Campeonatos e provas leem o perfil e as cidades (listas simples) antes dos cartazes.
-    vi.mocked(request).mockImplementation(async path => (path === '/me/sports-profiles' || path === '/cities' ? [] : { items: [], next_cursor: null }) as never)
+    vi.mocked(request).mockImplementation(async path => (path === '/me/sports-profiles' ? [] : { items: [], next_cursor: null }) as never)
     await press(tree, 'Provas de corrida')
     expect(textOf(tree)).toContain('Provas')
     await press(tree, 'Voltar')

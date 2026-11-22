@@ -1,22 +1,20 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import type { ReactNode } from 'react'
 import { Pressable, Text, TextInput, View } from 'react-native'
 import type { TextInputProps } from 'react-native'
 import { sports } from '../../api/client'
-import type { City, Sport } from '../../api/client'
+import type { Sport } from '../../api/client'
 import { colors } from '../../theme'
 import type { ThemeColors } from '../../theme'
 import { useResolvedTheme, useThemeColors } from '../../hooks/useTheme'
 import { announce } from '../../utils/announce'
-import { fold } from '../../utils/format'
-import Sheet from '../Sheet'
 import { Icon } from '../Icon'
 import { SportIcon } from './SportIcon'
 import type { IconName } from '../Icon'
 
 /*
  * Peças compartilhadas pelas telas de times, organizador e eventos: botões, avisos, confirmação, campo com rótulo,
- * escolhas em pílulas e a escolha da cidade. Cada uma tem a variante `light` (telas claras) e `dark` (placa e telas
+ * escolhas em pílulas (a escolha da cidade fica em `CitySearch`). Cada uma tem a variante `light` (telas claras) e `dark` (placa e telas
  * `forest`), com áreas de toque de 44 pt ou mais, rótulos e papéis de acessibilidade.
  */
 export type Surface = 'light' | 'dark'
@@ -161,7 +159,8 @@ export function ConfirmBox({ title, children, confirmLabel, cancelLabel = 'Cance
 
 /* ===== Campos ===== */
 
-const fieldLook = (c: ThemeColors) => ({
+/** Cores dos campos por superfície (também usadas pelo campo da cidade em `CitySearch`). */
+export const fieldLook = (c: ThemeColors) => ({
   light: { label: c.ink, input: c.ink, bg: c.field, border: c['line-strong'], hint: c['ink-muted'], error: c.error, placeholder: c.placeholder },
   dark: { label: 'rgba(255,255,255,0.62)', input: '#ffffff', bg: 'rgba(255,255,255,0.05)', border: 'rgba(255,255,255,0.18)', hint: 'rgba(255,255,255,0.62)', error: colors['danger-soft'], placeholder: 'rgba(255,255,255,0.4)' },
 }) as const
@@ -343,61 +342,6 @@ export function SwitchRow({ label, hint, checked, disabled = false, onChange, ac
       <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: checked ? look.knobOn : look.knob }} />
     </View>
   </Pressable>
-}
-
-/* ===== Cidade do catálogo ===== */
-
-/** Folha de escolha da cidade no catálogo, com busca por nome ou UF. */
-export function CitySheet({ cities, selectedId, title, description, onSelect, onClose }: { cities: City[]; selectedId: number | null; title: string; description?: string; onSelect: (city: City) => void; onClose: () => void }) {
-  const c = useThemeColors()
-  const [query, setQuery] = useState('')
-  const term = fold(query.trim())
-  const shown = term ? cities.filter(city => fold(`${city.name} ${city.state}`).includes(term)) : cities
-  return <Sheet title={title} onClose={onClose}>
-    {description ? <Text style={{ color: c['ink-muted'], fontSize: 12, lineHeight: 18 }}>{description}</Text> : null}
-    <FormField label="Buscar cidade" value={query} onChangeText={setQuery} placeholder="Nome da cidade ou UF" autoCapitalize="none" autoCorrect={false} returnKeyType="search" />
-    <View accessibilityLabel="Cidades do catálogo" style={{ marginTop: 8 }}>
-      {shown.map(city => {
-        const active = city.id === selectedId
-        return <Pressable key={city.id} accessibilityRole="button" accessibilityLabel={`${city.name}, ${city.state}`} accessibilityState={{ selected: active }} onPress={() => onSelect(city)}
-          style={{ minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 8, borderBottomWidth: 1, borderBottomColor: c['brand-soft'] }}>
-          <Text numberOfLines={1} style={{ flex: 1, color: active ? c.brand : c.ink, fontSize: 14, fontWeight: active ? '700' : '500' }}>{city.name} · {city.state}</Text>
-          {active ? <Icon name="check" size={17} color={c.brand} /> : null}
-        </Pressable>
-      })}
-      {!shown.length ? <Text style={{ paddingVertical: 16, textAlign: 'center', color: c['ink-muted'], fontSize: 12 }}>Nenhuma cidade do catálogo com esse nome.</Text> : null}
-    </View>
-  </Sheet>
-}
-
-/** Campo da cidade: mostra a escolhida e abre a folha com o catálogo. */
-export function CityField({ cities, value, onChange, label, title, description, surface = 'light', error, placeholder = 'Escolher a cidade' }: {
-  cities: City[]
-  value: number | null
-  onChange: (city: City) => void
-  label: string
-  title: string
-  description?: string
-  surface?: Surface
-  error?: string
-  placeholder?: string
-}) {
-  const [open, setOpen] = useState(false)
-  const city = cities.find(item => item.id === value) ?? null
-  const c = useThemeColors()
-  const look = fieldLook(c)[surface]
-  return <View>
-    <FieldLabel surface={surface}>{label}</FieldLabel>
-    <Pressable accessibilityRole="button" accessibilityLabel={`${label}: ${city ? `${city.name}, ${city.state}` : 'não escolhida'}`} accessibilityHint="Abre a lista de cidades" accessibilityState={{ disabled: !cities.length }}
-      disabled={!cities.length} onPress={() => setOpen(true)}
-      style={{ minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 8, borderWidth: 1, paddingHorizontal: 12, backgroundColor: look.bg, borderColor: error ? (surface === 'dark' ? colors['danger-soft'] : c.error) : look.border, opacity: cities.length ? 1 : 0.5 }}>
-      <Icon name="map-pin" size={17} color={surface === 'dark' ? colors.mint : c.brand} />
-      <Text numberOfLines={1} style={{ flex: 1, color: city ? look.input : look.placeholder, fontSize: 14, fontWeight: city ? '600' : '400' }}>{city ? `${city.name} · ${city.state}` : placeholder}</Text>
-      <Text style={{ color: surface === 'dark' ? colors.mint : c.brand, fontSize: 11.5, fontWeight: '700' }}>{city ? 'Trocar' : 'Escolher'}</Text>
-    </Pressable>
-    <FieldError error={error} surface={surface} />
-    {open ? <CitySheet cities={cities} selectedId={value} title={title} description={description} onClose={() => setOpen(false)} onSelect={next => { onChange(next); setOpen(false) }} /> : null}
-  </View>
 }
 
 /* ===== Blocos de situação ===== */

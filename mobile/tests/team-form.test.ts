@@ -12,6 +12,7 @@ import { toastText, toasts } from './support/toast'
 import { answer, city, fakeNavigation, me, team, TOKEN } from './support/teams'
 import type { FakeNavigation, Handler } from './support/teams'
 import { playContext } from './support/play'
+import { searchCity, searchPath, valparaisoCity } from './support/cities'
 
 vi.mock('react-native', async () => (await import('./support/native')).reactNativeMock())
 vi.mock('react-native-svg', async () => (await import('./support/native')).svgMock())
@@ -23,8 +24,10 @@ vi.mock('../src/api/client', async original => ({ ...await original<typeof impor
 const h = React.createElement
 type Params = React.ComponentProps<typeof TeamFormScreen>['params']
 
-const cities = [city, { id: 2, name: 'Goiânia', state: 'GO' }, { id: 3, name: 'Anápolis', state: 'GO' }]
-const football = { id: 1, sport: 'futebol', city_id: 1, position: 'goleiro', looking_for: false, is_public: false, level: null }
+const goiania = { id: 2, name: 'Goiânia', state: 'GO' }
+const anapolis = { id: 3, name: 'Anápolis', state: 'GO' }
+const cities = [city, goiania, anapolis, valparaisoCity]
+const football = { id: 1, sport: 'futebol', city_id: 1, city, position: 'goleiro', looking_for: false, is_public: false, level: null }
 const existing = team(10, { name: 'Ferrugem FC', initials: 'FF', member_count: 4 })
 
 function serve(extra: Handler = () => undefined, profiles: unknown[] = [football]) {
@@ -32,7 +35,10 @@ function serve(extra: Handler = () => undefined, profiles: unknown[] = [football
     const custom = await extra(path, method, body)
     if (custom !== undefined) return custom
     if (path === '/me/sports-profiles') return profiles
-    if (path === '/cities') return cities
+    if (path === searchPath('goi')) return [goiania]
+    if (path === searchPath('ana')) return [anapolis]
+    if (path === searchPath('valpa')) return [valparaisoCity]
+    if (path === searchPath('xyz')) return []
     if (path === '/teams/10') return existing
     if (path === '/teams' && method === 'POST') return team(50, { name: (body as { name: string }).name, city: cities.find(item => item.id === (body as { city_id: number }).city_id) })
     return undefined
@@ -117,12 +123,13 @@ describe('Criar time (F2)', () => {
     await type(tree, 'Nome do time', 'Leões')
     await press(tree, 'Trocar cidade')
     expect(textOf(tree)).toContain('Cidade do time')
-    await type(tree, 'Buscar cidade', 'goi')
+    await searchCity(tree, 'xyz')
+    expect(textOf(tree)).toContain('Nenhuma cidade encontrada.')
+    await searchCity(tree, 'goi')
     expect(byLabel(tree, 'Goiânia, GO')).toHaveLength(1)
     expect(byLabel(tree, 'Anápolis, GO')).toHaveLength(0)
-    await type(tree, 'Buscar cidade', 'xyz')
-    expect(textOf(tree)).toContain('Nenhuma cidade do catálogo com esse nome.')
-    await type(tree, 'Buscar cidade', '')
+    // A cidade atual (do perfil) segue marcada, fora dos resultados.
+    expect(byLabel(tree, 'Brasília, DF')[0].props.accessibilityState).toMatchObject({ selected: true })
     await press(tree, 'Goiânia, GO')
     expect(tree.root.findAllByType('Modal' as never)).toHaveLength(0)
     expect(textOf(tree)).toContain('Goiânia · GO')
@@ -139,6 +146,7 @@ describe('Criar time (F2)', () => {
     await type(tree, 'Nome do time', 'Leões')
     expect(submitState(tree, 'Criar time')).toBe(true)
     await press(tree, 'Escolher cidade')
+    await searchCity(tree, 'ana')
     await press(tree, 'Anápolis, GO')
     expect(submitState(tree, 'Criar time')).toBe(false)
     await act(async () => { tree.unmount() })
@@ -208,7 +216,21 @@ describe('Criar time (F2)', () => {
     await act(async () => { tree.unmount() })
   })
 
-  it('401 ao criar expira a sessão sem toast, e as cidades têm nova tentativa', async () => {
+  it('escolhe pela busca um município fora dos 100 primeiros, cria o time com ele e não lê a lista global', async () => {
+    serve(() => undefined, [])
+    const tree = await mount()
+    await type(tree, 'Nome do time', 'Leões')
+    await press(tree, 'Escolher cidade')
+    await searchCity(tree, 'valpa')
+    await press(tree, 'Valparaíso de Goiás, GO')
+    expect(textOf(tree)).toContain('Valparaíso de Goiás · GO')
+    await press(tree, 'Criar time')
+    expect(calls()).toContainEqual(['/teams', 'POST', { name: 'Leões', city_id: 5221858 }])
+    expect(calls().some(call => call[0] === '/cities')).toBe(false)
+    await act(async () => { tree.unmount() })
+  })
+
+  it('401 ao criar expira a sessão sem toast, e o perfil de futebol tem nova tentativa', async () => {
     serve((path, method) => { if (path === '/teams' && method === 'POST') throw new ApiError('Sessão expirada.', 401); return undefined })
     const tree = await mount()
     await type(tree, 'Nome do time', 'Leões')
@@ -216,9 +238,9 @@ describe('Criar time (F2)', () => {
     expect(onExpired).toHaveBeenCalledOnce()
     expect(toasts()).toEqual([])
     await act(async () => { tree.unmount() })
-    serve(path => { if (path === '/cities') throw new ApiError('Catálogo indisponível.', 500); return undefined })
+    serve(path => { if (path === '/me/sports-profiles') throw new ApiError('Perfil indisponível.', 500); return undefined })
     const failing = await mount()
-    expect(textOf(failing)).toContain('Catálogo indisponível.')
+    expect(textOf(failing)).toContain('Perfil indisponível.')
     expect(byLabel(failing, 'Escolher cidade').length + byLabel(failing, 'Trocar cidade').length).toBe(1)
     serve()
     await press(failing, 'Tentar novamente')
@@ -228,6 +250,15 @@ describe('Criar time (F2)', () => {
 })
 
 describe('Editar time (F2)', () => {
+  it('nomeia a cidade salva pelo objeto `city` do time, mesmo fora das primeiras do catálogo', async () => {
+    serve(path => path === '/teams/10' ? team(10, { name: 'Ferrugem FC', city: valparaisoCity }) : undefined)
+    const tree = await mount({ teamId: 10 })
+    expect(textOf(tree)).toContain('Valparaíso de Goiás · GO')
+    expect(byLabel(tree, 'Cidade: Valparaíso de Goiás, GO')).toHaveLength(1)
+    expect(calls().some(call => String(call[0]).startsWith('/cities'))).toBe(false)
+    await act(async () => { tree.unmount() })
+  })
+
   it('carrega o time, só habilita Salvar com mudança e envia só o que mudou', async () => {
     serve((path, method) => path === '/teams/10' && method === 'PATCH' ? team(10, { name: 'Ferrugem Azul' }) : undefined)
     const tree = await mount({ teamId: 10 })

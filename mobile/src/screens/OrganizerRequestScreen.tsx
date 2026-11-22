@@ -6,7 +6,7 @@ import { ArenaMark } from '../components/arena/ArenaMark'
 import { ActionButton, Notice, Situation } from '../components/arena/controls'
 import { LoadError } from '../components/arena/LoadError'
 import { OrganizerRequestForm } from '../components/organizer/OrganizerRequestForm'
-import { loadProfiles, useCities } from '../hooks/useCities'
+import { loadProfiles } from '../hooks/useCities'
 import { useResource } from '../hooks/useResource'
 import type { ScreenProps } from '../navigation/screens'
 import { useThemeColors } from '../hooks/useTheme'
@@ -27,14 +27,13 @@ const rules: { icon: Parameters<typeof Icon>[0]['name']; title: string; text: st
 export default function OrganizerRequestScreen({ navigation, onExpired }: ScreenProps<'organizer-request'>) {
   const colors = useThemeColors()
   const status = useResource(getOrganizerStatus, onExpired, { fallback: 'Não foi possível conferir o seu pedido de organizador.' })
-  const cities = useCities(onExpired)
   const profiles = useResource(loadProfiles, onExpired)
   const [sent, setSent] = useState<OrganizerRequest | null>(null)
   const profileList = Array.isArray(profiles.data) ? profiles.data : []
-  const defaultCityId = (profileList.find(profile => profile.sport === 'futebol') ?? profileList[0])?.city_id ?? null
+  const defaultCity = (profileList.find(profile => profile.sport === 'futebol') ?? profileList[0])?.city ?? null
   const state = status.data?.state
   const back = <View style={{ marginTop: 14 }}><ActionButton block tone="outline" title="Voltar" onPress={navigation.back} /></View>
-  const ready = !status.loading && !cities.loading && !profiles.loading
+  const ready = !status.loading && !profiles.loading
 
   return <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
     <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 20, paddingBottom: 48 }}>
@@ -47,7 +46,6 @@ export default function OrganizerRequestScreen({ navigation, onExpired }: Screen
 
       {status.loading ? <Text accessibilityLiveRegion="polite" style={{ marginTop: 16, color: colors.ink, fontSize: 12 }}>Carregando…</Text> : null}
       {status.error ? <LoadError size="screen" title="Não foi possível conferir o seu pedido" text={status.error} cause={status.errorCause} onRetry={status.reload} /> : null}
-      {cities.error && !status.error ? <LoadError size="section" title="Não foi possível carregar as cidades" text={cities.error} cause={cities.errorCause} onRetry={cities.reload} /> : null}
 
       {sent ? <View style={{ marginTop: 16 }} accessibilityLiveRegion="polite">
         <Situation tone="wait" icon="hourglass" title="Pedido enviado">{`O pedido de ${sent.display_name} está em análise. A resposta chega nas notificações.`}</Situation>
@@ -75,7 +73,7 @@ export default function OrganizerRequestScreen({ navigation, onExpired }: Screen
               <Text accessibilityRole="header" style={{ marginTop: 22, marginBottom: 8, color: colors.ink, fontSize: 16, fontWeight: '700' }}>Seu pedido</Text>
               {state === 'recusado' && status.data?.request ? <Notice>{`Seu pedido anterior foi recusado. Motivo: ${sentence(refusalText(status.data.request.reason_code, status.data.request.reason_detail))}`}</Notice> : null}
               {state === 'revogado' && status.data?.revocation ? <Notice>{`Sua permissão foi revogada. Motivo: ${sentence(status.data.revocation.reason)}`}</Notice> : null}
-              <OrganizerRequestForm cities={Array.isArray(cities.data) ? cities.data : []} defaultCityId={defaultCityId} onSent={setSent} onExpired={onExpired} />
+              <OrganizerRequestForm defaultCity={defaultCity} onSent={setSent} onExpired={onExpired} />
             </> : null}
     </ScrollView>
   </KeyboardAvoidingView>

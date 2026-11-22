@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { request } from '../src/api/client'
 import ArenaShell from '../src/screens/ArenaShell'
 import { enableAct } from './support/native'
-import { brasilia, emptyBoard, football, standings, tennis } from './support/play'
+import { emptyBoard, football, standings, tennis } from './support/play'
 import { rankingOverview } from './support/results'
 import { bests, markCard } from './support/runs'
 import { allText, findButton, flush, labelled, me, pressButton } from './support/review'
@@ -35,7 +35,6 @@ async function mountShell() {
   vi.mocked(request).mockImplementation(async (path: string) => {
     if (path === '/me/play') return emptyBoard() as never
     if (path === '/me/sports-profiles') return [football, tennis, running] as never
-    if (path === '/cities') return [brasilia] as never
     if (path === '/me/standings') return standings() as never
     if (path === '/me/run-bests') return bests(markCard(10, ['52:40'])) as never
     if (path === '/me/run-races') return { items: [] } as never

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, View } from 'react-native'
 import { ApiError } from '../api/client'
+import type { City } from '../api/client'
 import { createEvent, getOrganizerEvent, submitEvent, updateEvent } from '../api/events'
 import type { OrganizerEventDetail } from '../api/events'
 import { EventPoster } from '../components/arena/EventPoster'
@@ -18,7 +19,6 @@ import Sheet from '../components/Sheet'
 import { Screen } from '../components/Screen'
 import { ToastViewport } from '../components/toast/ToastViewport'
 import { toast } from '../components/toast/toastStore'
-import { useCities } from '../hooks/useCities'
 import { reportActionError } from '../hooks/useSubmit'
 import type { ScreenProps } from '../navigation/screens'
 import { makeEntry } from '../navigation/routes'
@@ -40,7 +40,8 @@ export default function EventWizardScreen({ params, navigation, onExpired }: Scr
   const themed = useThemeColors()
   const eventId = params?.eventId
   const initialStep = params?.step
-  const cities = useCities(onExpired)
+  /** Cidade do rascunho (o objeto `city` da resposta) ou a escolhida na busca, para nomear `form.cityId`. */
+  const [city, setCity] = useState<City | null>(null)
   const [savedId, setSavedId] = useState<number | undefined>(eventId)
   const [loading, setLoading] = useState(Boolean(eventId))
   /** O rascunho não carregou (rede ou servidor): `LoadError` com nova tentativa. */
@@ -74,6 +75,7 @@ export default function EventWizardScreen({ params, navigation, onExpired }: Scr
       setLoadError(null)
       const loaded = formFromDetail(detail)
       setForm(loaded)
+      setCity(detail.city)
       setStep(initialStep !== undefined ? Math.min(Math.max(initialStep, 0), LAST_STEP) : firstIncompleteStep(loaded))
     }).catch((cause: unknown) => {
       if (!alive) return
@@ -229,9 +231,8 @@ export default function EventWizardScreen({ params, navigation, onExpired }: Scr
         {step === 0 ? <NameStep form={form} errors={errors} update={update} /> : null}
         {step === 1 ? <SportStep form={form} errors={errors} category={category} /> : null}
         {step === 2 ? <CapacityStep form={form} errors={errors} update={update} onBack={previous} /> : null}
-        {step === 3 ? <WhenStep form={form} errors={errors} update={update} cities={Array.isArray(cities.data) ? cities.data : []} /> : null}
+        {step === 3 ? <WhenStep form={form} errors={errors} update={update} city={city} onCity={setCity} onExpired={onExpired} /> : null}
         {step === 4 ? <PriceStep form={form} errors={errors} update={update} /> : null}
-        {step === 3 && cities.error ? <LoadError size="section" tone="dark" title="Não foi possível carregar as cidades" text={cities.error} cause={cities.errorCause} onRetry={cities.reload} /> : null}
 
         {general ? <Notice surface="dark">{general}</Notice> : null}
         <Text accessibilityLiveRegion="polite" style={{ position: 'absolute', width: 1, height: 1, opacity: 0 }}>{status}</Text>

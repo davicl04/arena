@@ -11,10 +11,11 @@ import { ActionSheet } from '../components/arena/ActionSheet'
 import { DarkEyebrow, DarkScreen, DarkTopBar } from '../components/arena/TeamsPlate'
 import { normalizeTeamName, TEAM_NAME_MAX, TEAM_NAME_MIN } from '../components/teams/teamView'
 import type { TeamCardView } from '../components/teams/teamView'
-import { ActionButton, CitySheet, ConfirmBox, Notice } from '../components/arena/controls'
+import { ActionButton, ConfirmBox, Notice } from '../components/arena/controls'
+import { CitySheet } from '../components/arena/CitySearch'
 import { LoadError } from '../components/arena/LoadError'
 import { TeamTokenContext, onDark } from '../components/teams/ui'
-import { loadPlaces } from '../hooks/useCities'
+import { loadProfiles } from '../hooks/useCities'
 import { useSessionToken } from '../hooks/useSessionToken'
 import { useSubmit } from '../hooks/useSubmit'
 import type { ScreenProps } from '../navigation/screens'
@@ -53,14 +54,14 @@ function GhostCrest() {
 export default function TeamFormScreen({ user, navigation, onExpired, params }: ScreenProps<'team-form'>) {
   const teamId = params?.teamId
   const token = useSessionToken()
-  const [data, setData] = useState<{ profiles: Profile[]; cities: City[] } | null>(null)
+  const [profiles, setProfiles] = useState<Profile[] | null>(null)
   const [dataError, setDataError] = useState<LoadFailure | null>(null)
   const [dataAttempt, setDataAttempt] = useState(0)
   const [team, setTeam] = useState<TeamCard | null>(null)
   const [loadError, setLoadError] = useState<LoadFailure | null>(null)
   const [teamAttempt, setTeamAttempt] = useState(0)
   const [name, setName] = useState('')
-  const [cityId, setCityId] = useState<number | null>(null)
+  const [city, setCity] = useState<City | null>(null)
   const [crest, setCrest] = useState<CrestChange>({ kind: 'keep' })
   const [cropError, setCropError] = useState('')
   const [picking, setPicking] = useState(false)
@@ -73,24 +74,22 @@ export default function TeamFormScreen({ user, navigation, onExpired, params }: 
   const close = useSubmit(onExpired)
   const editingId = team?.id ?? teamId
   const editing = editingId !== undefined
-  const profiles = data?.profiles ?? []
-  const cities = data?.cities ?? []
-  const football = profiles.find(profile => profile.sport === 'futebol')
+  const football = profiles?.find(profile => profile.sport === 'futebol')
 
   useEffect(() => {
     let alive = true
-    loadPlaces().then(([nextProfiles, nextCities]) => { if (alive) { setData({ profiles: nextProfiles, cities: nextCities }); setDataError(null) } })
+    loadProfiles().then(next => { if (alive) { setProfiles(next); setDataError(null) } })
       .catch((cause: unknown) => {
         if (!alive) return
         if (cause instanceof ApiError && cause.status === 401) onExpired()
-        setDataError(failure(cause, 'Não foi possível carregar as cidades.'))
+        setDataError(failure(cause, 'Não foi possível carregar o seu perfil de futebol.'))
       })
     return () => { alive = false }
   }, [dataAttempt, onExpired])
   useEffect(() => {
     if (!teamId) return
     let alive = true
-    getTeam(teamId).then(value => { if (alive) { setTeam(value); setName(value.name); setCityId(value.city.id); setLoadError(null) } })
+    getTeam(teamId).then(value => { if (alive) { setTeam(value); setName(value.name); setCity(value.city); setLoadError(null) } })
       .catch((cause: unknown) => {
         if (!alive) return
         if (cause instanceof ApiError && cause.status === 401) onExpired()
@@ -99,18 +98,17 @@ export default function TeamFormScreen({ user, navigation, onExpired, params }: 
     return () => { alive = false }
   }, [teamId, teamAttempt, onExpired])
   // Criar: a cidade do perfil de futebol vem sugerida, a menos que a pessoa já tenha escolhido outra.
-  const footballCityId = football?.city_id ?? null
+  const footballCity = football?.city ?? null
   useEffect(() => {
-    if (!teamId && footballCityId !== null && !cityTouched.current) setCityId(footballCityId)
-  }, [teamId, footballCityId])
+    if (!teamId && footballCity !== null && !cityTouched.current) setCity(footballCity)
+  }, [teamId, footballCity])
 
   const normalized = normalizeTeamName(name)
   const nameValid = normalized.length >= TEAM_NAME_MIN && normalized.length <= TEAM_NAME_MAX
-  const city = cities.find(item => item.id === cityId) ?? (team && team.city.id === cityId ? team.city : null)
   const crestPath = crest.kind === 'keep' ? team?.crest_url ?? null : null
   const preview = crest.kind === 'upload' ? crest.file.uri : ''
   const hasCrest = crest.kind === 'upload' || Boolean(crestPath)
-  const changed = !team || normalized !== team.name || cityId !== team.city.id || crest.kind !== 'keep'
+  const changed = !team || normalized !== team.name || city?.id !== team.city.id || crest.kind !== 'keep'
   const canSubmit = nameValid && city !== null && changed && !save.busy && (!teamId || team !== null)
 
   const view: TeamCardView = {
@@ -230,14 +228,14 @@ export default function TeamFormScreen({ user, navigation, onExpired, params }: 
         <View accessibilityLabel={city ? `Cidade: ${city.name}, ${city.state}` : 'Cidade ainda não escolhida'} style={{ minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 8, backgroundColor: onDark.card, paddingLeft: 12, paddingRight: 4 }}>
           <Icon name="map-pin" size={17} color={colors.mint} />
           <Text numberOfLines={1} style={{ flex: 1, minWidth: 0, color: '#ffffff', fontSize: 13.5, fontWeight: '700' }}>{city ? `${city.name} · ${city.state}` : 'Escolha a cidade do time'}</Text>
-          <Pressable accessibilityRole="button" accessibilityLabel={city ? 'Trocar cidade' : 'Escolher cidade'} accessibilityState={{ disabled: !data }} disabled={!data} onPress={() => setChoosingCity(true)}
-            style={{ minHeight: 44, minWidth: 44, justifyContent: 'center', paddingHorizontal: 8, opacity: data ? 1 : 0.5 }}>
+          <Pressable accessibilityRole="button" accessibilityLabel={city ? 'Trocar cidade' : 'Escolher cidade'} onPress={() => setChoosingCity(true)}
+            style={{ minHeight: 44, minWidth: 44, justifyContent: 'center', paddingHorizontal: 8 }}>
             <Text style={{ color: colors.mint, fontSize: 12, fontWeight: '700' }}>{city ? 'Trocar' : 'Escolher'}</Text>
           </Pressable>
         </View>
-        {dataError ? <LoadError size="section" tone="dark" title="Não foi possível carregar as cidades" text={dataError.message} cause={dataError.cause} onRetry={() => { setDataError(null); setDataAttempt(n => n + 1) }} /> : null}
+        {dataError ? <LoadError size="section" tone="dark" title="Não foi possível carregar o seu perfil de futebol" text={dataError.message} cause={dataError.cause} onRetry={() => { setDataError(null); setDataAttempt(n => n + 1) }} /> : null}
         <Text style={{ marginTop: 6, color: 'rgba(255,255,255,0.56)', fontSize: 10.5, lineHeight: 15 }}>
-          {!editing && football && cityId === football.city_id ? 'Vem do seu perfil de futebol. ' : ''}O pareamento usa a cidade do time.
+          {!editing && football && city?.id === football.city_id ? 'Vem do seu perfil de futebol. ' : ''}O pareamento usa a cidade do time.
         </Text>
 
         {!editing ? <View style={{ marginTop: 14, flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
@@ -260,7 +258,7 @@ export default function TeamFormScreen({ user, navigation, onExpired, params }: 
         </View> : null}
       </ScrollView>
 
-      {choosingCity ? <CitySheet title="Cidade do time" description="O pareamento de partidas usa a cidade do time." cities={cities} selectedId={cityId} onClose={() => setChoosingCity(false)} onSelect={item => { cityTouched.current = true; setCityId(item.id); setChoosingCity(false) }} /> : null}
+      {choosingCity ? <CitySheet title="Cidade do time" description="O pareamento de partidas usa a cidade do time." selected={city} onExpired={onExpired} onClose={() => setChoosingCity(false)} onSelect={item => { cityTouched.current = true; setCity(item); setChoosingCity(false) }} /> : null}
       {closing && team ? <ActionSheet title={`Encerrar ${team.name}`} locked={close.busy} onClose={() => setClosing(false)}>
         <ConfirmBox title={`Encerrar o ${team.name}?`} confirmLabel="Encerrar time" busy={close.busy} onConfirm={() => void confirmClose()} onCancel={() => setClosing(false)}>
           Os {team.member_count} {team.member_count === 1 ? 'atleta deixa' : 'atletas deixam'} o elenco e são avisados; convites, pedidos e o link deixam de valer.

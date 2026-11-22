@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { request } from '../src/api/client'
 import ArenaShell from '../src/screens/ArenaShell'
 import { enableAct } from './support/native'
-import { athleteSide, brasilia, caio, football, matchCard, matchDetail, messagePage, playBoard, ricardo, sides, standings, teamSide, tennis, ferrugemRef, leoesRef } from './support/play'
+import { athleteSide, caio, football, matchCard, matchDetail, messagePage, playBoard, ricardo, sides, standings, teamSide, tennis, ferrugemRef, leoesRef } from './support/play'
 import { allText, findButton, flush, me, pressButton, pressPrefix, serve } from './support/review'
 
 vi.mock('react-native', async () => (await import('./support/native')).reactNativeMock())
@@ -35,7 +35,6 @@ async function mountShell() {
   serve({
     '/me/play': playBoard({ matches: [futebol, tenis] }),
     '/me/sports-profiles': [football, tennis],
-    '/cities': [brasilia],
     '/me/standings': standings(),
     '/me/notifications/unread-count': unread,
     '/matches/50': matchDetail({ id: 50, sides: futebol.sides }),

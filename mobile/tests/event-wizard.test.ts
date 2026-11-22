@@ -2,12 +2,13 @@ import React from 'react'
 import { act } from 'react-test-renderer'
 import type { ReactTestRenderer } from 'react-test-renderer'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { ApiError } from '../src/api/client'
+import { ApiError, request } from '../src/api/client'
 import { dayLabel } from '../src/utils/calendar'
 import EventWizardScreen from '../src/screens/EventWizardScreen'
 import { byLabel, enableAct, press, textOf, type } from './support/native'
 import { calls, checklistItems, city, detail, draftDetail, mount, navigationMock, otherCity, routeRequest } from './support/organizer'
 import { toastText, toasts } from './support/toast'
+import { searchCity, searchPath, valparaisoCity } from './support/cities'
 
 vi.mock('react-native', async () => (await import('./support/native')).reactNativeMock())
 vi.mock('expo-secure-store', () => ({ getItemAsync: vi.fn(), setItemAsync: vi.fn(), deleteItemAsync: vi.fn() }))
@@ -44,7 +45,7 @@ const fullDraft = (over: Record<string, unknown> = {}) => draftDetail({
   name: 'Copa Sudoeste', price_cents: null, starts_at: new Date(2026, 10, 15, 9, 0).toISOString(), registration_closes_at: new Date(2026, 10, 10, 23, 59).toISOString(),
   checklist: checklistItems(['nome_modalidade', 'formato_tipo', 'vagas_elos', 'datas', 'local']), ...over,
 })
-const baseRoutes = (over: Record<string, unknown> = {}) => ({ '/cities': [city, otherCity], ...over })
+const baseRoutes = (over: Record<string, unknown> = {}) => ({ [searchPath('bras')]: [city, otherCity], ...over })
 
 beforeEach(() => {
   enableAct()
@@ -130,6 +131,7 @@ describe('Criar evento (V4): uma pergunta por vez', () => {
     await pickDate(tree, 'Fim das inscrições', 2026, 10, 10)
     expect(textOf(tree)).toContain('Sem hora, fecham às 23:59.')
     await press(tree, 'Cidade: não escolhida')
+    await searchCity(tree, 'bras', { realClock: true })
     await press(tree, 'Brasília, DF')
     await type(tree, 'Local', 'Arena Sudoeste')
     await next(tree)
@@ -539,17 +541,36 @@ describe('Editar rascunho', () => {
     expect(textOf(await wizard({ eventId: 5 }))).toContain('Não foi possível carregar o rascunho.')
   })
 
-  it('mostra "Carregando o rascunho…" até a resposta e o catálogo de cidades falho avisa no passo do local', async () => {
+  it('mostra "Carregando o rascunho…" até a resposta e nomeia a cidade pelo objeto `city` do rascunho, sem a lista global', async () => {
     let release: (value: unknown) => void = () => undefined
-    routeRequest(baseRoutes({ [EVENT]: () => new Promise(resolve => { release = resolve }), '/cities': () => { throw new ApiError('Catálogo fora do ar', 500) } }))
+    routeRequest(baseRoutes({ [EVENT]: () => new Promise(resolve => { release = resolve }) }))
     const tree = await wizard({ eventId: 5, step: 3 })
     expect(textOf(tree)).toContain('Carregando o rascunho…')
     expect(byLabel(tree, 'Próxima')).toHaveLength(0)
-    await act(async () => { release(draftDetail()) })
+    await act(async () => { release(draftDetail({ city: valparaisoCity })) })
     expect(question(tree)).toBe('Quando e onde?')
-    expect(textOf(tree)).toContain('Catálogo fora do ar')
-    const city = tree.root.findAllByType('Pressable' as never).find(entry => String(entry.props.accessibilityLabel).startsWith('Cidade:'))!
-    expect(city.props.disabled).toBe(true)
+    expect(byLabel(tree, 'Cidade: Valparaíso de Goiás, GO')).toHaveLength(1)
+    expect(vi.mocked(request).mock.calls.some(call => String(call[0]).startsWith('/cities'))).toBe(false)
     expect(state(tree, 'Voltar ao passo anterior')).toBeDefined()
+  })
+
+  it('a busca da cidade do evento falha com "Tentar novamente" e, de novo, escolhe um município fora dos 100 primeiros', async () => {
+    let fail = true
+    routeRequest(baseRoutes({
+      [EVENT]: draftDetail({ city: null }),
+      [searchPath('valpa')]: () => { if (fail) throw new ApiError('Catálogo fora do ar', 500); return [valparaisoCity] },
+      [`PATCH ${EVENT}`]: (body: unknown) => draftDetail({ city: valparaisoCity, ...(body as object) }),
+    }))
+    const tree = await wizard({ eventId: 5, step: 3 })
+    await press(tree, 'Cidade: não escolhida')
+    await searchCity(tree, 'valpa', { realClock: true })
+    expect(textOf(tree)).toContain('Catálogo fora do ar')
+    fail = false
+    await press(tree, 'Tentar novamente')
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 280)) })
+    await press(tree, 'Valparaíso de Goiás, GO')
+    expect(byLabel(tree, 'Cidade: Valparaíso de Goiás, GO')).toHaveLength(1)
+    await press(tree, 'Salvar rascunho')
+    expect((calls('PATCH', EVENT)[0][2] as Record<string, unknown>).city_id).toBe(5221858)
   })
 })

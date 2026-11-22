@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { Text, View } from 'react-native'
 import { ApiError } from '../../api/client'
 import type { City } from '../../api/client'
@@ -7,7 +7,8 @@ import { ORGANIZER_LIMITS, organizerRequestInput, sendOrganizerRequest, validate
 import type { OrganizerRequest, OrganizerRequestDraft, OrganizerRequestErrors } from '../../api/organizer'
 import { reportActionError } from '../../hooks/useSubmit'
 import { useThemeColors } from '../../hooks/useTheme'
-import { ActionButton, CheckRow, CityField, FieldLabel, FormField, MultiPills, Notice, sportChoices } from '../arena/controls'
+import { ActionButton, CheckRow, FieldLabel, FormField, MultiPills, Notice, sportChoices } from '../arena/controls'
+import { CityField } from '../arena/CitySearch'
 
 /** Campos do pedido que a API devolve no `422` (`display_name`, `city_id`…), na ordem da tela. */
 const FIELD_NAMES: (keyof OrganizerRequestDraft)[] = ['display_name', 'city_id', 'sports', 'experience', 'contact', 'link', 'accept_terms']
@@ -30,26 +31,25 @@ export function serverFieldErrors(cause: unknown): OrganizerRequestErrors {
 const sportOptions = sportChoices('light')
 
 /**
- * Formulário do pedido de organizador (P5): nome, cidade do catálogo, modalidades, experiência, contato, link e aceite.
+ * Formulário do pedido de organizador (P5): nome, cidade (busca no catálogo), modalidades, experiência, contato, link e aceite.
  * Valida no cliente com as mesmas regras do servidor, mostra os erros da API no campo certo (`ApiError.fields`) e anuncia o
  * envio.
  */
-export function OrganizerRequestForm({ cities, defaultCityId, onSent, onExpired }: {
-  cities: City[]
-  defaultCityId: number | null
+export function OrganizerRequestForm({ defaultCity, onSent, onExpired }: {
+  /** Cidade do perfil esportivo (futebol ou o primeiro), já escolhida no campo. */
+  defaultCity: City | null
   onSent: (request: OrganizerRequest) => void
   onExpired: () => void
 }) {
   const colors = useThemeColors()
   const [draft, setDraft] = useState<OrganizerRequestDraft>({
-    display_name: '', city_id: defaultCityId, sports: [], experience: '', contact: '', link: '', accept_terms: false,
+    display_name: '', city_id: defaultCity?.id ?? null, sports: [], experience: '', contact: '', link: '', accept_terms: false,
   })
   const [attempted, setAttempted] = useState(false)
   const [serverErrors, setServerErrors] = useState<OrganizerRequestErrors>({})
   const [busy, setBusy] = useState(false)
   const [general, setGeneral] = useState('')
-  const cityIds = useMemo(() => (cities.length ? new Set(cities.map(city => city.id)) : undefined), [cities])
-  const errors: OrganizerRequestErrors = { ...(attempted ? validateOrganizerRequest(draft, cityIds) : {}), ...serverErrors }
+  const errors: OrganizerRequestErrors = { ...(attempted ? validateOrganizerRequest(draft) : {}), ...serverErrors }
   const invalid = Object.keys(errors).length > 0
   const update = (patch: Partial<OrganizerRequestDraft>) => {
     setDraft(old => ({ ...old, ...patch }))
@@ -65,7 +65,7 @@ export function OrganizerRequestForm({ cities, defaultCityId, onSent, onExpired 
     if (busy) return
     setAttempted(true)
     setGeneral('')
-    if (Object.keys(validateOrganizerRequest(draft, cityIds)).length) return
+    if (Object.keys(validateOrganizerRequest(draft)).length) return
     setBusy(true)
     try {
       onSent(await sendOrganizerRequest(organizerRequestInput(draft)))
@@ -86,7 +86,7 @@ export function OrganizerRequestForm({ cities, defaultCityId, onSent, onExpired 
     <View style={{ borderRadius: 16, backgroundColor: colors.surface, paddingHorizontal: 14, paddingBottom: 16, paddingTop: 2 }}>
       <FormField label="Nome do organizador" hint="Você ou a entidade que organiza, como aparecerá nos eventos." value={draft.display_name} maxLength={ORGANIZER_LIMITS.nameMax}
         error={errors.display_name} onChangeText={value => update({ display_name: value })} />
-      <CityField label="Cidade" title="Cidade do organizador" description="Onde você pretende organizar." cities={cities} value={draft.city_id} error={errors.city_id}
+      <CityField label="Cidade" title="Cidade do organizador" description="Onde você pretende organizar." value={draft.city_id} city={defaultCity} error={errors.city_id} onExpired={onExpired}
         onChange={city => update({ city_id: city.id })} />
       <FieldLabel>O que você quer organizar</FieldLabel>
       <MultiPills label="O que você quer organizar" options={sportOptions} values={draft.sports} error={errors.sports} onChange={value => update({ sports: value })} />

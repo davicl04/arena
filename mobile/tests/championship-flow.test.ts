@@ -179,7 +179,7 @@ describe('Partida do campeonato → Decidir resultado', () => {
   const routes = (extra: Record<string, Route> = {}): Record<string, Route> => ({
     ...base(() => organizerDetail()),
     '/me/play': { attention: false, searches: [], proposals: [], offers: [], matches: [matchCard({ id: 7, origin: 'campeonato', my_side: null, my_role: 'organizador', sides: sides(teamSide('a', ferrugemRef), teamSide('b', leoesRef)), state: 'agendada', phase: 'divergente', starts_at: fromNow(-3) })] },
-    '/me/sports-profiles': [], '/cities': [],
+    '/me/sports-profiles': [],
     [MATCH]: () => (world.decided ? decided() : divergent()),
     [`${MATCH}/messages`]: messagePage([]),
     '/matches/7/messages?limit=20': messagePage([]),

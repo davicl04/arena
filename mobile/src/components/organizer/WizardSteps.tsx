@@ -5,7 +5,8 @@ import { eliminationCapacities, eventNoun, eventTypes, footballFormats, pixKeyTy
 import { colors } from '../../theme'
 import { DateField } from '../arena/DateField'
 import { TimeField } from '../arena/TimeField'
-import { ActionButton, ChoicePills, CityField, FieldError, FieldLabel, FormField, Hint, sportChoices } from '../arena/controls'
+import { ActionButton, ChoicePills, FieldError, FieldLabel, FormField, Hint, sportChoices } from '../arena/controls'
+import { CityField } from '../arena/CitySearch'
 import type { ChoiceOption } from '../arena/controls'
 import { capacityError, closeDateMax, closesAt, parseCapacity } from './eventForm'
 import type { EventForm, FormErrors, withCategory } from './eventForm'
@@ -95,7 +96,8 @@ export function CapacityStep({ form, errors, update, onBack }: StepProps & { onB
   </>
 }
 
-export function WhenStep({ form, errors, update, cities }: StepProps & { cities: City[] }) {
+/** Datas, cidade (busca no catálogo; `city` nomeia `form.cityId`) e local. */
+export function WhenStep({ form, errors, update, city, onCity, onExpired }: StepProps & { city: City | null; onCity: (city: City) => void; onExpired?: () => void }) {
   const close = closesAt(form)
   return <>
     <FieldLabel surface={dark}>Data e hora do evento</FieldLabel>
@@ -117,8 +119,8 @@ export function WhenStep({ form, errors, update, cities }: StepProps & { cities:
     </Hint>
     <FieldError error={errors.closeDate} surface={dark} />
 
-    <CityField surface={dark} label="Cidade" title="Cidade do evento" description="Os atletas veem a cidade no cartaz e no detalhe." cities={cities} value={form.cityId}
-      placeholder="Escolha a cidade do evento" error={errors.cityId} onChange={city => update({ cityId: city.id })} />
+    <CityField surface={dark} label="Cidade" title="Cidade do evento" description="Os atletas veem a cidade no cartaz e no detalhe." value={form.cityId} city={city}
+      placeholder="Escolha a cidade do evento" error={errors.cityId} onExpired={onExpired} onChange={next => { onCity(next); update({ cityId: next.id }) }} />
 
     <FormField surface={dark} label="Local" value={form.venue} maxLength={venueMax} placeholder="Ex.: Arena Sudoeste, quadra 1"
       hint="Quadra, clube ou ponto de largada. A reserva do local é com você." error={errors.venue} onChangeText={value => update({ venue: value })} />

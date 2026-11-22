@@ -34,7 +34,7 @@ const me = { id: 1, name: 'Maria Souza', username: 'maria.s', email: 'maria@exam
 const athlete = { id: 2, name: 'Atleta A', username: 'atleta.a', avatar_url: null, cover_url: null, social_public: true, post_count: 0,
   follower_count: 3, following_count: 2, follows_you: false, follow_state: 'none' as const }
 type Tree = ReturnType<typeof create>
-const baseData = (path: string) => (path === '/cities' || path === '/me/sports-profiles' ? [] : { items: [], next_cursor: null }) as never
+const baseData = (path: string) => (path === '/me/sports-profiles' ? [] : { items: [], next_cursor: null }) as never
 const texts = (tree: Tree) => tree.root.findAllByType('Text' as never).map(entry => JSON.stringify(entry.props.children)).join(' ')
 const pressables = (tree: Tree, label: string) => tree.root.findAllByType('Pressable' as never).filter(entry => entry.props.accessibilityLabel === label)
 const titles = (tree: Tree, username: string) => tree.root.findAll(node => node.props.accessibilityRole === 'header' && node.props.accessibilityLabel === `@${username}`)

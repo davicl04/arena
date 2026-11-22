@@ -5,7 +5,7 @@ import * as ImagePicker from 'expo-image-picker'
 import { ApiError, clearToken, getToken, request, sports } from '../api/client'
 import { connection } from '../api/connection'
 import type { MatchCard } from '../api/matches'
-import type { City, Page, Profile, ProfileInput, SocialUser, Sport, User } from '../api/client'
+import type { Page, Profile, ProfileInput, SocialUser, Sport, User } from '../api/client'
 import { Button, Field } from '../components/ui'
 import { LoadError } from '../components/arena/LoadError'
 import { toast } from '../components/toast/toastStore'
@@ -68,7 +68,6 @@ export default function ProfileScreen({ user, onUser, onLogout, onExpired, onNew
   const setContentTab = onTabChange ?? setLocalTab
   const { condensed, onScroll } = useCondensedTopBar(COVER_HEIGHT)
   const [profiles, setProfiles] = useState<Profile[]>([])
-  const [cities, setCities] = useState<City[]>([])
   const [loading, setLoading] = useState(true)
   /* Carregamento (LoadError), ação (toast) e validação local (junto à folha) não se misturam. */
   const [loadError, setLoadError] = useState<{ message: string; cause: unknown } | null>(null)
@@ -90,7 +89,7 @@ export default function ProfileScreen({ user, onUser, onLogout, onExpired, onNew
   const [cursors, setCursors] = useState<Record<Which, string | null>>({ blocks: null, followers: null, following: null })
   useEffect(() => {
     let alive = true
-    Promise.all([request<Profile[]>('/me/sports-profiles'), request<City[]>('/cities'), request<Page<SocialUser>>('/me/blocks'), request<Page<{ user: SocialUser }>>(`/users/${user.id}/followers`), request<Page<{ user: SocialUser }>>(`/users/${user.id}/following`), request<SocialUser>(`/users/${user.id}`)]).then(([p, c, b, followersPage, followingPage, me]) => { if (alive) { setProfiles(p); setCities(c); setBlocks(b.items); setFollowers(followersPage.items.map(item => item.user)); setFollowing(followingPage.items.map(item => item.user)); setCounts({ followers: me.follower_count, following: me.following_count }); setCursors({ blocks: b.next_cursor, followers: followersPage.next_cursor, following: followingPage.next_cursor }) } })
+    Promise.all([request<Profile[]>('/me/sports-profiles'), request<Page<SocialUser>>('/me/blocks'), request<Page<{ user: SocialUser }>>(`/users/${user.id}/followers`), request<Page<{ user: SocialUser }>>(`/users/${user.id}/following`), request<SocialUser>(`/users/${user.id}`)]).then(([p, b, followersPage, followingPage, me]) => { if (alive) { setProfiles(p); setBlocks(b.items); setFollowers(followersPage.items.map(item => item.user)); setFollowing(followingPage.items.map(item => item.user)); setCounts({ followers: me.follower_count, following: me.following_count }); setCursors({ blocks: b.next_cursor, followers: followersPage.next_cursor, following: followingPage.next_cursor }) } })
       .catch(err => { if (alive) { setLoadError({ message: err instanceof Error && err.message ? err.message : 'Não foi possível carregar o perfil.', cause: err }); if (err instanceof ApiError && err.status === 401) onExpired() } })
       .finally(() => { if (alive) setLoading(false) })
     return () => { alive = false }
@@ -235,7 +234,7 @@ export default function ProfileScreen({ user, onUser, onLogout, onExpired, onNew
       </View>
       <View className={tw.content}>
         {!sheet && loadError ? <LoadError size="section" title="Não foi possível carregar o perfil" text={loadError.message} cause={loadError.cause} onRetry={retryLoad} /> : null}
-        <Text className={tw.heading}>Suas modalidades</Text>{loading ? <ActivityIndicator accessibilityLabel="Carregando modalidades" /> : sports.map(s => <SportCard key={s.value} sport={s.value} label={s.label} cities={cities} profile={profiles.find(p => p.sport === s.value)} onSave={save} onExpired={onExpired} />)}
+        <Text className={tw.heading}>Suas modalidades</Text>{loading ? <ActivityIndicator accessibilityLabel="Carregando modalidades" /> : sports.map(s => <SportCard key={s.value} sport={s.value} label={s.label} profile={profiles.find(p => p.sport === s.value)} onSave={save} onExpired={onExpired} />)}
         {!loading && !profiles.length && !loadError ? <Text className={tw.body}>Adicione sua primeira modalidade acima.</Text> : null}
       </View>
       <ProfileStatsBlocks onExpired={onExpired} />

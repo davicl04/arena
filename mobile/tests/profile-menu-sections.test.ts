@@ -29,7 +29,7 @@ async function press(tree: Tree, label: string) {
 describe('Menu do perfil: seções de outras áreas (organizador e administração)', () => {
   beforeEach(() => {
     ;(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true
-    vi.mocked(request).mockReset().mockImplementation(async path => (path === '/cities' || path === '/me/sports-profiles' ? [] : { items: [], next_cursor: null }) as never)
+    vi.mocked(request).mockReset().mockImplementation(async path => (path === '/me/sports-profiles' ? [] : { items: [], next_cursor: null }) as never)
   })
 
   it('mostra as seções entre Conta e App e entrega a função que fecha o Menu', async () => {
