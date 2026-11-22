@@ -1,5 +1,23 @@
 # Situação da fundação do Arena
 
+## Plano da nova tela de Início — 22 de novembro de 2026
+
+A nova tela de Início foi decidida numa sessão de protótipos com seis rodadas, que trataram da estrutura, do Placar, dos elos, das pendências e do rodapé. O desenho vale para a web e o Expo, que devem ficar iguais. As decisões estão no [plano do Início](plano-inicio.md), e a especificação de trabalho, em `.scratch/inicio/spec.md` (não versionado). O protótipo de referência é `artifacts/prototipos/inicio.html`, também não versionado.
+
+- **Decisões:**
+  - saudação "A arena te chama, {nome}";
+  - Placar da próxima partida com contagem regressiva;
+  - pendência mais urgente em destaque;
+  - elos em pílulas;
+  - campeonatos reais das cidades dos perfis esportivos, por `GET /events`, que já existe;
+  - remoção, no Expo, dos atalhos duplicados de times, campeonatos, organizador e administração. Esses destinos continuam no Jogar e no menu do Perfil.
+- **Sem mudança de backend, contrato ou migração.**
+- **Branch de trabalho:** `feat/home-page`, criada a partir de `feat/modalidades-page`.
+
+**Verificações:** só documentação. Conferi caminhos, links e coerência com o código atual: as rotas de partidas, pendências, classificação e eventos e os destinos dos atalhos do Expo. Nenhum teste de código foi executado, porque nada no código mudou.
+
+**Pendências:** implementar na web e no Expo, rodar as verificações da tabela do `AGENTS.md` e conferir no navegador. A implementação não começou, e o MVP completo não está implementado.
+
 ## Contrato final de cidades e documentação do catálogo nacional — 22 de novembro de 2026
 
 Fecha a entrega da tela de modalidades com cidade por localização e catálogo nacional de municípios (tickets 01 a 09). Com a web e o Expo fora da lista global de cidades, `GET /api/v1/cities` sem `q`, ou com menos de 2 caracteres, passa a devolver lista vazia. É a etapa de restrição do contrato. A busca por `q` (até 20 resultados), a consulta por `ids=` (até 50) e o 422 para `q` e `ids` juntos não mudam. O caminho da listagem das 100 primeiras cidades (`list_cities`) foi removido do serviço.
