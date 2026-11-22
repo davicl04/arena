@@ -66,12 +66,12 @@ def test_search_needs_two_characters_and_returns_at_most_twenty(client):
     assert search(http, 'zzzz') == []
 
 
-def test_without_q_keeps_the_first_hundred_alphabetically(client):
-    http, db = client
+def test_without_q_returns_an_empty_list(client):
+    # Etapa de restrição (ticket 09): nenhum cliente carrega mais a lista global de cidades.
+    http, _ = client
     response = http.get('/api/v1/cities')
     assert response.status_code == 200
-    expected = db.scalars(select(City.id).order_by(City.name).limit(100)).all()
-    assert [city['id'] for city in response.json()] == expected and len(expected) == 100
+    assert response.json() == []
 
 
 def test_lookup_by_ids(client):

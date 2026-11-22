@@ -14,7 +14,6 @@ from app.models.identity import City
 SEARCH_MIN_LENGTH = 2
 SEARCH_LIMIT = 20
 IDS_LIMIT = 50
-LIST_LIMIT = 100
 # Cobertura da cidade sugerida: sede mais distante que isso não é sugerida (valor inicial, questão Q3 da spec).
 NEAREST_MAX_DISTANCE_KM = 100.0
 NEAREST_NOT_FOUND = 'Não encontramos um município perto de você.'
@@ -57,11 +56,6 @@ def search_cities(db: Session, q: str) -> list[City]:
     statement = (select(City).where(City.search_text.contains(term))
                  .order_by(prefix_first, City.capital.desc(), *_alphabetical()).limit(SEARCH_LIMIT))
     return list(db.scalars(statement))
-
-
-def list_cities(db: Session) -> list[City]:
-    """Comportamento anterior de `GET /cities` sem `q`: as 100 primeiras cidades por nome."""
-    return list(db.scalars(select(City).order_by(City.name).limit(LIST_LIMIT)))
 
 
 def parse_city_ids(value: str) -> list[int]:

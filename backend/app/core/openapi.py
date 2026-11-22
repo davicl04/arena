@@ -294,12 +294,18 @@ DESCRIPTIONS: dict[tuple[str, str], str] = {
     ('GET', '/cities'): ('Municípios do IBGE. `q` (2 ou mais caracteres) busca por nome e UF sem diferenciar acentos '
                          'e maiúsculas e devolve até 20 cidades: prefixo do nome primeiro, depois capitais e ordem '
                          'alfabética; com menos de 2 caracteres, lista vazia. `ids` (até 50, separados por vírgula) '
-                         'devolve as cidades pedidas e ignora IDs inexistentes. Sem `q` nem `ids`, devolve as 100 '
-                         'primeiras cidades por nome.'),
+                         'devolve as cidades pedidas e ignora IDs inexistentes. `q` e `ids` juntos respondem 422. Sem '
+                         '`q` nem `ids`, lista vazia: não há listagem do catálogo inteiro.'),
     ('POST', '/cities/nearest'): ('Exige sessão. Recebe `latitude` (−90 a 90) e `longitude` (−180 a 180) no corpo JSON e '
                                   'devolve o município cuja sede é a mais próxima, calculado com o catálogo local, '
                                   'sem serviço externo. Se a sede mais próxima estiver a mais de 100 km, responde 404. '
                                   'As coordenadas não são gravadas, registradas nem devolvidas, e não vão na URL.'),
+    ('GET', '/me/sports-profiles'): ('Perfis esportivos privados do titular da sessão. Cada perfil traz `city_id` e o '
+                                     'objeto `city` (`id`, `name`, `state`), para nomear a cidade sem consultar o '
+                                     'catálogo.'),
+    ('PUT', '/me/sports-profiles/{sport}'): ('Cria ou atualiza o perfil da modalidade do titular da sessão com '
+                                             '`city_id` (município do catálogo), `position` (só no futebol) e '
+                                             '`looking_for`. A resposta traz o objeto `city` além de `city_id`.'),
     ('PUT', '/me/avatar'): 'Envio em `multipart/form-data`, somente imagem, até 5 MiB.',
     ('PUT', '/me/cover'): 'Envio em `multipart/form-data`, somente imagem, até 5 MiB.',
     ('POST', '/posts'): 'Envio em `multipart/form-data` com a imagem e a legenda, até 5 MiB.',
