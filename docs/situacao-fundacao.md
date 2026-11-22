@@ -1,5 +1,40 @@
 # Situação da fundação do Arena
 
+## Fechamento da nova tela de Início (web e Expo) — 22 de novembro de 2026
+
+Fechamento do [plano do Início](plano-inicio.md) (ticket 09). Com os tickets 01 a 04 (web) e 05 a 08 (Expo), o Início dos dois clientes tem as mesmas seções, na mesma ordem, com os mesmos textos e regras: data e "A arena te chama, {primeiro nome}"; Placar com a Contagem; botão principal; Destaque "Para responder"; Pílulas de "Seu elo"; "Seu próximo passo"; Campeonatos das cidades dos perfis. Saíram a saudação antiga, a seção "Próxima partida", o carrossel, a foto "Perto de você", a placa escura de pendências e, no Expo, os grupos de atalhos, cujos destinos seguem no Jogar e no menu do Perfil. Sem mudança de backend, contrato, migração ou dependência.
+
+- **Paridade:** web e Expo foram comparados seção por seção contra a spec. As regras puras de `data/home.ts` são iguais nos dois clientes, com os mesmos nomes e textos (a web tem a mais `spokenMatchCountdown`, usada no nome acessível do Placar). Nenhuma divergência mecânica pediu correção. As diferenças que ficam são pré-existentes, de arquitetura ou de decisão de produto e estão em "Limitações".
+- **Documentação:** o [plano do Início](plano-inicio.md) passou a indicar a implementação, com a data, as diferenças mantidas e as limitações. A [fidelidade visual](fidelidade-figma.md) ganhou a seção da nova tela de Início, com as decisões da sessão de protótipos, o que saiu da tela e os desvios visuais mantidos. README e decisões não mudaram, porque nenhum comando, contrato ou modelagem mudou.
+
+**Verificações** (sobre a branch consolidada `5ee93f7`, cujo código é idêntico ao da ponta final; os commits seguintes só mudam documentação):
+- Web (`web/`): `npm run lint` e `npm run build` aprovados (só o aviso de chunk que já existia). `npm run test:coverage`: 1311/1311; nesta execução o teste intermitente de `tests/matchmaking.test.tsx` passou. Cobertura: 93,94% statements, 87,92% branches, 93,49% funções, 96,78% linhas. Sem esse arquivo, 1271/1271 (92,46% / 86,4% / 91,74% / 95,51%).
+- Expo (`mobile/`): `npm run lint` e `npm run typecheck` sem erros. `npm run test:coverage`: 109 arquivos e 1664 testes aprovados (96,52% / 90,97% / 95,89% / 98,47%). `npm run export:android` aprovado.
+- Backend: `git diff --stat bfb8630..HEAD -- backend` vazio, então ruff e pytest não foram executados.
+- Navegador (Playwright headless), com API e PostgreSQL reais e as contas sintéticas dos tickets 01 a 04:
+  - estados: pendências com perfil, sem pendências com elo Ouro na corrida, tênis individual com partida agendada ("Você × …", "2 dias 3 h"), perfis em cidades diferentes e conta nova;
+  - em 320, 390 e 1440 px, nos temas claro e escuro, sem erros de console nem overflow horizontal;
+  - Placar e Pílulas iguais nos dois temas;
+  - ordem de foco e contorno visíveis no teclado; o Placar abriu a partida;
+  - os três rótulos do botão conferidos;
+  - leituras de `/events` (uma por perfil, nenhuma sem perfis) e de `pending?limit=1` só com pendências.
+- O estado "completo" foi conferido por partes (pendências, elo e partida em contas diferentes), porque nenhuma conta sintética reúne tudo.
+
+**Limitações:**
+- Sem validação em aparelho Android ou iOS. Não se declara paridade visual do Expo, e o build não comprova funcionamento em aparelho.
+- O banco de desenvolvimento não tem campeonato publicado, porque publicar exige um organizador aprovado. As linhas de campeonato só foram vistas com resposta simulada no navegador (ticket 04) e nos testes.
+- "Você pode se inscrever" é omitido em evento em andamento, nos dois clientes. É uma leitura da spec, a confirmar na revisão.
+- As vagas e o preço seguem o formato dos cartazes ("8 de 16 times", "R$ 40"), e não o do protótipo.
+- O título do Destaque fica em caixa alta nos dois clientes; o protótipo usa caixa de frase.
+- Os formatos de prazo e da linha secundária são os de cada cliente. Com o prazo vencido, a web mostra "faltam menos de 1 min" e o Expo mostra "prazo encerrado".
+- Com falha na leitura dos perfis, a web mostra uma nota nos Campeonatos (o retry fica no aviso do shell); o Expo mostra o erro na seção.
+- No Expo, a lista de pendências é lida a cada montagem, com 1 item. A web só a lê quando o resumo indica pendências.
+- No Expo, a marca d'água do Placar fica centralizada (`TeamsPlate`).
+- A troca do Placar para a partida seguinte pode atrasar até um minuto.
+- O CI remoto não foi executado.
+
+**Pendências:** revisão de código da entrega inteira (`code-review`); decisão sobre o texto do prazo vencido e sobre "Você pode se inscrever" em evento em andamento; conferência do Expo em aparelho; conferência das linhas de campeonato com um campeonato real publicado; a falha intermitente de `tests/matchmaking.test.tsx`, fora desta entrega. O MVP completo continua não implementado.
+
 ## Campeonatos e próximo passo no Início da web — 22 de novembro de 2026
 
 Quarta entrega do [plano do Início](plano-inicio.md) na web (ticket 04), com os mesmos textos e regras do Expo (ticket 08). Com ela, o Início da web tem todas as seções da spec.
