@@ -79,6 +79,7 @@ _OPERATIONS: dict[str, tuple[tuple[str, str, str], ...]] = {
         ('PATCH', '/me', 'Atualizar a conta logada'),
         ('GET', '/me/username-availability', 'Verificar disponibilidade do nome de usuário'),
         ('GET', '/cities', 'Buscar cidades'),
+        ('POST', '/cities/nearest', 'Sugerir a cidade mais próxima'),
         ('PUT', '/me/avatar', 'Enviar avatar'),
         ('GET', '/me/avatar', 'Obter avatar'),
         ('DELETE', '/me/avatar', 'Remover avatar'),
@@ -295,6 +296,10 @@ DESCRIPTIONS: dict[tuple[str, str], str] = {
                          'alfabética; com menos de 2 caracteres, lista vazia. `ids` (até 50, separados por vírgula) '
                          'devolve as cidades pedidas e ignora IDs inexistentes. Sem `q` nem `ids`, devolve as 100 '
                          'primeiras cidades por nome.'),
+    ('POST', '/cities/nearest'): ('Exige sessão. Recebe `latitude` (−90 a 90) e `longitude` (−180 a 180) no corpo JSON e '
+                                  'devolve o município cuja sede é a mais próxima, calculado com o catálogo local, '
+                                  'sem serviço externo. Se a sede mais próxima estiver a mais de 100 km, responde 404. '
+                                  'As coordenadas não são gravadas, registradas nem devolvidas, e não vão na URL.'),
     ('PUT', '/me/avatar'): 'Envio em `multipart/form-data`, somente imagem, até 5 MiB.',
     ('PUT', '/me/cover'): 'Envio em `multipart/form-data`, somente imagem, até 5 MiB.',
     ('POST', '/posts'): 'Envio em `multipart/form-data` com a imagem e a legenda, até 5 MiB.',

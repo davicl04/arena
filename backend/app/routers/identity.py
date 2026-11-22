@@ -14,6 +14,7 @@ from app.models.identity import AuthSession, City, SportsProfile, User, utcnow
 from app.schemas.identity import (
     CityOut,
     Login,
+    NearestCityInput,
     ProfileInput,
     ProfileOut,
     Register,
@@ -23,7 +24,7 @@ from app.schemas.identity import (
     UsernameAvailabilityOut,
     UserOut,
 )
-from app.services.cities import cities_by_ids, list_cities, parse_city_ids, search_cities
+from app.services.cities import cities_by_ids, list_cities, nearest_city, parse_city_ids, search_cities
 from app.services.identity import (
     RESERVED_USERNAMES,
     USERNAME_RE,
@@ -116,6 +117,12 @@ def cities(q: str | None = Query(None, max_length=100), ids: str | None = Query(
     if q is None:
         return list_cities(db)
     return search_cities(db, q)
+
+
+@router.post('/cities/nearest', response_model=CityOut)
+def cities_nearest(data: NearestCityInput, _: User = Depends(current_user), db: Session = Depends(get_db)):
+    # Coordenadas só no corpo (fora da URL e do log de acesso); nunca gravadas, registradas nem devolvidas.
+    return nearest_city(db, data.latitude, data.longitude)
 
 
 @router.get('/me/sports-profiles', response_model=list[ProfileOut])

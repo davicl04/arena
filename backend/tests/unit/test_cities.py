@@ -4,7 +4,15 @@ from pathlib import Path
 import pytest
 from fastapi import HTTPException
 
-from app.services.cities import IDS_LIMIT, city_search_text, normalize_search_text, parse_city_ids
+from app.services.cities import (
+    IDS_LIMIT,
+    NEAREST_MAX_DISTANCE_KM,
+    choose_nearest_seat,
+    city_search_text,
+    haversine_km,
+    normalize_search_text,
+    parse_city_ids,
+)
 
 CATALOG = Path(__file__).resolve().parents[2] / 'migrations' / 'data' / 'municipios'
 ORIGINAL = {5300108: ('Brasília', 'DF'), 3550308: ('São Paulo', 'SP'), 3304557: ('Rio de Janeiro', 'RJ'),
@@ -60,3 +68,39 @@ def test_versioned_catalog_has_every_municipality_and_the_original_ids():
     license_text = (CATALOG / 'LICENSE').read_text(encoding='utf-8')
     assert 'MIT License' in license_text and 'Kelvin S. do Prado' in license_text
     assert '503e2f70bbf1b4b7ec0b1f68b09086ccc38fe861' in (CATALOG / 'FONTE.md').read_text(encoding='utf-8')
+
+
+def test_haversine_km_matches_known_distances():
+    assert haversine_km(-15.78, -47.93, -15.78, -47.93) == 0
+    # 1 grau de latitude no raio médio da Terra (6371,0088 km) mede cerca de 111,195 km em qualquer longitude.
+    assert haversine_km(0, 0, 1, 0) == pytest.approx(111.195, abs=0.001)
+    assert haversine_km(-30, -50, -31, -50) == pytest.approx(111.195, abs=0.001)
+    # Sedes de Brasília e Goiânia: cerca de 174,6 km em linha reta (a aproximação equirretangular dá o mesmo valor
+    # a essa distância), nos dois sentidos.
+    there = haversine_km(-15.7795, -47.9297, -16.6864, -49.2643)
+    back = haversine_km(-16.6864, -49.2643, -15.7795, -47.9297)
+    assert there == pytest.approx(174.6, abs=0.1) and there == pytest.approx(back)
+    # O antimeridiano não distorce a distância: 179,5 e -179,5 ficam a 1 grau de longitude no equador.
+    assert haversine_km(0, 179.5, 0, -179.5) == pytest.approx(111.195, abs=0.001)
+
+
+SEATS = [(1, -15.78, -47.93), (2, -16.69, -49.26), (3, -16.82, -49.24)]
+
+
+def test_choose_nearest_seat_returns_the_closest_seat():
+    assert choose_nearest_seat(SEATS, -15.79, -47.88) == 1
+    assert choose_nearest_seat(SEATS, -16.68, -49.25) == 2
+    assert choose_nearest_seat(SEATS, -16.80, -49.24) == 3
+    assert choose_nearest_seat([], -15.79, -47.88) is None
+
+
+def test_choose_nearest_seat_breaks_ties_by_the_smallest_id():
+    assert choose_nearest_seat([(9, 0, 0.1), (4, 0, -0.1), (7, 0.1, 0)], 0, 0) == 4
+
+
+def test_choose_nearest_seat_ignores_seats_beyond_the_coverage_limit():
+    assert NEAREST_MAX_DISTANCE_KM == 100
+    # 0,89 grau de latitude ≈ 98,96 km (dentro); 0,91 grau ≈ 101,19 km (fora).
+    assert choose_nearest_seat([(1, -10.89, -40)], -10, -40) == 1
+    assert choose_nearest_seat([(1, -10.91, -40)], -10, -40) is None
+    assert choose_nearest_seat([(1, -10.91, -40), (2, -9.09, -40)], -10, -40) is None
