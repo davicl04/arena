@@ -343,12 +343,6 @@ export function pendingView(notification: ArenaNotification): PendingView {
   }
 }
 
-/** O rótulo em caixa de frase, para a placa do Início ("PARTIDA ENCONTRADA" → "Partida encontrada", "W.O. REGISTRADO" → "W.O. registrado"). */
-export function pendingTitle(view: PendingView): string {
-  const lower = view.label.toLocaleLowerCase('pt-BR')
-  return (lower.charAt(0).toLocaleUpperCase('pt-BR') + lower.slice(1)).replace(/^W\.o\./, 'W.O.')
-}
-
 const MINUTE = 60_000
 const HOUR = 60 * MINUTE
 

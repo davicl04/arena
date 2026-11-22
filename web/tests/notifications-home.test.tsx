@@ -3,7 +3,6 @@ import { cleanup, render, screen, waitFor, within } from '@testing-library/react
 import userEvent from '@testing-library/user-event'
 import { ApiError, request } from '../src/api/client'
 import type { ArenaNotification, NotificationSummary } from '../src/api/notifications'
-import { PendingPlate } from '../src/components/notifications/PendingPlate'
 import { morePendingLabel, urgencyLabel } from '../src/data/home'
 import HomePage from '../src/pages/HomePage'
 import { noteOf, summaryOf } from './notifications-fixtures'
@@ -277,21 +276,5 @@ describe('Início: Destaque "Para responder"', () => {
     rerender(<HomePage firstName="Eu" profiles={[]} loading={false} summary={summaryState(summaryOf({ unread_count: 3, pending_count: 2 }))} go={vi.fn()} onExpired={vi.fn()} />)
     await waitFor(() => expect(reads()).toBe(2))
     expect(screen.getByRole('region', { name: 'Para responder' })).not.toBeNull()
-  })
-})
-
-describe('PendingPlate', () => {
-  it('mostra no máximo 2 linhas, a etiqueta âmbar com pouco prazo e o destino da administração', async () => {
-    const adminItem = noteOf(5, 'evento_para_aprovar', { event_id: 5, event_name: 'Copa Sudoeste' }, { category: 'eventos', pending: true, created_at: minutesAgo(5) })
-    const onOpenItem = vi.fn()
-    render(<PendingPlate items={[warOff, adminItem, proposal]} total={3} now={NOON.getTime()} isAdmin onOpenItem={onOpenItem} onOpenAll={vi.fn()} />)
-    const rows = screen.getAllByRole('listitem')
-    expect(rows).toHaveLength(2)
-    expect(rows[0].textContent).toContain('W.O. registrado')
-    expect(rows[0].textContent).toContain('faltam 2 h')
-    expect(rows[0].querySelector('span.text-\\[\\#ffcf6b\\]')).not.toBeNull()
-    expect(rows[1].textContent).toContain('Evento para aprovar')
-    await userEvent.setup().click(within(rows[1]).getByRole('button'))
-    expect(onOpenItem).toHaveBeenCalledWith(adminItem)
   })
 })

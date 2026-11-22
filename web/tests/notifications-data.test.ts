@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { ArenaNotification } from '../src/api/notifications'
-import { formatTimeLeft, groupByDay, notificationView, pendingDeadline, pendingTitle, pendingView } from '../src/data/notifications'
+import { formatTimeLeft, groupByDay, notificationView, pendingDeadline, pendingView } from '../src/data/notifications'
 import { relativeTime } from '../src/utils/relativeTime'
 import { noteOf } from './notifications-fixtures'
 
@@ -64,11 +64,6 @@ describe('pendingView: rótulo, linha secundária e botão dos 14 tipos com pend
 
   it('tipo desconhecido ganha o rótulo genérico e o botão "Abrir"', () => {
     expect(pendingView(note(1, 'tipo_futuro', {}))).toEqual({ label: 'PEDE SUA RESPOSTA', action: 'Abrir', secondary: 'Nova atividade na sua conta' })
-  })
-
-  it('o título em caixa de frase preserva "W.O."', () => {
-    expect(pendingTitle(pendingView(note(1, 'wo_registrado', {})))).toBe('W.O. registrado')
-    expect(pendingTitle(pendingView(note(1, 'proposta_partida', {})))).toBe('Partida encontrada')
   })
 })
 
