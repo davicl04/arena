@@ -54,7 +54,7 @@ const base = (event: () => unknown, extra: Record<string, Route> = {}): Record<s
   '/me/play': { attention: false, searches: [], proposals: [], offers: [], matches: [] },
   '/me/standings': { items: [], next_cursor: null },
   '/me/notifications/summary': { unread_count: 0, follow_requests_count: 0, pending_count: 0, unread_by_category: { partidas: 0, times: 0, eventos: 0 } },
-  '/me/notifications/pending?limit=2': { items: [] },
+  '/me/notifications/pending?limit=1': { items: [] },
   '/me/notifications/pending?limit=50': { items: [] },
   '/me/organizer-request': approved(),
   '/organizer/events?scope=abertos': () => page([card({ id: 5, name: 'Copa Sudoeste', competition_type: 'eliminacao_simples' })]),

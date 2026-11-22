@@ -3,7 +3,8 @@ import { orderedSides, sideName } from './match'
 
 /*
  * Regras e textos do Início (spec "Nova tela de Início"): a Contagem do Placar, o rótulo dos lados ("Você"), o texto do
- * Placar vazio e o rótulo do botão principal. A web aplica as mesmas regras e os mesmos textos.
+ * Placar vazio, o rótulo do botão principal e os textos do Destaque (urgência e link para as demais pendências). A web aplica as
+ * mesmas regras e os mesmos textos.
  */
 
 const MINUTE = 60_000
@@ -55,4 +56,17 @@ export const emptyPlacarText = (hasProfiles: boolean): string =>
 export function primaryButtonLabel({ hasProfiles, hasNextMatch }: { hasProfiles: boolean; hasNextMatch: boolean }): string {
   if (!hasProfiles) return 'Preparar perfis'
   return hasNextMatch ? 'Encontrar outra partida' : 'Encontrar partida'
+}
+
+/** Etiqueta do Destaque: "Mais urgente" quando o prazo está no fim (o critério `warn` de `pendingDeadline`), senão "Aguardando você". */
+export const urgencyLabel = (warn: boolean): string => (warn ? 'Mais urgente' : 'Aguardando você')
+
+/**
+ * Link abaixo do Destaque, a partir do total de pendências (`pending_count`): "+ 1 pendência · ver todas" ou
+ * "+ {n−1} pendências · ver todas". Com 1 pendência (ou nenhuma), não há link: `null`.
+ */
+export function morePendingLabel(total: number): string | null {
+  const rest = total - 1
+  if (!(rest >= 1)) return null
+  return `+ ${rest} ${rest === 1 ? 'pendência' : 'pendências'} · ver todas`
 }

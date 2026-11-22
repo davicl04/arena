@@ -9,9 +9,9 @@ import { ModalityCard } from '../components/arena/ModalityCard'
 import { modalityStanding } from '../components/arena/modalityStanding'
 import { ActionButton, TextAction } from '../components/arena/controls'
 import ListRow from '../components/ListRow'
+import { Destaque } from '../components/home/Destaque'
 import { Placar } from '../components/home/Placar'
 import { NotificationBell } from '../components/notifications/NotificationBell'
-import { PendingPlate } from '../components/notifications/PendingPlate'
 import { nextScheduledMatch } from '../components/play/matchView'
 import { primaryButtonLabel } from '../data/home'
 import type { NotificationSummaryState } from '../hooks/useNotificationSummary'
@@ -32,8 +32,9 @@ function Group({ title, children }: { title: string; children: ReactNode }) {
  * Início: sino das Notificações com o contador de novas (não lidas e pedidos para seguir, do resumo lido pelo shell), a data
  * por extenso e "A arena te chama, {primeiro nome}", o Placar (a próxima partida agendada entre as partidas da placa do Jogar,
  * `matches`, com a Contagem recalculada a cada minuto), o botão principal (abre o Jogar; o rótulo depende dos perfis
- * esportivos, `GET /me/sports-profiles`, e da próxima partida), a placa "Para responder" com as 2 pendências mais urgentes
- * (`GET /me/notifications/pending?limit=2`; some sem pendências ou se a leitura falhar), "Seu elo" em cada modalidade
+ * esportivos, `GET /me/sports-profiles`, e da próxima partida), o Destaque "Para responder" com a pendência mais urgente
+ * (`GET /me/notifications/pending?limit=1`, com o total do resumo; só aparece com `pending_count > 0` e um item lido, e some
+ * sem pendências ou se a leitura falhar), "Seu elo" em cada modalidade
  * (`GET /me/standings`: o elo de quem já se classificou, a classificação "n de 3" ou, na corrida, a distância de maior elo com
  * o melhor tempo) e atalhos para as áreas do app. Sem pontos, partidas ou classificações fictícias: o que não vem da API
  * aparece vazio ou indisponível.
@@ -47,15 +48,19 @@ export default function HomeScreen({ user, navigation, onExpired, matches = [], 
 }) {
   const now = useNow(60_000)
   const nextMatch = nextScheduledMatch(Array.isArray(matches) ? matches : [], now)
-  // A placa relê quando o total de pendências do resumo muda (o resumo é relido a cada minuto); falha ou lista vazia a escondem.
-  const pending = usePendingNotifications({ limit: 2 }, onExpired, { refreshKey: notificationSummary.data?.pending_count ?? -1 })
-  const pendingTotal = notificationSummary.data?.pending_count ?? pending.items.length
+  // O Destaque mostra só a primeira pendência (a lista vem por urgência) e relê quando o total do resumo muda (o resumo é relido
+  // a cada minuto). Aparece com `pending_count > 0` e um item lido; sem pendências, sem resumo ou com falha na leitura, some.
+  const pendingTotal = notificationSummary.data?.pending_count ?? 0
+  const pending = usePendingNotifications({ limit: 1 }, onExpired, { refreshKey: notificationSummary.data?.pending_count ?? -1 })
+  const firstPending = pendingTotal > 0 ? pending.items[0] : undefined
   const standings = useResource(getMyStandings, onExpired)
   // Perfis esportivos (o shell não os lê): só uma lista vazia confirmada conta como "sem perfis"; carregando ou com falha, não.
   const profiles = useResource(loadProfiles, onExpired)
   const hasProfiles = !Array.isArray(profiles.data) || profiles.data.length > 0
+  const openAllPending = () => navigation.go('notifications', { filter: 'responder' })
+  // Marca como lida e abre o destino do aviso; sem destino, as notificações no filtro Para responder.
   const openPending = (notification: ArenaNotification) => void openNotification(notification, {
-    navigation, isAdmin: user.is_admin, onRead: notificationSummary.setData, onExpired,
+    navigation, isAdmin: user.is_admin, onRead: notificationSummary.setData, onExpired, onNoTarget: openAllPending,
   })
   const firstName = user.name.trim().split(/\s+/)[0]
   return <ScrollView contentContainerClassName="px-6 pt-3.5 pb-8">
@@ -67,9 +72,7 @@ export default function HomeScreen({ user, navigation, onExpired, matches = [], 
     <Text accessibilityRole="header" className="mt-1 mb-4 text-[25px] font-bold leading-[31px] text-heading">A arena te chama, {firstName}</Text>
     <Placar match={nextMatch} now={now} hasProfiles={hasProfiles} onOpen={matchId => navigation.go('match', { matchId })} />
     <View className="mt-3 mb-3.5"><ActionButton block tone="brand" icon="zap" title={primaryButtonLabel({ hasProfiles, hasNextMatch: Boolean(nextMatch) })} accessibilityHint="Abre o Jogar" onPress={() => navigation.go('play')} /></View>
-    {pending.items.length > 0 ? <View className="mb-3.5">
-      <PendingPlate items={pending.items} total={pendingTotal} now={now} isAdmin={user.is_admin} onOpenItem={openPending} onOpenAll={() => navigation.go('notifications', { filter: 'responder' })} />
-    </View> : null}
+    {firstPending ? <Destaque notification={firstPending} total={pendingTotal} now={now} isAdmin={user.is_admin} onOpen={openPending} onOpenAll={openAllPending} /> : null}
     <View className="mb-2 flex-row items-center justify-between">
       <Text accessibilityRole="header" className="text-[11px] font-bold tracking-[2px] text-brand">SEU ELO</Text>
       <TextAction title="Ver elos" accessibilityLabel="Ver elos no Ranking" onPress={() => navigation.go('ranking')} />
