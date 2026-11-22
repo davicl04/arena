@@ -1,5 +1,15 @@
 # Situação da fundação do Arena
 
+## Plano da tela de modalidades com cidade por localização — 22 de novembro de 2026
+
+Registrado o plano [plano-modalidades.md](plano-modalidades.md), resultado de uma sessão de protótipos (fonte local em `artifacts/prototipos/modalidades.html`, não versionada). A tela "Suas modalidades" passa a ter faixas por modalidade e uma folha passo a passo: cidade → posição (no futebol) → revisão, com o `toast.success` do projeto na conclusão. A cidade é sugerida pela localização do aparelho, calculada no servidor ARENA (`POST /cities/nearest`, coordenadas no corpo, sem gravar nem usar serviço externo). O catálogo passa dos 6 municípios atuais para os 5.570 do conjunto `kelvins/municipios-brasileiros` (MIT, códigos IBGE, coordenadas da sede). Escopo: web e Expo nesta entrega.
+
+**Achados que orientam a implementação:** `GET /cities` devolve no máximo 100 cidades em ordem alfabética, e os dois clientes carregam essa lista uma única vez para nomear e escolher cidades em Jogar, Eventos, Times, Assistente de evento, Pedido de organizador e perfil. Com o catálogo nacional, esses pontos passam a usar o objeto `city` das respostas e a busca do servidor. Também ficou registrado que `looking_for` só é gravado e exibido, sem efeito em buscas, e por isso os novos textos não prometem descoberta.
+
+**Verificações:** apenas documentação e planejamento. Nenhum código, contrato, esquema ou dependência foi alterado, e nenhum teste de código foi executado. A licença MIT e os campos do repositório de origem, incluindo latitude e longitude, foram conferidos no GitHub. O total de 5.570 registros vem do README dele e não foi contado. O protótipo foi validado apenas pela sintaxe do JavaScript (`node --check`), sem screenshots, porque esta máquina não tem navegador automatizado.
+
+**Pendências:** toda a implementação. Decidir se a edição de um perfil existente abre no passo 1 ou direto na revisão. Avaliar depois o efeito do catálogo nacional no pareamento por cidade.
+
 ## Instalação no macOS documentada no README — 22 de novembro de 2026
 
 Acrescentada ao README a seção "Instalação no macOS", com o fluxo executado num Mac com Apple Silicon recém-configurado, sem Homebrew e sem sudo: Python 3.13 pelo `uv`, Node 24 pelo `nvm`, `docker compose up -d --build --wait db minio`, ambiente do backend com `uv venv` e `uv pip`, migrações, recálculo de rankings, bucket do MinIO, API e web. A seção "Banco e API" passou a apontar para ela. O README também ganhou a seção "Commits", com o padrão `tipo: descrição` em português e sem linhas `Co-Authored-By`. Também há a alternativa com Homebrew, que não foi executada. Sem mudança de código, contrato, esquema ou dependências.
