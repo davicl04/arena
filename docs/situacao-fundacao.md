@@ -1,5 +1,50 @@
 # Situação da fundação do Arena
 
+## Fechamento do ranking por rating — 22 de novembro de 2026
+
+Fecha a entrega do [ranking por rating](decisoes/0006-ranking-por-rating.md) (tickets 01 a 07). A entrega não completa o MVP.
+
+- **O que mudou na funcionalidade:**
+  - Futebol · time e tênis classificam por **rating**: inicial 1000, `E = 1 / (1 + 10^((adversário − rating)/400))`, `rating + K × (S − E)`, K 64 nas 3 partidas de classificação e 32 depois, reprodução cronológica da janela de 52 semanas e arredondamento a 3 casas. Cortes: Prata ≥ 950, Ouro ≥ 1050 e Diamante ≥ 1150.
+  - O bônus de campeonato do tênis entra no rating ponderado pela força da chave (`base × 2 × (1 − E_chave)`).
+  - O futebol · individual usa a **média ajustada** (`m` = 5, `μ` = 3,0; cortes 2,6/3,9/5,2). A corrida não muda.
+  - Migrações `0016` e `0017`; `CURRENT_CALC_VERSION = 2`.
+  - O pareamento de time e tênis desempata pelo rating mais próximo, sem mudar o filtro de elo.
+  - A API mantém as formas das respostas: `metric_value` passa a ser o rating ou a média ajustada e é nulo na linha em classificação de time e tênis.
+  - Web e Expo rotulam "rating" (inteiro, sem "pts") e mostram só "n de 3" em classificação. A pílula "+3/+10 pts" e a linha do tempo continuam com os pontos da campanha.
+- **Documentação (ticket 07):**
+  - seção 1 da [0002](decisoes/0002-jogar.md) com a tabela da versão 2 e a versão 1 como histórico; seção 12.6 corrigida para a média ajustada do individual;
+  - 0006 completa (motivação, clientes, rollout e rollback, questões em aberto); ponteiro do bônus ponderado na 0003;
+  - [plano do Jogar](plano-jogar.md) com "Elos e pontuação", a ordem do pareamento e as mudanças de **RN14, RN16 e RN23** registradas como requisitos planejados (sem editar `roteiro-projeto.docx`);
+  - invariante e exemplos do [plano do Ranking](plano-ranking.md) ("1087 rating", "37 rating atrás do 1º", "2 rating à frente do 7º");
+  - README com o rollout e o rollback.
+- **Rollout no banco de desenvolvimento `arena`:** cópia prévia com `pg_dump -Fc` em `.local/backups/` (fora do versionamento); `alembic upgrade head` (0015 → 0017) e `alembic check` limpo; `python -m app.admin_cli recalculate-rankings` com 1 linha alterada na primeira execução e 0 na segunda. Nada foi apagado.
+
+**Verificações** (código idêntico ao da ponta consolidada; os commits do ticket 07 só mudam documentação)
+- `backend/`: `ruff check app migrations tests scripts` sem apontamentos; `pytest -q --cov=app --cov-branch` com `TEST_DATABASE_URL` em banco descartável: 1789 aprovados e 1 pulado (S3 opcional), 621 testes de integração executados, cobertura de 99%; `alembic check` limpo no banco `arena` depois da migração.
+- `web/`: `npm run lint` e `npm run build` aprovados; `npm run test:coverage` com 1312 de 1313 em duas execuções. A falha é a de `tests/matchmaking.test.tsx` (foco do diálogo de cancelamento), que já existia, também falha isolada e não envolve código desta entrega.
+- `mobile/`: `npm run lint`, `npm run typecheck` e `npm run export:android` aprovados; `npm run test:coverage` com 109 arquivos e 1668 testes aprovados (96,52% de instruções, 90,99% de ramos, 95,9% de funções, 98,47% de linhas).
+- **Ponta a ponta no banco `arena`, só pela API real**, com contas sintéticas `orq-ranking-07-…@exemplo.com` em Goiânia: 3 times e 3 tenistas, 5 partidas de time e 5 de tênis pelo fluxo completo (busca, proposta, aceite, quadra sugerida, condições, placar dos dois lados). A última confirmação de cada modalidade mudou rating, posição e elo como previa a reprodução:
+
+  | Sujeito | Antes | Depois |
+  | --- | --- | --- |
+  | Time A | 1052,863 (Ouro, 1º) | 1033,010 (Prata, 1º) |
+  | Time C | em classificação, `metric_value` nulo | 1007,231 (Prata, 2º) |
+  | Time B | 979,611 (Prata, 2º) | 979,611 (Prata, 3º) |
+  | Tenista P | 1037,292 (Prata, 1º) | 1051,713 (Ouro, 1º) |
+  | Tenista R | em classificação, `metric_value` nulo | 974,052 (Prata, 2º) |
+
+  `calc_version = 2` em `/rankings/overview` e `/me/standings`; a linha do tempo manteve os 10 por vitória.
+- **Web depois de recarregar** (Playwright headless): Início e Ranking de time e de tênis, nos temas claro e escuro, em 320, 390 e 1440 px. Sem erros no console, sem overflow horizontal, com "rating" nos números e só "n de 3" em classificação.
+
+**Limitações:**
+- Rating inicial, K, cortes, `m` e `μ` são uma calibragem inicial, sem volume de partidas reais. A simulação dos cortes do individual e os dados da conferência são sintéticos.
+- O build do Expo não comprova funcionamento em aparelho, e não houve validação em Android ou iOS. O CI remoto não foi executado.
+- O bônus ponderado não foi exercitado ponta a ponta (exige campeonato com 4 inscritos); ele está coberto pelos testes de integração.
+- As contas, os times, as partidas e as 10 sugestões de quadra em revisão criados na conferência continuam no banco de desenvolvimento; as senhas das contas sintéticas foram descartadas.
+
+**Pendências:** revisão de código da entrega inteira (`code-review`). Questões não bloqueantes: W.O. no rating (hoje conta como vitória e derrota normais); rótulo "média" ou "média ajustada" no individual; calibragem final numa futura `calc_version`; quem atualiza RN14, RN16 e RN23 em `roteiro-projeto.docx`, e quando; decisão de produto sobre os textos de regra que ainda dizem "pontos" ("com os pontos de Diamante" no Salão e no cartão dos Lendários, na web e no Expo, e "+N no ranking", com "mais N pontos no ranking" no nome acessível do Expo, nas colocações da chave); a falha intermitente de `tests/matchmaking.test.tsx`, fora desta entrega. O MVP completo continua não implementado.
+
 ## Média ajustada no futebol · individual — 22 de novembro de 2026
 
 Entrega do ticket 03 do [ranking por rating](decisoes/0006-ranking-por-rating.md).
