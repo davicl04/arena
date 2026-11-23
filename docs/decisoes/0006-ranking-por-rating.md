@@ -1,10 +1,18 @@
 # Decisões — Ranking por rating (`calc_version = 2`)
 
-Data: 22 de novembro de 2026. Altera as regras de ranking da [decisão do Jogar](0002-jogar.md) (seções 1 e 12.6) para `futebol_time` e `tenis`, que deixam de somar pontos e passam a classificar por **rating**. A primeira entrega cobriu o rating do time e do tênis, a versão de cálculo 2 de todos os rankings, a migração dos cortes e o contrato de `metric_value`. Entregas posteriores trouxeram o desempate do pareamento pelo rating (seção 4), o bônus ponderado de campeonato do tênis (seção 7) e a média ajustada do futebol · individual (seção 8). Os rótulos dos clientes vêm em entregas seguintes (seção 11).
+Data: 22 de novembro de 2026. Altera as regras de ranking da [decisão do Jogar](0002-jogar.md) (seções 1 e 12.6): `futebol_time` e `tenis` deixam de somar pontos e passam a classificar por **rating**, e o `futebol_individual` passa a usar a **média ajustada**. A entrega está implementada e integrada no backend, na web e no Expo: rating do time e do tênis com a versão de cálculo 2 de todos os rankings (seções 2 a 6), desempate do pareamento pelo rating (seção 4), bônus ponderado de campeonato do tênis (seção 7), média ajustada do individual (seção 8), rótulo "rating" nos clientes (seção 5) e o rollout com o recálculo administrativo, aplicado no banco de desenvolvimento (seção 9). As questões não bloqueantes estão na seção 11.
 
-## 1. Problema
+## 1. Motivação
 
-Com a `calc_version = 1`, o time somava 3/1/0 e o tênis 10 por vitória, comparados a cortes fixos. A classificação (as 3 primeiras partidas) só liberava o elo: a melhor campanha possível de um time (3 vitórias = 9 pontos) caía em Bronze, porque Prata exigia 10; depois dela, o elo media volume, porque derrota não tirava pontos; e vencer um Diamante valia o mesmo que vencer um Bronze.
+Com a `calc_version = 1`, o time somava 3/1/0 e o tênis 10 por vitória, comparados a cortes fixos. A classificação (as 3 primeiras partidas) só liberava o elo e não calibrava ninguém:
+
+- no futebol · time, a melhor campanha possível de classificação (3 vitórias = 9 pontos) caía sempre em Bronze, porque Prata exigia 10; no tênis, 3 vitórias davam 30 pontos, Prata no limite;
+- depois da classificação, o elo media **volume**: derrota valia 0 e nunca tirava pontos, então quem jogava mais subia mais, independentemente do nível;
+- a **força do adversário não contava**: vencer um Diamante valia o mesmo que vencer um Bronze;
+- o pareamento por elo igual ou vizinho (RN04) prendia quem jogava bem a adversários fracos até acumular volume;
+- no futebol · individual, a métrica já era uma média por partida, mas 3 partidas boas bastavam para chegar a Diamante, porque amostras pequenas não eram amortecidas.
+
+O rating resolve os quatro primeiros pontos (a classificação vira calibração real, a derrota tira rating e a força do adversário entra no resultado esperado), e a média ajustada resolve o último. A corrida (melhor tempo) não tinha o problema e não muda. Os pontos 3/1/0, os pontos por atuação (RN12) e os 10 por vitória continuam como **pontos da campanha**, exibidos por partida, sem definir elo.
 
 ## 2. Rating
 
@@ -50,7 +58,7 @@ Os valores são iniciais e podem ser calibrados numa futura `calc_version` sem m
 - A classificação continua com 3 partidas. O elo de um classificado sai dos cortes da versão 2 aplicados ao rating (time e tênis) ou à média ajustada (individual). A regra do Lendário (Diamante e posição ≤ ⌊classificados × 15%⌋) não muda.
 - Como a métrica continua sendo a primeira chave da ordem, os elos seguem contíguos em `rank_position`, com o Lendário como prefixo (teste de propriedade em `tests/unit/test_ranking_tiers.py`, agora também com os cortes de rating).
 - **Desempate do pareamento:** o filtro não muda (elo igual ou vizinho; quem está em classificação enfrenta qualquer nível, RN04 e RN23). Nas buscas de time e de tênis, a ordem dos candidatos passa a ser proximidade de elo (mesmo, vizinho, demais), **menor diferença absoluta de rating**, busca mais antiga e id (`match_rules.candidate_order`). A fila (`matchmaking_queue._search_ratings`) lê o rating de `standings` no momento do pareamento, na categoria da busca (o time no formato; o tênis), numa só consulta para a busca e todos os candidatos, dentro da trava do balde e sem trava nova. O rating guardado em classificação também conta. Sem linha da versão de cálculo atual (sem partida na janela, ou linha ainda da versão 1 antes do recálculo do rollout), vale `rankings.initial_rating` dos cortes (1000). Com cortes que não são de rating (rollback para a versão 1), a ordem volta a ser elo e antiguidade. Não há coluna nova em `match_searches`, e o rating não é copiado para a partida. A busca de avulso e as vagas não mudam. Uma mudança só de rating não gera nova tentativa de pareamento (seção 6).
-- A métrica do registro segue o `metric` dos cortes em uso: com cortes `rating`, o rating; com cortes `pontos` (versão 1), os pontos, com o bônus de campeonato do tênis. É isso que torna o rollback da seção 9 possível sem outra mudança de código. No individual, a métrica é a média ajustada quando os cortes em uso têm `m` e `μ`, e a média simples quando os dois são nulos (versão 1).
+- A métrica do registro segue o `metric` dos cortes em uso: com cortes `rating`, o rating; com cortes `pontos` (versão 1), os pontos, com o bônus de campeonato do tênis. É isso que torna o rollback de código da seção 9 possível sem outra mudança no backend. No individual, a métrica é a média ajustada quando os cortes em uso têm `m` e `μ`, e a média simples quando os dois são nulos (versão 1).
 
 ## 5. Contrato da API
 
@@ -61,6 +69,8 @@ As formas das respostas não mudam. Muda o significado de alguns campos em `fute
 - **em classificação**, `standings.metric_value` guarda o rating (o pareamento o usará), mas as respostas não o expõem: `metric_value` é `null` na linha `classificacao` de `futebol_time` e `tenis` (`StandingLine` de `/me/standings`, a grade de formatos dos times e `mine` do Ranking). A regra é `rankings.hides_placement_metric`, derivada da métrica dos cortes;
 - no futebol · individual, `metric_value` é a **média ajustada** (3 casas), e `leader_gap` e `next_gap` ficam na mesma unidade. O comportamento em classificação não muda: a linha em classificação continua expondo a métrica (agora a média ajustada). O rótulo exibido continua "média";
 - a corrida mantém o comportamento atual, inclusive a métrica em classificação.
+
+**Clientes (web e Expo).** Não há campo novo: o rótulo continua derivado da chave do ranking, num mapeamento único por cliente (`components/ranking/metric.ts` na web e no Expo: `isRatingRanking`, `formatMetric`, `metricUnit`, `metricText` e `gapText`). Em `futebol_time` e `tenis`, a métrica aparece como inteiro arredondado, sem separador de milhar, com o rótulo "rating" depois do número e sem "pts" nem "pontos": a linha e a placa de posição no elo do Ranking ("1087 rating", "37 rating atrás do 1º", "2 rating à frente do 7º"), a lista do Salão dos Lendários e as pílulas de elo do Início ("Futebol: elo Ouro, 1087 rating"). O individual continua "média" (duas casas) e a corrida, "tempo". Em classificação, as telas mostram só "n de 3", sem rating nem "0". A grade de formatos de Times não formata `metric_value`. A pílula "+3 pts" ou "+10 pts" do resultado e a linha do tempo do perfil continuam com os pontos da campanha. Os nomes acessíveis leem o rating junto com o número.
 
 ## 6. Recálculo
 
@@ -151,8 +161,11 @@ Com os cortes adotados, 3 atuações excepcionais com média real 7,0 dão 4,5 (
 
 ## 9. Rollout e rollback
 
-- **Rollout:** aplicar a migração (`alembic upgrade head`) e executar `python -m app.admin_cli recalculate-rankings` logo em seguida. Até o recálculo, as linhas de `standings` mantêm `calc_version = 1` e os valores antigos. O comando é idempotente: uma segunda execução não altera nenhuma linha.
-- **Rollback:** voltar `CURRENT_CALC_VERSION` para 1 e executar o recálculo. Os cortes da versão 1 (`metric = 'pontos'`) fazem o time e o tênis voltarem a classificar por pontos, com o bônus do tênis. No individual, os cortes da versão 1 não têm `m` nem `μ`, então o recálculo volta à média simples. Para desfazer só a média ajustada, o downgrade da `0017` devolve a linha `futebol_individual` da versão 2 ao estado da `0016` (cortes da versão 1, `m` e `μ` nulos); depois do recálculo, o individual volta à média simples, sem mudança de código. Se for preciso desfazer o esquema, o downgrade da `0016` remove as linhas da versão 2 e as colunas novas e restaura `ck_rank_cuts_metric`; ele deve ser seguido do código com `CURRENT_CALC_VERSION = 1` e do recálculo.
+- **Rollout:** em cada ambiente, em `backend/`, aplicar as migrações (`alembic upgrade head`, que leva a `0016` e a `0017`) e executar `python -m app.admin_cli recalculate-rankings` logo em seguida. Até o recálculo, as linhas de `standings` mantêm `calc_version = 1` e os valores antigos (pontos no time e no tênis, média simples no individual), e os clientes já rotulam "rating"; o próximo resultado de uma categoria também a recalcula. O comando recalcula todas as categorias numa transação e é idempotente: uma segunda execução imprime `0 linhas alteradas`. As buscas abertas recebem o elo novo quando ele muda.
+- **Aplicação no banco de desenvolvimento (22 de novembro de 2026):** com cópia prévia (`pg_dump -Fc`, fora do versionamento, em `.local/backups/`), `alembic upgrade head` levou o banco `arena` de `0015` a `0017`, `alembic check` ficou limpo e o recálculo alterou 1 linha (a única linha existente, da corrida, passou à versão 2); a segunda execução não alterou nenhuma. Nenhuma conta, partida ou volume foi apagado.
+- **Rollback de código:** voltar `CURRENT_CALC_VERSION` para 1 e executar o recálculo. Os cortes da versão 1 (`metric = 'pontos'`) fazem o time e o tênis voltarem a classificar por pontos, com o bônus do tênis somado. No individual, os cortes da versão 1 não têm `m` nem `μ`, então o recálculo volta à média simples. As linhas da versão 2 continuam gravadas em `rank_cuts`. Os clientes continuariam rotulando "rating" no time e no tênis até uma reversão do mapeamento de `metric.ts`.
+- **Rollback só da média ajustada:** o downgrade da `0017` devolve a linha `futebol_individual` da versão 2 ao estado da `0016` (cortes da versão 1, `m` e `μ` nulos); depois do recálculo, o individual volta à média simples, sem mudança de código.
+- **Rollback do esquema:** o downgrade da `0016` remove as linhas da versão 2 e as colunas novas e restaura `ck_rank_cuts_metric`. Ele deve vir junto do código com `CURRENT_CALC_VERSION = 1`, seguido do recálculo. Nenhum downgrade apaga partidas, resultados ou `event_placements`.
 
 ## 10. Cenários de referência
 
@@ -167,8 +180,12 @@ Três partidas de classificação contra adversários com o rating inicial (K = 
 
 Contra o mesmo adversário nas três partidas, 3 vitórias dão 1079,839 (Ouro) e 3 derrotas, 920,161 (Bronze). Vencer um adversário mais forte rende mais do que vencer um mais fraco, e perder para um mais fraco custa mais.
 
-## 11. Pendências
+## 11. Questões em aberto (não bloqueantes)
 
-- Rótulo "rating" na web e no Expo, sem "pts" nas categorias por rating, e ocultação em classificação nas telas.
-- Seção 1 de [0002](0002-jogar.md), [plano do Jogar](../plano-jogar.md), [plano do Ranking](../plano-ranking.md) e README, com o rollout.
-- Questões não bloqueantes da spec: W.O. no rating (hoje conta como vitória e derrota normais), rótulo da média ajustada (as telas continuam exibindo "média"), calibragem final e atualização de RN14, RN16 e RN23 no roteiro.
+As entregas desta decisão estão concluídas: regras e recálculo, pareamento, bônus ponderado, média ajustada, rótulos da web e do Expo, documentação e rollout no banco de desenvolvimento. Ficam as questões da spec, sem bloquear o uso:
+
+- **W.O. no rating:** hoje o W.O. conta como vitória e derrota normais, coerente com a contagem de pontos. Uma alternativa é excluí-lo do rating, para evitar ganhos grandes sem jogo.
+- **Rótulo da média ajustada:** as telas continuam exibindo "média" no individual; falta decidir se passam a "média ajustada".
+- **Calibragem final:** o rating inicial, os fatores K, os cortes, `m` e `μ` são iniciais (sem volume de partidas reais). Uma recalibragem entra numa futura `calc_version`, sem mudar a forma.
+- **Roteiro:** as mudanças necessárias em RN14, RN16 e RN23 estão registradas como requisitos planejados no [plano do Jogar](../plano-jogar.md#mudanças-necessárias-no-roteiro); falta decidir quem atualiza `docs/roteiro-projeto.docx`, e quando.
+- **Textos de regra com "pontos":** o Salão dos Lendários (web e Expo) diz "com os pontos de Diamante", e as colocações da chave do campeonato de tênis mostram a base do bônus ("+40 no ranking"; no Expo, o nome acessível diz "mais 40 pontos no ranking"), embora na versão 2 o efeito no rating seja o bônus ponderado. Esses textos não formatam `metric_value` e ficaram como estão; reescrevê-los é uma decisão de produto pendente.

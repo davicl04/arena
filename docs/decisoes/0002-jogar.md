@@ -19,18 +19,33 @@ Data: 12 de outubro de 2026. Contrato da **fase 1 do [plano do Jogar](../plano-j
 - **Elos**, do menor para o maior: `bronze`, `prata`, `ouro`, `diamante`, `lendario`. O cliente só mapeia o nome para a imagem (`web/public/images/brand/`, `rankingTiers` em `web/src/data/arena.ts`; `lendario` → "Lendário").
 - **Rankings gerais**, sem cidade (a cidade serve só ao pareamento). Cada ranking tem uma chave:
 
-| Chave | Sujeito e categoria | Métrica | Classificação |
+| Chave | Sujeito e categoria | Métrica (`calc_version = 2`, em uso) | Classificação |
 | --- | --- | --- | --- |
-| `futebol_time` | time × formato (`futsal`, `society`, `campo`) | pontos 3/1/0 (`pontos`) | 3 partidas confirmadas |
-| `futebol_individual` | atleta × posição × formato (12 rankings) | média por partida (`media`) | 3 partidas confirmadas |
-| `tenis` | atleta | pontos (`pontos`) | 3 partidas confirmadas |
+| `futebol_time` | time × formato (`futsal`, `society`, `campo`) | rating (`rating`) | 3 partidas confirmadas |
+| `futebol_individual` | atleta × posição × formato (12 rankings) | média ajustada por partida (`media`) | 3 partidas confirmadas |
+| `tenis` | atleta | rating (`rating`), com o bônus de campeonato ponderado | 3 partidas confirmadas |
 | `corrida_3`, `corrida_5`, `corrida_10`, `corrida_21`, `corrida_42` | atleta × distância | melhor tempo em segundos (`tempo`) | a primeira marca |
+
+Na `calc_version = 1` (histórico, mantida para o rollback), o time somava pontos 3/1/0, o tênis somava 10 por vitória mais o bônus de campeonato (`pontos`) e o individual usava a média simples por partida.
 
 - **Janela:** 52 semanas, aplicada pelas fases que calculam resultados e marcas (fases 5 e 6).
 
-### Cortes (`rank_cuts`, `calc_version = 1`)
+### Cortes da versão em uso (`rank_cuts`, `calc_version = 2`)
 
-Uma linha por ranking e versão, com `metric`, `direction` (`maior`: valor ≥ corte; `menor`: tempo ≤ corte), `prata`, `ouro`, `diamante`, `placement_matches`, `legend_share` (0,15) e `window_weeks` (52). Bronze é tudo o que não alcança Prata. Valores iniciais, **a calibrar com dados reais antes de publicar**:
+Desde 22 de novembro de 2026, `CURRENT_CALC_VERSION = 2` ([decisão 0006](0006-ranking-por-rating.md), migrações `0016` e `0017`). Os valores são iniciais e podem ser calibrados numa futura `calc_version` sem mudar a forma:
+
+| Ranking | Métrica | Prata | Ouro | Diamante | Parâmetros |
+| --- | --- | --- | --- | --- | --- |
+| `futebol_time` | `rating` | ≥ 950 | ≥ 1050 | ≥ 1150 | rating inicial 1000, K 64 nas 3 partidas de classificação e 32 depois |
+| `tenis` | `rating` | ≥ 950 | ≥ 1050 | ≥ 1150 | rating inicial 1000, K 64/32; bônus de campeonato ponderado pela força da chave |
+| `futebol_individual` | `media` (média ajustada) | ≥ 2,6 | ≥ 3,9 | ≥ 5,2 | `m` = 5 partidas fantasmas, `μ` = 3,0 |
+| `corrida_3` a `corrida_42` | `tempo` | cópia da versão 1 | cópia da versão 1 | cópia da versão 1 | — |
+
+`placement_matches`, `legend_share` e `window_weeks` são copiados da versão 1. A fórmula do rating, o bônus ponderado, a média ajustada, o rollout e o rollback estão na [decisão 0006](0006-ranking-por-rating.md).
+
+### Cortes da versão 1 (`rank_cuts`, `calc_version = 1`, histórico)
+
+Uma linha por ranking e versão, com `metric`, `direction` (`maior`: valor ≥ corte; `menor`: tempo ≤ corte), `prata`, `ouro`, `diamante`, `placement_matches`, `legend_share` (0,15) e `window_weeks` (52). Bronze é tudo o que não alcança Prata. Valores iniciais da fundação, que continuam gravados e voltam a valer só num rollback para a versão 1:
 
 | Ranking | Prata | Ouro | Diamante |
 | --- | --- | --- | --- |
@@ -43,13 +58,13 @@ Uma linha por ranking e versão, com `metric`, `direction` (`maior`: valor ≥ c
 | `corrida_21` | ≤ 9900 s (2:45:00) | ≤ 7500 s (2:05:00) | ≤ 6300 s (1:45:00) |
 | `corrida_42` | ≤ 20700 s (5:45:00) | ≤ 15600 s (4:20:00) | ≤ 13200 s (3:40:00) |
 
-Uma nova calibragem entra como `calc_version = 2` numa migração, sem alterar as linhas da versão 1. Os cortes não são expostos aos clientes nesta fase.
+A calibragem seguinte entrou como `calc_version = 2` (tabela acima), numa migração, sem alterar as linhas da versão 1. Os cortes e os parâmetros não são expostos aos clientes.
 
 ### Regras (`app/services/rankings.py`)
 
 - `base_tier(valor, cortes)`: cortes fixos até Diamante.
 - `legend_slots(classificados, 0,15) = ⌊classificados × 0,15⌋`, em decimal exato: com menos de 7 classificados, ninguém é Lendário.
-- `tier_for(valor, cortes, rank_position=, classified_count=)`: Lendário exige os pontos de Diamante **e** posição ≤ `legend_slots` naquele ranking.
+- `tier_for(valor, cortes, rank_position=, classified_count=)`: Lendário exige a métrica de Diamante (o rating, a média ajustada ou o tempo; na versão 1, os pontos) **e** posição ≤ `legend_slots` naquele ranking.
 - **Nunca** se atribui elo a quem está em classificação: `standings.tier` é nulo até a classificação, e `rank_position` só existe com elo (restrição `ck_standings_ranked`).
 - `faced_tiers(elo)`: o mesmo elo e os vizinhos (Bronze → Bronze e Prata; Prata → Bronze, Prata e Ouro; Lendário → Diamante e Lendário). Sem elo, enfrenta qualquer nível. `can_face(a, b)` aceita vizinhos e qualquer par em que um lado esteja sem elo (base do pareamento da fase 2).
 - `ranking_key(sport, team=, distance_km=)` e `load_cuts(db, calc_version)` completam o módulo.
@@ -837,7 +852,7 @@ interface LineupOut {
 interface RankingRow {
   rank_position: number
   tier: Tier                     // só classificados aparecem na lista
-  metric_value: number           // rating (time, tênis; calc_version 2), média por partida (individual) ou segundos (corrida)
+  metric_value: number           // calc_version 2: rating (time, tênis), média ajustada (individual) ou segundos (corrida)
   matches_played: number
   wins: number; draws: number; losses: number
   goals_for: number | null       // time: gols; tênis: sets; individual: null
@@ -863,14 +878,14 @@ interface RankingPage {
 }
 ```
 
-- **`metric_value` a partir da `calc_version = 2`** ([decisão 0006](0006-ranking-por-rating.md)): em `futebol_time` e `tenis` é o **rating** (3 casas; as telas exibem inteiro), e `leader_gap` e `next_gap` (seção 20) ficam em pontos de rating. Em classificação, `standings` guarda o rating, mas a resposta não o expõe: `metric_value` é `null` na linha `classificacao` de `futebol_time` e `tenis` (`mine`, `GET /me/standings` e a grade de formatos dos times). No futebol · individual (média) e na corrida (segundos), o valor e o comportamento em classificação não mudam. As formas das respostas não mudam, e `calc_version` vale 2 em `GET /rankings`, `GET /rankings/overview` e `GET /me/standings`. Os pontos 3/1/0 e os 10 por vitória continuam na pílula do resultado e na linha do tempo, sem definir elo.
+- **`metric_value` a partir da `calc_version = 2`** ([decisão 0006](0006-ranking-por-rating.md)): em `futebol_time` e `tenis` é o **rating** (3 casas; as telas exibem inteiro), e `leader_gap` e `next_gap` (seção 20) ficam em pontos de rating. Em classificação, `standings` guarda o rating, mas a resposta não o expõe: `metric_value` é `null` na linha `classificacao` de `futebol_time` e `tenis` (`mine`, `GET /me/standings` e a grade de formatos dos times). No futebol · individual, `metric_value` é a **média ajustada** (3 casas; decisão 0006, seção 8), e `leader_gap` e `next_gap` ficam na mesma unidade; a linha em classificação continua expondo a métrica (agora a média ajustada), e as telas continuam rotulando "média". Na corrida (segundos), o valor e o comportamento em classificação não mudam. As formas das respostas não mudam, e `calc_version` vale 2 em `GET /rankings`, `GET /rankings/overview` e `GET /me/standings`. Os pontos 3/1/0 e os 10 por vitória continuam na pílula do resultado e na linha do tempo, sem definir elo.
 
 - **Parâmetros:** `sport=futebol&kind=time&format=` (times por formato), `sport=futebol&kind=individual&format=&position=` (12 rankings), `sport=tenis`; `sport=corrida&distance_km=3|5|10|21|42` (seção 18.5: `metric_value` em segundos, o menor tempo vence, `matches_played` conta as marcas da janela, `wins`/`draws`/`losses` são 0 e `goals_for`/`goals_against` são `null`). Faltando categoria: `422 Escolha o formato.`, `422 Escolha a posição.` ou `422 Escolha a distância.` Rankings **gerais** (sem cidade). Ordem por `rank_position` crescente; cursor opaco com a última posição; `limit` padrão 20, máximo 50. Quem tem bloqueio com o titular continua na lista, sem avatar.
 - **Recálculo** (`services/standings.recalculate_for_match(db, match, *, now, positions=())`, seção 15.4): na confirmação, na decisão ou no fim do prazo, recalcula os rankings que a partida toca, na mesma transação: os dois times no formato (`futebol_time`), cada atuação presente na posição e no formato (`futebol_individual`) ou os dois tenistas (`tenis`), com:
   - janela de 52 semanas pelo `starts_at` (`scoring.in_window`);
   - partidas `realizada` ou `encerrada` com placar final;
   - time: `scoring.team_record` com o rating de `scoring.replay_ratings` (decisão 0006: 1000 no início da janela, `E = 1 / (1 + 10^((adversário − rating)/400))`, `rating + K × (S − E)`, K 64 nas 3 primeiras partidas do time na janela e 32 depois, partidas em ordem de `starts_at` e `id`, arredondamento a 3 casas); ordem: rating, depois saldo de gols, gols marcados, menos partidas e o id (RN14). Os pontos 3/1/0 ficam como estatística;
-  - individual: média por partida (`scoring.individual_record`; desempate: mais partidas, depois o id — interpretação); só atuações com presença; itens de estatística contados por `counted_stat_fields`; no W.O., presença e vitória para o lado presente;
+  - individual: **média ajustada** `(total_de_pontos + m × μ) / (partidas + m)`, com `m` e `μ` dos cortes (`m` = 5 e `μ` = 3,0 na versão 2; com os dois nulos, versão 1, volta a média simples), arredondada a 3 casas (`scoring.adjusted_mean`, `scoring.individual_record`; decisão 0006, seção 8); os pontos por atuação (RN12) não mudam; desempate: mais partidas, depois o id (interpretação); só atuações com presença; itens de estatística contados por `counted_stat_fields`; no W.O., presença e vitória para o lado presente;
   - tênis: o rating da mesma reprodução, sem empate; ordem: rating, menos partidas, depois o id (interpretação). Os 10 por vitória (RN16) ficam como estatística. O bônus de campeonato (etapa 4, seção 17.6) continua gravado em `event_placements` como base (40/20/10) e entra na reprodução no `awarded_at` como **bônus ponderado**, `base × 2 × (1 − E_chave)`, com `E_chave` contra a média dos ratings dos demais inscritos confirmados naquele instante (decisão 0006, seção 7);
   - classificação com `placement_matches` (3, lido dos cortes por `rankings.required_matches`), posições e elos por `scoring.rank_records` com os cortes de `rank_cuts` da `CURRENT_CALC_VERSION` (2; Lendário = Diamante e ⌊classificados × 15%⌋, arredondado para baixo), gravados com `scoring.standing_fields`. A métrica de time e tênis segue o `metric` dos cortes: `rating` na versão 2, `pontos` na versão 1 (rollback);
   - depois, o elo das buscas abertas dos sujeitos cujo elo mudou é atualizado e elas tentam o pareamento de novo (`queue.try_match`). Uma mudança só de rating, sem mudança de elo, não gera nova tentativa: o rating entra na ordem da próxima tentativa (seção 7.1).
@@ -1393,7 +1408,7 @@ Implementa o backend de [plano-ranking.md](../plano-ranking.md). Código: `app/s
 
 ### 20.1 Invariante: elos contíguos
 
-Em cada categoria os elos ocupam faixas **contíguas** de `rank_position`, do melhor para o pior, e o Lendário é um **prefixo**. Isso vem de as quatro ordens de `scoring.py` (`team_order`, `individual_order`, `tennis_order`, `run_order`) terem a métrica como primeira chave, e de o elo depender só da métrica (mais a posição, no Lendário). A posição dentro do elo e a janela dependem disso: `tier_position = rank_position − tier_offset(contagens, elo)`, em que `tier_offset` soma os classificados dos elos acima. O teste `tests/unit/test_ranking_tiers.py` gera categorias aleatórias (semente fixa) nas quatro ordens e exige que o elo nunca suba ao longo da posição. Se uma calibragem futura (`calc_version = 2`) desacoplar o elo da primeira chave da ordem, o teste falha antes de a tela errar.
+Em cada categoria os elos ocupam faixas **contíguas** de `rank_position`, do melhor para o pior, e o Lendário é um **prefixo**. Isso vem de as quatro ordens de `scoring.py` (`team_order`, `individual_order`, `tennis_order`, `run_order`) terem a métrica como primeira chave, e de o elo depender só da métrica (mais a posição, no Lendário). A posição dentro do elo e a janela dependem disso: `tier_position = rank_position − tier_offset(contagens, elo)`, em que `tier_offset` soma os classificados dos elos acima. O teste `tests/unit/test_ranking_tiers.py` gera categorias aleatórias (semente fixa) nas quatro ordens e exige que o elo nunca suba ao longo da posição. A `calc_version = 2` ([decisão 0006](0006-ranking-por-rating.md)) preserva a invariante: o rating (time e tênis) e a média ajustada (individual) continuam sendo a primeira chave da ordem e a única base do elo, e o teste também roda com os cortes de rating. Se uma calibragem futura desacoplar o elo da primeira chave da ordem, o teste falha antes de a tela errar.
 
 ### 20.2 Forma recente e melhor marca (migração `0013`)
 
@@ -1431,7 +1446,7 @@ Os mesmos parâmetros de categoria (`sport`, `kind`, `format`, `position`, `dist
   - `next_gap: number | null` e `next_tier_position: int | null`: quanto está **à frente do próximo** do elo e a posição dele; `null` quando é o último. Nunca negativos (`ranking_views.gap(a, b, direction)`, com `maior` ou `menor` da `direction` dos cortes); empates de métrica dão `0`;
 - `selected_team_id`: o `team_id` pedido ou, sem ele, o time da primeira linha de `mine`; `null` fora do ranking de times e sem times ativos;
 - `window: RankingRow[] | null`: as linhas do **elo da linha selecionada** de `tier_position − 3` a `tier_position + 3`, limitadas ao elo, em ordem de posição (a tela mostra ±2 e usa as pontas como borda esmaecida); `null` quando a linha não tem elo (classificação, sem jogos, sem time). Cada linha segue a visibilidade da lista (`is_mine`, `athlete` por `people_out`: avatar oculto por bloqueio e conta inativa);
-- `legends_preview: { team, athlete }[]`: até 4 Lendários em ordem de posição, para a entrada do Salão. Vazio quando não há vagas (`legend_slots = 0`) ou ninguém reúne os pontos de Diamante.
+- `legends_preview: { team, athlete }[]`: até 4 Lendários em ordem de posição, para a entrada do Salão. Vazio quando não há vagas (`legend_slots = 0`) ou ninguém alcança o corte de Diamante na métrica do ranking.
 
 O Salão (`tier=lendario`), "Ver o elo inteiro" e os 5 primeiros de outro elo (`tier=…&limit=6`) usam `GET /rankings`.
 
