@@ -1,6 +1,6 @@
 # Decisões — Ranking por rating (`calc_version = 2`)
 
-Data: 22 de novembro de 2026. Altera as regras de ranking da [decisão do Jogar](0002-jogar.md) (seções 1 e 12.6) para `futebol_time` e `tenis`, que deixam de somar pontos e passam a classificar por **rating**. Esta primeira entrega cobre o rating do time e do tênis, a versão de cálculo 2 de todos os rankings, a migração dos cortes e o contrato de `metric_value`. O desempate do pareamento pelo rating veio numa entrega posterior (seção 4). O bônus ponderado do tênis, a média ajustada do futebol · individual e os rótulos dos clientes vêm em entregas seguintes (seção 10).
+Data: 22 de novembro de 2026. Altera as regras de ranking da [decisão do Jogar](0002-jogar.md) (seções 1 e 12.6) para `futebol_time` e `tenis`, que deixam de somar pontos e passam a classificar por **rating**. A primeira entrega cobriu o rating do time e do tênis, a versão de cálculo 2 de todos os rankings, a migração dos cortes e o contrato de `metric_value`. Entregas posteriores trouxeram o desempate do pareamento pelo rating (seção 4) e o bônus ponderado de campeonato do tênis (seção 7). A média ajustada do futebol · individual e os rótulos dos clientes vêm em entregas seguintes (seção 10).
 
 ## 1. Problema
 
@@ -61,13 +61,34 @@ As formas das respostas não mudam. Muda o significado de alguns campos em `fute
 ## 6. Recálculo
 
 - Os carregadores de time e tênis (`services/standings.py`) leem as partidas da janela numa única consulta, em ordem cronológica e com os dois lados de cada partida, e reproduzem o rating a partir dela. Não há consulta por partida.
+- O carregador do tênis lê também os bônus da janela (`event_placements` com `bonus_points > 0`, `user_id` e `awarded_at` dentro das 52 semanas) numa consulta e, só com cortes de rating e havendo bônus, os inscritos confirmados de todos esses eventos numa segunda (`_tennis_bonuses`). Não há consulta por evento nem por atleta.
 - `standings` continua com a mesma forma: `metric_value` guarda o rating e `calc_version = 2`.
 - As travas consultivas por categoria e a ordem global de travas não mudam.
 - Quando o elo muda, as buscas abertas recebem o novo elo e tentam o pareamento de novo, como antes. Uma mudança só de rating não gera nova tentativa.
 
-## 7. Estado intermediário do tênis
+## 7. Bônus ponderado do tênis
 
-Nesta entrega o tênis classifica **sem bônus de campeonato**. As colocações continuam registradas em `event_placements` (40, 20 e 10), a varredura `rankings_janela` continua olhando os bônus que saem da janela, e o bônus continua somado aos pontos da campanha, mas ele não entra no rating, na posição nem no elo. O bônus ponderado pela força da chave é a próxima entrega e resolve este estado.
+O bônus de campeonato do tênis (RN16) entra no rating convertido pela força da chave.
+
+- **Concessão (sem mudança):** colocação final de um evento de tênis com 4 ou mais inscrições confirmadas. A base continua gravada em `event_placements.bonus_points` quando o evento encerra: 40 (campeão), 20 (vice) e 10 (semifinalistas na eliminação, 3º e 4º no todos contra todos). A conversão em rating acontece só no recálculo.
+- **Janela:** o bônus conta enquanto o evento terminou dentro das 52 semanas (`awarded_at`). Ao sair, deixa de contar, mesmo que nenhuma partida saia nesse dia: a varredura `rankings_janela` continua olhando os bônus que saem da janela (`_bonus_departed`) e recalcula o tênis. Um atleta com bônus e sem partida na janela continua sem linha.
+- **Fórmula:** na reprodução cronológica (seção 2), no instante `awarded_at`, o rating do atleta recebe `base × 2 × (1 − E_chave)`, com `E_chave = 1 / (1 + 10^((média_chave − rating) / 400))`. `média_chave` é a média dos ratings dos **demais inscritos confirmados** do evento naquele instante, sem o próprio atleta; quem ainda não tem partida na janela entra com o rating inicial. O valor é arredondado a 3 casas, como o rating.
+- **Efeito:** com chave do mesmo nível (`média_chave = rating`), o bônus é exatamente a base. Com chave mais forte, passa da base e chega a até 2 × a base; com chave mais fraca, fica abaixo dela e tende a 0. Nunca é negativo: o valor é limitado a 0 depois do arredondamento.
+- **Ordem na linha do tempo:** as partidas entram por (`starts_at`, `id`) e os bônus por (`awarded_at`, evento). Quando o `awarded_at` coincide com o `starts_at` de uma partida, a partida vem antes, porque o evento encerra depois das próprias partidas. Os bônus de um mesmo evento são aplicados juntos, a partir dos ratings de antes daquele instante (o vice não é medido contra o rating já bonificado do campeão), e eventos do mesmo instante seguem o id do evento.
+- **Não é partida:** o bônus não conta para o fator K. As `placement_matches` primeiras partidas do atleta continuam com K de classificação, mesmo que um bônus venha antes delas, e o bônus não muda `matches_played` nem a classificação.
+- **Efeito nos adversários:** como o bônus muda o rating do atleta, as partidas seguintes dele usam esse rating, e os adversários ganham ou perdem conforme o novo valor. Quando o bônus sai da janela, essas partidas são reproduzidas de novo sem ele.
+- **Pontos da campanha:** a pílula "+10 pts" das partidas não muda. A soma das bases (`TennisRecord.bonus`) continua compondo os pontos do tênis, que só são a métrica com os cortes da versão 1 (rollback).
+- **Concorrência:** o bônus lê os ratings da própria categoria `tenis`, dentro do recálculo que já segura a trava dessa categoria. Não há trava nova.
+
+Exemplo (eliminação com 4 inscritos, ratings depois das partidas): campeão 1064, vice 1000 e semifinalistas 968.
+
+| Colocação | Base | Rating | Média dos demais | Bônus | Rating final |
+| --- | --- | --- | --- | --- | --- |
+| Campeão | 40 | 1064 | 978,667 (chave mais fraca) | 30,369 | 1094,369 |
+| Vice | 20 | 1000 | 1000 (mesmo nível) | 20 | 1020 |
+| Semifinalista | 10 | 968 | 1010,667 (chave mais forte) | 11,222 | 979,222 |
+
+Código: `RatedBonus`, `weighted_bonus` e o parâmetro `bonuses` de `replay_ratings` em [`backend/app/services/scoring.py`](../../backend/app/services/scoring.py); `_tennis_bonuses` em [`backend/app/services/standings.py`](../../backend/app/services/standings.py).
 
 ## 8. Rollout e rollback
 
@@ -89,7 +110,6 @@ Contra o mesmo adversário nas três partidas, 3 vitórias dão 1079,839 (Ouro) 
 
 ## 10. Pendências
 
-- Bônus ponderado do tênis, com a fórmula registrada nesta decisão.
 - Média ajustada do futebol · individual: `m`, `μ` e cortes revistos da linha `futebol_individual` da versão 2, em migração própria.
 - Rótulo "rating" na web e no Expo, sem "pts" nas categorias por rating, e ocultação em classificação nas telas.
 - Seção 1 de [0002](0002-jogar.md), [plano do Jogar](../plano-jogar.md), [plano do Ranking](../plano-ranking.md) e README, com o rollout.
