@@ -1,9 +1,12 @@
 """Ranking recalculation on PostgreSQL (Jogar, fase 5): the 52-week window, Lendário, walkovers, the sweep task and
-the open searches that receive a new tier and pair again.
+the open searches that receive a new tier and pair again. Teams and tennis are ranked by the rating of
+calc_version 2 (decision 0006): 1000 to start, K 64 in the first three matches and 32 afterwards, Prata 950, Ouro 1050
+and Diamante 1150. Against the same opponent, 3 wins are 1079.839 (Ouro) and 3 losses 920.161 (Bronze).
 
 Matches are built from the models with confirmed scores; `recalculate_*` run on the test transaction.
 """
 from datetime import timedelta
+from decimal import Decimal
 
 import pytest
 from sqlalchemy import delete, select
@@ -15,8 +18,10 @@ from app.models.matches import FootballStat, Match, MatchSide, MatchSlot
 from app.models.rankings import RankCut, Standing
 from app.services import sweep
 from app.services.match_lifecycle import apply_final_score
-from app.services.match_rules import walkover_score
+from app.services.match_rules import validate_football_score, walkover_score
 from app.services.matchmaking_queue import queue
+from app.services.rankings import CURRENT_CALC_VERSION, load_cuts
+from app.services.scoring import RatedMatch, replay_ratings
 from app.services.standings import (
     RankingKey,
     ranking_keys_for_match,
@@ -43,6 +48,9 @@ from tests.integration.match_helpers import (
 from tests.integration.result_helpers import DAY, HOUR, WEEK, lineup, played, played_tennis, tennis_match
 
 SOCIETY = RankingKey('futebol_time', 'society')
+# Ratings after n wins (losses) in a row against the same opponent, both starting at 1000.
+WINS = {1: Decimal('1032.000'), 2: Decimal('1058.171'), 3: Decimal('1079.839'), 4: Decimal('1088.963')}
+LOSSES = {1: Decimal('968.000'), 2: Decimal('941.829'), 3: Decimal('920.161'), 4: Decimal('911.037')}
 
 
 @pytest.fixture
@@ -74,8 +82,9 @@ def team_rows(db):
 # ----- Lendário and positions -------------------------------------------------------------------------------
 
 def test_lendario_is_diamante_plus_the_top_15_percent_rounded_down(db):
-    cut = db.scalar(select(RankCut).where(RankCut.ranking == 'futebol_time', RankCut.calc_version == 1))
-    cut.prata, cut.ouro, cut.diamante = 2, 4, 6
+    cut = db.scalar(select(RankCut).where(RankCut.ranking == 'futebol_time',
+                                          RankCut.calc_version == CURRENT_CALC_VERSION))
+    cut.prata, cut.ouro, cut.diamante = 950, 1000, 1050         # three wins (1079.839) reach Diamante
     db.flush()
     pairs = []
 
@@ -99,17 +108,18 @@ def test_lendario_is_diamante_plus_the_top_15_percent_rounded_down(db):
     assert recalculate_rankings(db, [SOCIETY], now=NOW) == 6
     ranking = team_rows(db)
     winners = [ranking[team.id] for team, _ in pairs]
+    # Same rating: the goal difference, then goals scored and the id decide the order (RN14).
     assert [(row.rank_position, row.tier, row.metric_value) for row in winners] == [
-        (1, 'lendario', 9), (2, 'diamante', 9), (3, 'diamante', 9), (4, 'diamante', 9)]
+        (1, 'lendario', WINS[3]), (2, 'diamante', WINS[3]), (3, 'diamante', WINS[3]), (4, 'diamante', WINS[3])]
     assert sorted(row.rank_position for row in ranking.values()) == list(range(1, 9))
-    assert all(row.calc_version == 1 and row.matches_played == 3 for row in ranking.values())
+    assert all(row.calc_version == 2 and row.matches_played == 3 for row in ranking.values())
     # Nothing changed since: a second recalculation writes nothing.
     assert recalculate_rankings(db, [SOCIETY], now=NOW) == 0
     assert recalculate_rankings(db, [], now=NOW) == 0
 
 
 def test_a_ranking_without_cuts_is_refused_and_keys_are_validated(db):
-    db.execute(delete(RankCut).where(RankCut.ranking == 'tenis', RankCut.calc_version == 1))
+    db.execute(delete(RankCut).where(RankCut.ranking == 'tenis', RankCut.calc_version == CURRENT_CALC_VERSION))
     with pytest.raises(RuntimeError, match='Cortes do ranking tenis ausentes'):
         recalculate_rankings(db, [RankingKey('tenis')], now=NOW)
     for args in (('futebol_time',), ('futebol_time', 'basquete'), ('futebol_time', 'society', 'goleiro'),
@@ -141,7 +151,7 @@ def test_the_keys_of_a_match_follow_its_sport_format_and_lineups(db):
         RankingKey('tenis')]
 
 
-def test_tennis_ranking_counts_wins_and_ranks_the_classified(db):
+def test_tennis_ranking_rates_the_players_and_ranks_the_classified(db):
     players = [make_user(db, name) for name in ('ana', 'bia')]
     for number in range(3):
         match = played_tennis(db, players[0], players[1], [{'a': 6, 'b': 1}, {'a': 6, 'b': 2}],
@@ -152,9 +162,9 @@ def test_tennis_ranking_counts_wins_and_ranks_the_classified(db):
     ranking = rows(db)
     winner, loser = ranking[players[0].id], ranking[players[1].id]
     assert (winner.matches_played, winner.wins, winner.metric_value, winner.goals_for, winner.goals_against,
-            winner.rank_position, winner.tier) == (3, 3, 30, 6, 0, 1, 'prata')
+            winner.rank_position, winner.tier, winner.calc_version) == (3, 3, WINS[3], 6, 0, 1, 'ouro', 2)
     assert (loser.matches_played, loser.losses, loser.metric_value, loser.rank_position, loser.tier) == (
-        3, 3, 0, 2, 'bronze')
+        3, 3, LOSSES[3], 2, 'bronze')
 
 
 # ----- Window (52 weeks) and the sweep task -----------------------------------------------------------------
@@ -166,14 +176,16 @@ def test_matches_leaving_the_window_stop_counting_and_the_sweep_task_is_idempote
     assert recalculate_outside_window(db, NOW) == 0
     recalculate_rankings(db, [SOCIETY], now=NOW)
     first = team_rows(db)[team_a.id]
-    assert (first.matches_played, first.metric_value, first.tier, first.rank_position) == (4, 12, 'prata', 1)
+    assert (first.matches_played, first.metric_value, first.tier, first.rank_position) == (4, WINS[4], 'ouro', 1)
 
-    # Two weeks later the oldest match is 53 weeks old; the one at exactly 52 weeks still counts.
+    # Two weeks later the oldest match is 53 weeks old; the one at exactly 52 weeks still counts. The rating is the
+    # replay of the three matches left, from 1000 and with the placement K again: the departure changes it.
     later = NOW + 2 * WEEK
     assert recalculate_outside_window(db, later) == 2
     ranking = team_rows(db)
     assert (ranking[team_a.id].matches_played, ranking[team_a.id].metric_value, ranking[team_a.id].tier) == (
-        3, 9, 'bronze')
+        3, WINS[3], 'ouro')
+    assert ranking[team_b.id].metric_value == LOSSES[3]
     assert (ranking[team_b.id].matches_played, ranking[team_b.id].losses) == (3, 3)
     assert ranking[team_a.id].updated_at == later
     assert recalculate_outside_window(db, later) == 0
@@ -190,6 +202,40 @@ def test_matches_leaving_the_window_stop_counting_and_the_sweep_task_is_idempote
     assert sweep.rankings_outside_window(db, NOW + 54 * WEEK) == 2
     assert not team_rows(db)
     assert sweep.rankings_outside_window(db, NOW + 54 * WEEK) == 0
+
+
+def test_correcting_an_old_match_gives_the_rating_of_a_replay_from_scratch(db):
+    # A corrected score of the oldest match (a decision, a correction) recalculates the ranking as if the correct result had
+    # always existed: the later matches are replayed from the corrected ratings, with no incremental state.
+    team_a, team_b, team_c = new_team(db, 'Ferrugem'), new_team(db, 'Leoes'), new_team(db, 'Tigres')
+    oldest = played(db, team_a, team_b, 1, 0, starts_at=NOW - 10 * DAY)
+    played(db, team_b, team_c, 2, 0, starts_at=NOW - 8 * DAY)
+    played(db, team_a, team_c, 1, 1, starts_at=NOW - 6 * DAY)
+    played(db, team_c, team_a, 0, 3, starts_at=NOW - 4 * DAY)
+    played(db, team_b, team_c, 0, 1, starts_at=NOW - 2 * DAY)
+    recalculate_for_match(db, oldest, now=NOW)
+    before = {team: row.metric_value for team, row in team_rows(db).items()}
+
+    apply_final_score(oldest, validate_football_score(0, 2), source='confirmacao', now=NOW - HOUR)
+    db.flush()
+    recalculate_for_match(db, oldest, now=NOW)
+    corrected = {team: (row.metric_value, row.wins, row.losses, row.calc_version) for team, row in team_rows(db).items()}
+    assert {team: value[0] for team, value in corrected.items()} != before
+
+    # The same matches recalculated from empty standings give the same rows.
+    db.execute(delete(Standing).where(Standing.team_id.is_not(None)))
+    db.flush()
+    recalculate_rankings(db, [SOCIETY], now=NOW)
+    assert {team: (row.metric_value, row.wins, row.losses, row.calc_version)
+            for team, row in team_rows(db).items()} == corrected
+    # And the pure replay of the corrected matches, in chronological order, gives the same ratings.
+    games = [(team_a.id, team_b.id, 0, 2), (team_b.id, team_c.id, 2, 0), (team_a.id, team_c.id, 1, 1),
+             (team_c.id, team_a.id, 0, 3), (team_b.id, team_c.id, 0, 1)]
+    cuts = load_cuts(db)['futebol_time']
+    expected = replay_ratings([RatedMatch(NOW - (10 - 2 * index) * DAY, index, a, b, goals_a, goals_b)
+                               for index, (a, b, goals_a, goals_b) in enumerate(games)], cuts)
+    assert {team: value[0] for team, value in corrected.items()} == expected
+    assert corrected[team_b.id][1:] == (2, 1, 2)
 
 
 def test_the_window_task_leaves_other_rankings_alone(db):
@@ -212,8 +258,8 @@ def test_a_ranked_team_that_loses_every_match_loses_the_tier_of_its_open_search(
     played(db, team_c, team_d, 1, 0, starts_at=NOW - DAY)
     recalculate_rankings(db, [SOCIETY], now=NOW)
     later = NOW + 2 * WEEK
-    search = add(db, team_search(team_a, rep_a, tier='bronze', started_at=later - HOUR))
-    assert team_rows(db)[team_a.id].tier == 'bronze'
+    search = add(db, team_search(team_a, rep_a, tier='ouro', started_at=later - HOUR))
+    assert team_rows(db)[team_a.id].tier == 'ouro'
 
     # All three matches leave at once: both rows go, the other teams are only stamped, the search loses its tier.
     assert recalculate_outside_window(db, later) == 2
@@ -226,28 +272,28 @@ def test_a_ranked_team_that_loses_every_match_loses_the_tier_of_its_open_search(
 
 def test_tennis_rows_leave_with_their_matches_and_a_tennis_search_follows_the_tier(db):
     ana, bia, carla = (make_user(db, name) for name in ('ana', 'bia', 'carla'))
-    make_standing(db, tier='ouro', sport='tenis', user=ana, rank=1)
-    search_ana = add(db, tennis_search(ana, tier='ouro', started_at=NOW - HOUR))
-    search_carla = add(db, tennis_search(carla, tier='bronze', started_at=NOW - 2 * HOUR))
+    make_standing(db, tier='diamante', sport='tenis', user=ana, rank=1)
+    search_ana = add(db, tennis_search(ana, tier='diamante', started_at=NOW - HOUR))
+    search_carla = add(db, tennis_search(carla, tier='prata', started_at=NOW - 2 * HOUR))
     assert queue.try_match(db, search_carla, now=NOW) is None
     for number in range(3):
         match = played_tennis(db, ana, bia, [{'a': 6, 'b': 1}, {'a': 6, 'b': 2}],
                               starts_at=NOW - 51 * WEEK + number * DAY)
     recalculate_for_match(db, match, now=NOW)
-    # Three wins are 30 points: Prata faces Bronze, so the two searches pair now.
+    # Three wins rate Ana 1079.839: Ouro faces Prata, so the two searches pair now.
     db.refresh(search_ana)
     db.refresh(search_carla)
-    assert (search_ana.tier, search_ana.state, search_carla.state) == ('prata', 'pareada', 'pareada')
-    assert rows(db)[ana.id].tier == 'prata'
+    assert (search_ana.tier, search_ana.state, search_carla.state) == ('ouro', 'pareada', 'pareada')
+    assert rows(db)[ana.id].tier == 'ouro'
 
     assert recalculate_outside_window(db, NOW + 2 * WEEK) == 2
     assert not rows(db)
 
 
-def test_a_championship_bonus_leaves_the_tennis_points_when_its_event_leaves_the_window(db):
+def test_the_sweep_still_looks_at_a_championship_bonus_that_leaves_the_window(db):
     # The bonus counts while its event ended inside the 52 weeks (contract 0003, 21). It leaves after the matches of the
-    # same athlete do, so the sweep must look at the bonuses too: no match departs on that day, and the stored
-    # points would keep the bonus for as long as nobody else played.
+    # same athlete do, so the sweep looks at the bonuses too. In calc_version 2 the bonus does not enter the tennis
+    # rating yet (intermediate state, decision 0006): the sweep recalculates and stamps, but nothing changes.
     ana, bia = make_user(db, 'ana'), make_user(db, 'bia')
     event = tennis_event(db, bia.id, state='encerrado', competition_type='todos_contra_todos')
     entry = add(db, EventEntry(event_id=event.id, user_id=ana.id, registered_by_id=ana.id, state='confirmada',
@@ -259,13 +305,13 @@ def test_a_championship_bonus_leaves_the_tennis_points_when_its_event_leaves_the
         match = played_tennis(db, ana, bia, [{'a': 6, 'b': 1}, {'a': 6, 'b': 2}],
                               starts_at=NOW - 30 * WEEK + number * DAY)
     recalculate_for_match(db, match, now=NOW)
-    assert rows(db)[ana.id].metric_value == 70 and rows(db)[ana.id].tier == 'prata'      # 3 wins (30) + 40
+    assert rows(db)[ana.id].metric_value == WINS[3] and rows(db)[ana.id].tier == 'ouro'   # the bonus is not added
     assert recalculate_outside_window(db, NOW) == 0
 
     # Two weeks later the event is 53 weeks old; every match is still inside the window (30 weeks).
     later = NOW + 2 * WEEK
-    assert recalculate_outside_window(db, later) == 1
-    assert (rows(db)[ana.id].metric_value, rows(db)[ana.id].wins, rows(db)[ana.id].tier) == (30, 3, 'prata')
+    assert recalculate_outside_window(db, later) == 0
+    assert (rows(db)[ana.id].metric_value, rows(db)[ana.id].wins, rows(db)[ana.id].tier) == (WINS[3], 3, 'ouro')
     assert rows(db)[ana.id].updated_at == later
     assert recalculate_outside_window(db, later) == 0                                       # idempotent
 
@@ -287,8 +333,10 @@ def test_a_walkover_counts_presence_and_win_of_the_side_that_showed_up(db):
     recalculate_for_match(db, match, now=NOW)
 
     ranking = rows(db, Standing.sport == 'futebol')
-    assert (ranking[team_b.id].wins, ranking[team_b.id].goals_for, ranking[team_b.id].metric_value) == (1, 3, 3)
-    assert (ranking[team_a.id].losses, ranking[team_a.id].goals_against) == (1, 3)
+    # The walkover counts as a normal win and loss in the rating.
+    assert (ranking[team_b.id].wins, ranking[team_b.id].goals_for, ranking[team_b.id].metric_value) == (1, 3, WINS[1])
+    assert (ranking[team_a.id].losses, ranking[team_a.id].goals_against, ranking[team_a.id].metric_value) == (
+        1, 3, LOSSES[1])
     athlete = db.scalar(select(Standing).where(Standing.user_id == present.id))
     # Presence 1 + win 3; the absent side's athlete (even with a stat) has no row.
     assert (athlete.position, athlete.metric_value, athlete.wins, athlete.matches_played) == ('defesa', 4, 1, 1)
@@ -315,12 +363,12 @@ def test_individual_average_counts_only_present_and_removed_athletes_do_not(db):
 def test_a_tier_change_updates_the_open_search_and_pairs_it_again(db):
     (team_a, rep_a), (team_c, rep_c) = team_and_rep(db, 'Ferrugem'), team_and_rep(db, 'Leoes')
     sparring = new_team(db, 'Treino')
-    # Ferrugem was Ouro; three wins in a row leave it Bronze. Leões, Bronze, could not face an Ouro.
+    # Ferrugem was Ouro; three losses in a row leave it Bronze. Leões, Bronze, could not face an Ouro.
     make_standing(db, tier='ouro', team=team_a, format_='society', rank=1)
     search_a = add(db, team_search(team_a, rep_a, tier='ouro', started_at=NOW - HOUR))
     search_c = add(db, team_search(team_c, rep_c, tier='bronze', started_at=NOW - 2 * HOUR))
     assert queue.try_match(db, search_c, now=NOW) is None
-    matches = [played(db, team_a, sparring, 1, 0, starts_at=NOW - (number + 1) * DAY) for number in range(3)]
+    matches = [played(db, team_a, sparring, 0, 1, starts_at=NOW - (number + 1) * DAY) for number in range(3)]
     recalculate_for_match(db, matches[0], now=NOW)
 
     db.refresh(search_a)
@@ -345,7 +393,7 @@ def test_a_search_already_in_a_proposal_gets_the_new_tier_but_keeps_the_proposal
     recalculate_for_match(db, matches[0], now=NOW)
     db.refresh(search_e)
     # The search shows the current tier; the proposal keeps the tier of the moment it was made.
-    assert (search_e.state, search_e.tier, proposal.state) == ('pareada', 'bronze', 'proposta')
+    assert (search_e.state, search_e.tier, proposal.state) == ('pareada', 'ouro', 'proposta')
     sides = {side.side: side.tier for side in db.scalars(select(MatchSide).where(MatchSide.match_id == proposal.id))}
     assert sides == {'a': None, 'b': None}
 

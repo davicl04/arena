@@ -13,6 +13,11 @@ transaction advisory lock, taken in a fixed order, so two results that touch the
 same time and each one reads the other's committed match. Afterwards, the open searches of subjects whose tier
 changed receive it and try to pair again (`matchmaking_queue.queue.try_match`); running has no search, so a
 running recalculation changes nothing in the pairing.
+
+With rating cuts (`calc_version = 2`, decision docs/decisoes/0006-ranking-por-rating.md), the team and tennis
+loaders read the matches of the window in chronological order with both sides and replay the ratings from scratch
+(`scoring.replay_ratings`); `metric_value` stores the rating, also in placement (the API hides it there). The
+tennis championship bonus does not enter the rating yet.
 """
 from __future__ import annotations
 
@@ -161,20 +166,36 @@ def _scored(window_start: datetime, now: datetime):
             Match.starts_at <= now)
 
 
-def _team_records(db: Session, key: RankingKey, window_start: datetime, now: datetime) -> list:
+def _rated_matches(rows: Iterable[tuple]) -> list[scoring.RatedMatch]:
+    """The matches of (subject, side, score A, score B, start, match id) rows, with the subject of each side: the
+    input of `scoring.replay_ratings`, which replays them in order of start and then id."""
+    sides: dict[int, dict[str, int]] = defaultdict(dict)
+    details: dict[int, tuple[datetime, int, int]] = {}
+    for subject_id, side, score_a, score_b, starts_at, match_id in rows:
+        sides[match_id][side] = subject_id
+        details[match_id] = (starts_at, score_a, score_b)
+    return [scoring.RatedMatch(starts_at, match_id, sides[match_id].get('a'), sides[match_id].get('b'), score_a,
+                               score_b) for match_id, (starts_at, score_a, score_b) in details.items()]
+
+
+def _team_records(db: Session, key: RankingKey, cuts: Cuts, window_start: datetime, now: datetime) -> list:
+    """3/1/0 points, goals and form of each team in the format; with rating cuts, also the rating replayed from the
+    same rows (one query, in chronological order)."""
     rows = db.execute(
         select(MatchSide.team_id, MatchSide.side, Match.score_a, Match.score_b, Match.starts_at, Match.id)
         .join(Match, Match.id == MatchSide.match_id)
         .where(*_scored(window_start, now), Match.sport == 'futebol', Match.format == key.format,
-               MatchSide.team_id.is_not(None))).all()
+               MatchSide.team_id.is_not(None))
+        .order_by(Match.starts_at, Match.id, MatchSide.side)).all()
     games: dict[int, list[tuple[int, int]]] = defaultdict(list)
     results: dict[int, list[tuple[datetime, int, str]]] = defaultdict(list)
     for team_id, side, score_a, score_b, starts_at, match_id in rows:
         goals_for, goals_against = (score_a, score_b) if side == 'a' else (score_b, score_a)
         games[team_id].append((goals_for, goals_against))
         results[team_id].append((starts_at, match_id, scoring.score_outcome(goals_for, goals_against)))
-    return [scoring.team_record(team_id, items, form=scoring.recent_form(results[team_id]))
-            for team_id, items in games.items()]
+    ratings = scoring.replay_ratings(_rated_matches(rows), cuts) if cuts.is_rating else {}
+    return [scoring.team_record(team_id, items, form=scoring.recent_form(results[team_id]),
+                                rating=ratings.get(team_id)) for team_id, items in games.items()]
 
 
 def _individual_records(db: Session, key: RankingKey, window_start: datetime, now: datetime) -> list:
@@ -206,14 +227,16 @@ def _individual_records(db: Session, key: RankingKey, window_start: datetime, no
             for user_id, items in appearances.items()]
 
 
-def _tennis_records(db: Session, window_start: datetime, now: datetime) -> list:
+def _tennis_records(db: Session, cuts: Cuts, window_start: datetime, now: datetime) -> list:
     """10 points per confirmed win (RN16) plus the championship bonus (champion +40, runner-up +20, semifinalists
     +10): `event_placements` rows written when a tennis event with 4 or more entries ends, counted while the event
-    ended inside the window."""
+    ended inside the window. With rating cuts, the metric is the rating replayed from the matches (one query, in
+    chronological order); the bonus stays in the campaign points and does not enter the rating yet."""
     rows = db.execute(
         select(MatchSide.user_id, MatchSide.side, Match.score_a, Match.score_b, Match.starts_at, Match.id)
         .join(Match, Match.id == MatchSide.match_id)
-        .where(*_scored(window_start, now), Match.sport == 'tenis', MatchSide.user_id.is_not(None))).all()
+        .where(*_scored(window_start, now), Match.sport == 'tenis', MatchSide.user_id.is_not(None))
+        .order_by(Match.starts_at, Match.id, MatchSide.side)).all()
     games: dict[int, list[tuple[int, int]]] = defaultdict(list)
     results: dict[int, list[tuple[datetime, int, str]]] = defaultdict(list)
     for user_id, side, score_a, score_b, starts_at, match_id in rows:
@@ -225,8 +248,10 @@ def _tennis_records(db: Session, window_start: datetime, now: datetime) -> list:
         .where(EventPlacement.user_id.is_not(None), EventPlacement.bonus_points > 0,
                EventPlacement.awarded_at >= window_start, EventPlacement.awarded_at <= now)
         .group_by(EventPlacement.user_id)).all())
+    ratings = scoring.replay_ratings(_rated_matches(rows), cuts, draws=False) if cuts.is_rating else {}
     return [scoring.tennis_record(user_id, items, bonus=int(bonus.get(user_id, 0)),
-                                  form=scoring.recent_form(results[user_id])) for user_id, items in games.items()]
+                                  form=scoring.recent_form(results[user_id]), rating=ratings.get(user_id))
+            for user_id, items in games.items()]
 
 
 def _run_records(db: Session, distance_km: int, start_day: date, today: date) -> list[scoring.RunRecord]:
@@ -268,7 +293,7 @@ def _recalculate_key(db: Session, key: RankingKey, cuts: Cuts, *, now: datetime,
                      touch: bool) -> tuple[int, list[TierChange]]:
     window_start = scoring.window_start(now, cuts.window_weeks)
     if key.ranking == 'futebol_time':
-        records, order = _team_records(db, key, window_start, now), scoring.team_order
+        records, order = _team_records(db, key, cuts, window_start, now), scoring.team_order
     elif key.ranking == 'futebol_individual':
         records, order = _individual_records(db, key, window_start, now), scoring.individual_order
     elif key.distance_km is not None:
@@ -276,7 +301,7 @@ def _recalculate_key(db: Session, key: RankingKey, cuts: Cuts, *, now: datetime,
         records = _run_records(db, key.distance_km, scoring.run_window_start(today, cuts.window_weeks), today)
         order = scoring.run_order
     else:
-        records, order = _tennis_records(db, window_start, now), scoring.tennis_order
+        records, order = _tennis_records(db, cuts, window_start, now), scoring.tennis_order
     placements = scoring.rank_records(records, cuts=cuts, order=order)
 
     stored = _stored_rows(db, key)

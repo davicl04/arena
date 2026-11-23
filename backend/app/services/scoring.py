@@ -5,13 +5,18 @@ points 3/1/0 and tie-breaks (RN14), tennis points (RN16), the best time of a run
 window, classification (3 confirmed matches; the first mark in running) and the tier of each classified subject
 from the versioned cuts, Lendário included (RN23). The ranking service (`services.standings`) loads the confirmed
 matches and the marks, builds the records with these functions and materializes `standings`.
+
+From `calc_version = 2` teams and tennis are ranked by a rating (decision docs/decisoes/0006-ranking-por-rating.md):
+`replay_ratings` replays the counted matches of the window in chronological order from the initial rating, with
+`expected_score` and `updated_rating`; the points 3/1/0 and 10 per win stay as campaign statistics. When the cuts
+of the version in use still rank by points (`metric = 'pontos'`), the records carry no rating and rank by points.
 """
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
-from decimal import ROUND_HALF_UP, Decimal
+from decimal import ROUND_HALF_EVEN, ROUND_HALF_UP, Context, Decimal, localcontext
 from typing import Generic, TypeVar
 
 from app.models.matches import STAT_FIELDS
@@ -29,6 +34,12 @@ POSITION_STAT_CAP = Decimal(4)
 TENNIS_WIN_POINTS = 10
 WINDOW_WEEKS = 52
 AVERAGE_QUANTUM = Decimal('0.001')
+# Rating: rounded to 3 places at every step, so a replay gives the same value on any machine; the arithmetic runs
+# in a fixed decimal context (precision and rounding), whatever the context of the caller.
+RATING_QUANTUM = Decimal('0.001')
+RATING_CONTEXT = Context(prec=28, rounding=ROUND_HALF_EVEN)
+RATING_SCALE = Decimal(400)
+RATING_SCORES = {'vitoria': Decimal(1), 'empate': Decimal('0.5'), 'derrota': Decimal(0)}
 # Recent form (Ranking screen): the last results of a subject, oldest first, as stored in `standings.recent_form`.
 FORM_LENGTH = 5
 FORM_LETTERS = {'vitoria': 'V', 'empate': 'E', 'derrota': 'D'}
@@ -124,6 +135,65 @@ def is_classified(matches: int, required: int) -> bool:
     return matches >= required
 
 
+# ----- Rating (futebol · time and tênis, calc_version 2) --------------------------------------------------------
+
+def expected_score(rating: Decimal, opponent: Decimal) -> Decimal:
+    """E = 1 / (1 + 10^((opponent - rating) / 400)): the expected result of `rating` against `opponent`, in (0, 1)."""
+    with localcontext(RATING_CONTEXT):
+        return Decimal(1) / (Decimal(1) + Decimal(10) ** ((Decimal(opponent) - Decimal(rating)) / RATING_SCALE))
+
+
+def updated_rating(rating: Decimal, opponent: Decimal, score: Decimal, k: Decimal) -> Decimal:
+    """rating + K × (S - E), rounded to 3 places; S is 1 (win), 0.5 (draw) or 0 (loss) and both ratings are the ones
+    before the match. The margin of goals or sets does not matter."""
+    with localcontext(RATING_CONTEXT):
+        value = Decimal(rating) + Decimal(k) * (Decimal(score) - expected_score(rating, opponent))
+        return value.quantize(RATING_QUANTUM, rounding=ROUND_HALF_UP)
+
+
+def k_factor(played_before: int, cuts: Cuts) -> Decimal:
+    """K of a subject's match: the placement K in its first `placement_matches` matches of the window, then the
+    regular K."""
+    if cuts.placement_k is None or cuts.regular_k is None:
+        raise ValueError('Cortes sem parâmetros de rating.')
+    return cuts.placement_k if played_before < cuts.placement_matches else cuts.regular_k
+
+
+@dataclass(frozen=True)
+class RatedMatch:
+    """A counted match of a rating category: when it started, its id, the subject of each side (None if a side has
+    no subject in the category) and the score (goals or sets)."""
+    starts_at: datetime
+    match_id: int
+    side_a: int | None
+    side_b: int | None
+    score_a: int
+    score_b: int
+
+
+def replay_ratings(matches: Iterable[RatedMatch], cuts: Cuts, *, draws: bool = True) -> dict[int, Decimal]:
+    """Ratings of a category: every subject starts at the initial rating of the cuts and each match, in order of
+    start and then id, updates both sides from their ratings before it (K by `k_factor`). Without draws (tennis) an
+    equal score is a loss for both, as in `tennis_record`. A side without a subject is faced at the initial rating
+    and keeps no rating. Nothing is incremental: the same matches always give the same ratings."""
+    if cuts.initial_rating is None:
+        raise ValueError('Cortes sem parâmetros de rating.')
+    ratings: dict[int, Decimal] = {}
+    played: dict[int, int] = {}
+    for match in sorted(matches, key=lambda item: (item.starts_at, item.match_id)):
+        before = {side: ratings.get(subject, cuts.initial_rating) if subject is not None else cuts.initial_rating
+                  for side, subject in (('a', match.side_a), ('b', match.side_b))}
+        for side, subject, scored, conceded in (('a', match.side_a, match.score_a, match.score_b),
+                                                ('b', match.side_b, match.score_b, match.score_a)):
+            if subject is None:
+                continue
+            opponent = before['b' if side == 'a' else 'a']
+            score = RATING_SCORES[score_outcome(scored, conceded, draws=draws)]
+            ratings[subject] = updated_rating(before[side], opponent, score, k_factor(played.get(subject, 0), cuts))
+            played[subject] = played.get(subject, 0) + 1
+    return ratings
+
+
 # ----- Records -----------------------------------------------------------------------------------------------
 
 @dataclass(frozen=True)
@@ -136,9 +206,11 @@ class TeamRecord:
     goals_for: int = 0
     goals_against: int = 0
     form: str = ''
+    rating: Decimal | None = None   # from `replay_ratings` when the cuts rank by rating; None ranks by points
 
     @property
     def points(self) -> int:
+        """Campaign points 3/1/0 (RN14); the metric only while the cuts rank by points."""
         return 3 * self.wins + self.draws
 
     @property
@@ -147,11 +219,13 @@ class TeamRecord:
 
     @property
     def metric(self) -> Decimal:
-        return Decimal(self.points)
+        return self.rating if self.rating is not None else Decimal(self.points)
 
 
-def team_record(subject_id: int, games: Iterable[tuple[int, int]], *, form: str = '') -> TeamRecord:
-    """Record from (goals for, goals against) of each confirmed match in the window; `form` is `recent_form`."""
+def team_record(subject_id: int, games: Iterable[tuple[int, int]], *, form: str = '',
+                rating: Decimal | None = None) -> TeamRecord:
+    """Record from (goals for, goals against) of each confirmed match in the window; `form` is `recent_form` and
+    `rating` the replayed rating (rating cuts only)."""
     wins = draws = losses = scored = conceded = matches = 0
     for goals_for, goals_against in games:
         matches += 1
@@ -163,12 +237,13 @@ def team_record(subject_id: int, games: Iterable[tuple[int, int]], *, form: str 
             draws += 1
         else:
             losses += 1
-    return TeamRecord(subject_id, matches, wins, draws, losses, scored, conceded, form)
+    return TeamRecord(subject_id, matches, wins, draws, losses, scored, conceded, form, rating)
 
 
 def team_order(record: TeamRecord) -> tuple:
-    """RN14: points, then goal difference, goals scored and fewer matches; the id keeps the order stable."""
-    return (-record.points, -record.goal_difference, -record.goals_for, record.matches, record.subject_id)
+    """The metric (rating, or points under points cuts), then the RN14 tie-breaks: goal difference, goals scored
+    and fewer matches; the id keeps the order stable."""
+    return (-record.metric, -record.goal_difference, -record.goals_for, record.matches, record.subject_id)
 
 
 @dataclass(frozen=True)
@@ -221,19 +296,22 @@ class TennisRecord:
     sets_against: int = 0
     bonus: int = 0              # championship placement bonus (RN16), added by the championship phase
     form: str = ''
+    rating: Decimal | None = None   # from `replay_ratings` when the cuts rank by rating; None ranks by points
 
     @property
     def points(self) -> int:
+        """10 per win plus the championship bonus (RN16); the metric only while the cuts rank by points."""
         return TENNIS_WIN_POINTS * self.wins + self.bonus
 
     @property
     def metric(self) -> Decimal:
-        return Decimal(self.points)
+        return self.rating if self.rating is not None else Decimal(self.points)
 
 
-def tennis_record(subject_id: int, games: Iterable[tuple[int, int]], *, bonus: int = 0,
-                  form: str = '') -> TennisRecord:
-    """Record from (sets won, sets lost) of each confirmed match in the window; `form` is `recent_form`."""
+def tennis_record(subject_id: int, games: Iterable[tuple[int, int]], *, bonus: int = 0, form: str = '',
+                  rating: Decimal | None = None) -> TennisRecord:
+    """Record from (sets won, sets lost) of each confirmed match in the window; `form` is `recent_form` and
+    `rating` the replayed rating (rating cuts only; the championship bonus does not enter it yet)."""
     wins = losses = won = lost = matches = 0
     for sets_won, sets_lost in games:
         matches += 1
@@ -243,12 +321,13 @@ def tennis_record(subject_id: int, games: Iterable[tuple[int, int]], *, bonus: i
             wins += 1
         else:
             losses += 1
-    return TennisRecord(subject_id, matches, wins, losses, won, lost, bonus, form)
+    return TennisRecord(subject_id, matches, wins, losses, won, lost, bonus, form, rating)
 
 
 def tennis_order(record: TennisRecord) -> tuple:
-    """Points; ties go to fewer matches (as in RN14), then the id (interpretation)."""
-    return (-record.points, record.matches, record.subject_id)
+    """The metric (rating, or points under points cuts); ties go to fewer matches (as in RN14), then the id
+    (interpretation)."""
+    return (-record.metric, record.matches, record.subject_id)
 
 
 @dataclass(frozen=True)

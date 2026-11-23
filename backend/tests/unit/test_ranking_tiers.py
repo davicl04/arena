@@ -1,8 +1,9 @@
 """Invariant behind the Ranking screen: the tiers of a category are contiguous in `rank_position` (the best tier
-first) and Lendário is a prefix, in the four orders of `services.scoring`. The position inside a tier and the
+first) and Lendário is a prefix, in the four orders of `services.scoring`, with the points cuts of version 1 and
+the rating cuts of version 2 (teams and tennis ranked by the replayed rating). The position inside a tier and the
 windows of the Ranking screen (`services.ranking_views`) depend on it."""
 import random
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 
 import pytest
@@ -10,11 +11,13 @@ import pytest
 from app.models.rankings import TIERS
 from app.services.rankings import Cuts
 from app.services.scoring import (
+    RatedMatch,
     RunRecord,
     individual_order,
     individual_points,
     individual_record,
     rank_records,
+    replay_ratings,
     run_order,
     team_order,
     team_record,
@@ -30,6 +33,11 @@ CUTS = {
     'tennis': (Cuts('tenis', 'pontos', 'maior', Decimal(30), Decimal(60), Decimal(90), 3, SHARE, 52), tennis_order),
     'run': (Cuts('corrida_5', 'tempo', 'menor', Decimal(1800), Decimal(1500), Decimal(1260), 1, SHARE, 52),
             run_order),
+    # Version 2 (migration 0016): rating 1000, K 64 in placement and 32 afterwards, Prata 950, Ouro 1050, Diamante 1150.
+    'team_rating': (Cuts('futebol_time', 'rating', 'maior', Decimal(950), Decimal(1050), Decimal(1150), 3, SHARE, 52,
+                         Decimal(1000), Decimal(64), Decimal(32)), team_order),
+    'tennis_rating': (Cuts('tenis', 'rating', 'maior', Decimal(950), Decimal(1050), Decimal(1150), 3, SHARE, 52,
+                           Decimal(1000), Decimal(64), Decimal(32)), tennis_order),
 }
 SEEDS = range(60)
 
@@ -58,7 +66,38 @@ def run_records(rng, count):
             for i in range(1, count + 1)]
 
 
-RECORDS = {'team': team_records, 'individual': individual_records, 'tennis': tennis_records, 'run': run_records}
+def rated_matches(rng, count, *, draws):
+    """Random matches between `count` subjects of hidden strengths (the stronger one wins more often), so the
+    replayed ratings spread over every tier."""
+    strength = {subject: rng.random() for subject in range(1, count + 1)}
+    start = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    matches = []
+    for number in range(1, rng.randint(0, count * 8) + 1):
+        a, b = rng.sample(range(1, count + 1), 2) if count > 1 else (1, None)
+        chance = 0.5 + (strength[a] - strength.get(b, 0.5)) * 0.9
+        roll = rng.random()
+        score = (1, 1) if draws and abs(roll - chance) < 0.05 else (2, 0) if roll < chance else (0, 2)
+        matches.append(RatedMatch(start + timedelta(hours=rng.randint(0, 5000)), number, a, b, *score))
+    return matches
+
+
+def rating_records(build, *, draws):
+    def records(rng, count):
+        matches = rated_matches(rng, count, draws=draws)
+        cuts = CUTS['team_rating' if draws else 'tennis_rating'][0]
+        ratings = replay_ratings(matches, cuts, draws=draws)
+        games: dict[int, list[tuple[int, int]]] = {}
+        for match in matches:
+            games.setdefault(match.side_a, []).append((match.score_a, match.score_b))
+            if match.side_b is not None:
+                games.setdefault(match.side_b, []).append((match.score_b, match.score_a))
+        return [build(subject, items, rating=ratings[subject]) for subject, items in games.items()]
+    return records
+
+
+RECORDS = {'team': team_records, 'individual': individual_records, 'tennis': tennis_records, 'run': run_records,
+           'team_rating': rating_records(team_record, draws=True),
+           'tennis_rating': rating_records(tennis_record, draws=False)}
 
 
 @pytest.mark.parametrize('kind', RECORDS)

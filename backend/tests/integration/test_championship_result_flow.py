@@ -335,11 +335,13 @@ def test_the_end_of_a_tennis_championship_adds_the_bonus_to_the_ranking(client, 
     assert placements[finalists['a']] == (1, 40) and placements[finalists['b']] == (2, 20)
     losers = [user for user in {value for value in semis.values()} if user not in finalists.values()]
     assert len(losers) == 2 and all(placements[user] == (3, 10) for user in losers)
-    # Champion: two wins (20) + 40; runner-up: one win (10) + 20; semifinal losers: only the 10 of the bonus.
+    # calc_version 2: the tennis rating replays the matches only; the bonus stays registered in `event_placements`
+    # and does not enter the rating yet (intermediate state, decision 0006). Champion: 1032 in the semifinal, then
+    # 1064 against the other 1032; runner-up: 1032, then 1000; semifinal losers: 968.
     ranking = {row.user_id: row for row in db.scalars(select(Standing).where(Standing.sport == 'tenis'))}
-    assert float(ranking[finalists['a']].metric_value) == 20 + 40
-    assert float(ranking[finalists['b']].metric_value) == 10 + 20
-    assert all(float(ranking[user].metric_value) == 10 for user in losers)
+    assert float(ranking[finalists['a']].metric_value) == 1064
+    assert float(ranking[finalists['b']].metric_value) == 1000
+    assert all(float(ranking[user].metric_value) == 968 for user in losers)
     assert ranking[finalists['a']].wins == 2 and ranking[finalists['b']].wins == 1
     shown = bracket(http, world['teams'][0]['headers'], world['event_id'])
     assert [(item['placement'], item['bonus_points']) for item in shown['placements']] == [

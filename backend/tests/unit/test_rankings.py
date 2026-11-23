@@ -9,23 +9,33 @@ import pytest
 from app.models.rankings import RANKINGS, TIERS
 from app.services import rankings
 from app.services.rankings import (
+    CURRENT_CALC_VERSION,
+    DEFAULT_INITIAL_RATING,
     Cuts,
     base_tier,
     can_face,
     faced_tiers,
+    hides_placement_metric,
+    initial_rating,
     legend_slots,
     ranking_key,
     standing_line,
     tier_for,
 )
 
-MIGRATION = Path(__file__).resolve().parents[2] / 'migrations' / 'versions' / '0005_teams_organizers_rankings.py'
+VERSIONS = Path(__file__).resolve().parents[2] / 'migrations' / 'versions'
+MIGRATION = VERSIONS / '0005_teams_organizers_rankings.py'
+
+
+def load_migration(path: Path):
+    spec = importlib.util.spec_from_file_location(f'migration_{path.stem}', path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 def migration_cuts() -> dict[str, Cuts]:
-    spec = importlib.util.spec_from_file_location('migration_0005', MIGRATION)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
+    module = load_migration(MIGRATION)
     return {ranking: Cuts(ranking, metric, direction, Decimal(str(prata)), Decimal(str(ouro)), Decimal(str(diamante)),
                           placement, Decimal(str(module.LEGEND_SHARE)), module.WINDOW_WEEKS)
             for ranking, metric, direction, prata, ouro, diamante, placement in module.CUTS_V1}
@@ -130,3 +140,62 @@ def test_team_format_grid_fills_every_format_and_uses_one_query():
     assert all(item.state == 'sem_jogos' and item.required == 3 for item in grid[8])
     assert db.scalars.call_count == 1
     assert rankings.team_format_grid(db, []) == {}
+
+
+# ----- Rating rankings (calc_version 2) -----------------------------------------------------------------------
+
+RATING = {ranking: Cuts(ranking, 'rating', 'maior', Decimal(950), Decimal(1050), Decimal(1150), 3, Decimal('0.15'), 52,
+                        Decimal(1000), Decimal(64), Decimal(32)) for ranking in ('futebol_time', 'tenis')}
+
+
+def test_migration_0016_seeds_the_rating_parameters_of_version_2():
+    module = load_migration(VERSIONS / '0016_ranking_rating.py')
+    assert CURRENT_CALC_VERSION == 2 and module.down_revision == '0015'
+    assert module.RATING_RANKINGS == ('futebol_time', 'tenis')
+    assert (module.INITIAL_RATING, module.PLACEMENT_K, module.REGULAR_K) == (1000, 64, 32)
+    assert module.RATING_CUTS == {'prata': 950, 'ouro': 1050, 'diamante': 1150}
+    # Three wins against equals with these cuts reach Ouro, never Bronze (test_scoring has the replay).
+    assert base_tier(Decimal('1087.494'), RATING['futebol_time']) == 'ouro'
+    assert base_tier(Decimal('912.506'), RATING['tenis']) == 'bronze'
+    assert base_tier(Decimal(950), RATING['tenis']) == 'prata' and base_tier(Decimal(1150), RATING['tenis']) == 'diamante'
+
+
+def test_the_initial_rating_comes_from_the_cuts():
+    assert initial_rating(RATING['tenis']) == Decimal(1000)
+    assert initial_rating(Cuts('tenis', 'rating', 'maior', Decimal(1), Decimal(2), Decimal(3), 3, Decimal('0.15'), 52,
+                               Decimal(1200), Decimal(64), Decimal(32))) == Decimal(1200)
+    assert initial_rating(None) == initial_rating(CUTS['tenis']) == DEFAULT_INITIAL_RATING == Decimal(1000)
+    assert RATING['tenis'].is_rating and not CUTS['tenis'].is_rating
+    assert hides_placement_metric(RATING, 'tenis') and not hides_placement_metric(CUTS, 'tenis')
+    assert not hides_placement_metric({}, 'futebol_time')
+
+
+def test_a_rating_line_hides_the_rating_while_in_placement():
+    placing = standing(matches_played=2, metric_value=Decimal('1061.050'))
+    assert standing_line(placing, 3, rating=True)['metric_value'] is None
+    assert standing_line(placing, 3)['metric_value'] == 1061.05                 # average and points keep it
+    ranked = standing(matches_played=3, tier='ouro', rank_position=1, metric_value=Decimal('1087.494'))
+    assert standing_line(ranked, 3, rating=True)['metric_value'] == 1087.494
+    assert standing_line(None, 3, rating=True)['metric_value'] is None
+
+
+def test_the_team_format_grid_hides_the_rating_of_a_format_in_placement():
+    db = Mock()
+    db.scalars.return_value.all.return_value = [
+        SimpleNamespace(team_id=7, format='society', matches_played=2, tier=None, rank_position=None,
+                        metric_value=Decimal('1061.05')),
+        SimpleNamespace(team_id=7, format='campo', matches_played=3, tier='ouro', rank_position=2,
+                        metric_value=Decimal('1087.494'))]
+    grid = rankings.team_format_grid(db, [7], cuts={**CUTS, **RATING})
+    assert [(item.format, item.state, item.metric_value) for item in grid[7]] == [
+        ('futsal', 'sem_jogos', None), ('society', 'classificacao', None), ('campo', 'ranqueado', 1087.494)]
+
+
+def test_load_cuts_reads_the_versioned_parameters():
+    row = SimpleNamespace(ranking='tenis', metric='rating', direction='maior', prata=950, ouro=1050, diamante=1150,
+                          placement_matches=3, legend_share=Decimal('0.150'), window_weeks=52,
+                          initial_rating=Decimal('1000.000'), placement_k=Decimal('64.00'), regular_k=Decimal('32.00'),
+                          prior_matches=None, prior_mean=None)
+    db = Mock()
+    db.scalars.return_value.all.return_value = [row]
+    assert rankings.load_cuts(db, 2) == {'tenis': RATING['tenis']}

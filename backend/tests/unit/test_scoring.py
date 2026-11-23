@@ -1,25 +1,31 @@
-"""Points and rankings (stage 3): RN11, RN12, RN14, RN16, the 52-week window, classification and tiers."""
+"""Points and rankings (stage 3): RN11, RN12, RN14, RN16, the 52-week window, classification and tiers, and the
+rating of teams and tennis (calc_version 2, decision 0006). The points cuts below are the version 1 ones: under them
+the records still rank by points (the rollback path)."""
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 
 import pytest
 
-from app.services.rankings import Cuts
+from app.services.rankings import Cuts, base_tier
 from app.services.scoring import (
     IndividualPoints,
     IndividualRecord,
+    RatedMatch,
     RunRecord,
     TeamRecord,
     TennisRecord,
+    expected_score,
     in_window,
     individual_order,
     individual_points,
     individual_record,
     is_classified,
+    k_factor,
     outcome_for,
     position_stat_points,
     rank_records,
     recent_form,
+    replay_ratings,
     run_order,
     score_outcome,
     standing_fields,
@@ -29,6 +35,7 @@ from app.services.scoring import (
     tennis_order,
     tennis_points,
     tennis_record,
+    updated_rating,
     window_start,
 )
 
@@ -37,6 +44,12 @@ TEAM_CUTS = Cuts('futebol_time', 'pontos', 'maior', Decimal(10), Decimal(30), De
 INDIVIDUAL_CUTS = Cuts('futebol_individual', 'media', 'maior', Decimal('2.5'), Decimal('4.0'), Decimal('5.5'), 3,
                        Decimal('0.15'), 52)
 TENNIS_CUTS = Cuts('tenis', 'pontos', 'maior', Decimal(30), Decimal(80), Decimal(150), 3, Decimal('0.15'), 52)
+# The calc_version 2 rows of migration 0016 for futebol_time and tenis.
+RATING_PARAMETERS = (Decimal(1000), Decimal(64), Decimal(32))
+RATING_CUTS = Cuts('futebol_time', 'rating', 'maior', Decimal(950), Decimal(1050), Decimal(1150), 3, Decimal('0.15'),
+                   52, *RATING_PARAMETERS)
+TENNIS_RATING_CUTS = Cuts('tenis', 'rating', 'maior', Decimal(950), Decimal(1050), Decimal(1150), 3, Decimal('0.15'),
+                          52, *RATING_PARAMETERS)
 
 
 def test_outcomes_and_result_points():
@@ -199,3 +212,138 @@ def test_the_form_and_the_best_mark_day_are_standing_columns():
     [mark] = rank_records([RunRecord(1, 2, 1400, date(2026, 9, 3))], cuts=run_cuts, order=run_order)
     fields = standing_fields(mark, calc_version=1)
     assert (fields['recent_form'], fields['best_mark_on']) == ('', date(2026, 9, 3))
+
+
+# ----- Rating (calc_version 2) ----------------------------------------------------------------------------------
+
+def duel(number, a, b, score_a, score_b, *, day=None):
+    """A counted match `number` between subjects `a` and `b`, one day apart from the previous ones by default."""
+    return RatedMatch(NOW - timedelta(days=200 - (number if day is None else day)), number, a, b, score_a, score_b)
+
+
+def test_expected_score_is_symmetric_and_follows_the_400_point_scale():
+    assert expected_score(Decimal(1000), Decimal(1000)) == Decimal('0.5')
+    for left, right in ((Decimal(1000), Decimal(1100)), (Decimal('987.654'), Decimal(1234)), (Decimal(1500), Decimal(800))):
+        assert abs(expected_score(left, right) + expected_score(right, left) - 1) < Decimal('1e-20')
+    # 400 points ahead: E = 1 / (1 + 10^-1) = 10/11.
+    assert abs(expected_score(Decimal(1400), Decimal(1000)) - Decimal(10) / Decimal(11)) < Decimal('1e-20')
+    assert expected_score(Decimal(900), Decimal(1000)) < Decimal('0.5') < expected_score(Decimal(1100), Decimal(1000))
+
+
+def test_rating_update_is_zero_sum_between_equals_and_a_draw_is_half_a_win():
+    assert updated_rating(Decimal(1000), Decimal(1000), Decimal(1), Decimal(32)) == Decimal('1016.000')
+    assert updated_rating(Decimal(1000), Decimal(1000), Decimal(0), Decimal(32)) == Decimal('984.000')
+    assert updated_rating(Decimal(1000), Decimal(1000), Decimal('0.5'), Decimal(64)) == Decimal('1000.000')
+    # Against a stronger side a draw gains and a weaker side loses the same amount.
+    gain = updated_rating(Decimal(1000), Decimal(1200), Decimal('0.5'), Decimal(32)) - 1000
+    loss = updated_rating(Decimal(1200), Decimal(1000), Decimal('0.5'), Decimal(32)) - 1200
+    assert gain > 0 and gain == -loss
+    # Rounded to three places at every step.
+    assert updated_rating(Decimal(1000), Decimal(1200), Decimal(1), Decimal(32)) == Decimal('1024.312')
+    assert updated_rating(Decimal(1000), Decimal(1200), Decimal(1), Decimal(32)).as_tuple().exponent == -3
+
+
+def test_beating_a_stronger_side_yields_more_and_losing_to_a_weaker_one_costs_more():
+    k = Decimal(64)
+    assert updated_rating(Decimal(1000), Decimal(1100), Decimal(1), k) > updated_rating(Decimal(1000), Decimal(900),
+                                                                                         Decimal(1), k)
+    assert updated_rating(Decimal(1000), Decimal(900), Decimal(0), k) < updated_rating(Decimal(1000), Decimal(1100),
+                                                                                       Decimal(0), k)
+    # In a replay: 10 won three matches and 20 lost three before; beating 10 is worth more than beating 20.
+    history = [duel(1, 10, 11, 1, 0), duel(2, 10, 12, 1, 0), duel(3, 10, 13, 1, 0),
+               duel(4, 20, 21, 0, 1), duel(5, 20, 22, 0, 1), duel(6, 20, 23, 0, 1)]
+    ratings = replay_ratings([*history, duel(7, 1, 10, 2, 1), duel(8, 2, 20, 2, 1)], RATING_CUTS)
+    assert ratings[1] > ratings[2] > Decimal(1000)
+
+
+def test_k_is_larger_in_the_placement_matches_of_the_subject():
+    assert [k_factor(played, RATING_CUTS) for played in range(5)] == [Decimal(64)] * 3 + [Decimal(32)] * 2
+    with pytest.raises(ValueError):
+        k_factor(0, TEAM_CUTS)
+    with pytest.raises(ValueError):
+        replay_ratings([duel(1, 1, 2, 1, 0)], TEAM_CUTS)
+    # The fourth win of a subject against a fresh opponent uses K = 32: 32 × (1 - E), not 64 × (1 - E).
+    ratings = replay_ratings([duel(n, 1, 100 + n, 1, 0) for n in range(1, 5)], RATING_CUTS)
+    third = replay_ratings([duel(n, 1, 100 + n, 1, 0) for n in range(1, 4)], RATING_CUTS)[1]
+    assert ratings[1] == updated_rating(third, Decimal(1000), Decimal(1), Decimal(32))
+    # Each side has its own K: the newcomer (placement) moves more than the veteran it beats.
+    veteran = [duel(n, 7, 200 + n, 1, 1) for n in range(1, 4)]
+    after = replay_ratings([*veteran, duel(10, 8, 7, 1, 0)], RATING_CUTS)
+    assert after[8] - 1000 == Decimal(32) and 1000 - after[7] == Decimal(16)
+
+
+@pytest.mark.parametrize(('results', 'rating', 'tier'), [
+    ('VVV', Decimal('1087.494'), 'ouro'),
+    ('VVD', Decimal('1023.494'), 'prata'), ('VDV', Decimal('1029.332'), 'prata'), ('DVV', Decimal('1034.668'), 'prata'),
+    ('VDD', Decimal('965.332'), 'prata'), ('DVD', Decimal('970.668'), 'prata'), ('DDV', Decimal('976.506'), 'prata'),
+    ('DDD', Decimal('912.506'), 'bronze'),
+])
+def test_the_placement_matches_against_equals_calibrate_the_tier(results, rating, tier):
+    # Three matches against opponents at the initial rating, with K = 64 (the proposed parameters).
+    matches = [duel(n, 1, 100 + n, *((1, 0) if letter == 'V' else (0, 1))) for n, letter in enumerate(results, start=1)]
+    ratings = replay_ratings(matches, RATING_CUTS)
+    assert ratings[1] == rating and base_tier(ratings[1], RATING_CUTS) == tier
+    [placement] = [item for item in rank_records(
+        [team_record(1, [(m.score_a, m.score_b) for m in matches], rating=ratings[1])], cuts=RATING_CUTS,
+        order=team_order)]
+    assert (placement.metric_value, placement.tier, placement.rank_position) == (rating, tier, 1)
+
+
+def test_draws_count_half_and_the_margin_does_not_matter():
+    assert replay_ratings([duel(n, 1, 100 + n, 1, 1) for n in range(1, 4)], RATING_CUTS)[1] == Decimal(1000)
+    narrow = replay_ratings([duel(1, 1, 2, 1, 0), duel(2, 1, 3, 2, 1)], RATING_CUTS)
+    wide = replay_ratings([duel(1, 1, 2, 7, 0), duel(2, 1, 3, 9, 1)], RATING_CUTS)
+    assert narrow == wide
+    # Tennis has no draw: an equal score is a loss for both, as in the tennis record.
+    tied = replay_ratings([duel(1, 1, 2, 1, 1)], TENNIS_RATING_CUTS, draws=False)
+    assert tied == {1: Decimal('968.000'), 2: Decimal('968.000')}
+
+
+def test_both_sides_are_updated_from_their_ratings_before_the_match():
+    ratings = replay_ratings([duel(1, 1, 2, 3, 0)], RATING_CUTS)
+    assert ratings == {1: Decimal('1032.000'), 2: Decimal('968.000')}
+    # A side without a subject is faced at the initial rating and keeps nothing.
+    assert replay_ratings([RatedMatch(NOW, 1, None, 5, 0, 2)], RATING_CUTS) == {5: Decimal('1032.000')}
+
+
+def test_the_replay_is_chronological_and_does_not_depend_on_the_input_order():
+    matches = [duel(1, 1, 2, 1, 0), duel(2, 2, 3, 2, 0), duel(3, 3, 1, 1, 1), duel(4, 1, 4, 0, 1),
+               duel(5, 4, 2, 0, 0), duel(6, 1, 2, 3, 2), duel(7, 3, 4, 1, 0)]
+    expected = replay_ratings(matches, RATING_CUTS)
+    assert replay_ratings(list(reversed(matches)), RATING_CUTS) == expected
+    assert replay_ratings([matches[3], matches[0], matches[6], matches[2], matches[5], matches[1], matches[4]],
+                          RATING_CUTS) == expected
+    # Same start: the match id decides the order, and the order changes the result.
+    same_day = [duel(9, 1, 2, 1, 0, day=1), duel(8, 1, 3, 0, 1, day=1)]
+    swapped = [duel(8, 1, 2, 1, 0, day=1), duel(9, 1, 3, 0, 1, day=1)]
+    assert replay_ratings(same_day, RATING_CUTS)[1] != replay_ratings(swapped, RATING_CUTS)[1]
+    assert replay_ratings(same_day, RATING_CUTS) == replay_ratings(list(reversed(same_day)), RATING_CUTS)
+
+
+def test_rating_records_rank_by_the_rating_then_the_current_tie_breaks():
+    team = team_record(7, [(3, 1), (0, 1)], rating=Decimal('1012.5'))
+    assert (team.metric, team.points) == (Decimal('1012.5'), 3)          # the 3/1/0 points stay as a statistic
+    assert team_record(7, [(3, 1)]).metric == Decimal(3)                 # without a rating: points (v1 cuts)
+    tied = [TeamRecord(1, 3, 1, 0, 2, 2, 4, rating=Decimal(1000)), TeamRecord(2, 3, 0, 0, 3, 0, 3, rating=Decimal(1001)),
+            TeamRecord(3, 3, 3, 0, 0, 5, 1, rating=Decimal(1000)), TeamRecord(4, 3, 3, 0, 0, 6, 2, rating=Decimal(1000)),
+            TeamRecord(5, 4, 3, 0, 1, 6, 2, rating=Decimal(1000))]
+    # Rating first (even with fewer points), then goal difference, goals scored, fewer matches.
+    assert [item.subject_id for item in sorted(tied, key=team_order)] == [2, 4, 5, 3, 1]
+    tennis = tennis_record(4, [(2, 0)], bonus=40, rating=Decimal('1032'))
+    assert (tennis.metric, tennis.points) == (Decimal(1032), 50)          # the bonus does not enter the rating yet
+    ordered = sorted([TennisRecord(1, 4, rating=Decimal(990)), TennisRecord(2, 5, rating=Decimal(1010)),
+                      TennisRecord(3, 3, rating=Decimal(990))], key=tennis_order)
+    assert [item.subject_id for item in ordered] == [2, 3, 1]
+
+
+def test_rating_cuts_place_the_classified_and_keep_the_rating_of_the_ones_in_placement():
+    records = [tennis_record(1, [(2, 0)] * 3, rating=Decimal('1087.494')),
+               tennis_record(2, [(0, 2)] * 3, rating=Decimal('912.506')),
+               tennis_record(3, [(2, 0)] * 2, rating=Decimal('1061.05'))]
+    placed = {item.record.subject_id: item for item in rank_records(records, cuts=TENNIS_RATING_CUTS,
+                                                                     order=tennis_order)}
+    assert (placed[1].rank_position, placed[1].tier) == (1, 'ouro')
+    assert (placed[2].rank_position, placed[2].tier) == (2, 'bronze')
+    # In placement: no position nor tier, but the rating is stored (the pairing reads it; the API hides it).
+    assert (placed[3].rank_position, placed[3].tier, placed[3].metric_value) == (None, None, Decimal('1061.05'))
+    assert standing_fields(placed[3], calc_version=2)['metric_value'] == Decimal('1061.05')
