@@ -1,5 +1,6 @@
 """Pure rules of matchmaking, matches and results (stage 3): deadlines, slots, buckets, scores and transitions."""
 from datetime import datetime, timedelta, timezone
+from decimal import Decimal
 
 import pytest
 
@@ -14,6 +15,7 @@ from app.services.match_rules import (
     bucket_lock_id,
     cancel_deadline,
     cancel_error,
+    candidate_order,
     clean_court_name,
     counted_stat_fields,
     court_key,
@@ -33,6 +35,7 @@ from app.services.match_rules import (
     pairing_rank,
     proposal_expires_at,
     rank_candidates,
+    rating_gap,
     result_deadline,
     result_state,
     result_window_open,
@@ -199,6 +202,60 @@ def test_candidates_are_filtered_by_tier_and_ordered():
                             Candidate('classificacao', None, None, late, 2)]) == ['classificacao', 'lendario']
     assert rank_candidates([]) == []
 
+
+
+def rated(item, mine, theirs, since, item_id, mine_rating, theirs_rating):
+    return Candidate(item, mine, theirs, since, item_id, mine_rating=Decimal(mine_rating),
+                     theirs_rating=Decimal(theirs_rating))
+
+
+def test_inside_a_tier_group_the_closest_rating_comes_before_the_oldest_search():
+    early, late = NOW - timedelta(hours=5), NOW - timedelta(hours=1)
+    candidates = [
+        rated('ouro-antigo-perto', 'ouro', 'ouro', early, 1, 1100, 1180),
+        rated('ouro-recente-mais-perto', 'ouro', 'ouro', late, 2, 1100, '1090.5'),
+        rated('ouro-antigo-longe', 'ouro', 'ouro', early, 3, 1100, 1300),
+    ]
+    assert rank_candidates(candidates) == ['ouro-recente-mais-perto', 'ouro-antigo-perto', 'ouro-antigo-longe']
+
+
+def test_the_tier_stays_the_first_key_and_the_filter_does_not_change():
+    early = NOW - timedelta(hours=5)
+    candidates = [
+        rated('prata-vizinho-igual', 'ouro', 'prata', early, 1, 1049, 1049),        # neighbour, same rating
+        rated('ouro-longe', 'ouro', 'ouro', early, 2, 1049, 1149),                  # same tier, far rating
+        rated('bronze-igual', 'ouro', 'bronze', early, 3, 1049, 1049),              # two tiers apart: never
+        rated('classificacao-igual', 'ouro', None, early, 4, 1049, 1049),          # placement: after the rest
+        rated('diamante-perto', 'ouro', 'diamante', early, 5, 1049, 1150),
+    ]
+    # Same tier first however far the rating; among the neighbours, the closest rating.
+    assert rank_candidates(candidates) == ['ouro-longe', 'prata-vizinho-igual', 'diamante-perto',
+                                           'classificacao-igual']
+    # In placement any level is faced; two sides in placement are the "same tier", then the closest rating.
+    assert rank_candidates([rated('lendario-igual', None, 'lendario', early, 1, 1000, 1000),
+                            rated('classificacao-longe', None, None, early, 2, 1000, 1200),
+                            rated('classificacao-perto', None, None, early, 3, 1000, 960)]) == [
+        'classificacao-perto', 'classificacao-longe', 'lendario-igual']
+
+
+def test_equal_rating_gaps_fall_back_to_the_oldest_search_then_the_id():
+    early, late = NOW - timedelta(hours=5), NOW - timedelta(hours=1)
+    candidates = [
+        rated('recente', 'prata', 'prata', late, 1, 1000, 1020),
+        rated('antigo-id-maior', 'prata', 'prata', early, 9, 1000, 980),           # same gap, below or above
+        rated('antigo-id-menor', 'prata', 'prata', early, 4, 1000, 1020),
+    ]
+    assert rank_candidates(candidates) == ['antigo-id-menor', 'antigo-id-maior', 'recente']
+
+
+def test_the_rating_gap_is_absolute_and_zero_without_ratings():
+    assert rating_gap(Decimal('1087.494'), Decimal('912.506')) == Decimal('174.988')
+    assert rating_gap(Decimal(900), Decimal(1000)) == rating_gap(Decimal(1000), Decimal(900)) == Decimal(100)
+    assert rating_gap(None, Decimal(1000)) == rating_gap(Decimal(1000), None) == rating_gap(None, None) == 0
+    # Walk-ins and slots carry no rating: their order is the one of before (tier, then age, then id).
+    assert candidate_order('ouro', 'prata', NOW, 7) == (1, 0, NOW, 7)
+    assert candidate_order('ouro', 'ouro', NOW, 7, mine_rating=Decimal(1100), theirs_rating=Decimal(1060)) == (
+        0, Decimal(40), NOW, 7)
 
 # ----- Courts ------------------------------------------------------------------------------------------------
 

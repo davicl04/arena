@@ -5,6 +5,7 @@ proposals and slots move to, what is told and audited, and the order of the buck
 advisory locks and the races are checked on PostgreSQL (`tests/integration/test_matchmaking_*.py`).
 """
 from datetime import datetime, timedelta, timezone
+from decimal import Decimal
 from types import SimpleNamespace
 
 import pytest
@@ -12,6 +13,7 @@ import pytest
 from app.models.audit import AuditLog
 from app.models.matches import Match, MatchLineup, MatchMessage, MatchSearch, MatchSide, MatchSlot
 from app.models.notifications import Notification
+from app.models.rankings import RankCut
 from app.services.match_rules import TransitionError
 from app.services.matchmaking_queue import PostgresMatchmakingQueue, proposal_bucket
 from tests.unit.fakes import FakeDb
@@ -117,6 +119,46 @@ def test_nothing_pairs_when_the_search_is_gone_or_nobody_is_waiting(db, queue):
     db.then('match_searches', search, [make_search(2, team_id=2)], taken)
     assert queue.try_match(db, search, now=NOW) is None and db.of(Match) == []
 
+
+
+def rank_cut(ranking, metric='rating'):
+    rating = metric == 'rating'
+    return RankCut(calc_version=2, ranking=ranking, metric=metric, direction='maior', prata=950, ouro=1050,
+                   diamante=1150, placement_matches=3, legend_share=Decimal('0.15'), window_weeks=52,
+                   initial_rating=Decimal(1000) if rating else None, placement_k=64 if rating else None,
+                   regular_k=32 if rating else None)
+
+
+def test_inside_the_tier_group_the_closest_rating_is_paired_first(db, queue):
+    # Newcomer: team 2 (1100). Waiting, all Ouro: team 3 (oldest, 1300), team 4 (no row: 1000) and team 1 (1090).
+    newcomer = make_search(1, team_id=2, tier='ouro', started_at=NOW)
+    far, unrated, close = (make_search(4, team_id=3, tier='ouro'), make_search(3, team_id=4, tier='ouro'),
+                           make_search(2, team_id=1, tier='ouro'))
+    db.then('match_searches', newcomer, [far, unrated, close], close)
+    db.on('rank_cuts', [rank_cut('futebol_time'), rank_cut('tenis')])
+    db.on('standings', [(2, Decimal('1100.000')), (3, Decimal('1300.000')), (1, Decimal('1090.000'))])
+    pairing = queue.try_match(db, newcomer, now=NOW)
+    assert pairing.searches == (close, newcomer)
+    # The ratings of the whole candidate set are read at once: one query for the cuts, one for the standings.
+    assert (db.statements.count('rank_cuts'), db.statements.count('standings')) == (1, 1)
+
+
+def test_the_rating_is_not_read_without_candidates_to_order_or_with_cuts_by_points(db, queue):
+    newcomer = make_search(1, kind='tenis', user_id=REP_B, tier='prata', started_at=NOW)
+    older, newer = make_search(3, kind='tenis', user_id=REP_A, tier='prata'), make_search(2, kind='tenis', user_id=7,
+                                                                                         tier='prata')
+    db.then('match_searches', [older])
+    assert queue._candidates(db, newcomer, NOW) == [older]
+    assert 'rank_cuts' not in db.statements and 'standings' not in db.statements
+    # After a rollback to the points cuts the order is tier and age again, and the standings are not read.
+    db.on('rank_cuts', [rank_cut('tenis', metric='pontos')])
+    db.then('match_searches', [older, newer])
+    assert queue._candidates(db, newcomer, NOW) == [older, newer]
+    assert 'standings' not in db.statements
+    # With the rating cuts, the closest rating wins; a player without a row has the initial rating of the cuts.
+    db.on('rank_cuts', [rank_cut('tenis')]).on('standings', [(REP_B, Decimal('980.000')), (REP_A, Decimal('900.000'))])
+    db.then('match_searches', [older, newer])
+    assert queue._candidates(db, newcomer, NOW) == [newer, older]
 
 def test_a_walkin_is_offered_the_first_open_slot_and_holds_it_for_two_hours(db, queue):
     match = make_match(state='agendada', starts_at=NOW + DAY, proposal_expires_at=None)

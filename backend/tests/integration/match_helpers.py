@@ -67,10 +67,11 @@ def add(db, *rows):
     return rows[0] if len(rows) == 1 else rows
 
 
-def make_standing(db, *, tier, sport='futebol', team=None, user=None, format_=None, position=None, rank=1):
+def make_standing(db, *, tier, sport='futebol', team=None, user=None, format_=None, position=None, rank=1,
+                  metric_value=0, matches_played=3, calc_version=1):
     row = Standing(team_id=team.id if team else None, user_id=user.id if user else None, sport=sport, format=format_,
-                   position=position, metric_value=0, matches_played=3, rank_position=rank, tier=tier,
-                   calc_version=1)
+                   position=position, metric_value=metric_value, matches_played=matches_played,
+                   rank_position=rank if tier is not None else None, tier=tier, calc_version=calc_version)
     db.add(row)
     db.flush()
     return row

@@ -298,6 +298,24 @@ def test_a_tier_change_updates_the_waiting_searches_and_pairs_them_again(scene):
     assert scene.tried == [10]
 
 
+
+def test_a_rating_change_that_keeps_the_tier_does_not_pair_the_searches_again(scene):
+    # The stored rows already have the tiers and positions of TEAM_GAMES, only with other ratings.
+    def stored(row_id, team_id, rating, tier, rank, played):
+        return Standing(id=row_id, team_id=team_id, sport='futebol', format='society', metric_value=Decimal(rating),
+                        matches_played=played, wins=0, draws=0, losses=0, goals_for=0, goals_against=0,
+                        rank_position=rank, tier=tier, calc_version=2)
+    rows = [stored(1, 1, '1060.000', 'ouro', 1, 3), stored(2, 2, '940.000', 'bronze', 2, 3),
+            stored(3, 3, '1010.000', None, None, 1)]
+    db = scene.db
+    db.on('standings', rows).on('match_sides', TEAM_GAMES)
+    changed = standings.recalculate_rankings(db, [RankingKey('futebol_time', 'society')], now=NOW)
+    assert changed == 3
+    assert [(row.metric_value, row.tier) for row in rows] == [
+        (Decimal('1087.494'), 'ouro'), (Decimal('912.506'), 'bronze'), (Decimal('1000.000'), None)]
+    # No tier changed: the open searches are not even read, and nobody tries to pair again.
+    assert 'match_searches' not in db.statements and scene.locked == [] and scene.tried == []
+
 def test_tennis_and_walk_in_searches_follow_their_subjects(scene):
     db = scene.db
     player, other_city = search(20, 'tenis', user_id=51), search(21, 'tenis', user_id=51, tier='ouro')
