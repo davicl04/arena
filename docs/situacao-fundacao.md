@@ -1,5 +1,23 @@
 # Situação da fundação do Arena
 
+## Web: rótulo "rating" no futebol · time e no tênis — 22 de novembro de 2026
+
+Entrega do ticket 05 do [ranking por rating](decisoes/0006-ranking-por-rating.md) na web, com os mesmos nomes, arredondamento e textos do Expo (ticket 06). Sem mudança de backend, contrato ou dependência.
+
+- O mapeamento único da métrica (`web/src/components/ranking/metric.ts`) passa a tratar `futebol_time` e `tenis` como rating: inteiro arredondado (`Math.round`), sem separador de milhar, com o rótulo "rating" (`isRatingRanking`, `formatMetric`, `metricUnit`, `metricText`, `metricSpoken`, `gapParts`, `gapText`). O individual continua "média" e a corrida, "tempo".
+- Tela Ranking: a linha mostra "1087 rating"; a placa de posição mostra "1087 rating", "37 rating atrás do 1º" e "2 rating à frente do 7º". Na placa, a unidade da distância vai para a legenda, para caber em 320 px; o texto lido é o mesmo. A linha da lista ganhou `min-w-0` e não vaza mais em 320 px com nomes longos.
+- Início: as pílulas de "Seu elo" usam o mesmo mapeamento (`modalityStanding` agora carrega a chave do ranking): "Ouro · 1087 rating", com o nome acessível "Futebol: elo Ouro, 1087 rating". A grade de formatos de Times não mostra métrica e não mudou.
+- Em classificação (`metric_value` nulo em time e tênis), as telas mostram só "n de 3", sem número nem elo. A pílula "+3 pts"/"+10 pts" e a linha do tempo do perfil não mudaram.
+
+**Verificações**
+- `web/`: `npm run lint` sem erros; `npm run build` aprovado (só o aviso de chunk que já existia); `npm run test:coverage` com 93 arquivos e 1313 testes aprovados (93,95% de instruções, 87,93% de ramos, 93,5% de funções, 96,78% de linhas).
+- Repetição sobre o candidato antes da consolidação: lint e build aprovados; Vitest 1312/1313, com a falha intermitente que já existia em `tests/matchmaking.test.tsx` (foco do diálogo de cancelamento). Ela também falhou isolada; o worker a reproduziu no commit de base `7160d60`, e a tela Jogar não importa nenhum módulo alterado.
+- Navegador (Playwright headless, banco descartável na migração 0016 com recálculo administrativo, contas sintéticas pela API e partidas sintéticas gravadas com os helpers de teste): Início, Ranking de times (classificado e em classificação), Ranking de tênis (classificado e em classificação) e Meus times, nos temas claro e escuro, em 320, 390 e 1440 px. Sem erros no console, sem overflow horizontal e sem "pts" nem "pontos"; foco visível e Enter na pílula de tênis.
+
+**Limitações:** as partidas da conferência no navegador foram gravadas direto no banco descartável, não pelo fluxo completo da API. Os textos do Salão e do card dos Lendários ainda dizem "os pontos de Diamante", nos dois clientes.
+
+**Pendências:** exemplos "7 pts"/"94 pontos" em `docs/plano-ranking.md`, rollout no banco de desenvolvimento e conferência ponta a ponta (ticket 07); a falha intermitente de `tests/matchmaking.test.tsx`, fora desta entrega.
+
 ## Bônus ponderado de campeonato no tênis — 22 de novembro de 2026
 
 Entrega do ticket 02 do [ranking por rating](decisoes/0006-ranking-por-rating.md). O bônus de campeonato do tênis (RN16) volta a valer no ranking, agora convertido em rating pela força da chave, e encerra o estado intermediário "tênis sem bônus" da primeira entrega.
