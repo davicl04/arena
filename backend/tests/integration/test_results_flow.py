@@ -4,6 +4,7 @@ tennis sets, the review and contest of stats and the rankings they feed.
 Matches and teams are built from the models; the routes run with a fixed clock (`use_clock`).
 """
 from datetime import timedelta
+from decimal import Decimal
 from types import SimpleNamespace
 
 import pytest
@@ -391,13 +392,13 @@ def test_attendance_after_the_confirmation_recalculates_the_individual_ranking(w
     rep_a = w.people['rep_a']
     assert attendance(w, 'rep_a', [{'user_id': rep_a.id, 'present': True, 'position': 'goleiro'}]).status_code == 200
     row = standings(w.db)[(rep_a.id, 'futebol', 'society', 'goleiro')]
-    # Presence 1 + win 3 in one match: an average of 4, still in placement.
-    assert (row.metric_value, row.matches_played, row.wins, row.tier) == (4, 1, 1, None)
+    # Presence 1 + win 3 in one match: 4 points, the adjusted mean (4 + 5 × 3.0) / 6 = 3.167, still in placement.
+    assert (row.metric_value, row.matches_played, row.wins, row.tier) == (Decimal('3.167'), 1, 1, None)
     # The position changes: the old ranking is recalculated too.
     assert attendance(w, 'rep_a', [{'user_id': rep_a.id, 'present': True, 'position': 'defesa'}]).status_code == 200
     rows = standings(w.db)
     assert (rep_a.id, 'futebol', 'society', 'goleiro') not in rows
-    assert rows[(rep_a.id, 'futebol', 'society', 'defesa')].metric_value == 4
+    assert rows[(rep_a.id, 'futebol', 'society', 'defesa')].metric_value == Decimal('3.167')
     assert attendance(w, 'rep_a', [{'user_id': rep_a.id, 'present': False}]).status_code == 200
     assert count(w.db, Standing, Standing.user_id == rep_a.id) == 0
 
@@ -508,17 +509,19 @@ def test_stats_are_reviewed_contested_and_counted_only_after_the_final_review(wo
     assert (edit.status_code, edit.json()['detail']) == (
         409, 'Esta estatística foi contestada; o representante do seu time revisa.')
 
-    # Confirmed with the contest open: the contested item scores nothing, the rest does (1 + 3 + 1 + 2 = 7).
+    # Confirmed with the contest open: the contested item scores nothing, the rest does (1 + 3 + 1 + 2 = 7 points;
+    # in the ranking, the adjusted mean (7 + 5 × 3.0) / 6 = 3.667).
     confirm(w, w.match, 2, 1)
     ranking = standings(w.db)[(member_a.id, 'futebol', 'society', 'atacante')]
-    assert (ranking.metric_value, ranking.matches_played, ranking.wins, ranking.tier) == (7, 1, 1, None)
+    assert (ranking.metric_value, ranking.matches_played, ranking.wins, ranking.tier) == (Decimal('3.667'), 1, 1, None)
 
-    # The final review counts the item again (1 + 3 + 3 + 1 + 2 = 10) and closes the discussion.
+    # The final review counts the item again (1 + 3 + 3 + 1 + 2 = 10 points: (10 + 15) / 6 = 4.167) and closes the
+    # discussion.
     final = review(w, 'rep_a', stat_id)
     assert final.status_code == 200 and final.json()['stat']['state'] == 'revisada'
     assert final.json()['points']['final'] is False and final.json()['points']['result'] == 3.0
     ranking = standings(w.db)[(member_a.id, 'futebol', 'society', 'atacante')]
-    assert ranking.metric_value == 10
+    assert ranking.metric_value == Decimal('4.167')
     assert [item.data['after_contest'] for item in audit_actions(w.db, 'estatistica.revisada')] == [False, True]
     closed = my_stats(w, 'member_a', goals=0)
     assert (closed.status_code, closed.json()['detail']) == (
@@ -533,12 +536,12 @@ def test_stats_are_reviewed_contested_and_counted_only_after_the_final_review(wo
     assert close_due_results(w.db, w.match.result_deadline) == 1
     w.db.commit()
     assert w.match.state == 'encerrada'
-    assert standings(w.db)[(member_a.id, 'futebol', 'society', 'atacante')].metric_value == 10
+    assert standings(w.db)[(member_a.id, 'futebol', 'society', 'atacante')].metric_value == Decimal('4.167')
     view = lineups_of(w, 'rep_a')[member_a.id]
     assert view['points']['final'] is True and (view['can_review'], view['can_contest']) == (False, False)
     mine = w.http.get('/api/v1/me/standings', headers=w.h['member_a']).json()['futebol']['individual']
     line = next(item for item in mine if (item['position'], item['format']) == ('atacante', 'society'))
-    assert (line['state'], line['played'], line['metric_value'], line['tier']) == ('classificacao', 1, 10.0, None)
+    assert (line['state'], line['played'], line['metric_value'], line['tier']) == ('classificacao', 1, 4.167, None)
 
 
 def test_a_walk_in_sends_stats_and_the_roster_shows_him_with_the_badge(client, monkeypatch):
@@ -589,19 +592,19 @@ def test_editing_sent_stats_resets_the_review_and_a_confirmed_match_follows(worl
         return member_a.id, 'futebol', 'society', position
 
     confirm(w, w.match, 2, 0)
-    # Sent but not reviewed: only presence 1 + win 3 score.
-    assert standings(w.db)[key('atacante')].metric_value == 4
+    # Sent but not reviewed: only presence 1 + win 3 score (4 points; adjusted mean (4 + 15) / 6).
+    assert standings(w.db)[key('atacante')].metric_value == Decimal('3.167')
     moved = my_stats(w, 'member_a', position='defesa', goals=1)
     assert moved.status_code == 200
     ranking = standings(w.db)
-    assert key('atacante') not in ranking and ranking[key('defesa')].metric_value == 4
-    # The representative corrects the position back and the goals: both rankings are recalculated.
+    assert key('atacante') not in ranking and ranking[key('defesa')].metric_value == Decimal('3.167')
+    # The representative corrects the position back and the goals: both rankings are recalculated (9 points).
     assert review(w, 'rep_a', stat_id, position='atacante', goals=5).status_code == 200
     ranking = standings(w.db)
-    assert key('defesa') not in ranking and ranking[key('atacante')].metric_value == 9
+    assert key('defesa') not in ranking and ranking[key('atacante')].metric_value == Decimal('4.000')
     # A contest on a confirmed match takes the contested item out of the ranking at once.
     assert contest(w, 'rep_b', stat_id, fields=['gols'], reason='Foram só dois.').status_code == 200
-    assert standings(w.db)[key('atacante')].metric_value == 4
+    assert standings(w.db)[key('atacante')].metric_value == Decimal('3.167')
 
 
 def test_a_registered_walkover_closes_the_review_and_the_contest(world):
@@ -750,8 +753,9 @@ def test_athlete_rows_show_the_person_and_mark_my_own(client, monkeypatch):
                     headers=headers).json()
     assert [(item['rank_position'], item['athlete']['id'], item['is_mine'], item['team']) for item in page['items']] == [
         (1, players[0].id, False, None), (2, players[1].id, True, None)]
-    # Win: presence 1 + 3 = 4 in each of 3 matches; loss: presence 1 only.
+    # Win: presence 1 + 3 = 4 in each of 3 matches; loss: presence 1 only. The adjusted mean (m = 5, μ = 3.0):
+    # (12 + 15) / 8 = 3.375 (Prata) and (3 + 15) / 8 = 2.25 (Bronze).
     assert [(item['metric_value'], item['tier'], item['goals_for'], item['wins'], item['losses'])
-            for item in page['items']] == [(4.0, 'ouro', None, 3, 0), (1.0, 'bronze', None, 0, 3)]
+            for item in page['items']] == [(3.375, 'prata', None, 3, 0), (2.25, 'bronze', None, 0, 3)]
     assert set(page['items'][0]['athlete']) == {'id', 'name', 'username', 'avatar_url'}
     assert [(line['state'], line['rank_position']) for line in page['mine']] == [('ranqueado', 2)]

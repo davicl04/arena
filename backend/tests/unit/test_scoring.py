@@ -15,6 +15,7 @@ from app.services.scoring import (
     RunRecord,
     TeamRecord,
     TennisRecord,
+    adjusted_mean,
     expected_score,
     in_window,
     individual_order,
@@ -52,6 +53,10 @@ RATING_CUTS = Cuts('futebol_time', 'rating', 'maior', Decimal(950), Decimal(1050
                    52, *RATING_PARAMETERS)
 TENNIS_RATING_CUTS = Cuts('tenis', 'rating', 'maior', Decimal(950), Decimal(1050), Decimal(1150), 3, Decimal('0.15'),
                           52, *RATING_PARAMETERS)
+# The calc_version 2 row of futebol_individual (migration 0017): adjusted mean with m = 5 and μ = 3.0.
+ADJUSTED_CUTS = Cuts('futebol_individual', 'media', 'maior', Decimal('2.6'), Decimal('3.9'), Decimal('5.2'), 3,
+                     Decimal('0.15'), 52, prior_matches=Decimal(5), prior_mean=Decimal('3.0'))
+PRIOR = {'prior_matches': Decimal(5), 'prior_mean': Decimal('3.0')}
 
 
 def test_outcomes_and_result_points():
@@ -120,6 +125,79 @@ def test_individual_record_averages_per_match():
     ordered = sorted([IndividualRecord(1, 3, Decimal(9)), IndividualRecord(2, 4, Decimal(12)),
                       IndividualRecord(3, 3, Decimal(12))], key=individual_order)
     assert [item.subject_id for item in ordered] == [3, 2, 1]
+
+
+# ----- Adjusted mean (futebol · individual, calc_version 2) -----------------------------------------------------
+
+def test_the_adjusted_mean_adds_m_phantom_matches_at_the_reference_mean():
+    # (total + m × μ) / (matches + m), rounded to 3 places.
+    assert adjusted_mean(Decimal(21), 3, Decimal(5), Decimal('3.0')) == Decimal('4.500')     # (21 + 15) / 8
+    assert adjusted_mean(Decimal(4), 1, Decimal(5), Decimal('3.0')) == Decimal('3.167')      # (4 + 15) / 6
+    assert adjusted_mean(Decimal('2.5'), 2, Decimal('2.5'), Decimal(4)) == Decimal('2.778')  # m and μ may be fractional
+    assert adjusted_mean(0, 0, Decimal(5), Decimal('3.0')) == Decimal('3.000')               # no match: the reference
+    # A small sample stays close to μ; the adjusted mean converges to the real average as the athlete plays.
+    gaps = [abs(Decimal(7) - adjusted_mean(Decimal(7) * n, n, Decimal(5), Decimal('3.0'))) for n in (3, 10, 30, 300)]
+    assert gaps == sorted(gaps, reverse=True) and gaps[0] == Decimal('2.500') and gaps[-1] < Decimal('0.07')
+    assert adjusted_mean(Decimal(1) * 300, 300, Decimal(5), Decimal('3.0')) == Decimal('1.033')   # also from below
+
+
+def test_without_m_and_mu_the_metric_is_the_plain_average():
+    # Cuts of older versions (and the v1 rollback) have m and μ null: the plain average, 0 without matches.
+    assert adjusted_mean(Decimal(10), 3, None, None) == Decimal('3.333')
+    assert adjusted_mean(Decimal(10), 3, Decimal(5), None) == adjusted_mean(Decimal(10), 3, None, Decimal(3))
+    assert adjusted_mean(0, 0, None, None) == 0
+    plain = IndividualRecord(1, 3, Decimal(21))
+    assert plain.metric == plain.average == Decimal('7.000')
+    adjusted = IndividualRecord(1, 3, Decimal(21), **PRIOR)
+    assert (adjusted.metric, adjusted.average) == (Decimal('4.500'), Decimal('7.000'))
+
+
+def test_the_individual_record_carries_m_and_mu_without_changing_the_rn12_points():
+    games = [('vitoria', individual_points(outcome='vitoria', goals=1)),
+             ('derrota', individual_points(outcome='derrota')),
+             ('empate', individual_points(outcome='empate', assists=2))]
+    record = individual_record(9, games, form='VDE', **PRIOR)
+    # The same 10 RN12 points in 3 matches: average 3.333, adjusted mean (10 + 15) / 8 = 3.125.
+    assert (record.matches, record.total, record.wins, record.draws, record.losses, record.form) == (
+        3, Decimal(10), 1, 1, 1, 'VDE')
+    assert (record.average, record.metric) == (Decimal('3.333'), Decimal('3.125'))
+    assert [individual_points(outcome=outcome, goals=goals, assists=assists).total
+            for (outcome, _), goals, assists in zip(games, (1, 0, 0), (0, 0, 2))] == [5, 1, 4]
+
+
+def test_the_individual_order_is_the_adjusted_mean_then_more_matches_then_the_id():
+    records = [
+        IndividualRecord(1, 3, Decimal(15), **PRIOR),     # average 5.0, adjusted (15 + 15) / 8 = 3.750
+        IndividualRecord(2, 20, Decimal(90), **PRIOR),    # average 4.5, adjusted (90 + 15) / 25 = 4.200
+        IndividualRecord(3, 5, Decimal(15), **PRIOR),     # adjusted 3.000 in 5 matches
+        IndividualRecord(4, 10, Decimal(30), **PRIOR),    # adjusted 3.000 in 10 matches: more matches first
+        IndividualRecord(6, 10, Decimal(30), **PRIOR),    # same metric and matches as 4: the id
+    ]
+    assert [item.subject_id for item in sorted(records, key=individual_order)] == [2, 1, 4, 6, 3]
+    # The plain average would put the short excellent sample first.
+    assert [item.subject_id for item in sorted([IndividualRecord(1, 3, Decimal(15)), IndividualRecord(2, 20, Decimal(90))],
+                                               key=individual_order)] == [1, 2]
+
+
+def test_three_exceptional_matches_do_not_reach_diamante():
+    # Real average 7.0 in the 3 placement matches: 4.5 with the adjusted mean, Ouro; it was Diamante with the plain mean.
+    exceptional = IndividualRecord(1, 3, Decimal(21), 3, 0, 0, **PRIOR)
+    placed = rank_records([exceptional], cuts=ADJUSTED_CUTS, order=individual_order)[0]
+    assert (placed.metric_value, placed.tier, placed.rank_position) == (Decimal('4.500'), 'ouro', 1)
+    assert rank_records([IndividualRecord(1, 3, Decimal(21))], cuts=INDIVIDUAL_CUTS,
+                        order=individual_order)[0].tier == 'diamante'
+    # Diamante (5.2) needs a sample coherent with the cuts: 7 matches at 7.0, 4 at 8.0, 14 at 6.0; never at 5.2.
+    def first_diamante(mean):
+        return next((n for n in range(1, 301) if rank_records(
+            [IndividualRecord(1, n, Decimal(mean) * n, **PRIOR)], cuts=ADJUSTED_CUTS,
+            order=individual_order)[0].tier == 'diamante'), None)
+    assert [first_diamante(mean) for mean in (7, 8, 6)] == [7, 4, 14]
+    assert first_diamante(Decimal('5.2')) is None
+    # The damping works from below too: a weak average reaches Bronze, more firmly as the sample grows.
+    assert [adjusted_mean(Decimal(n), n, Decimal(5), Decimal('3.0')) for n in (3, 30)] == [Decimal('2.250'),
+                                                                                          Decimal('1.286')]
+    assert rank_records([IndividualRecord(1, 30, Decimal(30), **PRIOR)], cuts=ADJUSTED_CUTS,
+                        order=individual_order)[0].tier == 'bronze'
 
 
 def test_tennis_record_and_order():

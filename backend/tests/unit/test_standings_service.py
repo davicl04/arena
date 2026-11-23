@@ -24,10 +24,12 @@ WEEK = timedelta(weeks=1)
 
 
 def make_cuts(*, rating=True):
-    """The cuts of the current version (calc_version 2, migration 0016): teams and tennis by rating. `rating=False`
-    gives the points cuts of version 1 (the rollback path)."""
-    def cuts(ranking, metric, prata, ouro, diamante):
-        return Cuts(ranking, metric, 'maior', Decimal(prata), Decimal(ouro), Decimal(diamante), 3, Decimal('0.15'), 52)
+    """The cuts of the current version (calc_version 2, migrations 0016 and 0017): teams and tennis by rating, the
+    individual ranking by the adjusted mean (m = 5, μ = 3.0). `rating=False` gives the cuts of version 1 (the rollback
+    path): points, and the plain individual average."""
+    def cuts(ranking, metric, prata, ouro, diamante, **prior):
+        return Cuts(ranking, metric, 'maior', Decimal(prata), Decimal(ouro), Decimal(diamante), 3, Decimal('0.15'), 52,
+                    **prior)
 
     def rating_cuts(ranking):
         return Cuts(ranking, 'rating', 'maior', Decimal(950), Decimal(1050), Decimal(1150), 3, Decimal('0.15'), 52,
@@ -39,7 +41,9 @@ def make_cuts(*, rating=True):
         return Cuts(name, 'tempo', 'menor', Decimal(prata), Decimal(ouro), Decimal(diamante), 1, Decimal('0.15'), 52)
 
     return {'futebol_time': rating_cuts('futebol_time') if rating else cuts('futebol_time', 'pontos', 10, 30, 60),
-            'futebol_individual': cuts('futebol_individual', 'media', '2.5', '4.0', '5.5'),
+            'futebol_individual': cuts('futebol_individual', 'media', '2.6', '3.9', '5.2', prior_matches=Decimal(5),
+                                       prior_mean=Decimal('3.0')) if rating else
+            cuts('futebol_individual', 'media', '2.5', '4.0', '5.5'),
             'tenis': rating_cuts('tenis') if rating else cuts('tenis', 'pontos', 30, 80, 150),
             'corrida_5': run_cuts(5, 35 * 60, 27 * 60, 22 * 60),
             'corrida_10': run_cuts(10, 75 * 60, 57 * 60, 47 * 60)}
@@ -180,24 +184,43 @@ def appearance(user_id, side='a', winner='a', stat=None, goals=None, reviewed=No
             reviewed)
 
 
+INDIVIDUAL_APPEARANCES = (
+    (41, {}), (41, {'stat': 'revisada', 'goals': 2, 'reviewed': NOW}), (41, {}),
+    (42, {'winner': None}), (42, {'winner': None}), (42, {'winner': None}),
+    (43, {}),
+    (44, {'side': 'b', 'winner': 'a', 'absent': 'b'}))                  # absent side of a walkover: not counted
+
+
 def test_the_individual_ranking_averages_presence_result_and_the_reviewed_stats(scene):
     db = scene.db
-    db.on('match_lineups', [
-        appearance(41), appearance(41, stat='revisada', goals=2, reviewed=NOW), appearance(41),
-        appearance(42, winner=None), appearance(42, winner=None), appearance(42, winner=None),
-        appearance(43),
-        appearance(44, side='b', winner='a', absent='b')])               # absent side of a walkover: not counted
+    db.on('match_lineups', [appearance(user_id, **fields) for user_id, fields in INDIVIDUAL_APPEARANCES])
     standings.recalculate_rankings(db, [RankingKey('futebol_individual', 'society', 'atacante')], now=NOW)
     rows = rows_by_subject(db, 'user_id')
     assert set(rows) == {41, 42, 43}
-    # 41: (presence 1 + win 3) × 2 and one match with 2 reviewed goals: (4 + 6 + 4) / 3.
-    assert (rows[41].rank_position, rows[41].tier, round(float(rows[41].metric_value), 2)) == (1, 'ouro', 4.67)
-    assert (rows[42].rank_position, rows[42].tier, float(rows[42].metric_value)) == (2, 'bronze', 2.0)
-    assert (rows[43].rank_position, rows[43].tier) == (None, None)
+    # 41: (presence 1 + win 3) × 2 and one match with 2 reviewed goals: 14 points in 3 matches, an average of 4.67
+    # (Ouro with the plain mean), and the adjusted mean (14 + 5 × 3.0) / (3 + 5) = 3.625 (Prata).
+    assert (rows[41].rank_position, rows[41].tier, rows[41].metric_value) == (1, 'prata', Decimal('3.625'))
+    # 42: three draws, 2 points each: (6 + 15) / 8 = 2.625 (the plain average, 2.0, was Bronze).
+    assert (rows[42].rank_position, rows[42].tier, rows[42].metric_value) == (2, 'prata', Decimal('2.625'))
+    # 43 is in placement and keeps the adjusted mean of its one match: (4 + 15) / 6.
+    assert (rows[43].rank_position, rows[43].tier, rows[43].metric_value) == (None, None, Decimal('3.167'))
+    assert rows[41].calc_version == 2
     assert rows[41].goals_for == rows[41].goals_against == 0              # an average: no goals to keep
     assert (rows[41].recent_form, rows[42].recent_form, rows[43].recent_form) == ('VVV', 'EEE', 'V')
     assert (rows[41].sport, rows[41].format, rows[41].position, rows[41].team_id) == (
         'futebol', 'society', 'atacante', None)
+
+
+def test_without_m_and_mu_the_individual_ranking_keeps_the_plain_average(scene, monkeypatch):
+    # Cuts without the adjusted mean (version 1, the rollback path): the plain average per match, as before.
+    monkeypatch.setattr(standings, 'load_cuts', lambda _db, version: make_cuts(rating=False))
+    db = scene.db
+    db.on('match_lineups', [appearance(user_id, **fields) for user_id, fields in INDIVIDUAL_APPEARANCES])
+    standings.recalculate_rankings(db, [RankingKey('futebol_individual', 'society', 'atacante')], now=NOW)
+    rows = rows_by_subject(db, 'user_id')
+    assert (rows[41].rank_position, rows[41].tier, rows[41].metric_value) == (1, 'ouro', Decimal('4.667'))
+    assert (rows[42].rank_position, rows[42].tier, rows[42].metric_value) == (2, 'bronze', Decimal('2.000'))
+    assert rows[43].metric_value == Decimal('4.000')
 
 
 def test_the_tennis_ranking_replays_the_rating_of_each_player(scene):

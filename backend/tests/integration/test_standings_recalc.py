@@ -9,7 +9,7 @@ from datetime import timedelta
 from decimal import Decimal
 
 import pytest
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, update
 from sqlalchemy.orm import Session
 
 from app.models.brackets import EventPlacement
@@ -360,8 +360,9 @@ def test_a_walkover_counts_presence_and_win_of_the_side_that_showed_up(db):
     assert (ranking[team_a.id].losses, ranking[team_a.id].goals_against, ranking[team_a.id].metric_value) == (
         1, 3, LOSSES[1])
     athlete = db.scalar(select(Standing).where(Standing.user_id == present.id))
-    # Presence 1 + win 3; the absent side's athlete (even with a stat) has no row.
-    assert (athlete.position, athlete.metric_value, athlete.wins, athlete.matches_played) == ('defesa', 4, 1, 1)
+    # Presence 1 + win 3 (adjusted mean (4 + 15) / 6); the absent side's athlete (even with a stat) has no row.
+    assert (athlete.position, athlete.metric_value, athlete.wins, athlete.matches_played) == (
+        'defesa', Decimal('3.167'), 1, 1)
     assert count(db, Standing, Standing.user_id == absent.id) == 0
 
 
@@ -375,9 +376,64 @@ def test_individual_average_counts_only_present_and_removed_athletes_do_not(db):
     removed.removed_at = NOW
     recalculate_for_match(db, match, now=NOW)
     ranking = {row.user_id: row for row in db.scalars(select(Standing).where(Standing.user_id.is_not(None)))}
-    # A draw: presence 1 + 1 point.
-    assert set(ranking) == {star.id} and ranking[star.id].metric_value == 2
+    # A draw: presence 1 + 1 point (adjusted mean (2 + 15) / 6).
+    assert set(ranking) == {star.id} and ranking[star.id].metric_value == Decimal('2.833')
     assert (ranking[star.id].draws, ranking[star.id].goals_for, ranking[star.id].goals_against) == (1, 0, 0)
+
+
+def scored_appearance(db, match, user, side, *, goals=0):
+    """A present attacker; `goals` > 0 adds reviewed stats (they score, RN10)."""
+    item = lineup(db, match, user, side, 'atacante')
+    if goals:
+        add(db, FootballStat(lineup_id=item.id, match_id=match.id, user_id=user.id, goals=goals, state='revisada',
+                             reviewed_at=NOW, submitted_at=NOW))
+    return item
+
+
+def test_the_individual_ranking_uses_the_adjusted_mean_of_the_version_2_cuts(db):
+    # Migration 0017: m = 5 phantom matches at μ = 3.0 and the cuts revised for the adjusted mean.
+    cut = load_cuts(db)['futebol_individual']
+    assert (cut.metric, cut.prior_matches, cut.prior_mean, cut.prata, cut.ouro, cut.diamante) == (
+        'media', Decimal(5), Decimal(3), Decimal('2.6'), Decimal('3.9'), Decimal('5.2'))
+    assert load_cuts(db, 1)['futebol_individual'].prior_matches is None        # version 1 untouched
+    home, away = new_team(db, 'Ferrugem'), new_team(db, 'Leoes')
+    star, steady, rival, rookie = (make_user(db, name) for name in ('craque', 'constante', 'rival', 'estreante'))
+    # Craque: 3 wins with 3 reviewed goals = 7 points per match (Diamante with the plain average). Rival loses them.
+    for number in range(3):
+        match = played(db, home, away, 3, 0, starts_at=NOW - (number + 1) * DAY)
+        scored_appearance(db, match, star, 'a', goals=3)
+        scored_appearance(db, match, rival, 'b')
+    # Constante: 10 wins with 2 reviewed goals = 6 points per match. The rookie loses one of them.
+    for number in range(10):
+        match = played(db, home, away, 2, 0, starts_at=NOW - (number + 5) * DAY)
+        scored_appearance(db, match, steady, 'a', goals=2)
+        if number == 0:
+            scored_appearance(db, match, rookie, 'b')
+    key = RankingKey('futebol_individual', 'society', 'atacante')
+    recalculate_rankings(db, [key], now=NOW)
+
+    ranking = rows(db, Standing.user_id.is_not(None))
+    summary = {user.id: (ranking[user.id].rank_position, ranking[user.id].tier, ranking[user.id].metric_value,
+                         ranking[user.id].matches_played) for user in (star, steady, rival, rookie)}
+    assert summary == {
+        steady.id: (1, 'ouro', Decimal('5.000'), 10),     # (60 + 15) / 15: the longer sample comes first
+        star.id: (2, 'ouro', Decimal('4.500'), 3),        # (21 + 15) / 8: three exceptional matches are not Diamante
+        rival.id: (3, 'bronze', Decimal('2.250'), 3),     # (3 + 15) / 8
+        rookie.id: (None, None, Decimal('2.667'), 1),     # (1 + 15) / 6, in placement
+    }
+    assert {row.calc_version for row in ranking.values()} == {CURRENT_CALC_VERSION} == {2}
+    assert (ranking[star.id].wins, ranking[star.id].goals_for, ranking[star.id].recent_form) == (3, 0, 'VVV')
+
+    # Cuts without m and μ (older versions, the rollback path): the same recalculation gives the plain average.
+    db.execute(update(RankCut).where(RankCut.calc_version == CURRENT_CALC_VERSION,
+                                     RankCut.ranking == 'futebol_individual').values(prior_matches=None,
+                                                                                     prior_mean=None))
+    recalculate_rankings(db, [key], now=NOW)
+    ranking = rows(db, Standing.user_id.is_not(None))
+    assert [(ranking[user.id].rank_position, ranking[user.id].tier, ranking[user.id].metric_value)
+            for user in (star, steady, rival, rookie)] == [
+        (1, 'diamante', Decimal('7.000')), (2, 'diamante', Decimal('6.000')), (3, 'bronze', Decimal('1.000')),
+        (None, None, Decimal('1.000'))]
 
 
 # ----- Open searches ----------------------------------------------------------------------------------------
@@ -425,7 +481,8 @@ def test_a_walk_in_whose_individual_tier_changes_is_offered_the_slot(db):
     open_match = scheduled_match(db, host, rival, slots_a={'atacante': 1}, tier_a='ouro', tier_b='ouro')
     slot = db.scalar(select(MatchSlot).where(MatchSlot.match_id == open_match.id))
     player = make_user(db, 'atacante')
-    # He was Bronze as an attacker at society; an Ouro host cannot take him. Three wins make him Ouro (4.0).
+    # He was Bronze as an attacker at society; an Ouro host cannot take him. Three wins (4 points each) make him
+    # Prata, a neighbour of Ouro: the adjusted mean (12 + 5 × 3.0) / 8 = 3.375.
     make_standing(db, tier='bronze', user=player, format_='society', position='atacante', rank=1)
     search = add(db, walkin_search(player, position='atacante', started_at=NOW - HOUR))
     assert queue.try_match(db, search, now=NOW) is None
@@ -435,7 +492,7 @@ def test_a_walk_in_whose_individual_tier_changes_is_offered_the_slot(db):
     recalculate_for_match(db, matches[0], now=NOW)
 
     row = db.scalar(select(Standing).where(Standing.user_id == player.id))
-    assert (row.tier, row.metric_value) == ('ouro', 4)
+    assert (row.tier, row.metric_value) == ('prata', Decimal('3.375'))
     db.refresh(search)
     db.refresh(slot)
     assert (search.state, search.slot_id, slot.state) == ('pareada', slot.id, 'oferecida')

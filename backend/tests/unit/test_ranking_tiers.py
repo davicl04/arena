@@ -1,6 +1,6 @@
 """Invariant behind the Ranking screen: the tiers of a category are contiguous in `rank_position` (the best tier
 first) and Lendário is a prefix, in the four orders of `services.scoring`, with the points cuts of version 1 and
-the rating cuts of version 2 (teams and tennis ranked by the replayed rating). The position inside a tier and the
+the cuts of version 2 (teams and tennis ranked by the replayed rating, the individual ranking by the adjusted mean). The position inside a tier and the
 windows of the Ranking screen (`services.ranking_views`) depend on it."""
 import random
 from datetime import date, datetime, timedelta, timezone
@@ -38,6 +38,10 @@ CUTS = {
                          Decimal(1000), Decimal(64), Decimal(32)), team_order),
     'tennis_rating': (Cuts('tenis', 'rating', 'maior', Decimal(950), Decimal(1050), Decimal(1150), 3, SHARE, 52,
                            Decimal(1000), Decimal(64), Decimal(32)), tennis_order),
+    # Version 2 (migration 0017): the individual adjusted mean, m = 5 phantom matches at μ = 3.0 (cuts scaled to the
+    # generated appearances, which score more than real ones).
+    'individual_adjusted': (Cuts('futebol_individual', 'media', 'maior', Decimal('4.5'), Decimal('5.5'), Decimal('6.5'),
+                                 3, SHARE, 52, prior_matches=Decimal(5), prior_mean=Decimal('3.0')), individual_order),
 }
 SEEDS = range(60)
 
@@ -47,13 +51,18 @@ def team_records(rng, count):
             for i in range(1, count + 1)]
 
 
-def individual_records(rng, count):
+def individual_records(rng, count, *, prior: Cuts | None = None):
     def appearances():
         return [(rng.choice(('vitoria', 'empate', 'derrota')),
                  individual_points(outcome=rng.choice(('vitoria', 'empate', 'derrota')), goals=rng.randint(0, 4),
                                    assists=rng.randint(0, 3), position_stat=rng.randint(0, 8)))
                 for _ in range(rng.randint(0, 10))]
-    return [individual_record(i, appearances()) for i in range(1, count + 1)]
+    return [individual_record(i, appearances(), prior_matches=prior and prior.prior_matches,
+                              prior_mean=prior and prior.prior_mean) for i in range(1, count + 1)]
+
+
+def adjusted_records(rng, count):
+    return individual_records(rng, count, prior=CUTS['individual_adjusted'][0])
 
 
 def tennis_records(rng, count):
@@ -97,7 +106,7 @@ def rating_records(build, *, draws):
 
 RECORDS = {'team': team_records, 'individual': individual_records, 'tennis': tennis_records, 'run': run_records,
            'team_rating': rating_records(team_record, draws=True),
-           'tennis_rating': rating_records(tennis_record, draws=False)}
+           'tennis_rating': rating_records(tennis_record, draws=False), 'individual_adjusted': adjusted_records}
 
 
 @pytest.mark.parametrize('kind', RECORDS)

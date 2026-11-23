@@ -160,6 +160,30 @@ def test_migration_0016_seeds_the_rating_parameters_of_version_2():
     assert base_tier(Decimal(950), RATING['tenis']) == 'prata' and base_tier(Decimal(1150), RATING['tenis']) == 'diamante'
 
 
+def test_migration_0017_completes_the_adjusted_mean_of_the_individual_ranking():
+    module = load_migration(VERSIONS / '0017_individual_adjusted_mean.py')
+    assert (module.revision, module.down_revision, module.RANKING) == ('0017', '0016', 'futebol_individual')
+    assert (module.PRIOR_MATCHES, module.PRIOR_MEAN) == (Decimal(5), Decimal('3.0'))
+    assert module.ADJUSTED_CUTS == {'prata': Decimal('2.6'), 'ouro': Decimal('3.9'), 'diamante': Decimal('5.2')}
+    # The cuts keep the order the table requires, and the version 1 ones (migration 0005) stay as they were.
+    assert module.ADJUSTED_CUTS['prata'] < module.ADJUSTED_CUTS['ouro'] < module.ADJUSTED_CUTS['diamante']
+    assert (CUTS['futebol_individual'].prata, CUTS['futebol_individual'].diamante) == (Decimal('2.5'), Decimal('5.5'))
+
+
+def test_load_cuts_reads_the_adjusted_mean_parameters():
+    row = SimpleNamespace(ranking='futebol_individual', metric='media', direction='maior', prata=Decimal('2.60'),
+                          ouro=Decimal('3.90'), diamante=Decimal('5.20'), placement_matches=3,
+                          legend_share=Decimal('0.150'), window_weeks=52, initial_rating=None, placement_k=None,
+                          regular_k=None, prior_matches=Decimal('5.00'), prior_mean=Decimal('3.000'))
+    db = Mock()
+    db.scalars.return_value.all.return_value = [row]
+    cut = rankings.load_cuts(db, 2)['futebol_individual']
+    assert (cut.prior_matches, cut.prior_mean, cut.diamante, cut.is_rating) == (
+        Decimal(5), Decimal(3), Decimal('5.2'), False)
+    # The individual line keeps its metric in placement (it is not a rating).
+    assert not hides_placement_metric({'futebol_individual': cut}, 'futebol_individual')
+
+
 def test_the_initial_rating_comes_from_the_cuts():
     assert initial_rating(RATING['tenis']) == Decimal(1000)
     assert initial_rating(Cuts('tenis', 'rating', 'maior', Decimal(1), Decimal(2), Decimal(3), 3, Decimal('0.15'), 52,

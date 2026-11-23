@@ -19,6 +19,7 @@ loaders read the matches of the window in chronological order with both sides an
 (`scoring.replay_ratings`); `metric_value` stores the rating, also in placement (the API hides it there). The
 tennis loader also reads the championship bonuses of the window with the confirmed entrants of each event (two bulk
 queries), and the replay converts each bonus into rating by the strength of the bracket (`scoring.weighted_bonus`).
+The individual loader passes the `m` and `μ` of the cuts to the records, whose metric is then the adjusted mean.
 """
 from __future__ import annotations
 
@@ -200,9 +201,10 @@ def _team_records(db: Session, key: RankingKey, cuts: Cuts, window_start: dateti
                                 rating=ratings.get(team_id)) for team_id, items in games.items()]
 
 
-def _individual_records(db: Session, key: RankingKey, window_start: datetime, now: datetime) -> list:
+def _individual_records(db: Session, key: RankingKey, cuts: Cuts, window_start: datetime, now: datetime) -> list:
     """Appearances with presence confirmed (RN03) in the position and format. Stat items count as RN10 says; in a
-    walkover only the side that showed up counts, with presence and the win, and there are no stats."""
+    walkover only the side that showed up counts, with presence and the win, and there are no stats. The metric is
+    the adjusted mean with the `m` and `μ` of the cuts (the plain average when they are null)."""
     rows = db.execute(
         select(MatchLineup.user_id, MatchLineup.side, Match.winner_side, Match.walkover_absent_side,
                Match.starts_at, Match.id, FootballStat.state, FootballStat.goals, FootballStat.assists, FootballStat.position_stat,
@@ -225,7 +227,8 @@ def _individual_records(db: Session, key: RankingKey, window_start: datetime, no
         appearances[user_id].append((outcome, scoring.individual_points(
             outcome=outcome, goals=goals, assists=assists, position_stat=position_stat, counted=counted)))
         results[user_id].append((starts_at, match_id, outcome))
-    return [scoring.individual_record(user_id, items, form=scoring.recent_form(results[user_id]))
+    return [scoring.individual_record(user_id, items, form=scoring.recent_form(results[user_id]),
+                                      prior_matches=cuts.prior_matches, prior_mean=cuts.prior_mean)
             for user_id, items in appearances.items()]
 
 
@@ -320,7 +323,7 @@ def _recalculate_key(db: Session, key: RankingKey, cuts: Cuts, *, now: datetime,
     if key.ranking == 'futebol_time':
         records, order = _team_records(db, key, cuts, window_start, now), scoring.team_order
     elif key.ranking == 'futebol_individual':
-        records, order = _individual_records(db, key, window_start, now), scoring.individual_order
+        records, order = _individual_records(db, key, cuts, window_start, now), scoring.individual_order
     elif key.distance_km is not None:
         today = local_date(now)
         records = _run_records(db, key.distance_km, scoring.run_window_start(today, cuts.window_weeks), today)

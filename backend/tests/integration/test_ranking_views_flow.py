@@ -408,7 +408,7 @@ def test_the_overview_follows_a_real_recalculation(client):
 def test_a_rating_line_in_placement_hides_the_rating_and_the_classified_rows_show_it(client):
     # Teams and tennis (calc_version 2): `standings` keeps the rating of a subject in placement (the pairing reads
     # it), but `GET /rankings`, `GET /rankings/overview` and `GET /me/standings` return `metric_value` null for it.
-    # The individual ranking keeps showing its average in placement.
+    # The individual ranking keeps showing its average (the adjusted mean, decision 0006) in placement.
     http, db = client
     rep_a, rep_b, rep_c = make_user(db, 'rep-a'), make_user(db, 'rep-b'), make_user(db, 'rep-c')
     team_a, team_b = make_team(db, rep_a, name='Time A'), make_team(db, rep_b, name='Time B')
@@ -444,7 +444,8 @@ def test_a_rating_line_in_placement_hides_the_rating_and_the_classified_rows_sho
         assert (tennis['mine'][0]['state'], tennis['mine'][0]['metric_value']) == ('classificacao', None)
         individual = http.get(f'{API}/{path}?sport=futebol&kind=individual&format=society&position=atacante',
                               headers=headers['attacker']).json()['mine'][0]
-        assert (individual['state'], individual['metric_value']) == ('classificacao', 4.0)   # presence 1 + win 3
+        # Presence 1 + win 3 = 4 points in one match: the adjusted mean (4 + 5 × 3.0) / (1 + 5).
+        assert (individual['state'], individual['metric_value']) == ('classificacao', 3.167)
     page = http.get(f'{API}/rankings?{SOCIETY}', headers=headers['c']).json()
     assert [(item['team']['name'], item['tier']) for item in page['items']] == [('Time A', 'ouro'), ('Time B', 'bronze')]
     assert all(item['metric_value'] > 900 for item in page['items'])
@@ -456,3 +457,39 @@ def test_a_rating_line_in_placement_hides_the_rating_and_the_classified_rows_sho
     assert http.get(f'{API}/me/standings', headers=headers['ana']).json()['tenis']['metric_value'] is None
     ranked_me = http.get(f'{API}/me/standings', headers=headers['a']).json()['futebol']['teams'][0]['formats'][1]
     assert ranked_me['state'] == 'ranqueado' and ranked_me['metric_value'] > 1000
+
+
+def test_the_individual_ranking_lists_and_measures_gaps_by_the_adjusted_mean(client):
+    # futebol_individual (calc_version 2, migration 0017): `metric_value` is the adjusted mean, (total + 5 × 3.0) /
+    # (matches + 5); the order is the adjusted mean, more matches and the id, and the gaps are in the same unit.
+    http, db = client
+    reps = [make_user(db, name) for name in ('rep-a', 'rep-b')]
+    team_a, team_b = (make_team(db, rep, name=f'Time {rep.id}') for rep in reps)
+    steady, short, weak = (make_user(db, name) for name in ('constante', 'curto', 'fraco'))
+    # Constante: 10 wins and 2 draws, 44 points in 12 matches (plain 3.667, adjusted 3.471).
+    for number in range(12):
+        match = played(db, team_a, team_b, 1, 0 if number < 10 else 1, starts_at=NOW - (number + 5) * DAY)
+        lineup(db, match, steady, 'a', 'atacante', team_id=team_a.id)
+    # Curto: 3 wins, 4 points each (plain 4.0, adjusted 3.375); Fraco loses the same 3 (plain 1.0, adjusted 2.25).
+    for number in range(3):
+        match = played(db, team_a, team_b, 1, 0, starts_at=NOW - (number + 1) * DAY)
+        lineup(db, match, short, 'a', 'atacante', team_id=team_a.id)
+        lineup(db, match, weak, 'b', 'atacante', team_id=team_b.id)
+    recalculate_rankings(db, [RankingKey('futebol_individual', 'society', 'atacante')], now=NOW)
+    headers = login(db, short)
+    db.commit()
+
+    query = 'sport=futebol&kind=individual&format=society&position=atacante'
+    page = http.get(f'{API}/rankings?{query}', headers=headers).json()
+    assert (page['ranking'], page['calc_version'], page['classified_count']) == ('futebol_individual', 2, 3)
+    assert [(item['rank_position'], item['athlete']['id'], item['metric_value'], item['tier'], item['matches_played'])
+            for item in page['items']] == [(1, steady.id, 3.471, 'prata', 12), (2, short.id, 3.375, 'prata', 3),
+                                           (3, weak.id, 2.25, 'bronze', 3)]
+    for path in ('rankings', 'rankings/overview'):
+        [mine] = http.get(f'{API}/{path}?{query}', headers=headers).json()['mine']
+        assert (mine['state'], mine['rank_position'], mine['metric_value'], mine['tier_position'], mine['tier_size'],
+                mine['leader_gap'], mine['next_gap']) == ('ranqueado', 2, 3.375, 2, 2, 0.096, None)
+    me = http.get(f'{API}/me/standings', headers=headers).json()
+    line = next(item for item in me['futebol']['individual'] if (item['position'], item['format']) == (
+        'atacante', 'society'))
+    assert (me['calc_version'], line['state'], line['tier'], line['metric_value']) == (2, 'ranqueado', 'prata', 3.375)

@@ -11,7 +11,8 @@ From `calc_version = 2` teams and tennis are ranked by a rating (decision docs/d
 `expected_score` and `updated_rating`; the points 3/1/0 and 10 per win stay as campaign statistics. In tennis the
 championship bonus (RN16) enters the replay at the moment it was awarded, weighted by the strength of the bracket
 (`weighted_bonus`). When the cuts of the version in use still rank by points (`metric = 'pontos'`), the records carry
-no rating and rank by points.
+no rating and rank by points. The individual ranking uses the adjusted mean (`adjusted_mean`, with the `m` and `μ` of
+the cuts), and the plain average when the cuts have none.
 """
 from __future__ import annotations
 
@@ -300,6 +301,21 @@ def team_order(record: TeamRecord) -> tuple:
     return (-record.metric, -record.goal_difference, -record.goals_for, record.matches, record.subject_id)
 
 
+def adjusted_mean(total: Decimal | int, matches: int, prior_matches: Decimal | None,
+                  prior_mean: Decimal | None) -> Decimal:
+    """(total + m × μ) / (matches + m), rounded to 3 places: the average per match of the individual ranking from
+    `calc_version = 2` (decision docs/decisoes/0006-ranking-por-rating.md), as if every athlete had also played `m`
+    phantom matches at the reference mean `μ`. A few matches stay close to `μ`, and the value converges to the plain
+    average as the athlete plays. Without `m` or `μ` (cuts of older versions), the plain average (0 without
+    matches)."""
+    if prior_matches is None or prior_mean is None:
+        if not matches:
+            return Decimal(0)
+        return (Decimal(total) / matches).quantize(AVERAGE_QUANTUM, rounding=ROUND_HALF_UP)
+    value = (Decimal(total) + Decimal(prior_matches) * Decimal(prior_mean)) / (matches + Decimal(prior_matches))
+    return value.quantize(AVERAGE_QUANTUM, rounding=ROUND_HALF_UP)
+
+
 @dataclass(frozen=True)
 class IndividualRecord:
     subject_id: int
@@ -309,22 +325,25 @@ class IndividualRecord:
     draws: int = 0
     losses: int = 0
     form: str = ''
+    # Adjusted mean (`m` phantom matches at `μ`) from the cuts in use; None keeps the plain average as the metric.
+    prior_matches: Decimal | None = None
+    prior_mean: Decimal | None = None
 
     @property
     def average(self) -> Decimal:
-        if not self.matches:
-            return Decimal(0)
-        return (self.total / self.matches).quantize(AVERAGE_QUANTUM, rounding=ROUND_HALF_UP)
+        """Plain average of the RN12 points per match."""
+        return adjusted_mean(self.total, self.matches, None, None)
 
     @property
     def metric(self) -> Decimal:
-        return self.average
+        """The adjusted mean under cuts with `m` and `μ` (`calc_version = 2`), the plain average otherwise."""
+        return adjusted_mean(self.total, self.matches, self.prior_matches, self.prior_mean)
 
 
-def individual_record(subject_id: int, appearances: Iterable[tuple[str, IndividualPoints]], *,
-                      form: str = '') -> IndividualRecord:
+def individual_record(subject_id: int, appearances: Iterable[tuple[str, IndividualPoints]], *, form: str = '',
+                      prior_matches: Decimal | None = None, prior_mean: Decimal | None = None) -> IndividualRecord:
     """Record from (outcome, points) of each counted appearance in one position and format (RN11); `form` is
-    `recent_form` of those appearances."""
+    `recent_form` of those appearances, and `prior_matches`/`prior_mean` the `m`/`μ` of the cuts (adjusted mean)."""
     total = Decimal(0)
     tally = {'vitoria': 0, 'empate': 0, 'derrota': 0}
     matches = 0
@@ -332,12 +351,14 @@ def individual_record(subject_id: int, appearances: Iterable[tuple[str, Individu
         matches += 1
         total += points.total
         tally[outcome] += 1
-    return IndividualRecord(subject_id, matches, total, tally['vitoria'], tally['empate'], tally['derrota'], form)
+    return IndividualRecord(subject_id, matches, total, tally['vitoria'], tally['empate'], tally['derrota'], form,
+                            prior_matches, prior_mean)
 
 
 def individual_order(record: IndividualRecord) -> tuple:
-    """Average per match; ties go to more matches (a steadier average), then the id (interpretation)."""
-    return (-record.average, -record.matches, record.subject_id)
+    """The metric (adjusted mean, or the plain average under cuts without `m` and `μ`); ties go to more matches (a
+    steadier average), then the id (interpretation)."""
+    return (-record.metric, -record.matches, record.subject_id)
 
 
 @dataclass(frozen=True)
