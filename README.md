@@ -83,6 +83,19 @@ A migração `0013` acrescenta a `standings` a forma recente (`recent_form`, os 
 
 O comando recalcula todas as categorias (times e individual por formato e posição, tênis e as cinco distâncias de corrida) e preenche as linhas antigas. É idempotente: uma segunda execução não altera nada e imprime `0 linhas alteradas`. Até ele rodar, as linhas antigas mostram a forma vazia (sem quadradinhos na tela), nunca uma forma errada; o próximo resultado de uma categoria também a preenche. O contrato está em [0002, seção 20](docs/decisoes/0002-jogar.md#20-ranking-por-elo-janela-forma-recente-e-salão).
 
+### Ranking por rating (recalcular uma vez após a `0017`)
+
+As migrações `0016` e `0017` criam a versão de cálculo 2 dos rankings ([decisão 0006](docs/decisoes/0006-ranking-por-rating.md)): rating no futebol · time e no tênis, média ajustada no futebol · individual e a corrida sem mudança. Elas inserem os cortes da versão 2 em `rank_cuts` sem alterar os da versão 1 e não recalculam nada. **Rollout**, em `backend/`:
+
+```powershell
+.venv/Scripts/python.exe -m alembic upgrade head
+.venv/Scripts/python.exe -m app.admin_cli recalculate-rankings
+```
+
+Até o recálculo, as linhas de `standings` mantêm `calc_version = 1` e os valores antigos (pontos no time e no tênis, média simples no individual), embora a web e o Expo já os rotulem como "rating"; o próximo resultado de uma categoria também a recalcula. O comando é idempotente: a segunda execução imprime `0 linhas alteradas`.
+
+**Rollback:** volte `CURRENT_CALC_VERSION` para 1 em `backend/app/services/rankings.py` e rode `recalculate-rankings`; o time e o tênis voltam a classificar por pontos e o individual, pela média simples. O downgrade da `0017` (`alembic downgrade 0016`) desfaz só a média ajustada; o da `0016` (`alembic downgrade 0015`) remove as linhas da versão 2 e as colunas novas de `rank_cuts` e exige o código com `CURRENT_CALC_VERSION = 1`, seguido do recálculo. Nenhum dos dois apaga contas, partidas ou resultados. Detalhes na [seção 9 da 0006](docs/decisoes/0006-ranking-por-rating.md#9-rollout-e-rollback).
+
 ### Imagens e avatar local
 
 O Compose também fornece MinIO local, construído do código na versão fixada no `docker-compose.yml`, com API S3 em `localhost:9000`, console em `localhost:9001` e volume persistente `miniodata`. Inicie o serviço sem recriar nem apagar o PostgreSQL:

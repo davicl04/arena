@@ -37,7 +37,7 @@ Decisões tomadas pelo plano (podem ser revistas antes de implementar):
 
 - **Sem elo, a tela mostra as faixas.** Em classificação, sem marca, sem time ou sem jogos, a placa da posição mostra o estado atual (medidor "2/3", "Sem marca nos 5 km" com "Registrar uma corrida", "Sem time ativo" com "Meus times"). Abaixo, chips *Bronze · Prata · Ouro · Diamante* escolhem qual faixa ver, com Bronze por padrão. A placa contínua mostra "Os 5 primeiros no Bronze".
 - **Elos vazios são pulados.** As setas da troca de elo vão ao elo vizinho **com integrantes**. Sem nenhum, a seta fica desabilitada. A seta do Diamante para cima abre o Salão quando houver Lendários.
-- **Diferenças relativas às pessoas, não aos cortes.** A placa mostra "7 pts atrás do 1º" e "1 pt à frente do 7º". "Faltam X para o Ouro" fica de fora porque os cortes continuam fora do contrato do cliente ([0002, seção 1](decisoes/0002-jogar.md#1-elos-e-rankings)).
+- **Diferenças relativas às pessoas, não aos cortes.** A placa mostra "37 rating atrás do 1º" e "2 rating à frente do 7º" (no time e no tênis, desde a `calc_version = 2`; na versão 1 eram pontos). "Faltam X para o Ouro" fica de fora porque os cortes continuam fora do contrato do cliente ([0002, seção 1](decisoes/0002-jogar.md#1-elos-e-rankings)).
 - **`rank_position` continua na API** por compatibilidade e para a paginação. A web e o Expo deixam de exibi-la.
 
 ## Comportamento da tela
@@ -65,10 +65,10 @@ Decisões tomadas pelo plano (podem ser revistas antes de implementar):
 - Bloco com `rounded-card` e gradiente da cor do elo para `forest`. O tom de cada elo vira token novo em `ui.css` (`--color-tier-bronze-tint`, `-prata-`, `-ouro-`, `-diamante-`, `-lendario-`), com o Coliseu em marca-d'água como nas demais placas.
 - **Troca de elo**: botão ‹ com o elo de baixo, o centro com o brasão, o nome do elo em caixa alta e "12 times/atletas", e o botão › com o elo de cima. Para cima a partir do Diamante, o texto é "Salão" e o botão abre o Salão. Os nomes acessíveis são "Ver elo Ouro" e "Abrir o Salão dos Lendários".
 - **No elo do titular**: rótulo "SUA POSIÇÃO NO DIAMANTE"; número grande "6º"; "de 12 no Diamante · Resenha EC" (o time só no ranking de Times); e três números:
-  - a métrica: "94 pontos", "5,66 média" ou "21:50 tempo";
-  - a distância para o 1º do elo ("7 pts atrás do 1º") ou "Lidera o Diamante";
-  - a vantagem sobre o próximo ("1 pt à frente do 7º") ou "Último do Diamante".
-  Na corrida, as diferenças são tempos ("0:42"); no individual, médias com duas casas.
+  - a métrica: "1087 rating" (time e tênis), "5,66 média" ou "21:50 tempo";
+  - a distância para o 1º do elo ("37 rating atrás do 1º") ou "Lidera o Diamante";
+  - a vantagem sobre o próximo ("2 rating à frente do 7º") ou "Último do Diamante".
+  No time e no tênis, o rating e as diferenças são inteiros (decisão 0006); na corrida, as diferenças são tempos ("0:42"); no individual, médias com duas casas. Em classificação, a placa mostra só "n de 3", sem rating.
 - **Em outro elo**: "Você está no Diamante. Os 5 primeiros no Ouro:". Sem elo do titular, só "Os 5 primeiros no Ouro:".
 - **No Salão** (titular Lendário), a placa usa o tom do Lendário e o texto "no Salão".
 
@@ -84,7 +84,7 @@ Decisões tomadas pelo plano (podem ser revistas antes de implementar):
 - Mostra a **posição no elo**, o escudo do time (`TeamCrest`) ou a foto do atleta (`SocialPhoto`), o nome (com o selo "Você" ou "Seu time" na linha do titular) e, abaixo, a **forma**.
 - **Forma**: até 5 quadradinhos, do mais antigo à esquerda para o mais recente à direita. V em menta, E neutro e D no tom de perigo suave. No tênis não há E. Com menos de 5 partidas, mostra só as que existem. O nome acessível é "Últimos resultados: vitória, vitória, empate, derrota, vitória".
 - **Corrida**: "melhor marca em 03/09" no lugar da forma.
-- **Métrica** à direita, com a unidade: "pontos", "média" ou "tempo".
+- **Métrica** à direita, com a unidade: "rating" (time e tênis, inteiro, desde a `calc_version = 2`; antes, "pontos"), "média" ou "tempo".
 - A linha do titular fica em destaque com borda menta. A linha de um atleta abre o perfil (`onOpenUser`), como hoje. A de um time continua sem navegação.
 
 ### Salão dos Lendários
@@ -112,6 +112,8 @@ A web e o Expo atuais continuam funcionando: tudo o que entra em `GET /rankings`
 ### Invariante a fixar em teste
 
 Os elos de uma categoria são **contíguos** em `rank_position`, e o Lendário é um prefixo. Isso decorre de as ordens de [scoring.py](../backend/app/services/scoring.py) (`team_order`, `individual_order`, `tennis_order` e `run_order`) terem a métrica como primeira chave, e o elo depender da métrica (mais a posição, no Lendário). A posição no elo e as janelas dependem disso. Um teste de propriedade sobre `rank_records` deve garantir que o elo não sobe ao longo da posição.
+
+**Desde a `calc_version = 2`** ([decisão 0006](decisoes/0006-ranking-por-rating.md)), a métrica é o **rating** no time e no tênis e a **média ajustada** no individual (a corrida continua com o melhor tempo). A invariante continua valendo porque essas métricas seguem como primeira chave das ordens (time: rating, saldo de gols, gols marcados, menos partidas e id; tênis: rating, menos partidas e id; individual: média ajustada, mais partidas e id) e como única base do elo. O teste de propriedade (`tests/unit/test_ranking_tiers.py`) também roda com os cortes de rating e da média ajustada. `leader_gap` e `next_gap` ficam na unidade da métrica (rating, média ajustada ou segundos).
 
 ### Serviço (`app/services/ranking_views.py`, novo)
 
@@ -192,7 +194,7 @@ Não há tabela nova. Uma migração Alembic altera `standings`:
   - `RankingLine` e `RecentForm`;
   - `TierPicker` (chips de faixa sem elo).
   
-  `RankingRows` e `MyRankingPlate` saem; hoje só a `RankingPage` os usa. `metric.ts` ganha `gapText` ("7 pts", "1 pt", "0,28", "0:42").
+  `RankingRows` e `MyRankingPlate` saem; hoje só a `RankingPage` os usa. `metric.ts` ganha `gapText` ("37 rating" no time e no tênis desde a `calc_version = 2`, antes "7 pts"; "0,28"; "0:42").
 - **Páginas**: `RankingPage.tsx` reescrita e `LegendsPage.tsx` nova.
 - **`ArenaPage`**: a aba Ranking passa a ter barra própria (título e sino, sem voltar); a `Screen` `legends` entra com voltar e título "Salão dos Lendários"; `Entry` carrega a categoria.
 - **Dados e estilo**: `data/arena.ts` ganha a ordem dos elos e o mapeamento de tom; `ui.css` ganha `--color-legend` e os tons dos elos. A forma usa `--color-mint`, `--color-danger-soft` e um neutro.
@@ -269,7 +271,7 @@ Expo (`mobile/`): `npm run lint`, `npm run typecheck`, `npm run test:coverage` e
 
 ## Riscos e pontos de atenção
 
-- **Elos contíguos.** Se uma calibragem futura (`calc_version = 2`) desacoplar o elo da primeira chave de ordem, a posição no elo e a janela quebram. O teste da invariante fica como guarda.
+- **Elos contíguos.** A `calc_version = 2` (rating e média ajustada) manteve o elo acoplado à primeira chave de ordem. Se uma calibragem futura o desacoplar, a posição no elo e a janela quebram. O teste da invariante fica como guarda.
 - **Forma gravada desatualizada.** A forma só fica certa se todo caminho que muda partidas pontuadas chamar o recálculo da categoria. Hoje todos chamam, mas um caminho novo no futuro pode esquecer. Mitigação: um teste de integração por caminho e a regra pura em `scoring.py`, usada só pelo recálculo.
 - **Ambientes sem o comando.** Se `recalculate-rankings` não rodar depois da migração, as linhas antigas mostram a forma vazia até o próximo resultado da categoria. Registre o passo no README e na [situacao-fundacao.md](situacao-fundacao.md).
 - **Privacidade.** A forma mostra só as letras dos resultados (e a data da melhor marca na corrida), sem adversário nem partida, e segue a mesma visibilidade de atleta das linhas de hoje. Confira se perfis privados aparecem do mesmo jeito que aparecem agora.

@@ -140,13 +140,15 @@ Rejeitados: estruturas de fundo claro tipo feed (J2), régua de etapas (J3), men
 
 ### Elos e pontuação
 
-**Ideia geral:** **pontos fixos até Diamante.** **Lendário exige os pontos de Diamante e estar entre os 15% melhores daquele ranking** (modalidade + categoria: time/formato, posição/formato, tênis ou distância), arredondando para baixo. Exemplo: com menos de 7 classificados, ninguém é Lendário.
+> **Atualização de 22 de novembro de 2026 (implementada):** com a `calc_version = 2` ([decisão 0006](decisoes/0006-ranking-por-rating.md)), o futebol · time e o tênis classificam por **rating** (inicial 1000, ajustado a cada resultado pela força do adversário, K 64 nas 3 partidas de classificação e 32 depois), com cortes Prata ≥ 950, Ouro ≥ 1050 e Diamante ≥ 1150. O bônus de campeonato do tênis (RN16) entra no rating ponderado pela força da chave. O futebol · individual usa a **média ajustada** `(total + 5 × 3,0) / (partidas + 5)`, com cortes 2,6 / 3,9 / 5,2. A corrida não muda. Os pontos 3/1/0, os pontos por atuação (RN12) e os 10 por vitória continuam como pontos da campanha, exibidos por partida, sem definir elo. A tabela abaixo é a da versão 1 (histórico, usada só num rollback); a vigente está na [seção 1 da 0002](decisoes/0002-jogar.md#1-elos-e-rankings).
+
+**Ideia geral:** **cortes fixos até Diamante**, aplicados à métrica de cada ranking (na versão 1, pontos; na versão 2, rating no time e no tênis e média ajustada no individual). **Lendário exige a métrica de Diamante e estar entre os 15% melhores daquele ranking** (modalidade + categoria: time/formato, posição/formato, tênis ou distância), arredondando para baixo. Exemplo: com menos de 7 classificados, ninguém é Lendário.
 
 **Abrangência (decidida em 11 de outubro de 2026): tudo geral.** Elos, Lendário e a lista do Ranking consideram todo o Arena. A cidade serve **apenas para o pareamento** (RN04). Como os cortes são fixos, o elo significa o mesmo em qualquer cidade, e o top 15% do Lendário não fica distorcido em cidades com poucos jogadores.
 
 **Classificação:** 3 partidas confirmadas no futebol (time e individual) e no tênis. Na corrida, a primeira marca já classifica. A janela é sempre de **52 semanas**.
 
-**Cortes iniciais, a calibrar com dados reais antes de publicar:**
+**Cortes iniciais da versão 1 (histórico; substituídos pela versão 2 em 22 de novembro de 2026):**
 
 | Ranking | Métrica | Bronze | Prata | Ouro | Diamante |
 | --- | --- | --- | --- | --- | --- |
@@ -177,6 +179,12 @@ Rejeitados: estruturas de fundo claro tipo feed (J2), régua de etapas (J3), men
 - **Elos (nova RN23):** cortes fixos por pontos, regra do Lendário (top 15%), 3 partidas de classificação e rankings gerais, com a cidade usada só no pareamento.
 - **HU03/HU07:** botão Encontrar com o time ou como avulso.
 - **TU01:** reescrever o teste de nível para o modelo de elo vizinho.
+
+**Mudanças pendentes no roteiro pelo ranking por rating (22 de novembro de 2026).** Registradas aqui como **requisitos planejados**; ainda **não aplicadas** em `docs/roteiro-projeto.docx` (quem atualiza e quando é uma questão em aberto da [decisão 0006](decisoes/0006-ranking-por-rating.md#11-questões-em-aberto-não-bloqueantes)). O código já segue estas regras:
+
+- **RN14 (ranking de times):** a ordem e o elo do time passam a vir do **rating** (inicial 1000, `E = 1 / (1 + 10^((adversário − rating)/400))`, `rating + K × (S − E)`, com `S` = 1, 0,5 ou 0 e K 64 nas 3 primeiras partidas da janela e 32 depois), e não da soma 3/1/0. Os desempates continuam saldo de gols, gols marcados e menos partidas. Os pontos 3/1/0 ficam como estatística da partida.
+- **RN16 (ranking de tênis):** a ordem e o elo do tenista passam a vir do rating, com a mesma fórmula, sem empate. Os 10 por vitória ficam como estatística da partida. O bônus de campeonato continua com a base 40/20/10 e as mesmas condições (4 ou mais inscrições confirmadas, janela de 52 semanas), mas entra no rating como `base × 2 × (1 − E_chave)`, contra a média dos ratings dos demais inscritos: igual à base com chave do mesmo nível, até o dobro com chave mais forte e perto de zero com chave mais fraca, nunca negativo.
+- **RN23 (elos):** os cortes deixam de ser "fixos por pontos" e passam a ser fixos por **métrica versionada** (`calc_version = 2`): rating no time e no tênis (Prata ≥ 950, Ouro ≥ 1050, Diamante ≥ 1150), média ajustada no individual (`m` = 5, `μ` = 3,0; 2,6 / 3,9 / 5,2) e melhor tempo na corrida (sem mudança). As 3 partidas de classificação passam a calibrar o rating (K maior), sem exibir rating nem elo antes da 3ª. O pareamento mantém o filtro de elo igual ou vizinho (RN04) e, entre candidatos do mesmo grupo de elo, prioriza o rating mais próximo. A regra do Lendário, a janela e os rankings gerais não mudam.
 
 ---
 
@@ -223,7 +231,7 @@ Módulos por domínio, como pede o RNF08: `models/`, `schemas/`, `routers/` e `s
 - **Balde de compatibilidade:** modalidade + cidade + formato; no avulso, modalidade + cidade + posição. Só buscas do mesmo balde podem ser pareadas.
 - **Pareamento por evento, numa transação:**
   1. `pg_advisory_xact_lock` sobre o hash do balde. Buscas do mesmo balde são pareadas uma de cada vez; baldes diferentes seguem em paralelo. A trava é do banco, então vale com várias instâncias da API.
-  2. Procurar a busca compatível que espera. **Ordem:** mesmo elo primeiro, depois o vizinho e, por fim, a mais antiga.
+  2. Procurar a busca compatível que espera. **Ordem:** mesmo elo primeiro, depois o vizinho e, por fim, a mais antiga. Desde a `calc_version = 2`, nas buscas de time e de tênis, dentro do mesmo grupo de elo vem antes o **rating mais próximo**, depois a busca mais antiga e o id ([decisão 0006](decisoes/0006-ranking-por-rating.md#4-ordem-elos-e-classificação)); a busca de avulso não muda.
   3. Se achar, criar a partida em `proposta`, encerrar as duas buscas e gerar as notificações, tudo na mesma transação. Se não achar, a busca continua esperando.
 - **Por que a trava por balde, e não `SKIP LOCKED`:** com `SKIP LOCKED`, duas buscas compatíveis que chegam ao mesmo tempo não se enxergam (nenhuma das duas foi gravada ainda) e as duas ficariam esperando. A trava por balde serializa esse caso. Na transação, as linhas encontradas ainda são relidas com `FOR UPDATE` para não entrar em duas propostas, inclusive em reenvios (RNF06).
 - **Quando o pareamento roda:** toda busca que espera é incompatível com as outras que esperam; por isso, só estes eventos podem formar um par novo, e cada um chama o mesmo serviço:
