@@ -1,6 +1,6 @@
 # Decisões — Ranking por rating (`calc_version = 2`)
 
-Data: 22 de novembro de 2026. Altera as regras de ranking da [decisão do Jogar](0002-jogar.md) (seções 1 e 12.6) para `futebol_time` e `tenis`, que deixam de somar pontos e passam a classificar por **rating**. A primeira entrega cobriu o rating do time e do tênis, a versão de cálculo 2 de todos os rankings, a migração dos cortes e o contrato de `metric_value`. Entregas posteriores trouxeram o desempate do pareamento pelo rating (seção 4) e o bônus ponderado de campeonato do tênis (seção 7). A média ajustada do futebol · individual e os rótulos dos clientes vêm em entregas seguintes (seção 10).
+Data: 22 de novembro de 2026. Altera as regras de ranking da [decisão do Jogar](0002-jogar.md) (seções 1 e 12.6) para `futebol_time` e `tenis`, que deixam de somar pontos e passam a classificar por **rating**. A primeira entrega cobriu o rating do time e do tênis, a versão de cálculo 2 de todos os rankings, a migração dos cortes e o contrato de `metric_value`. Entregas posteriores trouxeram o desempate do pareamento pelo rating (seção 4), o bônus ponderado de campeonato do tênis (seção 7) e a média ajustada do futebol · individual (seção 8). Os rótulos dos clientes vêm em entregas seguintes (seção 11).
 
 ## 1. Problema
 
@@ -28,11 +28,13 @@ A migração `0016_ranking_rating.py`:
 - acrescenta a `rank_cuts` os parâmetros versionados `initial_rating`, `placement_k`, `regular_k` (rating) e `prior_matches` (`m`) e `prior_mean` (`μ`) da média ajustada, nulos onde não se aplicam. As restrições `ck_rank_cuts_rating` (os três parâmetros do rating existem só, e sempre, com `metric = 'rating'`, todos positivos) e `ck_rank_cuts_adjusted_mean` (`m` e `μ` juntos e só com `metric = 'media'`) protegem a combinação;
 - insere as linhas da `calc_version = 2` para todos os rankings, sem alterar as da versão 1. `placement_matches`, `legend_share` e `window_weeks` são copiados da versão 1.
 
+A migração `0017_individual_adjusted_mean.py` completa a linha `futebol_individual` da versão 2, que a `0016` inseriu como cópia da versão 1, com `m`, `μ` e os cortes revistos da média ajustada (seção 8). Há uma só linha por ranking: as 12 categorias posição × formato a compartilham.
+
 | Ranking (`calc_version = 2`) | Métrica | Prata | Ouro | Diamante | Parâmetros |
 | --- | --- | --- | --- | --- | --- |
 | `futebol_time` | `rating` | ≥ 950 | ≥ 1050 | ≥ 1150 | inicial 1000, K 64/32 |
 | `tenis` | `rating` | ≥ 950 | ≥ 1050 | ≥ 1150 | inicial 1000, K 64/32 |
-| `futebol_individual` | `media` | cópia da versão 1 (2,5 / 4,0 / 5,5) | | | `m` e `μ` nulos (média simples) |
+| `futebol_individual` | `media` (média ajustada) | ≥ 2,6 | ≥ 3,9 | ≥ 5,2 | `m` = 5, `μ` = 3,0 |
 | `corrida_3` a `corrida_42` | `tempo` | cópia da versão 1 | | | — |
 
 `CURRENT_CALC_VERSION` passa a 2. `load_cuts` lê os parâmetros novos em `Cuts`. Quem precisar do rating de um sujeito sem linha em `standings` usa `rankings.initial_rating(cortes)`, que devolve o valor da versão (ou `DEFAULT_INITIAL_RATING` = 1000, sem cortes).
@@ -43,11 +45,12 @@ Os valores são iniciais e podem ser calibrados numa futura `calc_version` sem m
 
 - **Ordem do time:** rating, depois os desempates da RN14 (saldo de gols, gols marcados, menos partidas) e o id.
 - **Ordem do tênis:** rating, menos partidas e o id.
-- O futebol · individual e a corrida mantêm o cálculo da versão 1 dentro da versão 2.
-- A classificação continua com 3 partidas. O elo de um classificado sai dos cortes da versão 2 aplicados ao rating. A regra do Lendário (Diamante e posição ≤ ⌊classificados × 15%⌋) não muda.
+- **Ordem do individual:** média ajustada (seção 8), mais partidas e o id.
+- A corrida mantém o cálculo da versão 1 dentro da versão 2.
+- A classificação continua com 3 partidas. O elo de um classificado sai dos cortes da versão 2 aplicados ao rating (time e tênis) ou à média ajustada (individual). A regra do Lendário (Diamante e posição ≤ ⌊classificados × 15%⌋) não muda.
 - Como a métrica continua sendo a primeira chave da ordem, os elos seguem contíguos em `rank_position`, com o Lendário como prefixo (teste de propriedade em `tests/unit/test_ranking_tiers.py`, agora também com os cortes de rating).
 - **Desempate do pareamento:** o filtro não muda (elo igual ou vizinho; quem está em classificação enfrenta qualquer nível, RN04 e RN23). Nas buscas de time e de tênis, a ordem dos candidatos passa a ser proximidade de elo (mesmo, vizinho, demais), **menor diferença absoluta de rating**, busca mais antiga e id (`match_rules.candidate_order`). A fila (`matchmaking_queue._search_ratings`) lê o rating de `standings` no momento do pareamento, na categoria da busca (o time no formato; o tênis), numa só consulta para a busca e todos os candidatos, dentro da trava do balde e sem trava nova. O rating guardado em classificação também conta. Sem linha da versão de cálculo atual (sem partida na janela, ou linha ainda da versão 1 antes do recálculo do rollout), vale `rankings.initial_rating` dos cortes (1000). Com cortes que não são de rating (rollback para a versão 1), a ordem volta a ser elo e antiguidade. Não há coluna nova em `match_searches`, e o rating não é copiado para a partida. A busca de avulso e as vagas não mudam. Uma mudança só de rating não gera nova tentativa de pareamento (seção 6).
-- A métrica do registro segue o `metric` dos cortes em uso: com cortes `rating`, o rating; com cortes `pontos` (versão 1), os pontos, com o bônus de campeonato do tênis. É isso que torna o rollback da seção 8 possível sem outra mudança de código.
+- A métrica do registro segue o `metric` dos cortes em uso: com cortes `rating`, o rating; com cortes `pontos` (versão 1), os pontos, com o bônus de campeonato do tênis. É isso que torna o rollback da seção 9 possível sem outra mudança de código. No individual, a métrica é a média ajustada quando os cortes em uso têm `m` e `μ`, e a média simples quando os dois são nulos (versão 1).
 
 ## 5. Contrato da API
 
@@ -56,13 +59,15 @@ As formas das respostas não mudam. Muda o significado de alguns campos em `fute
 - `GET /rankings`, `GET /rankings/overview` e `GET /me/standings` devolvem `calc_version = 2`;
 - `metric_value` (linhas da lista e `mine`) é o rating, com 3 casas; `leader_gap` e `next_gap` ficam em pontos de rating;
 - **em classificação**, `standings.metric_value` guarda o rating (o pareamento o usará), mas as respostas não o expõem: `metric_value` é `null` na linha `classificacao` de `futebol_time` e `tenis` (`StandingLine` de `/me/standings`, a grade de formatos dos times e `mine` do Ranking). A regra é `rankings.hides_placement_metric`, derivada da métrica dos cortes;
-- o futebol · individual e a corrida mantêm o comportamento atual, inclusive a métrica em classificação.
+- no futebol · individual, `metric_value` é a **média ajustada** (3 casas), e `leader_gap` e `next_gap` ficam na mesma unidade. O comportamento em classificação não muda: a linha em classificação continua expondo a métrica (agora a média ajustada). O rótulo exibido continua "média";
+- a corrida mantém o comportamento atual, inclusive a métrica em classificação.
 
 ## 6. Recálculo
 
 - Os carregadores de time e tênis (`services/standings.py`) leem as partidas da janela numa única consulta, em ordem cronológica e com os dois lados de cada partida, e reproduzem o rating a partir dela. Não há consulta por partida.
 - O carregador do tênis lê também os bônus da janela (`event_placements` com `bonus_points > 0`, `user_id` e `awarded_at` dentro das 52 semanas) numa consulta e, só com cortes de rating e havendo bônus, os inscritos confirmados de todos esses eventos numa segunda (`_tennis_bonuses`). Não há consulta por evento nem por atleta.
-- `standings` continua com a mesma forma: `metric_value` guarda o rating e `calc_version = 2`.
+- `standings` continua com a mesma forma: `metric_value` guarda o rating (ou a média ajustada, no individual) e `calc_version = 2`.
+- O carregador do individual (`_individual_records`) passa `m` e `μ` dos cortes aos registros. Não há consulta nova.
 - As travas consultivas por categoria e a ordem global de travas não mudam.
 - Quando o elo muda, as buscas abertas recebem o novo elo e tentam o pareamento de novo, como antes. Uma mudança só de rating não gera nova tentativa.
 
@@ -90,12 +95,66 @@ Exemplo (eliminação com 4 inscritos, ratings depois das partidas): campeão 10
 
 Código: `RatedBonus`, `weighted_bonus` e o parâmetro `bonuses` de `replay_ratings` em [`backend/app/services/scoring.py`](../../backend/app/services/scoring.py); `_tennis_bonuses` em [`backend/app/services/standings.py`](../../backend/app/services/standings.py).
 
-## 8. Rollout e rollback
+## 8. Média ajustada do futebol · individual
+
+Com a média simples, 3 partidas boas bastavam para um atleta chegar a Diamante, porque amostras pequenas não eram amortecidas. A partir da versão 2, a métrica do `futebol_individual` (posição × formato) é a **média ajustada**:
+
+`média ajustada = (total_de_pontos + m × μ) / (partidas + m)`
+
+- **Parâmetros:** `m` = 5 partidas fantasmas na média de referência `μ` = 3,0 pontos, gravados em `rank_cuts.prior_matches` e `rank_cuts.prior_mean` da linha `futebol_individual` da versão 2 (migração `0017`). São os valores propostos pela spec. A simulação abaixo escolhe só os cortes.
+- **Efeito:** com poucas partidas, o valor fica perto de `μ`. Conforme a pessoa joga, ele converge para a média real, de cima ou de baixo. Com média real 7,0, o valor é 4,5 em 3 partidas, 5,0 em 5, 5,667 em 10 e 6,429 em 30.
+- **Pontos por atuação (RN12) inalterados:** presença, resultado, gols, assistências e estatística da posição continuam iguais, assim como a prévia de estatísticas da partida e a pílula do resultado. Só muda a média que vai para o ranking.
+- **Arredondamento:** 3 casas decimais (meio para cima), como a média simples.
+- **Ordem:** média ajustada, mais partidas e o id. Os elos continuam contíguos e a regra do Lendário não muda.
+- **Classificação:** continua com 3 partidas, e a linha em classificação continua expondo a métrica (diferente do time e do tênis).
+- **Sem `m` e `μ`:** com os dois nulos (versão 1 ou downgrade da `0017`), o cálculo volta a ser a média simples.
+
+Código: `adjusted_mean`, `IndividualRecord` (`metric` é a média ajustada; `average` continua a média simples) e `individual_record(..., prior_matches, prior_mean)` em [`backend/app/services/scoring.py`](../../backend/app/services/scoring.py); `_individual_records` em [`backend/app/services/standings.py`](../../backend/app/services/standings.py).
+
+### Simulação de calibragem dos cortes
+
+O script [`backend/scripts/simular_media_ajustada.py`](../../backend/scripts/simular_media_ajustada.py) é determinístico (semente fixa 20261122). Ele não faz parte do CI e documenta a distribuição; executar em `backend/` com `.venv/bin/python scripts/simular_media_ajustada.py`.
+
+- **População sintética:** 2.000 atletas (500 por posição), cada um com uma habilidade latente sorteada de uma normal padrão e 30 atuações. Os pontos de cada atuação saem de `scoring.individual_points` (RN12). A vitória tem chance de 40% ± 10% por desvio de habilidade (entre 5% e 75%), e o empate, de 20%. Gols, assistências e ocorrências da estatística da posição seguem distribuições de Poisson com taxas por posição (goleiro 0,02 / 0,05 / 3,0; defesa 0,10 / 0,15 / 2,0; meio-campo 0,25 / 0,35 / 1,5; atacante 0,60 / 0,30 / 1,0), ajustadas pela habilidade. Em 80% das atuações as estatísticas foram revisadas e pontuam. A amostra de n partidas é o prefixo das 30. A média real das atuações simuladas é 3,6 pontos.
+- **Critério:** para cada fronteira, o valor da grade de 0,1 em que a parcela de atletas acima dele, com a média ajustada e 30 partidas (a referência de amostra estável da spec), fica mais próxima da parcela acima do corte da versão 1 com a média simples e as mesmas 30 partidas. Com essa amostra, o ajuste é uma transformação crescente da média simples (`(30 × média + 15) / 35`), então os cortes mapeados quase não dependem da população: 2,5 → 2,571, 4,0 → 3,857 e 5,5 → 5,143. A grade e a distribuição discreta dos pontos levam a **Prata ≥ 2,6, Ouro ≥ 3,9 e Diamante ≥ 5,2**.
+- **Por que não manter 2,5 / 4,0 / 5,5:** como a média ajustada puxa todos para `μ`, manter os cortes da versão 1 deslocaria a distribuição de quem já tem amostra estável: com 30 partidas, Diamante cairia de 1,5% para 0,8% dos atletas, e uma média real de 6,0 precisaria de 25 partidas para chegar a Diamante. Os cortes revisados preservam, com 30 partidas, a distribuição que a versão 1 pretendia, e o amortecimento fica concentrado nas amostras pequenas.
+
+Distribuição por elo (a Lendário depende da posição e entra como Diamante):
+
+| Cenário | Partidas | Bronze | Prata | Ouro | Diamante |
+| --- | --- | --- | --- | --- | --- |
+| Versão 1 (média simples, 2,5 / 4,0 / 5,5) | 3 | 17,0% | 45,6% | 28,8% | 8,6% |
+| | 5 | 13,1% | 52,3% | 29,7% | 5,0% |
+| | 10 | 10,7% | 58,0% | 28,2% | 3,1% |
+| | 30 | 7,1% | 65,2% | 26,2% | 1,5% |
+| Média ajustada, cortes da versão 1 | 3 | 4,5% | 88,3% | 7,2% | 0,0% |
+| | 5 | 4,5% | 84,4% | 11,2% | 0,1% |
+| | 10 | 5,1% | 78,8% | 15,9% | 0,2% |
+| | 30 | 5,1% | 73,2% | 20,9% | 0,8% |
+| **Média ajustada, cortes revisados (adotados)** | 3 | 8,2% | 83,2% | 8,6% | 0,1% |
+| | 5 | 7,1% | 78,2% | 14,6% | 0,1% |
+| | 10 | 8,2% | 72,0% | 19,3% | 0,5% |
+| | 30 | 7,7% | 66,5% | 24,4% | 1,4% |
+
+O script também imprime a linha de 20 partidas. Partidas necessárias para chegar a Diamante com uma média real constante:
+
+| Média real | Cortes da versão 1 (5,5) | Cortes revisados (5,2) |
+| --- | --- | --- |
+| 6,0 | 25 | 14 |
+| 7,0 | 9 | 7 |
+| 8,0 | 5 | 4 |
+| 9,0 | 4 | 3 |
+
+Com os cortes adotados, 3 atuações excepcionais com média real 7,0 dão 4,5 (Ouro), e não Diamante. Na classificação (3 partidas), Diamante exige pelo menos 27 pontos (média real 9,0 por atuação), e uma média real de 5,2 nunca chega lá, porque o valor só se aproxima dela por baixo. Os testes `test_three_exceptional_matches_do_not_reach_diamante` (unidade) e `test_the_individual_ranking_uses_the_adjusted_mean_of_the_version_2_cuts` (integração) cobrem esses casos.
+
+**Limitações:** a população é uma suposição (não há volume de partidas reais) e a média dela (3,6) fica acima de `μ` (3,0). `m`, `μ` e os cortes são iniciais e podem ser recalibrados numa futura `calc_version` sem mudar a forma.
+
+## 9. Rollout e rollback
 
 - **Rollout:** aplicar a migração (`alembic upgrade head`) e executar `python -m app.admin_cli recalculate-rankings` logo em seguida. Até o recálculo, as linhas de `standings` mantêm `calc_version = 1` e os valores antigos. O comando é idempotente: uma segunda execução não altera nenhuma linha.
-- **Rollback:** voltar `CURRENT_CALC_VERSION` para 1 e executar o recálculo. Os cortes da versão 1 (`metric = 'pontos'`) fazem o time e o tênis voltarem a classificar por pontos, com o bônus do tênis. Se for preciso desfazer o esquema, o downgrade da `0016` remove as linhas da versão 2 e as colunas novas e restaura `ck_rank_cuts_metric`; ele deve ser seguido do código com `CURRENT_CALC_VERSION = 1` e do recálculo.
+- **Rollback:** voltar `CURRENT_CALC_VERSION` para 1 e executar o recálculo. Os cortes da versão 1 (`metric = 'pontos'`) fazem o time e o tênis voltarem a classificar por pontos, com o bônus do tênis. No individual, os cortes da versão 1 não têm `m` nem `μ`, então o recálculo volta à média simples. Para desfazer só a média ajustada, o downgrade da `0017` devolve a linha `futebol_individual` da versão 2 ao estado da `0016` (cortes da versão 1, `m` e `μ` nulos); depois do recálculo, o individual volta à média simples, sem mudança de código. Se for preciso desfazer o esquema, o downgrade da `0016` remove as linhas da versão 2 e as colunas novas e restaura `ck_rank_cuts_metric`; ele deve ser seguido do código com `CURRENT_CALC_VERSION = 1` e do recálculo.
 
-## 9. Cenários de referência
+## 10. Cenários de referência
 
 Três partidas de classificação contra adversários com o rating inicial (K = 64):
 
@@ -108,9 +167,8 @@ Três partidas de classificação contra adversários com o rating inicial (K = 
 
 Contra o mesmo adversário nas três partidas, 3 vitórias dão 1079,839 (Ouro) e 3 derrotas, 920,161 (Bronze). Vencer um adversário mais forte rende mais do que vencer um mais fraco, e perder para um mais fraco custa mais.
 
-## 10. Pendências
+## 11. Pendências
 
-- Média ajustada do futebol · individual: `m`, `μ` e cortes revistos da linha `futebol_individual` da versão 2, em migração própria.
 - Rótulo "rating" na web e no Expo, sem "pts" nas categorias por rating, e ocultação em classificação nas telas.
 - Seção 1 de [0002](0002-jogar.md), [plano do Jogar](../plano-jogar.md), [plano do Ranking](../plano-ranking.md) e README, com o rollout.
-- Questões não bloqueantes da spec: W.O. no rating (hoje conta como vitória e derrota normais), calibragem final e atualização de RN14, RN16 e RN23 no roteiro.
+- Questões não bloqueantes da spec: W.O. no rating (hoje conta como vitória e derrota normais), rótulo da média ajustada (as telas continuam exibindo "média"), calibragem final e atualização de RN14, RN16 e RN23 no roteiro.
