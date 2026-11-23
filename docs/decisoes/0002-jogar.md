@@ -73,7 +73,7 @@ interface StandingLine {
   played: number               // partidas confirmadas (corrida: marcas); em classificação, no máximo `required`
   required: number             // 3 no futebol e no tênis; 1 na corrida
   rank_position: number | null // só em 'ranqueado'
-  metric_value: number | null  // pontos, média ou segundos; null sem jogos ou sem marca
+  metric_value: number | null  // rating (time, tênis), média ou segundos; null sem jogos ou sem marca e, no time e no tênis, em classificação (seção 12.6)
   faces: Tier[]                // elos enfrentados; todos quando faces_any_level
   faces_any_level: boolean     // true sem elo
 }
@@ -837,7 +837,7 @@ interface LineupOut {
 interface RankingRow {
   rank_position: number
   tier: Tier                     // só classificados aparecem na lista
-  metric_value: number           // pontos (time, tênis), média por partida (individual) ou segundos (corrida)
+  metric_value: number           // rating (time, tênis; calc_version 2), média por partida (individual) ou segundos (corrida)
   matches_played: number
   wins: number; draws: number; losses: number
   goals_for: number | null       // time: gols; tênis: sets; individual: null
@@ -863,14 +863,16 @@ interface RankingPage {
 }
 ```
 
+- **`metric_value` a partir da `calc_version = 2`** ([decisão 0006](0006-ranking-por-rating.md)): em `futebol_time` e `tenis` é o **rating** (3 casas; as telas exibem inteiro), e `leader_gap` e `next_gap` (seção 20) ficam em pontos de rating. Em classificação, `standings` guarda o rating, mas a resposta não o expõe: `metric_value` é `null` na linha `classificacao` de `futebol_time` e `tenis` (`mine`, `GET /me/standings` e a grade de formatos dos times). No futebol · individual (média) e na corrida (segundos), o valor e o comportamento em classificação não mudam. As formas das respostas não mudam, e `calc_version` vale 2 em `GET /rankings`, `GET /rankings/overview` e `GET /me/standings`. Os pontos 3/1/0 e os 10 por vitória continuam na pílula do resultado e na linha do tempo, sem definir elo.
+
 - **Parâmetros:** `sport=futebol&kind=time&format=` (times por formato), `sport=futebol&kind=individual&format=&position=` (12 rankings), `sport=tenis`; `sport=corrida&distance_km=3|5|10|21|42` (seção 18.5: `metric_value` em segundos, o menor tempo vence, `matches_played` conta as marcas da janela, `wins`/`draws`/`losses` são 0 e `goals_for`/`goals_against` são `null`). Faltando categoria: `422 Escolha o formato.`, `422 Escolha a posição.` ou `422 Escolha a distância.` Rankings **gerais** (sem cidade). Ordem por `rank_position` crescente; cursor opaco com a última posição; `limit` padrão 20, máximo 50. Quem tem bloqueio com o titular continua na lista, sem avatar.
 - **Recálculo** (`services/standings.recalculate_for_match(db, match, *, now, positions=())`, seção 15.4): na confirmação, na decisão ou no fim do prazo, recalcula os rankings que a partida toca, na mesma transação: os dois times no formato (`futebol_time`), cada atuação presente na posição e no formato (`futebol_individual`) ou os dois tenistas (`tenis`), com:
   - janela de 52 semanas pelo `starts_at` (`scoring.in_window`);
   - partidas `realizada` ou `encerrada` com placar final;
-  - time: `scoring.team_record` (pontos 3/1/0; desempates por saldo de gols, gols marcados, menos partidas e o id; RN14);
+  - time: `scoring.team_record` com o rating de `scoring.replay_ratings` (decisão 0006: 1000 no início da janela, `E = 1 / (1 + 10^((adversário − rating)/400))`, `rating + K × (S − E)`, K 64 nas 3 primeiras partidas do time na janela e 32 depois, partidas em ordem de `starts_at` e `id`, arredondamento a 3 casas); ordem: rating, depois saldo de gols, gols marcados, menos partidas e o id (RN14). Os pontos 3/1/0 ficam como estatística;
   - individual: média por partida (`scoring.individual_record`; desempate: mais partidas, depois o id — interpretação); só atuações com presença; itens de estatística contados por `counted_stat_fields`; no W.O., presença e vitória para o lado presente;
-  - tênis: 10 por vitória confirmada (RN16) mais o bônus de campeonato (etapa 4); desempate: menos partidas, depois o id (interpretação);
-  - classificação com `placement_matches` (3, lido dos cortes por `rankings.required_matches`), posições e elos por `scoring.rank_records` com os cortes de `rank_cuts` da `CURRENT_CALC_VERSION` (Lendário = Diamante e ⌊classificados × 15%⌋, arredondado para baixo), gravados com `scoring.standing_fields`;
+  - tênis: o rating da mesma reprodução, sem empate; ordem: rating, menos partidas, depois o id (interpretação). Os 10 por vitória (RN16) ficam como estatística. **Estado intermediário:** o bônus de campeonato (etapa 4) continua registrado em `event_placements`, mas ainda não entra no rating (decisão 0006, seção 7);
+  - classificação com `placement_matches` (3, lido dos cortes por `rankings.required_matches`), posições e elos por `scoring.rank_records` com os cortes de `rank_cuts` da `CURRENT_CALC_VERSION` (2; Lendário = Diamante e ⌊classificados × 15%⌋, arredondado para baixo), gravados com `scoring.standing_fields`. A métrica de time e tênis segue o `metric` dos cortes: `rating` na versão 2, `pontos` na versão 1 (rollback);
   - depois, o elo das buscas abertas dos sujeitos cujo elo mudou é atualizado e elas tentam o pareamento de novo (`queue.try_match`).
 - **Saída da janela:** um recálculo diário dos rankings com partidas que saíram das 52 semanas é a tarefa de varredura `rankings_janela` (`standings.recalculate_outside_window`): olha as categorias com partida contabilizada que começou entre a idade da linha mais antiga e o início da janela de agora, recalcula cada uma inteira e carimba as linhas, então rodar de novo não muda nada.
 - **`GET /me/standings`:** o contrato da seção 2 não muda; passa a refletir os rankings reais quando `standings` for preenchido.
@@ -1425,7 +1427,7 @@ Os mesmos parâmetros de categoria (`sport`, `kind`, `format`, `position`, `dist
 
 - `ranking`, `format`, `position`, `distance_km`, `calc_version`, `required`, `classified_count`, `legend_slots` e `tier_counts`, como na página;
 - `mine: MyRankingLine[]`: a mesma lista de hoje (cada time ativo, o representante primeiro e depois o mais antigo; ou o próprio atleta), mesmo em classificação ou sem jogos. Cada linha **ranqueada** ganha `tier_position`, `tier_size`, `leader_gap`, `next_gap` e `next_tier_position`; em classificação, sem jogos ou sem marca, esses cinco campos são `null` (`tier_position` e `tier_size` são **anuláveis**);
-  - `leader_gap: number | null`: quanto o titular está **atrás do 1º do elo**, na métrica do ranking (pontos, média com 3 casas ou **segundos** na corrida, onde o menor tempo é o melhor); `null` quando lidera (`tier_position = 1`);
+  - `leader_gap: number | null`: quanto o titular está **atrás do 1º do elo**, na métrica do ranking (rating no time e no tênis desde a `calc_version = 2`, média com 3 casas ou **segundos** na corrida, onde o menor tempo é o melhor); `null` quando lidera (`tier_position = 1`);
   - `next_gap: number | null` e `next_tier_position: int | null`: quanto está **à frente do próximo** do elo e a posição dele; `null` quando é o último. Nunca negativos (`ranking_views.gap(a, b, direction)`, com `maior` ou `menor` da `direction` dos cortes); empates de métrica dão `0`;
 - `selected_team_id`: o `team_id` pedido ou, sem ele, o time da primeira linha de `mine`; `null` fora do ranking de times e sem times ativos;
 - `window: RankingRow[] | null`: as linhas do **elo da linha selecionada** de `tier_position − 3` a `tier_position + 3`, limitadas ao elo, em ordem de posição (a tela mostra ±2 e usa as pontas como borda esmaecida); `null` quando a linha não tem elo (classificação, sem jogos, sem time). Cada linha segue a visibilidade da lista (`is_mine`, `athlete` por `people_out`: avatar oculto por bloqueio e conta inativa);
