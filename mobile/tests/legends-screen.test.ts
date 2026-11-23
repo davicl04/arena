@@ -69,7 +69,7 @@ describe('Salão dos Lendários', () => {
     await pressButton(tree, 'Carregar mais')
     expect(callsTo('GET', `${TENIS}&cursor=c1`)).toHaveLength(1)
     expect(byId(tree, 'ranking-row')).toHaveLength(2)
-    await pressButton(tree, 'Abrir perfil de Beatriz Lima. Posição 2 no elo, Beatriz Lima, Últimos resultados: vitória, empate, derrota, vitória, vitória, 38 pontos')
+    await pressButton(tree, 'Abrir perfil de Beatriz Lima. Posição 2 no elo, Beatriz Lima, Últimos resultados: vitória, empate, derrota, vitória, vitória, 38 rating')
     expect(navigation.go).toHaveBeenLastCalledWith('user-profile', { userId: 32 })
   })
 

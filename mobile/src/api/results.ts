@@ -104,7 +104,7 @@ export interface RankingRow {
   tier: TierKey
   /** Posição dentro do elo (1 é o primeiro de cada elo). */
   tier_position: number
-  /** Pontos (time, tênis) ou média por partida (individual); na corrida, o melhor tempo em segundos. */
+  /** Rating (time, tênis) ou média por partida (individual); na corrida, o melhor tempo em segundos. */
   metric_value: number
   matches_played: number
   wins: number
@@ -125,7 +125,7 @@ export interface RankingRow {
 export interface RankingSubject { team: TeamRef | null; athlete: Person | null }
 /** Linha do titular (ou de cada time ativo dele) no ranking, mesmo em classificação. */
 export type MyRankingLine = StandingLine & { team: TeamRef | null }
-/** Linha do titular no overview: a posição no elo e as diferenças (pontos, média ou segundos) para o 1º e para o próximo. */
+/** Linha do titular no overview: a posição no elo e as diferenças (rating, média ou segundos) para o 1º e para o próximo. */
 export interface MyRankingOverviewLine extends MyRankingLine {
   tier_position: number | null
   tier_size: number | null

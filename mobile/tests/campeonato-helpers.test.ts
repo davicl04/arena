@@ -225,9 +225,9 @@ describe('rascunho do placar do tênis', () => {
 })
 
 describe('métrica do Ranking (ranking/metric)', () => {
-  it('pontos e média com casas decimais; na corrida, o tempo', () => {
-    expect(formatMetric(38, 'futebol_time')).toBe('38')
-    expect(formatMetric(12.5, 'tenis')).toBe('12,5')
+  it('rating inteiro, média com casas decimais; na corrida, o tempo', () => {
+    expect(formatMetric(1038, 'futebol_time')).toBe('1038')
+    expect(formatMetric(1012.5, 'tenis')).toBe('1013')
     expect(formatMetric(4.256, 'futebol_individual')).toBe('4,26')
     expect(formatMetric(1452, 'corrida_5')).toBe('24:12')
     expect(formatMetric(3750, 'corrida_42')).toBe('1:02:30')
@@ -236,8 +236,8 @@ describe('métrica do Ranking (ranking/metric)', () => {
   })
 
   it('nome da métrica e frase', () => {
-    expect([metricUnit('futebol_time'), metricUnit('tenis'), metricUnit('futebol_individual'), metricUnit('corrida_3')]).toEqual(['pontos', 'pontos', 'média', 'tempo'])
-    expect(metricText(38, 'futebol_time')).toBe('38 pontos')
+    expect([metricUnit('futebol_time'), metricUnit('tenis'), metricUnit('futebol_individual'), metricUnit('corrida_3')]).toEqual(['rating', 'rating', 'média', 'tempo'])
+    expect(metricText(1038, 'futebol_time')).toBe('1038 rating')
     expect(metricText(4.256, 'futebol_individual')).toBe('4,26 média')
     expect(metricText(1452, 'corrida_5')).toBe('24:12')
   })

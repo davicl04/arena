@@ -99,20 +99,29 @@ describe('Início: Pílulas de "Seu elo"', () => {
     expect(allText(tree)).not.toMatch(/Bronze|Prata|Ouro|Diamante|Lendário/)
   })
 
-  it('com elo: emblema, nome do elo e "{n} pts"; o tênis em classificação mostra "2 de 3"; sem posição no ranking', async () => {
-    const { tree } = await mount(withLines({ society: ranked('ouro', 38), tenis: placement(2) }))
+  it('com elo: emblema, nome do elo e "{n} rating" inteiro; o tênis em classificação mostra "2 de 3"; sem posição no ranking', async () => {
+    const { tree } = await mount(withLines({ society: ranked('ouro', 1087.494), tenis: placement(2) }))
     const football = pill(tree, 'futebol')
     expect(football).toContain('Ouro')
-    expect(football).toContain('38 pts')
+    expect(football).toContain('1087 rating')
+    expect(football).not.toMatch(/pts|pontos/)
     expect(football).not.toContain('Sem classificação')
     expect(pillNode(tree, 'futebol').findAll(node => node.props.xml !== undefined).length).toBeGreaterThan(0)
-    expect(pillLabel(tree, 'futebol')).toBe('Futebol: elo Ouro, 38 pontos')
+    expect(pillLabel(tree, 'futebol')).toBe('Futebol: elo Ouro, 1087 rating')
     const tennis = pill(tree, 'tenis')
     expect(tennis).toContain('2 de 3')
     expect(tennis).toContain('Sem classificação')
     expect(tennis).not.toMatch(/Bronze|Prata|Ouro|Diamante|Lendário/)
     expect(pillLabel(tree, 'tenis')).toBe('Tênis: sem classificação, 2 de 3 partidas')
     expect(allText(tree)).not.toMatch(/4º|#4|posição/i)
+  })
+
+  it('tênis com elo: o rating inteiro com "rating", no texto e no nome acessível', async () => {
+    const { tree } = await mount(withLines({ tenis: ranked('prata', 1012.5) }))
+    expect(pill(tree, 'tenis')).toContain('Prata')
+    expect(pill(tree, 'tenis')).toContain('1013 rating')
+    expect(pill(tree, 'tenis')).not.toMatch(/pts|pontos/)
+    expect(pillLabel(tree, 'tenis')).toBe('Tênis: elo Prata, 1013 rating')
   })
 
   it('individual com elo: a média por partida como "{n} média"', async () => {
@@ -157,8 +166,8 @@ describe('Início: Pílulas de "Seu elo"', () => {
   })
 
   it('sem perfil na modalidade: "Sem perfil" e "Configurar", mesmo com elo na resposta; o toque abre as modalidades', async () => {
-    const { tree, navigation } = await mount(withLines({ society: ranked('ouro', 38), tenis: ranked('prata', 20) }), { profiles: [football] })
-    expect(pill(tree, 'futebol')).toContain('38 pts')
+    const { tree, navigation } = await mount(withLines({ society: ranked('ouro', 1038), tenis: ranked('prata', 1020) }), { profiles: [football] })
+    expect(pill(tree, 'futebol')).toContain('1038 rating')
     for (const sport of ['tenis', 'corrida']) {
       expect(pill(tree, sport)).toContain('Sem perfil')
       expect(pill(tree, sport)).toContain('Configurar')
@@ -226,24 +235,25 @@ describe('Pílulas: regras puras', () => {
     ({ tier: null, played: 1, required: 3, context: null, metric: null, distanceKm: null, ...extra })
 
   it('pillStatus: sem perfil confirmado vence; depois carregando, falha, elo, sem marca e classificação', () => {
-    const ouro = standing({ tier: 'ouro', played: 3, metric: { value: 38, unit: 'pontos' } })
+    const ouro = standing({ tier: 'ouro', played: 3, metric: { value: 1087, ranking: 'futebol_time' } })
     expect(pillStatus('futebol', { standing: ouro, loading: false, hasProfile: false })).toEqual({ kind: 'no-profile' })
     expect(pillStatus('futebol', { standing: null, loading: true, hasProfile: false })).toEqual({ kind: 'no-profile' })
     expect(pillStatus('futebol', { standing: null, loading: true, hasProfile: null })).toEqual({ kind: 'loading' })
     expect(pillStatus('futebol', { standing: ouro, loading: true, hasProfile: true })).toEqual({ kind: 'loading' })
     expect(pillStatus('futebol', { standing: null, loading: false, hasProfile: true })).toEqual({ kind: 'unavailable' })
-    expect(pillStatus('futebol', { standing: ouro, loading: false, hasProfile: null })).toEqual({ kind: 'tier', tier: 'ouro', metric: { value: 38, unit: 'pontos' }, distanceKm: null })
+    expect(pillStatus('futebol', { standing: ouro, loading: false, hasProfile: null })).toEqual({ kind: 'tier', tier: 'ouro', metric: { value: 1087, ranking: 'futebol_time' }, distanceKm: null })
     expect(pillStatus('corrida', { standing: standing({ required: 1, played: 0 }), loading: false, hasProfile: true })).toEqual({ kind: 'no-mark' })
     expect(pillStatus('tenis', { standing: standing({ played: 2 }), loading: false, hasProfile: true })).toEqual({ kind: 'placement', played: 2, required: 3 })
   })
 
-  it('pillMetric: pontos, média, tempo com distância e os casos sem valor', () => {
-    expect(pillMetric({ value: 38, unit: 'pontos' })).toBe('38 pts')
-    expect(pillMetric({ value: 1234, unit: 'pontos' })).toBe('1.234 pts')
-    expect(pillMetric({ value: 7.5, unit: 'média' })).toBe('7,5 média')
-    expect(pillMetric({ value: 6330, unit: 'tempo' }, 21)).toBe('1:45:30 · 21 km')
-    expect(pillMetric({ value: 1452, unit: 'tempo' }, 5)).toBe('24:12 · 5 km')
-    expect(pillMetric({ value: 1452, unit: 'tempo' })).toBe('24:12')
+  it('pillMetric: rating inteiro, média, tempo com distância e os casos sem valor', () => {
+    expect(pillMetric({ value: 1087.494, ranking: 'futebol_time' })).toBe('1087 rating')
+    expect(pillMetric({ value: 1234.5, ranking: 'tenis' })).toBe('1235 rating')
+    expect(pillMetric({ value: 7.5, ranking: 'futebol_individual' })).toBe('7,5 média')
+    expect(pillMetric({ value: 4.256, ranking: 'futebol_individual' })).toBe('4,26 média')
+    expect(pillMetric({ value: 6330, ranking: 'corrida_21' }, 21)).toBe('1:45:30 · 21 km')
+    expect(pillMetric({ value: 1452, ranking: 'corrida_5' }, 5)).toBe('24:12 · 5 km')
+    expect(pillMetric({ value: 1452, ranking: 'corrida_5' })).toBe('24:12')
     expect(pillMetric(null, 10)).toBe('10 km')
     expect(pillMetric(null)).toBeNull()
   })
@@ -256,6 +266,8 @@ describe('Pílulas: regras puras', () => {
     expect(pillTexts({ kind: 'loading' })).toBeNull()
     expect(pillTexts({ kind: 'tier', tier: 'ouro', metric: null, distanceKm: null })).toBeNull()
     expect(pillAccessibilityLabel('Tênis', { kind: 'tier', tier: 'lendario', metric: null, distanceKm: null })).toBe('Tênis: elo Lendário')
+    expect(pillAccessibilityLabel('Tênis', { kind: 'tier', tier: 'diamante', metric: { value: 1162.7, ranking: 'tenis' }, distanceKm: null })).toBe('Tênis: elo Diamante, 1163 rating')
+    expect(pillAccessibilityLabel('Futebol', { kind: 'tier', tier: 'ouro', metric: { value: 4.25, ranking: 'futebol_individual' }, distanceKm: null })).toBe('Futebol: elo Ouro, 4,25 de média')
     expect(pillAccessibilityLabel('Corrida', { kind: 'tier', tier: 'bronze', metric: null, distanceKm: 5 })).toBe('Corrida: elo Bronze, nos 5 km')
     expect(pillAccessibilityLabel('Corrida', { kind: 'placement', played: 0, required: 1 })).toBe('Corrida: sem classificação, 0 de 1 partida')
     expect(pillAccessibilityLabel('Futebol', { kind: 'loading' })).toBe('Futebol: carregando classificação')
@@ -287,11 +299,11 @@ describe('modalityStanding', () => {
     const data = standings([{ team: ferrugemRef, role: 'representante' }])
     // O `formats` das fixtures é compartilhado entre chamadas: troca-se a lista, não o item.
     const team = data.futebol.teams[0]
-    data.futebol.teams = [{ ...team, formats: team.formats.map((format, index) => (index === 0 ? { ...format, ...ranked('prata', 12), state: 'ranqueado' as const } : format)) }]
+    data.futebol.teams = [{ ...team, formats: team.formats.map((format, index) => (index === 0 ? { ...format, ...ranked('prata', 1012), state: 'ranqueado' as const } : format)) }]
     data.futebol.individual[0] = { ...data.futebol.individual[0], ...ranked('ouro', 4.25) }
-    expect(modalityStanding('futebol', data)).toMatchObject({ tier: 'ouro', context: 'Futsal · como goleiro', metric: { value: 4.25, unit: 'média' }, distanceKm: null })
+    expect(modalityStanding('futebol', data)).toMatchObject({ tier: 'ouro', context: 'Futsal · como goleiro', metric: { value: 4.25, ranking: 'futebol_individual' }, distanceKm: null })
     data.futebol.individual[0] = { ...data.futebol.individual[0], ...ranked('prata', 3) }
-    expect(modalityStanding('futebol', data)).toMatchObject({ tier: 'prata', context: 'Futsal · Ferrugem FC', metric: { value: 12, unit: 'pontos' } })
+    expect(modalityStanding('futebol', data)).toMatchObject({ tier: 'prata', context: 'Futsal · Ferrugem FC', metric: { value: 1012, ranking: 'futebol_time' } })
   })
 
   it('em classificação conta o maior número de partidas, limitado ao exigido; sem dados, tudo zerado', () => {
@@ -306,7 +318,7 @@ describe('modalityStanding', () => {
   it('corrida: elo na primeira marca, com a distância de maior elo; sem marca, nada', () => {
     const data = standings()
     data.corrida = [run(3, { state: 'ranqueado', tier: 'prata', played: 1, metric_value: 700 }), run(5, { state: 'ranqueado', tier: 'ouro', played: 2, metric_value: 1500 }), run(10, {}), run(21, {}), run(42, {})]
-    expect(modalityStanding('corrida', data)).toMatchObject({ tier: 'ouro', required: 1, distanceKm: 5, metric: { value: 1500, unit: 'tempo' }, context: 'Nos 5 km' })
+    expect(modalityStanding('corrida', data)).toMatchObject({ tier: 'ouro', required: 1, distanceKm: 5, metric: { value: 1500, ranking: 'corrida_5' }, context: 'Nos 5 km' })
     data.corrida = data.corrida.map(line => run(line.distance_km, {}))
     expect(modalityStanding('corrida', data)).toMatchObject({ tier: null, played: 0, required: 1, distanceKm: null })
   })

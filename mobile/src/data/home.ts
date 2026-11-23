@@ -4,6 +4,7 @@ import type { EventCard } from '../api/entries'
 import type { MatchCard, MatchSideOut } from '../api/matches'
 import type { ModalityStanding } from '../components/arena/modalityStanding'
 import { formatDuration } from '../components/play/tierLines'
+import { formatMetric, isRunRanking, metricText } from '../components/ranking/metric'
 import { formatDeadline, formatPrice } from '../utils/format'
 import { eventNoun, tiers } from './arena'
 import type { RunDistance, TierKey } from './arena'
@@ -111,16 +112,22 @@ export function pillStatus(sport: Sport, { standing, loading, hasProfile }: { st
   return { kind: 'placement', played: standing.played, required: standing.required }
 }
 
-const decimal = (value: number) => value.toLocaleString('pt-BR', { maximumFractionDigits: 2 })
-
 /**
- * Métrica da pílula com elo: "{n} pts" (pontos de time e tênis), "{n} média" (média por partida do individual) ou, na corrida,
- * "{tempo} · {distância} km" na distância de maior elo. Sem o valor da métrica, a corrida mostra só a distância; as demais, nada.
+ * Métrica da pílula com elo, pelo mapeamento único do Ranking (`metricText`): "{n} rating" (rating inteiro de time e tênis),
+ * "{n} média" (média por partida do individual) ou, na corrida, "{tempo} · {distância} km" na distância de maior elo. Sem o
+ * valor da métrica (time e tênis em classificação não têm rating), a corrida mostra só a distância; as demais, nada.
  */
 export function pillMetric(metric: ModalityStanding['metric'], distanceKm: RunDistance | null = null): string | null {
-  if (metric?.unit === 'tempo') return distanceKm ? `${formatDuration(metric.value)} · ${distanceKm} km` : formatDuration(metric.value)
-  if (metric) return `${decimal(metric.value)} ${metric.unit === 'média' ? 'média' : 'pts'}`
+  if (metric && isRunRanking(metric.ranking)) return distanceKm ? `${formatDuration(metric.value)} · ${distanceKm} km` : formatDuration(metric.value)
+  if (metric) return metricText(metric.value, metric.ranking)
   return distanceKm ? `${distanceKm} km` : null
+}
+
+/** Métrica por extenso no nome acessível: "1087 rating", "4,25 de média" ou o tempo com a distância ("1:45:30 nos 21 km"). */
+function spokenMetric(metric: ModalityStanding['metric'], distanceKm: RunDistance | null): string {
+  if (metric && isRunRanking(metric.ranking)) return `${formatDuration(metric.value)}${distanceKm ? ` nos ${distanceKm} km` : ''}`
+  if (metric) return metric.ranking === 'futebol_individual' ? `${formatMetric(metric.value, metric.ranking)} de média` : metricText(metric.value, metric.ranking)
+  return distanceKm ? `nos ${distanceKm} km` : ''
 }
 
 /**
@@ -139,16 +146,13 @@ export function pillTexts(status: PillStatus): { status: string; detail: string 
 }
 
 /**
- * Nome acessível da pílula: a modalidade e o elo com a métrica por extenso ("Futebol: elo Ouro, 38 pontos", "Corrida: elo
+ * Nome acessível da pílula: a modalidade e o elo com a métrica por extenso ("Futebol: elo Ouro, 1087 rating", "Corrida: elo
  * Diamante, 1:45:30 nos 21 km") ou a situação ("Tênis: sem classificação, 2 de 3 partidas", "Futebol: sem perfil, configurar").
  */
 export function pillAccessibilityLabel(sportLabel: string, status: PillStatus): string {
   switch (status.kind) {
     case 'tier': {
-      const { metric, distanceKm } = status
-      const spoken = metric?.unit === 'tempo' ? `${formatDuration(metric.value)}${distanceKm ? ` nos ${distanceKm} km` : ''}`
-        : metric ? `${decimal(metric.value)} ${metric.unit === 'média' ? 'de média' : 'pontos'}`
-          : distanceKm ? `nos ${distanceKm} km` : ''
+      const spoken = spokenMetric(status.metric, status.distanceKm)
       return `${sportLabel}: elo ${tiers[status.tier]?.name ?? status.tier}${spoken ? `, ${spoken}` : ''}`
     }
     case 'placement': return `${sportLabel}: sem classificação, ${status.played} de ${status.required} ${status.required === 1 ? 'partida' : 'partidas'}`

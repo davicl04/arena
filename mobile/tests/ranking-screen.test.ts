@@ -8,7 +8,7 @@ import type { RankingOverview, RankingRow } from '../src/api/results'
 import { connection } from '../src/api/connection'
 import RankingScreen from '../src/screens/RankingScreen'
 import { enableAct } from './support/native'
-import { allText, byId, callsTo, flush, labelled, me, navigationMock, page as listPage, pressButton, render, serve } from './support/review'
+import { allText, byId, callsTo, flush, labelled, me, navigationMock, page as listPage, pressButton, render, serve, textsIn } from './support/review'
 import { football as footballProfile, notificationSummaryState, playContext, tennis as tennisProfile } from './support/play'
 import { summaryOf } from './support/notifications'
 import { athleteRow, myLine, rankingOverview, rankingPage, rankingRow, tierCounts } from './support/results'
@@ -167,15 +167,21 @@ describe('Ranking: estrutura e categoria', () => {
 
 describe('Ranking: placa do elo, posição e diferenças', () => {
   it('mostra a posição no elo, as diferenças e a janela ±2, sem a posição geral nem Top %', async () => {
-    serve({ [OVERVIEW]: diamond(), [PROFILES]: [footballProfile] })
+    serve({ [OVERVIEW]: diamond({ mine: [myLine('diamante', 6, 12, { metric_value: 1187.494, leader_gap: 7.6, next_gap: 1.2 })] }), [PROFILES]: [footballProfile] })
     const m = await mount()
     const text = allText(m.tree)
     expect(text).toContain('SUA POSIÇÃO NO DIAMANTE')
     expect(text).toContain('6º')
     expect(text).toContain('de 12 no Diamante · Ferrugem FC')
-    expect(text).toContain('38 | pontos')
-    expect(text).toContain('7 pts | atrás do 1º')
-    expect(text).toContain('1 pt | à frente do 7º')
+    // Rating do time: inteiro, com "rating" (nunca "pts" nem "pontos"), também nos nomes acessíveis.
+    expect(text).toContain('1187 | rating')
+    expect(text).toContain('8 rating | atrás do 1º')
+    expect(text).toContain('1 rating | à frente do 7º')
+    expect(labelled(m.tree, '1187 rating')).toHaveLength(1)
+    expect(labelled(m.tree, '8 rating atrás do 1º')).toHaveLength(1)
+    expect(labelled(m.tree, '1 rating à frente do 7º')).toHaveLength(1)
+    expect(textsIn(byId(m.tree, 'tier-hero')[0]).join(' ')).not.toMatch(/\bpts?\b|pontos/)
+    expect(rowNames(m)[0]).toMatch(/, 36 rating$/)
     // A posição geral (rank_position 18) e porcentagens nunca aparecem.
     expect(text).not.toContain('18º')
     expect(text).not.toContain('Top')
@@ -260,7 +266,7 @@ describe('Ranking: placa do elo, posição e diferenças', () => {
         mine: [myLine('ouro', 2, 2, { team: null })], window: [athleteRow(1, 31, 'Ana Souza', { tier: 'ouro' }), athleteRow(2, 1, 'Carlos Lima', { tier: 'ouro', is_mine: true })] }),
     })
     const m = await mount()
-    await pressButton(m.tree, 'Abrir perfil de Ana Souza. Posição 1 no elo, Ana Souza, Últimos resultados: vitória, empate, derrota, vitória, vitória, 39 pontos')
+    await pressButton(m.tree, 'Abrir perfil de Ana Souza. Posição 1 no elo, Ana Souza, Últimos resultados: vitória, empate, derrota, vitória, vitória, 39 rating')
     expect(m.navigation.go).toHaveBeenLastCalledWith('user-profile', { userId: 31 })
     const mine = rows(m).find(row => String(row.props.accessibilityLabel).includes('Carlos Lima'))!
     await act(async () => { mine.props.onPress() })
@@ -464,6 +470,29 @@ describe('Ranking: quem está sem elo e vários times', () => {
     await pressButton(m.tree, 'Prata')
     expect(callsTo('GET', TIER('prata'))).toHaveLength(1)
     expect(allText(m.tree)).toContain('Os 5 primeiros no Prata:')
+  })
+
+  it('tênis em classificação (sem rating na resposta): só "2 de 3 partidas", sem valor de métrica nem elo', async () => {
+    const TENIS = '/rankings/overview?sport=tenis'
+    serve({ [PROFILES]: [tennisProfile], [TENIS]: rankingOverview({ ranking: 'tenis', format: null, classified_count: 1, tier_counts: tierCounts({ ouro: 1 }),
+      mine: [myLine(null, null, null, { team: null, played: 2, metric_value: null, leader_gap: null, next_gap: null })], window: null }),
+    '/rankings?sport=tenis&tier=bronze&limit=6': rankingPage({ ranking: 'tenis', format: null, items: [] }) })
+    const m = await mount({ sport: 'tenis' })
+    const plate = textsIn(byId(m.tree, 'position-plate')[0]).join(' | ')
+    expect(plate).toContain('Em classificação')
+    expect(plate).toContain('2 de 3 partidas')
+    expect(plate).not.toMatch(/rating|pts|pontos|\b0\b/)
+    expect(byId(m.tree, 'tier-hero')).toHaveLength(0)
+  })
+
+  it('sem o valor da métrica, a placa do elo não inventa "0": ficam só as distâncias', async () => {
+    serve({ [OVERVIEW]: diamond({ mine: [myLine('diamante', 6, 12, { metric_value: null })] }), [PROFILES]: [footballProfile] })
+    const m = await mount()
+    const hero = textsIn(byId(m.tree, 'tier-hero')[0])
+    expect(hero).toContain('7 rating')
+    expect(hero).toContain('1 rating')
+    expect(hero).not.toContain('0')
+    expect(hero).not.toContain('rating')
   })
 
   it('faixa sem integrantes diz que ninguém está nela', async () => {
