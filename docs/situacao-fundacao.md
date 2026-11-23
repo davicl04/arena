@@ -1,5 +1,27 @@
 # Situação da fundação do Arena
 
+## Ranking por rating no futebol · time e no tênis (calc_version 2) — 22 de novembro de 2026
+
+Primeira entrega da [spec do ranking por rating](decisoes/0006-ranking-por-rating.md) (ticket 01). Futebol · time (por formato) e tênis deixam de somar pontos e passam a classificar por rating. Todo sujeito começa a janela com 1000. Cada partida contabilizada (mesmos critérios de antes, com W.O., decisões, amistosos e campeonatos), em ordem de `starts_at` e `id`, aplica `rating + K × (S − E)`, com K 64 nas 3 primeiras partidas do sujeito na janela e 32 depois, arredondando a 3 casas. Não há estado incremental: corrigir uma partida, ou uma partida sair da janela, reproduz a janela do zero. Com os parâmetros propostos, 3 vitórias contra iguais levam a Ouro (1087), e não mais a Bronze. Ordem: time = rating, saldo, gols marcados, menos partidas, id; tênis = rating, menos partidas, id. Os elos continuam contíguos e a regra do Lendário não mudou. Os pontos 3/1/0 e os 10 por vitória seguem como estatística da campanha.
+
+- **Migração `0016_ranking_rating.py`:** aceita `metric = 'rating'`, acrescenta a `rank_cuts` os parâmetros versionados (rating inicial, K de classificação e regular, `m` e `μ` da média ajustada, nulos onde não se aplicam) e insere a `calc_version = 2` de todos os rankings: time e tênis por rating (Prata ≥ 950, Ouro ≥ 1050, Diamante ≥ 1150); futebol · individual e corrida copiando a versão 1. As linhas da versão 1 não mudam. `CURRENT_CALC_VERSION = 2`.
+- **API:** as formas não mudam. `metric_value`, `leader_gap` e `next_gap` ficam em rating no time e no tênis, e `metric_value` é nulo nas linhas em classificação dessas categorias (`standings` guarda o rating, para o pareamento). A seção 12.6 de [0002-jogar.md](decisoes/0002-jogar.md) registra o contrato, e a nova decisão [0006](decisoes/0006-ranking-por-rating.md) registra fórmula, parâmetros, cortes, rollout e rollback.
+- **Rollout:** `alembic upgrade head` seguido de `python -m app.admin_cli recalculate-rankings`; até lá, as linhas mantêm `calc_version = 1`. **Rollback:** `CURRENT_CALC_VERSION = 1` e recálculo (os cortes da versão 1 voltam a classificar por pontos); o downgrade da 0016 remove a versão 2 e as colunas novas.
+
+**Verificações**
+- `backend/`: `.venv/bin/python -m ruff check app migrations tests` — sem apontamentos.
+- `backend/`: `pytest -q --cov=app --cov-branch` com `TEST_DATABASE_URL` em banco descartável — 1762 aprovados, 1 pulado (round-trip S3 opcional); integração com PostgreSQL executada; cobertura combinada 99%. Só unidades: 1144 aprovados, 74%. A suíte completa foi repetida na branch consolidada: 1762 aprovados, 1 pulado.
+- Migração em banco descartável: `alembic upgrade head`, `downgrade -1`, `upgrade head` e `alembic check` (sem operações pendentes), também na branch consolidada; linhas da versão 1 intactas.
+- `python -m app.admin_cli recalculate-rankings` em banco descartável com dados sintéticos: 10 linhas reescritas de `calc_version 1` para 2 em time, individual, tênis e corrida; a segunda execução não alterou nada.
+
+**Limitações**
+- Estado intermediário: o tênis classifica sem bônus de campeonato. As colocações continuam em `event_placements`, mas o bônus ainda não entra no rating.
+- O futebol · individual e a corrida mantêm o cálculo da versão 1 dentro da versão 2.
+- Web e Expo ainda rotulam a métrica de time e tênis como pontos.
+- O banco de desenvolvimento `arena` não foi migrado nem recalculado nesta entrega.
+
+**Pendências:** bônus ponderado do tênis; média ajustada do individual; desempate do pareamento pelo rating; rótulo "rating" na web e no Expo; seção 1 de 0002, planos do Jogar e do Ranking, README e rollout no banco de desenvolvimento. Questões não bloqueantes: W.O. no rating, calibragem final e RN14, RN16 e RN23 no roteiro. O MVP completo continua não implementado.
+
 ## Fechamento da nova tela de Início (web e Expo) — 22 de novembro de 2026
 
 Fechamento do [plano do Início](plano-inicio.md) (ticket 09). Com os tickets 01 a 04 (web) e 05 a 08 (Expo), o Início dos dois clientes tem as mesmas seções, na mesma ordem, com os mesmos textos e regras: data e "A arena te chama, {primeiro nome}"; Placar com a Contagem; botão principal; Destaque "Para responder"; Pílulas de "Seu elo"; "Seu próximo passo"; Campeonatos das cidades dos perfis. Saíram a saudação antiga, a seção "Próxima partida", o carrossel, a foto "Perto de você", a placa escura de pendências e, no Expo, os grupos de atalhos, cujos destinos seguem no Jogar e no menu do Perfil. Sem mudança de backend, contrato, migração ou dependência.
