@@ -10,6 +10,7 @@ from app.services.rankings import Cuts, base_tier
 from app.services.scoring import (
     IndividualPoints,
     IndividualRecord,
+    RatedBonus,
     RatedMatch,
     RunRecord,
     TeamRecord,
@@ -36,6 +37,7 @@ from app.services.scoring import (
     tennis_points,
     tennis_record,
     updated_rating,
+    weighted_bonus,
     window_start,
 )
 
@@ -320,6 +322,79 @@ def test_the_replay_is_chronological_and_does_not_depend_on_the_input_order():
     assert replay_ratings(same_day, RATING_CUTS) == replay_ratings(list(reversed(same_day)), RATING_CUTS)
 
 
+# ----- Weighted championship bonus (tennis, calc_version 2) -----------------------------------------------------
+
+def award(day, event, subject, base, entrants):
+    """A bonus of `base` to `subject` when `event` ended, on the same day scale as `duel`."""
+    return RatedBonus(NOW - timedelta(days=200 - day), event, subject, base, frozenset(entrants))
+
+
+def test_the_weighted_bonus_is_the_base_against_a_bracket_of_the_same_level():
+    assert weighted_bonus(40, Decimal(1000), [Decimal(1000)] * 3) == Decimal('40.000')
+    assert weighted_bonus(20, Decimal(1100), [Decimal(1100)] * 3) == Decimal('20.000')
+    assert weighted_bonus(10, Decimal(1000), [Decimal(950), Decimal(1050)]) == Decimal('10.000')   # the mean counts
+    # Without other entrants (the award needs 4 or more) the bracket counts as the same level.
+    assert weighted_bonus(40, Decimal(1234), []) == Decimal('40.000')
+
+
+def test_a_stronger_bracket_gives_more_than_the_base_up_to_twice_and_a_weaker_one_less():
+    stronger = weighted_bonus(40, Decimal(1000), [Decimal(1200)] * 3)
+    weaker = weighted_bonus(40, Decimal(1000), [Decimal(800)] * 3)
+    assert (stronger, weaker) == (Decimal('60.780'), Decimal('19.220'))
+    assert stronger + weaker == Decimal(80)                       # symmetric around the base
+    assert weighted_bonus(40, Decimal(1000), [Decimal(5000)] * 3) == Decimal('80.000')   # at most twice the base
+    assert Decimal(40) < weighted_bonus(40, Decimal(1000), [Decimal(1001)]) < Decimal(41)
+
+
+def test_the_weighted_bonus_tends_to_zero_and_is_never_negative():
+    assert weighted_bonus(40, Decimal(5000), [Decimal(1000)] * 3) == Decimal('0.000')
+    assert weighted_bonus(10, Decimal(9000), [Decimal(1000)]) == Decimal('0.000')
+    gains = [weighted_bonus(40, Decimal(rating), [Decimal(1000)] * 3) for rating in range(800, 4001, 50)]
+    assert all(gain >= 0 for gain in gains) and gains == sorted(gains, reverse=True)
+
+
+def test_the_bracket_strength_leaves_the_athlete_out():
+    # Athlete 1 beats 2 three times (1079.839); 3 and 4 have no match and enter at the initial rating.
+    matches = [duel(1, 1, 2, 2, 0), duel(2, 1, 2, 2, 0), duel(3, 1, 2, 2, 1)]
+    plain = replay_ratings(matches, TENNIS_RATING_CUTS, draws=False)
+    rated = replay_ratings(matches, TENNIS_RATING_CUTS, draws=False, bonuses=[award(4, 70, 1, 40, {1, 2, 3, 4})])
+    others = [plain[2], Decimal(1000), Decimal(1000)]
+    assert rated[1] == plain[1] + weighted_bonus(40, plain[1], others)
+    assert rated[1] != plain[1] + weighted_bonus(40, plain[1], [plain[1], *others])
+    assert rated[2] == plain[2] and set(rated) == {1, 2}           # the other entrants receive nothing
+
+
+def test_the_bonuses_of_one_event_use_the_ratings_before_it_and_a_bonus_is_not_a_match():
+    # Four entrants at the initial rating: the champion gets exactly 40 and the runner-up exactly 20, not a bonus
+    # measured against the champion's new rating.
+    bonuses = [award(1, 70, 1, 40, {1, 2, 3, 4}), award(1, 70, 2, 20, {1, 2, 3, 4})]
+    assert replay_ratings([], TENNIS_RATING_CUTS, bonuses=bonuses) == {1: Decimal('1040.000'), 2: Decimal('1020.000')}
+    # Three bonuses before the first match leave the placement K at 64.
+    three = [award(day, 70 + day, 1, 10, {1, 2, 3, 4}) for day in (1, 2, 3)]
+    rating = Decimal(1000)
+    for _ in three:
+        rating += weighted_bonus(10, rating, [Decimal(1000)] * 3)
+    ratings = replay_ratings([duel(4, 1, 5, 2, 0)], TENNIS_RATING_CUTS, draws=False, bonuses=three)
+    assert ratings[1] == updated_rating(rating, Decimal(1000), Decimal(1), Decimal(64))
+
+
+def test_bonuses_enter_the_timeline_after_the_matches_of_the_same_instant_and_in_any_input_order():
+    match = duel(5, 1, 2, 2, 0)
+    same_instant = award(5, 70, 1, 40, {1, 2, 3, 4})
+    after_match = replay_ratings([match], TENNIS_RATING_CUTS, draws=False)
+    ratings = replay_ratings([match], TENNIS_RATING_CUTS, draws=False, bonuses=[same_instant])
+    assert ratings[1] == after_match[1] + weighted_bonus(40, after_match[1], [after_match[2], Decimal(1000),
+                                                                              Decimal(1000)])
+    # A bonus earlier than a match changes the match itself; the input order never matters.
+    matches = [duel(1, 1, 2, 2, 0), duel(3, 2, 3, 2, 1), duel(6, 1, 3, 0, 2), duel(8, 1, 4, 2, 1)]
+    bonuses = [award(2, 71, 2, 40, {1, 2, 3, 4}), award(2, 71, 3, 20, {1, 2, 3, 4}), award(7, 72, 1, 10, {1, 3, 4, 5}),
+               award(7, 70, 4, 40, {4, 5, 6, 7})]
+    expected = replay_ratings(matches, TENNIS_RATING_CUTS, draws=False, bonuses=bonuses)
+    assert replay_ratings(list(reversed(matches)), TENNIS_RATING_CUTS, draws=False,
+                          bonuses=list(reversed(bonuses))) == expected
+    assert expected != replay_ratings(matches, TENNIS_RATING_CUTS, draws=False)
+
+
 def test_rating_records_rank_by_the_rating_then_the_current_tie_breaks():
     team = team_record(7, [(3, 1), (0, 1)], rating=Decimal('1012.5'))
     assert (team.metric, team.points) == (Decimal('1012.5'), 3)          # the 3/1/0 points stay as a statistic
@@ -330,7 +405,8 @@ def test_rating_records_rank_by_the_rating_then_the_current_tie_breaks():
     # Rating first (even with fewer points), then goal difference, goals scored, fewer matches.
     assert [item.subject_id for item in sorted(tied, key=team_order)] == [2, 4, 5, 3, 1]
     tennis = tennis_record(4, [(2, 0)], bonus=40, rating=Decimal('1032'))
-    assert (tennis.metric, tennis.points) == (Decimal(1032), 50)          # the bonus does not enter the rating yet
+    # The record does not add the bonus base to the rating: the weighted bonus is already in the replayed rating.
+    assert (tennis.metric, tennis.points) == (Decimal(1032), 50)
     ordered = sorted([TennisRecord(1, 4, rating=Decimal(990)), TennisRecord(2, 5, rating=Decimal(1010)),
                       TennisRecord(3, 3, rating=Decimal(990))], key=tennis_order)
     assert [item.subject_id for item in ordered] == [2, 3, 1]

@@ -21,7 +21,7 @@ from app.services.match_lifecycle import apply_final_score
 from app.services.match_rules import validate_football_score, walkover_score
 from app.services.matchmaking_queue import queue
 from app.services.rankings import CURRENT_CALC_VERSION, load_cuts
-from app.services.scoring import RatedMatch, replay_ratings
+from app.services.scoring import RatedBonus, RatedMatch, replay_ratings
 from app.services.standings import (
     RankingKey,
     ranking_keys_for_match,
@@ -290,30 +290,52 @@ def test_tennis_rows_leave_with_their_matches_and_a_tennis_search_follows_the_ti
     assert not rows(db)
 
 
-def test_the_sweep_still_looks_at_a_championship_bonus_that_leaves_the_window(db):
-    # The bonus counts while its event ended inside the 52 weeks (contract 0003, 21). It leaves after the matches of the
-    # same athlete do, so the sweep looks at the bonuses too. In calc_version 2 the bonus does not enter the tennis
-    # rating yet (intermediate state, decision 0006): the sweep recalculates and stamps, but nothing changes.
-    ana, bia = make_user(db, 'ana'), make_user(db, 'bia')
-    event = tennis_event(db, bia.id, state='encerrado', competition_type='todos_contra_todos')
-    entry = add(db, EventEntry(event_id=event.id, user_id=ana.id, registered_by_id=ana.id, state='confirmada',
-                               price_cents=0, confirmed_at=NOW - 52 * WEEK))
-    awarded = NOW - 51 * WEEK
-    add(db, EventPlacement(event_id=event.id, entry_id=entry.id, user_id=ana.id, placement=1, bonus_points=40,
-                           awarded_at=awarded))
+def test_a_championship_bonus_enters_the_tennis_rating_and_leaves_with_its_event(db):
+    # The bonus counts while its event ended inside the 52 weeks (contract 0003, 21), weighted by the ratings of the
+    # other confirmed entrants when it was awarded (decision 0006, section 7). Its event matches leave first; the
+    # bonus leaves after them, with no match leaving then, so the sweep looks at the bonuses too.
+    ana, bia, carla, duda = (make_user(db, name) for name in ('ana', 'bia', 'carla', 'duda'))
+    event = tennis_event(db, bia.id, state='encerrado', competition_type='eliminacao_simples')
+    entries = {player.id: add(db, EventEntry(event_id=event.id, user_id=player.id, registered_by_id=player.id,
+                                             state='confirmada', price_cents=0, confirmed_at=NOW - 53 * WEEK))
+               for player in (ana, bia, carla, duda)}
+    final_at, awarded = NOW - 51 * WEEK - 2 * DAY, NOW - 51 * WEEK
+    final = played_tennis(db, ana, carla, [{'a': 6, 'b': 1}, {'a': 6, 'b': 2}], starts_at=final_at)
+    final.origin, final.event_id = 'campeonato', event.id
+    add(db, EventPlacement(event_id=event.id, entry_id=entries[ana.id].id, user_id=ana.id, placement=1,
+                           bonus_points=40, awarded_at=awarded))
     for number in range(3):
         match = played_tennis(db, ana, bia, [{'a': 6, 'b': 1}, {'a': 6, 'b': 2}],
                               starts_at=NOW - 30 * WEEK + number * DAY)
     recalculate_for_match(db, match, now=NOW)
-    assert rows(db)[ana.id].metric_value == WINS[3] and rows(db)[ana.id].tier == 'ouro'   # the bonus is not added
+
+    cuts = load_cuts(db)['tenis']
+    later = [RatedMatch(NOW - 30 * WEEK + number * DAY, number, ana.id, bia.id, 2, 0) for number in range(3)]
+    bonus = RatedBonus(awarded, event.id, ana.id, 40, frozenset(entries))
+    # Ana beat Carla (1032) and then faced a weaker bracket (Carla 968, Bia and Duda 1000): less than 40.
+    with_final = replay_ratings([RatedMatch(final_at, -1, ana.id, carla.id, 2, 0), *later], cuts, draws=False,
+                                bonuses=[bonus])
+    assert rows(db)[ana.id].metric_value == with_final[ana.id] and rows(db)[ana.id].matches_played == 4
+    assert with_final[ana.id] > replay_ratings([RatedMatch(final_at, -1, ana.id, carla.id, 2, 0), *later], cuts,
+                                               draws=False)[ana.id]
     assert recalculate_outside_window(db, NOW) == 0
 
-    # Two weeks later the event is 53 weeks old; every match is still inside the window (30 weeks).
-    later = NOW + 2 * WEEK
-    assert recalculate_outside_window(db, later) == 0
+    # The final leaves the window, the bonus stays: now it is weighted against a bracket all at the initial rating.
+    first = NOW + WEEK - DAY
+    assert recalculate_outside_window(db, first) == 3                   # Ana and Bia rewritten, Carla's row gone
+    without_final = replay_ratings(later, cuts, draws=False, bonuses=[bonus])
+    assert replay_ratings([], cuts, bonuses=[bonus]) == {ana.id: Decimal('1040.000')}   # same level: the base
+    assert rows(db)[ana.id].metric_value == without_final[ana.id] and rows(db)[ana.id].matches_played == 3
+    assert carla.id not in rows(db)
+
+    # Two days later the event is older than 52 weeks; no match leaves then, but the bonus does.
+    second = NOW + WEEK + DAY
+    # Both rows change: Bia lost to an Ana who no longer carries the bonus.
+    assert recalculate_outside_window(db, second) == 2
     assert (rows(db)[ana.id].metric_value, rows(db)[ana.id].wins, rows(db)[ana.id].tier) == (WINS[3], 3, 'ouro')
-    assert rows(db)[ana.id].updated_at == later
-    assert recalculate_outside_window(db, later) == 0                                       # idempotent
+    assert rows(db)[bia.id].metric_value == LOSSES[3]
+    assert rows(db)[ana.id].updated_at == second
+    assert recalculate_outside_window(db, second) == 0                                       # idempotent
 
 
 # ----- Walkovers --------------------------------------------------------------------------------------------

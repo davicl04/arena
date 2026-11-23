@@ -8,8 +8,10 @@ matches and the marks, builds the records with these functions and materializes 
 
 From `calc_version = 2` teams and tennis are ranked by a rating (decision docs/decisoes/0006-ranking-por-rating.md):
 `replay_ratings` replays the counted matches of the window in chronological order from the initial rating, with
-`expected_score` and `updated_rating`; the points 3/1/0 and 10 per win stay as campaign statistics. When the cuts
-of the version in use still rank by points (`metric = 'pontos'`), the records carry no rating and rank by points.
+`expected_score` and `updated_rating`; the points 3/1/0 and 10 per win stay as campaign statistics. In tennis the
+championship bonus (RN16) enters the replay at the moment it was awarded, weighted by the strength of the bracket
+(`weighted_bonus`). When the cuts of the version in use still rank by points (`metric = 'pontos'`), the records carry
+no rating and rank by points.
 """
 from __future__ import annotations
 
@@ -171,27 +173,79 @@ class RatedMatch:
     score_b: int
 
 
-def replay_ratings(matches: Iterable[RatedMatch], cuts: Cuts, *, draws: bool = True) -> dict[int, Decimal]:
+@dataclass(frozen=True)
+class RatedBonus:
+    """A championship placement bonus of a rating category (tennis, RN16): when the event ended and gave it, the
+    event, the athlete, the base stored in `event_placements` (40, 20 or 10) and every confirmed entrant of the
+    event (the athlete included or not: the bracket strength leaves the athlete out)."""
+    awarded_at: datetime
+    event_id: int
+    subject_id: int
+    base: int
+    entrants: frozenset[int]
+
+
+def weighted_bonus(base: int | Decimal, rating: Decimal, others: Sequence[Decimal]) -> Decimal:
+    """base × 2 × (1 - E), rounded to 3 places, where E is the expected result of `rating` against the mean rating of
+    the other entrants of the bracket: exactly the base against a bracket of the same level, up to twice the base
+    against a stronger one, towards 0 against a weaker one, never negative. Without other entrants (the award needs
+    4 or more) the bracket counts as the same level."""
+    with localcontext(RATING_CONTEXT):
+        bracket = sum(others, Decimal(0)) / len(others) if others else Decimal(rating)
+        value = Decimal(base) * 2 * (Decimal(1) - expected_score(rating, bracket))
+        return max(value.quantize(RATING_QUANTUM, rounding=ROUND_HALF_UP), Decimal(0))
+
+
+def replay_ratings(matches: Iterable[RatedMatch], cuts: Cuts, *, draws: bool = True,
+                   bonuses: Iterable[RatedBonus] = ()) -> dict[int, Decimal]:
     """Ratings of a category: every subject starts at the initial rating of the cuts and each match, in order of
     start and then id, updates both sides from their ratings before it (K by `k_factor`). Without draws (tennis) an
     equal score is a loss for both, as in `tennis_record`. A side without a subject is faced at the initial rating
-    and keeps no rating. Nothing is incremental: the same matches always give the same ratings."""
+    and keeps no rating. Nothing is incremental: the same matches always give the same ratings.
+
+    `bonuses` (tennis) enter the same timeline at `awarded_at`: the bonuses of one event are applied together, from
+    the ratings before that instant (an entrant without a match yet is at the initial rating), with
+    `weighted_bonus`. A match that starts at the same instant goes first (the event ends after its matches), and
+    events of the same instant follow their id. A bonus is not a match: it does not advance the placement K."""
     if cuts.initial_rating is None:
         raise ValueError('Cortes sem parâmetros de rating.')
+    initial = cuts.initial_rating
     ratings: dict[int, Decimal] = {}
     played: dict[int, int] = {}
-    for match in sorted(matches, key=lambda item: (item.starts_at, item.match_id)):
-        before = {side: ratings.get(subject, cuts.initial_rating) if subject is not None else cuts.initial_rating
-                  for side, subject in (('a', match.side_a), ('b', match.side_b))}
-        for side, subject, scored, conceded in (('a', match.side_a, match.score_a, match.score_b),
-                                                ('b', match.side_b, match.score_b, match.score_a)):
-            if subject is None:
-                continue
-            opponent = before['b' if side == 'a' else 'a']
-            score = RATING_SCORES[score_outcome(scored, conceded, draws=draws)]
-            ratings[subject] = updated_rating(before[side], opponent, score, k_factor(played.get(subject, 0), cuts))
-            played[subject] = played.get(subject, 0) + 1
+    awards: dict[tuple[datetime, int], list[RatedBonus]] = {}
+    for bonus in bonuses:
+        awards.setdefault((bonus.awarded_at, bonus.event_id), []).append(bonus)
+    timeline = sorted([((match.starts_at, 0, match.match_id), match) for match in matches]
+                      + [((awarded_at, 1, event_id), items) for (awarded_at, event_id), items in awards.items()],
+                      key=lambda item: item[0])
+    for _, step in timeline:
+        if isinstance(step, RatedMatch):
+            _replay_match(step, ratings, played, cuts, draws=draws)
+            continue
+        gains = [(bonus.subject_id, weighted_bonus(
+            bonus.base, ratings.get(bonus.subject_id, initial),
+            [ratings.get(entrant, initial) for entrant in sorted(bonus.entrants - {bonus.subject_id})]))
+            for bonus in step]
+        with localcontext(RATING_CONTEXT):
+            for subject_id, gain in gains:
+                ratings[subject_id] = ratings.get(subject_id, initial) + gain
     return ratings
+
+
+def _replay_match(match: RatedMatch, ratings: dict[int, Decimal], played: dict[int, int], cuts: Cuts, *,
+                  draws: bool) -> None:
+    """Both sides of one match, from their ratings before it; each counts one more match for its K."""
+    initial = cuts.initial_rating
+    before = {side: ratings.get(subject, initial) if subject is not None else initial
+              for side, subject in (('a', match.side_a), ('b', match.side_b))}
+    for side, subject, scored, conceded in (('a', match.side_a, match.score_a, match.score_b),
+                                            ('b', match.side_b, match.score_b, match.score_a)):
+        if subject is None:
+            continue
+        opponent = before['b' if side == 'a' else 'a']
+        score = RATING_SCORES[score_outcome(scored, conceded, draws=draws)]
+        ratings[subject] = updated_rating(before[side], opponent, score, k_factor(played.get(subject, 0), cuts))
+        played[subject] = played.get(subject, 0) + 1
 
 
 # ----- Records -----------------------------------------------------------------------------------------------
@@ -294,13 +348,13 @@ class TennisRecord:
     losses: int = 0
     sets_for: int = 0
     sets_against: int = 0
-    bonus: int = 0              # championship placement bonus (RN16), added by the championship phase
+    bonus: int = 0              # sum of the championship placement bases (RN16) of the window, for the points
     form: str = ''
-    rating: Decimal | None = None   # from `replay_ratings` when the cuts rank by rating; None ranks by points
+    rating: Decimal | None = None   # from `replay_ratings` (weighted bonus included) under rating cuts; None: points
 
     @property
     def points(self) -> int:
-        """10 per win plus the championship bonus (RN16); the metric only while the cuts rank by points."""
+        """10 per win plus the championship bonus base (RN16); the metric only while the cuts rank by points."""
         return TENNIS_WIN_POINTS * self.wins + self.bonus
 
     @property
@@ -311,7 +365,7 @@ class TennisRecord:
 def tennis_record(subject_id: int, games: Iterable[tuple[int, int]], *, bonus: int = 0, form: str = '',
                   rating: Decimal | None = None) -> TennisRecord:
     """Record from (sets won, sets lost) of each confirmed match in the window; `form` is `recent_form` and
-    `rating` the replayed rating (rating cuts only; the championship bonus does not enter it yet)."""
+    `rating` the replayed rating (rating cuts only), which already carries the weighted championship bonus."""
     wins = losses = won = lost = matches = 0
     for sets_won, sets_lost in games:
         matches += 1

@@ -14,7 +14,7 @@ import pytest
 
 from app.models.matches import Match, MatchSearch
 from app.models.rankings import Standing
-from app.services import standings
+from app.services import scoring, standings
 from app.services.rankings import Cuts
 from app.services.standings import RankingKey
 from tests.unit.fakes import FakeDb
@@ -215,17 +215,37 @@ def test_the_tennis_ranking_replays_the_rating_of_each_player(scene):
     assert (rows[51].recent_form, rows[52].recent_form) == ('VVV', 'DDV')            # tennis has no draw
 
 
-def test_the_championship_bonus_does_not_enter_the_tennis_rating_yet(scene):
-    # Intermediate state of calc_version 2 (decision 0006): the weighted bonus comes later; meanwhile the placements
-    # of the window change nothing in the rating, the position or the tier.
+def placement(subject, points, event=80):
+    """A row of the bonus query: (awarded at, event, athlete, bonus base); the event ends now, after every match of
+    the scenario (`game` dates them up to now)."""
+    return (NOW, event, subject, points)
+
+
+def test_the_championship_bonus_enters_the_tennis_rating_weighted_by_the_bracket(scene):
+    # The bonuses of the window and the confirmed entrants of their events are read once each, in bulk; the replay
+    # adds each bonus when it was awarded (decision 0006, section 7). Athlete 99 has a bonus but no match: no row.
     db = scene.db
     db.on('match_sides', [game(51, 'a', 2, 0), game(51, 'b', 0, 2), game(51, 'a', 2, 1), game(52, 'b', 2, 0)])
-    db.on('event_placements', [(51, 60), (99, 40)])
+    db.on('event_placements', [placement(51, 40), placement(99, 20)])
+    db.on('event_entries', [(80, 51), (80, 52), (80, 53), (80, 99)])
     standings.recalculate_rankings(db, [RankingKey('tenis')], now=NOW)
     rows = rows_by_subject(db, 'user_id')
     assert set(rows) == {51, 52}
-    assert (rows[51].metric_value, rows[51].wins, rows[51].tier) == (Decimal('1087.494'), 3, 'ouro')
+    # The event ended after every match: 51 (1087.494) faced 52 (968), 53 and 99 (1000), a weaker bracket: < 40.
+    expected = Decimal('1087.494') + scoring.weighted_bonus(40, Decimal('1087.494'),
+                                                            [Decimal(968), Decimal(1000), Decimal(1000)])
+    assert (rows[51].metric_value, rows[51].wins, rows[51].tier) == (expected, 3, 'ouro')
+    assert Decimal('1087.494') < expected < Decimal('1127.494')
     assert (rows[52].metric_value, rows[52].rank_position) == (Decimal('968.000'), None)          # placement
+    assert db.statements.count('event_placements') == 1 and db.statements.count('event_entries') == 1
+
+
+def test_without_bonuses_in_the_window_the_entrants_are_not_read(scene):
+    db = scene.db
+    db.on('match_sides', [game(51, 'a', 2, 0), game(51, 'b', 0, 2), game(51, 'a', 2, 1)])
+    standings.recalculate_rankings(db, [RankingKey('tenis')], now=NOW)
+    assert rows_by_subject(db, 'user_id')[51].metric_value == Decimal('1087.494')
+    assert 'event_entries' not in db.statements
 
 
 def test_with_the_points_cuts_of_version_1_teams_and_tennis_rank_by_points_again(scene, monkeypatch):
@@ -235,11 +255,12 @@ def test_with_the_points_cuts_of_version_1_teams_and_tennis_rank_by_points_again
     monkeypatch.setattr(standings, 'load_cuts', lambda _db, version: make_cuts(rating=False))
     db = scene.db
     db.on('match_sides', [game(51, 'a', 2, 0), game(51, 'b', 0, 2), game(51, 'a', 2, 1), game(52, 'b', 2, 0)])
-    db.on('event_placements', [(51, 60), (99, 40)])
+    db.on('event_placements', [placement(51, 40, 80), placement(51, 20, 81), placement(99, 40, 80)])
     standings.recalculate_rankings(db, [RankingKey('tenis')], now=NOW)
     rows = rows_by_subject(db, 'user_id')
     assert set(rows) == {51, 52}
-    assert (float(rows[51].metric_value), rows[51].wins, rows[51].tier) == (90.0, 3, 'ouro')      # 30 + 60
+    assert (float(rows[51].metric_value), rows[51].wins, rows[51].tier) == (90.0, 3, 'ouro')      # 30 + 40 + 20
+    assert 'event_entries' not in db.statements                   # the points add the bases: no bracket to weigh
     assert (float(rows[52].metric_value), rows[52].rank_position) == (0.0, None)                  # one match: placement
     db.added.clear()
     db.on('standings', []).on('match_sides', TEAM_GAMES)
