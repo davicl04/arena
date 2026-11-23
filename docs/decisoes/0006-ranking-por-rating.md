@@ -1,6 +1,6 @@
 # Decisões — Ranking por rating (`calc_version = 2`)
 
-Data: 22 de novembro de 2026. Altera as regras de ranking da [decisão do Jogar](0002-jogar.md) (seções 1 e 12.6) para `futebol_time` e `tenis`, que deixam de somar pontos e passam a classificar por **rating**. Esta primeira entrega cobre o rating do time e do tênis, a versão de cálculo 2 de todos os rankings, a migração dos cortes e o contrato de `metric_value`. O bônus ponderado do tênis, a média ajustada do futebol · individual, o desempate do pareamento pelo rating e os rótulos dos clientes vêm em entregas seguintes (seção 9).
+Data: 22 de novembro de 2026. Altera as regras de ranking da [decisão do Jogar](0002-jogar.md) (seções 1 e 12.6) para `futebol_time` e `tenis`, que deixam de somar pontos e passam a classificar por **rating**. Esta primeira entrega cobre o rating do time e do tênis, a versão de cálculo 2 de todos os rankings, a migração dos cortes e o contrato de `metric_value`. O desempate do pareamento pelo rating veio numa entrega posterior (seção 4). O bônus ponderado do tênis, a média ajustada do futebol · individual e os rótulos dos clientes vêm em entregas seguintes (seção 10).
 
 ## 1. Problema
 
@@ -46,6 +46,7 @@ Os valores são iniciais e podem ser calibrados numa futura `calc_version` sem m
 - O futebol · individual e a corrida mantêm o cálculo da versão 1 dentro da versão 2.
 - A classificação continua com 3 partidas. O elo de um classificado sai dos cortes da versão 2 aplicados ao rating. A regra do Lendário (Diamante e posição ≤ ⌊classificados × 15%⌋) não muda.
 - Como a métrica continua sendo a primeira chave da ordem, os elos seguem contíguos em `rank_position`, com o Lendário como prefixo (teste de propriedade em `tests/unit/test_ranking_tiers.py`, agora também com os cortes de rating).
+- **Desempate do pareamento:** o filtro não muda (elo igual ou vizinho; quem está em classificação enfrenta qualquer nível, RN04 e RN23). Nas buscas de time e de tênis, a ordem dos candidatos passa a ser proximidade de elo (mesmo, vizinho, demais), **menor diferença absoluta de rating**, busca mais antiga e id (`match_rules.candidate_order`). A fila (`matchmaking_queue._search_ratings`) lê o rating de `standings` no momento do pareamento, na categoria da busca (o time no formato; o tênis), numa só consulta para a busca e todos os candidatos, dentro da trava do balde e sem trava nova. O rating guardado em classificação também conta. Sem linha da versão de cálculo atual (sem partida na janela, ou linha ainda da versão 1 antes do recálculo do rollout), vale `rankings.initial_rating` dos cortes (1000). Com cortes que não são de rating (rollback para a versão 1), a ordem volta a ser elo e antiguidade. Não há coluna nova em `match_searches`, e o rating não é copiado para a partida. A busca de avulso e as vagas não mudam. Uma mudança só de rating não gera nova tentativa de pareamento (seção 6).
 - A métrica do registro segue o `metric` dos cortes em uso: com cortes `rating`, o rating; com cortes `pontos` (versão 1), os pontos, com o bônus de campeonato do tênis. É isso que torna o rollback da seção 8 possível sem outra mudança de código.
 
 ## 5. Contrato da API
@@ -90,7 +91,6 @@ Contra o mesmo adversário nas três partidas, 3 vitórias dão 1079,839 (Ouro) 
 
 - Bônus ponderado do tênis, com a fórmula registrada nesta decisão.
 - Média ajustada do futebol · individual: `m`, `μ` e cortes revistos da linha `futebol_individual` da versão 2, em migração própria.
-- Desempate do pareamento pelo rating mais próximo (lido de `standings`, com `initial_rating` para quem não tem linha).
 - Rótulo "rating" na web e no Expo, sem "pts" nas categorias por rating, e ocultação em classificação nas telas.
 - Seção 1 de [0002](0002-jogar.md), [plano do Jogar](../plano-jogar.md), [plano do Ranking](../plano-ranking.md) e README, com o rollout.
 - Questões não bloqueantes da spec: W.O. no rating (hoje conta como vitória e derrota normais), calibragem final e atualização de RN14, RN16 e RN23 no roteiro.
