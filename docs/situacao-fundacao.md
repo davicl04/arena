@@ -1,5 +1,23 @@
 # Situação da fundação do Arena
 
+## Média ajustada no futebol · individual — 22 de novembro de 2026
+
+Entrega do ticket 03 do [ranking por rating](decisoes/0006-ranking-por-rating.md).
+
+- **Ranking individual:** a partir da `calc_version = 2`, o `futebol_individual` (posição × formato) usa a média ajustada `(total + m × μ) / (partidas + m)`, com `m` = 5 e `μ` = 3,0. A ordem passa a ser média ajustada, mais partidas e id. Os pontos por atuação (RN12), a prévia de estatísticas, a classificação com 3 partidas e a exibição da métrica em classificação não mudam, e o rótulo continua "média". Com `m`/`μ` nulos (versão 1), o cálculo volta à média simples.
+- **Cortes:** a migração `0017_individual_adjusted_mean.py` completa a linha `futebol_individual` da versão 2 com `m`, `μ` e os cortes revisados Prata ≥ 2,6, Ouro ≥ 3,9 e Diamante ≥ 5,2. As linhas da versão 1 não mudam, e o downgrade devolve a linha ao estado da `0016`.
+- **Simulação:** os cortes saem do script determinístico `backend/scripts/simular_media_ajustada.py` (população sintética e regras reais de RN12). O critério preserva, com 30 partidas, a distribuição que a versão 1 pretendia. Com esses cortes, 3 atuações com média real 7,0 dão 4,5 (Ouro), e Diamante exige 7 partidas a 7,0. Manter 2,5/4,0/5,5 derrubaria o Diamante de 1,5% para 0,8% com 30 partidas.
+- **Documentação:** nova seção 8 na decisão 0006 (fórmula, parâmetros, critério, distribuição e limitações); seções 3 a 6, rollback e pendências atualizadas. Rollout, cenários e pendências passaram a ser as seções 9, 10 e 11; a "seção 9" citada em entradas anteriores corresponde aos cenários, agora seção 10.
+
+**Verificações**
+- `backend/`: `ruff check app migrations tests scripts` sem apontamentos; `pytest -q --cov=app --cov-branch` com `TEST_DATABASE_URL` em banco descartável: 1789 aprovados e 1 pulado (S3 opcional), com 621 testes de integração executados e cobertura de 99% (74% só unidade).
+- Migração em banco descartável: `alembic upgrade head`, `downgrade -1` (dump de `rank_cuts` idêntico ao da `0016`), `upgrade head` e `alembic check` limpos. `python -m app.admin_cli recalculate-rankings` com dados sintéticos gravou 5,000 / 4,500 / 2,250 na versão 2 (segunda execução: 0 linhas); depois do downgrade, o recálculo voltou à média simples.
+- Na branch consolidada: ruff sem apontamentos; `alembic upgrade head`, `downgrade -1`, `upgrade head` (0017) e `alembic check` limpos; `pytest -q` com 1789 aprovados e 1 pulado.
+
+**Limitações:** a população da simulação é sintética, e `m`, `μ` e os cortes são valores iniciais. O banco de desenvolvimento `arena` não foi migrado nem recalculado nesta entrega; as linhas individuais antigas mantêm a média simples até o recálculo.
+
+**Pendências:** a seção 12.6 de `docs/decisoes/0002-jogar.md` ainda descreve o individual como média simples (ticket 07, junto com a seção 1, o plano do Jogar, o plano do Ranking e o README). Questão não bloqueante: manter o rótulo "média" ou passar a "média ajustada".
+
 ## Web: rótulo "rating" no futebol · time e no tênis — 22 de novembro de 2026
 
 Entrega do ticket 05 do [ranking por rating](decisoes/0006-ranking-por-rating.md) na web, com os mesmos nomes, arredondamento e textos do Expo (ticket 06). Sem mudança de backend, contrato ou dependência.
