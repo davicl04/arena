@@ -118,3 +118,35 @@ Ajuste posterior pedido pelo usuário, decidido em sessão de protótipos e regi
 - **Ícones de esporte:** brancos no escuro, pintados por máscara a partir do PNG com alfa.
 
 No Expo, o cartão escuro é chapado (sem degradê) e não há borda acesa onde o claro não tinha borda. Não há declaração de paridade visual do Expo nem validação em aparelho.
+
+## Nova tela de Início — 22 de novembro de 2026
+
+Ajuste posterior pedido pelo usuário, decidido numa sessão de protótipos com seis rodadas e registrado no [plano](plano-inicio.md). Não vem do Figma. Vale igualmente para a web e para o Expo, que passaram a ter as mesmas seções, na mesma ordem, com os mesmos textos e estados. O protótipo consolidado está em `artifacts/prototipos/inicio.html`, que não é versionado e deve ser aberto por um servidor HTTP local, porque as máscaras não carregam via `file://`.
+
+**Decisões da sessão de protótipos:**
+- **Saudação:** data por extenso e "A arena te chama, {primeiro nome}", sem pontuação final.
+- **Placar:** a próxima partida vira o bloco principal, escuro por design (`forest` com o Coliseu), igual nos dois temas. Mostra a Contagem em números grandes ("3 dias 4 h", "5 h 20 min", "40 min"), a data e a hora e a linha do confronto, que abre a partida. Em partida individual, aparece "Você". Sem partida, mostra "—" e "Nenhuma partida agendada".
+- **Botão principal:** logo abaixo do Placar, com "Encontrar partida", "Encontrar outra partida" ou "Preparar perfis".
+- **Destaque:** a pendência mais urgente num cartão claro (`surface`), com "Mais urgente" ou "Aguardando você", o prazo, o botão visual "Responder" e a borda âmbar quando o prazo está no fim. Embaixo, "+ n pendências · ver todas".
+- **Pílulas:** "Seu elo" num bloco escuro por design com três pílulas (futebol, tênis e corrida), com o emblema e a métrica ou a situação ("n de 3", "Sem marca", "Sem perfil"). Nunca aparece elo para quem está em classificação.
+- **Campeonatos:** rodapé com os campeonatos reais das cidades dos perfis esportivos, no lugar da foto. O cartão "Complete seu perfil esportivo" continua enquanto falta modalidade.
+- Formatos explorados e descartados estão listados no [plano](plano-inicio.md#decisões-da-sessão-de-protótipos).
+
+**O que saiu da tela:**
+- a foto "Perto de você / Sua próxima arena" (`arena-cover.jpg` continua no produto, como capa padrão do Perfil);
+- o carrossel de cartões de modalidade e a barra de progresso sempre vazia;
+- a placa escura "Para responder" (`PendingPlate`), removida dos dois clientes;
+- a saudação "Bora jogar, {nome}?" e a seção separada "Próxima partida";
+- no Expo, o subtítulo próprio e os grupos de atalhos JOGAR, ORGANIZADOR e ADMINISTRAÇÃO. Os destinos continuam no Jogar e no menu do Perfil, como na web.
+
+**Desvios visuais mantidos em relação ao protótipo:**
+- O título da saudação mantém 25 px. O protótipo usa 22 px.
+- Placar e Pílulas usam `forest` liso, sem o gradiente do protótipo, iguais nos dois temas.
+- O título do cartão do Destaque fica em caixa alta, o rótulo curto da pendência. O protótipo usa caixa de frase.
+- As etiquetas dos campeonatos seguem o formato dos cartazes ("R$ 40", "8 de 16 times"), e não "R$ 40 por time" e "8 de 16 vagas".
+- O cartão do próximo passo mantém o texto atual ("Mostre onde e como você gosta de jogar."), e o convite sem perfis segue a spec ("Configure suas modalidades"). O protótipo mostrava "Escolha suas modalidades para jogar" e "Defina sua cidade".
+- Os lados do confronto usam os tamanhos existentes de escudo e avatar. Sem quadra definida, a linha do local não aparece.
+- Na web, os ícones de modalidade sobre os blocos escuros são pintados por máscara (`SportIcon`). A 320 px, o título dos Campeonatos e o convite sem perfis truncam com reticências, e a métrica da corrida ("1:45:30 · 21 km") quebra em duas linhas, sem overflow.
+- No Expo, a marca d'água do Placar fica centralizada (placa `TeamsPlate`), e a das Pílulas fica no canto. Os ícones usam os SVGs com alfa e o `Icon` existentes, sem desfoque.
+
+A web foi conferida no navegador, com API e PostgreSQL reais, em 320, 390 e 1440 px, nos temas claro e escuro. As verificações estão na [situação da fundação](situacao-fundacao.md). No Expo, não há declaração de paridade visual nem validação em aparelho.

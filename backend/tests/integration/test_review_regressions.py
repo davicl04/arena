@@ -1,11 +1,13 @@
 """Regression coverage of the play-page review: suspension, blind result and final stats review."""
 from datetime import timedelta
+from decimal import Decimal
 
 import pytest
 from sqlalchemy import select
 
 from app.models.matches import Match
 from app.services.matchmaking_queue import queue
+from app.services.scoring import adjusted_mean
 from tests.integration.match_helpers import NOW, add, make_user, tennis_search
 from tests.integration.result_helpers import lineup, login, put_result
 from tests.integration.test_results_flow import confirm, my_stats, review, standings
@@ -71,4 +73,6 @@ def test_final_review_cannot_change_stats_or_rankings_again(world):
     member = next(row for row in current if row['user']['id'] == w.people['member_a'].id)
     assert member['stat']['goals'] == 1 and member['can_review'] is False
     rank = standings(w.db)[(w.people['member_a'].id, 'futebol', 'society', 'atacante')]
-    assert rank.metric_value == final.json()['points']['total']
+    # The ranking keeps the points of the final review, as the adjusted mean of one match (m = 5, μ = 3.0).
+    total = Decimal(str(final.json()['points']['total']))
+    assert rank.metric_value == adjusted_mean(total, 1, Decimal(5), Decimal('3.0'))

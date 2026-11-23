@@ -162,7 +162,7 @@ def tier_offset(counts: Mapping[str, int], tier: str) -> int:
 
 
 def gap(ahead: Decimal | float | int, behind: Decimal | float | int, direction: str) -> float:
-    """How far `ahead` (the better place) is from `behind` in the metric of the ranking: `maior` (points, average)
+    """How far `ahead` (the better place) is from `behind` in the metric of the ranking: `maior` (rating, average)
     is `ahead - behind`; `menor` (running time, in seconds) is `behind - ahead`. Never negative."""
     ahead, behind = Decimal(str(ahead)), Decimal(str(behind))
     return float(max(ahead - behind if direction == 'maior' else behind - ahead, Decimal(0)))
@@ -214,7 +214,8 @@ def _lead_metrics(db: Session, category: Category, counts: Mapping[str, int],
 def my_lines(db: Session, viewer: User, category: Category, counts: Mapping[str, int],
              teams: Sequence[Team]) -> list[MyRankingLineOut]:
     """The viewer's lines in this ranking (each active team in a team ranking), even while in placement, with the
-    place inside the tier and the gaps to its leader and to the next one (ranked lines only)."""
+    place inside the tier and the gaps to its leader and to the next one (ranked lines only). In a rating ranking
+    the line in placement has no `metric_value`."""
     pairs = _my_rows(db, viewer, category, teams)
     metrics = _lead_metrics(db, category, counts, (row for _, row in pairs))
     lines = []
@@ -231,7 +232,8 @@ def my_lines(db: Session, viewer: User, category: Category, counts: Mapping[str,
                 extra.update(next_gap=gap(row.metric_value, metrics[row.rank_position + 1], category.cuts.direction),
                              next_tier_position=position + 1)
         lines.append(MyRankingLineOut(team=None if team is None else _team_ref(team),
-                                      **standing_line(row, category.required, running=category.is_running), **extra))
+                                      **standing_line(row, category.required, running=category.is_running,
+                                                      rating=category.cuts.is_rating), **extra))
     return lines
 
 

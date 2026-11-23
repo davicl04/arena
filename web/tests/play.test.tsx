@@ -18,7 +18,7 @@ vi.mock('../src/api/client', async original => ({
 }))
 
 const city: City = { id: 7, name: 'Brasília', state: 'DF' }
-const football: Profile = { id: 1, sport: 'futebol', city_id: 7, position: 'atacante', looking_for: false, is_public: false, level: null }
+const football: Profile = { id: 1, sport: 'futebol', city_id: 7, city, position: 'atacante', looking_for: false, is_public: false, level: null }
 const tennis: Profile = { ...football, id: 2, sport: 'tenis', position: null }
 const running: Profile = { ...football, id: 3, sport: 'corrida', position: null }
 
@@ -52,7 +52,7 @@ function renderPlay(data: MeStandings | Error, profiles: Profile[] = [football, 
     return data as never
   })
   const go = vi.fn()
-  render(<PlayPage profiles={profiles} cities={[city]} loading={false} board={idleBoard()} go={go} onExpired={vi.fn()} />)
+  render(<PlayPage profiles={profiles} loading={false} board={idleBoard()} go={go} onExpired={vi.fn()} />)
   return go
 }
 const button = (name: string | RegExp) => screen.getByRole('button', { name }) as HTMLButtonElement
@@ -187,7 +187,6 @@ describe('placa do Jogar (fase 1)', () => {
     Element.prototype.scrollTo = () => {}
     vi.mocked(request).mockImplementation(async path => {
       if (path === '/me/sports-profiles') return [football] as never
-      if (path === '/cities') return [city] as never
       if (path === '/me/standings') return standings() as never
       if (path === '/me/notifications/summary') return summaryOf({ unread_count: 2 }) as never
       return { items: [], next_cursor: null } as never

@@ -108,6 +108,17 @@ class ProfileOut(ProfileInput):
     sport: Sport
     is_public: bool
     level: str | None = None
+    city: 'CityOut'
+
+
+class NearestCityInput(Input):
+    """Localização do aparelho para sugerir a cidade; só no corpo, nunca persistida nem ecoada.
+
+    `strict` recusa texto e booleanos (só número JSON); `allow_inf_nan=False` recusa NaN e Infinity, que o parser
+    JSON do Python aceita.
+    """
+    latitude: float = Field(ge=-90, le=90, strict=True, allow_inf_nan=False)
+    longitude: float = Field(ge=-180, le=180, strict=True, allow_inf_nan=False)
 
 
 class CityOut(BaseModel):

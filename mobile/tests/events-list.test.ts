@@ -16,7 +16,7 @@ vi.mock('../src/data/sportIcons', () => ({ sportIcons: { futebol: 'futebol.png',
 
 const h = React.createElement
 const brasilia: City = { id: 1, name: 'Brasília', state: 'DF' }
-const profile = (sport: Profile['sport'], city_id = 1): Profile => ({ id: 1, sport, city_id, position: null, looking_for: false, is_public: false, level: null })
+const profile = (sport: Profile['sport'], city: City = brasilia): Profile => ({ id: 1, sport, city_id: city.id, city, position: null, looking_for: false, is_public: false, level: null })
 
 function mountScreen(navigation = navigationMock(), params: { sport?: 'futebol' | 'tenis' | 'corrida' } | undefined = { sport: 'futebol' }, onExpired = vi.fn()) {
   return render(h(EventsScreen, { user: me, navigation, onUser: vi.fn(), onLogout: vi.fn(), ...playContext(), onExpired, params, title: 'Campeonatos' }))
@@ -38,7 +38,7 @@ beforeEach(() => {
 describe('Campeonatos e provas (E2): lista', () => {
   it('lista os cartazes da cidade do perfil e deixa os de fora da faixa apagados, com cadeado e o motivo', async () => {
     serve({
-      '/me/sports-profiles': [profile('futebol')], '/cities': [brasilia], '/me/entries?scope=ativas&limit=50': page<MyEntry>([]),
+      '/me/sports-profiles': [profile('futebol')], '/me/entries?scope=ativas&limit=50': page<MyEntry>([]),
       '/events?sport=futebol&city_id=1': page<EventCard>([open, locked, joined]),
     })
     const tree = await mountScreen()
@@ -57,7 +57,7 @@ describe('Campeonatos e provas (E2): lista', () => {
   })
 
   it('abre o detalhe do cartaz tocado, com a modalidade', async () => {
-    serve({ '/me/sports-profiles': [profile('futebol')], '/cities': [brasilia], '/me/entries?scope=ativas&limit=50': page<MyEntry>([]), '/events?sport=futebol&city_id=1': page([open]) })
+    serve({ '/me/sports-profiles': [profile('futebol')], '/me/entries?scope=ativas&limit=50': page<MyEntry>([]), '/events?sport=futebol&city_id=1': page([open]) })
     const navigation = navigationMock()
     const tree = await mountScreen(navigation)
     await pressButton(tree, cards(tree)[0].props.accessibilityLabel)
@@ -66,7 +66,7 @@ describe('Campeonatos e provas (E2): lista', () => {
 
   it('"Ver todas" tira o filtro da cidade e "Só Brasília" o devolve', async () => {
     serve({
-      '/me/sports-profiles': [profile('futebol')], '/cities': [brasilia], '/me/entries?scope=ativas&limit=50': page<MyEntry>([]),
+      '/me/sports-profiles': [profile('futebol')], '/me/entries?scope=ativas&limit=50': page<MyEntry>([]),
       '/events?sport=futebol&city_id=1': page([open]), '/events?sport=futebol': page([open, locked]),
     })
     const tree = await mountScreen()
@@ -79,8 +79,21 @@ describe('Campeonatos e provas (E2): lista', () => {
     expect(callsTo('GET', '/events?sport=futebol')).toHaveLength(1)
   })
 
+  it('nomeia e filtra pela cidade do objeto `city` do perfil, mesmo fora das primeiras do catálogo, sem ler a lista global', async () => {
+    const valparaiso: City = { id: 5221858, name: 'Valparaíso de Goiás', state: 'GO' }
+    serve({
+      '/me/sports-profiles': [profile('futebol', valparaiso)], '/me/entries?scope=ativas&limit=50': page<MyEntry>([]),
+      '/events?sport=futebol&city_id=5221858': page<EventCard>([]),
+    })
+    const tree = await mountScreen()
+    expect(allText(tree)).toContain('Nenhum campeonato aberto em Valparaíso de Goiás')
+    expect(findButton(tree, 'Ver todas as cidades')).toBeTruthy()
+    expect(callsTo('GET', '/events?sport=futebol&city_id=5221858')).toHaveLength(1)
+    expect(vi.mocked(request).mock.calls.some(call => String(call[0]).startsWith('/cities'))).toBe(false)
+  })
+
   it('sem cidade no perfil lista todas as cidades e "Definir cidade" leva ao Perfil', async () => {
-    serve({ '/me/sports-profiles': [], '/cities': [brasilia], '/me/entries?scope=ativas&limit=50': page<MyEntry>([]), '/events?sport=futebol': page([open]) })
+    serve({ '/me/sports-profiles': [], '/me/entries?scope=ativas&limit=50': page<MyEntry>([]), '/events?sport=futebol': page([open]) })
     const navigation = navigationMock()
     const tree = await mountScreen(navigation)
     expect(allText(tree)).toContain('Sem cidade no perfil de Futebol · todas as cidades')
@@ -89,7 +102,7 @@ describe('Campeonatos e provas (E2): lista', () => {
   })
 
   it('os chips trocam a modalidade (a tela chama os eventos da corrida de Provas)', async () => {
-    serve({ '/me/sports-profiles': [], '/cities': [], '/me/entries?scope=ativas&limit=50': page<MyEntry>([]), '/events?sport=futebol': page<EventCard>([]) })
+    serve({ '/me/sports-profiles': [], '/me/entries?scope=ativas&limit=50': page<MyEntry>([]), '/events?sport=futebol': page<EventCard>([]) })
     const navigation = navigationMock()
     const tree = await mountScreen(navigation)
     expect(labelled(tree, 'Futebol')[0].props.accessibilityState).toMatchObject({ checked: true, selected: true })
@@ -98,13 +111,13 @@ describe('Campeonatos e provas (E2): lista', () => {
   })
 
   it('mostra o estado vazio honesto, com a cidade quando filtrada, e "Provas" na corrida', async () => {
-    serve({ '/me/sports-profiles': [profile('futebol')], '/cities': [brasilia], '/me/entries?scope=ativas&limit=50': page<MyEntry>([]), '/events?sport=futebol&city_id=1': page<EventCard>([]) })
+    serve({ '/me/sports-profiles': [profile('futebol')], '/me/entries?scope=ativas&limit=50': page<MyEntry>([]), '/events?sport=futebol&city_id=1': page<EventCard>([]) })
     const tree = await mountScreen()
     expect(byId(tree, 'events-empty')).toHaveLength(1)
     expect(allText(tree)).toContain('Nenhum campeonato aberto em Brasília')
     expect(allText(tree)).toContain('Quando um organizador publicar um campeonato na sua cidade, ele aparece aqui.')
     expect(findButton(tree, 'Ver todas as cidades')).toBeTruthy()
-    serve({ '/me/sports-profiles': [], '/cities': [], '/me/entries?scope=ativas&limit=50': page<MyEntry>([]), '/events?sport=corrida': page<EventCard>([]) })
+    serve({ '/me/sports-profiles': [], '/me/entries?scope=ativas&limit=50': page<MyEntry>([]), '/events?sport=corrida': page<EventCard>([]) })
     const run = await mountScreen(navigationMock(), { sport: 'corrida' })
     expect(allText(run)).toContain('Nenhuma prova aberta')
     expect(allText(run)).toContain('Quando um organizador publicar uma prova, ela aparece aqui.')
@@ -114,7 +127,7 @@ describe('Campeonatos e provas (E2): lista', () => {
   it('"Minhas inscrições" mostra as da modalidade e abre o detalhe do evento', async () => {
     const mine = myEntry({ id: 9, event: { ...open, id: 5 }, state: 'reservada' })
     const other = myEntry({ id: 10, event: { ...open, id: 8, name: 'Prova da Orla', sport: 'corrida' }, state: 'confirmada', subject: { kind: 'atleta', team: null, athlete: { id: 1, name: 'Maria', username: 'maria.s', avatar_url: null } } })
-    serve({ '/me/sports-profiles': [], '/cities': [], '/me/entries?scope=ativas&limit=50': page([mine, other]), '/events?sport=futebol': page<EventCard>([]) })
+    serve({ '/me/sports-profiles': [], '/me/entries?scope=ativas&limit=50': page([mine, other]), '/events?sport=futebol': page<EventCard>([]) })
     const navigation = navigationMock()
     const tree = await mountScreen(navigation)
     expect(allText(tree)).toContain('MINHAS INSCRIÇÕES')
@@ -130,7 +143,7 @@ describe('Campeonatos e provas (E2): lista', () => {
     const full = eventCard(11, { name: 'Copa Lotada', capacity: 8, entries_count: 8 })
     const closed = eventCard(12, { name: 'Copa Encerrada', phase: 'inscricoes_encerradas' })
     const paused = eventCard(13, { name: 'Copa Pausada', revocation_pending: true })
-    serve({ '/me/sports-profiles': [], '/cities': [], '/me/entries?scope=ativas&limit=50': page<MyEntry>([]), '/events?sport=futebol': page([full, closed, paused]) })
+    serve({ '/me/sports-profiles': [], '/me/entries?scope=ativas&limit=50': page<MyEntry>([]), '/events?sport=futebol': page([full, closed, paused]) })
     const text = allText(await mountScreen())
     expect(text).toContain('Vagas esgotadas')
     expect(text).toContain('Inscrições encerradas')
@@ -140,7 +153,7 @@ describe('Campeonatos e provas (E2): lista', () => {
   it('pagina com "Carregar mais campeonatos" e conserva a ordem', async () => {
     const first = [eventCard(21, { name: 'Copa A' }), eventCard(22, { name: 'Copa B' }), eventCard(23, { name: 'Copa C' })]
     serve({
-      '/me/sports-profiles': [], '/cities': [], '/me/entries?scope=ativas&limit=50': page<MyEntry>([]),
+      '/me/sports-profiles': [], '/me/entries?scope=ativas&limit=50': page<MyEntry>([]),
       '/events?sport=futebol': page(first, 'p2'), '/events?sport=futebol&cursor=p2': page([eventCard(24, { name: 'Copa D' })]),
     })
     const tree = await mountScreen()
@@ -154,7 +167,7 @@ describe('Campeonatos e provas (E2): lista', () => {
   it('falhas aparecem com a mensagem e "Tentar novamente"; 401 expira a sessão', async () => {
     let fail = true
     serve({
-      '/me/sports-profiles': [], '/cities': [], '/me/entries?scope=ativas&limit=50': new ApiError('Inscrições fora do ar', 500),
+      '/me/sports-profiles': [], '/me/entries?scope=ativas&limit=50': new ApiError('Inscrições fora do ar', 500),
       '/events?sport=futebol': () => { if (fail) return new ApiError('Eventos fora do ar', 500); return page([open]) },
     })
     const tree = await mountScreen()
@@ -166,7 +179,7 @@ describe('Campeonatos e provas (E2): lista', () => {
     expect(cards(tree)).toHaveLength(1)
 
     const onExpired = vi.fn()
-    serve({ '/me/sports-profiles': new ApiError('Sessão expirada', 401), '/cities': [], '/me/entries?scope=ativas&limit=50': page<MyEntry>([]), '/events?sport=futebol': page<EventCard>([]) })
+    serve({ '/me/sports-profiles': new ApiError('Sessão expirada', 401), '/me/entries?scope=ativas&limit=50': page<MyEntry>([]), '/events?sport=futebol': page<EventCard>([]) })
     const expired = await mountScreen(navigationMock(), { sport: 'futebol' }, onExpired)
     expect(onExpired).toHaveBeenCalled()
     expect(allText(expired)).toContain('Cidade do perfil indisponível · todas as cidades')
@@ -175,7 +188,7 @@ describe('Campeonatos e provas (E2): lista', () => {
   })
 
   it('sem parâmetros abre em Campeonatos de futebol', async () => {
-    serve({ '/me/sports-profiles': [], '/cities': [], '/me/entries?scope=ativas&limit=50': page<MyEntry>([]), '/events?sport=futebol': page([open]) })
+    serve({ '/me/sports-profiles': [], '/me/entries?scope=ativas&limit=50': page<MyEntry>([]), '/events?sport=futebol': page([open]) })
     const tree = await mountScreen(navigationMock(), undefined)
     expect(cards(tree)).toHaveLength(1)
   })

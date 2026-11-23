@@ -54,8 +54,8 @@ export function playContext(board: PlayBoard | null = null, summary: Notificatio
   return { playBoard, refreshPlayBoard: playBoard.reload, notificationSummary: notificationSummaryState(summary) }
 }
 
-export const football: Profile = { id: 1, sport: 'futebol', city_id: brasilia.id, position: 'atacante', looking_for: false, is_public: false, level: null }
-export const tennis: Profile = { id: 2, sport: 'tenis', city_id: brasilia.id, position: null, looking_for: false, is_public: false, level: null }
+export const football: Profile = { id: 1, sport: 'futebol', city_id: brasilia.id, city: brasilia, position: 'atacante', looking_for: false, is_public: false, level: null }
+export const tennis: Profile = { id: 2, sport: 'tenis', city_id: brasilia.id, city: brasilia, position: null, looking_for: false, is_public: false, level: null }
 
 const line = { state: 'sem_jogos' as const, tier: null, played: 0, required: 3, rank_position: null, metric_value: null, faces: [], faces_any_level: true }
 const formatLines = (['futsal', 'society', 'campo'] as const).map(format => ({ ...line, format }))

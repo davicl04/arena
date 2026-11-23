@@ -3,6 +3,7 @@ import type { FormEvent, ReactNode } from 'react'
 import { ArrowLeft, ArrowRight, Hourglass, Info, MapPin, QrCode, Save, Send, ShieldCheck, X } from 'lucide-react'
 import { ApiError } from '@/api/client'
 import type { City, Sport } from '@/api/client'
+import { cityLabel } from '@/api/cities'
 import { createEvent, EVENT_LIMITS, getOrganizerEvent, submitEvent, updateEvent } from '@/api/events'
 import type { OrganizerEventDetail } from '@/api/events'
 import SportIcon from '@/components/SportIcon'
@@ -50,12 +51,11 @@ const unitFor = (sport: Sport | null) => (sport ? eventNoun[sport].entrants : 'v
  * último passo, o botão publica o gratuito ou envia o pago para a aprovação da administração. Com `eventId`, edita o
  * rascunho, abrindo no primeiro passo incompleto (ou em `initialStep`). Erros da API voltam ao passo do campo.
  */
-export default function EventWizard({ eventId, initialStep, cities, onClose, onDone, onExpired }: {
+export default function EventWizard({ eventId, initialStep, onClose, onDone, onExpired }: {
   /** Rascunho a editar; ausente cria um evento. */
   eventId?: number
   /** Passo ao abrir (G3 → "Preencher"); sem ele, o primeiro incompleto. */
   initialStep?: number
-  cities: City[]
   onClose: () => void
   /** Publicado ou enviado para aprovação: abre a gestão do evento. */
   onDone: (event: OrganizerEventDetail) => void
@@ -76,6 +76,8 @@ export default function EventWizard({ eventId, initialStep, cities, onClose, onD
   const [busy, setBusy] = useState<Busy>(null)
   const [dirty, setDirty] = useState(false)
   const [picking, setPicking] = useState(false)
+  /** Cidade escolhida ou lida do rascunho (`detail.city`): o formulário guarda só o ID. */
+  const [pickedCity, setPickedCity] = useState<City | null>(null)
   const [leaving, setLeaving] = useState(false)
   /** Pedido de foco: a pergunta do passo ou o primeiro campo com erro (`pendingFocus`). */
   const [focusRequest, setFocusRequest] = useState(0)
@@ -93,6 +95,7 @@ export default function EventWizard({ eventId, initialStep, cities, onClose, onD
       }
       const loaded = formFromDetail(detail)
       setForm(loaded)
+      setPickedCity(detail.city)
       setStep(initialStep !== undefined ? Math.min(Math.max(initialStep, 0), LAST_STEP) : firstIncompleteStep(loaded))
       setFocusRequest(n => n + 1)
     }).catch((cause: unknown) => {
@@ -246,7 +249,7 @@ export default function EventWizard({ eventId, initialStep, cities, onClose, onD
 
   const paid = form.paid === true
   const finalLabel = paid ? 'Enviar para aprovação' : 'Publicar'
-  const city = cities.find(item => item.id === form.cityId) ?? null
+  const city = pickedCity && pickedCity.id === form.cityId ? pickedCity : null
   const unit = unitFor(form.sport)
   const previewCapacity = parseCapacity(form.capacity)
   const previewStart = startsAt(form) ?? (form.startDate ? `${form.startDate}T12:00:00` : null)
@@ -295,8 +298,8 @@ export default function EventWizard({ eventId, initialStep, cities, onClose, onD
         state="rascunho" stateLabel={paid ? 'Vai para aprovação' : 'Rascunho'} showSport />
     </section>
 
-    {picking && <CitySheet cities={cities} selectedId={form.cityId} title="Cidade do evento" description="Os atletas veem a cidade no cartaz e no detalhe."
-      onClose={() => setPicking(false)} onSelect={item => { update({ cityId: item.id }); setPicking(false) }} />}
+    {picking && <CitySheet selected={city} title="Cidade do evento" description="Os atletas veem a cidade no cartaz e no detalhe."
+      onClose={() => setPicking(false)} onSelect={item => { setPickedCity(item); update({ cityId: item.id }); setPicking(false) }} />}
     {leaving && <Sheet title="Sair sem salvar?" description="As mudanças desde o último rascunho salvo se perdem." onClose={() => setLeaving(false)}>
       <div className="mt-3 grid gap-2">
         <button type="button" data-autofocus className={teamButton({ tone: 'brand', size: 'block' })} disabled={Boolean(busy)}
@@ -432,7 +435,7 @@ function WhenStep({ form, errors, update, city, onPickCity }: StepProps & { city
     <span className={darkLabel} id="ev-city-label">Cidade</span>
     <div role="group" aria-labelledby="ev-city-label" className={cn('flex min-h-[46px] items-center gap-2 rounded-control border border-solid bg-white/5 py-1 pr-1.5 pl-3 text-[13px]', errors.cityId ? 'border-danger-soft' : 'border-transparent')}>
       <MapPin size={17} className="text-mint" aria-hidden="true" />
-      <b className="min-w-0 flex-1 truncate">{city ? `${city.name} · ${city.state}` : 'Escolha a cidade do evento'}</b>
+      <b className="min-w-0 flex-1 truncate">{city ? cityLabel(city) : 'Escolha a cidade do evento'}</b>
       <button type="button" id={FIELD_ID.cityId} className="min-h-9 border-0 bg-transparent px-1.5 text-[11px] font-bold text-mint focus-visible:outline-mint"
         aria-describedby={errors.cityId ? `${FIELD_ID.cityId}-error` : undefined} onClick={onPickCity}>{city ? 'Trocar' : 'Escolher'}</button>
     </div>

@@ -40,7 +40,7 @@ function mockApi(feed: () => unknown = () => page([post])) {
   vi.mocked(request).mockImplementation(async (path, method) => {
     if (path === '/posts' && method === 'POST') return { ...post, id: 99, caption: 'Nova', author: { ...athlete, id: 1, username: 'eu' } } as never
     if (path === '/posts') return feed() as never
-    if (path === '/cities' || path === '/me/sports-profiles') return [] as never
+    if (path === '/me/sports-profiles') return [] as never
     if (path === '/users/1') return { ...athlete, id: me.id, name: me.name, username: me.username, follow_state: 'self' } as never
     if (path === '/users/2') return athlete as never
     if (path === '/users/1/posts') return page([{ ...post, author: { ...athlete, id: me.id, name: me.name, username: me.username } }]) as never

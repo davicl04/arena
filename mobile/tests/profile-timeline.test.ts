@@ -21,7 +21,7 @@ vi.mock('react-native-svg', async () => (await import('./support/native')).svgMo
 vi.mock('react-native-safe-area-context', async () => (await import('./support/native')).safeAreaMock())
 vi.mock('../src/components/ui', async () => (await import('./support/native')).uiMock())
 vi.mock('expo-image-picker', () => ({ launchImageLibraryAsync: vi.fn() }))
-vi.mock('../src/components/SportCard', () => ({ default: () => null }))
+vi.mock('../src/components/sports-profile/SportsProfiles', () => ({ SportsProfiles: () => null }))
 vi.mock('../src/api/client', async original => ({
   ...await original<typeof import('../src/api/client')>(),
   apiUrl: (path: string) => path,
@@ -442,7 +442,7 @@ describe('telas de perfil com a aba Partidas', () => {
 
   it('perfil próprio: blocos de estatística e a linha do tempo na aba Partidas; o toque abre a partida', async () => {
     vi.mocked(request).mockImplementation(async path => {
-      if (path === '/cities' || path === '/me/sports-profiles') return [] as never
+      if (path === '/me/sports-profiles') return [] as never
       if (path === '/users/1') return meSocial as never
       if (path === '/me/profile-stats') return stats() as never
       if (path === '/users/1/timeline') return page([timelineMatch({ id: 31 }), timelineRun()]) as never

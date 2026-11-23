@@ -52,6 +52,10 @@ export const footballFormat = Object.fromEntries(footballFormats.map(format => [
 
 /** Siglas das posições (elenco, vagas e chaves). Os rótulos completos ficam em `positions`, no cliente da API. */
 export const positionShort: Record<Position, string> = { goleiro: 'GOL', defesa: 'DEF', meio_campo: 'MEI', atacante: 'ATA' }
+/** O que cada posição faz, em uma linha (passo da posição da tela de modalidades). */
+export const positionDescription: Record<Position, string> = {
+  goleiro: 'Defende a meta', defesa: 'Segura a linha de trás', meio_campo: 'Arma as jogadas', atacante: 'Busca o gol',
+}
 /** Posições com rótulo e sigla, na ordem de `positions`. */
 export const positionOptions = positions.map(position => ({ ...position, short: positionShort[position.value] }))
 

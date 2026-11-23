@@ -1,5 +1,6 @@
 """Matchmaking queue on PostgreSQL (one session): pairing order, buckets, proposals, walk-in offers and expiry."""
 from datetime import timedelta
+from decimal import Decimal
 
 import pytest
 from sqlalchemy import select
@@ -85,6 +86,47 @@ def test_pairing_order_same_tier_then_neighbour_then_oldest(client):
     assert queue.enqueue(db, team_search(squads[7], reps[7], tier='prata'), now=NOW) is None
     assert diamante.state == 'ativa'
 
+
+
+def test_inside_the_tier_group_the_closest_rating_is_paired(client):
+    _, db = client
+    reps, squads = teams(db, 5)
+
+    def rating(index, value):
+        make_standing(db, tier='ouro', team=squads[index], format_='society', metric_value=Decimal(value),
+                      calc_version=2)
+
+    # Three compatible Ouro searches wait; the oldest has the farthest rating, the second has no row (1000).
+    far = add(db, team_search(squads[0], reps[0], tier='ouro', started_at=NOW - timedelta(hours=3)))
+    unrated = add(db, team_search(squads[1], reps[1], tier='ouro', started_at=NOW - timedelta(hours=2)))
+    close = add(db, team_search(squads[2], reps[2], tier='ouro', started_at=NOW - timedelta(hours=1)))
+    rating(0, 1300)
+    rating(2, '1120.5')
+    rating(3, 1100)
+    rating(4, 1010)
+    # The rating of the team in another format does not count.
+    make_standing(db, tier='ouro', team=squads[1], format_='campo', metric_value=Decimal(1300), calc_version=2)
+    first = queue.enqueue(db, team_search(squads[3], reps[3], tier='ouro'), now=NOW)
+    assert first.searches[0] == close                                       # 1100 against 1120.5
+    second = queue.enqueue(db, team_search(squads[4], reps[4], tier='ouro'), now=NOW)
+    assert second.searches[0] == unrated                                    # 1010 against the initial 1000
+    assert far.state == 'ativa'
+
+
+def test_tennis_pairs_the_closest_rating_and_reads_only_rows_of_the_current_calculation(client):
+    _, db = client
+    newcomer, stale, rated = make_user(db, 'tenista-novo'), make_user(db, 'tenista-antigo'), make_user(db, 'tenista')
+    # In placement the rating is stored (and used here). A row still of version 1 holds points, not a rating:
+    # until the recalculation it counts as the initial rating.
+    make_standing(db, tier=None, sport='tenis', user=newcomer, metric_value=Decimal(1000), matches_played=2,
+                  calc_version=2)
+    make_standing(db, tier=None, sport='tenis', user=stale, metric_value=Decimal(20), matches_played=2)
+    make_standing(db, tier=None, sport='tenis', user=rated, metric_value=Decimal(1040), matches_played=2,
+                  calc_version=2)
+    waiting_rated = add(db, tennis_search(rated, started_at=NOW - timedelta(hours=2)))
+    waiting_stale = add(db, tennis_search(stale, started_at=NOW - timedelta(hours=1)))
+    pairing = queue.enqueue(db, tennis_search(newcomer), now=NOW)
+    assert pairing.searches[0] == waiting_stale and waiting_rated.state == 'ativa'
 
 def test_buckets_keep_formats_cities_and_sports_apart(client):
     _, db = client

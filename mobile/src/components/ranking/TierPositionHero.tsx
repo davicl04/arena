@@ -15,8 +15,9 @@ function Stat({ big, small, label }: { big: string; small: string; label: string
 
 /**
  * Posição do titular no elo que a placa mostra: "SUA POSIÇÃO NO DIAMANTE", o número grande ("6º"), "de 12 no Diamante · Resenha
- * EC" (o time só no ranking de Times) e três números: a métrica, a distância para o 1º do elo ("7 pts atrás do 1º" ou "Lidera o
- * Diamante") e a vantagem sobre o próximo ("1 pt à frente do 7º" ou "Último do Diamante"). A posição geral não aparece.
+ * EC" (o time só no ranking de Times) e três números: a métrica ("1087 | rating"), a distância para o 1º do elo ("7 rating
+ * atrás do 1º" ou "Lidera o Diamante") e a vantagem sobre o próximo ("1 rating à frente do 7º" ou "Último do Diamante"). Sem o
+ * valor da métrica (nunca inventado como 0), ficam só as duas distâncias. A posição geral não aparece.
  */
 export function TierPositionHero({ line, tier, ranking, teamName }: { line: MyRankingOverviewLine; tier: TierKey; ranking: RankingKey; teamName: string | null }) {
   const position = line.tier_position ?? 0
@@ -40,7 +41,9 @@ export function TierPositionHero({ line, tier, ranking, teamName }: { line: MyRa
       <TierEmblem tier={tier} size="xl" decorative />
     </View>
     <View style={{ flexDirection: 'row', gap: 10 }}>
-      <Stat big={formatMetric(line.metric_value ?? 0, ranking)} small={metricUnit(ranking)} label={metricText(line.metric_value ?? 0, ranking)} />
+      {line.metric_value != null
+        ? <Stat big={formatMetric(line.metric_value, ranking)} small={metricUnit(ranking)} label={metricText(line.metric_value, ranking)} />
+        : null}
       <Stat {...lead} />
       <Stat {...back} />
     </View>

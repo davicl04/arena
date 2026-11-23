@@ -8,9 +8,10 @@ import { RecentForm } from './RecentForm'
 
 /*
  * Linha do Ranking dentro do elo: posição no elo, escudo do time ou foto do atleta, nome (com o selo "Você" ou "Seu time"
- * na linha do titular), a forma recente (ou, na corrida, a data da melhor marca) e a métrica com a unidade. Todas as
- * linhas de uma lista são do mesmo elo, por isso não há brasão do elo. `glass` é a linha de vidro sobre a placa
- * contínua; `hall` é a linha numerada do Salão dos Lendários. A linha do titular tem borda menta e `aria-current`.
+ * na linha do titular), a forma recente (ou, na corrida, a data da melhor marca) e a métrica com a unidade ("1087
+ * rating", "4,26 média"). Todas as linhas de uma lista são do mesmo elo, por isso não há brasão do elo. `glass` é a linha
+ * de vidro sobre a placa contínua; `hall` é a linha numerada do Salão dos Lendários. A linha do titular tem borda menta e
+ * `aria-current`.
  */
 export type RankingLineTone = 'glass' | 'hall'
 
@@ -54,7 +55,7 @@ export function RankingLine({ row, ranking, tone = 'glass', onOpenUser }: {
     <li
       data-mine={row.is_mine ? '' : undefined}
       aria-current={row.is_mine ? 'true' : undefined}
-      className={cn('flex items-center gap-2 border border-solid',
+      className={cn('flex min-w-0 items-center gap-2 border border-solid',
         hall ? 'rounded-2xl px-3 py-[11px]' : 'rounded-[14px] px-3 py-2.5',
         row.is_mine
           ? (hall ? 'border-mint bg-mint/8' : 'border-mint/40 bg-mint/12')
@@ -65,7 +66,7 @@ export function RankingLine({ row, ranking, tone = 'glass', onOpenUser }: {
           className="flex min-w-0 flex-1 items-center gap-2 border-0 bg-transparent p-0 text-inherit focus-visible:outline-mint">{body}</button>
         : <div className="flex min-w-0 flex-1 items-center gap-2">{body}</div>}
       <span className="grid min-w-9 flex-none justify-items-end">
-        <b className={cn('font-display font-extrabold tabular-nums', hall ? 'text-[15px] text-legend' : 'text-[14px] text-white')}>{formatMetric(row.metric_value, ranking)}</b>
+        <b className={cn('font-display font-extrabold tabular-nums', hall ? 'text-[15px] text-legend' : 'text-[14px] text-white')}>{formatMetric(row.metric_value, ranking)}</b>{' '}
         <small className="text-[9.5px] text-white/50">{metricUnit(ranking)}</small>
       </span>
     </li>

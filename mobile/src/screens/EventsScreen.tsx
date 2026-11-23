@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Pressable, ScrollView, Text, View } from 'react-native'
 import { sports } from '../api/client'
-import type { City, Profile, Sport } from '../api/client'
+import type { Profile, Sport } from '../api/client'
 import { eventsPath, myEntriesPath } from '../api/entries'
 import type { EventCard, MyEntry } from '../api/entries'
 import { EventPoster } from '../components/arena/EventPoster'
@@ -13,7 +13,7 @@ import { Icon } from '../components/Icon'
 import { Button } from '../components/ui'
 import { entryState, eventNoun } from '../data/arena'
 import { usePagedList } from '../hooks/usePagedList'
-import { loadPlaces } from '../hooks/useCities'
+import { loadProfiles } from '../hooks/useCities'
 import { useResource } from '../hooks/useResource'
 import type { ScreenProps } from '../navigation/screens'
 import { useThemeColors } from '../hooks/useTheme'
@@ -119,11 +119,11 @@ export default function EventsScreen({ params, navigation, onExpired }: ScreenPr
   const colors = useThemeColors()
   const sport = params?.sport ?? 'futebol'
   const [allCities, setAllCities] = useState(false)
-  const places = useResource(loadPlaces, onExpired, { fallback: 'Não foi possível carregar a cidade do seu perfil.' })
+  const places = useResource(loadProfiles, onExpired, { fallback: 'Não foi possível carregar a cidade do seu perfil.' })
   const mine = usePagedList<MyEntry>(myEntriesPath('ativas'), onExpired)
-  const [profiles, cities]: [Profile[], City[]] = places.data ?? [[], []]
+  const profiles: Profile[] = places.data ?? []
   const profile = profiles.find(item => item.sport === sport)
-  const city = cities.find(item => item.id === profile?.city_id) ?? null
+  const city = profile?.city ?? null
   const filtered = Boolean(city) && !allCities
   const label = sports.find(item => item.value === sport)?.label ?? ''
   const myEntries = mine.items.filter(entry => entry.event.sport === sport)

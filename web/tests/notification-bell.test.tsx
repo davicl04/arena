@@ -70,7 +70,7 @@ describe('o sino nas abas raiz', () => {
 
   it('Jogar: fica na barra da placa, depois do chip da cidade, e abre as notificações', async () => {
     const go = vi.fn()
-    render(<PlayPage profiles={[]} cities={[]} loading={false} notificationCount={4} go={go}
+    render(<PlayPage profiles={[]} loading={false} notificationCount={4} go={go}
       board={{ board: null, loading: true, error: '', reload: vi.fn(async () => null), deferred: [], defer: vi.fn() }} onExpired={vi.fn()} />)
     const city = screen.getByRole('button', { name: /cidade/i })
     const bell = screen.getByRole('button', { name: 'Notificações, 4 novas' })

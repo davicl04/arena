@@ -22,7 +22,7 @@ def test_empty_standings_put_every_category_in_placement(client):
     response = http.get('/api/v1/me/standings', headers=headers)
     assert response.status_code == 200
     body = response.json()
-    assert body['calc_version'] == 1 and body['futebol']['teams'] == []
+    assert body['calc_version'] == 2 and body['futebol']['teams'] == []
     assert [(item['position'], item['format']) for item in body['futebol']['individual']] == [
         (position, fmt) for position in POSITIONS for fmt in FORMATS]
     lines = [*body['futebol']['individual'], body['tenis'], *body['corrida']]
@@ -64,9 +64,11 @@ def test_team_lines_follow_active_memberships_and_stored_tiers(client):
         ('Ferrugem FC', 'representante'), ('Amigos do Lago', 'membro')]
     assert teams[0]['team'] == {'id': represents.id, 'name': 'Ferrugem FC', 'initials': 'FF', 'crest_url': None}
     futsal, society, campo = teams[0]['formats']
-    assert (futsal['state'], futsal['played'], futsal['tier']) == ('classificacao', 1, None)
+    # Teams are ranked by rating (calc_version 2): the format in placement keeps its rating hidden.
+    assert (futsal['state'], futsal['played'], futsal['tier'], futsal['metric_value']) == ('classificacao', 1, None, None)
     assert (society['state'], society['tier'], society['faces'], society['faces_any_level']) == (
         'ranqueado', 'prata', ['bronze', 'prata', 'ouro'], False)
+    assert society['metric_value'] == 17.0
     assert campo['state'] == 'sem_jogos'
     assert body['tenis']['state'] == 'ranqueado' and body['tenis']['faces'] == ['bronze', 'prata', 'ouro']
     five = next(line for line in body['corrida'] if line['distance_km'] == 5)

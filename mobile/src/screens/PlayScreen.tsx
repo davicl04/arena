@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Pressable, ScrollView, Text, View } from 'react-native'
 import { sports } from '../api/client'
-import type { City, Profile, Sport } from '../api/client'
+import type { Profile, Sport } from '../api/client'
 import { cancelSearch, createSearch, normalizeBoard } from '../api/matchmaking'
 import type { MatchSearch, Proposal, SearchCreated } from '../api/matchmaking'
 import { getMyStandings } from '../api/play'
@@ -32,7 +32,7 @@ import { avulsoLine, lineView, normalizeStandings, runBestLine, teamLine } from 
 import type { AvulsoPosition, TierLineView } from '../components/play/tierLines'
 import { positionOptions, runDistances } from '../data/arena'
 import type { FootballFormat, RunDistance } from '../data/arena'
-import { loadPlaces } from '../hooks/useCities'
+import { loadProfiles } from '../hooks/useCities'
 import { useResource } from '../hooks/useResource'
 import { useRunBests } from '../hooks/useRunBests'
 import { useSubmit } from '../hooks/useSubmit'
@@ -84,10 +84,10 @@ export default function PlayScreen({ navigation, onExpired, playBoard: board, re
   const [watching, setWatching] = useState<number | null>(null)
   const start = useSubmit(onExpired)
   const cancel = useSubmit(onExpired)
-  const places = useResource(loadPlaces, onExpired, { fallback: 'Não foi possível carregar suas modalidades.' })
+  const places = useResource(loadProfiles, onExpired, { fallback: 'Não foi possível carregar suas modalidades.' })
   const standings = useResource(getMyStandings, onExpired, { fallback: 'Não foi possível carregar seu elo.' })
   const bests = useRunBests(onExpired, sport === 'corrida')
-  const [profiles, cities]: [Profile[], City[]] = places.data ?? [[], []]
+  const profiles: Profile[] = places.data ?? []
   const data = normalizeStandings(standings.data)
   const represented = data.teams.filter(entry => entry.my_role === 'representante')
   const team = represented.find(entry => entry.team.id === teamChoice) ?? represented[0]
@@ -95,7 +95,7 @@ export default function PlayScreen({ navigation, onExpired, playBoard: board, re
 
   const profile = profiles.find(item => item.sport === sport)
   const football = profiles.find(item => item.sport === 'futebol')
-  const city = cities.find(item => item.id === profile?.city_id)
+  const city = profile?.city
   const sportLabel = sports.find(item => item.value === sport)?.label ?? ''
   const timeMode = sport === 'futebol' && mode === 'time'
   const position: AvulsoPosition = positionChoice ?? football?.position ?? 'qualquer'

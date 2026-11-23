@@ -113,7 +113,7 @@ describe('Link do time no App', () => {
     mockApi({
       'GET /me': () => session ? me : apiError(401, 'Entre na sua conta para continuar.'),
       'POST /auth/login': () => { session = true; return { user: me } },
-      'GET /me/sports-profiles': [], 'GET /cities': [brasilia],
+      'GET /me/sports-profiles': [],
       [`GET /join/${TOKEN}`]: preview('disponivel'),
     })
     const ui = userEvent.setup()
@@ -139,7 +139,7 @@ describe('Link do time no App', () => {
     const api = mockApi({
       'GET /me': () => session ? me : apiError(401, 'Entre na sua conta para continuar.'),
       'POST /auth/login': () => { session = true; return { user: me } },
-      'GET /me/sports-profiles': [], 'GET /cities': [brasilia],
+      'GET /me/sports-profiles': [],
       [`GET /join/${TOKEN}`]: () => (++previews === 1 ? apiError(401, 'Entre na sua conta para continuar.') : preview('disponivel')),
     })
     const ui = userEvent.setup()
@@ -166,8 +166,7 @@ describe('Link do time no App', () => {
     const created = team({ id: 40, name: 'Unidos do Lago', member_count: 1, representative_count: 1 })
     let mine = [team()]
     mockApi({
-      'GET /me': me, 'GET /me/sports-profiles': [{ id: 1, sport: 'futebol', city_id: brasilia.id, position: 'atacante', looking_for: true, is_public: false, level: null }],
-      'GET /cities': [brasilia],
+      'GET /me': me, 'GET /me/sports-profiles': [{ id: 1, sport: 'futebol', city_id: brasilia.id, city: brasilia, position: 'atacante', looking_for: true, is_public: false, level: null }],
       [`GET /join/${TOKEN}`]: preview('membro', { team: team() }),
       'GET /me/teams': () => ({ items: mine }), 'GET /me/team-invites': { items: [] },
       'GET /teams/10': team(), 'GET /teams/10/members': { items: roster() },

@@ -10,9 +10,51 @@ Leia o [plano inicial](docs/plano-criacao-inicial.md), as [decisões adotadas](d
 - Docker Desktop funcionando, para PostgreSQL 16.
 - Expo Go compatível com SDK 57 no aparelho, ou ambiente Android configurado. iOS pode ser aberto em aparelho físico; simulador iOS exige macOS.
 
+## Instalação no macOS
+
+Fluxo validado num Mac com Apple Silicon recém-configurado, sem Homebrew e sem sudo. As ferramentas ficam no diretório do usuário. Pré-requisitos do sistema: Command Line Tools (`xcode-select --install`, traz o `git`) e Docker Desktop aberto (confira com `docker info`).
+
+**1. Python 3.13 e Node 24.** O `uv` instala o Python e o `nvm` instala o Node. Os dois instaladores acrescentam ao `~/.zprofile` as linhas que colocam as ferramentas no `PATH`; abra um terminal novo depois de executá-los.
+
+```sh
+curl -LsSf https://astral.sh/uv/install.sh | sh
+uv python install 3.13
+
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash
+nvm install 24
+nvm alias default 24
+```
+
+Quem já usa Homebrew pode instalar com `brew install python@3.13 node@24` e trocar `uv venv` e `uv pip` abaixo por `python3.13 -m venv .venv` e `.venv/bin/python -m pip install -r requirements.lock.txt`.
+
+**2. Banco, MinIO e API.** A partir da raiz. A primeira subida compila o MinIO e leva alguns minutos:
+
+```sh
+docker compose up -d --build --wait db minio
+cd backend
+uv venv --python 3.13 .venv
+uv pip install --python .venv/bin/python -r requirements.lock.txt
+[ -f .env ] || cp .env.example .env
+.venv/bin/python -m alembic upgrade head
+.venv/bin/python -m app.admin_cli recalculate-rankings
+.venv/bin/python -m app.media_admin ensure-bucket
+.venv/bin/python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+**3. Web.** Em outro terminal, a partir da raiz:
+
+```sh
+cd web
+npm ci
+[ -f .env ] || cp .env.example .env
+npm run dev
+```
+
+Confira em [localhost:8000/health/ready](http://localhost:8000/health/ready), que deve responder `{"status":"ready"}`, e abra [localhost:5173](http://localhost:5173). O banco começa vazio: crie a conta pela web. Os valores padrão de `backend/.env` e `web/.env` já correspondem ao Compose. Para a varredura periódica, use `.venv/bin/python -m app.admin_cli sweep --loop 60` em `backend/`. Nos dias seguintes, basta `docker compose up -d`, o `uvicorn` e o `npm run dev`. As demais seções usam comandos do PowerShell; no macOS, troque `.venv/Scripts/python.exe` por `.venv/bin/python`, `Copy-Item` por `cp` e `if (!(Test-Path .env)) { … }` por `[ -f .env ] || …`.
+
 ## Banco e API
 
-Comandos abaixo em PowerShell, começando na raiz:
+Comandos abaixo em PowerShell (Windows), começando na raiz. No macOS, siga a [instalação no macOS](#instalação-no-macos).
 
 ```powershell
 docker compose up -d
@@ -40,6 +82,21 @@ A migração `0013` acrescenta a `standings` a forma recente (`recent_form`, os 
 ```
 
 O comando recalcula todas as categorias (times e individual por formato e posição, tênis e as cinco distâncias de corrida) e preenche as linhas antigas. É idempotente: uma segunda execução não altera nada e imprime `0 linhas alteradas`. Até ele rodar, as linhas antigas mostram a forma vazia (sem quadradinhos na tela), nunca uma forma errada; o próximo resultado de uma categoria também a preenche. O contrato está em [0002, seção 20](docs/decisoes/0002-jogar.md#20-ranking-por-elo-janela-forma-recente-e-salão).
+
+### Ranking por rating (recalcular uma vez após a `0017`)
+
+As migrações `0016` e `0017` criam a versão de cálculo 2 dos rankings ([decisão 0006](docs/decisoes/0006-ranking-por-rating.md)): rating no futebol · time e no tênis, média ajustada no futebol · individual e a corrida sem mudança. Elas inserem os cortes da versão 2 em `rank_cuts` sem alterar os da versão 1 e não recalculam nada. **Rollout**, em `backend/`:
+
+```powershell
+.venv/Scripts/python.exe -m alembic upgrade head
+.venv/Scripts/python.exe -m app.admin_cli recalculate-rankings
+```
+
+Até o recálculo, as linhas de `standings` mantêm `calc_version = 1` e os valores antigos (pontos no time e no tênis, média simples no individual), embora a web e o Expo já os rotulem como "rating"; o próximo resultado de uma categoria também a recalcula. O comando é idempotente: a segunda execução imprime `0 linhas alteradas`.
+
+**Rollback do cálculo:** mantenha o esquema em `0017`, volte `CURRENT_CALC_VERSION` para 1 em `backend/app/services/rankings.py` e rode `recalculate-rankings`. O time e o tênis voltam a classificar por pontos e o individual, pela média simples. Para reverter só a média ajustada, aplique `alembic downgrade 0016` e recalcule com a versão 2.
+
+Se precisar reverter o esquema para `0015`, execute o recálculo após o downgrade com um backend anterior à introdução das novas colunas de `rank_cuts`. O backend atual continua consultando essas colunas mesmo com `CURRENT_CALC_VERSION = 1`. Detalhes na [seção 9 da 0006](docs/decisoes/0006-ranking-por-rating.md#9-rollout-e-rollback).
 
 ### Imagens e avatar local
 
@@ -177,7 +234,7 @@ O Expo tem as telas das etapas 1 a 5: Meus times, Convidar e Entrar pelo link, o
 ## Demonstrar a primeira entrega
 
 1. Crie conta com nome, e-mail, nascimento elegível e senha de pelo menos 10 caracteres.
-2. Entre, adicione perfis de futebol, tênis e corrida e selecione uma cidade do catálogo inicial.
+2. Entre, adicione perfis de futebol, tênis e corrida e escolha a cidade pela busca ou pela localização (catálogo nacional de municípios, [decisão 0005](docs/decisoes/0005-catalogo-municipios.md)).
 3. Edite posição preferida no futebol, status de procura e nome.
 4. Entre com a mesma conta no outro cliente e confira os dados.
 5. Reinicie API/clientes e confirme a persistência. Saia e verifique que a sessão encerrada não funciona mais.
@@ -350,3 +407,7 @@ Pare o banco com `docker compose down`; o volume `pgdata` mantém os dados para 
 Os clientes possuem `npm test` e `npm run test:coverage`, executados em `web/` ou `mobile/`. No backend, execute `pytest tests/unit -q --cov=app --cov-branch` pelo Python da `.venv`; para incluir integração, configure `TEST_DATABASE_URL` e execute `pytest -q --cov=app --cov-branch`.
 
 Resultados, escopos e pisos de cobertura estão em [qualidade do código](docs/qualidade-codigo.md). O CI executa as suítes e publica relatórios em artifacts e no resumo de cada job. Relatórios locais ficam em `artifacts/coverage/`, sem versionamento. Testes isolados de SecureStore usam um double e não comprovam armazenamento seguro em aparelho.
+
+## Commits
+
+Mensagens em português, no padrão `tipo: descrição` (`feat:`, `fix:`, `docs:` etc.). **Não inclua `Co-Authored-By`** nem outras linhas de atribuição automática, inclusive em commits feitos com ferramentas de IA: use apenas a mensagem descritiva.

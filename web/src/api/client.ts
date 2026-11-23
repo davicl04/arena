@@ -77,6 +77,8 @@ export interface ProfileInput {
 export interface Profile extends ProfileInput {
   id: number
   sport: Sport
+  /** Cidade do perfil (`ProfileOut.city`): nomeia a cidade sem a lista global do catálogo. */
+  city: City
   is_public: boolean
   level: string | null
 }

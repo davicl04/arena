@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Banknote, BadgeCheck, Gavel, Hourglass, Receipt, ShieldCheck } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
-import type { City, Profile } from '../api/client'
+import type { Profile } from '../api/client'
 import { getOrganizerStatus, refusalText, sentence } from '../api/organizer'
 import type { OrganizerRequest } from '../api/organizer'
 import { ArenaMark } from '../components/Brand'
@@ -31,15 +31,14 @@ function Situation({ Icon, title, text, tone }: { Icon: LucideIcon; title: strin
  * "Seja organizador" (P5): as regras do papel antes do formulário do pedido. Com pedido em análise ou a
  * permissão já ativa, mostra a situação no lugar do formulário.
  */
-export default function OrganizerRequestPage({ cities, profiles, onBack, onExpired }: {
-  cities: City[]
+export default function OrganizerRequestPage({ profiles, onBack, onExpired }: {
   profiles: Profile[]
   onBack: () => void
   onExpired: () => void
 }) {
   const status = useResource(getOrganizerStatus, onExpired, { fallback: 'Não foi possível conferir o seu pedido de organizador.' })
   const [sent, setSent] = useState<OrganizerRequest | null>(null)
-  const defaultCityId = (profiles.find(profile => profile.sport === 'futebol') ?? profiles[0])?.city_id ?? null
+  const defaultCity = (profiles.find(profile => profile.sport === 'futebol') ?? profiles[0])?.city ?? null
   const state = status.data?.state
   const back = <Button variant="secondary" className="mt-3.5 w-full" onClick={onBack}>Voltar ao Menu</Button>
 
@@ -79,7 +78,7 @@ export default function OrganizerRequestPage({ cities, profiles, onBack, onExpir
               Seu pedido anterior foi recusado. Motivo: {sentence(refusalText(status.data.request.reason_code, status.data.request.reason_detail))}</p>}
             {state === 'revogado' && status.data?.revocation && <p className={feedbackVariants()}>
               Sua permissão foi revogada. Motivo: {sentence(status.data.revocation.reason)}</p>}
-            <OrganizerRequestForm cities={cities} defaultCityId={defaultCityId} onSent={setSent} onExpired={onExpired} />
+            <OrganizerRequestForm defaultCity={defaultCity} onSent={setSent} onExpired={onExpired} />
           </>}
   </>
 }

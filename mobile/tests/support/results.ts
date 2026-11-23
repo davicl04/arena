@@ -104,10 +104,13 @@ export const rankingPage = (overrides: Partial<RankingPage> = {}): RankingPage =
   required: 3, tier_counts: tierCounts(), items: [], next_cursor: null, mine: [], ...overrides,
 })
 
-/** Linha do titular no overview: ranqueado no `tier` (posição `position` de `size`), com as diferenças para o 1º e o próximo. */
+/**
+ * Linha do titular no overview: ranqueado no `tier` (posição `position` de `size`), com as diferenças para o 1º e o próximo. Sem
+ * `tier` (em classificação), sem métrica, como a API manda no time e no tênis.
+ */
 export const myLine = (tier: TierKey | null, position: number | null, size: number | null, overrides: Partial<MyRankingOverviewLine> = {}): MyRankingOverviewLine => ({
   team: { id: 102, name: 'Ferrugem FC', initials: 'FE', crest_url: null }, state: tier ? 'ranqueado' : 'classificacao', tier, played: tier ? 8 : 2, required: 3,
-  rank_position: position, metric_value: 38, faces: [], faces_any_level: true, tier_position: position, tier_size: size,
+  rank_position: position, metric_value: tier ? 38 : null, faces: [], faces_any_level: true, tier_position: position, tier_size: size,
   leader_gap: position && position > 1 ? 7 : null, next_gap: position && size && position < size ? 1 : null, next_tier_position: position && size && position < size ? position + 1 : null,
   ...overrides,
 })

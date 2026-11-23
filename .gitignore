@@ -10,6 +10,7 @@ htmlcov/
 .ruff_cache/
 .mypy_cache/
 .local/
+.scratch/
 artifacts/
 # Protótipos de design (material de consulta local)
 prototypes/

@@ -30,22 +30,33 @@ FOOTBALL_FORMATS = ('futsal', 'society', 'campo')
 RUN_DISTANCES_KM = (3, 5, 10, 21, 42)
 
 
+# The rating parameters exist exactly in the rating rankings; the adjusted mean (m, μ) only in an average ranking.
+RATING_PARAMETERS_CHECK = (
+    "(metric = 'rating' AND initial_rating > 0 AND placement_k > 0 AND regular_k > 0) OR "
+    "(metric <> 'rating' AND initial_rating IS NULL AND placement_k IS NULL AND regular_k IS NULL)")
+ADJUSTED_MEAN_CHECK = (
+    "(prior_matches IS NULL AND prior_mean IS NULL) OR (metric = 'media' AND prior_matches > 0 AND prior_mean >= 0)")
+
+
 class RankCut(Base):
     """Fixed cuts per ranking and calculation version; Bronze is anything below Prata."""
     __tablename__ = 'rank_cuts'
     __table_args__ = (
         UniqueConstraint('calc_version', 'ranking', name='uq_rank_cuts_version_ranking'),
         CheckConstraint(sql_in('ranking', RANKINGS), name='ck_rank_cuts_ranking'),
-        CheckConstraint("metric IN ('pontos', 'media', 'tempo')", name='ck_rank_cuts_metric'),
+        CheckConstraint("metric IN ('pontos', 'media', 'tempo', 'rating')", name='ck_rank_cuts_metric'),
         CheckConstraint("(direction = 'maior' AND prata < ouro AND ouro < diamante) OR "
                         "(direction = 'menor' AND prata > ouro AND ouro > diamante)", name='ck_rank_cuts_order'),
         CheckConstraint('placement_matches >= 1 AND window_weeks >= 1 AND legend_share > 0 AND legend_share < 1',
                         name='ck_rank_cuts_parameters'),
+        CheckConstraint(RATING_PARAMETERS_CHECK, name='ck_rank_cuts_rating'),
+        CheckConstraint(ADJUSTED_MEAN_CHECK, name='ck_rank_cuts_adjusted_mean'),
     )
     id: Mapped[int] = mapped_column(primary_key=True)
     calc_version: Mapped[int] = mapped_column(SmallInteger)
     ranking: Mapped[str] = mapped_column(String(20))
-    # pontos (3/1/0 or tennis points), media (per match) or tempo (best time in seconds).
+    # pontos (3/1/0 or tennis points, calc_version 1), rating (teams and tennis from calc_version 2), media (per
+    # match) or tempo (best time in seconds).
     metric: Mapped[str] = mapped_column(String(10))
     # maior: higher is better (value >= cut); menor: lower is better (value <= cut).
     direction: Mapped[str] = mapped_column(String(5))
@@ -56,6 +67,14 @@ class RankCut(Base):
     # Lendário: Diamante and within floor(classified × share) of the ranking.
     legend_share: Mapped[Decimal] = mapped_column(Numeric(4, 3))
     window_weeks: Mapped[int] = mapped_column(SmallInteger)
+    # Rating rankings only: the rating every subject starts the window with and the K factor of its first
+    # `placement_matches` matches in the window (placement_k) and of the later ones (regular_k).
+    initial_rating: Mapped[Decimal | None] = mapped_column(Numeric(10, 3), nullable=True)
+    placement_k: Mapped[Decimal | None] = mapped_column(Numeric(6, 2), nullable=True)
+    regular_k: Mapped[Decimal | None] = mapped_column(Numeric(6, 2), nullable=True)
+    # Adjusted mean of an average ranking: `prior_matches` (m) phantom matches at `prior_mean` (μ).
+    prior_matches: Mapped[Decimal | None] = mapped_column(Numeric(6, 2), nullable=True)
+    prior_mean: Mapped[Decimal | None] = mapped_column(Numeric(6, 3), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
@@ -102,7 +121,8 @@ class Standing(Base):
     format: Mapped[str | None] = mapped_column(String(10), nullable=True)
     position: Mapped[str | None] = mapped_column(String(20), nullable=True)
     distance_km: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
-    # Points, average per match or best time in seconds, according to the ranking's metric.
+    # Points, rating, average per match or best time in seconds, according to the ranking's metric (the rating is
+    # stored in placement too, for the pairing, but the API hides it until the subject is classified).
     metric_value: Mapped[Decimal] = mapped_column(Numeric(12, 3), default=0)
     # Confirmed matches (or valid marks, in running) inside the 52-week window.
     matches_played: Mapped[int] = mapped_column(Integer, default=0)

@@ -1,6 +1,8 @@
-import { CalendarDays, ChevronRight, Medal, Zap } from "lucide-react";
-import { ApiError, sports } from "../api/client";
-import type { Profile } from "../api/client";
+import { useCallback } from "react";
+import { Zap } from "lucide-react";
+import { ApiError } from "../api/client";
+import type { Profile, Sport } from "../api/client";
+import { loadProfileEvents } from "../api/entries";
 import { markNotificationRead } from "../api/notifications";
 import type { ArenaNotification } from "../api/notifications";
 import type { MatchCard } from "../api/matches";
@@ -9,22 +11,18 @@ import { useNow } from "../hooks/useNow";
 import { useResource } from "../hooks/useResource";
 import { usePendingNotifications } from "../hooks/usePendingNotifications";
 import type { NotificationSummaryState } from "../hooks/useNotificationSummary";
-import { MatchRow } from "../components/play/MyMatches";
 import { nextScheduledMatch } from "../components/play/matchView";
-import { formatDuration } from "../components/play/tierLines";
 import { Logo } from "../components/Brand";
 import { NotificationBell } from "../components/notifications/NotificationBell";
-import { PendingPlate } from "../components/notifications/PendingPlate";
-import { TierEmblem } from "../components/arena/TierEmblem";
-import { modalityStanding } from "../components/arena/modalityStanding";
-import { Badge } from "@/components/ui/badge";
+import { Placar } from "../components/home/Placar";
+import { CHAMPIONSHIPS_LIMIT, championshipsSport, mergeChampionships, missingSportsCount, primaryButtonLabel } from "../data/home";
+import { Destaque } from "../components/home/Destaque";
+import { Pilulas } from "../components/home/Pilulas";
+import { ProximoPasso } from "../components/home/ProximoPasso";
+import { Campeonatos } from "../components/home/Campeonatos";
+import type { CampeonatosState } from "../components/home/Campeonatos";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Eyebrow } from "@/components/ui/eyebrow";
-import { IconTile } from "@/components/ui/icon-tile";
-import { SectionTitle } from "@/components/ui/section-title";
-import { cover, sportIcons } from "../data/arena";
-import type { Screen } from "../data/arena";
+import type { RunDistance, Screen } from "../data/arena";
 import { notificationView } from "../data/notifications";
 import type { NotificationFilter, NotificationTarget } from "../data/notifications";
 
@@ -32,6 +30,7 @@ export default function HomePage({
   firstName,
   profiles,
   loading,
+  profilesFailed = false,
   matches = [],
   summary,
   isAdmin = false,
@@ -41,21 +40,29 @@ export default function HomePage({
   firstName: string;
   profiles: Profile[];
   loading: boolean;
-  /** Partidas do titular lidas pela placa (`GET /me/play`): a próxima agendada vai ao cartão "Próxima partida". */
+  /** A leitura dos perfis falhou (o shell mostra o erro): sem lista confirmada, não convida a preparar perfis. */
+  profilesFailed?: boolean;
+  /** Partidas do titular lidas pela placa (`GET /me/play`): a próxima agendada vai ao Placar. */
   matches?: MatchCard[];
-  /** Resumo das notificações (ArenaPage): o número do sino e a placa "Para responder". */
+  /** Resumo das notificações (ArenaPage): o número do sino e o Destaque "Para responder". */
   summary?: NotificationSummaryState;
   /** Conta administrativa: alguns avisos levam às filas da administração. */
   isAdmin?: boolean;
-  go: (screen: Screen, context?: Omit<NotificationTarget, "screen"> & { filter?: NotificationFilter }) => void;
+  go: (
+    screen: Screen,
+    context?: Omit<NotificationTarget, "screen"> & { filter?: NotificationFilter; sport?: Sport; distance?: RunDistance },
+  ) => void;
   onExpired: () => void;
 }) {
+  // Relógio de 60 s: recalcula a Contagem e troca o Placar para a partida seguinte quando `starts_at` passa.
   const now = useNow(60_000);
   const nextMatch = nextScheduledMatch(matches, now);
-  // Placa "Para responder": as 2 pendências mais urgentes; só é lida quando o resumo diz que há pendências.
+  // Só uma lista vazia confirmada conta como "sem perfis": carregando ou com falha, não convida a prepará-los.
+  const hasProfiles = loading || profilesFailed || profiles.length > 0;
+  // Destaque "Para responder": só a pendência mais urgente (o total vem do resumo); só é lida quando o resumo diz que há pendências.
   const pendingCount = summary?.data?.pending_count ?? 0;
   const pending = usePendingNotifications(onExpired, {
-    limit: 2,
+    limit: 1,
     enabled: pendingCount > 0,
     version: summary?.data ? `${summary.data.pending_count}:${summary.data.unread_count}` : undefined,
   });
@@ -77,10 +84,34 @@ export default function HomePage({
       go(screen, context);
     } else go("notifications", { filter: "responder" });
   }
-  // Classificação de cada modalidade: o elo de quem já se classificou, ou "n de 3 partidas".
+  // Classificação das Pílulas ("Seu elo"): uma única leitura; o elo de quem já se classificou, ou "n de 3".
   const standings = useResource(getMyStandings, onExpired);
-  /** Modalidades ainda sem perfil: o cartão "Seu próximo passo" só aparece enquanto houver alguma. */
-  const missingSports = sports.filter((s) => !profiles.some((p) => p.sport === s.value)).length;
+  // Perfis confirmados pelo shell (sem nova leitura): `null` enquanto carregam ou se a leitura falhou.
+  const profileList = loading || profilesFailed ? null : profiles;
+  // Campeonatos: uma leitura `GET /events` por perfil (modalidade e cidade), em paralelo, só com perfis. A lista do shell é
+  // estado (mesma referência entre renderizações): a leitura acontece uma vez por montagem e de novo só se o shell a reler.
+  const loadChampionships = useCallback(
+    () => loadProfileEvents(profileList ?? [], CHAMPIONSHIPS_LIMIT).then((lists) => mergeChampionships(lists)),
+    [profileList],
+  );
+  const championships = useResource(loadChampionships, onExpired, {
+    enabled: Boolean(profileList?.length),
+    fallback: "Não foi possível carregar os campeonatos.",
+  });
+  const championshipsState: CampeonatosState = loading
+    ? { kind: "loading" }
+    : !profileList
+      ? { kind: "profiles-failed" }
+      : profileList.length === 0
+        ? { kind: "no-profiles" }
+        : championships.loading
+          ? { kind: "loading" }
+          : championships.error
+            ? { kind: "error", message: championships.error, cause: championships.errorCause, onRetry: championships.reload }
+            : { kind: "ready", shown: championships.data ?? [] };
+  const allSport = profileList?.length
+    ? championshipsSport(championshipsState.kind === "ready" ? championshipsState.shown : [], profileList)
+    : null;
   return (
     <>
       <header className="flex items-center justify-between">
@@ -91,175 +122,49 @@ export default function HomePage({
       </header>
       <section className="pt-[26px] pb-[21px]">
         <p className="mb-[5px] text-[10px] font-bold tracking-[0.08em] text-ink-muted uppercase">
-          {new Date().toLocaleDateString("pt-BR", {
+          {new Date(now).toLocaleDateString("pt-BR", {
             weekday: "long",
             day: "numeric",
             month: "long",
           })}
         </p>
         <h1 className="text-[25px] leading-[1.25] wrap-anywhere">
-          Bora jogar, {firstName}?
+          A arena te chama, {firstName}
         </h1>
       </section>
+      <Placar match={nextMatch} now={now} hasProfiles={hasProfiles} onOpen={(matchId) => go("match", { matchId })} />
+      <Button className="mt-3 mb-1 h-[52px] w-full text-[14px]" onClick={() => go("play")}>
+        <Zap size={20} fill="currentColor" />
+        {primaryButtonLabel({ hasProfiles, hasNextMatch: nextMatch !== null })}
+      </Button>
       {pendingCount > 0 && pending.items.length > 0 && (
-        <PendingPlate
-          items={pending.items}
+        <Destaque
+          notification={pending.items[0]}
           total={pendingCount}
           now={now}
           isAdmin={isAdmin}
-          onOpenItem={(notification) => void openPending(notification)}
+          onOpen={(notification) => void openPending(notification)}
           onOpenAll={() => go("notifications", { filter: "responder" })}
         />
       )}
-      <SectionTitle
-        title="Seu elo"
-        action={
-          <Button variant="link" onClick={() => go("ranking")}>
-            Ver elos
-          </Button>
-        }
+      <Pilulas
+        standings={standings.data}
+        standingsLoading={standings.loading}
+        profiles={loading || profilesFailed ? null : profiles}
+        profilesLoading={loading}
+        onOpenRanking={(target) => (target ? go("ranking", target) : go("ranking"))}
+        onOpenModalities={() => go("sports")}
       />
-      {loading ? (
-        <p role="status">Carregando modalidades…</p>
-      ) : (
-        <div className="-mx-5 flex snap-x snap-mandatory gap-3 overflow-x-auto px-5 pb-2 scrollbar-none">
-          {sports.map((s) => {
-            const Icon = sportIcons[s.value];
-            const profile = profiles.find((p) => p.sport === s.value);
-            const standing = standings.data ? modalityStanding(s.value, standings.data) : null;
-            return (
-              <Card
-                as="article"
-                radius="panel"
-                elevated
-                key={s.value}
-                className="max-w-[calc(100vw-48px)] flex-[0_0_314px] snap-center p-[17px]"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <IconTile>
-                    <Icon size={30} />
-                  </IconTile>
-                  <Badge data-testid={`standing-${s.value}`} className="gap-1.5">
-                    {standing?.tier ? (
-                      <TierEmblem tier={standing.tier} size="xs" showName />
-                    ) : standing ? (
-                      s.value === "corrida" ? "Sem marca" : `${standing.played} de ${standing.required} partidas`
-                    ) : standings.loading ? (
-                      <span aria-label="Carregando classificação">…</span>
-                    ) : (
-                      "Classificação indisponível"
-                    )}
-                  </Badge>
-                </div>
-                <p className="mt-[11px] text-[12px] text-ink-muted">{s.label}</p>
-                <div className="mt-[3px] mb-[9px] flex items-baseline gap-[7px]">
-                  <strong className="font-display text-[28px] font-bold">
-                    {standing?.metric
-                      ? standing.metric.unit === "tempo"
-                        ? formatDuration(standing.metric.value)
-                        : standing.metric.value.toLocaleString("pt-BR", { maximumFractionDigits: 2 })
-                      : "—"}
-                  </strong>
-                  <span className="text-[12px] text-ink-muted">
-                    {s.value === "corrida" ? "melhor tempo" : (standing?.metric?.unit ?? "pontos")}
-                  </span>
-                </div>
-                <div className="h-[7px] rounded-[5px] bg-app" />
-                <div className="mt-2 flex items-center justify-between gap-2 text-[10px] text-ink-muted">
-                  <span>
-                    {standing?.context ??
-                      (profile
-                        ? "Sua trajetória começa aqui"
-                        : "Adicione seu perfil esportivo")}
-                  </span>
-                  <Button
-                    variant="link"
-                    className="text-[10px]"
-                    onClick={() => go("sports")}
-                  >
-                    {profile ? "Ver perfil" : "Configurar"}
-                  </Button>
-                </div>
-              </Card>
-            );
-          })}
-        </div>
-      )}
-      <Button className="mt-3 mb-1 h-[52px] w-full text-[14px]" onClick={() => go("play")}>
-        <Zap size={20} fill="currentColor" />
-        Encontrar partida
-      </Button>
-      <SectionTitle title="Próxima partida" />
-      <Card
-        as="article"
-        className={nextMatch ? "px-[13px] py-0.5 shadow-[0_2px_9px_#0000000c] noite:shadow-none" : "flex items-center gap-3 p-[13px] shadow-[0_2px_9px_#0000000c] noite:shadow-none"}
-      >
-        {nextMatch ? (
-          <MatchRow card={nextMatch} onOpen={(matchId) => go("match", { matchId })} />
-        ) : (
-          <>
-            <span className="grid h-[53px] w-[47px] place-items-center rounded-xl bg-ink text-app noite:bg-icon-tile noite:text-icon-tile-ink">
-              <CalendarDays size={23} />
-            </span>
-            <div>
-              <h3 className="mt-[3px] mb-1.5 text-[12px]">Nenhuma partida agendada</h3>
-              <p className="text-[10px] leading-[1.5] text-ink-muted">
-                Seu próximo encontro aparecerá aqui.
-              </p>
-            </div>
-          </>
-        )}
-      </Card>
-      <SectionTitle
-        title="Perto de você"
-        action={
-          <Button variant="link" onClick={() => go("sports")}>
-            Minha cidade
-          </Button>
-        }
+      {/* Só enquanto falta alguma modalidade, com a lista confirmada: com as três cadastradas, o passo já foi dado. */}
+      {profileList && missingSportsCount(profileList) > 0 && <ProximoPasso onOpen={() => go("sports")} />}
+      <Campeonatos
+        state={championshipsState}
+        profiles={profileList}
+        allSport={allSport}
+        onOpenModalities={() => go("sports")}
+        onOpenEvents={(sport) => go("events", { sport })}
+        onOpenEvent={(event) => go("event", event.sport ? { eventId: event.id, sport: event.sport } : { eventId: event.id })}
       />
-      <div className="relative h-[178px] overflow-hidden rounded-panel bg-ink noite:bg-[#495057] shadow-[0_4px_14px_#0002]">
-        <img
-          className="size-full object-cover"
-          src={cover}
-          alt="Esporte ao ar livre ao pôr do sol"
-        />
-        <span className="absolute inset-0 bg-[linear-gradient(180deg,transparent_20%,#000c)]" />
-        <div className="absolute inset-x-4 bottom-[15px] flex flex-col gap-[3px] text-white">
-          <Eyebrow as="span" className="text-[#fffd]">
-            VIVA O ESPORTE
-          </Eyebrow>
-          <strong className="font-display text-[17px] font-bold">
-            Sua próxima arena
-          </strong>
-          <small className="text-[10px] text-[#fffd]">
-            {profiles.length
-              ? "Novas atividades em breve."
-              : "Configure sua cidade e suas modalidades."}
-          </small>
-        </div>
-      </div>
-      {/* Só enquanto falta alguma modalidade: com as três cadastradas, o passo já foi dado. */}
-      {!loading && missingSports > 0 && (
-        <>
-          <SectionTitle title="Seu próximo passo" />
-          <button
-            className="flex w-full items-center gap-[11px] rounded-card border border-solid border-line bg-surface p-3.5 text-left noite:border-surface-edge"
-            onClick={() => go("sports")}
-          >
-            <IconTile>
-              <Medal size={22} />
-            </IconTile>
-            <span className="flex-1">
-              <b className="text-[12px] text-heading">Complete seu perfil esportivo</b>
-              <small className="mt-1 text-[10px] leading-[1.5] text-ink-muted">
-                Mostre onde e como você gosta de jogar.
-              </small>
-            </span>
-            <ChevronRight size={19} />
-          </button>
-        </>
-      )}
     </>
   );
 }

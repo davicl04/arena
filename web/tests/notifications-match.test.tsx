@@ -181,13 +181,12 @@ describe('tela Notificações com os tipos da etapa 3', () => {
 
 describe('ArenaPage: a notificação abre a partida e as filas da administração', () => {
   const me: User = { id: 1, name: 'Ricardo Moura', username: 'ricardo.moura', email: 'r@example.com', birth_date: '1990-01-01', social_public: false, is_admin: false, avatar: null, cover: null }
-  const football: Profile = { id: 1, sport: 'futebol', city_id: brasilia.id, position: 'atacante', looking_for: false, is_public: false, level: null }
+  const football: Profile = { id: 1, sport: 'futebol', city_id: brasilia.id, city: brasilia, position: 'atacante', looking_for: false, is_public: false, level: null }
   const nav = () => within(screen.getByRole('navigation', { name: 'Navegação principal' }))
 
   function api(notifications: ArenaNotification[], extra: Record<string, unknown> = {}) {
     return mockApi({
       'GET /me/sports-profiles': [football],
-      'GET /cities': [brasilia],
       'GET /me/notifications/summary': summaryOf({ unread_count: notifications.length }),
       'GET /me/follow-requests': { items: [], next_cursor: null },
       'GET /me/notifications/pending?limit=50': { items: [] },

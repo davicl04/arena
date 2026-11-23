@@ -5,7 +5,7 @@ import userEvent from '@testing-library/user-event'
 import type { User } from '../src/api/client'
 import ArenaPage from '../src/pages/ArenaPage'
 import { apiError, mockApi, reply } from './teams-fixtures'
-import { athleteSide, brasilia, football, matchCard, playBoard, proposal, search, standings, teamSide, leoes, tennis } from './matchmaking-fixtures'
+import { athleteSide, football, matchCard, playBoard, proposal, search, standings, teamSide, leoes, tennis } from './matchmaking-fixtures'
 import { summaryOf } from './notifications-fixtures'
 
 /*
@@ -19,7 +19,6 @@ const nav = () => within(screen.getByRole('navigation', { name: 'Navegação pri
 function api(board: unknown, extra: Record<string, unknown> = {}) {
   return mockApi({
     'GET /me/sports-profiles': [football],
-    'GET /cities': [brasilia],
     'GET /me/notifications/summary': summaryOf({ unread_count: 0 }),
     'GET /me/standings': standings(),
     'GET /me/play': board,
@@ -101,7 +100,6 @@ describe('aba do Jogar', () => {
     })
     mockApi({
       'GET /me/sports-profiles': [football, tennis],
-      'GET /cities': [brasilia],
       'GET /me/notifications/summary': summaryOf({ unread_count: 0 }),
       'GET /me/standings': standings(),
       'GET /me/play': playBoard({ matches: [card] }),

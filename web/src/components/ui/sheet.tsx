@@ -12,11 +12,14 @@ import { IconButton } from './button'
  * Botões de rodapé (Cancelar/Salvar) ficam em `SheetActions`.
  * `tone="dark"` é a folha `forest` sobre a placa do Jogar (V2, "Preparar busca"): fundo verde-escuro, texto claro e a
  * classe `.dark`, que liga os tokens do shadcn (Switch, campos) ao tema escuro. `eyebrow` é a linha de apoio acima do título.
+ * `icon` fica antes do título (símbolo da modalidade) e `aside`, entre o título e o Fechar (o "n de m" do passo a passo).
  */
-export function Sheet({ title, description, eyebrow, tone = 'light', onClose, className, children }: {
+export function Sheet({ title, description, eyebrow, icon, aside, tone = 'light', onClose, className, children }: {
   title: string
   description?: string
   eyebrow?: ReactNode
+  icon?: ReactNode
+  aside?: ReactNode
   tone?: 'light' | 'dark'
   onClose: () => void
   className?: string
@@ -33,10 +36,12 @@ export function Sheet({ title, description, eyebrow, tone = 'light', onClose, cl
         dark ? 'dark bg-forest' : 'text-ink noite:border-t noite:border-surface-edge', className)}>
       <div className={cn('mx-auto mb-1.5 h-[5px] w-10 rounded-[3px]', dark ? 'bg-white/25' : 'bg-line')} aria-hidden="true" />
       <div className="flex items-center justify-between gap-2">
-        <div className="min-w-0">
+        {icon}
+        <div className="min-w-0 flex-1">
           {eyebrow && <span data-slot="sheet-eyebrow" className={cn('block text-[10px] font-bold tracking-[0.1em] uppercase', dark ? 'text-mint' : 'text-ink-muted')}>{eyebrow}</span>}
           <h2 id={titleId} data-slot="sheet-title" className="text-[17px] wrap-anywhere">{title}</h2>
         </div>
+        {aside}
         <IconButton type="button" tone={dark ? 'glass' : 'default'} aria-label="Fechar" onClick={onClose}><X size={20} /></IconButton>
       </div>
       {description && <p data-slot="sheet-description" className={cn('mb-1 text-[11.5px] leading-[1.5]', dark ? 'text-white/65' : 'text-ink-muted')}>{description}</p>}

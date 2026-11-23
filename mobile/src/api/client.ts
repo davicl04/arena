@@ -16,7 +16,8 @@ export interface City { id: number; name: string; state: string }
 /** Pessoa resumida dos contratos de times, organizador e notificações; `avatar_url` é null se houver bloqueio. */
 export interface Person { id: number; name: string; username: string; avatar_url: string | null }
 export interface ProfileInput { city_id: number; position: Position | null; looking_for: boolean }
-export interface Profile extends ProfileInput { id: number; sport: Sport; is_public: boolean; level: string | null }
+/** Perfil esportivo (`ProfileOut`): `city` nomeia a cidade sem depender de uma lista do catálogo. */
+export interface Profile extends ProfileInput { id: number; sport: Sport; is_public: boolean; level: string | null; city: City }
 /** Campo recusado num `422` (`{ detail, fields: [{ field, message }] }`). */
 export interface FieldError { field: string; message: string }
 export class ApiError extends Error {
@@ -102,5 +103,10 @@ export async function request<T>(path: string, method = 'GET', body?: unknown, {
   }
   return response.status === 204 ? undefined as T : response.json()
 }
-export const sports: { value: Sport; label: string }[] = [{ value: 'futebol', label: 'Futebol' }, { value: 'tenis', label: 'Tênis' }, { value: 'corrida', label: 'Corrida' }]
+/** Modalidades na ordem de exibição, com a frase de cada uma (a mesma da web, na faixa da tela de modalidades). */
+export const sports: { value: Sport; label: string; description: string }[] = [
+  { value: 'futebol', label: 'Futebol', description: 'Seu lugar dentro de campo.' },
+  { value: 'tenis', label: 'Tênis', description: 'Cada troca é um novo começo.' },
+  { value: 'corrida', label: 'Corrida', description: 'No seu ritmo, a cada passo.' },
+]
 export const positions: { value: Position; label: string }[] = [{ value: 'goleiro', label: 'Goleiro' }, { value: 'defesa', label: 'Defesa' }, { value: 'meio_campo', label: 'Meio de campo' }, { value: 'atacante', label: 'Atacante' }]

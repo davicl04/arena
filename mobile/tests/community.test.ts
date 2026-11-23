@@ -14,7 +14,7 @@ vi.mock('react-native-safe-area-context', async () => {
   return { useSafeAreaInsets: () => ({ top: 0, right: 0, bottom: 0, left: 0 }), SafeAreaView: ({ children, ...props }: Record<string, unknown>) => ReactModule.createElement('SafeAreaView', props, children as React.ReactNode) }
 })
 vi.mock('expo-image-picker', () => ({ launchImageLibraryAsync: vi.fn(), ImagePickerResult: undefined }))
-vi.mock('../src/components/SportCard', () => ({ default: () => null }))
+vi.mock('../src/components/sports-profile/SportsProfiles', () => ({ SportsProfiles: () => null }))
 vi.mock('../src/components/ui', async () => {
   const ReactModule = await import('react')
   return {
@@ -108,7 +108,7 @@ describe('CommunityScreen', () => {
     const paths = { blocks: '/me/blocks', followers: '/users/1/followers', following: '/users/1/following' }
     const labels = { blocks: 'contas bloqueadas', followers: 'seguidores', following: 'contas seguidas' }
     vi.mocked(request).mockImplementation(async path => {
-      if (path === '/cities' || path === '/me/sports-profiles') return [] as never
+      if (path === '/me/sports-profiles') return [] as never
       if (path.startsWith(paths[which])) {
         const next = path.includes('cursor=')
         const user = { ...athlete, id: next ? 3 : 2, name: next ? 'Outra conta' : 'Atleta A' }
@@ -157,7 +157,7 @@ describe('CommunityScreen', () => {
       return { items: people.slice(offset, offset + 20).map(user => ({ user })), next_cursor: people.length > offset + 20 ? String(offset + 20) : null }
     }
     vi.mocked(request).mockImplementation(async (path, method) => {
-      if (path === '/cities' || path === '/me/sports-profiles') return [] as never
+      if (path === '/me/sports-profiles') return [] as never
       if (path === '/users/1') return { ...athlete, id: 1, follower_count: approved.length, following_count: 0 } as never
       if (path.startsWith('/users/1/followers')) return page(approved, path.split('cursor=')[1]) as never
       if (path === '/me/privacy' && method === 'PUT') {
@@ -265,7 +265,7 @@ describe('CommunityScreen', () => {
     vi.useFakeTimers()
     const onUser = vi.fn()
     vi.mocked(request).mockImplementation(async (path, method) => {
-      if (path === '/me/sports-profiles' || path === '/cities') return [] as never
+      if (path === '/me/sports-profiles') return [] as never
       if (path === '/users/1') return athlete as never
       if (path.startsWith('/me/username-availability')) return { available: false, reason: 'taken', suggestions: ['novo.nome2'] } as never
       if (path === '/me' && method === 'PATCH') throw new ApiError('Este nome de usuário já está em uso.', 409)

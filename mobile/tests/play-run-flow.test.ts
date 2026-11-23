@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { request } from '../src/api/client'
 import ArenaShell from '../src/screens/ArenaShell'
 import { enableAct } from './support/native'
-import { brasilia, emptyBoard, football, standings, tennis } from './support/play'
+import { emptyBoard, football, standings, tennis } from './support/play'
 import { rankingOverview } from './support/results'
 import { bests, markCard } from './support/runs'
 import { allText, findButton, flush, labelled, me, pressButton } from './support/review'
@@ -15,7 +15,10 @@ vi.mock('react-native', async () => (await import('./support/native')).reactNati
 vi.mock('react-native-svg', async () => (await import('./support/native')).svgMock())
 vi.mock('expo-secure-store', () => ({ getItemAsync: vi.fn(), setItemAsync: vi.fn(), deleteItemAsync: vi.fn() }))
 vi.mock('../src/api/client', async original => ({ ...await original<typeof import('../src/api/client')>(), request: vi.fn() }))
-vi.mock('../src/data/sportIcons', () => ({ sportIcons: { futebol: 'futebol.png', tenis: 'tenis.png', corrida: 'corrida.png' } }))
+vi.mock('../src/data/sportIcons', () => ({
+  sportIcons: { futebol: 'futebol.png', tenis: 'tenis.png', corrida: 'corrida.png' },
+  sportIconsAlpha: { futebol: 'futebol-alfa.png', tenis: 'tenis-alfa.png', corrida: 'corrida-alfa.png' },
+}))
 // Telas que carregam módulos nativos do Expo e não entram neste fluxo (a Comunidade, o Perfil e Meus times).
 vi.mock('../src/screens/CommunityScreen', () => ({ default: () => null }))
 vi.mock('../src/screens/ProfileScreen', () => ({ default: () => null }))
@@ -35,7 +38,6 @@ async function mountShell() {
   vi.mocked(request).mockImplementation(async (path: string) => {
     if (path === '/me/play') return emptyBoard() as never
     if (path === '/me/sports-profiles') return [football, tennis, running] as never
-    if (path === '/cities') return [brasilia] as never
     if (path === '/me/standings') return standings() as never
     if (path === '/me/run-bests') return bests(markCard(10, ['52:40'])) as never
     if (path === '/me/run-races') return { items: [] } as never
@@ -103,7 +105,7 @@ describe('Corrida pelo Jogar', () => {
     expect(allText(tree)).toContain('Corrida · 10 km')
   })
 
-  it('voltar ao Início relê a classificação: a marca salva na corrida aparece no cartão da modalidade', async () => {
+  it('voltar ao Início relê a classificação: a marca salva na corrida chega à pílula da modalidade', async () => {
     const tree = await mountShell()
     const reads = () => vi.mocked(request).mock.calls.filter(([path]) => path === '/me/standings').length
     const before = reads()

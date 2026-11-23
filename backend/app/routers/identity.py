@@ -5,7 +5,7 @@ from fastapi.responses import Response as BinaryResponse
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.core.config import get_settings
 from app.core.database import get_db
@@ -14,6 +14,7 @@ from app.models.identity import AuthSession, City, SportsProfile, User, utcnow
 from app.schemas.identity import (
     CityOut,
     Login,
+    NearestCityInput,
     ProfileInput,
     ProfileOut,
     Register,
@@ -23,6 +24,7 @@ from app.schemas.identity import (
     UsernameAvailabilityOut,
     UserOut,
 )
+from app.services.cities import LEGACY_CITY_IDS, cities_by_ids, nearest_city, parse_city_ids, search_cities
 from app.services.identity import (
     RESERVED_USERNAMES,
     USERNAME_RE,
@@ -106,17 +108,27 @@ def username_availability(u: str = Query(min_length=1, max_length=60), user: Use
 
 
 @router.get('/cities', response_model=list[CityOut])
-def cities(q: str = Query('', max_length=100), db: Session = Depends(get_db)):
-    statement = select(City).order_by(City.name).limit(100)
-    if q:
-        statement = statement.where(City.name.ilike(f'%{q}%'))
-    return db.scalars(statement).all()
+def cities(q: str | None = Query(None, max_length=100), ids: str | None = Query(None, max_length=1000),
+           db: Session = Depends(get_db)):
+    if q is not None and ids is not None:
+        raise HTTPException(422, 'Use a busca (q) ou os IDs (ids), não os dois.')
+    if ids is not None:
+        return cities_by_ids(db, parse_city_ids(ids))
+    if q is None:
+        return cities_by_ids(db, LEGACY_CITY_IDS)
+    return search_cities(db, q)
+
+
+@router.post('/cities/nearest', response_model=CityOut)
+def cities_nearest(data: NearestCityInput, _: User = Depends(current_user), db: Session = Depends(get_db)):
+    # Coordenadas só no corpo (fora da URL e do log de acesso); nunca gravadas, registradas nem devolvidas.
+    return nearest_city(db, data.latitude, data.longitude)
 
 
 @router.get('/me/sports-profiles', response_model=list[ProfileOut])
 def profiles(user: User = Depends(current_user), db: Session = Depends(get_db)):
-    return db.scalars(select(SportsProfile).where(SportsProfile.user_id == user.id)
-                      .order_by(SportsProfile.sport)).all()
+    return db.scalars(select(SportsProfile).options(joinedload(SportsProfile.city))
+                      .where(SportsProfile.user_id == user.id).order_by(SportsProfile.sport)).all()
 
 
 async def _read_upload(file: UploadFile) -> bytes:

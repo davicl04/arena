@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { request } from '../src/api/client'
 import type { MatchDetail } from '../src/api/matches'
 import ArenaShell from '../src/screens/ArenaShell'
+import HomeScreen from '../src/screens/HomeScreen'
 import { dayLabel } from '../src/utils/calendar'
 import { combineDateTime } from '../src/utils/dateKey'
 import { confirmed, eightTeams, eliminationBracket, matchList, row } from './support/brackets'
@@ -22,7 +23,10 @@ vi.mock('react-native', async () => (await import('./support/native')).reactNati
 vi.mock('react-native-svg', async () => (await import('./support/native')).svgMock())
 vi.mock('expo-secure-store', () => ({ getItemAsync: vi.fn(), setItemAsync: vi.fn(), deleteItemAsync: vi.fn() }))
 vi.mock('../src/api/client', async original => ({ ...await original<typeof import('../src/api/client')>(), request: vi.fn() }))
-vi.mock('../src/data/sportIcons', () => ({ sportIcons: { futebol: 'futebol.png', tenis: 'tenis.png', corrida: 'corrida.png' } }))
+vi.mock('../src/data/sportIcons', () => ({
+  sportIcons: { futebol: 'futebol.png', tenis: 'tenis.png', corrida: 'corrida.png' },
+  sportIconsAlpha: { futebol: 'futebol-alfa.png', tenis: 'tenis-alfa.png', corrida: 'corrida-alfa.png' },
+}))
 // Telas que carregam módulos nativos do Expo e não entram neste fluxo (a Comunidade, o Perfil, Meus times e o perfil de outro atleta).
 vi.mock('../src/screens/CommunityScreen', () => ({ default: () => null }))
 vi.mock('../src/screens/ProfileScreen', () => ({ default: () => null }))
@@ -54,7 +58,7 @@ const base = (event: () => unknown, extra: Record<string, Route> = {}): Record<s
   '/me/play': { attention: false, searches: [], proposals: [], offers: [], matches: [] },
   '/me/standings': { items: [], next_cursor: null },
   '/me/notifications/summary': { unread_count: 0, follow_requests_count: 0, pending_count: 0, unread_by_category: { partidas: 0, times: 0, eventos: 0 } },
-  '/me/notifications/pending?limit=2': { items: [] },
+  '/me/notifications/pending?limit=1': { items: [] },
   '/me/notifications/pending?limit=50': { items: [] },
   '/me/organizer-request': approved(),
   '/organizer/events?scope=abertos': () => page([card({ id: 5, name: 'Copa Sudoeste', competition_type: 'eliminacao_simples' })]),
@@ -72,9 +76,13 @@ async function mountShell(routes: Record<string, Route>) {
   await flush()
   return tree
 }
-/** Início → Meus eventos → cartaz do evento: a gestão (G3). */
+/**
+ * Meus eventos → cartaz do evento: a gestão (G3). Meus eventos fica no menu do Perfil (sem atalho no Início): a lista abre
+ * pela navegação que o shell entrega ao Início.
+ */
 async function openManagement(tree: ReactTestRenderer) {
-  await pressButton(tree, 'Meus eventos')
+  await act(async () => { tree.root.findByType(HomeScreen).props.navigation.go('organizer-events') })
+  await flush()
   await pressPrefix(tree, 'Copa Sudoeste')
 }
 
@@ -179,7 +187,7 @@ describe('Partida do campeonato → Decidir resultado', () => {
   const routes = (extra: Record<string, Route> = {}): Record<string, Route> => ({
     ...base(() => organizerDetail()),
     '/me/play': { attention: false, searches: [], proposals: [], offers: [], matches: [matchCard({ id: 7, origin: 'campeonato', my_side: null, my_role: 'organizador', sides: sides(teamSide('a', ferrugemRef), teamSide('b', leoesRef)), state: 'agendada', phase: 'divergente', starts_at: fromNow(-3) })] },
-    '/me/sports-profiles': [], '/cities': [],
+    '/me/sports-profiles': [],
     [MATCH]: () => (world.decided ? decided() : divergent()),
     [`${MATCH}/messages`]: messagePage([]),
     '/matches/7/messages?limit=20': messagePage([]),

@@ -2,6 +2,7 @@
 resultado dos amistosos, a divergência decidida pelo organizador com justificativa e auditoria, o W.O., o vencedor que
 avança na chave e o encerramento do evento com o bônus do tênis."""
 from datetime import timedelta
+from decimal import Decimal
 
 from sqlalchemy import select
 
@@ -12,6 +13,8 @@ from app.models.identity import User
 from app.models.matches import Match, MatchMessage, MatchResult, MatchSide
 from app.models.notifications import Notification
 from app.models.rankings import Standing
+from app.services.rankings import load_cuts
+from app.services.scoring import RatedMatch, replay_ratings
 from tests.integration.championship_helpers import (
     API,
     agree,
@@ -335,11 +338,15 @@ def test_the_end_of_a_tennis_championship_adds_the_bonus_to_the_ranking(client, 
     assert placements[finalists['a']] == (1, 40) and placements[finalists['b']] == (2, 20)
     losers = [user for user in {value for value in semis.values()} if user not in finalists.values()]
     assert len(losers) == 2 and all(placements[user] == (3, 10) for user in losers)
-    # Champion: two wins (20) + 40; runner-up: one win (10) + 20; semifinal losers: only the 10 of the bonus.
+    # calc_version 2 (decision 0006, section 7): the matches give the champion 1032 in the semifinal, then 1064
+    # against the other 1032; the runner-up 1032, then 1000; the semifinal losers 968. When the event ends, the
+    # bases registered in `event_placements` enter the rating weighted by the mean of the other entrants: the
+    # champion faced a weaker bracket (978.667) and gets less than 40; the runner-up a bracket of the same level
+    # (1000), exactly 20; each semifinal loser a stronger one (1010.667), more than 10.
     ranking = {row.user_id: row for row in db.scalars(select(Standing).where(Standing.sport == 'tenis'))}
-    assert float(ranking[finalists['a']].metric_value) == 20 + 40
-    assert float(ranking[finalists['b']].metric_value) == 10 + 20
-    assert all(float(ranking[user].metric_value) == 10 for user in losers)
+    assert ranking[finalists['a']].metric_value == Decimal('1094.369')            # 1064 + 30.369
+    assert ranking[finalists['b']].metric_value == Decimal('1020.000')            # 1000 + 20
+    assert all(ranking[user].metric_value == Decimal('979.222') for user in losers)   # 968 + 11.222
     assert ranking[finalists['a']].wins == 2 and ranking[finalists['b']].wins == 1
     shown = bracket(http, world['teams'][0]['headers'], world['event_id'])
     assert [(item['placement'], item['bonus_points']) for item in shown['placements']] == [
@@ -363,6 +370,12 @@ def test_a_tennis_championship_with_fewer_than_four_entries_gives_no_bonus(clien
     assert sorted(row.placement for row in placements) == [1, 2, 3]
     assert all(row.bonus_points == 0 for row in placements)
     assert db.get(Event, world['event_id']).state == 'encerrado'
+    # No bonus: the end of the event leaves the ratings of the matches alone (the semifinal and the W.O. final).
+    played = [RatedMatch(match.starts_at, match.id, *(sides_of(db, world, match.id)[label] for label in 'ab'),
+                         match.score_a, match.score_b) for match in matches_of(db, world)]
+    expected = replay_ratings(played, load_cuts(db)['tenis'], draws=False)
+    ranking = {row.user_id: row.metric_value for row in db.scalars(select(Standing).where(Standing.sport == 'tenis'))}
+    assert ranking == expected and len(ranking) == 3
 
 
 def test_round_robin_ends_with_the_table_and_the_third_and_fourth_places(client, monkeypatch):

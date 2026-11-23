@@ -5,7 +5,7 @@ import userEvent from '@testing-library/user-event'
 import type { User } from '../src/api/client'
 import type { ArenaNotification } from '../src/api/notifications'
 import ArenaPage from '../src/pages/ArenaPage'
-import { brasilia, mockApi, person } from './teams-fixtures'
+import { mockApi, person } from './teams-fixtures'
 import { football, inFuture, leoes, matchCard, playBoard, proposal, search, slotOffer, standings, teamSide, tigres } from './matchmaking-fixtures'
 import { fromNow, message, noPermissions, page as chatPage, scheduled } from './match-fixtures'
 import { dispute, suggestion } from './admin-match-fixtures'
@@ -29,7 +29,6 @@ const list = <T,>(items: T[]) => ({ items, next_cursor: null })
 function base(extra: Record<string, unknown> = {}) {
   return {
     'GET /me/sports-profiles': [football],
-    'GET /cities': [brasilia],
     'GET /me/notifications/summary': summaryOf({ unread_count: 0 }),
     'GET /me/standings': standings(),
     'GET /me/follow-requests': list([]),
@@ -123,22 +122,26 @@ describe('ligações da etapa 3: Início', () => {
     expect(nextScheduledMatch([], Date.now())).toBeNull()
   })
 
-  it('o cartão "Próxima partida" mostra a partida real e abre a tela da partida; sem partida, o estado vazio', async () => {
-    mockApi(base({
+  it('o Placar mostra a próxima partida real com a Contagem e abre a tela da partida; sem partida, o estado vazio', async () => {
+    const calls = mockApi(base({
       'GET /me/play': playBoard({ matches: [later, soon] }),
       'GET /matches/61': scheduled(20, { id: 61 }),
       'GET /matches/61/messages': chatPage([]),
     }))
     const ui = renderArena()
-    const row = await screen.findByRole('button', { name: /Leões J1 × Tigres J1/ })
-    expect(row.getAttribute('data-phase')).toBe('agendada')
-    await ui.click(row)
+    const placar = await screen.findByRole('button', { name: /^Próxima partida em (19|20) horas.*: Leões J1 × Tigres J1/ })
+    expect(screen.getByRole('button', { name: 'Encontrar outra partida' })).not.toBeNull()
+    // A partida vem da placa do Jogar que o shell já leu: o Início não lê partidas por conta própria.
+    expect(calls.calls.filter(call => call.path.startsWith('/me/matches') || /^\/matches\/\d+$/.test(call.path))).toHaveLength(0)
+    await ui.click(placar)
     expect(await screen.findByRole('heading', { level: 1, name: /Ferrugem FC contra Leões do Cerrado/ })).not.toBeNull()
     expect(lit()).toBe('JOGAR')
     cleanup()
     mockApi(base({ 'GET /me/play': playBoard() }))
     renderArena()
     expect(await screen.findByText('Nenhuma partida agendada')).not.toBeNull()
+    expect(screen.getByText('Que tal marcar a próxima?')).not.toBeNull()
+    expect(screen.getByRole('button', { name: 'Encontrar partida' })).not.toBeNull()
   })
 })
 

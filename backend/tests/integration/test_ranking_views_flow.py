@@ -2,11 +2,12 @@
 position inside a tier, the cursor inside a tier, the window around the viewer, the gaps, the viewer's teams, the
 Salão preview and the visibility of the athletes.
 
-The ranking rows are written straight to `standings` (a controlled layout of tiers), except in the last test,
-which goes through the real recalculation.
+The ranking rows are written straight to `standings` (a controlled layout of tiers), except in the last tests,
+which go through the real recalculation (teams and tennis by the rating of calc_version 2).
 """
 import re
 import uuid
+from decimal import Decimal
 from types import SimpleNamespace
 
 import pytest
@@ -18,9 +19,11 @@ from app.models.identity import MediaObject, UserBlock
 from app.models.rankings import RankCut, Standing
 from app.models.teams import TeamMember
 from app.services.ranking_views import RankingParams, ranking_overview, rankings_page
+from app.services.rankings import CURRENT_CALC_VERSION
+from app.services.scoring import updated_rating
 from app.services.standings import RankingKey, ranking_lock_id, recalculate_rankings
 from tests.integration.match_helpers import NOW, add, make_team, make_user
-from tests.integration.result_helpers import DAY, login, played
+from tests.integration.result_helpers import DAY, lineup, login, played, played_tennis
 
 API = '/api/v1'
 SOCIETY = 'sport=futebol&kind=time&format=society'
@@ -147,7 +150,7 @@ def test_the_overview_opens_on_the_team_the_viewer_represents_with_the_window_in
     body = response.json()
     assert (body['ranking'], body['format'], body['position'], body['distance_km'], body['calc_version'],
             body['required'], body['classified_count'], body['legend_slots']) == (
-        'futebol_time', 'society', None, None, 1, 3, 16, 2)
+        'futebol_time', 'society', None, None, 2, 3, 16, 2)
     assert body['tier_counts'] == {'bronze': 9, 'prata': 1, 'ouro': 3, 'diamante': 2, 'lendario': 1}
     assert [line['team']['name'] for line in body['mine']] == ['Time 5', 'Time 12']     # the representative first
     assert body['selected_team_id'] == w.teams[5].id
@@ -370,9 +373,10 @@ def test_the_reads_use_the_stored_form_and_never_look_at_the_matches(world):
 
 def test_the_overview_follows_a_real_recalculation(client):
     http, db = client
-    # Low cuts (as in the Lendário recalculation test) so that nine points are Diamante.
-    cut = db.scalar(select(RankCut).where(RankCut.ranking == 'futebol_time', RankCut.calc_version == 1))
-    cut.prata, cut.ouro, cut.diamante = 2, 4, 6
+    # Low cuts (as in the Lendário recalculation test) so that three wins (rating 1079.839) are Diamante.
+    cut = db.scalar(select(RankCut).where(RankCut.ranking == 'futebol_time',
+                                          RankCut.calc_version == CURRENT_CALC_VERSION))
+    cut.prata, cut.ouro, cut.diamante = 950, 1000, 1050
     db.flush()
     reps = []
     for index in range(1, 5):
@@ -399,3 +403,93 @@ def test_the_overview_follows_a_real_recalculation(client):
     diamante = http.get(f'{API}/rankings?{SOCIETY}&tier=diamante', headers=headers).json()['items']
     assert [(item['team']['name'], item['tier_position'], item['form']) for item in diamante] == [
         ('Campeao 3', 1, list('VVV')), ('Campeao 2', 2, list('VVV')), ('Campeao 1', 3, list('VVV'))]
+
+
+def test_a_rating_line_in_placement_hides_the_rating_and_the_classified_rows_show_it(client):
+    # Teams and tennis (calc_version 2): `standings` keeps the rating of a subject in placement (the pairing reads
+    # it), but `GET /rankings`, `GET /rankings/overview` and `GET /me/standings` return `metric_value` null for it.
+    # The individual ranking keeps showing its average (the adjusted mean, decision 0006) in placement.
+    http, db = client
+    rep_a, rep_b, rep_c = make_user(db, 'rep-a'), make_user(db, 'rep-b'), make_user(db, 'rep-c')
+    team_a, team_b = make_team(db, rep_a, name='Time A'), make_team(db, rep_b, name='Time B')
+    team_c = make_team(db, rep_c, name='Time C')
+    attacker = make_user(db, 'atacante')
+    for number in range(3):
+        match = played(db, team_a, team_b, 2, 0, starts_at=NOW - (number + 3) * DAY)
+        if number == 0:
+            lineup(db, match, attacker, 'a', 'atacante', team_id=team_a.id)
+    played(db, team_c, team_a, 1, 0, starts_at=NOW - DAY)                   # Time C: one match, in placement
+    ana, bia = make_user(db, 'ana'), make_user(db, 'bia')
+    played_tennis(db, ana, bia, [{'a': 6, 'b': 1}, {'a': 6, 'b': 2}], starts_at=NOW - DAY)
+    recalculate_rankings(db, [RankingKey('futebol_time', 'society'), RankingKey('tenis'),
+                              RankingKey('futebol_individual', 'society', 'atacante')], now=NOW)
+    # Time C (1000, placement K) beat Time A, rated 1079.839 after its three wins: the upset is stored.
+    stored = db.scalar(select(Standing).where(Standing.team_id == team_c.id))
+    upset = updated_rating(Decimal(1000), Decimal('1079.839'), Decimal(1), Decimal(64))
+    assert (stored.tier, stored.metric_value, stored.calc_version) == (None, upset, 2) and upset > 1032
+    headers = {name: login(db, user) for name, user in (('c', rep_c), ('a', rep_a), ('ana', ana),
+                                                         ('attacker', attacker))}
+    db.commit()
+
+    for path in ('rankings', 'rankings/overview'):
+        body = http.get(f'{API}/{path}?{SOCIETY}', headers=headers['c']).json()
+        assert body['calc_version'] == 2
+        [line] = body['mine']
+        assert (line['state'], line['played'], line['tier'], line['metric_value']) == ('classificacao', 1, None, None)
+        ranked = http.get(f'{API}/{path}?{SOCIETY}', headers=headers['a']).json()['mine'][0]
+        assert (ranked['state'], ranked['tier']) == ('ranqueado', 'ouro')
+        assert ranked['metric_value'] == float(db.scalar(select(Standing.metric_value).where(
+            Standing.team_id == team_a.id)))
+        tennis = http.get(f'{API}/{path}?sport=tenis', headers=headers['ana']).json()
+        assert (tennis['mine'][0]['state'], tennis['mine'][0]['metric_value']) == ('classificacao', None)
+        individual = http.get(f'{API}/{path}?sport=futebol&kind=individual&format=society&position=atacante',
+                              headers=headers['attacker']).json()['mine'][0]
+        # Presence 1 + win 3 = 4 points in one match: the adjusted mean (4 + 5 × 3.0) / (1 + 5).
+        assert (individual['state'], individual['metric_value']) == ('classificacao', 3.167)
+    page = http.get(f'{API}/rankings?{SOCIETY}', headers=headers['c']).json()
+    assert [(item['team']['name'], item['tier']) for item in page['items']] == [('Time A', 'ouro'), ('Time B', 'bronze')]
+    assert all(item['metric_value'] > 900 for item in page['items'])
+
+    me = http.get(f'{API}/me/standings', headers=headers['c']).json()
+    assert me['calc_version'] == 2
+    society = me['futebol']['teams'][0]['formats'][1]
+    assert (society['state'], society['metric_value']) == ('classificacao', None)
+    assert http.get(f'{API}/me/standings', headers=headers['ana']).json()['tenis']['metric_value'] is None
+    ranked_me = http.get(f'{API}/me/standings', headers=headers['a']).json()['futebol']['teams'][0]['formats'][1]
+    assert ranked_me['state'] == 'ranqueado' and ranked_me['metric_value'] > 1000
+
+
+def test_the_individual_ranking_lists_and_measures_gaps_by_the_adjusted_mean(client):
+    # futebol_individual (calc_version 2, migration 0017): `metric_value` is the adjusted mean, (total + 5 × 3.0) /
+    # (matches + 5); the order is the adjusted mean, more matches and the id, and the gaps are in the same unit.
+    http, db = client
+    reps = [make_user(db, name) for name in ('rep-a', 'rep-b')]
+    team_a, team_b = (make_team(db, rep, name=f'Time {rep.id}') for rep in reps)
+    steady, short, weak = (make_user(db, name) for name in ('constante', 'curto', 'fraco'))
+    # Constante: 10 wins and 2 draws, 44 points in 12 matches (plain 3.667, adjusted 3.471).
+    for number in range(12):
+        match = played(db, team_a, team_b, 1, 0 if number < 10 else 1, starts_at=NOW - (number + 5) * DAY)
+        lineup(db, match, steady, 'a', 'atacante', team_id=team_a.id)
+    # Curto: 3 wins, 4 points each (plain 4.0, adjusted 3.375); Fraco loses the same 3 (plain 1.0, adjusted 2.25).
+    for number in range(3):
+        match = played(db, team_a, team_b, 1, 0, starts_at=NOW - (number + 1) * DAY)
+        lineup(db, match, short, 'a', 'atacante', team_id=team_a.id)
+        lineup(db, match, weak, 'b', 'atacante', team_id=team_b.id)
+    recalculate_rankings(db, [RankingKey('futebol_individual', 'society', 'atacante')], now=NOW)
+    headers = login(db, short)
+    db.commit()
+
+    query = 'sport=futebol&kind=individual&format=society&position=atacante'
+    page = http.get(f'{API}/rankings?{query}', headers=headers).json()
+    assert (page['ranking'], page['calc_version'], page['classified_count']) == ('futebol_individual', 2, 3)
+    assert [(item['rank_position'], item['athlete']['id'], item['metric_value'], item['tier'], item['matches_played'])
+            for item in page['items']] == [(1, steady.id, 3.471, 'prata', 12), (2, short.id, 3.375, 'prata', 3),
+                                           (3, weak.id, 2.25, 'bronze', 3)]
+    for path in ('rankings', 'rankings/overview'):
+        [mine] = http.get(f'{API}/{path}?{query}', headers=headers).json()['mine']
+        assert (mine['state'], mine['rank_position'], mine['metric_value'], mine['tier_position'], mine['tier_size'],
+                mine['leader_gap'], mine['next_gap']) == ('ranqueado', 2, 3.375, 2, 2, 0.096, None)
+    me = http.get(f'{API}/me/standings', headers=headers).json()
+    line = next(item for item in me['futebol']['individual'] if (item['position'], item['format']) == (
+        'atacante', 'society'))
+    assert (me['calc_version'], line['state'], line['tier'], line['metric_value']) == (2, 'ranqueado', 'prata', 3.375)

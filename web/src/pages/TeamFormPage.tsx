@@ -4,6 +4,7 @@ import { ImageUp, Info, MapPin, ShieldCheck, Trash2 } from 'lucide-react'
 import type { Area } from 'react-easy-crop'
 import type { City, Profile, User } from '@/api/client'
 import { ApiError } from '@/api/client'
+import { cityLabel } from '@/api/cities'
 import { closeTeam, createTeam, getTeam, removeCrest, updateTeam, uploadCrest } from '@/api/teams'
 import type { TeamCard, TeamInput } from '@/api/teams'
 import ImageCropSheet from '@/components/ImageCropSheet'
@@ -41,12 +42,11 @@ function GhostCrest() {
  * remover, com recorte quadrado), nome de 3 a 40 caracteres e cidade (do perfil de futebol, com "Trocar"). Quem cria
  * é o representante. Na edição, "Encerrar time" fica no fim, com confirmação.
  */
-export default function TeamFormPage({ teamId, user, profiles, cities, onDone, onClosed, onBack, onExpired }: {
+export default function TeamFormPage({ teamId, user, profiles, onDone, onClosed, onBack, onExpired }: {
   /** Ausente: criar time. */
   teamId?: number
   user: User
   profiles: Profile[]
-  cities: City[]
   /** Time criado ou salvo: volta a Meus times com ele no carrossel. */
   onDone: (team: TeamCard) => void
   /** Time encerrado. */
@@ -59,7 +59,7 @@ export default function TeamFormPage({ teamId, user, profiles, cities, onDone, o
   const [loadFailure, setLoadFailure] = useState<{ message: string; cause: unknown } | null>(null)
   const [attempt, setAttempt] = useState(0)
   const [name, setName] = useState('')
-  const [cityId, setCityId] = useState<number | null>(teamId ? null : football?.city_id ?? null)
+  const [city, setCity] = useState<City | null>(teamId ? null : football?.city ?? null)
   const [crest, setCrest] = useState<CrestChange>({ kind: 'keep' })
   const [source, setSource] = useState('')
   const [cropError, setCropError] = useState('')
@@ -75,7 +75,7 @@ export default function TeamFormPage({ teamId, user, profiles, cities, onDone, o
   useEffect(() => {
     if (!teamId) return
     let alive = true
-    getTeam(teamId).then(value => { if (alive) { setTeam(value); setName(value.name); setCityId(value.city.id) } })
+    getTeam(teamId).then(value => { if (alive) { setTeam(value); setName(value.name); setCity(value.city) } })
       .catch((cause: unknown) => {
         if (!alive) return
         if (cause instanceof ApiError && cause.status === 401) onExpired()
@@ -90,10 +90,9 @@ export default function TeamFormPage({ teamId, user, profiles, cities, onDone, o
 
   const normalized = normalizeTeamName(name)
   const nameValid = normalized.length >= TEAM_NAME_MIN && normalized.length <= TEAM_NAME_MAX
-  const city = cities.find(item => item.id === cityId) ?? (team && team.city.id === cityId ? team.city : null)
   const crestPath = crest.kind === 'keep' ? team?.crest_url ?? null : null
   const hasCrest = crest.kind === 'upload' || Boolean(crestPath)
-  const changed = !team || normalized !== team.name || cityId !== team.city.id || crest.kind !== 'keep'
+  const changed = !team || normalized !== team.name || city?.id !== team.city.id || crest.kind !== 'keep'
   const canSubmit = nameValid && city !== null && changed && !save.busy && (!teamId || team !== null)
 
   const view: TeamCardView = {
@@ -214,12 +213,12 @@ export default function TeamFormPage({ teamId, user, profiles, cities, onDone, o
       <span className={fieldLabel} id="team-city-label">Cidade</span>
       <div role="group" aria-labelledby="team-city-label" className="flex min-h-[46px] items-center gap-2 rounded-control bg-white/5 py-1 pr-1.5 pl-3 text-[13px]">
         <MapPin size={17} className="text-mint" aria-hidden="true" />
-        <b className="min-w-0 flex-1 truncate">{city ? `${city.name} · ${city.state}` : 'Escolha a cidade do time'}</b>
+        <b className="min-w-0 flex-1 truncate">{city ? cityLabel(city) : 'Escolha a cidade do time'}</b>
         <button type="button" className="min-h-9 border-0 bg-transparent px-1.5 text-[11px] font-bold text-mint" onClick={() => setPicking(true)}
           aria-label={city ? 'Trocar cidade' : 'Escolher cidade'}>{city ? 'Trocar' : 'Escolher'}</button>
       </div>
       <small className="mt-1.5 text-[10.5px] text-white/56">
-        {!editing && football && cityId === football.city_id ? 'Vem do seu perfil de futebol. ' : ''}O pareamento usa a cidade do time.
+        {!editing && football && city?.id === football.city_id ? 'Vem do seu perfil de futebol. ' : ''}O pareamento usa a cidade do time.
       </small>
 
       {!editing && <p className="mt-3.5 flex items-start gap-2 text-[11px] leading-[1.5] text-white/66">
@@ -242,7 +241,7 @@ export default function TeamFormPage({ teamId, user, profiles, cities, onDone, o
 
     {source && <ImageCropSheet source={source} title="Ajustar brasão" description="Arraste a imagem e ajuste o zoom para escolher o recorte quadrado." aspect={1}
       confirmLabel="Usar imagem" busy={cropping} error={cropError} onCancel={() => { setSource(''); setCropError('') }} onConfirm={area => void crop(area)} />}
-    {picking && <CitySheet cities={cities} selectedId={cityId} onClose={() => setPicking(false)} onSelect={item => { setCityId(item.id); setPicking(false) }} />}
+    {picking && <CitySheet selected={city} onClose={() => setPicking(false)} onSelect={item => { setCity(item); setPicking(false) }} />}
     {closing && team && <Sheet title={`Encerrar ${team.name}`} onClose={() => { if (!close.busy) setClosing(false) }}>
       <ConfirmBox confirmLabel="Encerrar time" busy={close.busy} onConfirm={() => void confirmClose()} onCancel={() => setClosing(false)}>
         <b>Encerrar o {team.name}?</b><br />Os {team.member_count} {team.member_count === 1 ? 'atleta deixa' : 'atletas deixam'} o elenco e são avisados; convites, pedidos e o link deixam de valer.

@@ -32,21 +32,25 @@ export function openTarget(navigation: Navigation, target: NotificationTarget) {
  * tela do aviso. `onRead` recebe o resumo devolvido pelo servidor para quem chama atualizar o sino e as listas. Falha ao marcar:
  * com destino, a navegação segue (ler é secundário); sem destino, a falha passa por `reportActionError` (toast ou aviso de
  * conexão). 401 expira a sessão e não navega. A pendência lida continua pendente: só a ação na tela de destino ou o prazo a resolvem.
+ * `onNoTarget` é o destino de quem chama para o aviso sem tela própria (o Destaque do Início abre as notificações no filtro
+ * *Para responder*): com ele, o aviso sem destino se comporta como o que tem destino.
  */
-export async function openNotification(notification: ArenaNotification, { navigation, isAdmin, onRead, onExpired }: {
+export async function openNotification(notification: ArenaNotification, { navigation, isAdmin, onRead, onExpired, onNoTarget }: {
   navigation: Navigation
   isAdmin: boolean
   onRead: (summary: NotificationSummary) => void
   onExpired: () => void
+  onNoTarget?: () => void
 }): Promise<void> {
   const { target } = notificationView(notification, { isAdmin })
+  const open = target ? () => openTarget(navigation, target) : onNoTarget
   if (!notification.read_at) {
     try {
       onRead(await markNotificationRead(notification.id))
     } catch (cause) {
       if (cause instanceof ApiError && cause.status === 401) { onExpired(); return }
-      if (!target) { reportActionError(cause, 'Não foi possível marcar a notificação como lida.', onExpired); return }
+      if (!open) { reportActionError(cause, 'Não foi possível marcar a notificação como lida.', onExpired); return }
     }
   }
-  if (target) openTarget(navigation, target)
+  open?.()
 }

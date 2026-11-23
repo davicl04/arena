@@ -2,12 +2,13 @@ import React from 'react'
 import { act } from 'react-test-renderer'
 import type { ReactTestRenderer } from 'react-test-renderer'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { ApiError } from '../src/api/client'
+import { ApiError, request } from '../src/api/client'
 import { serverFieldErrors } from '../src/components/organizer/OrganizerRequestForm'
 import OrganizerRequestScreen from '../src/screens/OrganizerRequestScreen'
 import { byLabel, enableAct, press, textOf, type } from './support/native'
 import { approved, calls, city, mount, navigationMock, organizerRequest, otherCity, routeRequest, status } from './support/organizer'
 import { textWithin, toastText, toasts } from './support/toast'
+import { searchCity, searchPath, valparaisoCity } from './support/cities'
 
 vi.mock('react-native', async () => (await import('./support/native')).reactNativeMock())
 vi.mock('expo-secure-store', () => ({ getItemAsync: vi.fn(), setItemAsync: vi.fn(), deleteItemAsync: vi.fn() }))
@@ -17,8 +18,8 @@ vi.mock('../src/api/client', async original => ({ ...await original<typeof impor
 const h = React.createElement
 const onExpired = vi.fn()
 let navigation = navigationMock()
-const profiles = [{ id: 1, sport: 'futebol', city_id: 7, position: null, looking_for: false, is_public: false, level: null }]
-const baseRoutes = (over: Record<string, unknown> = {}) => ({ '/me/organizer-request': status(), '/cities': [city, otherCity], '/me/sports-profiles': profiles, ...over })
+const profiles = [{ id: 1, sport: 'futebol', city_id: 7, city, position: null, looking_for: false, is_public: false, level: null }]
+const baseRoutes = (over: Record<string, unknown> = {}) => ({ '/me/organizer-request': status(), '/me/sports-profiles': profiles, [searchPath('goi')]: [otherCity], [searchPath('zzz')]: [], ...over })
 const screen = () => mount(h(OrganizerRequestScreen, { navigation: navigation as never, onExpired, params: undefined, title: 'Seja organizador' } as never))
 /** Toca no botão (sem rótulo de acessibilidade) cujo texto é exatamente `text`, como o "Tentar novamente" do `LoadError`. */
 const pressText = async (tree: ReactTestRenderer, text: string) => {
@@ -116,12 +117,14 @@ describe('Seja organizador (P5): regras e formulário', () => {
     expect(state(tree, 'Tênis')).toMatchObject({ checked: false })
     await press(tree, 'Cidade: Brasília, DF')
     expect(byLabel(tree, 'Cidades do catálogo')).toHaveLength(1)
-    await type(tree, 'Buscar cidade', 'goi')
-    expect(byLabel(tree, 'Brasília, DF')).toHaveLength(0)
+    // A cidade do perfil continua marcada no topo, mesmo fora dos resultados da busca.
+    await searchCity(tree, 'goi')
+    expect(byLabel(tree, 'Cidade escolhida')).toHaveLength(1)
+    expect(state(tree, 'Brasília, DF')).toMatchObject({ selected: true })
     expect(byLabel(tree, 'Goiânia, GO').length).toBeGreaterThan(0)
-    await type(tree, 'Buscar cidade', 'zzz')
-    expect(textOf(tree)).toContain('Nenhuma cidade do catálogo com esse nome.')
-    await type(tree, 'Buscar cidade', 'goi')
+    await searchCity(tree, 'zzz')
+    expect(textOf(tree)).toContain('Nenhuma cidade encontrada.')
+    await searchCity(tree, 'goi')
     await press(tree, 'Goiânia, GO')
     expect(byLabel(tree, 'Cidade: Goiânia, GO').length).toBeGreaterThan(0)
     expect(byLabel(tree, 'Cidades do catálogo')).toHaveLength(0)
@@ -204,11 +207,23 @@ describe('Seja organizador (P5): quem já tem pedido ou permissão', () => {
     expect(byLabel(tree, 'Pedido de organizador')).toHaveLength(1)
   })
 
-  it('falha ao carregar as cidades avisa e deixa o campo da cidade desabilitado', async () => {
-    routeRequest(baseRoutes({ '/cities': () => { throw new ApiError('Catálogo fora do ar', 500) } }))
+  it('não lê a lista global de cidades; a cidade do perfil vem do objeto `city`', async () => {
+    routeRequest(baseRoutes())
     const tree = await screen()
-    expect(textOf(tree)).toContain('Catálogo fora do ar')
-    const field = tree.root.findAllByType('Pressable' as never).find(entry => String(entry.props.accessibilityLabel).startsWith('Cidade:'))!
-    expect(field.props.disabled).toBe(true)
+    expect(byLabel(tree, 'Cidade: Brasília, DF').length).toBeGreaterThan(0)
+    expect(vi.mocked(request).mock.calls.some(call => String(call[0]).startsWith('/cities'))).toBe(false)
+  })
+
+  it('escolhe e envia um município fora dos 100 primeiros pela busca', async () => {
+    const sent = organizerRequest({ city: valparaisoCity })
+    routeRequest(baseRoutes({ '/me/sports-profiles': [], [searchPath('valpa')]: [valparaisoCity], 'POST /me/organizer-request': sent }))
+    const tree = await screen()
+    await fill(tree)
+    await press(tree, 'Cidade: não escolhida')
+    await searchCity(tree, 'valpa')
+    await press(tree, 'Valparaíso de Goiás, GO')
+    expect(byLabel(tree, 'Cidade: Valparaíso de Goiás, GO').length).toBeGreaterThan(0)
+    await press(tree, 'Enviar pedido')
+    expect(calls('POST', '/me/organizer-request')[0][2]).toMatchObject({ city_id: 5221858 })
   })
 })

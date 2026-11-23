@@ -24,9 +24,10 @@ take them in ascending order of `bucket_lock_id` and commit between buckets when
 """
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 from datetime import datetime
+from decimal import Decimal
 from typing import Literal, Protocol
 
 from sqlalchemy import exists, func, or_, select
@@ -51,6 +52,7 @@ from app.services.match_rules import (
     proposal_expires_at,
     rank_candidates,
 )
+from app.services.rankings import CURRENT_CALC_VERSION, initial_rating, load_cuts
 
 BATCH = 500
 OfferOutcome = Literal['recusada', 'sem_resposta', 'devolvida']
@@ -94,6 +96,11 @@ def _locked(db: Session, model, row_id: int | None, *, skip_locked: bool = False
 def proposal_bucket(match: Match) -> str:
     """Bucket of the proposal of a match: both searches of a pairing share it (same kind, city and format)."""
     return bucket_key('time' if match.sport == 'futebol' else 'tenis', match.city_id, match.format)
+
+
+def _subject(search: MatchSearch) -> int:
+    """The team of a team search, the athlete of a tennis (or walk-in) search."""
+    return search.team_id if search.kind == 'time' else search.user_id
 
 
 def _involved(match_id, user_id):
@@ -151,7 +158,8 @@ class PostgresMatchmakingQueue:
             active_subject).with_for_update().execution_options(populate_existing=True))
 
     def _candidates(self, db: Session, current: MatchSearch, now: datetime) -> list[MatchSearch]:
-        """Waiting searches of the bucket in pairing order: same tier, neighbour, then the oldest.
+        """Waiting searches of the bucket in pairing order: same tier, neighbour, then the rest; inside a tier group
+        the closest rating (`_search_ratings`), then the oldest search and the id.
 
         Teams that share an active representative never face each other (the same person would accept both
         sides); closed teams and inactive accounts are skipped."""
@@ -170,7 +178,37 @@ class PostgresMatchmakingQueue:
             statement = statement.join(User, User.id == MatchSearch.user_id).where(
                 User.active.is_(True), MatchSearch.user_id != current.user_id)
         rows = db.scalars(statement.order_by(MatchSearch.started_at, MatchSearch.id)).all()
-        return rank_candidates(Candidate(row, current.tier, row.tier, row.started_at, row.id) for row in rows)
+        ratings = self._search_ratings(db, current, rows)
+        return rank_candidates(
+            Candidate(row, current.tier, row.tier, row.started_at, row.id, mine_rating=ratings.get(_subject(current)),
+                      theirs_rating=ratings.get(_subject(row)))
+            for row in rows)
+
+    @staticmethod
+    def _search_ratings(db: Session, current: MatchSearch, rows: Sequence[MatchSearch]) -> dict[int, Decimal]:
+        """Ratings {team or athlete: rating} of a team or tennis search and its candidates, in the search's category
+        (the team in the format; tennis), read in one query from `standings`, as the walk-in reads its tiers.
+
+        A subject without a row of the current calculation (no match in the window, or a row not yet recalculated
+        to the current version) has the initial rating of the cuts. Empty when there is nothing to order (fewer
+        than two candidates) or the ranking does not classify by rating (cuts of an older version, after a
+        rollback): the order is then tier and age. At most two queries per attempt, none per candidate."""
+        if len(rows) < 2:
+            return {}
+        cuts = load_cuts(db).get('futebol_time' if current.kind == 'time' else 'tenis')
+        if cuts is not None and not cuts.is_rating:
+            return {}
+        ids = list(dict.fromkeys([_subject(current), *(_subject(row) for row in rows)]))
+        if current.kind == 'time':
+            subject = Standing.team_id
+            where = (Standing.sport == 'futebol', Standing.format == current.format)
+        else:
+            subject = Standing.user_id
+            where = (Standing.sport == 'tenis',)
+        stored = dict(db.execute(select(subject, Standing.metric_value).where(
+            subject.in_(ids), *where, Standing.calc_version == CURRENT_CALC_VERSION)).all())
+        start = initial_rating(cuts)
+        return {subject_id: Decimal(stored[subject_id]) if subject_id in stored else start for subject_id in ids}
 
     def _propose(self, db: Session, waiting: MatchSearch, newcomer: MatchSearch, now: datetime) -> Pairing:
         """Creates the proposal (side A = the search that waited) and takes both searches out of the queue."""

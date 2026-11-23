@@ -13,7 +13,7 @@ import { summaryOf } from './notifications-fixtures'
  */
 
 const me: User = { id: 1, name: 'Ricardo Moura', username: 'ricardo.moura', email: 'r@example.com', birth_date: '1990-01-01', social_public: false, is_admin: false, avatar: null, cover: null }
-const football: Profile = { id: 1, sport: 'futebol', city_id: brasilia.id, position: 'atacante', looking_for: false, is_public: false, level: null }
+const football: Profile = { id: 1, sport: 'futebol', city_id: brasilia.id, city: brasilia, position: 'atacante', looking_for: false, is_public: false, level: null }
 const lions = team({ id: 20, name: 'Leões do Cerrado', initials: 'LC', my_role: 'membro', pending_join_requests: null, pending_invites: null })
 const notice = (id: number, type: string, payload: Record<string, unknown>): ArenaNotification =>
   ({ id, type, payload, actor: person(9, 'Caio Ramos'), created_at: new Date(Date.now() - id * 60e3).toISOString(), read_at: null })
@@ -22,7 +22,6 @@ const empty = { items: [], next_cursor: null }
 function api(notifications: ArenaNotification[], extra: Record<string, unknown> = {}) {
   return mockApi({
     'GET /me/sports-profiles': [football],
-    'GET /cities': [brasilia],
     'GET /me/notifications/summary': summaryOf({ unread_count: notifications.length }),
     'GET /me/follow-requests': empty,
     'GET /me/notifications/pending?limit=50': { items: [] },

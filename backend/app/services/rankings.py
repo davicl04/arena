@@ -5,6 +5,10 @@ after each running mark registered or removed (fase 6, `services.runs`). A subje
 'sem_jogos' (football and tennis) or 'sem_marca' (running). A tier is never assigned before classification: the
 recalculation writes a tier only to subjects with the required matches (marks, in running), and the lines below
 show the tier of a row as stored.
+
+From `calc_version = 2` the metric of `futebol_time` and `tenis` is a rating (`metric = 'rating'`, decision
+docs/decisoes/0006-ranking-por-rating.md): its parameters (initial rating and K factors) are versioned with the cuts,
+and the rating is never shown while the subject is in placement.
 """
 from __future__ import annotations
 
@@ -29,9 +33,12 @@ from app.schemas.rankings import (
     TeamStandingsOut,
 )
 
-CURRENT_CALC_VERSION = 1
+CURRENT_CALC_VERSION = 2
 # Used only if the cuts of the current version are missing; the migration inserts them.
 DEFAULT_PLACEMENT = {'futebol': 3, 'tenis': 3, 'corrida': 1}
+# Rating of a subject without matches in the window when the cuts do not say otherwise (migration 0016 stores
+# 1000 in the `calc_version = 2` rows of `futebol_time` and `tenis`).
+DEFAULT_INITIAL_RATING = Decimal(1000)
 
 
 @dataclass(frozen=True)
@@ -45,6 +52,22 @@ class Cuts:
     placement_matches: int
     legend_share: Decimal
     window_weeks: int
+    # Rating rankings (`metric = 'rating'`): starting rating and K factor of the first `placement_matches` matches of
+    # the subject in the window and of the later ones. None in the other rankings.
+    initial_rating: Decimal | None = None
+    placement_k: Decimal | None = None
+    regular_k: Decimal | None = None
+    # Adjusted mean (`m` phantom matches at the reference mean `μ`); None while the plain mean applies.
+    prior_matches: Decimal | None = None
+    prior_mean: Decimal | None = None
+
+    @property
+    def is_rating(self) -> bool:
+        return self.metric == 'rating'
+
+
+def _decimal(value) -> Decimal | None:
+    return None if value is None else Decimal(value)
 
 
 def ranking_key(sport: str, *, team: bool = False, distance_km: int | None = None) -> str:
@@ -62,7 +85,20 @@ def load_cuts(db: Session, calc_version: int = CURRENT_CALC_VERSION) -> dict[str
     rows = db.scalars(select(RankCut).where(RankCut.calc_version == calc_version)).all()
     return {row.ranking: Cuts(row.ranking, row.metric, row.direction, Decimal(row.prata), Decimal(row.ouro),
                               Decimal(row.diamante), row.placement_matches, Decimal(row.legend_share),
-                              row.window_weeks) for row in rows}
+                              row.window_weeks, _decimal(row.initial_rating), _decimal(row.placement_k),
+                              _decimal(row.regular_k), _decimal(row.prior_matches), _decimal(row.prior_mean))
+            for row in rows}
+
+
+def initial_rating(cuts: Cuts | None) -> Decimal:
+    """Rating of a subject without matches in the window: the one of the cuts, or `DEFAULT_INITIAL_RATING`."""
+    return cuts.initial_rating if cuts is not None and cuts.initial_rating is not None else DEFAULT_INITIAL_RATING
+
+
+def hides_placement_metric(cuts: dict[str, Cuts], ranking: str) -> bool:
+    """A rating ranking keeps the rating of a subject in placement in `standings` (pairing), but never shows it."""
+    cut = cuts.get(ranking)
+    return cut is not None and cut.is_rating
 
 
 def base_tier(value: Decimal | int | float, cuts: Cuts) -> str:
@@ -102,8 +138,9 @@ def can_face(left: str | None, right: str | None) -> bool:
     return abs(TIERS.index(left) - TIERS.index(right)) <= 1
 
 
-def standing_line(row: Standing | None, required: int, *, running: bool = False) -> dict:
-    """Fields of StandingLineOut for one category; `row` is None when the subject never played."""
+def standing_line(row: Standing | None, required: int, *, running: bool = False, rating: bool = False) -> dict:
+    """Fields of StandingLineOut for one category; `row` is None when the subject never played. In a rating ranking
+    (`rating`), `metric_value` is null while the subject is in placement."""
     played = row.matches_played if row is not None else 0
     tier = row.tier if row is not None else None
     if tier is not None:
@@ -118,7 +155,8 @@ def standing_line(row: Standing | None, required: int, *, running: bool = False)
         'played': min(played, required) if tier is None else played,
         'required': required,
         'rank_position': row.rank_position if row is not None and tier is not None else None,
-        'metric_value': float(row.metric_value) if row is not None and played > 0 else None,
+        'metric_value': float(row.metric_value) if row is not None and played > 0 and not (
+            rating and tier is None) else None,
         'faces': faced_tiers(tier),
         'faces_any_level': tier is None,
     }
@@ -155,9 +193,11 @@ def team_format_grid(db: Session, team_ids: Iterable[int], *,
         return {}
     cuts = load_cuts(db) if cuts is None else cuts
     required = required_matches(cuts, 'futebol_time', 'futebol')
+    rating = hides_placement_metric(cuts, 'futebol_time')
     rows = db.scalars(select(Standing).where(Standing.team_id.in_(ids), Standing.sport == 'futebol')).all()
     by_key = {(row.team_id, row.format): row for row in rows}
-    return {team_id: [FormatStandingOut(format=fmt, **standing_line(by_key.get((team_id, fmt)), required))
+    return {team_id: [FormatStandingOut(format=fmt, **standing_line(by_key.get((team_id, fmt)), required,
+                                                                    rating=rating))
                       for fmt in FOOTBALL_FORMATS] for team_id in ids}
 
 
@@ -188,6 +228,7 @@ def my_standings(db: Session, user: User) -> MeStandingsOut:
     return MeStandingsOut(
         calc_version=CURRENT_CALC_VERSION,
         futebol=FootballStandingsOut(teams=teams, individual=individual),
-        tenis=StandingLineOut(**standing_line(tennis, required_matches(cuts, 'tenis', 'tenis'))),
+        tenis=StandingLineOut(**standing_line(tennis, required_matches(cuts, 'tenis', 'tenis'),
+                                              rating=hides_placement_metric(cuts, 'tenis'))),
         corrida=corrida,
     )

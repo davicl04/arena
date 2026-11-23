@@ -98,7 +98,7 @@ describe('métrica do ranking da corrida', () => {
     expect(formatMetric(5400, 'corrida_21')).toBe('1:30:00')
     expect(metricUnit('corrida_10')).toBe('tempo')
     expect(metricText(1452, 'corrida_5')).toBe('24:12')
-    expect(metricText(38, 'futebol_time')).toBe('38 pontos')
+    expect(metricText(1087.494, 'futebol_time')).toBe('1087 rating')
     expect(metricText(4.256, 'futebol_individual')).toBe('4,26 média')
   })
 })

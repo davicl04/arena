@@ -26,7 +26,7 @@ const question = () => screen.getByRole('heading', { level: 2, name: /\?$/ })
 
 function renderWizard(props: Partial<Parameters<typeof EventWizard>[0]> = {}) {
   const handlers = { onClose: vi.fn(), onDone: vi.fn(), onExpired: vi.fn() }
-  renderWithToaster(<EventWizard cities={[brasilia]} {...handlers} {...props} />)
+  renderWithToaster(<EventWizard {...handlers} {...props} />)
   return handlers
 }
 
@@ -142,6 +142,7 @@ describe('Criar evento (V4): uma pergunta por vez', () => {
       if (path === '/organizer/events/9' && method === 'PATCH') { saved = { ...saved, ...(body as object), checklist: fullChecklist, can_submit: true }; return saved }
       if (path === '/organizer/events/9/submit') return { ...saved, state: 'publicado', phase: 'inscricoes_abertas' }
       if (path === '/organizer/events/9') return saved
+      if (path === '/cities?q=bras') return [brasilia]
       return undefined
     })
     const { onDone } = renderWizard({ eventId: 9 })
@@ -162,7 +163,10 @@ describe('Criar evento (V4): uma pergunta por vez', () => {
     expect(screen.getByText('Escolha a cidade.')).toBeTruthy()
     expect(screen.getByText('Informe o local com 2 a 120 caracteres.')).toBeTruthy()
     await user.click(screen.getByRole('button', { name: 'Escolher' }))
-    await user.click(within(screen.getByRole('dialog', { name: 'Cidade do evento' })).getByRole('button', { name: /Brasília/ }))
+    const sheet = screen.getByRole('dialog', { name: 'Cidade do evento' })
+    await user.type(within(sheet).getByLabelText('Buscar cidade'), 'bras')
+    await user.click(await within(sheet).findByRole('button', { name: 'Brasília · DF' }))
+    expect(screen.getByText('Brasília · DF')).toBeTruthy()
     await user.type(screen.getByLabelText('Local'), 'Clube do Saibro')
     await user.click(screen.getByRole('button', { name: /Próxima/ }))
     expect(question().textContent).toBe('A inscrição é paga?')
@@ -178,6 +182,15 @@ describe('Criar evento (V4): uma pergunta por vez', () => {
     expect(body.registration_closes_at).toBe(new Date(2026, 9, 28, 23, 59).toISOString())
     expect(calls('POST').map(call => call[0])).toEqual(['/organizer/events/9/submit'])
     expect(onDone.mock.calls[0][0].state).toBe('publicado')
+  })
+
+  it('nomeia a cidade do rascunho pelo `city` do evento, mesmo fora das primeiras do catálogo', async () => {
+    const valparaiso = { id: 5221858, name: 'Valparaíso de Goiás', state: 'GO' }
+    mockApi(path => path === '/organizer/events/9' ? draftDetail({ city: valparaiso }) : undefined)
+    renderWizard({ eventId: 9, initialStep: 3 })
+    expect(await screen.findByText('Valparaíso de Goiás · GO')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Trocar' })).toBeTruthy()
+    expect(vi.mocked(request).mock.calls.map(call => call[0])).toEqual(['/organizer/events/9'])
   })
 
   it('pago: pede valor e Pix, valida a chave e envia para aprovação', async () => {

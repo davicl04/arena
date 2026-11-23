@@ -71,7 +71,6 @@ function serve(extra: Handler = () => undefined, data = standings(), profiles = 
     const custom = await extra(path, method, body)
     if (custom !== undefined) return custom
     if (path === '/me/sports-profiles') return profiles
-    if (path === '/cities') return [brasilia]
     if (path === '/me/standings') return data
     if (path === '/me/run-bests') return bests()
     return undefined

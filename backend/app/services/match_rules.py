@@ -14,6 +14,7 @@ import unicodedata
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from decimal import Decimal
 from typing import Any
 
 from app.models.matches import STAT_FIELDS
@@ -236,9 +237,18 @@ def compatible(mine: str | None, theirs: str | None) -> bool:
     return can_face(mine, theirs)
 
 
-def candidate_order(mine: str | None, theirs: str | None, started_at: datetime, item_id: int) -> tuple:
-    """Pairing order: same tier first, then the neighbour, then the oldest search (or slot)."""
-    return (pairing_rank(mine, theirs), started_at, item_id)
+def rating_gap(mine: Decimal | None, theirs: Decimal | None) -> Decimal:
+    """Absolute rating difference; 0 when a side has no rating (walk-ins and slots, or a ranking without rating)."""
+    if mine is None or theirs is None:
+        return Decimal(0)
+    return abs(mine - theirs)
+
+
+def candidate_order(mine: str | None, theirs: str | None, started_at: datetime, item_id: int, *,
+                    mine_rating: Decimal | None = None, theirs_rating: Decimal | None = None) -> tuple:
+    """Pairing order: same tier first, then the neighbour; inside a tier group the closest rating (team and tennis
+    searches, decision 0006), then the oldest search (or slot) and the id."""
+    return (pairing_rank(mine, theirs), rating_gap(mine_rating, theirs_rating), started_at, item_id)
 
 
 @dataclass(frozen=True)
@@ -246,18 +256,23 @@ class Candidate:
     """Something to pair with: a waiting search, or an open slot for a walk-in.
 
     `mine` is the tier of who is looking (for a walk-in, in the slot's position and format) and `theirs` the
-    tier on the other side (the waiting search, or the team that opened the slot)."""
+    tier on the other side (the waiting search, or the team that opened the slot). `mine_rating` and
+    `theirs_rating` are the ratings of both subjects in a team or tennis search (from `standings`); walk-ins and
+    slots have none, so their order does not change."""
     item: Any
     mine: str | None
     theirs: str | None
     since: datetime
     item_id: int
+    mine_rating: Decimal | None = None
+    theirs_rating: Decimal | None = None
 
 
 def rank_candidates(candidates: Iterable[Candidate]) -> list[Any]:
     """Compatible candidates in pairing order; the caller locks each one and re-checks it before using it."""
     allowed = [candidate for candidate in candidates if compatible(candidate.mine, candidate.theirs)]
-    allowed.sort(key=lambda c: candidate_order(c.mine, c.theirs, c.since, c.item_id))
+    allowed.sort(key=lambda c: candidate_order(c.mine, c.theirs, c.since, c.item_id, mine_rating=c.mine_rating,
+                                               theirs_rating=c.theirs_rating))
     return [candidate.item for candidate in allowed]
 
 

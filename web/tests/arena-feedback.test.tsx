@@ -7,7 +7,7 @@ import { connection } from '../src/api/connection'
 import { toast } from '../src/components/ui/toast'
 import ArenaPage from '../src/pages/ArenaPage'
 import AuthPage from '../src/pages/AuthPage'
-import { brasilia, football, playBoard, standings } from './matchmaking-fixtures'
+import { football, playBoard, standings } from './matchmaking-fixtures'
 import { mockApi } from './teams-fixtures'
 import { findToast } from './toast-utils'
 
@@ -19,7 +19,7 @@ describe('avisos no painel do app', () => {
   it('ArenaPage monta o Toaster e o aviso de conexão dentro do painel', async () => {
     Element.prototype.scrollTo = () => {}
     mockApi({
-      'GET /me/sports-profiles': [football], 'GET /cities': [brasilia], 'GET /me/notifications/unread-count': { unread_count: 0 },
+      'GET /me/sports-profiles': [football], 'GET /me/notifications/unread-count': { unread_count: 0 },
       'GET /me/standings': standings(), 'GET /me/play': playBoard(),
     })
     render(<ArenaPage user={me} onUser={vi.fn()} onLogout={vi.fn()} onExpired={vi.fn()} />)

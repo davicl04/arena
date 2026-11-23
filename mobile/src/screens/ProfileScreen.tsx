@@ -2,10 +2,10 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native'
 import * as ImagePicker from 'expo-image-picker'
-import { ApiError, clearToken, getToken, request, sports } from '../api/client'
+import { ApiError, clearToken, getToken, request } from '../api/client'
 import { connection } from '../api/connection'
 import type { MatchCard } from '../api/matches'
-import type { City, Page, Profile, ProfileInput, SocialUser, Sport, User } from '../api/client'
+import type { Page, Profile, ProfileInput, SocialUser, Sport, User } from '../api/client'
 import { Button, Field } from '../components/ui'
 import { LoadError } from '../components/arena/LoadError'
 import { toast } from '../components/toast/toastStore'
@@ -17,7 +17,7 @@ import ProfileTitle from '../components/ProfileTitle'
 import Sheet from '../components/Sheet'
 import { AppearanceCard } from '../components/menu/AppearanceCard'
 import UsernameForm from '../components/UsernameForm'
-import SportCard from '../components/SportCard'
+import { SportsProfiles } from '../components/sports-profile/SportsProfiles'
 import ProfileGallery from '../components/ProfileGallery'
 import { NotificationBell } from '../components/notifications/NotificationBell'
 import { MatchTimeline } from '../components/profile-matches/MatchTimeline'
@@ -68,7 +68,6 @@ export default function ProfileScreen({ user, onUser, onLogout, onExpired, onNew
   const setContentTab = onTabChange ?? setLocalTab
   const { condensed, onScroll } = useCondensedTopBar(COVER_HEIGHT)
   const [profiles, setProfiles] = useState<Profile[]>([])
-  const [cities, setCities] = useState<City[]>([])
   const [loading, setLoading] = useState(true)
   /* Carregamento (LoadError), ação (toast) e validação local (junto à folha) não se misturam. */
   const [loadError, setLoadError] = useState<{ message: string; cause: unknown } | null>(null)
@@ -90,7 +89,7 @@ export default function ProfileScreen({ user, onUser, onLogout, onExpired, onNew
   const [cursors, setCursors] = useState<Record<Which, string | null>>({ blocks: null, followers: null, following: null })
   useEffect(() => {
     let alive = true
-    Promise.all([request<Profile[]>('/me/sports-profiles'), request<City[]>('/cities'), request<Page<SocialUser>>('/me/blocks'), request<Page<{ user: SocialUser }>>(`/users/${user.id}/followers`), request<Page<{ user: SocialUser }>>(`/users/${user.id}/following`), request<SocialUser>(`/users/${user.id}`)]).then(([p, c, b, followersPage, followingPage, me]) => { if (alive) { setProfiles(p); setCities(c); setBlocks(b.items); setFollowers(followersPage.items.map(item => item.user)); setFollowing(followingPage.items.map(item => item.user)); setCounts({ followers: me.follower_count, following: me.following_count }); setCursors({ blocks: b.next_cursor, followers: followersPage.next_cursor, following: followingPage.next_cursor }) } })
+    Promise.all([request<Profile[]>('/me/sports-profiles'), request<Page<SocialUser>>('/me/blocks'), request<Page<{ user: SocialUser }>>(`/users/${user.id}/followers`), request<Page<{ user: SocialUser }>>(`/users/${user.id}/following`), request<SocialUser>(`/users/${user.id}`)]).then(([p, b, followersPage, followingPage, me]) => { if (alive) { setProfiles(p); setBlocks(b.items); setFollowers(followersPage.items.map(item => item.user)); setFollowing(followingPage.items.map(item => item.user)); setCounts({ followers: me.follower_count, following: me.following_count }); setCursors({ blocks: b.next_cursor, followers: followersPage.next_cursor, following: followingPage.next_cursor }) } })
       .catch(err => { if (alive) { setLoadError({ message: err instanceof Error && err.message ? err.message : 'Não foi possível carregar o perfil.', cause: err }); if (err instanceof ApiError && err.status === 401) onExpired() } })
       .finally(() => { if (alive) setLoading(false) })
     return () => { alive = false }
@@ -137,9 +136,10 @@ export default function ProfileScreen({ user, onUser, onLogout, onExpired, onNew
   // "Editar perfil" aberto pelo menu volta ao menu; aberto pelo selo do avatar apenas fecha.
   function editFromMenu() { open('edit'); setFromMenu(true) }
   async function save(sport: Sport, input: ProfileInput) {
-    // As falhas sobem para o SportCard, que as classifica (reportActionError) e trata a sessão expirada.
+    // As falhas sobem para a folha da modalidade, que mostra o 422 e classifica o resto (reportActionError).
     const p = await request<Profile>(`/me/sports-profiles/${sport}`, 'PUT', input)
     setProfiles(old => [...old.filter(v => v.sport !== sport), p])
+    return p
   }
   async function logout() {
     setBusy(true); setProblem('')
@@ -235,8 +235,8 @@ export default function ProfileScreen({ user, onUser, onLogout, onExpired, onNew
       </View>
       <View className={tw.content}>
         {!sheet && loadError ? <LoadError size="section" title="Não foi possível carregar o perfil" text={loadError.message} cause={loadError.cause} onRetry={retryLoad} /> : null}
-        <Text className={tw.heading}>Suas modalidades</Text>{loading ? <ActivityIndicator accessibilityLabel="Carregando modalidades" /> : sports.map(s => <SportCard key={s.value} sport={s.value} label={s.label} cities={cities} profile={profiles.find(p => p.sport === s.value)} onSave={save} onExpired={onExpired} />)}
-        {!loading && !profiles.length && !loadError ? <Text className={tw.body}>Adicione sua primeira modalidade acima.</Text> : null}
+        {/* Sem a leitura dos perfis, as faixas não fingem "0 de 3 ativas": o LoadError acima oferece tentar de novo. */}
+        {loading ? <ActivityIndicator accessibilityLabel="Carregando modalidades" /> : loadError ? null : <SportsProfiles profiles={profiles} onSave={save} onExpired={onExpired} />}
       </View>
       <ProfileStatsBlocks onExpired={onExpired} />
       <ProfileTabs value={contentTab} onChange={setContentTab} />

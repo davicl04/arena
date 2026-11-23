@@ -11,6 +11,7 @@ import random
 import threading
 import time
 import uuid
+from decimal import Decimal
 from pathlib import Path
 
 import pytest
@@ -162,7 +163,8 @@ def test_two_matches_of_one_team_confirmed_together_are_both_counted(engine, mon
     _, errors = run_together(engine, [report_job(reps[1], matches[0], 2, 1), report_job(reps[2], matches[1], 2, 1)])
     assert not errors, errors
     first = team_standing(engine, teams[0])
-    assert (first.matches_played, first.wins, first.metric_value) == (2, 2, 6)
+    # Both wins are in the replayed rating: 1032 against the first new team, then +29.061 against the second.
+    assert (first.matches_played, first.wins, first.metric_value) == (2, 2, Decimal('1061.061'))
     assert [team_standing(engine, team).matches_played for team in teams[1:]] == [1, 1]
 
 

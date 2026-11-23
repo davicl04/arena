@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { activeSports, categoryOf, categoryShort, categoryText, rankingKeyOf, subjectNoun } from '../src/components/ranking/category'
-import { formSpoken, formatMetric, gapText, markDay, metricText } from '../src/components/ranking/metric'
+import { formSpoken, formatMetric, gapText, isRatingRanking, markDay, metricText, metricUnit } from '../src/components/ranking/metric'
 import { inTier, ofTier, theTier, tierName, tierNeighbor } from '../src/components/ranking/tiers'
 import { tierOrder, tierTint } from '../src/data/arena'
 import { colors } from '../src/theme'
@@ -11,11 +11,15 @@ vi.mock('react-native-svg', async () => (await import('./support/native')).svgMo
 vi.mock('expo-secure-store', () => ({ getItemAsync: vi.fn(), setItemAsync: vi.fn(), deleteItemAsync: vi.fn() }))
 
 describe('diferenças do Ranking (gapText)', () => {
-  it('pontos: "7 pts" e "1 pt"; tênis igual', () => {
-    expect(gapText(7, 'futebol_time')).toBe('7 pts')
-    expect(gapText(1, 'futebol_time')).toBe('1 pt')
-    expect(gapText(2.5, 'tenis')).toBe('2,5 pts')
-    expect(gapText(-3, 'tenis')).toBe('3 pts')
+  it('rating (time e tênis): inteiro arredondado com "rating", sem sinal e nunca "pts"', () => {
+    expect(gapText(7, 'futebol_time')).toBe('7 rating')
+    expect(gapText(1, 'futebol_time')).toBe('1 rating')
+    expect(gapText(7.6, 'futebol_time')).toBe('8 rating')
+    expect(gapText(2.4, 'tenis')).toBe('2 rating')
+    expect(gapText(-3.5, 'tenis')).toBe('4 rating')
+    expect(gapText(0.3, 'tenis')).toBe('0 rating')
+    expect(gapText(1234.5, 'tenis')).toBe('1235 rating')
+    for (const value of [1, 7, 2.5, 1234]) for (const ranking of ['futebol_time', 'tenis'] as const) expect(gapText(value, ranking)).not.toMatch(/pts?\b|pontos/)
   })
 
   it('média do individual com duas casas e tempo da corrida em m:ss ou h:mm:ss', () => {
@@ -27,8 +31,16 @@ describe('diferenças do Ranking (gapText)', () => {
 
   it('a métrica segue o formato do ranking', () => {
     expect(formatMetric(4.256, 'futebol_individual')).toBe('4,26')
-    expect(metricText(94, 'futebol_time')).toBe('94 pontos')
     expect(metricText(1452, 'corrida_5')).toBe('24:12')
+  })
+
+  it('rating de time e tênis: o número inteiro (sem milhar nem casas) e o rótulo "rating"; individual e corrida não mudam', () => {
+    expect(formatMetric(1087.494, 'futebol_time')).toBe('1087')
+    expect(formatMetric(912.506, 'tenis')).toBe('913')
+    expect(metricText(1087.494, 'futebol_time')).toBe('1087 rating')
+    expect(metricText(1150, 'tenis')).toBe('1150 rating')
+    expect([metricUnit('futebol_time'), metricUnit('tenis'), metricUnit('futebol_individual'), metricUnit('corrida_5')]).toEqual(['rating', 'rating', 'média', 'tempo'])
+    expect([isRatingRanking('futebol_time'), isRatingRanking('tenis'), isRatingRanking('futebol_individual'), isRatingRanking('corrida_10')]).toEqual([true, true, false, false])
   })
 })
 

@@ -105,8 +105,9 @@ def test_the_first_training_registers_the_mark_and_classifies_the_athlete(setup)
     assert (saved.user_id, saved.source, saved.verified, saved.event_entry_id, saved.standard_distance_km) == (
         user.id, 'treino', False, None, 5)
     row = standing_rows(db, 5)[0]
+    # Running keeps its computation in calc_version 2 (a copy of the version 1 cuts).
     assert (row.user_id, row.tier, row.calc_version, row.matches_played, float(row.metric_value)) == (
-        user.id, 'ouro', 1, 1, 1452.0)
+        user.id, 'ouro', 2, 1, 1452.0)
     [(action, data)] = audit_actions(db, 'run', saved.id)
     assert action == 'corrida.registrada' and data['distance_m'] == 5000 and data['kind'] == 'primeira_marca'
 

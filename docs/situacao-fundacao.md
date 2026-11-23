@@ -1,5 +1,626 @@
 # Situação da fundação do Arena
 
+## Correções da revisão do PR #6 — 23 de novembro de 2026
+
+- Clientes anteriores à busca nacional continuam recebendo as seis cidades originais em `GET /cities` sem parâmetros. Na busca nacional, a UF exata tem prioridade antes do limite de 20 resultados.
+- Na web e no Expo, uma escolha manual feita durante a consulta de localização prevalece quando a resposta chega.
+- O procedimento de rollback do cálculo mantém o esquema em `0017`. O downgrade para `0015` exige um backend que use o esquema anterior de `rank_cuts`.
+- Backend com PostgreSQL descartável passou no lint e em 1.790 testes, com um teste pulado.
+- Web passou no lint, no build e em 1.313 testes. A falha de foco em `matchmaking.test.tsx` também ocorreu no commit anterior. Em Chromium, a escolha manual foi salva pela API real e persistiu após recarregar nos temas claro e escuro, com localização simulada.
+- Mobile passou no lint, na checagem de tipos, na exportação Android e nos 1.669 testes. A corrida entre a escolha manual e a localização foi verificada com testes simulados no mobile.
+
+## Fechamento do ranking por rating — 22 de novembro de 2026
+
+Fecha a entrega do [ranking por rating](decisoes/0006-ranking-por-rating.md) (tickets 01 a 07). A entrega não completa o MVP.
+
+- **O que mudou na funcionalidade:**
+  - Futebol · time e tênis classificam por **rating**: inicial 1000, `E = 1 / (1 + 10^((adversário − rating)/400))`, `rating + K × (S − E)`, K 64 nas 3 partidas de classificação e 32 depois, reprodução cronológica da janela de 52 semanas e arredondamento a 3 casas. Cortes: Prata ≥ 950, Ouro ≥ 1050 e Diamante ≥ 1150.
+  - O bônus de campeonato do tênis entra no rating ponderado pela força da chave (`base × 2 × (1 − E_chave)`).
+  - O futebol · individual usa a **média ajustada** (`m` = 5, `μ` = 3,0; cortes 2,6/3,9/5,2). A corrida não muda.
+  - Migrações `0016` e `0017`; `CURRENT_CALC_VERSION = 2`.
+  - O pareamento de time e tênis desempata pelo rating mais próximo, sem mudar o filtro de elo.
+  - A API mantém as formas das respostas: `metric_value` passa a ser o rating ou a média ajustada e é nulo na linha em classificação de time e tênis.
+  - Web e Expo rotulam "rating" (inteiro, sem "pts") e mostram só "n de 3" em classificação. A pílula "+3/+10 pts" e a linha do tempo continuam com os pontos da campanha.
+- **Documentação (ticket 07):**
+  - seção 1 da [0002](decisoes/0002-jogar.md) com a tabela da versão 2 e a versão 1 como histórico; seção 12.6 corrigida para a média ajustada do individual;
+  - 0006 completa (motivação, clientes, rollout e rollback, questões em aberto); ponteiro do bônus ponderado na 0003;
+  - [plano do Jogar](plano-jogar.md) com "Elos e pontuação", a ordem do pareamento e as mudanças de **RN14, RN16 e RN23** registradas como requisitos planejados (sem editar `roteiro-projeto.docx`);
+  - invariante e exemplos do [plano do Ranking](plano-ranking.md) ("1087 rating", "37 rating atrás do 1º", "2 rating à frente do 7º");
+  - README com o rollout e o rollback.
+- **Rollout no banco de desenvolvimento `arena`:** cópia prévia com `pg_dump -Fc` em `.local/backups/` (fora do versionamento); `alembic upgrade head` (0015 → 0017) e `alembic check` limpo; `python -m app.admin_cli recalculate-rankings` com 1 linha alterada na primeira execução e 0 na segunda. Nada foi apagado.
+
+**Verificações** (código idêntico ao da ponta consolidada; os commits do ticket 07 só mudam documentação)
+- `backend/`: `ruff check app migrations tests scripts` sem apontamentos; `pytest -q --cov=app --cov-branch` com `TEST_DATABASE_URL` em banco descartável: 1789 aprovados e 1 pulado (S3 opcional), 621 testes de integração executados, cobertura de 99%; `alembic check` limpo no banco `arena` depois da migração.
+- `web/`: `npm run lint` e `npm run build` aprovados; `npm run test:coverage` com 1312 de 1313 em duas execuções. A falha é a de `tests/matchmaking.test.tsx` (foco do diálogo de cancelamento), que já existia, também falha isolada e não envolve código desta entrega.
+- `mobile/`: `npm run lint`, `npm run typecheck` e `npm run export:android` aprovados; `npm run test:coverage` com 109 arquivos e 1668 testes aprovados (96,52% de instruções, 90,99% de ramos, 95,9% de funções, 98,47% de linhas).
+- **Ponta a ponta no banco `arena`, só pela API real**, com contas sintéticas `orq-ranking-07-…@exemplo.com` em Goiânia: 3 times e 3 tenistas, 5 partidas de time e 5 de tênis pelo fluxo completo (busca, proposta, aceite, quadra sugerida, condições, placar dos dois lados). A última confirmação de cada modalidade mudou rating, posição e elo como previa a reprodução:
+
+  | Sujeito | Antes | Depois |
+  | --- | --- | --- |
+  | Time A | 1052,863 (Ouro, 1º) | 1033,010 (Prata, 1º) |
+  | Time C | em classificação, `metric_value` nulo | 1007,231 (Prata, 2º) |
+  | Time B | 979,611 (Prata, 2º) | 979,611 (Prata, 3º) |
+  | Tenista P | 1037,292 (Prata, 1º) | 1051,713 (Ouro, 1º) |
+  | Tenista R | em classificação, `metric_value` nulo | 974,052 (Prata, 2º) |
+
+  `calc_version = 2` em `/rankings/overview` e `/me/standings`; a linha do tempo manteve os 10 por vitória.
+- **Web depois de recarregar** (Playwright headless): Início e Ranking de time e de tênis, nos temas claro e escuro, em 320, 390 e 1440 px. Sem erros no console, sem overflow horizontal, com "rating" nos números e só "n de 3" em classificação.
+
+**Limitações:**
+- Rating inicial, K, cortes, `m` e `μ` são uma calibragem inicial, sem volume de partidas reais. A simulação dos cortes do individual e os dados da conferência são sintéticos.
+- O build do Expo não comprova funcionamento em aparelho, e não houve validação em Android ou iOS. O CI remoto não foi executado.
+- O bônus ponderado não foi exercitado ponta a ponta (exige campeonato com 4 inscritos); ele está coberto pelos testes de integração.
+- As contas, os times, as partidas e as 10 sugestões de quadra em revisão criados na conferência continuam no banco de desenvolvimento; as senhas das contas sintéticas foram descartadas.
+
+**Pendências:** revisão de código da entrega inteira (`code-review`). Questões não bloqueantes: W.O. no rating (hoje conta como vitória e derrota normais); rótulo "média" ou "média ajustada" no individual; calibragem final numa futura `calc_version`; quem atualiza RN14, RN16 e RN23 em `roteiro-projeto.docx`, e quando; decisão de produto sobre os textos de regra que ainda dizem "pontos" ("com os pontos de Diamante" no Salão e no cartão dos Lendários, na web e no Expo, e "+N no ranking", com "mais N pontos no ranking" no nome acessível do Expo, nas colocações da chave); a falha intermitente de `tests/matchmaking.test.tsx`, fora desta entrega. O MVP completo continua não implementado.
+
+## Média ajustada no futebol · individual — 22 de novembro de 2026
+
+Entrega do ticket 03 do [ranking por rating](decisoes/0006-ranking-por-rating.md).
+
+- **Ranking individual:** a partir da `calc_version = 2`, o `futebol_individual` (posição × formato) usa a média ajustada `(total + m × μ) / (partidas + m)`, com `m` = 5 e `μ` = 3,0. A ordem passa a ser média ajustada, mais partidas e id. Os pontos por atuação (RN12), a prévia de estatísticas, a classificação com 3 partidas e a exibição da métrica em classificação não mudam, e o rótulo continua "média". Com `m`/`μ` nulos (versão 1), o cálculo volta à média simples.
+- **Cortes:** a migração `0017_individual_adjusted_mean.py` completa a linha `futebol_individual` da versão 2 com `m`, `μ` e os cortes revisados Prata ≥ 2,6, Ouro ≥ 3,9 e Diamante ≥ 5,2. As linhas da versão 1 não mudam, e o downgrade devolve a linha ao estado da `0016`.
+- **Simulação:** os cortes saem do script determinístico `backend/scripts/simular_media_ajustada.py` (população sintética e regras reais de RN12). O critério preserva, com 30 partidas, a distribuição que a versão 1 pretendia. Com esses cortes, 3 atuações com média real 7,0 dão 4,5 (Ouro), e Diamante exige 7 partidas a 7,0. Manter 2,5/4,0/5,5 derrubaria o Diamante de 1,5% para 0,8% com 30 partidas.
+- **Documentação:** nova seção 8 na decisão 0006 (fórmula, parâmetros, critério, distribuição e limitações); seções 3 a 6, rollback e pendências atualizadas. Rollout, cenários e pendências passaram a ser as seções 9, 10 e 11; a "seção 9" citada em entradas anteriores corresponde aos cenários, agora seção 10.
+
+**Verificações**
+- `backend/`: `ruff check app migrations tests scripts` sem apontamentos; `pytest -q --cov=app --cov-branch` com `TEST_DATABASE_URL` em banco descartável: 1789 aprovados e 1 pulado (S3 opcional), com 621 testes de integração executados e cobertura de 99% (74% só unidade).
+- Migração em banco descartável: `alembic upgrade head`, `downgrade -1` (dump de `rank_cuts` idêntico ao da `0016`), `upgrade head` e `alembic check` limpos. `python -m app.admin_cli recalculate-rankings` com dados sintéticos gravou 5,000 / 4,500 / 2,250 na versão 2 (segunda execução: 0 linhas); depois do downgrade, o recálculo voltou à média simples.
+- Na branch consolidada: ruff sem apontamentos; `alembic upgrade head`, `downgrade -1`, `upgrade head` (0017) e `alembic check` limpos; `pytest -q` com 1789 aprovados e 1 pulado.
+
+**Limitações:** a população da simulação é sintética, e `m`, `μ` e os cortes são valores iniciais. O banco de desenvolvimento `arena` não foi migrado nem recalculado nesta entrega; as linhas individuais antigas mantêm a média simples até o recálculo.
+
+**Pendências:** a seção 12.6 de `docs/decisoes/0002-jogar.md` ainda descreve o individual como média simples (ticket 07, junto com a seção 1, o plano do Jogar, o plano do Ranking e o README). Questão não bloqueante: manter o rótulo "média" ou passar a "média ajustada".
+
+## Web: rótulo "rating" no futebol · time e no tênis — 22 de novembro de 2026
+
+Entrega do ticket 05 do [ranking por rating](decisoes/0006-ranking-por-rating.md) na web, com os mesmos nomes, arredondamento e textos do Expo (ticket 06). Sem mudança de backend, contrato ou dependência.
+
+- O mapeamento único da métrica (`web/src/components/ranking/metric.ts`) passa a tratar `futebol_time` e `tenis` como rating: inteiro arredondado (`Math.round`), sem separador de milhar, com o rótulo "rating" (`isRatingRanking`, `formatMetric`, `metricUnit`, `metricText`, `metricSpoken`, `gapParts`, `gapText`). O individual continua "média" e a corrida, "tempo".
+- Tela Ranking: a linha mostra "1087 rating"; a placa de posição mostra "1087 rating", "37 rating atrás do 1º" e "2 rating à frente do 7º". Na placa, a unidade da distância vai para a legenda, para caber em 320 px; o texto lido é o mesmo. A linha da lista ganhou `min-w-0` e não vaza mais em 320 px com nomes longos.
+- Início: as pílulas de "Seu elo" usam o mesmo mapeamento (`modalityStanding` agora carrega a chave do ranking): "Ouro · 1087 rating", com o nome acessível "Futebol: elo Ouro, 1087 rating". A grade de formatos de Times não mostra métrica e não mudou.
+- Em classificação (`metric_value` nulo em time e tênis), as telas mostram só "n de 3", sem número nem elo. A pílula "+3 pts"/"+10 pts" e a linha do tempo do perfil não mudaram.
+
+**Verificações**
+- `web/`: `npm run lint` sem erros; `npm run build` aprovado (só o aviso de chunk que já existia); `npm run test:coverage` com 93 arquivos e 1313 testes aprovados (93,95% de instruções, 87,93% de ramos, 93,5% de funções, 96,78% de linhas).
+- Repetição sobre o candidato antes da consolidação: lint e build aprovados; Vitest 1312/1313, com a falha intermitente que já existia em `tests/matchmaking.test.tsx` (foco do diálogo de cancelamento). Ela também falhou isolada; o worker a reproduziu no commit de base `7160d60`, e a tela Jogar não importa nenhum módulo alterado.
+- Navegador (Playwright headless, banco descartável na migração 0016 com recálculo administrativo, contas sintéticas pela API e partidas sintéticas gravadas com os helpers de teste): Início, Ranking de times (classificado e em classificação), Ranking de tênis (classificado e em classificação) e Meus times, nos temas claro e escuro, em 320, 390 e 1440 px. Sem erros no console, sem overflow horizontal e sem "pts" nem "pontos"; foco visível e Enter na pílula de tênis.
+
+**Limitações:** as partidas da conferência no navegador foram gravadas direto no banco descartável, não pelo fluxo completo da API. Os textos do Salão e do card dos Lendários ainda dizem "os pontos de Diamante", nos dois clientes.
+
+**Pendências:** exemplos "7 pts"/"94 pontos" em `docs/plano-ranking.md`, rollout no banco de desenvolvimento e conferência ponta a ponta (ticket 07); a falha intermitente de `tests/matchmaking.test.tsx`, fora desta entrega.
+
+## Bônus ponderado de campeonato no tênis — 22 de novembro de 2026
+
+Entrega do ticket 02 do [ranking por rating](decisoes/0006-ranking-por-rating.md). O bônus de campeonato do tênis (RN16) volta a valer no ranking, agora convertido em rating pela força da chave, e encerra o estado intermediário "tênis sem bônus" da primeira entrega.
+
+- **Regra:** na reprodução cronológica do tênis, no instante `awarded_at` em que o evento encerra, o rating do atleta recebe `base × 2 × (1 − E_chave)`. `E_chave` é o resultado esperado do atleta contra a média dos ratings dos **demais inscritos confirmados** naquele instante; quem ainda não tem partida na janela entra com 1000. Chave do mesmo nível rende exatamente a base (40/20/10), uma mais forte rende mais (até o dobro), uma mais fraca rende menos (tende a 0), e o bônus nunca é negativo.
+- **Concessão sem mudança:** a base continua gravada em `event_placements`, só com 4 ou mais inscrições confirmadas, e o bônus conta enquanto o evento terminou dentro das 52 semanas. A varredura `rankings_janela` continua recalculando o tênis quando um bônus sai da janela, mesmo sem partida que tenha saído.
+- **Linha do tempo:** uma partida com `starts_at` igual ao `awarded_at` vem antes do bônus. Os bônus de um mesmo evento usam os ratings de antes daquele instante. O bônus não é partida: não conta para o fator K de classificação nem para `matches_played`.
+- **Recálculo:** `standings._tennis_bonuses` lê os bônus da janela numa consulta e os inscritos confirmados desses eventos numa segunda (só com cortes de rating e havendo bônus), sem consulta por evento ou atleta e sem trava nova. O código está em `services/scoring.py` (`RatedBonus`, `weighted_bonus`, `replay_ratings(..., bonuses=)`).
+- **Exemplo do teste de integração (eliminação com 4 inscritos):** campeão 1064 → 1094,369; vice 1000 → 1020; semifinalistas 968 → 979,222.
+- **Documentação:** seção 7 da decisão 0006 reescrita com a fórmula, a regra de desempate temporal e um exemplo; seções 12.6 e 17.6 da [decisão do Jogar](decisoes/0002-jogar.md) atualizadas.
+- A pílula "+10 pts" das partidas e os pontos da campanha não mudam. Sem mudança de esquema, de API ou dos clientes.
+
+**Verificações**
+- `backend/`: `.venv/bin/python -m ruff check app migrations tests` — sem apontamentos.
+- `backend/`: `pytest -q --cov=app --cov-branch` com `TEST_DATABASE_URL` em banco descartável — 1769 aprovados, 1 pulado (S3 opcional), com a integração executada (618 aprovados); cobertura total 99%, `services/scoring.py` e `services/standings.py` com 100% de ramos.
+- Na branch consolidada, já com o desempate do pareamento: ruff sem apontamentos e `pytest -q` com 1778 aprovados, 1 pulado. A introdução da decisão 0006, editada pelas duas entregas, foi conciliada à mão.
+- Testes novos ou ajustados: unitários do bônus ponderado (igualdade, chave mais forte e mais fraca, piso zero, média sem o próprio atleta, bônus que não conta como partida, desempate temporal); integração com um campeonato real de 4 inscritos (rating alterado) e de 3 (só as partidas contam); saída da janela pela varredura.
+
+**Limitações:** `docs/decisoes/0003-times-campeonatos.md` ainda descreve o bônus somado aos pontos (estado da etapa 4, versão 1); a regra vigente está na 0002 (17.6) e na 0006 (seção 7). O banco de desenvolvimento `arena` não foi migrado nem recalculado nesta entrega.
+
+**Pendências:** média ajustada do futebol · individual, rótulo "rating" na web, documentação final e rollout.
+
+## Desempate do pareamento pelo rating — 22 de novembro de 2026
+
+Entrega do ticket 04 do [ranking por rating](decisoes/0006-ranking-por-rating.md). Nas buscas de time e de tênis, entre os candidatos que passam no filtro de elo, o pareamento passa a preferir o rating mais próximo. A ordem é: proximidade de elo (mesmo, vizinho, demais), menor diferença absoluta de rating, busca mais antiga e id (`match_rules.candidate_order`, `rating_gap`, `Candidate` com `mine_rating`/`theirs_rating`).
+
+- A fila (`matchmaking_queue._search_ratings`) lê o rating de `standings` no momento do pareamento, na categoria da busca (o time no formato; o tênis), numa só consulta para a busca e todos os candidatos, dentro da trava do balde e sem trava nova. O rating guardado durante a classificação também conta. Sem linha da versão de cálculo atual, vale o rating inicial dos cortes (1000). Com cortes por pontos (rollback), a ordem volta a ser elo e antiguidade.
+- O filtro (elo igual ou vizinho; quem está em classificação enfrenta qualquer nível), a busca de avulso e as vagas não mudam, e não há coluna nova em `match_searches`. Uma mudança só de rating, sem mudança de elo, não gera nova tentativa de pareamento (já era assim; agora há teste).
+- Decisões [0002](decisoes/0002-jogar.md) (seções 7.1, 12.6, 15.1 e 15.3) e 0006 (seção 4, introdução e pendências) atualizadas.
+
+**Verificações**
+- `backend/`: `.venv/bin/python -m ruff check app migrations tests` — sem apontamentos.
+- `backend/`: `pytest -q --cov=app --cov-branch` com `TEST_DATABASE_URL` em banco descartável — 1771 aprovados, 1 pulado (S3 opcional), com a integração executada; cobertura combinada de 99%. Repetido na branch consolidada (com o Expo já integrado): ruff sem apontamentos e 1771 aprovados, 1 pulado.
+- Testes novos: ordem dos candidatos (unitários); três buscas Ouro compatíveis em que a de rating mais próximo é pareada; linha ausente valendo o rating inicial; linhas de outro formato e da versão 1 ignoradas (integração com PostgreSQL); leitura em lote, com uma consulta de cortes e uma de `standings` (unitário); mudança só de rating sem nova tentativa (unitário). Os testes de concorrência da fila continuam passando.
+
+**Limitações:** até o recálculo do rollout, as linhas da versão 1 contam como rating inicial, então o desempate só tem efeito depois do recálculo. Cada tentativa com dois ou mais candidatos faz duas consultas pequenas a mais. Sem mudança de esquema.
+
+**Pendências:** a ordem do pareamento no plano do Jogar e a documentação de rollout ficam para a entrega de documentação (ticket 07).
+
+## Expo: rótulo "rating" no futebol · time e no tênis — 22 de novembro de 2026
+
+Entrega do ticket 06 do [ranking por rating](decisoes/0006-ranking-por-rating.md) no Expo. Sem mudança de backend, contrato ou dependência.
+
+- O mapeamento único da métrica (`mobile/src/components/ranking/metric.ts`) passa a tratar `futebol_time` e `tenis` como rating: `isRatingRanking`, número inteiro (`Math.round`, sem separador de milhar, "1087") com o rótulo "rating" ("1087 rating") e distâncias inteiras ("8 rating atrás do 1º", "1 rating à frente do 7º"). Essas categorias não mostram mais "pts" nem "pontos". O individual continua "média" e a corrida, "tempo".
+- Tela Ranking: a linha da lista, o Salão dos Lendários, a placa de posição no elo e as distâncias usam o novo rótulo, inclusive nos nomes acessíveis. A placa não mostra mais "0" quando falta a métrica.
+- Início: as pílulas "Seu elo" formatam a métrica pelo mesmo mapeamento (`ModalityStanding.metric` passa a carregar a chave do ranking), como em "Futebol: elo Ouro, 1087 rating".
+- Em classificação (`metric_value` nulo no time e no tênis), as telas mostram só "n de 3", sem rating nem elo.
+- A pílula "+3 pts" / "+10 pts" do resultado e a linha do tempo do perfil não mudaram. Times e Modalidades no Expo não formatam `metric_value` e não mudaram.
+
+**Verificações** (em `mobile/`): `npm ci`; `npm run lint` sem avisos; `npm run typecheck` sem erros; `npm run test:coverage` com 109 arquivos e 1668 testes aprovados (statements 96,52%, branches 90,99%, lines 98,47%); `npm run export:android` aprovado. Lint, typecheck e Vitest (1668/1668) foram repetidos sobre o candidato antes da consolidação.
+
+**Limitações:** o build não comprova o funcionamento em Android ou iOS. Não houve validação em aparelho nem conferência de paridade visual. Os temas foram conferidos só no código (nenhum estilo novo).
+
+**Pendências:** enquanto o banco não for recalculado na versão 2, linhas antigas com pontos aparecem com o rótulo "rating". Os textos fixos "pontos de Diamante" (Salão dos Lendários) e "mais N pontos no ranking" (colocações nas chaves) seguem como antes. `docs/plano-ranking.md` e a seção 9 da decisão 0006 ainda falam em "pts" ou registram os rótulos como pendentes (ticket 07).
+
+## Ranking por rating no futebol · time e no tênis (calc_version 2) — 22 de novembro de 2026
+
+Primeira entrega da [spec do ranking por rating](decisoes/0006-ranking-por-rating.md) (ticket 01). Futebol · time (por formato) e tênis deixam de somar pontos e passam a classificar por rating. Todo sujeito começa a janela com 1000. Cada partida contabilizada (mesmos critérios de antes, com W.O., decisões, amistosos e campeonatos), em ordem de `starts_at` e `id`, aplica `rating + K × (S − E)`, com K 64 nas 3 primeiras partidas do sujeito na janela e 32 depois, arredondando a 3 casas. Não há estado incremental: corrigir uma partida, ou uma partida sair da janela, reproduz a janela do zero. Com os parâmetros propostos, 3 vitórias contra iguais levam a Ouro (1087), e não mais a Bronze. Ordem: time = rating, saldo, gols marcados, menos partidas, id; tênis = rating, menos partidas, id. Os elos continuam contíguos e a regra do Lendário não mudou. Os pontos 3/1/0 e os 10 por vitória seguem como estatística da campanha.
+
+- **Migração `0016_ranking_rating.py`:** aceita `metric = 'rating'`, acrescenta a `rank_cuts` os parâmetros versionados (rating inicial, K de classificação e regular, `m` e `μ` da média ajustada, nulos onde não se aplicam) e insere a `calc_version = 2` de todos os rankings: time e tênis por rating (Prata ≥ 950, Ouro ≥ 1050, Diamante ≥ 1150); futebol · individual e corrida copiando a versão 1. As linhas da versão 1 não mudam. `CURRENT_CALC_VERSION = 2`.
+- **API:** as formas não mudam. `metric_value`, `leader_gap` e `next_gap` ficam em rating no time e no tênis, e `metric_value` é nulo nas linhas em classificação dessas categorias (`standings` guarda o rating, para o pareamento). A seção 12.6 de [0002-jogar.md](decisoes/0002-jogar.md) registra o contrato, e a nova decisão [0006](decisoes/0006-ranking-por-rating.md) registra fórmula, parâmetros, cortes, rollout e rollback.
+- **Rollout:** `alembic upgrade head` seguido de `python -m app.admin_cli recalculate-rankings`; até lá, as linhas mantêm `calc_version = 1`. **Rollback:** `CURRENT_CALC_VERSION = 1` e recálculo (os cortes da versão 1 voltam a classificar por pontos); o downgrade da 0016 remove a versão 2 e as colunas novas.
+
+**Verificações**
+- `backend/`: `.venv/bin/python -m ruff check app migrations tests` — sem apontamentos.
+- `backend/`: `pytest -q --cov=app --cov-branch` com `TEST_DATABASE_URL` em banco descartável — 1762 aprovados, 1 pulado (round-trip S3 opcional); integração com PostgreSQL executada; cobertura combinada 99%. Só unidades: 1144 aprovados, 74%. A suíte completa foi repetida na branch consolidada: 1762 aprovados, 1 pulado.
+- Migração em banco descartável: `alembic upgrade head`, `downgrade -1`, `upgrade head` e `alembic check` (sem operações pendentes), também na branch consolidada; linhas da versão 1 intactas.
+- `python -m app.admin_cli recalculate-rankings` em banco descartável com dados sintéticos: 10 linhas reescritas de `calc_version 1` para 2 em time, individual, tênis e corrida; a segunda execução não alterou nada.
+
+**Limitações**
+- Estado intermediário: o tênis classifica sem bônus de campeonato. As colocações continuam em `event_placements`, mas o bônus ainda não entra no rating.
+- O futebol · individual e a corrida mantêm o cálculo da versão 1 dentro da versão 2.
+- Web e Expo ainda rotulam a métrica de time e tênis como pontos.
+- O banco de desenvolvimento `arena` não foi migrado nem recalculado nesta entrega.
+
+**Pendências:** bônus ponderado do tênis; média ajustada do individual; desempate do pareamento pelo rating; rótulo "rating" na web e no Expo; seção 1 de 0002, planos do Jogar e do Ranking, README e rollout no banco de desenvolvimento. Questões não bloqueantes: W.O. no rating, calibragem final e RN14, RN16 e RN23 no roteiro. O MVP completo continua não implementado.
+
+## Fechamento da nova tela de Início (web e Expo) — 22 de novembro de 2026
+
+Fechamento do [plano do Início](plano-inicio.md) (ticket 09). Com os tickets 01 a 04 (web) e 05 a 08 (Expo), o Início dos dois clientes tem as mesmas seções, na mesma ordem, com os mesmos textos e regras: data e "A arena te chama, {primeiro nome}"; Placar com a Contagem; botão principal; Destaque "Para responder"; Pílulas de "Seu elo"; "Seu próximo passo"; Campeonatos das cidades dos perfis. Saíram a saudação antiga, a seção "Próxima partida", o carrossel, a foto "Perto de você", a placa escura de pendências e, no Expo, os grupos de atalhos, cujos destinos seguem no Jogar e no menu do Perfil. Sem mudança de backend, contrato, migração ou dependência.
+
+- **Paridade:** web e Expo foram comparados seção por seção contra a spec. As regras puras de `data/home.ts` são iguais nos dois clientes, com os mesmos nomes e textos (a web tem a mais `spokenMatchCountdown`, usada no nome acessível do Placar). Nenhuma divergência mecânica pediu correção. As diferenças que ficam são pré-existentes, de arquitetura ou de decisão de produto e estão em "Limitações".
+- **Documentação:** o [plano do Início](plano-inicio.md) passou a indicar a implementação, com a data, as diferenças mantidas e as limitações. A [fidelidade visual](fidelidade-figma.md) ganhou a seção da nova tela de Início, com as decisões da sessão de protótipos, o que saiu da tela e os desvios visuais mantidos. README e decisões não mudaram, porque nenhum comando, contrato ou modelagem mudou.
+
+**Verificações** (sobre a branch consolidada `5ee93f7`, cujo código é idêntico ao da ponta final; os commits seguintes só mudam documentação):
+- Web (`web/`): `npm run lint` e `npm run build` aprovados (só o aviso de chunk que já existia). `npm run test:coverage`: 1311/1311; nesta execução o teste intermitente de `tests/matchmaking.test.tsx` passou. Cobertura: 93,94% statements, 87,92% branches, 93,49% funções, 96,78% linhas. Sem esse arquivo, 1271/1271 (92,46% / 86,4% / 91,74% / 95,51%).
+- Expo (`mobile/`): `npm run lint` e `npm run typecheck` sem erros. `npm run test:coverage`: 109 arquivos e 1664 testes aprovados (96,52% / 90,97% / 95,89% / 98,47%). `npm run export:android` aprovado.
+- Backend: `git diff --stat bfb8630..HEAD -- backend` vazio, então ruff e pytest não foram executados.
+- Navegador (Playwright headless), com API e PostgreSQL reais e as contas sintéticas dos tickets 01 a 04:
+  - estados: pendências com perfil, sem pendências com elo Ouro na corrida, tênis individual com partida agendada ("Você × …", "2 dias 3 h"), perfis em cidades diferentes e conta nova;
+  - em 320, 390 e 1440 px, nos temas claro e escuro, sem erros de console nem overflow horizontal;
+  - Placar e Pílulas iguais nos dois temas;
+  - ordem de foco e contorno visíveis no teclado; o Placar abriu a partida;
+  - os três rótulos do botão conferidos;
+  - leituras de `/events` (uma por perfil, nenhuma sem perfis) e de `pending?limit=1` só com pendências.
+- O estado "completo" foi conferido por partes (pendências, elo e partida em contas diferentes), porque nenhuma conta sintética reúne tudo.
+
+**Limitações:**
+- Sem validação em aparelho Android ou iOS. Não se declara paridade visual do Expo, e o build não comprova funcionamento em aparelho.
+- O banco de desenvolvimento não tem campeonato publicado, porque publicar exige um organizador aprovado. As linhas de campeonato só foram vistas com resposta simulada no navegador (ticket 04) e nos testes.
+- "Você pode se inscrever" é omitido em evento em andamento, nos dois clientes. É uma leitura da spec, a confirmar na revisão.
+- As vagas e o preço seguem o formato dos cartazes ("8 de 16 times", "R$ 40"), e não o do protótipo.
+- O título do Destaque fica em caixa alta nos dois clientes; o protótipo usa caixa de frase.
+- Os formatos de prazo e da linha secundária são os de cada cliente. Com o prazo vencido, a web mostra "faltam menos de 1 min" e o Expo mostra "prazo encerrado".
+- Com falha na leitura dos perfis, a web mostra uma nota nos Campeonatos (o retry fica no aviso do shell); o Expo mostra o erro na seção.
+- No Expo, a lista de pendências é lida a cada montagem, com 1 item. A web só a lê quando o resumo indica pendências.
+- No Expo, a marca d'água do Placar fica centralizada (`TeamsPlate`).
+- A troca do Placar para a partida seguinte pode atrasar até um minuto.
+- O CI remoto não foi executado.
+
+**Pendências:** revisão de código da entrega inteira (`code-review`); decisão sobre o texto do prazo vencido e sobre "Você pode se inscrever" em evento em andamento; conferência do Expo em aparelho; conferência das linhas de campeonato com um campeonato real publicado; a falha intermitente de `tests/matchmaking.test.tsx`, fora desta entrega. O MVP completo continua não implementado.
+
+## Campeonatos e próximo passo no Início da web — 22 de novembro de 2026
+
+Quarta entrega do [plano do Início](plano-inicio.md) na web (ticket 04), com os mesmos textos e regras do Expo (ticket 08). Com ela, o Início da web tem todas as seções da spec.
+
+- **Campeonatos:** a foto "Perto de você / Sua próxima arena" deu lugar à seção Campeonatos, com campeonatos reais. Há uma leitura `GET /events?sport=&city_id=&limit=2` por perfil esportivo, em paralelo, uma vez por montagem (`loadProfileEvents`; `eventsPath` ganhou o `limit` opcional), e nenhuma sem perfis. A união não repete `id`, ordena por `starts_at` e mostra os 2 primeiros.
+  - Título "Campeonatos em {cidade}", "Campeonatos perto de você" ou "Perto de você"; "Ver todos" abre a lista na modalidade do primeiro campeonato exibido ou do primeiro perfil.
+  - Cada linha é um único botão e mostra ícone, nome, "{data · hora} · {local}" e as etiquetas de preço ("Gratuita" ou o formato dos cartazes), vagas ("n de N times/atletas/corredores" ou "Vagas esgotadas"), "Você pode se inscrever" (não aparece em evento em andamento, como no Expo) e "Em andamento". O toque abre o campeonato.
+  - Estados: vazio com "Ver campeonatos"; sem perfis, "Configure suas modalidades"; falha só na seção, com "Tentar novamente"; 401 pelo fluxo existente. Com falha na leitura dos perfis, a seção fica sem leitura de eventos e mostra uma nota; o erro e a nova tentativa ficam no aviso do shell, que é quem lê os perfis na web (no Expo, o erro aparece na própria seção).
+- **Próximo passo:** "Complete seu perfil esportivo" virou o componente `ProximoPasso`, entre "Seu elo" e Campeonatos, só com a lista de perfis confirmada e enquanto falta modalidade.
+- **Paridade:** as funções puras têm os mesmos nomes e regras do Expo (`missingSportsCount`, `mergeChampionships`, `championshipsTitle`, `emptyChampionshipsText`, `championshipsSport`, `championshipMeta`, `championshipTags`).
+- **Limpeza:** removidos `PendingPlate` e `pendingTitle`, sem uso, com os testes que só os cobriam. `arena-cover.jpg` continua (capa padrão do Perfil). Os testes de modalidades e de localização chegam à tela de modalidades pelo cartão do próximo passo, no lugar do link "Minha cidade" da foto removida.
+
+**Verificações** (em `web/`, nos commits do ticket; a árvore consolidada é idêntica):
+- `npm run lint` e `npm run build` aprovados (aviso de chunk que já existia).
+- `npm run test:coverage`: 1310/1311, só com a falha intermitente que já existia em `tests/matchmaking.test.tsx`; sem esse arquivo, 1271/1271 (92,46% statements, 86,4% branches, 91,74% funções, 95,51% linhas). Novo `home-campeonatos.test.tsx` com 18 testes (os 12 de tela falhavam no Início anterior).
+- Navegador (Playwright headless) com API e PostgreSQL reais e contas sintéticas criadas pela API: perfis na mesma cidade, em cidades diferentes, sem campeonatos e conta nova, em 320, 390 e 1440 px, nos temas claro e escuro, sem overflow horizontal nem erros no console; teclado, foco visível, falha e nova tentativa conferidos.
+
+**Limitações:** o banco de desenvolvimento não tem campeonato publicado, e publicar exige organizador aprovado por um administrador. As linhas com campeonato foram conferidas no navegador com a resposta de `/events` simulada só no navegador, além dos testes; não há dado fictício no código. A 320 px o título da seção e o convite sem perfis truncam com reticências, como no Expo. As etiquetas seguem o formato dos cartazes ("R$ 40", "3 de 8 times"), e não o do protótipo.
+
+**Pendências:** documentação e verificação final da entrega (ticket 09).
+
+## Pílulas de elo no Início da web — 22 de novembro de 2026
+
+Terceira entrega do [plano do Início](plano-inicio.md) na web (ticket 03), com os mesmos textos e regras do Expo (ticket 07).
+
+- No Início da web, o carrossel de cartões de modalidade e a barra de progresso vazia deram lugar às **Pílulas** (`web/src/components/home/Pilulas.tsx`): cabeçalho "Seu elo" com "Ver elos" (abre o Ranking) e um bloco escuro por design (`forest` com o Coliseu em marca-d'água, igual nos dois temas) com três pílulas, na ordem futebol, tênis e corrida, cada uma com o ícone (`SportIcon` em máscara) e o nome da modalidade.
+- Cada pílula segue a regra existente de `modalityStanding` (`GET /me/standings`, lido uma única vez):
+  - com elo: emblema (`TierEmblem`), nome do elo e métrica ("{n} pts", "{n} média" ou "{tempo} · {distância} km", na distância de maior elo);
+  - em classificação: "{n} de 3" e "Sem classificação";
+  - corrida sem marca: "Sem marca" e "Sem classificação";
+  - sem perfil esportivo na modalidade (lista de perfis confirmada): "Sem perfil" e "Configurar";
+  - carregando (classificação ou perfis): "…";
+  - falha: "Classificação indisponível".
+- Nunca aparece elo para quem está em classificação, e a posição no ranking não é exibida.
+- Cada pílula é um único botão com nome acessível (modalidade e elo ou situação), foco visível e teclado. Com perfil, abre o Ranking da modalidade (na corrida, na distância do elo, quando houver); sem perfil, a tela de modalidades.
+- Lógica pura em `web/src/data/home.ts` (`pillStatus`, `pillMetric`, `pillTexts` e `pillAccessibilityLabel`), com os mesmos nomes e textos do Expo. `modalityStanding` da web passou a devolver `distanceKm`, como no Expo.
+- Não havia componente separado para os cartões do carrossel na web; nada ficou sem uso.
+
+**Verificações** (em `web/`, no commit do ticket; a árvore de `web/` consolidada é idêntica):
+- `npm run lint` e `npm run build` aprovados (só o aviso de chunk grande que já existia).
+- `npm run test:coverage`: 1295/1295 numa execução; nas seguintes, 1294/1295, com a única falha sendo a intermitente já conhecida de `tests/matchmaking.test.tsx` (reproduzida também na base `bf4f8a9`). Sem esse arquivo, 1255/1255 (92,41% statements, 86,39% branches, 91,64% funções, 95,47% linhas); `Pilulas.tsx` e `data/home.ts` com 100% de linhas.
+- `home-standings` adaptado (22 testes): elo com pts, milhar, média, tempo e km; em classificação; sem marca; sem perfil (também na conta nova); carregando (classificação e perfis); perfis em falha; falha da classificação e 401; destinos dos toques, do teclado e do "Ver elos"; elo nunca em classificação; uma única leitura; regras puras e `distanceKm`.
+- Navegador (Playwright headless) com API e PostgreSQL reais e contas sintéticas criadas pela API (conta nova; tênis e corrida sem marca; três perfis com um treino de corrida de 21 km que deu elo Ouro), em 320, 390 e 1440 px, claro e escuro: sem overflow horizontal, nem nas pílulas em 320 px, sem erros de console e com foco visível. Os toques abriram o Ranking da corrida em 21 km, os do futebol e do tênis e, sem perfil, as modalidades. Carregamento e falha foram conferidos com a resposta retida ou simulada no navegador. No build de produção, `GET /me/standings` é lido uma vez (no servidor de desenvolvimento aparecem duas leituras, por causa do StrictMode).
+
+**Limitações:** o estado "em classificação" com partidas jogadas ("2 de 3") só foi coberto por testes; no navegador apareceu "0 de 3". O bloco usa `forest` liso, como o Placar e o Expo, sem o gradiente do protótipo. Em 320 px, "1:45:30 · 21 km" quebra em duas linhas, sem overflow.
+
+**Pendências:** Campeonatos, próximo passo e remoção da placa e da foto (ticket 04) na web; fechamento (09).
+
+## Campeonatos, próximo passo e fim dos atalhos no Início do Expo — 22 de novembro de 2026
+
+Quarta entrega do [plano do Início](plano-inicio.md) no Expo (ticket 08). Com ela, o Início do Expo tem todas as seções da spec.
+
+- **Seu próximo passo:** o cartão "Complete seu perfil esportivo" ("Mostre onde e como você gosta de jogar.", texto do cartão da web, porque o Expo não tinha um) aparece depois das Pílulas enquanto a lista de perfis confirmada não tem as três modalidades, e abre a tela de modalidades (`profile`).
+- **Campeonatos:** uma leitura `GET /events?sport={modalidade}&city_id={cidade do perfil}&limit=2` por perfil esportivo, em paralelo e uma vez por montagem, reaproveitando a lista de perfis já lida pelo Início (sem segunda leitura de `/me/sports-profiles`); sem perfis, nenhuma leitura. Os resultados são unidos sem duplicatas por `id`, ordenados por `starts_at` e cortados nos 2 primeiros (`mergeChampionships`).
+  - Título "Campeonatos em {cidade}", "Campeonatos perto de você" ou "Perto de você" (`championshipsTitle`). "Ver todos" abre a lista na modalidade do primeiro campeonato exibido ou, sem campeonatos, na do primeiro perfil (`championshipsSport`).
+  - Linha com ícone, nome, "{data e hora} · {local}" e etiquetas: preço ("Gratuita" ou o formato dos cartazes), vagas ("{n} de {vagas} {times|atletas|corredores}" ou "Vagas esgotadas"), "Você pode se inscrever" (com `eligibility.eligible`, exceto em evento em andamento) e "Em andamento" (`state = em_andamento`). O toque abre o campeonato.
+  - Estados: vazio ("Nenhum campeonato aberto em {cidade}" ou "…perto de você", com "Ver campeonatos"); sem perfis, o cartão "Configure suas modalidades" ("Para ver campeonatos perto de você"), que abre as modalidades; falha só na seção, com "Tentar novamente"; 401 segue o fluxo de sessão expirada.
+- **Atalhos removidos:** saem do Início os grupos JOGAR (Meus times, Campeonatos, Provas de corrida), ORGANIZADOR e ADMINISTRAÇÃO. Os destinos seguem no Jogar ("Outras formas de jogar": Meu time e Campeonatos ou Provas, em `PlayScreen`/`OtherWays`) e no menu do Perfil (`OrganizerMenu`, com as seções de organizador e administração).
+- **Limpeza:** removidos `PendingPlate` e `ModalityCard`, sem uso no Expo. `ListRow` continua (usado no Perfil).
+- `eventsPath` aceita `limit` opcional; novo `loadProfileEvents` em `api/entries.ts`. Sem mudança de backend, contrato ou dependência (`limit` já existia em `GET /events`).
+- Testes: novo `tests/home-campeonatos.test.ts` (lógica pura e tela). `home-standings`, `navigation-shell`, `moderation`, `championship-flow` e `app-join-link` passaram a abrir as telas pela navegação que o shell entrega ao Início, no lugar dos atalhos removidos.
+
+**Verificações** (em `mobile/`, nos commits do ticket; a árvore de `mobile/` consolidada é idêntica): `npm run lint` e `npm run typecheck` sem erros; `npm run test:coverage` com 109 arquivos e 1664 testes aprovados (96,52% instruções, 90,97% ramos, 95,89% funções, 98,47% linhas); `npm run export:android` aprovado.
+
+**Limitações:** sem validação em Android ou iOS. Não se declara paridade visual do Expo, e o truncamento a 320 px e o contraste das etiquetas no tema escuro não foram conferidos em aparelho. "Você pode se inscrever" é omitido em evento em andamento, porque a elegibilidade da API considera só o elo e o evento já não recebe inscrição; é uma leitura da implementação sobre o texto da spec, a confirmar na revisão. As vagas seguem o formato dos cartazes do Expo ("8 de 16 times"), e não o "8 de 16 vagas" do protótipo.
+
+**Pendências:** Pílulas (ticket 03) e Campeonatos com próximo passo (04) na web, com os mesmos nomes e regras; documentação e verificação final (09).
+
+## Destaque das pendências no Início da web — 22 de novembro de 2026
+
+Segunda entrega do [plano do Início](plano-inicio.md) na web (ticket 02), com os mesmos textos e regras do Expo (ticket 06).
+
+- No Início da web, a placa escura "Para responder" deu lugar ao **Destaque** (`web/src/components/home/Destaque.tsx`), logo abaixo do botão principal: cabeçalho "Para responder" com o total (`pending_count`) num selo âmbar e um cartão claro (`surface`) com a primeira pendência da lista do servidor. O cartão mostra o *lead* das notificações, "Mais urgente" (critério `warn` de `pendingDeadline`) ou "Aguardando você", o rótulo da pendência, a linha secundária, o prazo ("sem prazo" ou "faltam {tempo}", âmbar com `warn`) e o botão visual "Responder". Com `warn`, o cartão ganha uma borda âmbar à esquerda.
+- O cartão inteiro é um único botão com nome acessível. Ele usa o fluxo existente: marca como lida se ainda não foi e abre o destino do aviso ou, sem destino, as notificações no filtro *Para responder*. Sessão expirada encerra a sessão; nada se aceita ou recusa no Início.
+- Com `pending_count > 1`, o link "+ {n−1} pendência(s) · ver todas" abre as notificações no filtro *Para responder*. A lista de pendências do Início passou a pedir só 1 item (`?limit=1`).
+- Funções puras `urgencyLabel` e `morePendingLabel` em `web/src/data/home.ts`, com os mesmos nomes e textos do Expo. O título do cartão usa o rótulo da pendência em caixa alta, como no Expo.
+- O componente `PendingPlate` continua no código, sem uso no Início; a remoção fica para o ticket 04.
+
+**Verificações** (em `web/`, no commit do ticket; a árvore de `web/` consolidada é idêntica):
+- `npm run lint` e `npm run build` aprovados (só o aviso de chunk grande que já existia).
+- `npm run test:coverage`: 1284 de 1285 testes aprovados; a única falha é a intermitente já conhecida de `tests/matchmaking.test.tsx` (foco do diálogo de cancelar do Jogar), sem relação com o Início. Sem esse arquivo, 1245/1245, com cobertura geral de 92,36% statements, 86,35% branches, 91,58% funções e 95,43% linhas; `Destaque.tsx` com 100% de linhas.
+- `notifications-home` adaptado (21 testes): primeira pendência, "Mais urgente" e "Aguardando você", borda âmbar, leitura e destino, fallback para o filtro, 401 ao marcar e ao listar, link só com mais de 1 (singular e plural), ausência sem pendências, com a lista vazia, sem resumo e em falha, `limit=1` e teclado. `navigation` (14 testes) ajustado para o link do Destaque.
+- Navegador (Playwright headless) com API e PostgreSQL reais e contas sintéticas criadas pela API, em 320, 390 e 1440 px, claro e escuro: 0, 1 e 2 pendências e caso urgente (relógio do navegador adiantado sobre um prazo real). Sem overflow horizontal, sem erros de console, título sem corte em 320 px e foco visível. O toque marcou o aviso como lido (persistiu após recarregar) e abriu "Meus times"; o link abriu as notificações no filtro *Para responder*.
+
+**Limitações:**
+- O título em caixa alta segue o Expo; o protótipo usa caixa de frase.
+- Os formatos de prazo ("1 d 23 h" na web, "1 dia 23 h" no Expo) e da linha secundária ("society 7" na web, "society 7×7" no Expo) continuam os formatadores já existentes em cada cliente.
+
+**Pendências:** Pílulas de elo (ticket 03) e Campeonatos com remoção da placa (ticket 04) na web; fechamento (09).
+
+## Início do Expo: Pílulas de elo — 22 de novembro de 2026
+
+Terceira entrega do [plano do Início](plano-inicio.md) no Expo (ticket 07).
+
+- No Início do Expo, o carrossel de cartões de modalidade (`ModalityCard`) deu lugar às **Pílulas** (`mobile/src/components/home/Pilulas.tsx`): cabeçalho "Seu elo" com "Ver elos" (abre o Ranking) e um bloco escuro por design (`forest` com o Coliseu em marca-d'água, igual nos dois temas) com três pílulas, na ordem futebol, tênis e corrida, cada uma com o ícone e o nome da modalidade.
+- Cada pílula segue a regra existente de `modalityStanding` (`GET /me/standings`, lido uma única vez):
+  - com elo: emblema, nome do elo e métrica ("{n} pts", "{n} média" ou "{tempo} · {distância} km", na distância de maior elo);
+  - em classificação: "{n} de 3" e "Sem classificação";
+  - corrida sem marca: "Sem marca" e "Sem classificação";
+  - sem perfil esportivo na modalidade (lista de perfis confirmada): "Sem perfil" e "Configurar";
+  - carregando: "…";
+  - falha: "Classificação indisponível".
+- Nunca aparece elo para quem está em classificação, e a posição no ranking não é exibida.
+- O toque abre o Ranking da modalidade (na corrida, na distância do elo, quando houver) ou, sem perfil, o Perfil, onde fica a tela de modalidades do Expo (não há rota própria; o Jogar usa o mesmo destino). O nome acessível informa a modalidade e o elo ou a situação.
+- A lógica pura fica em `mobile/src/data/home.ts`: `pillStatus`, `pillMetric`, `pillTexts` e `pillAccessibilityLabel`. A web (ticket 03) deve aplicar as mesmas regras com os mesmos nomes.
+- `ModalityCard.tsx` ficou sem uso no Início e será removido na limpeza do ticket 08.
+
+**Verificações** (em `mobile/`, no commit do ticket; a árvore consolidada é idêntica): `npm run lint` e `npm run typecheck` sem erros; `npm run test:coverage` com 108 arquivos e 1646 testes aprovados (96,24% statements, 90,59% branches, 95,66% funções, 98,15% linhas); `npm run export:android` aprovado.
+
+**Limitações:** sem validação em aparelho Android ou iOS; não se declara paridade visual do Expo. O ajuste em 320 px (truncamento com reticências) foi feito por `numberOfLines` e não foi conferido em aparelho.
+
+**Pendências:** Campeonatos, "Complete seu perfil esportivo", saída dos atalhos e remoção de `ModalityCard` (ticket 08); Pílulas na web (03); documentação e verificação final (09).
+
+## Destaque das pendências no Início do Expo — 22 de novembro de 2026
+
+Segunda entrega do [plano do Início](plano-inicio.md) no Expo (ticket 06).
+
+- No Início do Expo, a placa escura "Para responder" deu lugar ao **Destaque**, logo abaixo do botão principal (`mobile/src/components/home/Destaque.tsx`). Ele aparece só quando o resumo indica `pending_count > 0` e a lista trouxe ao menos um item, e some sem pendências, sem resumo ou quando a leitura falha.
+- Cabeçalho "Para responder" com o total num selo âmbar. Cartão claro (`surface`) com a primeira pendência da lista do servidor: o *lead* das notificações, "Mais urgente" (prazo no fim, critério `warn`) ou "Aguardando você", o rótulo e a linha secundária, o prazo ("sem prazo" ou "faltam {tempo}", âmbar com `warn`) e o botão visual "Responder". Com `warn`, o cartão ganha uma borda âmbar à esquerda.
+- O cartão inteiro é uma única ação com rótulo de acessibilidade: marca como lido e abre o destino do aviso ou, sem destino, as notificações no filtro *Para responder* (nova opção `onNoTarget` de `openNotification`; os demais usos não mudam). A sessão expirada segue o fluxo existente. Não há aceitar nem recusar no Início.
+- Com `pending_count > 1`, o link "+ {n−1} pendência(s) · ver todas" abre o filtro *Para responder*.
+- A lista de pendências do Início passou a pedir 1 item (`GET /me/notifications/pending?limit=1`). Textos em funções puras de `mobile/src/data/home.ts`: `urgencyLabel` e `morePendingLabel`.
+- `PendingPlate` deixou de ser usado no Início e continua no código até o ticket 08. Os testes de `pending-plate.test.ts`, que renderizavam o Início, foram substituídos por `home-destaque.test.ts`.
+
+**Verificações** (em `mobile/`, no commit do ticket; a árvore de `mobile/` consolidada é idêntica): `npm run lint` e `npm run typecheck` sem erros; `npm run test:coverage` com 108 arquivos e 1638 testes aprovados (96,37% statements, 90,8% branches, 95,74% funções, 98,3% linhas); `npm run export:android` aprovado.
+
+**Limitações:** sem validação em aparelho Android ou iOS; não se declara paridade visual do Expo. A borda de urgência e os tons âmbar nos dois temas não foram conferidos em aparelho. O título do cartão usa o rótulo curto da pendência, em caixa alta, como a placa anterior.
+
+**Pendências:** Destaque da web (ticket 02); Pílulas (07); Campeonatos, remoção dos atalhos e de `PendingPlate`, se ficar sem uso (08); documentação e verificação final (09).
+
+## Início da web: saudação, Placar e botão principal — 22 de novembro de 2026
+
+Primeira entrega do [plano do Início](plano-inicio.md) na web (ticket 01), com as mesmas regras e textos do Expo (ticket 05).
+
+- O topo do Início da web passou a ter a data por extenso em pt-BR e a saudação "A arena te chama, {primeiro nome}", sem pontuação final. Saíram "Bora jogar, {nome}?" e a seção separada "Próxima partida".
+- Novo **Placar** (`web/src/components/home/Placar.tsx`): bloco escuro por design (forest), igual nos dois temas, com a marca d'água do Coliseu. Mostra a próxima partida agendada da placa do Jogar já lida pelo shell (`nextScheduledMatch`, sem leitura nova):
+  - o rótulo "Próxima partida" e a etiqueta da modalidade;
+  - a Contagem em números grandes ("{d} dia(s) {h} h", "{h} h {m} min" ou "{m} min", com minutos arredondados para baixo e no mínimo "1 min"), recalculada pelo relógio de 60 s da tela;
+  - a data e a hora no padrão da placa ("qua, 25 nov · 20:00");
+  - o confronto, com "Você" para o lado do titular em partida individual, e o local.
+- O bloco inteiro é um único botão que abre a partida (`matchId`), com nome acessível que inclui a contagem, o confronto, a data e o local. Quando `starts_at` passa, o Placar mostra a partida seguinte ou o estado vazio.
+- Sem partida, o Placar não é tocável e mostra "—", "Nenhuma partida agendada" e "Prepare seus perfis esportivos e encontre a primeira." (lista de perfis vazia confirmada) ou "Que tal marcar a próxima?" (com perfis, carregando ou com falha na leitura dos perfis; o `ArenaPage` passa `profilesFailed` ao Início).
+- O botão principal subiu para logo abaixo do Placar, com o rótulo "Preparar perfis", "Encontrar outra partida" ou "Encontrar partida". Sempre abre o Jogar e mantém o ícone de raio.
+- Lógica pura em `web/src/data/home.ts`, com os mesmos nomes do Expo (`countdownParts`, `countdownText`, `sideLabel`, `matchupLabel`, `emptyPlacarText`, `primaryButtonLabel`); a web tem também `spokenMatchCountdown`, usado no nome acessível.
+- Testes novos em `web/tests/home-placar.test.tsx` (faixas da Contagem, "Você", textos do vazio, rótulos do botão, toque e troca para a partida seguinte e para o vazio com o relógio avançado); o caso "Início → próxima partida" de `stage3-navigation` e as referências à saudação em `navigation` e `notifications-home` foram adaptados.
+
+**Verificações** (em `web/`, no commit do ticket; a árvore de `web/` consolidada é idêntica):
+- `npm run lint` sem erros; `npm run build` aprovado (só o aviso de chunk acima de 500 kB, que já existia).
+- `npm run test:coverage`: 1276/1276 numa execução completa (93,8% statements, 87,87% branches, 93,35% funções, 96,67% linhas). Nas demais execuções, inclusive duas repetidas na consolidação, 1275/1276 pela falha intermitente já existente em `tests/matchmaking.test.tsx` (foco do diálogo de cancelar do Jogar), reproduzida também na base `71123a1` e já registrada na entrega de modalidades.
+- Navegador (Playwright headless), com API e PostgreSQL reais e contas sintéticas criadas pela API, incluindo uma partida de tênis agendada pelo fluxo real de pareamento, aceite e condições: com partida, com perfis e sem partida, e sem perfis, em 320, 390 e 1440 px, nos temas claro e escuro, sem overflow horizontal e sem erros de console. Também foram conferidos o foco por teclado, o Placar abrindo a partida e o botão abrindo o Jogar.
+
+**Limitações:** a troca para a partida seguinte acompanha o relógio de 60 s e pode atrasar até um minuto. O título mantém 25 px (o protótipo usa 22 px) e os lados usam os tamanhos existentes de escudo e avatar.
+
+**Pendências:** Destaque das pendências, Pílulas de elo e Campeonatos com próximo passo na web (tickets 02 a 04); a falha intermitente de `tests/matchmaking.test.tsx`, fora desta entrega.
+
+## Início do Expo: saudação, Placar e botão principal — 22 de novembro de 2026
+
+Primeira entrega do [plano do Início](plano-inicio.md) no Expo (ticket 05).
+
+- O topo do `HomeScreen` passa a ter a data por extenso em pt-BR e o título "A arena te chama, {primeiro nome}", sem pontuação final. Sai o subtítulo "Veja o seu elo em cada modalidade e escolha por onde começar.".
+- Novo **Placar** (`mobile/src/components/home/Placar.tsx`): bloco escuro por design (`forest` com o Coliseu, igual nos dois temas) com a próxima partida agendada entre as partidas da placa do Jogar já lidas pelo shell (`nextScheduledMatch`, sem leitura nova). Mostra:
+  - o rótulo "Próxima partida" e a etiqueta da modalidade;
+  - a Contagem em números grandes ("{d} dia(s) {h} h", "{h} h {m} min" ou "{m} min", com minutos arredondados para baixo e no mínimo "1 min"), recalculada pelo relógio de 60 s da tela;
+  - a data e a hora locais ("qua, 25 nov · 20:00");
+  - a linha do confronto, com "Você" para o lado do titular em partida individual.
+- O Placar com partida é um único botão, com rótulo de acessibilidade (contagem, confronto, data e local), que abre a partida. Quando `starts_at` passa, ele mostra a partida seguinte ou o estado vazio. Sem partida: "—", "Nenhuma partida agendada" e "Prepare seus perfis esportivos e encontre a primeira." (sem perfis) ou "Que tal marcar a próxima?", sem toque.
+- O botão principal diz "Preparar perfis", "Encontrar outra partida" ou "Encontrar partida" e sempre abre o Jogar.
+- Os perfis esportivos vêm de `GET /me/sports-profiles`, lido pelo Início uma vez por montagem (o shell não lê essa rota). Só uma lista vazia confirmada conta como "sem perfis", e 401 encerra a sessão.
+- Sai a seção "Próxima partida".
+- A lógica pura fica em `mobile/src/data/home.ts` (`countdownText`, `sideLabel`, `matchupLabel`, `emptyPlacarText`, `primaryButtonLabel`); `formatLongDate` foi adicionado em `mobile/src/utils/format.ts`.
+- Testes: novo `mobile/tests/home-placar.test.ts`, com as faixas da contagem, o singular, "0 h", o mínimo de 1 min, "Você", o vazio com os dois textos, os três rótulos do botão, a troca para a partida seguinte com o relógio avançado, a navegação para a partida e a falha e o 401 dos perfis. Os testes do Início, do shell, do link do time e da moderação foram adaptados à nova saudação, e os testes da seção removida foram retirados.
+
+**Verificações** (em `mobile/`, no commit consolidado, com árvore idêntica à do worktree do ticket):
+- `npm run lint` e `npm run typecheck`: sem erros.
+- `npm run test:coverage`: 108 arquivos e 1630 testes aprovados; cobertura geral de 96,48% em instruções, 90,93% em ramos, 95,86% em funções e 98,45% em linhas. A suíte completa (`vitest run`, 1630 aprovados) foi repetida no commit final.
+- `npm run export:android`: bundle Android gerado.
+
+**Limitações:**
+- Sem validação em aparelho Android ou iOS. Não se declara paridade visual do Expo com a web.
+- A marca d'água reaproveita a placa `TeamsPlate` (Coliseu centralizado), sem a posição exata do protótipo.
+- Enquanto os perfis carregam, o botão mostra "Encontrar partida" até a leitura chegar.
+
+**Pendências:** Destaque das pendências (ticket 06), Pílulas de elo (07), Campeonatos e remoção dos atalhos (08) no Expo; a web (tickets 01 a 04) e o fechamento (09).
+
+## Plano da nova tela de Início — 22 de novembro de 2026
+
+A nova tela de Início foi decidida numa sessão de protótipos com seis rodadas, que trataram da estrutura, do Placar, dos elos, das pendências e do rodapé. O desenho vale para a web e o Expo, que devem ficar iguais. As decisões estão no [plano do Início](plano-inicio.md), e a especificação de trabalho, em `.scratch/inicio/spec.md` (não versionado). O protótipo de referência é `artifacts/prototipos/inicio.html`, também não versionado.
+
+- **Decisões:**
+  - saudação "A arena te chama, {nome}";
+  - Placar da próxima partida com contagem regressiva;
+  - pendência mais urgente em destaque;
+  - elos em pílulas;
+  - campeonatos reais das cidades dos perfis esportivos, por `GET /events`, que já existe;
+  - remoção, no Expo, dos atalhos duplicados de times, campeonatos, organizador e administração. Esses destinos continuam no Jogar e no menu do Perfil.
+- **Sem mudança de backend, contrato ou migração.**
+- **Branch de trabalho:** `feat/home-page`, criada a partir de `feat/modalidades-page`.
+
+**Verificações:** só documentação. Conferi caminhos, links e coerência com o código atual: as rotas de partidas, pendências, classificação e eventos e os destinos dos atalhos do Expo. Nenhum teste de código foi executado, porque nada no código mudou.
+
+**Pendências:** implementar na web e no Expo, rodar as verificações da tabela do `AGENTS.md` e conferir no navegador. A implementação não começou, e o MVP completo não está implementado.
+
+## Contrato final de cidades e documentação do catálogo nacional — 22 de novembro de 2026
+
+Fecha a entrega da tela de modalidades com cidade por localização e catálogo nacional de municípios (tickets 01 a 09). Com a web e o Expo fora da lista global de cidades, `GET /api/v1/cities` sem `q`, ou com menos de 2 caracteres, passa a devolver lista vazia. É a etapa de restrição do contrato. A busca por `q` (até 20 resultados), a consulta por `ids=` (até 50) e o 422 para `q` e `ids` juntos não mudam. O caminho da listagem das 100 primeiras cidades (`list_cities`) foi removido do serviço.
+
+- **API:** a descrição de `/cities` no OpenAPI foi atualizada. `GET /me/sports-profiles` e `PUT /me/sports-profiles/{sport}` ganharam descrições do objeto `city` (`id`, `name`, `state`) devolvido junto de `city_id`.
+- **Decisão nova:** a [decisão 0005](decisoes/0005-catalogo-municipios.md) registra a fonte (`kelvins/municipios-brasileiros`, commit `503e2f70bbf1b4b7ec0b1f68b09086ccc38fe861`), a licença MIT e a atribuição; os 5.571 municípios e o motivo; a normalização única em Python, sem extensão do PostgreSQL; o contrato da API; a cidade sugerida por haversine em memória, com limite de 100 km e arredondamento para 2 casas nos clientes; a privacidade das coordenadas e as permissões da web e do Expo; as etapas de ampliação e restrição, as consequências para o pareamento por cidade e a reversão.
+- **Outras atualizações:** a seção "Cidades" da [decisão 0001](decisoes/0001-fundacao.md#cidades) aponta para a 0005, sem apagar o histórico. O [plano de modalidades](plano-modalidades.md) passa a indicar que foi implementado, com as limitações reais. O roteiro "Demonstrar a primeira entrega" do README deixou de citar o catálogo inicial. Nenhum comando mudou.
+
+**Verificações do ticket** (em `backend/`, com `TEST_DATABASE_URL` no PostgreSQL local): teste de integração novo `test_without_q_returns_an_empty_list`, que falhou antes da mudança e passou depois; `ruff check app migrations tests` aprovado; `pytest -q` com 1.734 aprovados e 1 pulado (envio real ao S3, `MEDIA_TEST_S3`); cobertura `--cov=app --cov-branch` de 98% (`services/cities.py` e `routers/identity.py` em 100%). Ausência de chamadas à lista global: `` grep -rnE "['\"\`]/cities['\"\`]" web/src mobile/src `` e `grep -rnE "loadCities|useCities\(|loadPlaces" web/src mobile/src` sem ocorrências; todas as chamadas `request(...'/cities...')` usam `q=`, `ids=` ou `/cities/nearest`. Caminhos e links dos documentos alterados conferidos.
+
+**Verificações finais da entrega** (branch `feat/modalidades-page` consolidada; as árvores `web/` e `mobile/` são idênticas às validadas nos tickets 05 e 08):
+- Backend: `ruff check app migrations tests` aprovado; `pytest -q` com 1.734 aprovados e 1 pulado; `alembic check` no banco de desenvolvimento (na 0015) sem divergências.
+- Web: `npm run lint` e `npm run build` aprovados; `npx vitest run --coverage` com 91 arquivos e 1.263 testes aprovados (93,76% instruções, 87,85% ramos, 93,28% funções, 96,64% linhas).
+- Expo: `npm run lint` e `npm run typecheck` aprovados; `npm run test:coverage` com 107 arquivos e 1.620 testes aprovados (96,47% instruções, 90,94% ramos, 95,84% funções, 98,44% linhas); `CI=1 npm run export:android` aprovado.
+
+**Limitações (da entrega inteira):**
+- O Expo não foi verificado em aparelho nem emulador, e a tela do Expo não foi conferida visualmente. O diálogo nativo de permissão, o GPS real e o Android com `ACCESS_FINE_LOCATION` bloqueado não foram verificados.
+- Na web, a localização foi conferida no Chromium headless com geolocalização simulada pelo Playwright; o pedido real do navegador e o leitor de tela real não foram verificados.
+- O Expo usa a fonte do sistema no nome da cidade sugerida (sem Sora). Nenhum dos clientes fecha a folha por arraste.
+- O toast é literal, "<Modalidade> ativado.", inclusive "Corrida ativado."; a forma "Corrida ativada." ainda não foi decidida.
+- A edição de perfil existente abre no passo 1 (Q1 mantida). Não há nova tentativa de localização na mesma folha depois de falha ou 404.
+- A sugestão usa a sede mais próxima, não o território: perto de divisas pode sugerir o vizinho. O pareamento continua por município, com menos pessoas por cidade fora das capitais (Q2).
+- `npx expo install --check` acusa uma diferença anterior à entrega (`expo` e `expo-image-picker`). O teste `tests/matchmaking.test.tsx` da web falha de forma intermitente e é anterior à entrega (passou nas verificações finais).
+- As verificações no navegador criaram contas sintéticas `orq-0N-…@exemplo.com` (com times e perfis) no banco de desenvolvimento `arena`.
+- O CI remoto não foi executado.
+
+**Pendências:** verificação em aparelho Android/iOS (permissão, GPS, manifesto, visual do Expo); ajuste do limite de 100 km e do arredondamento depois de uso real (Q3); decisões sobre Q1 e o texto do toast; agrupamento regional do pareamento, se necessário (Q2); regenerar `docs/diagramas/banco-*.png` (ainda na revisão 0014); atualizar a menção "catálogo inicial de municípios" em `AGENTS.md`, se desejado; revisão final da entrega. O MVP completo não está implementado.
+
+## Cidade pela localização na web — 22 de novembro de 2026
+
+- O passo da cidade da folha de modalidades da web ganhou a sugestão pela localização do navegador, com os mesmos estados e textos do Expo. Sem permissão decidida, aparecem "Usar minha localização", o divisor "ou" e a busca; o pedido de permissão só acontece no clique (o `getCurrentPosition` abre o pedido do navegador), nunca ao abrir a tela. Durante a obtenção, "Buscando sua localização…" fica visível e é anunciado numa região viva educada, com a busca ainda disponível. Com sucesso, a confirmação mostra o pino, "Pela sua localização", o nome da cidade em destaque (Sora), a UF em selo e "Não, escolher outra cidade", que leva à busca mantendo a sugestão (oferecida de novo acima do campo, e o cartão escolhido passa a dizer "Pela sua localização").
+- Com a permissão já concedida (Permissions API), um perfil novo entra direto na sugestão; num perfil existente, a cidade salva prevalece e a localização só é usada depois de "Trocar" e "Usar minha localização". Sem a Permissions API, ou se a consulta falhar, a permissão conta como não decidida. Permissão negada (antes ou agora) mostra "Sem acesso à localização. Busque sua cidade abaixo." sem o botão; tempo esgotado, posição indisponível, contexto não seguro e erro de rede mostram "Não foi possível obter sua localização."; o 404 do servidor mostra "Não encontramos um município perto de você.". Nenhum desses estados trava o fluxo; o 401 segue o fluxo de sessão expirada.
+- Precisão baixa (`enableHighAccuracy: false`, `maximumAge` de 5 min, tempo limite de 10 s). As coordenadas são arredondadas para 2 casas e vão só no corpo de `POST /cities/nearest` pelo cliente existente (cookie da sessão), como leitura em segundo plano (falha de conexão não abre a folha "Sem conexão"); nada vai para a URL, localStorage, sessionStorage ou logs. Novos `useCityLocation` (hook) e `LocationCityStep`; `CityStep` aceita `before` como função e `startSearching`.
+
+**Verificações:**
+- Em `web/`, no worktree do ticket: `npm run lint` sem problemas; `npm run build` concluído (só o aviso de chunk > 500 kB já existente); `npm run test:coverage` com 91 arquivos e 1.263 testes aprovados (instruções 93,76%, ramos 87,85%, funções 93,28%, linhas 96,64%); a falha intermitente já conhecida de `matchmaking.test.tsx` não ocorreu nesta execução. Novo `tests/city-location.test.tsx` (13 testes) com `navigator.geolocation` e Permissions API simulados: não decidida, concedida com perfil novo e existente, negada (API e erro 1), tempo esgotado e posição indisponível, contexto não seguro e sem geolocalização, rede, 404, 401 e Permissions API ausente ou com erro; corpo conferido (`{"latitude":-16.69,"longitude":-49.26}`, sem query, com credenciais), "Não, escolher outra cidade" e salvamento com a cidade sugerida.
+- Navegador real (Chromium headless pelo Playwright, API 8105 e web 5205, contas sintéticas `orq-05-…@exemplo.com`): permissão concedida em Goiânia com sugestão automática no perfil novo; troca pela busca, salvamento e persistência após recarregar; botão explícito com a permissão concedida depois de abrir; negativa do Chromium com aviso e corrida salva pela busca; ponto no oceano com 404 real; rede abortada com aviso de falha. Rede: 13 `POST /cities/nearest`, sempre na mesma URL sem query, coordenadas só no corpo; log de acesso da API sem coordenadas; armazenamento do navegador vazio. Telas conferidas em claro e escuro a 320, 390 e 1440 px, sem overflow horizontal.
+- Na consolidação, a árvore `web/` da branch ficou idêntica à validada.
+
+**Limitações:** o pedido nativo de permissão e o GPS real não foram exercitados (Chromium sem interface só concede pela API ou recusa automaticamente); nenhum leitor de tela real foi usado. Se a pessoa ignorar o pedido do Chrome, o estado fica em "Buscando…" até a resposta, com a busca disponível. Depois de falha ou 404, o botão não volta na mesma folha; nova tentativa ao reabrir. O CI remoto não foi executado.
+
+**Pendências:** contrato final de `GET /cities` sem `q`, documentação da API e decisão 0005 (ticket 09).
+
+## Expo: cidade pela localização no passo da cidade — 22 de novembro de 2026
+
+- O Expo passa a usar `expo-location` (~57.0.23, instalado com `npx expo install`), a única dependência nova autorizada pela spec. O `app.json` configura só a localização aproximada em primeiro plano:
+  - iOS: `NSLocationWhenInUseUsageDescription` em português, mais `NSLocationDefaultAccuracyReduced`; sem as chaves `Always`/`Motion` e sem modo de segundo plano.
+  - Android: só `ACCESS_COARSE_LOCATION`; `ACCESS_FINE_LOCATION` e `ACCESS_BACKGROUND_LOCATION` em `blockedPermissions` (`tools:node="remove"`), sem serviço em primeiro plano. O plugin, aplicado automaticamente, acrescentava FINE e textos em inglês por padrão.
+- No passo da cidade da folha de modalidades (`LocationCityStep`, sobre o `CityStep` do ticket 07, pelo slot `before` e por `chosenLabel`):
+  - "Usar minha localização" com divisor "ou" e a busca. A permissão só é pedida no toque; ao abrir a folha apenas o estado atual é lido.
+  - "Buscando sua localização…" em região viva.
+  - Sugestão com pino, "Pela sua localização", nome da cidade em destaque, UF em selo e "Não, escolher outra cidade", que leva à busca mantendo a sugestão disponível.
+  - Avisos de permissão negada (sem o botão), falha (tempo esgotado em 10 s, posição indisponível, localização desligada, erro de conexão) e 404 fora da cobertura, sempre com a busca e sem travar o fluxo.
+  - Com a permissão já concedida, perfil novo recebe a sugestão ao abrir, sem trocar uma cidade escolhida antes da resposta. Perfil existente mantém a cidade salva e só usa a localização por "Trocar" e "Usar minha localização".
+  - O cartão escolhido pela sugestão usa o rótulo "Pela sua localização".
+- Precisão baixa: última posição conhecida de até 5 min, ou `getCurrentPositionAsync` com `Accuracy.Low`. `nearestCity` arredonda para 2 casas e envia só no corpo de `POST /cities/nearest`, com Bearer. As coordenadas não vão na URL, não ficam gravadas no aparelho nem aparecem em logs. A falha de rede dessa leitura mostra o aviso do passo, sem abrir a folha "Sem conexão".
+- Os testes simulam `expo-location` por alias (`tests/support/location.ts`, com reset em `setup.ts`).
+
+**Verificações** (em `mobile/`, no worktree do ticket):
+- `npm ci`, `npm run lint` (sem problemas) e `npm run typecheck`: aprovados.
+- `npm run test:coverage`: 107 arquivos e 1.620 testes aprovados (novos: `tests/city-location.test.ts` e `tests/api-cities-nearest.test.ts`). Cobertura total: 96,47% instruções, 90,94% ramos, 95,84% funções, 98,44% linhas; `src/api/cities.ts` com 100%.
+- `CI=1 npm run export:android`: aprovado (1.789 módulos).
+- `npx expo install --check`: aponta só `expo@57.0.27` (esperado ~57.0.33) e `expo-image-picker@57.0.20` (esperado ~57.0.21), desvio que já existia antes desta entrega (reproduzido no código anterior); `expo-location` está na versão esperada.
+- `npx expo config --type introspect`: permissões Android `CAMERA`, `RECORD_AUDIO` e `ACCESS_COARSE_LOCATION`, com FINE e BACKGROUND removidas no manifest; Info.plist só com When-In-Use em português.
+- Na consolidação, a árvore `mobile/` da branch ficou idêntica à validada.
+
+**Limitações:**
+- O diálogo nativo de permissão, o GPS real e o comportamento no Android com FINE bloqueada não foram verificados (sem aparelho ou emulador). Build não comprova funcionamento em Android/iOS.
+- Sem revisão visual do Expo (não há renderizador web); não declaramos paridade visual. O Expo segue sem Sora: o nome da cidade usa a fonte do sistema.
+- Depois de uma falha ou de um 404, não há botão para tentar a localização de novo na mesma folha.
+- Sem as chaves `NSLocationAlways*`, um envio à App Store pode gerar aviso de "purpose string".
+
+**Pendências:** verificação em aparelho (permissão aproximada, diálogo e GPS); localização na web (ticket 05); documentação final e `GET /cities` sem `q` devolvendo vazio (ticket 09); atualizar `expo` e `expo-image-picker` para as versões esperadas pelo SDK, fora do escopo desta entrega.
+
+## Web: nova tela de modalidades — 22 de novembro de 2026
+
+A tela "Suas modalidades" da web troca os três `SportCard` por faixas e uma folha passo a passo, conforme o protótipo aprovado no grilling de 22/11/2026 (F1–F17, sem a localização). O cabeçalho mostra "n de 3 ativas" e "Onde você joga?"; cada modalidade é uma faixa de 132 px (cantos de 20 px) com o símbolo grande e translúcido pela máscara alfa (`SportIcon mask`): inativa na superfície do tema com "Toque para ativar" e a frase da modalidade; ativa com o degradê `forest → #005a36` (igual nos dois temas), o selo menta "● Ativa" e o resumo "Cidade · UF · Posição · Procurando/Sem procura". A faixa inteira é um botão ("Futebol, ativa, editar" / "Tênis, ativar"); a tela não mostra nível, elo nem pontos; o aviso de privacidade continua no fim. A folha (o `Sheet` existente, que ganhou `icon` e `aside`) tem símbolo, nome, "n de m" e barra segmentada; futebol = Cidade → Posição → Revisão, tênis e corrida = Cidade → Revisão, com o foco no título ("Passo n de m" para leitores de tela) a cada passo. A cidade vem do `CitySearch` e aparece num cartão com "Escolhida por você" e "Trocar"; a posição é um `radiogroup` com descrição e setas ("Ainda não sei" grava `null`); a revisão tem "Alterar", a chave "Procurando oportunidades" ("Aparece no seu perfil esportivo.", desligada em perfil novo) e "Ativar <modalidade>"/"Salvar". Concluir usa o `PUT /me/sports-profiles/{sport}` existente; no sucesso, a folha fecha, a faixa fica ativa e o `toast.success` traz "<Modalidade> ativado." ou "Perfil salvo." com o resumo. O 422 fica na folha; os demais erros seguem `reportActionError`; fechar não salva. Componentes em `web/src/components/sports-profile/`; o `SportCard` foi removido. Sem mudança de contrato.
+
+**Verificações** (em `web/`, Node 24.22.3, depois de `npm ci`, no worktree do ticket):
+- `npm run lint`: aprovado.
+- `npm run build`: aprovado (aviso de pacote acima de 500 kB, 1.346 kB).
+- `npm run test:coverage`: 1.249 de 1.250 aprovados, em 90 arquivos; a falha é a já conhecida `matchmaking.test.tsx` › "prepara a busca com vagas… cancela com confirmação" (pré-existente e intermitente: num run completo passou).
+- Cobertura (`npx vitest run --coverage --coverage.reportOnFailure`): 93,71% instruções, 87,82% ramos, 93,21% funções, 96,57% linhas; `components/sports-profile` com 96,39/92,72/97,72/98,78.
+- Testes novos (`tests/sports-profiles.test.tsx`) e atualizados: passos por modalidade, foco no título, "Alterar", "Trocar", setas no grupo de rádio, payload do `PUT`, títulos e descrição do toast, 422 na folha, 500 em toast, 401 → sessão expirada, faixa ativa após salvar, perfil existente preenchido e fechar sem salvar.
+- Navegador real (Chromium headless pelo Playwright; API 8104 e web 5204, banco de desenvolvimento): cadastro sintético; futebol ativado com Valparaíso de Goiás, Meio de campo e procura ligada; após recarregar, faixa ativa com o resumo certo; edição salva ("Perfil salvo."); tênis ativado com Goiânia ("2 de 3 ativas" após recarregar); claro e escuro em 320, 390 e 1440 px sem overflow horizontal e com a navegação inferior visível. A verificação criou contas sintéticas `orq-04-…@exemplo.com` e perfis de futebol e tênis.
+- Na consolidação, a árvore `web/` da branch ficou idêntica à validada.
+
+**Limitações:** sem fechamento por arrasto (o `Sheet` atual fecha com Esc, toque fora e o X). Diferenças mantidas em relação ao protótipo: botão X de fechar, rótulo visível "Buscar cidade" e estados do `CitySearch` compartilhado, tamanho de fonte e opacidade de desabilitado dos botões do projeto. O CI remoto não foi executado.
+
+**Pendências:** cidade pela localização na web (05) e no Expo (08) e contrato final com `GET /cities` sem `q` vazio (09). Investigar a falha intermitente de foco em `matchmaking.test.tsx`.
+
+## Expo: nova tela de modalidades — 22 de novembro de 2026
+
+- A seção de modalidades do perfil no Expo troca o `SportCard` pela tela aprovada: sobretítulo "n de 3 ativas", título "Onde você joga?", uma faixa de 132 pt por modalidade e o aviso de privacidade no fim. A faixa inativa usa a superfície do tema, "Toque para ativar" e a frase da modalidade (`sports[].description`, igual à web). A ativa usa o degradê `forest → brand` (igual nos dois temas), o selo menta "● Ativa" e o resumo "Cidade · UF · Posição · Procurando/Sem procura". O símbolo grande e translúcido vem de `SportIcon` com a nova opção `alpha`. A faixa inteira é um botão ("Futebol, ativa, editar" / "Tênis, ativar"). Não há nível, elo nem pontos.
+- Folha passo a passo sobre o `ActionSheet` (novas props opcionais `icon` e `aside`): símbolo e nome, "n de m" e barra segmentada. Futebol = Cidade → Posição → Revisão; tênis e corrida = Cidade → Revisão.
+  - Títulos: "Em que cidade você joga?", "Onde você gosta de jogar?" e "Tudo certo?". Rodapé com "Voltar" (a partir do passo 2) e "Continuar".
+  - Passo da cidade: busca do servidor (`CitySearch`); cartão escolhido com ✓, "Escolhida por você" e "Trocar". "Continuar" fica desabilitado sem cidade. O espaço acima da busca (`before`) fica pronto para a localização (ticket 08).
+  - Posição: grupo de rádio com descrição; "Ainda não sei" grava `null`.
+  - Revisão: linhas com "Alterar", chave "Procurando oportunidades" ("Aparece no seu perfil esportivo.", desligada em perfil novo) e "Ativar <modalidade>" ou "Salvar".
+- Concluir chama o `PUT /me/sports-profiles/{sport}`. No sucesso, a folha fecha, a faixa fica ativa e aparece `toast.success` ("<Modalidade> ativado." ou "Perfil salvo.", com o resumo como descrição). O 422 fica na folha, no passo de revisão; os demais erros seguem `reportActionError`. O voltar do Android, o toque fora e o X fecham sem salvar. Perfil existente abre no passo 1 com os valores atuais. Sem a leitura dos perfis, as faixas não aparecem (fica o `LoadError`).
+- Entradas mantidas: Início, Jogar ("Preparar perfil"), Ranking, Eventos e "Minhas modalidades" continuam levando ao perfil.
+
+**Verificações** (em `mobile/`, depois de `npm ci`, no worktree do ticket): `npm run lint` e `npm run typecheck` aprovados. `npm run test:coverage` com 105 arquivos e 1.600 testes aprovados, 8 deles em `tests/sports-profiles.test.ts` (passos por modalidade, "Alterar", corpo do `PUT`, títulos e descrição do toast, 422 na folha, 500/401/sem conexão, voltar do Android e toque fora sem salvar, faixa ativa e recarga, perfil existente preenchido, foco no título do passo); os 7 testes do `SportCard` removido foram substituídos. Cobertura total de 96,5% das instruções, 90,96% dos ramos, 95,83% das funções e 98,44% das linhas. `CI=1 npm run export:android` aprovado (1.780 módulos). Na consolidação, a árvore `mobile/` da branch ficou idêntica à validada.
+
+**Limitações:** sem aparelho nem emulador; não se declara paridade visual nem funcionamento em Android/iOS. As folhas do Expo não fecham por arrasto (Modal do RN): o fechamento é pelo X, pelo toque fora e pelo voltar do Android. O foco de acessibilidade vai para o título do passo a cada troca (abrir, continuar, "Alterar", "Voltar", reabrir), além da região viva e do anúncio no iOS; o efeito no leitor de tela real não foi verificado em aparelho.
+
+**Pendências:** cidade pela localização com `expo-location` (ticket 08); conferência visual em aparelho nos dois temas e em 320/390 pt; o contexto de `docs/plano-modalidades.md` ainda cita o `SportCard` do Expo (documentação final no ticket 09).
+
+## Web sem lista global de cidades — 22 de novembro de 2026
+
+A web deixou de carregar a lista de cidades (`GET /cities` sem `q`). Quem nomeia uma cidade usa o objeto `city` das respostas: Jogar e Eventos leem `ProfileOut.city`; Criar/Editar time, `team.city` e a cidade do perfil de futebol; o Assistente de evento, `detail.city`; o Pedido de organizador sugere a cidade do perfil já com o nome. Nenhum ponto da web precisou de `GET /cities?ids=`, porque todas as respostas usadas já trazem `city`. Quem escolhe uma cidade usa o novo componente `CitySearch` (`web/src/components/cities/`), com `useCitySearch` e `src/api/cities.ts`: busca no servidor com 2 ou mais caracteres e 250 ms de atraso, até 20 resultados "Nome · UF", "Nenhuma cidade encontrada.", erro com "Tentar novamente", resposta atrasada descartada e a cidade já escolhida marcada mesmo fora dos resultados. Ele é usado pelo `CitySheet` (time e evento), pela folha do Pedido de organizador (o `select` virou um campo que abre a folha) e pelo formulário atual da tela de modalidades (o `select` foi trocado pela busca, sem redesenho). O tipo `Profile` da web ganhou `city`.
+
+**Verificações** (em `web/`, Node 24.22.3, depois de `npm ci`, no worktree do ticket):
+- `npm run lint`: aprovado.
+- `npm run build`: aprovado (aviso de pacote acima de 500 kB, 1.339,72 kB).
+- `npm run test:coverage`: 1.246 de 1.247 aprovados, em 89 arquivos. A falha é `matchmaking.test.tsx` › "prepara a busca com vagas… cancela com confirmação" (foco do diálogo de cancelamento). Ela foi reproduzida também no código anterior a esta entrega (mesmo teste, 1 falhou e 39 passaram), portanto é pré-existente e não pertence a esta entrega.
+- Cobertura (`npx vitest run --coverage --coverage.reportOnFailure`): 93,67% instruções, 87,74% ramos, 93,07% funções, 96,51% linhas, acima dos pisos (30/30/20/30). `src/api/client.ts` e `src/api/cities.ts` com 100%.
+- Testes novos ou atualizados: busca com `q` e atraso, vazio, erro com nova tentativa, corrida de respostas, cidade marcada fora dos resultados, nomes vindos de `city`, salvamento de Valparaíso de Goiás (5221858, fora das 100 primeiras em ordem alfabética) no time e no perfil, e ausência de `GET /cities` sem `q` no ArenaPage.
+- Navegador real (Chromium headless pelo Playwright; API 8103 e web 5203, banco de desenvolvimento em 0015): cadastro sintético; time criado com Valparaíso de Goiás pela busca, mantido após recarregar; perfil de futebol salvo com Valparaíso e nomeado no Jogar após recarregar; folha de cidade nos temas claro e escuro em 390 e 1440 px, e em 320 px no escuro, sem overflow horizontal. Nenhuma chamada a `/cities` sem `q`/`ids` no registro de rede nem no log da API. A verificação criou contas sintéticas `orq-03-…@exemplo.com`, um time e um perfil no banco de desenvolvimento.
+- Na consolidação, a árvore `web/` da branch ficou idêntica à validada.
+
+**Limitações:** o backend ainda devolve as 100 primeiras cidades sem `q` até o ticket 09. A tela de modalidades continua com o `SportCard`, agora com a busca (redesenho no ticket 04). O CI remoto não foi executado.
+
+**Pendências:** nova tela de modalidades (04), cidade pela localização (05), Expo (07 e 08) e contrato final com `GET /cities` sem `q` vazio (09). Investigar a falha de foco já existente em `matchmaking.test.tsx`.
+
+## Expo sem lista global de cidades — 22 de novembro de 2026
+
+O Expo deixou de carregar a lista de cidades (`GET /cities` sem `q`). `useCities`, `loadCities` e `loadPlaces` foram removidos, e o `ProfileScreen` não lê mais o catálogo. Jogar, Eventos, Times, Assistente de evento, Pedido de organizador e o perfil esportivo nomeiam a cidade pelo objeto `city` das respostas (`ProfileOut.city`, time, evento, pedido); o campo de cidade usa `GET /cities?ids=` quando só tem o ID. Ranking não exibe cidade. A cidade do time, do evento, do pedido de organizador e do perfil esportivo é escolhida pela busca no servidor (`components/arena/CitySearch.tsx`, reutilizável pelo passo da cidade da nova tela de modalidades): mínimo de 2 caracteres, atraso de digitação de 250 ms, até 20 resultados "Nome · UF", "Nenhuma cidade encontrada.", erro com "Tentar novamente", cidade escolhida marcada mesmo fora dos resultados e respostas antigas descartadas. O Expo não tem seletor de cidade em filtros; o filtro de Campeonatos e provas usa a cidade do perfil, agora correta para qualquer município. Bearer e SecureStore preservados; sem nova dependência.
+
+**Verificações** (em `mobile/`, após `npm ci`, no worktree do ticket): `npm run lint` sem erros nem avisos; `npm run typecheck` sem erros; `npm run test:coverage` com 104 arquivos e 1.599 testes aprovados, 96,35% de instruções, 90,86% de ramos, 95,41% de funções e 98,32% de linhas, com `src/api/cities.ts` em 100%; `npm run export:android` concluído (bundle Hermes de 5,1 MB). Os testes provam a busca com `q`, os estados vazio e de erro, o nome vindo de `city`/`ids=` e a escolha, o salvamento e a exibição de Valparaíso de Goiás (5221858), fora dos 100 primeiros, em time, pedido de organizador, rascunho de evento e perfil esportivo. Na consolidação, a árvore `mobile/` da branch ficou idêntica à validada.
+
+**Limitações:** sem validação em aparelho ou emulador; o build não comprova funcionamento em Android/iOS; sem conferência visual nos temas claro e escuro e sem declaração de paridade visual. A busca que falha por perda de conexão não repete sozinha; a pessoa toca em "Tentar novamente".
+
+**Pendências:** nova tela de modalidades no Expo (07), cidade pela localização (08) e a mudança de `GET /cities` sem `q` para lista vazia (09).
+
+## Cidade mais próxima pela localização (backend) — 22 de novembro de 2026
+
+Segunda entrega do [plano de modalidades](plano-modalidades.md), só no backend. A nova rota `POST /cities/nearest` exige sessão (cookie com a verificação de Origin existente na web; Bearer no Expo), recebe `{ "latitude", "longitude" }` no corpo JSON e devolve o `CityOut` do município cuja sede é a mais próxima, calculado com o catálogo local de 5.571 municípios, sem serviço externo.
+
+- Distância por haversine (raio médio de 6.371,0088 km), calculada em memória sobre as coordenadas de todas as sedes, com desempate pelo menor código IBGE. Nenhum valor derivado da localização vai para o SQL; não há índice, migração ou cache novos.
+- Sede mais próxima a mais de 100 km (`NEAREST_MAX_DISTANCE_KM`, valor inicial da questão Q3) responde 404 com "Não encontramos um município perto de você.".
+- Coordenadas fora de −90..90/−180..180, ausentes, não numéricas (texto, booleano, null), não finitas (NaN/Infinity) ou com campos extras resultam em 422; o tratamento global de validação já não ecoa os valores enviados.
+- As coordenadas não são gravadas, registradas em log, devolvidas na resposta nem incluídas em erros, e só trafegam no corpo (GET devolve 405).
+- Swagger: resumo "Sugerir a cidade mais próxima" e descrição da rota em `app/core/openapi.py`.
+
+**Verificações:**
+- Em `backend/`: `ruff check app migrations tests` sem apontamentos.
+- `pytest -q` com `TEST_DATABASE_URL` no PostgreSQL local: 1734 aprovados e 1 pulado (S3 isolado, `MEDIA_TEST_S3=1`); cobertura `--cov=app --cov-branch` de 98,49%, com `app/services/cities.py`, `app/routers/identity.py` e `app/schemas/identity.py` em 100%.
+- Testes de integração cobrem centro de Brasília → 5300108, Praça Cívica de Goiânia → 5208707, oceano e Paris → 404, faixas e tipos inválidos → 422 sem eco das coordenadas, 401 sem sessão, 403 para cookie com Origin externa ou sem Origin, e a resposta sem coordenadas. Testes unitários cobrem o haversine, a escolha da sede, o desempate e o limite de 100 km.
+- Desempenho no banco de desenvolvimento com o catálogo completo: serviço com mediana de 5,1 ms (p95 5,9 ms, 200 chamadas); HTTP real via uvicorn com mediana de 5,6 ms (p95 6,9 ms, 100 requisições). O log de acesso registrou apenas o caminho, sem coordenadas. A medição criou uma conta sintética (`orq-02-…@exemplo.com`) no banco de desenvolvimento.
+- Depois da consolidação na branch, 42 testes focados de cidades, perfil e OpenAPI e o `ruff` passaram.
+
+**Limitações:** a comparação usa a coordenada da sede municipal, não o território: perto da divisa, a sugestão pode ser o município vizinho; por isso é sempre editável. O limite de 100 km é inicial e pode ser ajustado após verificação real. O CI remoto não foi executado.
+
+**Pendências:** uso da rota na web (ticket 05) e no Expo (ticket 08); decisão 0005 e documentação final da API (ticket 09).
+
+## Catálogo nacional de municípios e busca de cidades (backend) — 22 de novembro de 2026
+
+Primeira entrega do [plano de modalidades](plano-modalidades.md), só no backend. A migração `0015_national_city_catalog.py` amplia `cities` com `latitude` e `longitude` da sede (não nulas), `capital` e `search_text` (nome + UF sem acento e em minúsculas), com índice B-tree `text_pattern_ops`. Ela insere os municípios a partir do arquivo versionado `backend/migrations/data/municipios/municipios.csv`, derivado de `kelvins/municipios-brasileiros` no commit `503e2f70bbf1b4b7ec0b1f68b09086ccc38fe861`. A licença MIT e a origem ficam em `LICENSE` e `FONTE.md`, ao lado do arquivo, e a migração não acessa a rede. O catálogo tem **5.571** municípios, e não os 5.570 do plano: o commit fixado já inclui Boa Esperança do Norte (MT, 5101837), instalado em 2025, e essa contagem foi mantida por decisão do usuário. Os 6 IDs originais mantêm nome e UF e só recebem as colunas novas.
+
+O downgrade remove as colunas e apaga os municípios fora dos 6 originais. Se algum deles estiver referenciado por qualquer chave estrangeira, o downgrade falha com mensagem explícita, sem apagar dados. A normalização de texto é uma função única (`app/services/cities.py`), usada pela migração e pela busca. Ela não depende de extensões do PostgreSQL.
+
+Contrato, só aditivo:
+- `GET /cities?q=` busca por nome e UF, sem diferenciar acentos e maiúsculas, com 2 ou mais caracteres. Devolve até 20 cidades, com prefixo do nome primeiro, depois capitais e ordem alfabética. Com menos de 2 caracteres, devolve lista vazia.
+- `GET /cities?ids=` aceita até 50 IDs (acima disso, 422) e ignora os inexistentes.
+- `q` junto com `ids` devolve 422.
+- Sem `q`, a rota mantém as 100 primeiras cidades por nome até o ticket 09.
+- `ProfileOut` ganhou `city` (`CityOut`) além de `city_id`, no `GET /me/sports-profiles` e na resposta do `PUT`.
+- A descrição da rota no OpenAPI e a tabela `cities` do diagrama da fundação foram atualizadas.
+
+**Verificações:**
+- `ruff check app migrations tests` aprovado.
+- `pytest -q` com `TEST_DATABASE_URL`: 1724 aprovados e 1 pulado (round-trip S3 real, `MEDIA_TEST_S3`).
+- Cobertura `--cov=app --cov-branch` de 98% (piso: 85%).
+- Num schema descartável do PostgreSQL local: `alembic upgrade head` deixou 5.571 cidades e `alembic check` não encontrou divergências; `alembic downgrade 0014` voltou a 6 cidades e às colunas originais; um novo upgrade restaurou o catálogo; o downgrade com um perfil numa cidade nova foi recusado sem alterar dados; o schema foi removido em seguida.
+- Depois da consolidação, o banco de desenvolvimento `arena` foi migrado da 0014 para a 0015 (5.571 cidades, 27 capitais) e `alembic check` não encontrou divergências; 35 testes focados de cidades, perfil e OpenAPI passaram na branch integrada.
+- Busca com o catálogo completo (TestClient, 50 amostras por termo): medianas de 3,3 a 4,7 ms e pico de 6,6 ms. A consulta SQL mais ampla (`sa`) executa em 2,3 ms.
+
+**Limitações:** a ocorrência interna percorre a tabela (seq scan, cerca de 2 ms); o índice atende o prefixo. A web e o Expo ainda carregam a lista global e não usam `q`, `ids` nem `city`. Não houve verificação pela API em execução nem pelo navegador. Os diagramas `banco-*.png` continuam na revisão 0014. O CI remoto não foi executado.
+
+**Pendências:** `POST /cities/nearest` (ticket 02), a migração dos clientes (tickets 03 a 08), a restrição de `GET /cities` sem `q` e a decisão 0005 (ticket 09).
+
+## Capturas de tela da web com dados de demonstração — 22 de novembro de 2026
+
+Capturas da web feitas com Playwright, sem mudança de código, contrato, esquema ou dependências do projeto. São 37 PNG de 1170 × 2532 px (viewport de 390 × 844 com DPR 3, `pt-BR`, fuso de São Paulo) em `artifacts/prints-demo/`. O seed (`seed.py`, `reset-and-seed.sh`) e o roteiro (`shots.mjs`) ficam em `.local/demo/`. Nada disso é versionado.
+
+**Ambiente:** isolado, como no vídeo de 14 de outubro. Banco `arena_demo` no PostgreSQL do Compose, migrado até a `0014`; bucket `arena-media-demo`; API na porta 8020 e web na 5190. O banco `arena` e o bucket `arena-media` não foram alterados.
+
+**Dados:**
+- **Pela API:** 22 contas em Brasília, com avatares e capas gerados com Pillow; 6 times de futebol com brasões e convites aceitos; seguidores; 12 posts com curtidas e comentários; 31 marcas de corrida; organizadora aprovada e um pedido de organizador pendente. Também quatro eventos: torneio de tênis gratuito, liga society gratuita, prova de 5 km paga aprovada pela administração e um rascunho, com inscrições.
+- **Direto pelos modelos, como nos testes de integração:** quadras publicadas, 27 amistosos de futebol e 77 de tênis já com placar confirmado (escalações e estatísticas revisadas), e duas partidas agendadas com chat. Os rankings foram recalculados com `recalculate-rankings`, mantendo os cortes reais de `rank_cuts`.
+
+**Telas:** login, Início (claro e escuro), notificações, Ranking (futebol, tênis e corrida, folha de categoria e Salão dos Lendários), Jogar nas três modalidades, cartão de resultado, partida agendada com chat, campeonatos e detalhe do evento, Comunidade e comentários, perfil próprio e de outra atleta, Menu, Meus times, Menu e Meus eventos da organizadora, gestão do evento, Menu da administração e fila de pedidos de organizador.
+
+**Limitações:**
+- O histórico de partidas foi inserido sem passar pelo fluxo de busca, proposta e confirmação de placar.
+- As fotos são cartazes gerados, não fotos reais.
+- O Expo não foi capturado.
+
+## Plano da tela de modalidades com cidade por localização — 22 de novembro de 2026
+
+Registrado o plano [plano-modalidades.md](plano-modalidades.md), resultado de uma sessão de protótipos (fonte local em `artifacts/prototipos/modalidades.html`, não versionada). A tela "Suas modalidades" passa a ter faixas por modalidade e uma folha passo a passo: cidade → posição (no futebol) → revisão, com o `toast.success` do projeto na conclusão. A cidade é sugerida pela localização do aparelho, calculada no servidor ARENA (`POST /cities/nearest`, coordenadas no corpo, sem gravar nem usar serviço externo). O catálogo passa dos 6 municípios atuais para os 5.570 do conjunto `kelvins/municipios-brasileiros` (MIT, códigos IBGE, coordenadas da sede). Escopo: web e Expo nesta entrega.
+
+**Achados que orientam a implementação:** `GET /cities` devolve no máximo 100 cidades em ordem alfabética, e os dois clientes carregam essa lista uma única vez para nomear e escolher cidades em Jogar, Eventos, Times, Assistente de evento, Pedido de organizador e perfil. Com o catálogo nacional, esses pontos passam a usar o objeto `city` das respostas e a busca do servidor. Também ficou registrado que `looking_for` só é gravado e exibido, sem efeito em buscas, e por isso os novos textos não prometem descoberta.
+
+**Verificações:** apenas documentação e planejamento. Nenhum código, contrato, esquema ou dependência foi alterado, e nenhum teste de código foi executado. A licença MIT e os campos do repositório de origem, incluindo latitude e longitude, foram conferidos no GitHub. O total de 5.570 registros vem do README dele e não foi contado. O protótipo foi validado apenas pela sintaxe do JavaScript (`node --check`), sem screenshots, porque esta máquina não tem navegador automatizado.
+
+**Pendências:** toda a implementação. Decidir se a edição de um perfil existente abre no passo 1 ou direto na revisão. Avaliar depois o efeito do catálogo nacional no pareamento por cidade.
+
+## Instalação no macOS documentada no README — 22 de novembro de 2026
+
+Acrescentada ao README a seção "Instalação no macOS", com o fluxo executado num Mac com Apple Silicon recém-configurado, sem Homebrew e sem sudo: Python 3.13 pelo `uv`, Node 24 pelo `nvm`, `docker compose up -d --build --wait db minio`, ambiente do backend com `uv venv` e `uv pip`, migrações, recálculo de rankings, bucket do MinIO, API e web. A seção "Banco e API" passou a apontar para ela. O README também ganhou a seção "Commits", com o padrão `tipo: descrição` em português e sem linhas `Co-Authored-By`. Também há a alternativa com Homebrew, que não foi executada. Sem mudança de código, contrato, esquema ou dependências.
+
+**Verificações:** documentação, sem testes de código. Os comandos da seção foram executados nesta máquina antes de documentados: containers `arena-db` e `arena-minio` `healthy`, `alembic current` em `0014 (head)`, `recalculate-rankings` com `0 linhas alteradas` (banco novo), bucket `arena-media` pronto, `/health/ready` com `{"status":"ready"}` e a web respondendo 200 em `localhost:5173`. O usuário confirmou que a aplicação abriu e funcionou.
+
+**Limitações:** não foram instalados nem verificados o Expo e os testes no macOS; a alternativa com Homebrew e Macs Intel também não foram testados.
+
 ## Correções dos problemas de usabilidade PU01 a PU07 (web e Expo) — 7 de novembro de 2026
 
 Corrigidos os sete problemas registrados na avaliação heurística da seção 4.3 do roteiro. Sem mudança de contrato, esquema ou dependências.

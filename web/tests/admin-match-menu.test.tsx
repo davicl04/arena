@@ -16,7 +16,7 @@ import { findToast, queryToast, renderWithToaster } from './toast-utils'
  */
 
 const me: User = { id: 1, name: 'Ricardo Moura', username: 'ricardo.moura', email: 'r@example.com', birth_date: '1990-01-01', social_public: false, is_admin: true, avatar: null, cover: null }
-const football: Profile = { id: 1, sport: 'futebol', city_id: brasilia.id, position: 'atacante', looking_for: false, is_public: false, level: null }
+const football: Profile = { id: 1, sport: 'futebol', city_id: brasilia.id, city: brasilia, position: 'atacante', looking_for: false, is_public: false, level: null }
 const none: OrganizerStatus = { state: 'nenhum', request: null, organizer: null, revocation: null }
 const page = <T,>(items: T[]) => ({ items, next_cursor: null })
 const nav = () => within(screen.getByRole('navigation', { name: 'Navegação principal' }))
@@ -25,7 +25,6 @@ const counts = { organizer_requests: 0, reports: 1, paid_events: 0, revoked_even
 function renderMenu(extra: Record<string, unknown> = {}) {
   const calls = mockApi({
     'GET /me/sports-profiles': [football],
-    'GET /cities': [brasilia],
     'GET /me/notifications/summary': summaryOf({ unread_count: 0 }),
     'GET /me/follow-requests': page([]),
     'GET /me/organizer-request': none,
@@ -94,7 +93,7 @@ describe('Menu → Administração: quadras e W.O.', () => {
 
   it('quem não é da administração não vê as filas novas', async () => {
     const calls = mockApi({
-      'GET /me/sports-profiles': [football], 'GET /cities': [brasilia], 'GET /me/notifications/summary': summaryOf({ unread_count: 0 }),
+      'GET /me/sports-profiles': [football], 'GET /me/notifications/summary': summaryOf({ unread_count: 0 }),
       'GET /me/follow-requests': page([]), 'GET /me/organizer-request': none, 'GET /organizer/events?scope=abertos': page([]),
     })
     const ui = userEvent.setup()

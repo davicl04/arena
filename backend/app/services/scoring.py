@@ -5,13 +5,21 @@ points 3/1/0 and tie-breaks (RN14), tennis points (RN16), the best time of a run
 window, classification (3 confirmed matches; the first mark in running) and the tier of each classified subject
 from the versioned cuts, Lendário included (RN23). The ranking service (`services.standings`) loads the confirmed
 matches and the marks, builds the records with these functions and materializes `standings`.
+
+From `calc_version = 2` teams and tennis are ranked by a rating (decision docs/decisoes/0006-ranking-por-rating.md):
+`replay_ratings` replays the counted matches of the window in chronological order from the initial rating, with
+`expected_score` and `updated_rating`; the points 3/1/0 and 10 per win stay as campaign statistics. In tennis the
+championship bonus (RN16) enters the replay at the moment it was awarded, weighted by the strength of the bracket
+(`weighted_bonus`). When the cuts of the version in use still rank by points (`metric = 'pontos'`), the records carry
+no rating and rank by points. The individual ranking uses the adjusted mean (`adjusted_mean`, with the `m` and `μ` of
+the cuts), and the plain average when the cuts have none.
 """
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
-from decimal import ROUND_HALF_UP, Decimal
+from decimal import ROUND_HALF_EVEN, ROUND_HALF_UP, Context, Decimal, localcontext
 from typing import Generic, TypeVar
 
 from app.models.matches import STAT_FIELDS
@@ -29,6 +37,12 @@ POSITION_STAT_CAP = Decimal(4)
 TENNIS_WIN_POINTS = 10
 WINDOW_WEEKS = 52
 AVERAGE_QUANTUM = Decimal('0.001')
+# Rating: rounded to 3 places at every step, so a replay gives the same value on any machine; the arithmetic runs
+# in a fixed decimal context (precision and rounding), whatever the context of the caller.
+RATING_QUANTUM = Decimal('0.001')
+RATING_CONTEXT = Context(prec=28, rounding=ROUND_HALF_EVEN)
+RATING_SCALE = Decimal(400)
+RATING_SCORES = {'vitoria': Decimal(1), 'empate': Decimal('0.5'), 'derrota': Decimal(0)}
 # Recent form (Ranking screen): the last results of a subject, oldest first, as stored in `standings.recent_form`.
 FORM_LENGTH = 5
 FORM_LETTERS = {'vitoria': 'V', 'empate': 'E', 'derrota': 'D'}
@@ -124,6 +138,117 @@ def is_classified(matches: int, required: int) -> bool:
     return matches >= required
 
 
+# ----- Rating (futebol · time and tênis, calc_version 2) --------------------------------------------------------
+
+def expected_score(rating: Decimal, opponent: Decimal) -> Decimal:
+    """E = 1 / (1 + 10^((opponent - rating) / 400)): the expected result of `rating` against `opponent`, in (0, 1)."""
+    with localcontext(RATING_CONTEXT):
+        return Decimal(1) / (Decimal(1) + Decimal(10) ** ((Decimal(opponent) - Decimal(rating)) / RATING_SCALE))
+
+
+def updated_rating(rating: Decimal, opponent: Decimal, score: Decimal, k: Decimal) -> Decimal:
+    """rating + K × (S - E), rounded to 3 places; S is 1 (win), 0.5 (draw) or 0 (loss) and both ratings are the ones
+    before the match. The margin of goals or sets does not matter."""
+    with localcontext(RATING_CONTEXT):
+        value = Decimal(rating) + Decimal(k) * (Decimal(score) - expected_score(rating, opponent))
+        return value.quantize(RATING_QUANTUM, rounding=ROUND_HALF_UP)
+
+
+def k_factor(played_before: int, cuts: Cuts) -> Decimal:
+    """K of a subject's match: the placement K in its first `placement_matches` matches of the window, then the
+    regular K."""
+    if cuts.placement_k is None or cuts.regular_k is None:
+        raise ValueError('Cortes sem parâmetros de rating.')
+    return cuts.placement_k if played_before < cuts.placement_matches else cuts.regular_k
+
+
+@dataclass(frozen=True)
+class RatedMatch:
+    """A counted match of a rating category: when it started, its id, the subject of each side (None if a side has
+    no subject in the category) and the score (goals or sets)."""
+    starts_at: datetime
+    match_id: int
+    side_a: int | None
+    side_b: int | None
+    score_a: int
+    score_b: int
+
+
+@dataclass(frozen=True)
+class RatedBonus:
+    """A championship placement bonus of a rating category (tennis, RN16): when the event ended and gave it, the
+    event, the athlete, the base stored in `event_placements` (40, 20 or 10) and every confirmed entrant of the
+    event (the athlete included or not: the bracket strength leaves the athlete out)."""
+    awarded_at: datetime
+    event_id: int
+    subject_id: int
+    base: int
+    entrants: frozenset[int]
+
+
+def weighted_bonus(base: int | Decimal, rating: Decimal, others: Sequence[Decimal]) -> Decimal:
+    """base × 2 × (1 - E), rounded to 3 places, where E is the expected result of `rating` against the mean rating of
+    the other entrants of the bracket: exactly the base against a bracket of the same level, up to twice the base
+    against a stronger one, towards 0 against a weaker one, never negative. Without other entrants (the award needs
+    4 or more) the bracket counts as the same level."""
+    with localcontext(RATING_CONTEXT):
+        bracket = sum(others, Decimal(0)) / len(others) if others else Decimal(rating)
+        value = Decimal(base) * 2 * (Decimal(1) - expected_score(rating, bracket))
+        return max(value.quantize(RATING_QUANTUM, rounding=ROUND_HALF_UP), Decimal(0))
+
+
+def replay_ratings(matches: Iterable[RatedMatch], cuts: Cuts, *, draws: bool = True,
+                   bonuses: Iterable[RatedBonus] = ()) -> dict[int, Decimal]:
+    """Ratings of a category: every subject starts at the initial rating of the cuts and each match, in order of
+    start and then id, updates both sides from their ratings before it (K by `k_factor`). Without draws (tennis) an
+    equal score is a loss for both, as in `tennis_record`. A side without a subject is faced at the initial rating
+    and keeps no rating. Nothing is incremental: the same matches always give the same ratings.
+
+    `bonuses` (tennis) enter the same timeline at `awarded_at`: the bonuses of one event are applied together, from
+    the ratings before that instant (an entrant without a match yet is at the initial rating), with
+    `weighted_bonus`. A match that starts at the same instant goes first (the event ends after its matches), and
+    events of the same instant follow their id. A bonus is not a match: it does not advance the placement K."""
+    if cuts.initial_rating is None:
+        raise ValueError('Cortes sem parâmetros de rating.')
+    initial = cuts.initial_rating
+    ratings: dict[int, Decimal] = {}
+    played: dict[int, int] = {}
+    awards: dict[tuple[datetime, int], list[RatedBonus]] = {}
+    for bonus in bonuses:
+        awards.setdefault((bonus.awarded_at, bonus.event_id), []).append(bonus)
+    timeline = sorted([((match.starts_at, 0, match.match_id), match) for match in matches]
+                      + [((awarded_at, 1, event_id), items) for (awarded_at, event_id), items in awards.items()],
+                      key=lambda item: item[0])
+    for _, step in timeline:
+        if isinstance(step, RatedMatch):
+            _replay_match(step, ratings, played, cuts, draws=draws)
+            continue
+        gains = [(bonus.subject_id, weighted_bonus(
+            bonus.base, ratings.get(bonus.subject_id, initial),
+            [ratings.get(entrant, initial) for entrant in sorted(bonus.entrants - {bonus.subject_id})]))
+            for bonus in step]
+        with localcontext(RATING_CONTEXT):
+            for subject_id, gain in gains:
+                ratings[subject_id] = ratings.get(subject_id, initial) + gain
+    return ratings
+
+
+def _replay_match(match: RatedMatch, ratings: dict[int, Decimal], played: dict[int, int], cuts: Cuts, *,
+                  draws: bool) -> None:
+    """Both sides of one match, from their ratings before it; each counts one more match for its K."""
+    initial = cuts.initial_rating
+    before = {side: ratings.get(subject, initial) if subject is not None else initial
+              for side, subject in (('a', match.side_a), ('b', match.side_b))}
+    for side, subject, scored, conceded in (('a', match.side_a, match.score_a, match.score_b),
+                                            ('b', match.side_b, match.score_b, match.score_a)):
+        if subject is None:
+            continue
+        opponent = before['b' if side == 'a' else 'a']
+        score = RATING_SCORES[score_outcome(scored, conceded, draws=draws)]
+        ratings[subject] = updated_rating(before[side], opponent, score, k_factor(played.get(subject, 0), cuts))
+        played[subject] = played.get(subject, 0) + 1
+
+
 # ----- Records -----------------------------------------------------------------------------------------------
 
 @dataclass(frozen=True)
@@ -136,9 +261,11 @@ class TeamRecord:
     goals_for: int = 0
     goals_against: int = 0
     form: str = ''
+    rating: Decimal | None = None   # from `replay_ratings` when the cuts rank by rating; None ranks by points
 
     @property
     def points(self) -> int:
+        """Campaign points 3/1/0 (RN14); the metric only while the cuts rank by points."""
         return 3 * self.wins + self.draws
 
     @property
@@ -147,11 +274,13 @@ class TeamRecord:
 
     @property
     def metric(self) -> Decimal:
-        return Decimal(self.points)
+        return self.rating if self.rating is not None else Decimal(self.points)
 
 
-def team_record(subject_id: int, games: Iterable[tuple[int, int]], *, form: str = '') -> TeamRecord:
-    """Record from (goals for, goals against) of each confirmed match in the window; `form` is `recent_form`."""
+def team_record(subject_id: int, games: Iterable[tuple[int, int]], *, form: str = '',
+                rating: Decimal | None = None) -> TeamRecord:
+    """Record from (goals for, goals against) of each confirmed match in the window; `form` is `recent_form` and
+    `rating` the replayed rating (rating cuts only)."""
     wins = draws = losses = scored = conceded = matches = 0
     for goals_for, goals_against in games:
         matches += 1
@@ -163,12 +292,28 @@ def team_record(subject_id: int, games: Iterable[tuple[int, int]], *, form: str 
             draws += 1
         else:
             losses += 1
-    return TeamRecord(subject_id, matches, wins, draws, losses, scored, conceded, form)
+    return TeamRecord(subject_id, matches, wins, draws, losses, scored, conceded, form, rating)
 
 
 def team_order(record: TeamRecord) -> tuple:
-    """RN14: points, then goal difference, goals scored and fewer matches; the id keeps the order stable."""
-    return (-record.points, -record.goal_difference, -record.goals_for, record.matches, record.subject_id)
+    """The metric (rating, or points under points cuts), then the RN14 tie-breaks: goal difference, goals scored
+    and fewer matches; the id keeps the order stable."""
+    return (-record.metric, -record.goal_difference, -record.goals_for, record.matches, record.subject_id)
+
+
+def adjusted_mean(total: Decimal | int, matches: int, prior_matches: Decimal | None,
+                  prior_mean: Decimal | None) -> Decimal:
+    """(total + m × μ) / (matches + m), rounded to 3 places: the average per match of the individual ranking from
+    `calc_version = 2` (decision docs/decisoes/0006-ranking-por-rating.md), as if every athlete had also played `m`
+    phantom matches at the reference mean `μ`. A few matches stay close to `μ`, and the value converges to the plain
+    average as the athlete plays. Without `m` or `μ` (cuts of older versions), the plain average (0 without
+    matches)."""
+    if prior_matches is None or prior_mean is None:
+        if not matches:
+            return Decimal(0)
+        return (Decimal(total) / matches).quantize(AVERAGE_QUANTUM, rounding=ROUND_HALF_UP)
+    value = (Decimal(total) + Decimal(prior_matches) * Decimal(prior_mean)) / (matches + Decimal(prior_matches))
+    return value.quantize(AVERAGE_QUANTUM, rounding=ROUND_HALF_UP)
 
 
 @dataclass(frozen=True)
@@ -180,22 +325,25 @@ class IndividualRecord:
     draws: int = 0
     losses: int = 0
     form: str = ''
+    # Adjusted mean (`m` phantom matches at `μ`) from the cuts in use; None keeps the plain average as the metric.
+    prior_matches: Decimal | None = None
+    prior_mean: Decimal | None = None
 
     @property
     def average(self) -> Decimal:
-        if not self.matches:
-            return Decimal(0)
-        return (self.total / self.matches).quantize(AVERAGE_QUANTUM, rounding=ROUND_HALF_UP)
+        """Plain average of the RN12 points per match."""
+        return adjusted_mean(self.total, self.matches, None, None)
 
     @property
     def metric(self) -> Decimal:
-        return self.average
+        """The adjusted mean under cuts with `m` and `μ` (`calc_version = 2`), the plain average otherwise."""
+        return adjusted_mean(self.total, self.matches, self.prior_matches, self.prior_mean)
 
 
-def individual_record(subject_id: int, appearances: Iterable[tuple[str, IndividualPoints]], *,
-                      form: str = '') -> IndividualRecord:
+def individual_record(subject_id: int, appearances: Iterable[tuple[str, IndividualPoints]], *, form: str = '',
+                      prior_matches: Decimal | None = None, prior_mean: Decimal | None = None) -> IndividualRecord:
     """Record from (outcome, points) of each counted appearance in one position and format (RN11); `form` is
-    `recent_form` of those appearances."""
+    `recent_form` of those appearances, and `prior_matches`/`prior_mean` the `m`/`μ` of the cuts (adjusted mean)."""
     total = Decimal(0)
     tally = {'vitoria': 0, 'empate': 0, 'derrota': 0}
     matches = 0
@@ -203,12 +351,14 @@ def individual_record(subject_id: int, appearances: Iterable[tuple[str, Individu
         matches += 1
         total += points.total
         tally[outcome] += 1
-    return IndividualRecord(subject_id, matches, total, tally['vitoria'], tally['empate'], tally['derrota'], form)
+    return IndividualRecord(subject_id, matches, total, tally['vitoria'], tally['empate'], tally['derrota'], form,
+                            prior_matches, prior_mean)
 
 
 def individual_order(record: IndividualRecord) -> tuple:
-    """Average per match; ties go to more matches (a steadier average), then the id (interpretation)."""
-    return (-record.average, -record.matches, record.subject_id)
+    """The metric (adjusted mean, or the plain average under cuts without `m` and `μ`); ties go to more matches (a
+    steadier average), then the id (interpretation)."""
+    return (-record.metric, -record.matches, record.subject_id)
 
 
 @dataclass(frozen=True)
@@ -219,21 +369,24 @@ class TennisRecord:
     losses: int = 0
     sets_for: int = 0
     sets_against: int = 0
-    bonus: int = 0              # championship placement bonus (RN16), added by the championship phase
+    bonus: int = 0              # sum of the championship placement bases (RN16) of the window, for the points
     form: str = ''
+    rating: Decimal | None = None   # from `replay_ratings` (weighted bonus included) under rating cuts; None: points
 
     @property
     def points(self) -> int:
+        """10 per win plus the championship bonus base (RN16); the metric only while the cuts rank by points."""
         return TENNIS_WIN_POINTS * self.wins + self.bonus
 
     @property
     def metric(self) -> Decimal:
-        return Decimal(self.points)
+        return self.rating if self.rating is not None else Decimal(self.points)
 
 
-def tennis_record(subject_id: int, games: Iterable[tuple[int, int]], *, bonus: int = 0,
-                  form: str = '') -> TennisRecord:
-    """Record from (sets won, sets lost) of each confirmed match in the window; `form` is `recent_form`."""
+def tennis_record(subject_id: int, games: Iterable[tuple[int, int]], *, bonus: int = 0, form: str = '',
+                  rating: Decimal | None = None) -> TennisRecord:
+    """Record from (sets won, sets lost) of each confirmed match in the window; `form` is `recent_form` and
+    `rating` the replayed rating (rating cuts only), which already carries the weighted championship bonus."""
     wins = losses = won = lost = matches = 0
     for sets_won, sets_lost in games:
         matches += 1
@@ -243,12 +396,13 @@ def tennis_record(subject_id: int, games: Iterable[tuple[int, int]], *, bonus: i
             wins += 1
         else:
             losses += 1
-    return TennisRecord(subject_id, matches, wins, losses, won, lost, bonus, form)
+    return TennisRecord(subject_id, matches, wins, losses, won, lost, bonus, form, rating)
 
 
 def tennis_order(record: TennisRecord) -> tuple:
-    """Points; ties go to fewer matches (as in RN14), then the id (interpretation)."""
-    return (-record.points, record.matches, record.subject_id)
+    """The metric (rating, or points under points cuts); ties go to fewer matches (as in RN14), then the id
+    (interpretation)."""
+    return (-record.metric, record.matches, record.subject_id)
 
 
 @dataclass(frozen=True)

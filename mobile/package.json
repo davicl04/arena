@@ -19,6 +19,7 @@
     "expo-camera": "~57.0.6",
     "expo-document-picker": "~57.0.3",
     "expo-image-picker": "~57.0.20",
+    "expo-location": "~57.0.23",
     "expo-secure-store": "57.0.4",
     "expo-status-bar": "57.0.1",
     "nativewind": "5.0.0-rc.0",

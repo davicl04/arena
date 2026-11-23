@@ -13,7 +13,7 @@ vi.mock('react-native', async () => (await import('./support/native')).reactNati
 vi.mock('react-native-safe-area-context', async () => (await import('./support/native')).safeAreaMock())
 vi.mock('../src/components/ui', async () => (await import('./support/native')).uiMock())
 vi.mock('expo-image-picker', () => ({ launchImageLibraryAsync: vi.fn() }))
-vi.mock('../src/components/SportCard', () => ({ default: () => null }))
+vi.mock('../src/components/sports-profile/SportsProfiles', () => ({ SportsProfiles: () => null }))
 vi.mock('../src/api/client', () => ({
   positions: [],
   ApiError: class ApiError extends Error { constructor(message: string, public status: number) { super(message) } },
@@ -171,7 +171,7 @@ describe('telas com abas, topo fixo e ações da conta', () => {
 
   it('perfil próprio: abas Fotos | Partidas, galeria própria e topo que condensa após a capa', async () => {
     vi.mocked(request).mockImplementation(async path => {
-      if (path === '/cities' || path === '/me/sports-profiles') return [] as never
+      if (path === '/me/sports-profiles') return [] as never
       if (path === '/users/1') return meSocial as never
       if (path === '/users/1/posts') return { items: [makePost(1)], next_cursor: null } as never
       if (path === '/me/profile-stats') return { played: 0, wins: 0, draws: 0, losses: 0, win_rate: null, best_tier: null, in_placement: false } as never

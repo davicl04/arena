@@ -4,6 +4,7 @@ tennis sets, the review and contest of stats and the rankings they feed.
 Matches and teams are built from the models; the routes run with a fixed clock (`use_clock`).
 """
 from datetime import timedelta
+from decimal import Decimal
 from types import SimpleNamespace
 
 import pytest
@@ -95,15 +96,16 @@ def test_equal_scores_confirm_the_result_and_start_both_rankings(world):
         'confirmado', 'confirmacao', 0)
     assert body['result']['final']['a'] == 2
 
-    # Both teams entered the ranking in this very transaction: one match, still in placement (no tier).
+    # Both teams entered the ranking in this very transaction: one match, still in placement (no tier). The rating
+    # is stored for the pairing (1000 ± 32 with the placement K), though the API does not show it yet.
     rows = standings(w.db)
     team_a = rows[(w.team_a.id, 'futebol', 'society', None)]
     team_b = rows[(w.team_b.id, 'futebol', 'society', None)]
     assert (team_a.matches_played, team_a.wins, team_a.draws, team_a.losses, team_a.goals_for,
             team_a.goals_against, team_a.metric_value, team_a.tier, team_a.rank_position, team_a.calc_version) == (
-        1, 1, 0, 0, 2, 1, 3, None, None, 1)
+        1, 1, 0, 0, 2, 1, 1032, None, None, 2)
     assert (team_b.matches_played, team_b.wins, team_b.losses, team_b.goals_for, team_b.metric_value) == (
-        1, 0, 1, 1, 0)
+        1, 0, 1, 1, 968)
 
     notified = notifications_of(w.db, 'resultado_partida')
     assert {item.user_id for item in notified} == {w.people[name].id for name in
@@ -283,9 +285,10 @@ def test_tennis_result_confirms_with_a_tiebreak_and_gives_10_points_to_the_winne
     rows = standings(t.db)
     winner = rows[(t.players['ana'].id, 'tenis', None, None)]
     loser = rows[(t.players['bia'].id, 'tenis', None, None)]
+    # The tennis rating: 1000 + 64 × (1 - 0.5) for the winner; the 10 points stay a campaign statistic.
     assert (winner.matches_played, winner.wins, winner.metric_value, winner.goals_for, winner.goals_against) == (
-        1, 1, 10, 2, 1)
-    assert (loser.matches_played, loser.losses, loser.metric_value, loser.goals_for) == (1, 1, 0, 1)
+        1, 1, 1032, 2, 1)
+    assert (loser.matches_played, loser.losses, loser.metric_value, loser.goals_for) == (1, 1, 968, 1)
     assert [item.payload['outcome'] for item in notifications_of(t.db, 'resultado_partida')] == ['confirmado'] * 2
     banner = t.db.scalar(select(MatchMessage.body).where(MatchMessage.event_type == 'resultado_confirmado'))
     assert banner == 'Resultado confirmado: Atleta ana venceu Atleta bia por 2 sets a 1 (7-6(5), 4-6, 6-3).'
@@ -389,13 +392,13 @@ def test_attendance_after_the_confirmation_recalculates_the_individual_ranking(w
     rep_a = w.people['rep_a']
     assert attendance(w, 'rep_a', [{'user_id': rep_a.id, 'present': True, 'position': 'goleiro'}]).status_code == 200
     row = standings(w.db)[(rep_a.id, 'futebol', 'society', 'goleiro')]
-    # Presence 1 + win 3 in one match: an average of 4, still in placement.
-    assert (row.metric_value, row.matches_played, row.wins, row.tier) == (4, 1, 1, None)
+    # Presence 1 + win 3 in one match: 4 points, the adjusted mean (4 + 5 × 3.0) / 6 = 3.167, still in placement.
+    assert (row.metric_value, row.matches_played, row.wins, row.tier) == (Decimal('3.167'), 1, 1, None)
     # The position changes: the old ranking is recalculated too.
     assert attendance(w, 'rep_a', [{'user_id': rep_a.id, 'present': True, 'position': 'defesa'}]).status_code == 200
     rows = standings(w.db)
     assert (rep_a.id, 'futebol', 'society', 'goleiro') not in rows
-    assert rows[(rep_a.id, 'futebol', 'society', 'defesa')].metric_value == 4
+    assert rows[(rep_a.id, 'futebol', 'society', 'defesa')].metric_value == Decimal('3.167')
     assert attendance(w, 'rep_a', [{'user_id': rep_a.id, 'present': False}]).status_code == 200
     assert count(w.db, Standing, Standing.user_id == rep_a.id) == 0
 
@@ -506,17 +509,19 @@ def test_stats_are_reviewed_contested_and_counted_only_after_the_final_review(wo
     assert (edit.status_code, edit.json()['detail']) == (
         409, 'Esta estatística foi contestada; o representante do seu time revisa.')
 
-    # Confirmed with the contest open: the contested item scores nothing, the rest does (1 + 3 + 1 + 2 = 7).
+    # Confirmed with the contest open: the contested item scores nothing, the rest does (1 + 3 + 1 + 2 = 7 points;
+    # in the ranking, the adjusted mean (7 + 5 × 3.0) / 6 = 3.667).
     confirm(w, w.match, 2, 1)
     ranking = standings(w.db)[(member_a.id, 'futebol', 'society', 'atacante')]
-    assert (ranking.metric_value, ranking.matches_played, ranking.wins, ranking.tier) == (7, 1, 1, None)
+    assert (ranking.metric_value, ranking.matches_played, ranking.wins, ranking.tier) == (Decimal('3.667'), 1, 1, None)
 
-    # The final review counts the item again (1 + 3 + 3 + 1 + 2 = 10) and closes the discussion.
+    # The final review counts the item again (1 + 3 + 3 + 1 + 2 = 10 points: (10 + 15) / 6 = 4.167) and closes the
+    # discussion.
     final = review(w, 'rep_a', stat_id)
     assert final.status_code == 200 and final.json()['stat']['state'] == 'revisada'
     assert final.json()['points']['final'] is False and final.json()['points']['result'] == 3.0
     ranking = standings(w.db)[(member_a.id, 'futebol', 'society', 'atacante')]
-    assert ranking.metric_value == 10
+    assert ranking.metric_value == Decimal('4.167')
     assert [item.data['after_contest'] for item in audit_actions(w.db, 'estatistica.revisada')] == [False, True]
     closed = my_stats(w, 'member_a', goals=0)
     assert (closed.status_code, closed.json()['detail']) == (
@@ -531,12 +536,12 @@ def test_stats_are_reviewed_contested_and_counted_only_after_the_final_review(wo
     assert close_due_results(w.db, w.match.result_deadline) == 1
     w.db.commit()
     assert w.match.state == 'encerrada'
-    assert standings(w.db)[(member_a.id, 'futebol', 'society', 'atacante')].metric_value == 10
+    assert standings(w.db)[(member_a.id, 'futebol', 'society', 'atacante')].metric_value == Decimal('4.167')
     view = lineups_of(w, 'rep_a')[member_a.id]
     assert view['points']['final'] is True and (view['can_review'], view['can_contest']) == (False, False)
     mine = w.http.get('/api/v1/me/standings', headers=w.h['member_a']).json()['futebol']['individual']
     line = next(item for item in mine if (item['position'], item['format']) == ('atacante', 'society'))
-    assert (line['state'], line['played'], line['metric_value'], line['tier']) == ('classificacao', 1, 10.0, None)
+    assert (line['state'], line['played'], line['metric_value'], line['tier']) == ('classificacao', 1, 4.167, None)
 
 
 def test_a_walk_in_sends_stats_and_the_roster_shows_him_with_the_badge(client, monkeypatch):
@@ -587,19 +592,19 @@ def test_editing_sent_stats_resets_the_review_and_a_confirmed_match_follows(worl
         return member_a.id, 'futebol', 'society', position
 
     confirm(w, w.match, 2, 0)
-    # Sent but not reviewed: only presence 1 + win 3 score.
-    assert standings(w.db)[key('atacante')].metric_value == 4
+    # Sent but not reviewed: only presence 1 + win 3 score (4 points; adjusted mean (4 + 15) / 6).
+    assert standings(w.db)[key('atacante')].metric_value == Decimal('3.167')
     moved = my_stats(w, 'member_a', position='defesa', goals=1)
     assert moved.status_code == 200
     ranking = standings(w.db)
-    assert key('atacante') not in ranking and ranking[key('defesa')].metric_value == 4
-    # The representative corrects the position back and the goals: both rankings are recalculated.
+    assert key('atacante') not in ranking and ranking[key('defesa')].metric_value == Decimal('3.167')
+    # The representative corrects the position back and the goals: both rankings are recalculated (9 points).
     assert review(w, 'rep_a', stat_id, position='atacante', goals=5).status_code == 200
     ranking = standings(w.db)
-    assert key('defesa') not in ranking and ranking[key('atacante')].metric_value == 9
+    assert key('defesa') not in ranking and ranking[key('atacante')].metric_value == Decimal('4.000')
     # A contest on a confirmed match takes the contested item out of the ranking at once.
     assert contest(w, 'rep_b', stat_id, fields=['gols'], reason='Foram só dois.').status_code == 200
-    assert standings(w.db)[key('atacante')].metric_value == 4
+    assert standings(w.db)[key('atacante')].metric_value == Decimal('3.167')
 
 
 def test_a_registered_walkover_closes_the_review_and_the_contest(world):
@@ -638,18 +643,20 @@ def test_my_standings_leave_placement_and_get_a_tier_with_the_third_match(world)
     line = society('rep_a', w.team_a)
     assert (line['state'], line['played'], line['tier'], line['rank_position'], line['faces_any_level']) == (
         'classificacao', 2, None, None, True)
-    assert line['metric_value'] == 6.0 and len(line['faces']) == 5
+    # In placement the rating is not shown (only "n de 3"), though `standings` keeps it for the pairing.
+    assert line['metric_value'] is None and len(line['faces']) == 5
     confirm(w, third, 3, 1)
     winner, loser = society('rep_a', w.team_a), society('rep_b', w.team_b)
+    # Three wins against the same team calibrate the placement: Ouro (1079.839), the loser Bronze (920.161).
     assert (winner['state'], winner['tier'], winner['rank_position'], winner['played'], winner['metric_value']) == (
-        'ranqueado', 'bronze', 1, 3, 9.0)
-    assert (winner['faces'], winner['faces_any_level']) == (['bronze', 'prata'], False)
+        'ranqueado', 'ouro', 1, 3, 1079.839)
+    assert (winner['faces'], winner['faces_any_level']) == (['prata', 'ouro', 'diamante'], False)
     assert (loser['state'], loser['tier'], loser['rank_position'], loser['metric_value']) == (
-        'ranqueado', 'bronze', 2, 0.0)
+        'ranqueado', 'bronze', 2, 920.161)
     # The team card grid (C5) reads the same rows.
     grid = team_format_grid(w.db, [w.team_a.id, w.team_b.id])
     assert [(cell.format, cell.state, cell.tier) for cell in grid[w.team_a.id]] == [
-        ('futsal', 'sem_jogos', None), ('society', 'ranqueado', 'bronze'), ('campo', 'sem_jogos', None)]
+        ('futsal', 'sem_jogos', None), ('society', 'ranqueado', 'ouro'), ('campo', 'sem_jogos', None)]
     assert grid[w.team_b.id][1].rank_position == 2
 
 
@@ -672,17 +679,18 @@ def test_the_rankings_list_is_general_ordered_and_paginated(client, monkeypatch)
     assert first.status_code == 200, first.text
     page = first.json()
     assert (page['ranking'], page['format'], page['position'], page['distance_km'], page['calc_version']) == (
-        'futebol_time', 'society', None, None, 1)
+        'futebol_time', 'society', None, None, 2)
     assert (page['classified_count'], page['legend_slots'], page['required']) == (6, 0, 3)
+    # The rating first, then the goal difference: Time 1 and Time 3 both have 1079.839; the draws keep 1000.
     assert [(item['rank_position'], item['team']['name']) for item in page['items']] == [
         (1, 'Time 1'), (2, 'Time 3'), (3, 'Time 5'), (4, 'Time 6')]
     top = page['items'][0]
     assert (top['tier'], top['metric_value'], top['matches_played'], top['wins'], top['draws'], top['losses'],
             top['goals_for'], top['goals_against'], top['is_mine'], top['athlete']) == (
-        'bronze', 9.0, 3, 3, 0, 0, 6, 0, True, None)
+        'ouro', 1079.839, 3, 3, 0, 0, 6, 0, True, None)
     assert [item['is_mine'] for item in page['items']] == [True, False, False, False]
     assert [(line['team']['name'], line['state'], line['tier'], line['rank_position']) for line in page['mine']] == [
-        ('Time 1', 'ranqueado', 'bronze', 1)]
+        ('Time 1', 'ranqueado', 'ouro', 1)]
     assert page['next_cursor'] is not None
 
     second = http.get(f"/api/v1/rankings?sport=futebol&kind=time&format=society&limit=4&cursor={page['next_cursor']}",
@@ -745,8 +753,9 @@ def test_athlete_rows_show_the_person_and_mark_my_own(client, monkeypatch):
                     headers=headers).json()
     assert [(item['rank_position'], item['athlete']['id'], item['is_mine'], item['team']) for item in page['items']] == [
         (1, players[0].id, False, None), (2, players[1].id, True, None)]
-    # Win: presence 1 + 3 = 4 in each of 3 matches; loss: presence 1 only.
+    # Win: presence 1 + 3 = 4 in each of 3 matches; loss: presence 1 only. The adjusted mean (m = 5, μ = 3.0):
+    # (12 + 15) / 8 = 3.375 (Prata) and (3 + 15) / 8 = 2.25 (Bronze).
     assert [(item['metric_value'], item['tier'], item['goals_for'], item['wins'], item['losses'])
-            for item in page['items']] == [(4.0, 'ouro', None, 3, 0), (1.0, 'bronze', None, 0, 3)]
+            for item in page['items']] == [(3.375, 'prata', None, 3, 0), (2.25, 'bronze', None, 0, 3)]
     assert set(page['items'][0]['athlete']) == {'id', 'name', 'username', 'avatar_url'}
     assert [(line['state'], line['rank_position']) for line in page['mine']] == [('ranqueado', 2)]

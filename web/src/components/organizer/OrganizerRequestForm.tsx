@@ -1,11 +1,13 @@
-import { useId, useMemo, useState } from 'react'
+import { useId, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
-import { Info, SendHorizontal } from 'lucide-react'
+import { Info, MapPin, SendHorizontal } from 'lucide-react'
 import { sports } from '@/api/client'
 import type { City, Sport } from '@/api/client'
+import { cityLabel } from '@/api/cities'
 import { ORGANIZER_LIMITS, organizerRequestInput, sendOrganizerRequest, validateOrganizerRequest } from '@/api/organizer'
 import type { OrganizerRequest, OrganizerRequestDraft, OrganizerRequestErrors } from '@/api/organizer'
 import SportIcon from '@/components/SportIcon'
+import { CitySheet } from '@/components/teams/CitySheet'
 import { useSubmit } from '@/hooks/useSubmit'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -29,24 +31,25 @@ function Field({ id, label, hint, error, children }: { id: string; label: string
 const describedBy = (id: string, error?: string, hint = true) => error ? `${id}-error` : hint ? `${id}-hint` : undefined
 
 /**
- * Formulário do pedido de organizador (P5): nome, cidade do catálogo, modalidades, experiência, contato, link
+ * Formulário do pedido de organizador (P5): nome, cidade (busca do catálogo, numa folha), modalidades, experiência, contato, link
  * e aceite. Valida no cliente com as mesmas regras do servidor e mostra os campos recusados pela API; as outras falhas de envio saem como toast.
  */
-export function OrganizerRequestForm({ cities, defaultCityId, onSent, onExpired }: {
-  cities: City[]
-  defaultCityId: number | null
+export function OrganizerRequestForm({ defaultCity, onSent, onExpired }: {
+  /** Cidade sugerida (a do perfil esportivo), já com o nome. */
+  defaultCity: City | null
   onSent: (request: OrganizerRequest) => void
   onExpired: () => void
 }) {
   const id = useId()
   const fid = (name: keyof OrganizerRequestDraft) => `${id}-${name}`
   const [draft, setDraft] = useState<OrganizerRequestDraft>({
-    display_name: '', city_id: defaultCityId, sports: [], experience: '', contact: '', link: '', accept_terms: false,
+    display_name: '', city_id: defaultCity?.id ?? null, sports: [], experience: '', contact: '', link: '', accept_terms: false,
   })
+  const [city, setCity] = useState<City | null>(defaultCity)
+  const [picking, setPicking] = useState(false)
   const [attempted, setAttempted] = useState(false)
   const { busy, error, run } = useSubmit(onExpired)
-  const cityIds = useMemo(() => (cities.length ? new Set(cities.map(city => city.id)) : undefined), [cities])
-  const errors: OrganizerRequestErrors = attempted ? validateOrganizerRequest(draft, cityIds) : {}
+  const errors: OrganizerRequestErrors = attempted ? validateOrganizerRequest(draft) : {}
   const invalid = Object.keys(errors).length > 0
   const update = (patch: Partial<OrganizerRequestDraft>) => setDraft(old => ({ ...old, ...patch }))
 
@@ -54,7 +57,7 @@ export function OrganizerRequestForm({ cities, defaultCityId, onSent, onExpired 
     event.preventDefault()
     if (busy) return
     setAttempted(true)
-    const found = validateOrganizerRequest(draft, cityIds)
+    const found = validateOrganizerRequest(draft)
     const first = fieldOrder.find(name => found[name])
     if (first) {
       const field = document.getElementById(fid(first))
@@ -73,13 +76,18 @@ export function OrganizerRequestForm({ cities, defaultCityId, onSent, onExpired 
           aria-invalid={Boolean(errors.display_name)} aria-describedby={describedBy(fid('display_name'), errors.display_name)}
           onChange={event => update({ display_name: event.target.value })} />
       </Field>
-      <Field id={fid('city_id')} label="Cidade" hint="Onde você pretende organizar." error={errors.city_id}>
-        <select id={fid('city_id')} className={invalidClass} value={draft.city_id ?? ''} aria-invalid={Boolean(errors.city_id)}
-          aria-describedby={describedBy(fid('city_id'), errors.city_id)} onChange={event => update({ city_id: Number(event.target.value) || null })}>
-          <option value="" disabled>Selecione uma cidade</option>
-          {cities.map(city => <option key={city.id} value={city.id}>{city.name} · {city.state}</option>)}
-        </select>
-      </Field>
+      <div>
+        <span id={`${fid('city_id')}-label`} className="mt-[18px] mb-2 block text-[12px] font-semibold">Cidade</span>
+        <button type="button" id={fid('city_id')} aria-labelledby={`${fid('city_id')}-label ${fid('city_id')}-value`}
+          aria-invalid={Boolean(errors.city_id)} aria-describedby={describedBy(fid('city_id'), errors.city_id)} onClick={() => setPicking(true)}
+          className="flex min-h-12 w-full items-center gap-2 rounded-field border border-solid border-field-border bg-field py-1 pr-2 pl-[13px] text-left text-[13px] text-ink aria-invalid:border-error">
+          <MapPin size={17} className="text-brand" aria-hidden="true" />
+          <span id={`${fid('city_id')}-value`} className={cn('min-w-0 flex-1 truncate', !city && 'text-placeholder')}>{city ? cityLabel(city) : 'Selecione uma cidade'}</span>
+          <span className="text-[11px] font-bold text-brand" aria-hidden="true">{city ? 'Trocar' : 'Escolher'}</span>
+        </button>
+        {!errors.city_id && <p id={`${fid('city_id')}-hint`} className={hintClass}>Onde você pretende organizar.</p>}
+        {errors.city_id && <p id={`${fid('city_id')}-error`} className={errorClass}>{errors.city_id}</p>}
+      </div>
       <div>
         <span id={`${fid('sports')}-label`} className="mt-[18px] mb-2 block text-[12px] font-semibold">O que você quer organizar</span>
         <ToggleGroup multiple id={fid('sports')} aria-labelledby={`${fid('sports')}-label`} aria-describedby={describedBy(fid('sports'), errors.sports, false)}
@@ -123,5 +131,7 @@ export function OrganizerRequestForm({ cities, defaultCityId, onSent, onExpired 
     <Button type="submit" className="mt-3.5 w-full" disabled={busy}><SendHorizontal size={17} aria-hidden="true" />{busy ? 'Enviando…' : 'Enviar pedido'}</Button>
     <p className="mt-3.5 flex items-start gap-2 text-[11px] leading-[1.5] text-ink-muted"><Info size={15} className="mt-px flex-none text-brand" aria-hidden="true" />
       A administração do Arena analisa o pedido. A resposta chega nas notificações.</p>
+    {picking && <CitySheet selected={city} title="Cidade do pedido" description="Onde você pretende organizar." onClose={() => setPicking(false)}
+      onSelect={item => { setCity(item); update({ city_id: item.id }); setPicking(false) }} />}
   </form>
 }

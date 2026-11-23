@@ -73,6 +73,10 @@ erDiagram
         int id PK "Código IBGE"
         string name
         string state
+        float latitude "Sede do município"
+        float longitude "Sede do município"
+        bool capital
+        string search_text "Nome + UF normalizados"
     }
     sports_profiles {
         int id PK

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { ChevronRight, Flag, Lock, MapPin, Trophy } from "lucide-react";
 import { sports } from "../api/client";
-import type { City, Profile, Sport } from "../api/client";
+import type { Profile, Sport } from "../api/client";
 import { eventsPath, myEntriesPath } from "../api/entries";
 import type { EventCard, MyEntry } from "../api/entries";
 import { EventPoster } from "../components/events/EventPoster";
@@ -154,10 +154,9 @@ function MyEntries({ entries, onOpen }: { entries: MyEntry[]; onOpen: (entry: My
  * opção de ver todas), "Minhas inscrições" em curso e os cartazes verde-escuros, com os fora da faixa apagados e
  * com cadeado. Só eventos reais: sem eventos publicados, o estado vazio.
  */
-export default function EventsPage({ sport, profiles, cities, loading, onSport, onOpen, onSports, onExpired }: {
+export default function EventsPage({ sport, profiles, loading, onSport, onOpen, onSports, onExpired }: {
   sport: Sport;
   profiles: Profile[];
-  cities: City[];
   /** Perfis esportivos ainda carregando (a cidade do filtro vem deles). */
   loading: boolean;
   onSport: (sport: Sport) => void;
@@ -169,7 +168,7 @@ export default function EventsPage({ sport, profiles, cities, loading, onSport, 
   const [allCities, setAllCities] = useState(false);
   const mine = usePagedList<MyEntry>(myEntriesPath("ativas"), onExpired);
   const profile = profiles.find((item) => item.sport === sport);
-  const city = cities.find((item) => item.id === profile?.city_id) ?? null;
+  const city = profile?.city ?? null;
   const filtered = Boolean(city) && !allCities;
   const label = sports.find((item) => item.value === sport)?.label ?? "";
   const myEntries = mine.items.filter((entry) => entry.event.sport === sport);

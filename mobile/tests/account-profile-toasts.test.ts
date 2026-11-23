@@ -3,10 +3,8 @@ import { act, create } from 'react-test-renderer'
 import type { ReactTestRenderer } from 'react-test-renderer'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiError, request } from '../src/api/client'
-import type { City, User } from '../src/api/client'
-import { connection } from '../src/api/connection'
+import type { User } from '../src/api/client'
 import AccountActions from '../src/components/AccountActions'
-import SportCard from '../src/components/SportCard'
 import UsernameForm from '../src/components/UsernameForm'
 import { button, click, enableAct, press, textOf, type } from './support/native'
 import { toasts } from './support/toast'
@@ -24,11 +22,10 @@ vi.mock('../src/api/client', async original => ({
 }))
 
 /*
- * Salvar modalidade, bloquear conta e trocar o @: a confirmação e as falhas de ação saem em toast (ou no aviso de conexão),
- * e só o que pertence ao campo (cidade faltando, 422 do formulário, @ em uso) fica dentro do componente.
+ * Bloquear conta e trocar o @: a confirmação e as falhas de ação saem em toast (ou no aviso de conexão), e só o que
+ * pertence ao campo (422 do formulário, @ em uso) fica dentro do componente. Salvar modalidade: sports-profiles.test.ts.
  */
 
-const cities: City[] = [{ id: 7, name: 'Natal', state: 'RN' }]
 const person = { id: 5, name: 'Ana Lima', username: 'ana.lima', avatar_url: null, cover_url: null, social_public: true, post_count: 0, follower_count: 0, following_count: 0, follows_you: false, follow_state: 'none' as const }
 const trees: ReactTestRenderer[] = []
 async function mount(element: React.ReactElement) {
@@ -42,70 +39,6 @@ const summary = () => toasts().map(item => [item.tone, item.title])
 
 beforeEach(() => { enableAct(); vi.mocked(request).mockReset() })
 afterEach(async () => { vi.useRealTimers(); vi.restoreAllMocks(); for (const tree of trees.splice(0)) await act(async () => { tree.unmount() }) })
-
-describe('SportCard', () => {
-  const card = (onSave: () => Promise<void>, onExpired = vi.fn()) => mount(React.createElement(SportCard, { sport: 'tenis', label: 'Tênis', cities, onSave, onExpired }))
-  async function openAndPickCity(tree: ReactTestRenderer) {
-    await click(tree, 'Adicionar tênis')
-    const radio = tree.root.findAllByType('Pressable' as never).find(entry => entry.props.accessibilityRole === 'radio')!
-    await act(async () => { radio.props.onPress() })
-  }
-
-  it('salvar com sucesso avisa em toast e fecha a edição', async () => {
-    const tree = await card(vi.fn().mockResolvedValue(undefined))
-    await openAndPickCity(tree)
-    await click(tree, 'Salvar perfil')
-    expect(summary()).toEqual([['success', 'Perfil salvo.']])
-    expect(textOf(tree)).not.toContain('Perfil salvo.')
-    expect(textOf(tree)).not.toContain('Salvar perfil')
-  })
-
-  it('a cidade faltando fica junto ao formulário, sem toast', async () => {
-    const onSave = vi.fn()
-    const tree = await card(onSave)
-    await click(tree, 'Adicionar tênis')
-    await click(tree, 'Salvar perfil')
-    expect(textOf(tree)).toContain('Selecione uma cidade.')
-    expect(onSave).not.toHaveBeenCalled()
-    expect(toasts()).toEqual([])
-  })
-
-  it('falha comum vira toast de erro e mantém a edição aberta', async () => {
-    const tree = await card(vi.fn().mockRejectedValue(fail(500)))
-    await openAndPickCity(tree)
-    await click(tree, 'Salvar perfil')
-    expect(summary()).toEqual([['error', 'Falhou no servidor.']])
-    expect(textOf(tree)).not.toContain('Falhou no servidor.')
-    expect(button(tree, 'Salvar perfil')).toBeTruthy()
-  })
-
-  it('422 com campos fica junto ao formulário', async () => {
-    const tree = await card(vi.fn().mockRejectedValue(fail(422, 'Cidade inválida.', [{ field: 'city_id', message: 'Cidade inválida.' }])))
-    await openAndPickCity(tree)
-    await click(tree, 'Salvar perfil')
-    expect(textOf(tree)).toContain('Cidade inválida.')
-    expect(toasts()).toEqual([])
-  })
-
-  it('401 chama onExpired uma vez, sem toast', async () => {
-    const onExpired = vi.fn()
-    const tree = await card(vi.fn().mockRejectedValue(fail(401, 'Sessão expirada.')), onExpired)
-    await openAndPickCity(tree)
-    await click(tree, 'Salvar perfil')
-    expect(onExpired).toHaveBeenCalledOnce()
-    expect(toasts()).toEqual([])
-  })
-
-  it('sem conexão aciona o aviso de conexão, sem mensagem local', async () => {
-    const attempted = vi.spyOn(connection, 'attempted')
-    const tree = await card(vi.fn().mockRejectedValue(fail(503, 'Servidor fora do ar.')))
-    await openAndPickCity(tree)
-    await click(tree, 'Salvar perfil')
-    expect(attempted).toHaveBeenCalledOnce()
-    expect(textOf(tree)).not.toContain('Servidor fora do ar.')
-    expect(toasts()).toEqual([])
-  })
-})
 
 describe('AccountActions: bloquear', () => {
   async function confirmBlock(onBlocked = vi.fn(), onExpired = vi.fn()) {
