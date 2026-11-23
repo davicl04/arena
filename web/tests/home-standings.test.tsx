@@ -45,7 +45,7 @@ const pill = (label: string) => screen.getByRole('button', { name: new RegExp(`^
 const plate = () => screen.getByTestId('pilulas')
 /** Texto visível da pílula, com os trechos separados por "|". */
 const pillText = (label: string) => Array.from(pill(label).querySelectorAll('[data-slot="pill-line"]')).map(node => node.textContent).join('|')
-const ouroTeam = () => ({ teams: [teamOf({ futsal: { state: 'classificacao', played: 2 }, society: ranked('ouro', { metric_value: 38 }) })], individual: individual() }) as MeStandings['futebol']
+const ouroTeam = () => ({ teams: [teamOf({ futsal: { state: 'classificacao', played: 2 }, society: ranked('ouro', { metric_value: 1087.494 }) })], individual: individual() }) as MeStandings['futebol']
 
 describe('Início: Pílulas de "Seu elo" (GET /me/standings)', () => {
   it('cabeçalho "Seu elo" com "Ver elos" no Ranking; bloco escuro com três pílulas na ordem futebol, tênis e corrida; sem o carrossel', async () => {
@@ -76,10 +76,11 @@ describe('Início: Pílulas de "Seu elo" (GET /me/standings)', () => {
     expect(document.querySelector('[data-slot="tier-emblem"]')).toBeNull()
   })
 
-  it('com elo: emblema, nome do elo e "{n} pts"; o tênis em classificação mostra "2 de 3"; sem a posição no ranking', async () => {
+  it('com elo: emblema, nome do elo e o rating inteiro; o tênis em classificação mostra só "2 de 3"; sem a posição no ranking', async () => {
     renderHome(standings({ futebol: ouroTeam(), tenis: empty({ state: 'classificacao', played: 2 }) }))
-    await vi.waitFor(() => expect(pillText('Futebol')).toBe('Ouro|38 pts'))
-    expect(pill('Futebol').getAttribute('aria-label')).toBe('Futebol: elo Ouro, 38 pontos')
+    await vi.waitFor(() => expect(pillText('Futebol')).toBe('Ouro|1087 rating'))
+    expect(pill('Futebol').getAttribute('aria-label')).toBe('Futebol: elo Ouro, 1087 rating')
+    expect(plate().textContent).not.toMatch(/pts|pontos/)
     expect(pill('Futebol').querySelector('[data-slot="tier-emblem"]')?.getAttribute('src')).toBe('/images/brand/ouro.svg')
     expect(pillText('Tênis')).toBe('2 de 3|Sem classificação')
     expect(pill('Tênis').getAttribute('aria-label')).toBe('Tênis: sem classificação, 2 de 3 partidas')
@@ -88,14 +89,26 @@ describe('Início: Pílulas de "Seu elo" (GET /me/standings)', () => {
     expect(plate().textContent).not.toMatch(/3º|#3|posição/)
   })
 
-  it('pontos com milhar e média por partida: "1.234 pts" e "4,25 média"', async () => {
+  it('rating inteiro sem milhar e média por partida: "1235 rating" e "4,25 média"', async () => {
     renderHome(standings({
       futebol: { teams: [], individual: individual({ 'atacante:campo': ranked('prata', { metric_value: 4.25 }) }) },
-      tenis: ranked('lendario', { metric_value: 1234 }),
+      tenis: ranked('lendario', { metric_value: 1234.5 }),
     }))
     await vi.waitFor(() => expect(pillText('Futebol')).toBe('Prata|4,25 média'))
     expect(pill('Futebol').getAttribute('aria-label')).toBe('Futebol: elo Prata, 4,25 de média')
-    expect(pillText('Tênis')).toBe('Lendário|1.234 pts')
+    expect(pillText('Tênis')).toBe('Lendário|1235 rating')
+    expect(pill('Tênis').getAttribute('aria-label')).toBe('Tênis: elo Lendário, 1235 rating')
+  })
+
+  it('time e tênis em classificação (rating nulo na resposta): só "n de 3", sem número nem elo', async () => {
+    renderHome(standings({
+      futebol: { teams: [teamOf({ society: { state: 'classificacao', played: 1, metric_value: null } })], individual: individual() },
+      tenis: empty({ state: 'classificacao', played: 2, metric_value: null }),
+    }))
+    await vi.waitFor(() => expect(pillText('Futebol')).toBe('1 de 3|Sem classificação'))
+    expect(pillText('Tênis')).toBe('2 de 3|Sem classificação')
+    expect(plate().textContent).not.toMatch(/rating|pts|pontos/)
+    expect(document.querySelector('[data-slot="tier-emblem"]')).toBeNull()
   })
 
   it('corrida com elo: o tempo e a distância de maior elo; o toque abre o Ranking nessa distância; as demais, na modalidade', async () => {
@@ -159,7 +172,7 @@ describe('Início: Pílulas de "Seu elo" (GET /me/standings)', () => {
 
   it('com a leitura dos perfis em falha, as pílulas seguem a classificação', async () => {
     renderHome(standings({ futebol: ouroTeam() }), [], { profilesFailed: true })
-    await vi.waitFor(() => expect(pillText('Futebol')).toBe('Ouro|38 pts'))
+    await vi.waitFor(() => expect(pillText('Futebol')).toBe('Ouro|1087 rating'))
     expect(screen.queryByText('Sem perfil')).toBeNull()
   })
 
@@ -188,27 +201,28 @@ describe('Pílulas: regras puras', () => {
     ({ tier: null, played: 0, required: 3, context: null, metric: null, distanceKm: null, ...overrides })
 
   it('pillStatus: sem perfil confirmado vence; depois carregando, falha, elo, sem marca e classificação', () => {
-    const ouro = standing({ tier: 'ouro', played: 3, metric: { value: 38, unit: 'pontos' } })
+    const ouro = standing({ tier: 'ouro', played: 3, metric: { value: 1087.494, ranking: 'futebol_time' } })
     expect(pillStatus('futebol', { standing: ouro, loading: false, hasProfile: false })).toEqual({ kind: 'no-profile' })
     expect(pillStatus('futebol', { standing: null, loading: true, hasProfile: false })).toEqual({ kind: 'no-profile' })
     expect(pillStatus('futebol', { standing: null, loading: true, hasProfile: null })).toEqual({ kind: 'loading' })
     expect(pillStatus('futebol', { standing: ouro, loading: true, hasProfile: true })).toEqual({ kind: 'loading' })
     expect(pillStatus('futebol', { standing: null, loading: false, hasProfile: true })).toEqual({ kind: 'unavailable' })
-    expect(pillStatus('futebol', { standing: ouro, loading: false, hasProfile: null })).toEqual({ kind: 'tier', tier: 'ouro', metric: { value: 38, unit: 'pontos' }, distanceKm: null })
+    expect(pillStatus('futebol', { standing: ouro, loading: false, hasProfile: null })).toEqual({ kind: 'tier', tier: 'ouro', metric: { value: 1087.494, ranking: 'futebol_time' }, distanceKm: null })
     expect(pillStatus('corrida', { standing: standing({ tier: 'prata', required: 1, played: 1, distanceKm: 10 }), loading: false, hasProfile: true }))
       .toEqual({ kind: 'tier', tier: 'prata', metric: null, distanceKm: 10 })
     expect(pillStatus('corrida', { standing: standing({ required: 1, played: 0 }), loading: false, hasProfile: true })).toEqual({ kind: 'no-mark' })
     expect(pillStatus('tenis', { standing: standing({ played: 2 }), loading: false, hasProfile: true })).toEqual({ kind: 'placement', played: 2, required: 3 })
   })
 
-  it('pillMetric: pontos, média, tempo com distância e os casos sem valor', () => {
-    expect(pillMetric({ value: 38, unit: 'pontos' })).toBe('38 pts')
-    expect(pillMetric({ value: 1234, unit: 'pontos' })).toBe('1.234 pts')
-    expect(pillMetric({ value: 7.5, unit: 'média' })).toBe('7,5 média')
-    expect(pillMetric({ value: 5.6349, unit: 'média' })).toBe('5,63 média')
-    expect(pillMetric({ value: 6330, unit: 'tempo' }, 21)).toBe('1:45:30 · 21 km')
-    expect(pillMetric({ value: 1452, unit: 'tempo' }, 5)).toBe('24:12 · 5 km')
-    expect(pillMetric({ value: 1452, unit: 'tempo' })).toBe('24:12')
+  it('pillMetric: rating inteiro, média, tempo com distância e os casos sem valor', () => {
+    expect(pillMetric({ value: 1087.494, ranking: 'futebol_time' })).toBe('1087 rating')
+    expect(pillMetric({ value: 912.506, ranking: 'tenis' })).toBe('913 rating')
+    expect(pillMetric({ value: 1087.494, ranking: 'tenis' }, 5)).toBe('1087 rating')
+    expect(pillMetric({ value: 7.5, ranking: 'futebol_individual' })).toBe('7,5 média')
+    expect(pillMetric({ value: 5.6349, ranking: 'futebol_individual' })).toBe('5,63 média')
+    expect(pillMetric({ value: 6330, ranking: 'corrida_21' }, 21)).toBe('1:45:30 · 21 km')
+    expect(pillMetric({ value: 1452, ranking: 'corrida_5' }, 5)).toBe('24:12 · 5 km')
+    expect(pillMetric({ value: 1452, ranking: 'corrida_5' })).toBe('24:12')
     expect(pillMetric(null, 10)).toBe('10 km')
     expect(pillMetric(null)).toBeNull()
   })
@@ -220,9 +234,10 @@ describe('Pílulas: regras puras', () => {
     expect(pillTexts({ kind: 'unavailable' })).toEqual({ status: 'Classificação indisponível', detail: null })
     expect(pillTexts({ kind: 'loading' })).toBeNull()
     expect(pillTexts({ kind: 'tier', tier: 'ouro', metric: null, distanceKm: null })).toBeNull()
-    expect(pillAccessibilityLabel('Futebol', { kind: 'tier', tier: 'ouro', metric: { value: 38, unit: 'pontos' }, distanceKm: null })).toBe('Futebol: elo Ouro, 38 pontos')
-    expect(pillAccessibilityLabel('Futebol', { kind: 'tier', tier: 'prata', metric: { value: 4.25, unit: 'média' }, distanceKm: null })).toBe('Futebol: elo Prata, 4,25 de média')
-    expect(pillAccessibilityLabel('Corrida', { kind: 'tier', tier: 'diamante', metric: { value: 6330, unit: 'tempo' }, distanceKm: 21 })).toBe('Corrida: elo Diamante, 1:45:30 nos 21 km')
+    expect(pillAccessibilityLabel('Futebol', { kind: 'tier', tier: 'ouro', metric: { value: 1087.494, ranking: 'futebol_time' }, distanceKm: null })).toBe('Futebol: elo Ouro, 1087 rating')
+    expect(pillAccessibilityLabel('Tênis', { kind: 'tier', tier: 'prata', metric: { value: 1000.5, ranking: 'tenis' }, distanceKm: null })).toBe('Tênis: elo Prata, 1001 rating')
+    expect(pillAccessibilityLabel('Futebol', { kind: 'tier', tier: 'prata', metric: { value: 4.25, ranking: 'futebol_individual' }, distanceKm: null })).toBe('Futebol: elo Prata, 4,25 de média')
+    expect(pillAccessibilityLabel('Corrida', { kind: 'tier', tier: 'diamante', metric: { value: 6330, ranking: 'corrida_21' }, distanceKm: 21 })).toBe('Corrida: elo Diamante, 1:45:30 nos 21 km')
     expect(pillAccessibilityLabel('Tênis', { kind: 'tier', tier: 'lendario', metric: null, distanceKm: null })).toBe('Tênis: elo Lendário')
     expect(pillAccessibilityLabel('Corrida', { kind: 'tier', tier: 'bronze', metric: null, distanceKm: 5 })).toBe('Corrida: elo Bronze, nos 5 km')
     expect(pillAccessibilityLabel('Tênis', { kind: 'placement', played: 2, required: 3 })).toBe('Tênis: sem classificação, 2 de 3 partidas')
@@ -243,15 +258,15 @@ describe('modalityStanding', () => {
 
   it('na corrida a métrica é o melhor tempo, em segundos, na distância de maior elo (empate: a primeira na ordem 3, 5, 10, 21, 42)', () => {
     const data = standings({ corrida: runs({ 5: ranked('ouro', { required: 1, played: 1, metric_value: 1452 }) }) })
-    expect(modalityStanding('corrida', data)).toEqual({ tier: 'ouro', played: 1, required: 1, context: 'Nos 5 km', metric: { value: 1452, unit: 'tempo' }, distanceKm: 5 })
+    expect(modalityStanding('corrida', data)).toEqual({ tier: 'ouro', played: 1, required: 1, context: 'Nos 5 km', metric: { value: 1452, ranking: 'corrida_5' }, distanceKm: 5 })
     const tie = standings({ corrida: runs({ 5: ranked('prata', { required: 1, played: 1 }), 10: ranked('diamante', { required: 1, played: 1, metric_value: 2760 }), 21: ranked('diamante', { required: 1, played: 1 }) }) })
-    expect(modalityStanding('corrida', tie)).toMatchObject({ tier: 'diamante', context: 'Nos 10 km', distanceKm: 10, metric: { value: 2760, unit: 'tempo' } })
+    expect(modalityStanding('corrida', tie)).toMatchObject({ tier: 'diamante', context: 'Nos 10 km', distanceKm: 10, metric: { value: 2760, ranking: 'corrida_10' } })
     expect(modalityStanding('corrida', standings())).toMatchObject({ tier: null, distanceKm: null })
   })
 
-  it('o maior elo vence entre times e posições; a média individual leva a unidade "média"', () => {
+  it('o maior elo vence entre times e posições; a média individual leva o ranking individual', () => {
     const data = standings({ futebol: { teams: [teamOf({ society: ranked('prata') })], individual: individual({ 'atacante:campo': ranked('diamante', { metric_value: 5.63 }) }) } })
-    expect(modalityStanding('futebol', data)).toMatchObject({ tier: 'diamante', context: 'Campo · como atacante', metric: { value: 5.63, unit: 'média' }, distanceKm: null })
+    expect(modalityStanding('futebol', data)).toMatchObject({ tier: 'diamante', context: 'Campo · como atacante', metric: { value: 5.63, ranking: 'futebol_individual' }, distanceKm: null })
   })
 
   it('o andamento é o maior número de partidas, limitado ao exigido', () => {
@@ -262,9 +277,11 @@ describe('modalityStanding', () => {
   it('só aceita elo de linha ranqueada e com a classificação completa', () => {
     const data = standings({ tenis: empty({ state: 'ranqueado', tier: 'ouro', played: 2 }) })
     expect(modalityStanding('tenis', data)).toMatchObject({ tier: null, played: 2 })
-    expect(modalityStanding('tenis', standings({ tenis: ranked('lendario', { metric_value: 210 }) }))).toMatchObject({
-      tier: 'lendario', context: 'Tênis', metric: { value: 210, unit: 'pontos' },
+    expect(modalityStanding('tenis', standings({ tenis: ranked('lendario', { metric_value: 1210.25 }) }))).toMatchObject({
+      tier: 'lendario', context: 'Tênis', metric: { value: 1210.25, ranking: 'tenis' },
     })
+    const team = standings({ futebol: { teams: [teamOf({ society: ranked('ouro', { metric_value: 1087.494 }) })], individual: individual() } })
+    expect(modalityStanding('futebol', team)).toMatchObject({ tier: 'ouro', context: 'Society · Leões do Cerrado', metric: { value: 1087.494, ranking: 'futebol_time' } })
   })
 })
 

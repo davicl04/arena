@@ -104,7 +104,7 @@ export interface RankingRow {
   tier_position: number
   /** Só classificados aparecem na lista. */
   tier: TierKey
-  /** Pontos (time, tênis) ou média por partida (individual). */
+  /** Rating (time, tênis), média por partida (individual) ou melhor tempo em segundos (corrida). */
   metric_value: number
   matches_played: number
   wins: number
@@ -127,7 +127,7 @@ export type MyRankingLine = StandingLine & {
   /** Posição e tamanho do elo; nulos sem elo. */
   tier_position: number | null
   tier_size: number | null
-  /** Distância até o 1º do elo (pontos, média ou segundos); nula quando lidera ou sem elo. */
+  /** Distância até o 1º do elo (rating, média ou segundos); nula quando lidera ou sem elo. */
   leader_gap: number | null
   /** Vantagem sobre o próximo do elo e a posição dele; nulas quando é o último ou sem elo. */
   next_gap: number | null

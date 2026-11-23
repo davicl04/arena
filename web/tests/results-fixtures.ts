@@ -106,12 +106,12 @@ export const rankingPage = (overrides: Partial<RankingPage> = {}): RankingPage =
 
 /** Linha do titular no ranking: Leões do Cerrado, 6º de 12 no Diamante (7 atrás do 1º, 1 à frente do 7º). */
 export const myLine = (overrides: Partial<MyRankingLine> = {}): MyRankingLine => ({
-  state: 'ranqueado', tier: 'diamante', played: 8, required: 3, rank_position: 6, metric_value: 94, faces: ['ouro', 'diamante'], faces_any_level: false,
-  team: leoes, tier_position: 6, tier_size: 12, leader_gap: 7, next_gap: 1, next_tier_position: 7, ...overrides,
+  state: 'ranqueado', tier: 'diamante', played: 8, required: 3, rank_position: 6, metric_value: 1087.494, faces: ['ouro', 'diamante'], faces_any_level: false,
+  team: leoes, tier_position: 6, tier_size: 12, leader_gap: 36.6, next_gap: 1.5, next_tier_position: 7, ...overrides,
 })
 /** Titular sem elo (classificação, sem jogos ou sem marca). */
 export const unrankedLine = (overrides: Partial<MyRankingLine> = {}): MyRankingLine => myLine({
-  state: 'classificacao', tier: null, played: 2, rank_position: null, metric_value: 6, faces: [], tier_position: null, tier_size: null,
+  state: 'classificacao', tier: null, played: 2, rank_position: null, metric_value: null, faces: [], tier_position: null, tier_size: null,
   leader_gap: null, next_gap: null, next_tier_position: null, ...overrides,
 })
 

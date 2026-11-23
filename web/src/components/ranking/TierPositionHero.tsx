@@ -2,18 +2,25 @@ import type { ReactNode } from 'react'
 import type { MyRankingLine, RankingKey } from '@/api/results'
 import { TierEmblem } from '@/components/arena/TierEmblem'
 import type { TierKey } from '@/data/arena'
-import { formatMetric, gapText, metricUnit } from './metric'
+import { formatMetric, gapParts, metricUnit } from './metric'
 import { inTier, ofTier, theTier } from './tierText'
 
 function Stat({ children }: { children: ReactNode }) {
   return <div className="min-w-0 rounded-[12px] bg-white/5 px-[9px] py-2 [&_b]:block [&_b]:truncate [&_b]:font-display [&_b]:text-[14px] [&_b]:tabular-nums [&_small]:text-[9.5px] [&_small]:text-white/55">{children}</div>
 }
 
+/** Diferença com o número em destaque e a unidade no começo da legenda ("37" e "rating atrás do 1º"), para caber a 320 px. */
+function Gap({ value, ranking, children }: { value: number; ranking: RankingKey; children: ReactNode }) {
+  const { amount, unit } = gapParts(value, ranking)
+  return <><b>{amount}</b>{' '}<small>{unit && `${unit} `}{children}</small></>
+}
+
 /**
  * Posição do titular no elo dele, no alto da placa contínua: "SUA POSIÇÃO NO DIAMANTE", o número grande ("6º"), "de 12
- * no Diamante" (e o time, no ranking de Times) e três números: a métrica, a distância para o 1º do elo ("7 pts atrás do
- * 1º" ou "Lidera o Diamante") e a vantagem sobre o próximo ("1 pt à frente do 7º" ou "Último do Diamante"). As diferenças
- * são relativas às pessoas, nunca aos cortes dos elos.
+ * no Diamante" (e o time, no ranking de Times) e três números: a métrica ("1087 rating"), a distância para o 1º do elo
+ * ("37 rating atrás do 1º" ou "Lidera o Diamante") e a vantagem sobre o próximo ("2 rating à frente do 7º" ou "Último do
+ * Diamante"). As diferenças são relativas às pessoas, nunca aos cortes dos elos. Sem a métrica (time e tênis em
+ * classificação), não há placa: a tela mostra só "n de 3".
  */
 export function TierPositionHero({ line, tier, ranking }: { line: MyRankingLine; tier: TierKey; ranking: RankingKey }) {
   const position = line.tier_position
@@ -37,12 +44,12 @@ export function TierPositionHero({ line, tier, ranking }: { line: MyRankingLine;
         <Stat>
           {line.leader_gap == null
             ? <><b>Lidera</b>{' '}<small>{theTier(tier)}</small></>
-            : <><b>{gapText(line.leader_gap, ranking)}</b>{' '}<small>atrás do 1º</small></>}
+            : <Gap value={line.leader_gap} ranking={ranking}>atrás do 1º</Gap>}
         </Stat>
         <Stat>
           {line.next_gap == null || line.next_tier_position == null
             ? <><b>Último</b>{' '}<small>{ofTier(tier)}</small></>
-            : <><b>{gapText(line.next_gap, ranking)}</b>{' '}<small>à frente do {line.next_tier_position}º</small></>}
+            : <Gap value={line.next_gap} ranking={ranking}>à frente do {line.next_tier_position}º</Gap>}
         </Stat>
       </div>
     </section>

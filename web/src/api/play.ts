@@ -14,7 +14,7 @@ export interface StandingLine {
   /** 3 no futebol e no tênis; 1 na corrida. */
   required: number
   rank_position: number | null
-  /** Pontos, média ou segundos; null sem jogos ou sem marca. */
+  /** Rating (time e tênis), média ou segundos; null sem jogos, sem marca ou com time e tênis em classificação. */
   metric_value: number | null
   /** Elos enfrentados, calculados pelo servidor; todos quando `faces_any_level`. */
   faces: TierKey[]

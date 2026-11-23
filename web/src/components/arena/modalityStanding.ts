@@ -1,5 +1,6 @@
 import type { Sport } from '@/api/client'
 import type { MeStandings, StandingLine } from '@/api/play'
+import type { RankingKey } from '@/api/results'
 import { normalizeStandings, rankedTier } from '@/components/play/tierLines'
 import { footballFormat, placementRequired, positionOptions, rankingTiers } from '@/data/arena'
 import type { RunDistance, TierKey } from '@/data/arena'
@@ -18,8 +19,11 @@ export interface ModalityStanding {
   required: number
   /** Onde o elo vale ("Society · Leões do Cerrado", "Society · como atacante"); só com elo. */
   context: string | null
-  /** Pontos (time e tênis), média por partida (individual) ou melhor tempo em segundos (corrida) da linha que dá o elo; só com elo. */
-  metric: { value: number; unit: 'pontos' | 'média' | 'tempo' } | null
+  /**
+   * Métrica da linha que dá o elo e o ranking dela, para o rótulo e o formato de `components/ranking/metric`: rating (time e
+   * tênis), média por partida (individual) ou melhor tempo em segundos (corrida); só com elo e com o valor na resposta.
+   */
+  metric: { value: number; ranking: RankingKey } | null
   /** Corrida com elo: a distância de maior elo, para abrir o Ranking nela. */
   distanceKm: RunDistance | null
 }
@@ -27,28 +31,28 @@ export interface ModalityStanding {
 const rank = (tier: TierKey) => rankingTiers.findIndex(item => item.image === tier)
 const lower = (text: string) => text.toLocaleLowerCase('pt-BR')
 
-interface Candidate { line: StandingLine; context: string; unit: 'pontos' | 'média' | 'tempo'; distanceKm?: RunDistance }
+interface Candidate { line: StandingLine; context: string; ranking: RankingKey; distanceKm?: RunDistance }
 
 export function modalityStanding(sport: Sport, data: Partial<MeStandings> | null | undefined): ModalityStanding {
   const { teams, individual, tenis, corrida } = normalizeStandings(data)
   const candidates: Candidate[] = sport === 'futebol'
     ? [
-      ...teams.flatMap(team => team.formats.map(line => ({ line, context: `${footballFormat[line.format]?.label ?? line.format} · ${team.team.name}`, unit: 'pontos' as const }))),
+      ...teams.flatMap(team => team.formats.map(line => ({ line, context: `${footballFormat[line.format]?.label ?? line.format} · ${team.team.name}`, ranking: 'futebol_time' as const }))),
       ...individual.map(line => ({
         line,
         context: `${footballFormat[line.format]?.label ?? line.format} · como ${lower(positionOptions.find(item => item.value === line.position)?.label ?? line.position)}`,
-        unit: 'média' as const,
+        ranking: 'futebol_individual' as const,
       })),
     ]
     : sport === 'tenis'
-      ? (tenis ? [{ line: tenis, context: 'Tênis', unit: 'pontos' as const }] : [])
-      : corrida.map(line => ({ line, context: `Nos ${line.distance_km} km`, unit: 'tempo' as const, distanceKm: line.distance_km }))
+      ? (tenis ? [{ line: tenis, context: 'Tênis', ranking: 'tenis' as const }] : [])
+      : corrida.map(line => ({ line, context: `Nos ${line.distance_km} km`, ranking: `corrida_${line.distance_km}` as const, distanceKm: line.distance_km }))
 
   let best: { tier: TierKey; context: string; metric: ModalityStanding['metric']; distanceKm: RunDistance | null } | null = null
-  for (const { line, context, unit, distanceKm } of candidates) {
+  for (const { line, context, ranking, distanceKm } of candidates) {
     const tier = rankedTier(line)
     if (tier && (!best || rank(tier) > rank(best.tier)))
-      best = { tier, context, metric: line.metric_value != null ? { value: line.metric_value, unit } : null, distanceKm: distanceKm ?? null }
+      best = { tier, context, metric: line.metric_value != null ? { value: line.metric_value, ranking } : null, distanceKm: distanceKm ?? null }
   }
   const required = sport === 'corrida' ? 1 : candidates[0]?.line.required || placementRequired
   if (best) return { tier: best.tier, played: required, required, context: best.context, metric: best.metric, distanceKm: best.distanceKm }

@@ -6,7 +6,7 @@ import type { RankingRow } from '../src/api/results'
 import { getRankingOverview, getRankings, rankingOverviewPath, rankingPath } from '../src/api/results'
 import { categoryDetail, categoryQuery, categoryText, rankingKey, subjectNoun } from '../src/components/ranking/category'
 import type { RankingState } from '../src/components/ranking/category'
-import { dayMonth, formatMetric, gapText } from '../src/components/ranking/metric'
+import { dayMonth, formatMetric, gapParts, gapText, isRatingRanking, metricSpoken, metricText, metricUnit } from '../src/components/ranking/metric'
 import { collapsedEntries, expandedEntries } from '../src/components/ranking/windowEntries'
 import ArenaPage from '../src/pages/ArenaPage'
 import RankingPage from '../src/pages/RankingPage'
@@ -28,7 +28,7 @@ const whole = (tier: string, cursor?: string) => `${base}&tier=${tier}&limit=20$
 /** Linha do Diamante na posição `tp` do elo (a posição geral é outra, de propósito: ela não aparece na tela). */
 const diamond = (tp: number, overrides: Partial<RankingRow> = {}): RankingRow =>
   rankingRow(tp, tp === 6 ? 'Leões do Cerrado' : `Time ${tp}`, {
-    tier: 'diamante', rank_position: tp + 40, metric_value: 100 - tp * 3, ...(tp === 6 ? { is_mine: true, team: leoes } : {}), ...overrides,
+    tier: 'diamante', rank_position: tp + 40, metric_value: 1105.494 - tp * 3, ...(tp === 6 ? { is_mine: true, team: leoes } : {}), ...overrides,
   })
 const range = (from: number, to: number, make: (tp: number) => RankingRow = diamond) =>
   Array.from({ length: to - from + 1 }, (_, index) => make(from + index))
@@ -61,14 +61,19 @@ describe('Ranking · placa contínua do elo', () => {
     expect(info.textContent).toContain('Sua posição no Diamante')
     expect(info.querySelector('div.font-display')?.textContent).toBe('6º')
     expect(info.textContent).toContain('de 12 no Diamante · Leões do Cerrado')
-    expect(info.textContent).toContain('94 pontos')
-    expect(info.textContent).toContain('7 pts atrás do 1º')
-    expect(info.textContent).toContain('1 pt à frente do 7º')
+    // Rating inteiro com o rótulo "rating" (1087,494 → 1087; 36,6 → 37; 1,5 → 2), nunca "pts" nem "pontos".
+    expect(info.textContent).toContain('1087 rating')
+    expect(info.textContent).toContain('37 rating atrás do 1º')
+    expect(info.textContent).toContain('2 rating à frente do 7º')
+    expect(info.textContent).not.toMatch(/pts|pontos|1087,/)
     // A janela: o titular com 2 acima e 2 abaixo; as pontas do overview viram a linha esmaecida (fora da árvore de acessibilidade).
     const rows = within(plate()).getAllByRole('listitem')
     expect(positions(rows)).toEqual(['4', '5', '6', '7', '8'])
     expect(rows[2].getAttribute('aria-current')).toBe('true')
     expect(within(rows[2]).getByText('Seu time')).not.toBeNull()
+    expect(rows[2].textContent).toContain('1087 rating')
+    expect(rows[0].textContent).toContain('1093 rating')
+    expect(plate().textContent).not.toMatch(/\bpts\b|pontos/)
     expect(within(plate()).getByRole('button', { name: 'Ver 3 times acima' }).textContent).toBe('3')
     expect(within(plate()).getByRole('button', { name: 'Ver 4 times abaixo' }).textContent).toBe('4')
     // Nada da posição geral (46º do titular) nem de "Top %".
@@ -82,13 +87,13 @@ describe('Ranking · placa contínua do elo', () => {
     setup({ [`GET ${OV}`]: rankingOverview({ mine: [myLine({ tier_position: 1, rank_position: 2, leader_gap: null, next_gap: 4, next_tier_position: 2 })], window: range(1, 4, leader) }) })
     const first = await screen.findByRole('region', { name: 'Sua posição' })
     expect(first.textContent).toContain('Lidera o Diamante')
-    expect(first.textContent).toContain('4 pts à frente do 2º')
+    expect(first.textContent).toContain('4 rating à frente do 2º')
     expect(first.textContent).not.toContain('Último')
     cleanup()
     const lastRow = (tp: number) => diamond(tp, tp === 12 ? { is_mine: true, team: leoes } : { is_mine: false })
     setup({ [`GET ${OV}`]: rankingOverview({ mine: [myLine({ tier_position: 12, leader_gap: 36, next_gap: null, next_tier_position: null })], window: range(9, 12, lastRow) }) })
     const last = await screen.findByRole('region', { name: 'Sua posição' })
-    expect(last.textContent).toContain('36 pts atrás do 1º')
+    expect(last.textContent).toContain('36 rating atrás do 1º')
     expect(last.textContent).toContain('Último do Diamante')
     // Sem linhas abaixo, não há borda para baixo; acima ainda há 7 escondidas.
     expect(within(plate()).queryByRole('button', { name: /abaixo/ })).toBeNull()
@@ -371,6 +376,32 @@ describe('Ranking · vários times e sem elo', () => {
     expect(screen.queryByText(/Você está no/)).toBeNull()
   })
 
+  it('time e tênis em classificação (rating nulo na resposta): a placa mostra só "n de 3", sem rating, sem "0" e sem a posição no elo', async () => {
+    const bronze = (tp: number) => rankingRow(tp, `Bronze ${tp}`, { tier: 'bronze', metric_value: 960.25 - tp })
+    setup({
+      [`GET ${OV}`]: rankingOverview({ tier_counts: tierCounts({ bronze: 2 }), mine: [unrankedLine({ played: 1 })], window: null, legend_slots: 0 }),
+      [`GET ${top('bronze')}`]: rankingPage({ items: range(1, 2, bronze) }),
+    })
+    const team = await screen.findByRole('region', { name: 'Sua posição' })
+    expect(team.textContent).toContain('1 de 3 partidas')
+    expect(team.textContent).not.toMatch(/rating|pts|pontos|\b0\b/)
+    expect(document.querySelector('[data-slot="tier-position"]')).toBeNull()
+    // As linhas classificadas do elo continuam com o rating inteiro.
+    const rows = within(await screen.findByRole('region', { name: 'Ranking no Bronze' })).getAllByRole('listitem')
+    expect(rows[0].textContent).toContain('959 rating')
+    cleanup()
+    setup({
+      'GET /rankings/overview?sport=tenis': rankingOverview({
+        ranking: 'tenis', format: null, classified_count: 0, tier_counts: tierCounts(), legend_slots: 0, selected_team_id: null, window: null,
+        mine: [unrankedLine({ team: null, played: 2 })],
+      }),
+    }, [profile('tenis')])
+    const tennis = await screen.findByRole('region', { name: 'Sua posição' })
+    expect(tennis.textContent).toContain('2 de 3 partidas')
+    expect(tennis.textContent).not.toMatch(/rating|pts|pontos|\b0\b/)
+    expect(document.querySelector('[data-slot="tier-position"]')).toBeNull()
+  })
+
   it('sem time ativo mostra "Sem time ativo" com o caminho para Meus times; sem marca, o caminho para registrar', async () => {
     const ui = userEvent.setup()
     const { go } = setup({ [`GET ${OV}`]: rankingOverview({ classified_count: 0, tier_counts: tierCounts(), mine: [], window: null, selected_team_id: null, legend_slots: 0 }) })
@@ -610,13 +641,27 @@ describe('caminhos, categoria e formatos do Ranking', () => {
     expect(api.calls.map(call => call.path)).toEqual([OV, top('ouro')])
   })
 
-  it('pontos com até uma casa, média por partida com até duas e as diferenças sem sinal', () => {
-    expect(formatMetric(38, 'futebol_time')).toBe('38')
-    expect(formatMetric(38.55, 'tenis')).toBe('38,6')
+  it('rating inteiro em time e tênis, média por partida com até duas casas, tempo na corrida e as diferenças sem sinal', () => {
+    expect(['futebol_time', 'tenis'].every(key => isRatingRanking(key as never))).toBe(true)
+    expect(['futebol_individual', 'corrida_5'].some(key => isRatingRanking(key as never))).toBe(false)
+    expect(formatMetric(1087.494, 'futebol_time')).toBe('1087')
+    expect(formatMetric(912.506, 'tenis')).toBe('913')
+    expect(formatMetric(1234.5, 'tenis')).toBe('1235')
     expect(formatMetric(4.256, 'futebol_individual')).toBe('4,26')
-    expect(gapText(7, 'futebol_time')).toBe('7 pts')
-    expect(gapText(1, 'tenis')).toBe('1 pt')
-    expect(gapText(-1.5, 'futebol_time')).toBe('1,5 pts')
+    expect(metricUnit('futebol_time')).toBe('rating')
+    expect(metricUnit('tenis')).toBe('rating')
+    expect(metricUnit('futebol_individual')).toBe('média')
+    expect(metricText(1087.494, 'tenis')).toBe('1087 rating')
+    expect(metricSpoken(1087.494, 'futebol_time')).toBe('1087 rating')
+    expect(metricSpoken(4.256, 'futebol_individual')).toBe('4,26 de média')
+    expect(metricSpoken(1452, 'corrida_5')).toBe('24:12')
+    expect(gapText(36.6, 'futebol_time')).toBe('37 rating')
+    expect(gapText(1, 'tenis')).toBe('1 rating')
+    expect(gapText(-1.5, 'futebol_time')).toBe('2 rating')
+    expect(gapText(0.4, 'tenis')).toBe('0 rating')
+    expect(gapParts(-36.6, 'tenis')).toEqual({ amount: '37', unit: 'rating' })
+    expect(gapParts(0.28, 'futebol_individual')).toEqual({ amount: '0,28', unit: null })
+    expect(gapParts(42, 'corrida_5')).toEqual({ amount: '0:42', unit: null })
     expect(gapText(0.28, 'futebol_individual')).toBe('0,28')
     expect(gapText(42, 'corrida_5')).toBe('0:42')
     expect(gapText(3725, 'corrida_42')).toBe('1:02:05')
