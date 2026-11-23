@@ -1,5 +1,27 @@
 # Situação da fundação do Arena
 
+## Bônus ponderado de campeonato no tênis — 22 de novembro de 2026
+
+Entrega do ticket 02 do [ranking por rating](decisoes/0006-ranking-por-rating.md). O bônus de campeonato do tênis (RN16) volta a valer no ranking, agora convertido em rating pela força da chave, e encerra o estado intermediário "tênis sem bônus" da primeira entrega.
+
+- **Regra:** na reprodução cronológica do tênis, no instante `awarded_at` em que o evento encerra, o rating do atleta recebe `base × 2 × (1 − E_chave)`. `E_chave` é o resultado esperado do atleta contra a média dos ratings dos **demais inscritos confirmados** naquele instante; quem ainda não tem partida na janela entra com 1000. Chave do mesmo nível rende exatamente a base (40/20/10), uma mais forte rende mais (até o dobro), uma mais fraca rende menos (tende a 0), e o bônus nunca é negativo.
+- **Concessão sem mudança:** a base continua gravada em `event_placements`, só com 4 ou mais inscrições confirmadas, e o bônus conta enquanto o evento terminou dentro das 52 semanas. A varredura `rankings_janela` continua recalculando o tênis quando um bônus sai da janela, mesmo sem partida que tenha saído.
+- **Linha do tempo:** uma partida com `starts_at` igual ao `awarded_at` vem antes do bônus. Os bônus de um mesmo evento usam os ratings de antes daquele instante. O bônus não é partida: não conta para o fator K de classificação nem para `matches_played`.
+- **Recálculo:** `standings._tennis_bonuses` lê os bônus da janela numa consulta e os inscritos confirmados desses eventos numa segunda (só com cortes de rating e havendo bônus), sem consulta por evento ou atleta e sem trava nova. O código está em `services/scoring.py` (`RatedBonus`, `weighted_bonus`, `replay_ratings(..., bonuses=)`).
+- **Exemplo do teste de integração (eliminação com 4 inscritos):** campeão 1064 → 1094,369; vice 1000 → 1020; semifinalistas 968 → 979,222.
+- **Documentação:** seção 7 da decisão 0006 reescrita com a fórmula, a regra de desempate temporal e um exemplo; seções 12.6 e 17.6 da [decisão do Jogar](decisoes/0002-jogar.md) atualizadas.
+- A pílula "+10 pts" das partidas e os pontos da campanha não mudam. Sem mudança de esquema, de API ou dos clientes.
+
+**Verificações**
+- `backend/`: `.venv/bin/python -m ruff check app migrations tests` — sem apontamentos.
+- `backend/`: `pytest -q --cov=app --cov-branch` com `TEST_DATABASE_URL` em banco descartável — 1769 aprovados, 1 pulado (S3 opcional), com a integração executada (618 aprovados); cobertura total 99%, `services/scoring.py` e `services/standings.py` com 100% de ramos.
+- Na branch consolidada, já com o desempate do pareamento: ruff sem apontamentos e `pytest -q` com 1778 aprovados, 1 pulado. A introdução da decisão 0006, editada pelas duas entregas, foi conciliada à mão.
+- Testes novos ou ajustados: unitários do bônus ponderado (igualdade, chave mais forte e mais fraca, piso zero, média sem o próprio atleta, bônus que não conta como partida, desempate temporal); integração com um campeonato real de 4 inscritos (rating alterado) e de 3 (só as partidas contam); saída da janela pela varredura.
+
+**Limitações:** `docs/decisoes/0003-times-campeonatos.md` ainda descreve o bônus somado aos pontos (estado da etapa 4, versão 1); a regra vigente está na 0002 (17.6) e na 0006 (seção 7). O banco de desenvolvimento `arena` não foi migrado nem recalculado nesta entrega.
+
+**Pendências:** média ajustada do futebol · individual, rótulo "rating" na web, documentação final e rollout.
+
 ## Desempate do pareamento pelo rating — 22 de novembro de 2026
 
 Entrega do ticket 04 do [ranking por rating](decisoes/0006-ranking-por-rating.md). Nas buscas de time e de tênis, entre os candidatos que passam no filtro de elo, o pareamento passa a preferir o rating mais próximo. A ordem é: proximidade de elo (mesmo, vizinho, demais), menor diferença absoluta de rating, busca mais antiga e id (`match_rules.candidate_order`, `rating_gap`, `Candidate` com `mine_rating`/`theirs_rating`).
