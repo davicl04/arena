@@ -14,6 +14,8 @@ from app.models.identity import City
 SEARCH_MIN_LENGTH = 2
 SEARCH_LIMIT = 20
 IDS_LIMIT = 50
+# Catálogo disponível para os clientes anteriores à busca por município.
+LEGACY_CITY_IDS = [5300108, 3550308, 3304557, 2304400, 3106200, 5208707]
 # Cobertura da cidade sugerida: sede mais distante que isso não é sugerida (valor inicial, questão Q3 da spec).
 NEAREST_MAX_DISTANCE_KM = 100.0
 NEAREST_NOT_FOUND = 'Não encontramos um município perto de você.'
@@ -47,14 +49,15 @@ def _alphabetical():
 
 
 def search_cities(db: Session, q: str) -> list[City]:
-    """Até 20 cidades cujo nome + UF contém o termo; prefixo do nome primeiro, depois capitais e ordem alfabética."""
+    """Até 20 cidades, com UF exata primeiro, depois prefixo do nome, capitais e ordem alfabética."""
     term = normalize_search_text(q)
     if len(term) < SEARCH_MIN_LENGTH:
         return []
     # O termo normalizado só tem [a-z0-9 ], portanto não carrega curingas de LIKE.
+    state_first = case((City.state == term.upper(), 0), else_=1)
     prefix_first = case((City.search_text.startswith(term), 0), else_=1)
     statement = (select(City).where(City.search_text.contains(term))
-                 .order_by(prefix_first, City.capital.desc(), *_alphabetical()).limit(SEARCH_LIMIT))
+                 .order_by(state_first, prefix_first, City.capital.desc(), *_alphabetical()).limit(SEARCH_LIMIT))
     return list(db.scalars(statement))
 
 

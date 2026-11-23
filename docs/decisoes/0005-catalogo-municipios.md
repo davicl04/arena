@@ -22,7 +22,7 @@ Data: 22 de novembro de 2026. Implementa o [plano de modalidades](../plano-modal
   - Mudar a função exige uma migração que recalcule a coluna.
 - **Sem extensão do PostgreSQL** (`unaccent`, `pg_trgm`): a normalização acontece antes de gravar e antes de consultar.
 - **Índice:** btree com `text_pattern_ops` em `search_text`, que serve à comparação por prefixo. A ocorrência interna percorre a tabela, o que é aceitável com 5.571 linhas: a mediana medida no banco de desenvolvimento ficou entre 3,3 e 4,7 ms.
-- **Ordem:** primeiro o prefixo do nome; depois ocorrência interna; em empate, capitais primeiro; por fim, ordem alfabética pelo nome normalizado, pela UF e pelo ID. A resposta tem no máximo 20 cidades.
+- **Ordem:** correspondência exata da UF primeiro, seguida de prefixo do nome e ocorrência interna. Dentro de cada grupo, capitais aparecem primeiro, seguidas da ordem alfabética pelo nome normalizado, pela UF e pelo ID. A resposta tem no máximo 20 cidades.
 
 ## 3. Contrato da API
 
@@ -32,7 +32,7 @@ As descrições públicas ficam em [`backend/app/core/openapi.py`](../../backend
 | --- | --- |
 | `GET /api/v1/cities?q=` | Público. `q` com 2 ou mais caracteres, depois de normalizado, busca por nome e UF, sem diferenciar acentos e maiúsculas ("goiania", "sao paulo sp", "df"). Devolve até 20 `CityOut` (`id`, `name`, `state`). Com menos de 2 caracteres, devolve `[]`. |
 | `GET /api/v1/cities?ids=` | Público. Recebe até 50 IDs distintos, separados por vírgula, e devolve os municípios existentes em ordem alfabética. IDs inexistentes e repetidos são ignorados. Valor não numérico ou 51 ou mais IDs devolvem 422. |
-| `GET /api/v1/cities` sem `q` nem `ids` | Devolve `[]`. Não há listagem do catálogo inteiro (ver a seção 7). |
+| `GET /api/v1/cities` sem `q` nem `ids` | Devolve os seis municípios do catálogo original, em ordem alfabética, para clientes antigos (ver a seção 7). |
 | `q` e `ids` juntos | 422. |
 | `POST /api/v1/cities/nearest` | Exige sessão: cookie com `Origin` autorizado na web ou Bearer no Expo. O corpo JSON é `{ "latitude": número, "longitude": número }`, com faixas de −90 a 90 e de −180 a 180. Texto, booleano, `null`, NaN, Infinity, campo ausente ou campo extra devolvem 422, sem ecoar o valor. Devolve o `CityOut` da sede mais próxima, ou 404 com "Não encontramos um município perto de você." quando ela está a mais de 100 km. Sem sessão, 401. `GET` responde 405. |
 | `ProfileOut.city` | `GET /api/v1/me/sports-profiles` e a resposta do `PUT /api/v1/me/sports-profiles/{sport}` trazem `city: CityOut` além de `city_id`. A mudança é aditiva; o `PUT` continua recebendo só `city_id`, `position` e `looking_for`. |
@@ -46,7 +46,7 @@ Os clientes nomeiam cidades pelo objeto `city` que as respostas de perfil, time,
   - A mediana medida foi de cerca de 5 ms, tanto no serviço quanto por HTTP no uvicorn.
 - **Limite de 100 km:** além disso, a resposta é 404 ("fora da cobertura": oceano ou exterior). É um valor inicial (questão Q3 da spec), ajustável depois da verificação real, na constante `NEAREST_MAX_DISTANCE_KM`.
 - **Arredondamento nos clientes:** a web e o Expo arredondam latitude e longitude para 2 casas decimais (cerca de 1 km) antes de enviar. O servidor não depende disso; ele não grava o valor recebido.
-- **Sempre uma sugestão:** a pessoa confirma ou troca pela busca ("Não, escolher outra cidade" e "Trocar"). Num perfil existente, a cidade salva prevalece.
+- A pessoa confirma a cidade sugerida ou escolhe outra pela busca. Se escolher uma cidade enquanto a localização ainda carrega, a resposta fica disponível como sugestão e a escolha manual prevalece.
 
 ## 5. Privacidade das coordenadas
 
@@ -70,13 +70,13 @@ Os clientes nomeiam cidades pelo objeto `city` que as respostas de perfil, time,
   - No Android, `ACCESS_FINE_LOCATION` e `ACCESS_BACKGROUND_LOCATION` ficam em `blockedPermissions`, e o manifesto gerado declara só `ACCESS_COARSE_LOCATION` entre as permissões de localização, conforme a introspecção da configuração do Expo no ticket 08.
   - O diálogo nativo, o GPS real e o comportamento do Android com FINE bloqueado **não foram verificados em aparelho**.
 
-## 7. Ampliação e restrição do contrato
+## 7. Ampliação e compatibilidade do contrato
 
-A troca da semântica de `GET /cities` sem `q` seguiu duas etapas, para nenhum cliente quebrar no meio:
+A migração dos clientes e o suporte a versões instaladas seguiram três etapas.
 
 1. **Ampliação (ticket 01):** o backend ganha o catálogo nacional, `q` normalizado, `ids=`, `ProfileOut.city` e, no ticket 02, `POST /cities/nearest`. `GET /cities` sem `q` mantém as 100 primeiras cidades por nome.
 2. **Migração dos clientes (tickets 03 e 06):** a web e o Expo deixam de carregar a lista global e passam a usar `city` nas respostas, a busca e, no Expo, `ids=`. A ausência de chamadas à lista global foi comprovada por busca no código dos dois clientes.
-3. **Restrição (ticket 09):** `GET /cities` sem `q` passa a devolver `[]`. O caminho da listagem (`list_cities`) foi removido.
+3. **Compatibilidade:** `GET /cities` sem parâmetros devolve somente os seis municípios originais. Isso preserva o funcionamento dos seletores em clientes anteriores à busca nacional.
 
 ## 8. Consequências
 
@@ -87,7 +87,6 @@ A troca da semântica de `GET /cities` sem `q` seguiu duas etapas, para nenhum c
 
 ## 9. Reversão
 
-- **Restrição:** reverter só o ticket 09 volta a devolver as 100 primeiras cidades sem `q`. Não há esquema envolvido.
 - **Esquema (downgrade da 0015 para a 0014):**
   - trava `cities` em modo `EXCLUSIVE` e procura, em todas as chaves estrangeiras para `cities`, IDs fora das 6 cidades originais;
   - se encontrar algum, falha com mensagem explícita listando a tabela, a coluna e os IDs, sem apagar nada;

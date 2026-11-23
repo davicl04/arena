@@ -94,7 +94,9 @@ As migrações `0016` e `0017` criam a versão de cálculo 2 dos rankings ([deci
 
 Até o recálculo, as linhas de `standings` mantêm `calc_version = 1` e os valores antigos (pontos no time e no tênis, média simples no individual), embora a web e o Expo já os rotulem como "rating"; o próximo resultado de uma categoria também a recalcula. O comando é idempotente: a segunda execução imprime `0 linhas alteradas`.
 
-**Rollback:** volte `CURRENT_CALC_VERSION` para 1 em `backend/app/services/rankings.py` e rode `recalculate-rankings`; o time e o tênis voltam a classificar por pontos e o individual, pela média simples. O downgrade da `0017` (`alembic downgrade 0016`) desfaz só a média ajustada; o da `0016` (`alembic downgrade 0015`) remove as linhas da versão 2 e as colunas novas de `rank_cuts` e exige o código com `CURRENT_CALC_VERSION = 1`, seguido do recálculo. Nenhum dos dois apaga contas, partidas ou resultados. Detalhes na [seção 9 da 0006](docs/decisoes/0006-ranking-por-rating.md#9-rollout-e-rollback).
+**Rollback do cálculo:** mantenha o esquema em `0017`, volte `CURRENT_CALC_VERSION` para 1 em `backend/app/services/rankings.py` e rode `recalculate-rankings`. O time e o tênis voltam a classificar por pontos e o individual, pela média simples. Para reverter só a média ajustada, aplique `alembic downgrade 0016` e recalcule com a versão 2.
+
+Se precisar reverter o esquema para `0015`, execute o recálculo após o downgrade com um backend anterior à introdução das novas colunas de `rank_cuts`. O backend atual continua consultando essas colunas mesmo com `CURRENT_CALC_VERSION = 1`. Detalhes na [seção 9 da 0006](docs/decisoes/0006-ranking-por-rating.md#9-rollout-e-rollback).
 
 ### Imagens e avatar local
 

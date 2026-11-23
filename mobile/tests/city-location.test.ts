@@ -140,6 +140,24 @@ describe('Localização: permissão não decidida', () => {
     // Nada da posição fica gravado no aparelho.
     expect(SecureStore.setItemAsync).not.toHaveBeenCalledWith(expect.anything(), expect.stringMatching(/16\.|49\./))
   })
+  it('mantém a escolha manual na revisão quando a localização solicitada chega depois', async () => {
+    vi.mocked(Location.requestForegroundPermissionsAsync).mockResolvedValue(granted as never)
+    vi.mocked(Location.getCurrentPositionAsync).mockResolvedValue(goianiaFix as never)
+    const answer = deferred<City>()
+    nearest = () => answer.promise
+    const { tree } = await mount()
+    await press(tree, 'Tênis, ativar')
+    await press(tree, 'Usar minha localização')
+    expect(nearestCalls()).toHaveLength(1)
+    await searchCity(tree, 'valpa')
+    await press(tree, 'Valparaíso de Goiás, GO')
+    await press(tree, 'Continuar')
+
+    await act(async () => { answer.resolve(goianiaCity) })
+    expect(textOf(tree)).toContain('Valparaíso de Goiás · GO')
+    await press(tree, 'Ativar tênis')
+    expect(puts()).toEqual([['/me/sports-profiles/tenis', { city_id: valparaisoCity.id, position: null, looking_for: false }]])
+  })
 })
 
 describe('Localização: permissão já concedida', () => {

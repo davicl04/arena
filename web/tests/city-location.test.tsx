@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Mock } from 'vitest'
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { City, Profile, User } from '../src/api/client'
 import ArenaPage from '../src/pages/ArenaPage'
@@ -159,6 +159,22 @@ describe('Passo da cidade: localização do navegador', () => {
     await ui.click(within(sheet()).getByRole('button', { name: 'Ativar tênis' }))
     expect(await findToast('Tênis ativado.')).toBeTruthy()
     expect(api.find('PUT', '/me/sports-profiles/tenis')[0].body).toEqual({ city_id: goiania.id, position: null, looking_for: false })
+  })
+
+  it('mantém a escolha manual na revisão quando a localização solicitada chega depois', async () => {
+    const geo = mockLocation({ outcome: 'pending' })
+    const { api, ui, openSport } = renderSports([], { 'PUT /me/sports-profiles/tenis': saved('tenis') })
+    await openSport('Tênis, ativar')
+    await ui.click(await within(sheet()).findByRole('button', { name: 'Usar minha localização' }))
+    await ui.type(within(sheet()).getByLabelText('Buscar cidade'), 'valpa')
+    await ui.click(await within(sheet()).findByRole('button', { name: 'Valparaíso de Goiás · GO' }))
+    await ui.click(within(sheet()).getByRole('button', { name: 'Continuar' }))
+
+    await act(async () => { geo.settle({ coords: GOIANIA_POINT }) })
+    expect(nearestCalls(api.calls)).toHaveLength(1)
+    expect(within(sheet()).getByText('Valparaíso de Goiás · GO')).toBeTruthy()
+    await ui.click(within(sheet()).getByRole('button', { name: 'Ativar tênis' }))
+    expect(api.find('PUT', '/me/sports-profiles/tenis')[0].body).toEqual({ city_id: valparaiso.id, position: null, looking_for: false })
   })
 
   it('"Não, escolher outra cidade" leva à busca mantendo a sugestão, que volta com o rótulo "Pela sua localização"', async () => {

@@ -85,7 +85,7 @@ export function SportProfileSheet({ sport, profile, onSave, onSaved, onClose, on
         {title}<span className="sr-only"> Passo {index + 1} de {steps.length}.</span>
       </h3>
 
-      {step === 'city' && <LocationCityStep city={city} location={location} onChange={next => { setCity(next); setError('') }} />}
+      {step === 'city' && <LocationCityStep city={city} location={location} onChange={next => { location.dismiss(); setCity(next); setError('') }} />}
       {step === 'position' && <RadioList className="mt-3" label="Posição preferida" options={positionChoices} value={position} onChange={setPosition} />}
       {step === 'review' && <>
         <div className="surface mt-3 overflow-hidden rounded-card border border-solid border-surface-edge shadow-card">

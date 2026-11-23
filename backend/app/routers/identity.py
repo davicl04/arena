@@ -24,7 +24,7 @@ from app.schemas.identity import (
     UsernameAvailabilityOut,
     UserOut,
 )
-from app.services.cities import cities_by_ids, nearest_city, parse_city_ids, search_cities
+from app.services.cities import LEGACY_CITY_IDS, cities_by_ids, nearest_city, parse_city_ids, search_cities
 from app.services.identity import (
     RESERVED_USERNAMES,
     USERNAME_RE,
@@ -114,8 +114,9 @@ def cities(q: str | None = Query(None, max_length=100), ids: str | None = Query(
         raise HTTPException(422, 'Use a busca (q) ou os IDs (ids), não os dois.')
     if ids is not None:
         return cities_by_ids(db, parse_city_ids(ids))
-    # Sem `q`, ou com menos de 2 caracteres, a busca devolve lista vazia: não há listagem global do catálogo.
-    return search_cities(db, q or '')
+    if q is None:
+        return cities_by_ids(db, LEGACY_CITY_IDS)
+    return search_cities(db, q)
 
 
 @router.post('/cities/nearest', response_model=CityOut)

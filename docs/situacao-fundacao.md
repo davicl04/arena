@@ -1,5 +1,14 @@
 # Situação da fundação do Arena
 
+## Correções da revisão do PR #6 — 23 de novembro de 2026
+
+- Clientes anteriores à busca nacional continuam recebendo as seis cidades originais em `GET /cities` sem parâmetros. Na busca nacional, a UF exata tem prioridade antes do limite de 20 resultados.
+- Na web e no Expo, uma escolha manual feita durante a consulta de localização prevalece quando a resposta chega.
+- O procedimento de rollback do cálculo mantém o esquema em `0017`. O downgrade para `0015` exige um backend que use o esquema anterior de `rank_cuts`.
+- Backend com PostgreSQL descartável passou no lint e em 1.790 testes, com um teste pulado.
+- Web passou no lint, no build e em 1.313 testes. A falha de foco em `matchmaking.test.tsx` também ocorreu no commit anterior. Em Chromium, a escolha manual foi salva pela API real e persistiu após recarregar nos temas claro e escuro, com localização simulada.
+- Mobile passou no lint, na checagem de tipos, na exportação Android e nos 1.669 testes. A corrida entre a escolha manual e a localização foi verificada com testes simulados no mobile.
+
 ## Fechamento do ranking por rating — 22 de novembro de 2026
 
 Fecha a entrega do [ranking por rating](decisoes/0006-ranking-por-rating.md) (tickets 01 a 07). A entrega não completa o MVP.

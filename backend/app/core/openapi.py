@@ -292,10 +292,10 @@ DESCRIPTIONS: dict[tuple[str, str], str] = {
     ('POST', '/auth/login'): ('Cria a sessão. Com cabeçalho `Origin` (navegador), grava o cookie `HttpOnly` '
                               '`arena_session`; sem `Origin` (mobile), devolve o `token` no corpo.'),
     ('GET', '/cities'): ('Municípios do IBGE. `q` (2 ou mais caracteres) busca por nome e UF sem diferenciar acentos '
-                         'e maiúsculas e devolve até 20 cidades: prefixo do nome primeiro, depois capitais e ordem '
+                         'e maiúsculas e devolve até 20 cidades. UF exata vem primeiro, seguida de prefixo do nome, capitais e ordem '
                          'alfabética; com menos de 2 caracteres, lista vazia. `ids` (até 50, separados por vírgula) '
                          'devolve as cidades pedidas e ignora IDs inexistentes. `q` e `ids` juntos respondem 422. Sem '
-                         '`q` nem `ids`, lista vazia: não há listagem do catálogo inteiro.'),
+                         '`q` nem `ids`, devolve os seis municípios do catálogo original para clientes antigos.'),
     ('POST', '/cities/nearest'): ('Exige sessão. Recebe `latitude` (−90 a 90) e `longitude` (−180 a 180) no corpo JSON e '
                                   'devolve o município cuja sede é a mais próxima, calculado com o catálogo local, '
                                   'sem serviço externo. Se a sede mais próxima estiver a mais de 100 km, responde 404. '

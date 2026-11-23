@@ -40,7 +40,7 @@ Exploradas e descartadas: Assistente, Abas, Ajustes e Cartas, como layouts gerai
 
 - **Migração Alembic nova:** acrescenta `latitude`, `longitude`, `capital` e uma coluna de busca normalizada (nome + UF, sem acento e em minúsculas). Insere os municípios ausentes e atualiza os 6 atuais sem mudar ID, nome ou UF. Os dados vêm de um arquivo versionado, junto com a licença MIT. A migração não baixa nada.
 - **Downgrade:** remove as colunas e apaga só os municípios novos que não estão referenciados. Se algum estiver em uso, falha com mensagem explícita.
-- **`GET /cities?q=`:** busca por nome e UF, ignorando acento e caixa, com mínimo de 2 caracteres e no máximo 20 resultados. Sem `q`, devolve lista vazia.
+- **`GET /cities?q=`:** busca por nome e UF, ignorando acento e caixa, com mínimo de 2 caracteres e no máximo 20 resultados. UF exata tem prioridade.
 - **`GET /cities?ids=`:** nomeia cidades já salvas.
 - **`ProfileOut.city`:** o perfil esportivo passa a trazer o objeto da cidade, numa mudança aditiva.
 - **Fim da lista global:** os clientes deixam de carregar a lista de cidades. Para nomear, usam o objeto `city` que as respostas já trazem: perfil, time, evento, partida e pedido de organizador. Para escolher, usam a busca do servidor. O `CitySheet` da web e os seletores equivalentes do Expo passam a usar a busca.
@@ -71,7 +71,7 @@ Exploradas e descartadas: Assistente, Abas, Ajustes e Cartas, como layouts gerai
 Entregue em nove tickets: catálogo e busca (01), cidade mais próxima (02), web sem lista global (03), tela da web (04), localização na web (05), Expo sem lista global (06), tela do Expo (07), localização no Expo (08) e contrato final com documentação (09). O registro de cada um, com as verificações executadas, está na [situação da fundação](situacao-fundacao.md).
 
 - **Catálogo:** 5.571 municípios, e não 5.570. O commit fixado da origem (`503e2f70bbf1b4b7ec0b1f68b09086ccc38fe861`) já inclui Boa Esperança do Norte (MT, 5101837), instalado em 2025, e o usuário decidiu mantê-lo. Fonte, licença e transformação estão em [FONTE.md](../backend/migrations/data/municipios/FONTE.md).
-- **Contrato:** `GET /cities` sem `q` devolve lista vazia; `q` e `ids` juntos devolvem 422. Os detalhes estão na [decisão 0005](decisoes/0005-catalogo-municipios.md#3-contrato-da-api).
+- **Contrato:** `GET /cities` sem parâmetros devolve os seis municípios originais para clientes antigos. Enviar `q` e `ids` juntos devolve 422. Os detalhes estão na [decisão 0005](decisoes/0005-catalogo-municipios.md#3-contrato-da-api).
 - **Web:** faixas e folha em [`web/src/components/sports-profile/`](../web/src/components/sports-profile/); seletores de cidade com [`CitySearch`](../web/src/components/cities/CitySearch.tsx).
 - **Expo:** faixas e folha em [`mobile/src/components/sports-profile/`](../mobile/src/components/sports-profile/); seletores de cidade em [`CitySearch.tsx`](../mobile/src/components/arena/CitySearch.tsx); nova dependência `expo-location`.
 

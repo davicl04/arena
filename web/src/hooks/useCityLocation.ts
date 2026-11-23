@@ -69,7 +69,7 @@ export interface CityLocation {
   confirming: boolean
   /** "Usar minha localização": abre o pedido do navegador (sem pedido se já concedida) e busca a cidade. */
   locate: () => void
-  /** "Não, escolher outra cidade": sai da confirmação para a busca, mantendo a sugestão disponível. */
+  /** Fecha a confirmação ou impede que a busca em curso confirme a sugestão automaticamente. */
   dismiss: () => void
 }
 
@@ -88,6 +88,7 @@ export function useCityLocation({ auto, onSuggested, onExpired }: {
   const [confirming, setConfirming] = useState(false)
   const alive = useRef(true)
   const running = useRef(false)
+  const dismissed = useRef(false)
   const handlers = useRef({ onSuggested, onExpired })
   useEffect(() => { handlers.current = { onSuggested, onExpired } }, [onSuggested, onExpired])
 
@@ -95,6 +96,7 @@ export function useCityLocation({ auto, onSuggested, onExpired }: {
     if (running.current) return
     if (!geolocationAvailable()) { setPhase('failed'); return }
     running.current = true
+    if (requested) dismissed.current = false
     setPhase('seeking')
     try {
       let position: GeolocationPosition
@@ -107,9 +109,9 @@ export function useCityLocation({ auto, onSuggested, onExpired }: {
         const city = await nearestCity(position.coords.latitude, position.coords.longitude)
         if (!alive.current) return
         setSuggestion(city)
-        setConfirming(true)
+        setConfirming(!dismissed.current)
         setPhase('suggested')
-        handlers.current.onSuggested(city, requested)
+        if (!dismissed.current) handlers.current.onSuggested(city, requested)
       } catch (cause) {
         if (!alive.current) return
         if (cause instanceof ApiError && cause.status === 401) handlers.current.onExpired?.()
@@ -131,6 +133,9 @@ export function useCityLocation({ auto, onSuggested, onExpired }: {
   }, [auto, run])
 
   const locate = useCallback(() => { void run(true) }, [run])
-  const dismiss = useCallback(() => setConfirming(false), [])
+  const dismiss = useCallback(() => {
+    dismissed.current = true
+    setConfirming(false)
+  }, [])
   return { phase, suggestion, confirming, locate, dismiss }
 }

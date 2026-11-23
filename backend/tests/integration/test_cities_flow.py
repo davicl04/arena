@@ -66,12 +66,20 @@ def test_search_needs_two_characters_and_returns_at_most_twenty(client):
     assert search(http, 'zzzz') == []
 
 
-def test_without_q_returns_an_empty_list(client):
-    # Etapa de restrição (ticket 09): nenhum cliente carrega mais a lista global de cidades.
+def test_exact_state_matches_precede_names_with_the_same_prefix(client):
+    http, _ = client
+    result = search(http, 'al')
+    assert len(result) == 20
+    assert all(city['state'] == 'AL' for city in result)
+    assert result[0]['name'] == 'Maceió'
+
+
+def test_without_q_returns_the_original_catalog_for_older_clients(client):
     http, _ = client
     response = http.get('/api/v1/cities')
     assert response.status_code == 200
-    assert response.json() == []
+    assert [city['name'] for city in response.json()] == sorted(name for name, _ in ORIGINAL.values())
+    assert {city['id']: (city['name'], city['state']) for city in response.json()} == ORIGINAL
 
 
 def test_lookup_by_ids(client):

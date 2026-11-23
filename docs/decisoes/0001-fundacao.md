@@ -38,7 +38,7 @@ Usamos códigos de municípios do IBGE como identificadores estáveis. A migraç
 
 Fonte: [API de localidades do IBGE](https://servicodados.ibge.gov.br/api/docs/localidades).
 
-> **Atualização de 22 de novembro de 2026:** o catálogo inicial de 6 cidades foi substituído pelo catálogo nacional de 5.571 municípios, na migração `0015`. A mesma decisão trata da busca por `q` e `ids` e da cidade sugerida pela localização (`POST /cities/nearest`); `GET /cities` sem `q` passou a devolver lista vazia. Ver a [decisão 0005](0005-catalogo-municipios.md). Os IDs continuam sendo códigos IBGE, e as 6 cidades acima mantêm ID, nome e UF. O texto acima fica como registro da fundação.
+> **Catálogo nacional:** a migração `0015` ampliou o catálogo para 5.571 municípios. A API oferece busca por `q`, consulta por `ids` e sugestão pela localização em `POST /cities/nearest`. Para clientes antigos, `GET /cities` sem parâmetros continua devolvendo as seis cidades acima, com os mesmos IDs IBGE, nomes e UFs. Ver a [decisão 0005](0005-catalogo-municipios.md).
 
 ## Autenticação e sessão
 

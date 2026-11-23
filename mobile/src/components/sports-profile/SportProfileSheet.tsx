@@ -92,7 +92,7 @@ export function SportProfileSheet({ sport, profile, onSave, onSaved, onClose, on
     <Text ref={titleRef} accessibilityRole="header" accessibilityLabel={`${title} Passo ${progress}.`} accessibilityLiveRegion="polite"
       style={{ color: c.heading, fontSize: 20, fontWeight: '800' }}>{title}</Text>
 
-    {step === 'city' ? <LocationCityStep city={city} location={location} onExpired={onExpired} onChange={next => { setCity(next); setError('') }} /> : null}
+      {step === 'city' ? <LocationCityStep city={city} location={location} onExpired={onExpired} onChange={next => { location.dismiss(); setCity(next); setError('') }} /> : null}
     {step === 'position' ? <PositionStep value={position} onChange={setPosition} /> : null}
     {step === 'review' ? <View style={{ marginTop: 12, overflow: 'hidden', borderRadius: 16, borderWidth: 1, borderColor: c['surface-edge'], backgroundColor: c.surface }}>
       <ReviewRow first label="Cidade" value={city ? cityLabel(city) : 'A definir'} onChange={() => go(0)} />
