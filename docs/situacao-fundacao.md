@@ -1,5 +1,21 @@
 # Situação da fundação do Arena
 
+## Expo: rótulo "rating" no futebol · time e no tênis — 22 de novembro de 2026
+
+Entrega do ticket 06 do [ranking por rating](decisoes/0006-ranking-por-rating.md) no Expo. Sem mudança de backend, contrato ou dependência.
+
+- O mapeamento único da métrica (`mobile/src/components/ranking/metric.ts`) passa a tratar `futebol_time` e `tenis` como rating: `isRatingRanking`, número inteiro (`Math.round`, sem separador de milhar, "1087") com o rótulo "rating" ("1087 rating") e distâncias inteiras ("8 rating atrás do 1º", "1 rating à frente do 7º"). Essas categorias não mostram mais "pts" nem "pontos". O individual continua "média" e a corrida, "tempo".
+- Tela Ranking: a linha da lista, o Salão dos Lendários, a placa de posição no elo e as distâncias usam o novo rótulo, inclusive nos nomes acessíveis. A placa não mostra mais "0" quando falta a métrica.
+- Início: as pílulas "Seu elo" formatam a métrica pelo mesmo mapeamento (`ModalityStanding.metric` passa a carregar a chave do ranking), como em "Futebol: elo Ouro, 1087 rating".
+- Em classificação (`metric_value` nulo no time e no tênis), as telas mostram só "n de 3", sem rating nem elo.
+- A pílula "+3 pts" / "+10 pts" do resultado e a linha do tempo do perfil não mudaram. Times e Modalidades no Expo não formatam `metric_value` e não mudaram.
+
+**Verificações** (em `mobile/`): `npm ci`; `npm run lint` sem avisos; `npm run typecheck` sem erros; `npm run test:coverage` com 109 arquivos e 1668 testes aprovados (statements 96,52%, branches 90,99%, lines 98,47%); `npm run export:android` aprovado. Lint, typecheck e Vitest (1668/1668) foram repetidos sobre o candidato antes da consolidação.
+
+**Limitações:** o build não comprova o funcionamento em Android ou iOS. Não houve validação em aparelho nem conferência de paridade visual. Os temas foram conferidos só no código (nenhum estilo novo).
+
+**Pendências:** enquanto o banco não for recalculado na versão 2, linhas antigas com pontos aparecem com o rótulo "rating". Os textos fixos "pontos de Diamante" (Salão dos Lendários) e "mais N pontos no ranking" (colocações nas chaves) seguem como antes. `docs/plano-ranking.md` e a seção 9 da decisão 0006 ainda falam em "pts" ou registram os rótulos como pendentes (ticket 07).
+
 ## Ranking por rating no futebol · time e no tênis (calc_version 2) — 22 de novembro de 2026
 
 Primeira entrega da [spec do ranking por rating](decisoes/0006-ranking-por-rating.md) (ticket 01). Futebol · time (por formato) e tênis deixam de somar pontos e passam a classificar por rating. Todo sujeito começa a janela com 1000. Cada partida contabilizada (mesmos critérios de antes, com W.O., decisões, amistosos e campeonatos), em ordem de `starts_at` e `id`, aplica `rating + K × (S − E)`, com K 64 nas 3 primeiras partidas do sujeito na janela e 32 depois, arredondando a 3 casas. Não há estado incremental: corrigir uma partida, ou uma partida sair da janela, reproduz a janela do zero. Com os parâmetros propostos, 3 vitórias contra iguais levam a Ouro (1087), e não mais a Bronze. Ordem: time = rating, saldo, gols marcados, menos partidas, id; tênis = rating, menos partidas, id. Os elos continuam contíguos e a regra do Lendário não mudou. Os pontos 3/1/0 e os 10 por vitória seguem como estatística da campanha.
