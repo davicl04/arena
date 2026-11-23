@@ -1,5 +1,22 @@
 # Situação da fundação do Arena
 
+## Desempate do pareamento pelo rating — 22 de novembro de 2026
+
+Entrega do ticket 04 do [ranking por rating](decisoes/0006-ranking-por-rating.md). Nas buscas de time e de tênis, entre os candidatos que passam no filtro de elo, o pareamento passa a preferir o rating mais próximo. A ordem é: proximidade de elo (mesmo, vizinho, demais), menor diferença absoluta de rating, busca mais antiga e id (`match_rules.candidate_order`, `rating_gap`, `Candidate` com `mine_rating`/`theirs_rating`).
+
+- A fila (`matchmaking_queue._search_ratings`) lê o rating de `standings` no momento do pareamento, na categoria da busca (o time no formato; o tênis), numa só consulta para a busca e todos os candidatos, dentro da trava do balde e sem trava nova. O rating guardado durante a classificação também conta. Sem linha da versão de cálculo atual, vale o rating inicial dos cortes (1000). Com cortes por pontos (rollback), a ordem volta a ser elo e antiguidade.
+- O filtro (elo igual ou vizinho; quem está em classificação enfrenta qualquer nível), a busca de avulso e as vagas não mudam, e não há coluna nova em `match_searches`. Uma mudança só de rating, sem mudança de elo, não gera nova tentativa de pareamento (já era assim; agora há teste).
+- Decisões [0002](decisoes/0002-jogar.md) (seções 7.1, 12.6, 15.1 e 15.3) e 0006 (seção 4, introdução e pendências) atualizadas.
+
+**Verificações**
+- `backend/`: `.venv/bin/python -m ruff check app migrations tests` — sem apontamentos.
+- `backend/`: `pytest -q --cov=app --cov-branch` com `TEST_DATABASE_URL` em banco descartável — 1771 aprovados, 1 pulado (S3 opcional), com a integração executada; cobertura combinada de 99%. Repetido na branch consolidada (com o Expo já integrado): ruff sem apontamentos e 1771 aprovados, 1 pulado.
+- Testes novos: ordem dos candidatos (unitários); três buscas Ouro compatíveis em que a de rating mais próximo é pareada; linha ausente valendo o rating inicial; linhas de outro formato e da versão 1 ignoradas (integração com PostgreSQL); leitura em lote, com uma consulta de cortes e uma de `standings` (unitário); mudança só de rating sem nova tentativa (unitário). Os testes de concorrência da fila continuam passando.
+
+**Limitações:** até o recálculo do rollout, as linhas da versão 1 contam como rating inicial, então o desempate só tem efeito depois do recálculo. Cada tentativa com dois ou mais candidatos faz duas consultas pequenas a mais. Sem mudança de esquema.
+
+**Pendências:** a ordem do pareamento no plano do Jogar e a documentação de rollout ficam para a entrega de documentação (ticket 07).
+
 ## Expo: rótulo "rating" no futebol · time e no tênis — 22 de novembro de 2026
 
 Entrega do ticket 06 do [ranking por rating](decisoes/0006-ranking-por-rating.md) no Expo. Sem mudança de backend, contrato ou dependência.
