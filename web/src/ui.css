@@ -387,6 +387,10 @@
     outline: 3px solid var(--color-focus);
     outline-offset: 3px;
   }
+  /* Destino do "Pular para conteúdo": o `main` recebe o foco por script, sem anel (não é um controle). */
+  #main:focus {
+    outline: none;
+  }
   @media (prefers-reduced-motion: no-preference) {
     button {
       transition:
