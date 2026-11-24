@@ -1,5 +1,31 @@
 # Situação da fundação do Arena
 
+## Expo: tela de entrada Dividida estreita — 24 de novembro de 2026
+
+Ticket 06 da [landing e nova tela de entrada](#plano-da-landing-e-da-nova-tela-de-entrada--24-de-novembro-de-2026). A tela de entrada do Expo adota a versão estreita da Dividida. Ela é escura por design e igual nos temas Dia e Noite, sem landing e sem portão.
+
+- **Faixa da marca** (`mobile/src/components/auth/AuthBrandBand.tsx`): fundo forest com brilho verde no topo, `ArenaMark` e `arena.` com o ponto menta e o Coliseu dourado esmaecido, decorativo e oculto para acessibilidade. O título acompanha o modo: "A arena te chama" ou "Sua trajetória começa aqui", com o destaque em menta. Abaixo dele vem "Futebol, tênis e corrida amadores.". A faixa sobe por baixo da barra de status, que fica clara.
+- **Formulário** (`mobile/src/screens/AuthScreen.tsx`):
+  - "Bem-vindo à Arena", "Bom ter você aqui" ou "Comece sua jornada" e o subtítulo do modo;
+  - seletor Entrar | Criar conta, com o ativo em dourado e o estado `selected` exposto, no lugar do antigo botão secundário;
+  - campos escuros (`FormField`);
+  - botão "Entrar na Arena" ou "Criar minha conta", com "Aguarde…";
+  - nota de privacidade.
+
+  A data de nascimento continua em DD/MM/AAAA, com a ajuda "A Arena é para pessoas com 18 anos completos ou mais." associada ao campo.
+- **Avisos:** a sessão expirada e a falha de conexão com "Tentar novamente" continuam vindo do `App`, agora dentro do formulário (prop `notice`). Os erros de credencial ficam no formulário. O cadastro volta ao modo Entrar com o toast, sem autenticar.
+- Bearer, SecureStore e os contratos da API não mudaram.
+
+**Verificações** (em `mobile/`, na árvore integrada): `npm run lint` e `npm run typecheck` sem erros. `npm run test:coverage` passou em 109 arquivos e 1.673 testes, com 96,56% de instruções, 91,01% de ramos, 95,9% de funções e 98,5% de linhas, acima dos pisos. `npm run export:android` gerou o bundle Android. Foram atualizados `tests/auth-screen.test.ts` (novos textos, seletor, envio e erros) e o sósia do `AuthScreen` em `tests/app-join-link.test.ts` (avisos pelo `notice`).
+
+**Limitações:**
+- Não houve validação em aparelho, simulador ou Expo web. O build não comprova o funcionamento em Android ou iOS.
+- O aviso de sessão expirada do Expo mantém o texto atual ("Entre novamente."), sem o "para continuar" da web.
+- O estado de carregamento, antes da leitura de `/me`, continua seguindo o tema.
+- Os campos de credencial não ficam marcados como inválidos no Expo, porque o ticket não pede isso.
+
+**Pendências:** conferir em aparelho a faixa sob a barra de status, o teclado e as telas pequenas. O registro em `docs/fidelidade-figma.md` e na decisão 0004 fica com o ticket 07.
+
 ## Plano da landing e da nova tela de entrada — 24 de novembro de 2026
 
 A tela de entrada foi redesenhada numa sessão de protótipos com seis rodadas. As rodadas trataram do conceito, da rolagem, das modalidades, de "Como funciona" e "Mais da Arena", dos numerais e do "criar conta", e da tela depois do portão. A especificação de trabalho está em `.scratch/landing-entrada/spec.md`, e o protótipo de referência, em `artifacts/login-prototipos/index-final.html`. Nenhum dos dois é versionado.
