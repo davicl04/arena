@@ -49,6 +49,9 @@ describe('portão da landing para a entrada', () => {
     expect(inertContent()).not.toBeNull()
     expect(screen.getByRole('heading', { level: 2, name: 'Os portões estão abertos.' })).toBeTruthy()
     expect(window.history.length).toBe(before)
+    // O teclado não age durante o portão (fireEvent devolve `false` quando a ação padrão foi cancelada).
+    expect(fireEvent.keyDown(document.body, { key: 'Tab' })).toBe(false)
+    expect(fireEvent.keyDown(document.body, { key: 'Enter' })).toBe(false)
 
     // Com o portão fechado, a entrada substitui a landing: uma entrada no histórico, endereço em /.
     advance(GATE_TIMING.switchAt)
@@ -72,6 +75,7 @@ describe('portão da landing para a entrada', () => {
     expect(inertContent()).toBeNull()
     expect(document.activeElement).toBe(email)
     expect(window.history.length).toBe(before + 1)
+    expect(fireEvent.keyDown(email, { key: 'Tab' })).toBe(true)
   })
 
   it('cliques repetidos durante o portão não disparam outra sequência: vale o primeiro, "Crie sua conta" do fecho', async () => {
