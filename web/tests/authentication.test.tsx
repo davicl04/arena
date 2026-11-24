@@ -11,8 +11,16 @@ vi.mock('../src/api/client', async (original) => ({
 }))
 
 beforeEach(() => vi.clearAllMocks())
-afterEach(cleanup)
+// A entrada aberta pela landing fica no estado do histórico: cada teste começa em `/`, sem ela.
+afterEach(() => { cleanup(); window.history.replaceState(null, '', '/') })
 const user = { id: 1, name: 'Atleta Teste', email: 'atleta@example.com', birth_date: '1990-01-01' }
+
+/** Sem sessão, o App abre a landing: o "Entrar na Arena" do hero leva à tela de entrada no modo Entrar. */
+async function openLoginFromLanding() {
+  const [hero] = await screen.findAllByRole('button', { name: 'Entrar na Arena' })
+  await userEvent.click(hero)
+  return screen.findByLabelText('E-mail')
+}
 
 function fillLogin() {
   fireEvent.change(screen.getByLabelText('E-mail'), { target: { value: user.email } })
@@ -162,10 +170,12 @@ it('apresenta falha do login e permite nova tentativa', async () => {
   expect(screen.getByRole('button', { name: 'Entrar na Arena' })).toHaveProperty('disabled', false)
 })
 
-it('abre o login para uma sessão inexistente sem mostrar erro de rede', async () => {
+it('abre a landing para uma sessão inexistente sem mostrar erro de rede', async () => {
   vi.mocked(request).mockRejectedValue(new ApiError('Sem sessão', 401))
   render(<App />)
-  expect(await screen.findByRole('button', { name: 'Entrar na Arena' })).toBeTruthy()
+  expect(await screen.findByRole('heading', { level: 1, name: 'A arena te chama' })).toBeTruthy()
+  expect(screen.queryByRole('alert')).toBeNull()
+  await openLoginFromLanding()
   expect(screen.queryByRole('alert')).toBeNull()
 })
 
@@ -207,7 +217,7 @@ it('com a API fora do ar, a mensagem de conexão aparece uma só vez e Tentar co
   vi.mocked(request).mockRejectedValueOnce(new ApiError('Sem sessão', 401)).mockRejectedValueOnce(down)
     .mockRejectedValueOnce(new ApiError('Sem sessão', 401))
   render(<App />)
-  expect(await screen.findByRole('button', { name: 'Entrar na Arena' })).toBeTruthy()
+  await openLoginFromLanding()
   // O /me funcionou (401): nenhum bloco de conexão ainda.
   expect(screen.queryByRole('alert')).toBeNull()
   fillLogin()
@@ -219,14 +229,16 @@ it('com a API fora do ar, a mensagem de conexão aparece uma só vez e Tentar co
   await userEvent.click(screen.getByRole('button', { name: 'Tentar conexão novamente' }))
   await waitFor(() => expect(request).toHaveBeenCalledTimes(3))
   await waitFor(() => expect(screen.queryByRole('alert')).toBeNull())
+  // A nova leitura da conta não devolve a pessoa à landing: a entrada aberta por ela continua, com a volta.
   expect(await screen.findByRole('button', { name: 'Entrar na Arena' })).toBeTruthy()
+  expect(screen.getByRole('button', { name: 'Voltar para o início' })).toBeTruthy()
 })
 
 it('credenciais inválidas continuam no formulário, sem acionar o bloco de conexão', async () => {
   vi.mocked(request).mockRejectedValueOnce(new ApiError('Sem sessão', 401))
     .mockRejectedValueOnce(new ApiError('E-mail ou senha inválidos.', 401))
   render(<App />)
-  expect(await screen.findByRole('button', { name: 'Entrar na Arena' })).toBeTruthy()
+  await openLoginFromLanding()
   fillLogin()
   await userEvent.click(screen.getByRole('button', { name: 'Entrar na Arena' }))
   const alerts = await screen.findAllByRole('alert')

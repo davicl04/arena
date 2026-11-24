@@ -125,6 +125,17 @@
   --animate-ripple: ripple 1.8s ease-out infinite; /* ondas do botão redondo do Jogar durante a busca */
   --animate-pulse-dot: pulse-dot 1.6s ease-in-out infinite; /* ponto de conexão (faixa e folha) */
   --animate-side-in: glass-in 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) 0.3s both; /* metade da marca da tela de entrada */
+  /* Entrada escalonada do hero da landing: o atraso de cada bloco vem de `--hero-delay` (ex.: `[--hero-delay:150ms]`). */
+  --animate-hero-in: hero-in 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) var(--hero-delay, 0s) both;
+  --animate-bob: bob 2s cubic-bezier(0.45, 0, 0.55, 1) infinite; /* balanço da seta de rolagem do hero */
+  @keyframes hero-in {
+    from { opacity: 0; transform: translateY(18px); filter: blur(6px); }
+    to { opacity: 1; transform: none; filter: none; }
+  }
+  @keyframes bob {
+    0%, 100% { transform: translateY(-4px); }
+    50% { transform: translateY(6px); }
+  }
   @keyframes pulse-dot {
     0%, 100% { opacity: 1; scale: 1; }
     50% { opacity: 0.45; scale: 0.8; }
@@ -624,5 +635,49 @@
       transform: translateY(calc(var(--toast-offset-y) * -1 + (var(--toast-index) * var(--toast-gap) * -1)));
     }
     .toast-viewport { transition: none; }
+  }
+}
+
+/*
+ * ===== Landing (web) · palco do hero "Estádio à noite" =====
+ * Decoração do hero (pages/LandingPage.tsx, components/landing/LandingHero.tsx), oculta para leitores de tela e igual
+ * nos dois temas: dois refletores em cone, o brilho do gramado e do céu e o arco do meio de campo com a linha central.
+ * O hero recorta o que passa das bordas (`overflow-clip`), sem rolagem horizontal.
+ */
+@layer components {
+  .landing-stage { position: absolute; inset: 0; pointer-events: none; }
+  .landing-beam { position: absolute; top: -10%; width: 70vmax; height: 120vmax; filter: blur(2px); opacity: 0.55; }
+  .landing-beam-l {
+    left: -22vmax;
+    background: conic-gradient(from 150deg at 30% 0%, transparent 0deg, #eafff322 8deg, #eafff30c 22deg, transparent 30deg);
+  }
+  .landing-beam-r {
+    right: -22vmax;
+    background: conic-gradient(from 180deg at 70% 0%, transparent 0deg, #eafff30c 8deg, #eafff322 22deg, transparent 30deg);
+  }
+  .landing-glow {
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(70% 45% at 50% 108%, #0d3a24 0%, transparent 70%),
+      radial-gradient(60% 30% at 50% -5%, #eafff31a, transparent 70%);
+  }
+  .landing-pitch {
+    position: absolute;
+    left: 50%;
+    bottom: -38vh;
+    width: 150vw;
+    height: 70vh;
+    translate: -50% 0;
+    border: 1px solid #8fe0b422;
+    border-radius: 50%;
+  }
+  .landing-pitch::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 0;
+    bottom: 0;
+    border-left: 1px solid #8fe0b41a;
   }
 }

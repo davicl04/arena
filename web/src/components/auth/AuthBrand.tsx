@@ -1,4 +1,5 @@
 import { ArenaMark, Logo } from '@/components/Brand'
+import { arenaTagline } from '@/data/landing'
 
 /*
  * Metade da marca da tela de entrada Dividida (escura por design): degradê radial forest, a marca `arena.`, o Coliseu
@@ -18,7 +19,7 @@ export function AuthBrand({ register }: { register: boolean }) {
             <>A <span className="text-mint">arena</span> te chama</>
           )}
         </h1>
-        <p className="mt-3.5 text-[15px] text-ink-muted">Futebol, tênis e corrida amadores.</p>
+        <p className="mt-3.5 text-[15px] text-ink-muted">{arenaTagline}</p>
       </div>
     </div>
   )

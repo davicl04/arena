@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { ApiError, request } from '../api/client'
 import type { User } from '../api/client'
@@ -10,6 +10,9 @@ import { feedbackVariants } from '@/components/ui/feedback'
 import { toast, Toaster } from '@/components/ui/toast'
 import { cn } from '@/lib/utils'
 import { startOfToday, toDateKey } from '@/utils/dateKey'
+
+/** Modo em que a tela de entrada abre: Entrar (`login`) ou Criar conta (`register`). */
+export type AuthMode = 'login' | 'register'
 
 /** Alternância entre entrar e criar conta. */
 const modes = [
@@ -39,7 +42,9 @@ function birthDateBounds() {
  * folha nem a faixa de conexão: o próprio "Tentar conexão novamente" cobre a falha. A falha de conexão do login ou do
  * cadastro (`isConnection`) não repete a mensagem no formulário: sobe por `onConnectionFailure` e liga o mesmo bloco
  * de `notice`. A data de nascimento vem do `DatePicker` (mês e ano por listas) e é obrigatória antes do envio; a idade
- * mínima continua sendo regra do servidor.
+ * mínima continua sendo regra do servidor. Aberta pela landing, a tela começa no modo escolhido (`initialMode`), leva o
+ * foco ao primeiro campo (`focusFirstField`) e mostra "← Voltar para o início" (`onBack`); nos atalhos diretos
+ * (sessão expirada, falha de conexão, convite pendente) não há volta.
  */
 export default function AuthPage({
   onLogin,
@@ -47,6 +52,9 @@ export default function AuthPage({
   notice,
   onRetry,
   onConnectionFailure,
+  initialMode = 'login',
+  focusFirstField = false,
+  onBack,
 }: {
   onLogin: (user: User) => void
   /** A sessão expirou: mostra o aviso, sem nova tentativa de conexão. */
@@ -56,14 +64,25 @@ export default function AuthPage({
   onRetry: () => void
   /** Entrar ou criar conta falhou por conexão: o aplicativo liga o bloco `notice`, e o formulário não repete a mensagem. */
   onConnectionFailure: (message: string) => void
+  /** Modo inicial; o seletor Entrar | Criar conta continua trocando depois. */
+  initialMode?: AuthMode
+  /** Leva o foco ao primeiro campo do formulário quando passa a valer (a entrada aberta pela landing). */
+  focusFirstField?: boolean
+  /** "← Voltar para o início": só quando a tela foi aberta pela landing. */
+  onBack?: () => void
 }) {
-  const [register, setRegister] = useState(false)
+  const [register, setRegister] = useState(initialMode === 'register')
+  const formRef = useRef<HTMLFormElement>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [credentialError, setCredentialError] = useState(false)
   const [birthDate, setBirthDate] = useState('')
   const [birthDateMissing, setBirthDateMissing] = useState(false)
   const bounds = birthDateBounds()
+
+  useEffect(() => {
+    if (focusFirstField) formRef.current?.querySelector<HTMLInputElement>('input')?.focus()
+  }, [focusFirstField])
 
   function switchMode(next: boolean) {
     setRegister(next)
@@ -161,7 +180,7 @@ export default function AuthPage({
                 </button>
               ))}
             </div>
-            <form onSubmit={submit} key={register ? 'register' : 'login'}>
+            <form ref={formRef} onSubmit={submit} key={register ? 'register' : 'login'}>
               <fieldset disabled={busy}>
                 {register && (
                   <>
@@ -246,6 +265,16 @@ export default function AuthPage({
             <p className="mt-4 text-center text-[11px] leading-[1.7] text-ink-muted">
               Seu perfil começa privado. Você controla os dados da sua trajetória.
             </p>
+            {onBack && (
+              <button
+                type="button"
+                className="mx-auto mt-3 block min-h-11 border-0 bg-transparent px-2 text-[13px] font-semibold text-ink-muted hover:text-heading"
+                disabled={busy}
+                onClick={onBack}
+              >
+                <span aria-hidden="true">← </span>Voltar para o início
+              </button>
+            )}
           </section>
         </div>
       </main>

@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useState } from 'react'
 import { ApiError, request } from './api/client'
 import type { User } from './api/client'
-import AuthPage from './pages/AuthPage'
 import ArenaPage from './pages/ArenaPage'
+import PublicScreen from './pages/PublicScreen'
 import { clearJoinPath, joinTokenFrom } from './utils/joinLink'
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
+  // Sem sessão, a tela pública (`PublicScreen`) mostra a landing ou, nestes sinais e no convite pendente, a entrada direto.
   // Dois estados distintos na tela de entrada: a leitura de `/me` falhou (com "Tentar conexão novamente") e a sessão expirou.
   const [bootError, setBootError] = useState('')
   const [sessionExpired, setSessionExpired] = useState(false)
@@ -63,7 +64,8 @@ export default function App() {
           onJoinOpened={joinOpened}
         />
       ) : (
-        <AuthPage
+        <PublicScreen
+          joinPending={joinToken !== null}
           onLogin={(value) => {
             setUser(value)
             setBootError('')
