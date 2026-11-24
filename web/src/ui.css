@@ -9,10 +9,13 @@
 /*
  * Tema escuro global ("Estádio à noite", docs/plano-tema.md): `data-theme="dark"` em <html>. Uso: `noite:border-…`.
  * Só para o que os tokens não resolvem; `dark:` continua sendo a do vidro dos formulários.
+ * Dentro de um bloco escuro por design (`.escuro-por-design`, abaixo), `noite:` também vale, nos dois temas.
  */
-@custom-variant noite (&:where([data-theme="dark"], [data-theme="dark"] *));
+@custom-variant noite (&:where([data-theme="dark"], [data-theme="dark"] *, .escuro-por-design, .escuro-por-design *));
 /* Largura do aplicativo: até 430 px ocupa a tela toda. Uso: `app-narrow:rounded-none`. */
 @custom-variant app-narrow (@media (max-width: 430px));
+/* Tela de entrada Dividida estreita: até 860 px, a metade da marca vira uma faixa no topo. Uso: `entrada-estreita:pt-6`. */
+@custom-variant entrada-estreita (@media (max-width: 860px));
 
 /*
  * Tokens ARENA: fonte única de cores, fontes, raios, sombras e camadas.
@@ -57,6 +60,10 @@
   --color-tile: #dfe3e0;
   --color-scrim: #101814b8;
   --color-legend: #F4DE9A; /* dourado do Salão dos Lendários (acento sobre fundo escuro) */
+  --color-on-legend: #1a1404; /* texto sobre o dourado (item ativo do seletor Entrar | Criar conta) */
+  /* Degradê radial forest da metade da marca na tela de entrada Dividida (escura por design). */
+  --color-forest-glow: #0f3a26;
+  --color-forest-deep: #06100b;
   /* Tom de cada elo na placa contínua do Ranking: o gradiente vai dele para o forest (combina com o brasão do elo). */
   --color-tier-bronze-tint: #7a4a22;
   --color-tier-prata-tint: #5d6670;
@@ -117,6 +124,7 @@
   --animate-indeterminate: indeterminate 1.1s ease-in-out infinite; /* barra de progresso sem valor (Comunidade) */
   --animate-ripple: ripple 1.8s ease-out infinite; /* ondas do botão redondo do Jogar durante a busca */
   --animate-pulse-dot: pulse-dot 1.6s ease-in-out infinite; /* ponto de conexão (faixa e folha) */
+  --animate-side-in: glass-in 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) 0.3s both; /* metade da marca da tela de entrada */
   @keyframes pulse-dot {
     0%, 100% { opacity: 1; scale: 1; }
     50% { opacity: 0.45; scale: 0.8; }
@@ -144,13 +152,18 @@
  * (`--color-legend`) nos sobretítulos, nos quadros de ícone e no item selecionado. Os utilitários do Tailwind leem
  * `var(--color-…)`, então trocar os valores aqui muda todas as telas que usam tokens. Forest, night, glass, mint,
  * legend e os tons dos elos não mudam: já são escuros por design (Jogar, Salão, vidro, toasts).
+ *
+ * Bloco escuro por design (`.escuro-por-design`): recebe os mesmos valores do escuro, nos dois temas, para os tokens
+ * (`text-ink`, `bg-field`, `bg-brand`, foco…) e a variante `noite:` valerem como na Noite dentro dele. Usado pela tela
+ * de entrada Dividida e pelo calendário dela (o Popover vai para o `body`, então recebe a classe também).
  */
 :root {
   --surface-sheen: none;
   --app-glow: none;
   color-scheme: light;
 }
-:root[data-theme="dark"] {
+:root[data-theme="dark"],
+.escuro-por-design {
   color-scheme: dark;
   --color-app: #040806;
   --color-ink: #d2dcd6;
@@ -247,7 +260,8 @@
   --radius-lg: 12px;
 }
 
-:root {
+:root,
+.escuro-por-design {
   --ui-background: var(--color-sheet);
   --ui-foreground: var(--color-ink);
   --ui-primary: var(--color-brand);
@@ -260,7 +274,8 @@
   --ui-destructive: var(--color-danger);
 }
 /* Tema escuro global: os tokens acima já seguem os da paleta; só a borda muda. O `.dark` (vidro) vem depois e vence. */
-:root[data-theme="dark"] {
+:root[data-theme="dark"],
+.escuro-por-design {
   --ui-border: #ffffff17;
 }
 
@@ -316,8 +331,13 @@
     font-weight: 700;
   }
   /* No escuro, os títulos ficam brancos (no claro herdam a cor). Utilitários de cor no título continuam vencendo. */
-  [data-theme="dark"] :where(h1, h2, h3) {
+  [data-theme="dark"] :where(h1, h2, h3),
+  .escuro-por-design :where(h1, h2, h3) {
     color: var(--color-heading);
+  }
+  /* Bloco escuro por design: o texto herda o ink do escuro (no Dia, o `:root` daria o ink claro). */
+  .escuro-por-design {
+    color: var(--color-ink);
   }
   /* Rótulo de campo. O `Label` do shadcn/ui (field-label) define os próprios utilitários e zera a margem. */
   label {

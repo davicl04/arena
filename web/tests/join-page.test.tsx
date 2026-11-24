@@ -118,13 +118,13 @@ describe('Link do time no App', () => {
     })
     const ui = userEvent.setup()
     renderWithToaster(<App />)
-    expect(await screen.findByRole('button', { name: 'Entrar no Arena →' })).toBeTruthy()
+    expect(await screen.findByRole('button', { name: 'Entrar na Arena' })).toBeTruthy()
     // O token sai do endereço na hora e não vai para nenhum armazenamento.
     expect(window.location.pathname).toBe('/')
     expect(JSON.stringify({ ...localStorage })).not.toContain(TOKEN)
     fireEvent.change(screen.getByLabelText('E-mail'), { target: { value: me.email } })
     fireEvent.change(screen.getByLabelText('Senha'), { target: { value: 'SenhaDeTeste123' } })
-    await ui.click(screen.getByRole('button', { name: 'Entrar no Arena →' }))
+    await ui.click(screen.getByRole('button', { name: 'Entrar na Arena' }))
     expect(await screen.findByRole('button', { name: 'Pedir para entrar' })).toBeTruthy()
     expect(screen.getByRole('heading', { level: 1, name: 'Entrar no time' })).toBeTruthy()
     // Fechar volta ao Início.
@@ -145,14 +145,14 @@ describe('Link do time no App', () => {
     const ui = userEvent.setup()
     renderWithToaster(<App />)
     // A primeira consulta do link responde 401: volta ao login, avisando que a sessão expirou.
-    expect(await screen.findByRole('button', { name: 'Entrar no Arena →' })).toBeTruthy()
+    expect(await screen.findByRole('button', { name: 'Entrar na Arena' })).toBeTruthy()
     expect(screen.getByText('Sua sessão expirou. Entre novamente para continuar.')).toBeTruthy()
     session = false
     expect(JSON.stringify({ ...localStorage })).not.toContain(TOKEN)
     expect(window.location.pathname).toBe('/')
     fireEvent.change(screen.getByLabelText('E-mail'), { target: { value: me.email } })
     fireEvent.change(screen.getByLabelText('Senha'), { target: { value: 'SenhaDeTeste123' } })
-    await ui.click(screen.getByRole('button', { name: 'Entrar no Arena →' }))
+    await ui.click(screen.getByRole('button', { name: 'Entrar na Arena' }))
     // O link não se perdeu: a carteirinha do time abre de novo, com o mesmo token.
     expect(await screen.findByRole('button', { name: 'Pedir para entrar' })).toBeTruthy()
     expect(api.find('GET', `/join/${TOKEN}`)).toHaveLength(2)
