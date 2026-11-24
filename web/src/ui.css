@@ -681,3 +681,74 @@
     border-left: 1px solid #8fe0b41a;
   }
 }
+
+/*
+ * ===== Landing (web) · portão =====
+ * Transição da landing para a tela de entrada (components/landing/Gate.tsx, sequência em hooks/useGate.ts), oculta
+ * para leitores de tela e igual nos dois temas. Duas folhas forest, cada uma com metade do Coliseu em menta esmaecida
+ * na borda interna, se fecham em 0,55 s; o selo `arena.` surge no centro quando elas se encontram; a tela troca com o
+ * portão fechado e as folhas se abrem em 0,85 s. Fica acima de toda a página (inclusive toasts) e intercepta o ponteiro.
+ * Só anima com `prefers-reduced-motion: no-preference`; com "reduzir movimento" o portão nem é montado.
+ */
+@layer components {
+  .landing-gate {
+    --gate-mark: min(640px, 86vw); /* largura do Coliseu inteiro, dividido entre as duas folhas */
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    display: flex;
+    overflow: hidden;
+    pointer-events: auto;
+  }
+  .landing-gate-leaf {
+    position: relative;
+    flex: 1;
+    overflow: hidden;
+    background: var(--color-forest);
+    transform: translateX(var(--gate-out));
+    will-change: transform;
+  }
+  .landing-gate-leaf-l {
+    --gate-out: -101%;
+    box-shadow: inset -1px 0 color-mix(in srgb, var(--color-mint) 20%, transparent);
+  }
+  .landing-gate-leaf-r { --gate-out: 101%; }
+  .landing-gate-leaf::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    width: var(--gate-mark);
+    aspect-ratio: 260 / 146;
+    translate: 0 -50%;
+    background: color-mix(in srgb, var(--color-mint) 14%, transparent);
+    mask: url(/images/brand/coliseum.svg) center / contain no-repeat;
+  }
+  .landing-gate-leaf-l::after { right: calc(var(--gate-mark) / -2); }
+  .landing-gate-leaf-r::after { left: calc(var(--gate-mark) / -2); }
+  .landing-gate-seal {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    z-index: 1;
+    translate: -50% -50%;
+    opacity: 0;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .landing-gate[data-gate="closing"] .landing-gate-leaf { animation: gate-close 0.55s cubic-bezier(0.7, 0, 0.2, 1) both; }
+    .landing-gate[data-gate="opening"] .landing-gate-leaf { animation: gate-open 0.85s cubic-bezier(0.7, 0, 0.2, 1) both; }
+    .landing-gate[data-gate="closing"] .landing-gate-seal { animation: gate-seal 0.25s ease-out 0.3s both; }
+    .landing-gate[data-gate="opening"] .landing-gate-seal { animation: gate-seal 0.25s ease-in reverse both; }
+  }
+  @keyframes gate-close {
+    from { transform: translateX(var(--gate-out)); }
+    to { transform: none; }
+  }
+  @keyframes gate-open {
+    from { transform: none; }
+    to { transform: translateX(var(--gate-out)); }
+  }
+  @keyframes gate-seal {
+    from { opacity: 0; scale: 0.92; }
+    to { opacity: 1; scale: 1; }
+  }
+}

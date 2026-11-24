@@ -14,6 +14,11 @@ afterEach(() => { cleanup(); window.history.replaceState(null, '', '/') })
 const landingTitle = () => screen.findByRole('heading', { level: 1, name: 'A arena te chama' })
 
 describe('landing sem sessão', () => {
+  // Troca direta, como com "reduzir movimento": o portão entre a landing e a entrada é provado em landing-gate.test.tsx.
+  beforeEach(() => {
+    vi.stubGlobal('matchMedia', (query: string) => ({ matches: query.includes('reduce'), media: query, addEventListener() {}, removeEventListener() {} }))
+  })
+
   it('aparece para quem chega sem contexto, com exatamente dois pontos de entrada e sem formulário', async () => {
     const api = mockApi({ 'GET /me': noSession })
     render(<App />)

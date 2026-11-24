@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { User } from '../api/client'
+import { Gate } from '../components/landing/Gate'
+import { useGate } from '../hooks/useGate'
+import { prefersReducedMotion } from '../lib/motion'
 import AuthPage from './AuthPage'
 import type { AuthMode } from './AuthPage'
 import LandingPage from './LandingPage'
@@ -22,8 +25,11 @@ function entryModeFrom(state: unknown): AuthMode | null {
  * - Atalhos diretos, sem landing e sem empurrar histórico: sessão expirada (`expired`), falha da leitura inicial da conta
  *   (`notice`) e convite de time pendente (`joinPending`).
  * - Sem contexto, a landing.
- * O Voltar do navegador (`popstate`) e "← Voltar para o início" (`history.back()`) retornam à landing. Ao entrar, a
- * marca da entrada sai do estado do histórico, para que a próxima tela pública (sair, sessão expirada) não a herde.
+ * O Voltar do navegador (`popstate`) e "← Voltar para o início" (`history.back()`) retornam à landing, sem portão. Ao
+ * entrar, a marca da entrada sai do estado do histórico, para que a próxima tela pública (sair, sessão expirada) não a
+ * herde.
+ * Da landing para a entrada passa o portão (`Gate`): a troca acontece com ele fechado, a página fica inerte durante a
+ * sequência e o foco vai ao primeiro campo só quando ele termina. Com "reduzir movimento", a troca é direta.
  */
 export default function PublicScreen({
   expired,
@@ -46,21 +52,33 @@ export default function PublicScreen({
     return expired || notice || joinPending ? { screen: 'entrada', mode: 'login', fromLanding: false } : { screen: 'landing' }
   })
 
+  const { phase: gatePhase, run: runGate, cancel: cancelGate, busy: gateBusy } = useGate()
+
   useEffect(() => {
     const onPopState = (event: PopStateEvent) => {
+      // O histórico mudou no meio do portão: a sequência para e a tela segue o histórico, sem portão.
+      cancelGate()
       const mode = entryModeFrom(event.state)
       setView(mode ? { screen: 'entrada', mode, fromLanding: true } : { screen: 'landing' })
     }
     window.addEventListener('popstate', onPopState)
     return () => window.removeEventListener('popstate', onPopState)
-  }, [])
+  }, [cancelGate])
 
   /** Único caminho da landing para a tela de entrada (hero e fecho, Entrar ou Criar conta). */
-  const enter = useCallback((mode: AuthMode) => {
-    window.history.pushState({ [ENTRY_STATE_KEY]: mode }, '')
-    document.scrollingElement?.scrollTo?.({ top: 0 })
-    setView({ screen: 'entrada', mode, fromLanding: true })
-  }, [])
+  const enter = useCallback(
+    (mode: AuthMode) => {
+      const open = () => {
+        window.history.pushState({ [ENTRY_STATE_KEY]: mode }, '')
+        document.scrollingElement?.scrollTo?.({ top: 0 })
+        setView({ screen: 'entrada', mode, fromLanding: true })
+      }
+      if (gateBusy()) return
+      if (prefersReducedMotion()) open()
+      else runGate(open)
+    },
+    [gateBusy, runGate],
+  )
 
   const login = useCallback(
     (user: User) => {
@@ -70,17 +88,26 @@ export default function PublicScreen({
     [onLogin],
   )
 
-  if (view.screen === 'landing') return <LandingPage onEnter={enter} />
   return (
-    <AuthPage
-      initialMode={view.mode}
-      focusFirstField={view.fromLanding}
-      onBack={view.fromLanding ? () => window.history.back() : undefined}
-      onLogin={login}
-      expired={expired}
-      notice={notice}
-      onRetry={onRetry}
-      onConnectionFailure={onConnectionFailure}
-    />
+    <>
+      {/* Durante o portão, a página por baixo não recebe ponteiro, teclado nem foco. */}
+      <div className="contents" inert={gatePhase !== null}>
+        {view.screen === 'landing' ? (
+          <LandingPage onEnter={enter} />
+        ) : (
+          <AuthPage
+            initialMode={view.mode}
+            focusFirstField={view.fromLanding && gatePhase === null}
+            onBack={view.fromLanding ? () => window.history.back() : undefined}
+            onLogin={login}
+            expired={expired}
+            notice={notice}
+            onRetry={onRetry}
+            onConnectionFailure={onConnectionFailure}
+          />
+        )}
+      </div>
+      {gatePhase && <Gate phase={gatePhase} />}
+    </>
   )
 }
