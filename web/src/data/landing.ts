@@ -4,6 +4,7 @@
  * nem partida simulada.
  */
 import type { Sport } from '@/api/client'
+import type { TierKey } from '@/data/arena'
 
 /** Assinatura da marca: rodapé da landing e metade da marca da tela de entrada. */
 export const arenaTagline = 'Futebol, tênis e corrida amadores.'
@@ -55,6 +56,21 @@ export const landingSportDetails: Record<Sport, { description: string; tags: rea
     tone: 'var(--color-sport-corrida-tint)',
   },
 }
+
+/*
+ * Subida de elo, entre as modalidades e "Como funciona": explicativa, sem atribuir elo a ninguém e sem rating, pontos
+ * ou posições. Os nomes, os brasões e os tons dos elos vêm de `arena.ts` (`tiers`, `tierOrder`, `tierTints`).
+ */
+export const landingClimb = {
+  eyebrow: 'Progressão · cada modalidade tem o seu ranking',
+  texts: {
+    bronze: 'Toda trajetória começa aqui. Depois de 3 partidas, você recebe o primeiro elo.',
+    prata: 'Resultados confirmados pelos dois lados fazem o seu rating subir.',
+    ouro: 'Adversários do seu nível, na sua cidade, a cada partida.',
+    diamante: 'Poucos chegam. Cada modalidade tem o seu próprio ranking.',
+    lendario: 'O topo da arena e um lugar no Salão dos Lendários.',
+  } satisfies Record<TierKey, string>,
+} as const
 
 /** "Como funciona": quatro passos, com numeral romano (1–4) e tons de verde crescentes. */
 export const landingSteps = [

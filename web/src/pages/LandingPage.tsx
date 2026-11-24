@@ -2,6 +2,7 @@ import { useRef } from 'react'
 import type { CSSProperties } from 'react'
 import { Logo } from '@/components/Brand'
 import { EnterActions } from '@/components/landing/EnterActions'
+import { LandingClimb } from '@/components/landing/LandingClimb'
 import { LandingHero } from '@/components/landing/LandingHero'
 import { LandingMore, LandingSports, LandingSteps } from '@/components/landing/LandingSections'
 import { arenaTagline, landingClosing } from '@/data/landing'
@@ -15,10 +16,10 @@ const SPORTS_ID = 'landing-modalidades'
 
 /*
  * Landing da web, escura por design nos dois temas (`escuro-por-design`): cabeçalho só com a marca, hero, modalidades
- * em colunas, "Como funciona" em colunas, "Mais da Arena" em sanfona, fecho "Os portões estão abertos." e rodapé. A
- * seta do hero leva às modalidades. Os pontos de entrada (o par do hero e o do fecho) chamam `onEnter` com o modo
- * escolhido; quem decide a troca para a tela de entrada é o contêiner da tela pública. O hook de rolagem da landing
- * revela os blocos `data-reveal` e fornece às seções o progresso das seções presas.
+ * em colunas, subida de elo, "Como funciona" em colunas, "Mais da Arena" em sanfona, fecho "Os portões estão abertos."
+ * e rodapé. A seta do hero leva às modalidades. Os pontos de entrada (o par do hero e o do fecho) chamam `onEnter`
+ * com o modo escolhido; quem decide a troca para a tela de entrada é o contêiner da tela pública. O hook de rolagem da
+ * landing revela os blocos `data-reveal` e fornece às seções o progresso das seções presas.
  */
 export default function LandingPage({ onEnter }: { onEnter: (mode: AuthMode) => void }) {
   const rootRef = useRef<HTMLDivElement>(null)
@@ -32,7 +33,7 @@ export default function LandingPage({ onEnter }: { onEnter: (mode: AuthMode) => 
         <main id="main">
           <LandingHero onEnter={onEnter} nextId={SPORTS_ID} />
           <LandingSports id={SPORTS_ID} />
-          {/* A subida de elo entra aqui, entre as modalidades e "Como funciona". */}
+          <LandingClimb />
           <LandingSteps />
           <LandingMore />
           <section
