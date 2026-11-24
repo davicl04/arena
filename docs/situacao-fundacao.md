@@ -1,5 +1,43 @@
 # Situação da fundação do Arena
 
+## Landing da web: subida de elo — 24 de novembro de 2026
+
+Ticket 04 da [landing e nova tela de entrada](#plano-da-landing-e-da-nova-tela-de-entrada--24-de-novembro-de-2026). A landing ganhou, entre as modalidades e "Como funciona", a **subida de elo**. É uma seção explicativa da progressão, com o sobretítulo "Progressão · cada modalidade tem o seu ranking".
+
+- **Com movimento:** a seção fica presa na tela por cinco telas de rolagem. O progresso vem do hook único de rolagem da landing (`useScrollProgress`), sem um segundo ouvinte, e escolhe o elo ativo:
+  - o brasão, o nome e o texto trocam por opacidade e deslocamento; os brasões são os SVGs de `web/public/images/brand/`;
+  - o fundo radial passa ao tom do elo, pelos tokens `--color-tier-*-tint`;
+  - o trilho vertical com os cinco nomes se preenche em dourado (`--color-legend`, por `transform: scaleY(--progresso)`).
+- **Com "reduzir movimento":** não há rolagem presa, trilho nem troca. Os cinco elos aparecem em sequência, cada um num cartão no seu tom.
+- **Explicativa:** nenhum elo é atribuído a uma pessoa, e não há rating, pontos nem posições.
+- **Acessibilidade:** os nomes e os textos ficam acessíveis a leitores de tela em qualquer posição da rolagem. Brasões, fundo e trilho são decorativos.
+- **Arquivos:** `web/src/components/landing/LandingClimb.tsx`, `web/src/data/landing.ts` (`landingClimb`), `web/src/pages/LandingPage.tsx` e a seção "Landing (web) · subida de elo" de `web/src/ui.css`.
+
+**Verificações:**
+- **Em `web/`, na árvore integrada com a correção do "Pular para conteúdo":**
+  - `npm run lint`: ok.
+  - `npm run build`: ok.
+  - `npm run test:coverage`: 1.351 de 1.352 testes passaram. A única falha é a de foco pré-existente em `tests/matchmaking.test.tsx`.
+- **No primeiro commit do worker:** 1.349 de 1.349, com 94,09% de instruções, 88,03% de ramos, 93,72% de funções e 96,9% de linhas, acima dos pisos.
+- **Testes novos:** 3, em `tests/landing-elo.test.tsx`. Eles cobrem os cinco elos e textos, inclusive sem `IntersectionObserver` e com movimento reduzido, e um único ouvinte de rolagem.
+- **Navegador:** Chromium headless contra a API real, com banco descartável, em 194 de 195 verificações. Foram conferidos em 320, 390 e 1440 px, nos temas Dia e Noite:
+  - a troca dos cinco elos ao rolar;
+  - o trilho igual ao progresso;
+  - o fundo no tom do elo ativo;
+  - o palco preso;
+  - a ausência de rolagem horizontal.
+
+  Com movimento, as capturas de Dia e Noite são idênticas. Com movimento reduzido, os estilos calculados são idênticos.
+  - A única falha foi uma comparação de pixels Dia × Noite com movimento reduzido. Ela variou de largura entre as execuções e não se repetiu nas capturas isoladas, por isso foi tratada como ruído de rasterização do texto.
+  - A árvore de acessibilidade é a mesma com e sem movimento.
+  - Não houve erros de console além do 401 esperado.
+
+**Limitações:**
+- A sensação da rolagem só foi conferida no Chromium headless.
+- O `100dvh` com a barra de endereço de navegadores móveis não foi conferido em aparelho.
+
+**Pendências:** a conferência de ponta a ponta da landing completa e a documentação final (ticket 07).
+
 ## Correção do "Pular para conteúdo" na tela pública — 24 de novembro de 2026
 
 Segunda rodada do ticket 02 da [landing e nova tela de entrada](#plano-da-landing-e-da-nova-tela-de-entrada--24-de-novembro-de-2026), aberta pela verificação do portão (ticket 05).
