@@ -1,5 +1,32 @@
 # Situação da fundação do Arena
 
+## Correção do "Pular para conteúdo" na tela pública — 24 de novembro de 2026
+
+Segunda rodada do ticket 02 da [landing e nova tela de entrada](#plano-da-landing-e-da-nova-tela-de-entrada--24-de-novembro-de-2026), aberta pela verificação do portão (ticket 05).
+
+- **Defeito:** na entrada aberta pela landing, o "Pular para conteúdo" navegava para `#main`. Isso criava uma entrada no histórico com estado vazio. O `popstate` da tela pública tratava essa entrada como volta e mostrava a landing, com o endereço em `/#main`.
+- **Correção** (`web/src/App.tsx`): o link agora leva o foco por script ao `main#main` da tela atual. Ele usa `preventDefault` e acrescenta `tabindex="-1"` quando o `main` não o tem.
+  - A tela, o endereço e o histórico não mudam.
+  - O `href="#main"` continua para quem está sem JavaScript.
+  - O `main` com foco não ganha anel (`#main:focus` em `web/src/ui.css`).
+  - Vale para a landing, para a entrada (pela landing ou direta) e para o aplicativo.
+
+**Verificações:**
+- **Em `web/`, na árvore integrada com as seções e o portão:**
+  - `npm run lint`: ok.
+  - `npm run build`: ok.
+  - `npm run test:coverage`: 1.348 de 1.349 testes passaram. A única falha é a de foco pré-existente em `tests/matchmaking.test.tsx`.
+- **Testes novos:** 3, em `tests/skip-link.test.tsx`. Os três falhavam antes da correção.
+- **Navegador:** Playwright contra a API real, com banco descartável, em 9 de 9 verificações:
+  - landing;
+  - entrada pela landing, com portão e com movimento reduzido;
+  - entrada direta após falha de `/me`;
+  - aplicativo depois de entrar.
+
+  Os casos rodaram em 390 e 1440 px. Em todos, o foco foi ao `main`, a tela se manteve, o endereço e o histórico ficaram iguais, e o Voltar do navegador ainda leva à landing. Não houve erros de console além dos 401 esperados e da falha de rede provocada.
+
+**Limitação:** outro link de fragmento dentro da entrada ainda acionaria o retorno à landing pelo `popstate`. Hoje não existe nenhum.
+
 ## Landing da web: modalidades, Como funciona e Mais da Arena — 24 de novembro de 2026
 
 Ticket 03 da [landing e nova tela de entrada](#plano-da-landing-e-da-nova-tela-de-entrada--24-de-novembro-de-2026). A landing ganhou as seções informativas entre o hero e o fecho, nesta ordem: modalidades, lugar reservado para a subida de elo (ticket 04), "Como funciona" e "Mais da Arena". A seta de rolagem do hero passou a levar às modalidades.
