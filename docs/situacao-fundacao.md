@@ -1,5 +1,50 @@
 # Situação da fundação do Arena
 
+## Portão da landing para a tela de entrada (web) — 24 de novembro de 2026
+
+Ticket 05 da [landing e nova tela de entrada](#plano-da-landing-e-da-nova-tela-de-entrada--24-de-novembro-de-2026).
+
+- **Sequência:** ao escolher "Entrar na Arena" ou "Crie sua conta" na landing, no hero ou no fecho, um portão se fecha sobre a página.
+  - Duas folhas forest, cada uma com metade do Coliseu em menta esmaecida, deslizam das laterais em 0,55 s, e o selo `arena.` aparece no centro.
+  - Com o portão fechado, por volta de 0,88 s, a tela de entrada substitui a landing no modo escolhido.
+  - As folhas se abrem em 0,85 s, e o portão some por volta de 2,1 s. Ao terminar, o foco vai ao primeiro campo.
+- **Durante o portão:** a página fica inerte (`inert`), o ponteiro cai no portão e as teclas sem modificador não agem. Cliques repetidos não iniciam outra sequência.
+- **Histórico:** segue o ticket 02, com uma entrada por abertura e o endereço em `/`. O Voltar do navegador no meio do portão interrompe a sequência e mostra a landing.
+- **Sem portão:**
+  - com "reduzir movimento", a troca é direta e o foco vai ao primeiro campo;
+  - no retorno à landing, por "← Voltar para o início" ou pelo Voltar/Avançar do navegador;
+  - nos atalhos diretos: sessão expirada, falha de `/me` e convite pendente.
+- **Acessibilidade e tema:** o portão é decorativo (`aria-hidden`), escuro por design e igual em Dia e Noite. Ele só existe durante a sequência e não deixa conteúdo focável ou oculto.
+- **Código:**
+  - `web/src/components/landing/Gate.tsx`;
+  - `web/src/hooks/useGate.ts`, com temporizadores limpos ao desmontar;
+  - `web/src/pages/PublicScreen.tsx`;
+  - a seção "Landing (web) · portão" de `web/src/ui.css`.
+
+**Verificações** (em `web/`, na árvore integrada):
+- `npm run lint`: ok.
+- `npm run build`: ok.
+- `npm run test:coverage`: 1.336 de 1.337 testes passaram.
+  - A única falha é a de foco pré-existente em `tests/matchmaking.test.tsx`.
+  - Na rodada final do worker, passaram 1.337 de 1.337, com 94,03% de instruções, 88,02% de ramos, 93,62% de funções e 96,84% de linhas, acima dos pisos.
+- **Testes:** 9 testes novos em `tests/landing-gate.test.tsx`, com temporizadores falsos. Em `tests/landing.test.tsx`, o grupo "landing sem sessão" passou a simular movimento reduzido, porque dois testes exigiam o foco logo após o clique. Nenhuma asserção foi removida.
+- **Navegador:** Playwright contra a API real, com banco descartável, em 22 de 22 verificações:
+  - portão a partir do hero e do fecho, nos dois modos, em 320, 390 e 1440 px, nos temas Dia e Noite, sem rolagem horizontal;
+  - quadros no meio da sequência, com o portão fechado idêntico em Dia e Noite;
+  - cliques repetidos e teclado durante o portão;
+  - foco ao fim;
+  - movimento reduzido;
+  - Voltar, sessão expirada, convite e falha de `/me`, todos sem portão.
+
+  Não houve erros de console além dos 401 esperados.
+
+**Limitações:**
+- As durações seguem o protótipo e ainda podem ser afinadas.
+- A roda do mouse ainda rola a página por baixo do portão. É inofensivo, porque a troca leva a página ao topo.
+- A animação foi conferida só no Chromium headless.
+
+**Pendências:** a verificação do portão encontrou um defeito do ticket 02. Na entrada aberta pela landing, "Pular para conteúdo" navega para `#main`, o que dispara `popstate` sem estado e volta à landing. A correção cabe ao ticket 02.
+
 ## Landing da web e navegação entre landing e entrada — 24 de novembro de 2026
 
 Ticket 02 da [landing e nova tela de entrada](#plano-da-landing-e-da-nova-tela-de-entrada--24-de-novembro-de-2026). Quem abre a web sem sessão e sem contexto vê a landing "Estádio à noite", escura por design nos dois temas.
