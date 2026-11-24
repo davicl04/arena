@@ -22,7 +22,7 @@ export function LandingHero({ onEnter, nextId }: { onEnter: (mode: AuthMode) => 
       <div className="relative flex flex-1 flex-col items-center justify-center gap-[18px] px-4 pt-24 pb-[110px] text-center">
         <h1
           id="landing-title"
-          className="max-w-[12ch] text-[clamp(40px,7.4vw,92px)] leading-[1.02] tracking-[-0.03em] [--hero-delay:150ms] motion-safe:animate-hero-in"
+          className="max-w-[16ch] text-[clamp(40px,7.4vw,92px)] leading-[1.02] tracking-[-0.03em] [--hero-delay:150ms] motion-safe:animate-hero-in"
         >
           {title.before}
           <span className="text-mint">{title.highlight}</span>
