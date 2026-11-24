@@ -900,6 +900,7 @@
     letter-spacing: 0.14em;
     text-align: center;
     text-transform: uppercase;
+    text-wrap: balance;
     color: var(--color-eyebrow);
   }
   .landing-elo-corpo { width: 100%; max-width: 1000px; }
