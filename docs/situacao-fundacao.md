@@ -1,5 +1,52 @@
 # Situação da fundação do Arena
 
+## Landing da web e navegação entre landing e entrada — 24 de novembro de 2026
+
+Ticket 02 da [landing e nova tela de entrada](#plano-da-landing-e-da-nova-tela-de-entrada--24-de-novembro-de-2026). Quem abre a web sem sessão e sem contexto vê a landing "Estádio à noite", escura por design nos dois temas.
+
+- **Cabeçalho:** só a marca `arena.`.
+- **Hero em tela cheia:**
+  - refletores, brilho do gramado e arco do campo, decorativos e ocultos para leitores de tela;
+  - "A arena te chama", com "arena" em menta, e o texto de apoio;
+  - "Entrar na Arena" e "Primeira vez por aqui? Crie sua conta →", com a seta deslizando no hover e no foco;
+  - entrada escalonada;
+  - seta de rolagem fina com balanço, que por ora rola até o fecho.
+- **Fecho e rodapé:** o fecho "Os portões estão abertos." repete o mesmo par de botão e convite. O rodapé traz a marca e "Futebol, tênis e corrida amadores.".
+- **Pontos de entrada e textos:** a landing tem exatamente dois "Entrar na Arena". Os textos ficam em `web/src/data/landing.ts`, junto do mapeamento de modalidades.
+- **Contêiner da tela pública** (`web/src/pages/PublicScreen.tsx`): decide entre a landing e a tela de entrada.
+  - "Entrar na Arena" abre a entrada no modo Entrar, e "Crie sua conta", no modo Criar conta. Nos dois casos, o foco vai ao primeiro campo e aparece "← Voltar para o início".
+  - A abertura faz `pushState` com estado próprio, sem mudar o endereço, que continua em `/`. O Voltar do navegador e o botão retornam à landing.
+  - Sessão expirada, falha da leitura inicial de `/me` e convite de time pendente abrem a entrada direto, com os avisos atuais, sem landing e sem empurrar histórico.
+  - A limpeza de `/entrar/{token}` e a abertura do convite depois do login não mudaram.
+  - A entrada aberta pela landing continua aberta depois de "Tentar conexão novamente". Ao entrar, a marca de histórico é descartada.
+- **Movimento reduzido:** não há entrada animada, balanço da seta nem rolagem suave.
+- **Sem mudanças de rede ou contrato:** nenhuma requisição nova além de `/me`, e nenhuma mudança de backend, contrato ou sessão.
+
+**Verificações** (em `web/`, na árvore integrada):
+- `npm run lint`: ok.
+- `npm run build`: ok, só com o aviso antigo de chunk maior que 500 kB.
+- `npm run test:coverage`: 1.328 de 1.328 testes, em 94 arquivos. Cobertura de 94,01% de instruções, 88,02% de ramos, 93,58% de funções e 96,83% de linhas, acima dos pisos.
+- **Falhas intermitentes nas execuções do worker**, uma vez cada:
+  - a falha de foco já conhecida de `tests/matchmaking.test.tsx`;
+  - um timeout sob carga em `tests/notifications-feed.test.tsx`, que passou nas três execuções isoladas.
+- **Testes:** 9 testes novos em `tests/landing.test.tsx`. Em `tests/authentication.test.tsx`, os três testes que renderizam o `App` sem sessão foram adaptados ao passo pela landing.
+- **Navegador:** Playwright contra a API real, com banco descartável, em 59 de 59 verificações:
+  - landing → entrada nos dois modos → Voltar, pelo botão e pelo navegador, com o endereço em `/`;
+  - sessão expirada real e falha de `/me` abrindo direto a entrada;
+  - link real de convite `/entrar/{token}` abrindo direto a entrada, com o convite aberto depois do login;
+  - login mantido ao recarregar;
+  - 320, 390 e 1440 px nos temas Dia e Noite, sem rolagem horizontal, e landing idêntica nos dois temas;
+  - movimento reduzido;
+  - foco e seta do "Crie sua conta".
+
+  Não houve erros de console além dos 401 esperados de `GET /me` sem sessão.
+
+**Limitações:**
+- Depois de entrar pela landing, um Voltar do navegador passa pela entrada anterior da landing sem mudança visível. Isso é inerente ao `pushState` sem roteador.
+- Ao voltar à landing, o foco não é movido nem a posição de rolagem é restaurada.
+
+**Pendências:** os tickets 03, 04, 05 e 07, além da falha de foco pré-existente em `tests/matchmaking.test.tsx`.
+
 ## Web: tela de entrada Dividida — 24 de novembro de 2026
 
 Ticket 01 da [landing e nova tela de entrada](#plano-da-landing-e-da-nova-tela-de-entrada--24-de-novembro-de-2026). A tela de entrada da web troca o cartão estreito pela **Dividida**, escura por design nos dois temas. Ainda não há landing: sem sessão, o `App` continua abrindo a entrada direto.
