@@ -1,5 +1,53 @@
 # Situação da fundação do Arena
 
+## Web: tela de entrada Dividida — 24 de novembro de 2026
+
+Ticket 01 da [landing e nova tela de entrada](#plano-da-landing-e-da-nova-tela-de-entrada--24-de-novembro-de-2026). A tela de entrada da web troca o cartão estreito pela **Dividida**, escura por design nos dois temas. Ainda não há landing: sem sessão, o `App` continua abrindo a entrada direto.
+
+- **Metade da marca** (`web/src/components/auth/AuthBrand.tsx`): degradê radial forest, a marca `arena.` e o Coliseu dourado esmaecido, decorativo e oculto para leitores de tela. O título é "A arena te chama" no modo Entrar e "Sua trajetória começa aqui" no modo Criar conta, com o destaque em menta, seguido de "Futebol, tênis e corrida amadores.". Até 860 px, a metade vira uma faixa no topo.
+- **Metade do formulário**, sem cartão:
+  - "Bem-vindo à Arena", "Bom ter você aqui" ou "Comece sua jornada" e o subtítulo de cada modo;
+  - seletor Entrar | Criar conta, com `aria-pressed` e o ativo em dourado;
+  - botões "Entrar na Arena" e "Criar minha conta", com "Aguarde…" durante o envio;
+  - nota de privacidade.
+- **Avisos e erros:** a sessão expirada aparece no estilo de aviso (novo tom `warning` em `feedbackVariants`), e a falha de conexão mostra "Tentar conexão novamente". Os erros do servidor ficam no formulário. O login recusado (401) marca e-mail e senha como inválidos. A falha de conexão no envio continua aparecendo uma vez só. O cadastro volta ao modo Entrar com o toast "Conta criada.".
+- **Data de nascimento:** usa o `DatePicker` do shadcn no tom escuro, com mês e ano por listas.
+  - Sem data escolhida, o calendário abre no mês atual de 18 anos atrás, e o último dia permitido é hoje.
+  - A ajuda dos 18 anos fica associada ao campo.
+  - Sem data, o envio é bloqueado e o campo mostra "Informe a data de nascimento.".
+  - `birth_date` continua `YYYY-MM-DD`, e a idade mínima continua sendo regra do servidor.
+- **`DatePicker`:** ganhou as props opcionais `captionLayout`, `defaultMonth` e `popupClassName`. Os usos atuais não mudaram.
+- **Tokens:** `web/src/ui.css` ganhou a classe `.escuro-por-design`, que aplica os valores do escuro e a variante `noite:` nos dois temas. Ganhou também os tokens `on-legend`, `forest-glow` e `forest-deep`, a animação `side-in` e a variante `entrada-estreita:` (até 860 px).
+- Sem mudança de backend, contrato, cookie ou armazenamento de token.
+
+**Verificações** (em `web/`, na árvore integrada):
+- `npm run lint`: ok.
+- `npm run build`: ok, só com o aviso antigo de chunk maior que 500 kB.
+- `npm run test:coverage`: 1.318 de 1.319 testes passaram.
+  - A única falha é a de foco em `tests/matchmaking.test.tsx` ("prepara a busca com vagas…"), já registrada nas correções do PR #6. Ela também falhou nas três execuções isoladas na base `b4aa00d`, sem esta entrega.
+  - Na execução completa do worker que passou em 1.319 de 1.319, a cobertura ficou em 93,95% de instruções, 87,96% de ramos, 93,54% de funções e 96,79% de linhas, acima dos pisos. `AuthPage.tsx` ficou com 100% de linhas.
+- **Testes novos:** cadastro sem data, calendário no mês de 18 anos atrás, recusa do servidor ao menor de idade, seletor com `aria-pressed`, campos de credencial inválidos e as listas de mês e ano do `DatePicker`.
+- **Testes ajustados aos novos nomes:** `tests/authentication.test.tsx` (agora com a data escolhida pelo `DatePicker`) e `tests/join-page.test.tsx`.
+- **Navegador:** Playwright, contra a API real, com banco descartável. Foram conferidos:
+  - entrar e recarregar com a sessão mantida;
+  - criar conta pelo seletor de data, com `birth_date` gravado e sem autenticação implícita;
+  - cadastro sem data, sem pedido à API;
+  - credenciais inválidas;
+  - sessão expirada real;
+  - falha de `/me` com nova tentativa;
+  - foco com o token do escuro e "Pular para conteúdo".
+
+  Não houve rolagem horizontal em 320, 390 e 1440 px. As capturas Dia e Noite saíram idênticas byte a byte, também com o calendário aberto. O console não teve erros de JavaScript.
+- **Contraste**, por cálculo:
+  - ink-muted: 6,6:1;
+  - subtítulo sobre a faixa: cerca de 5,9:1;
+  - texto sobre o dourado: 13,8:1;
+  - foco: 9,4:1.
+
+**Limitações:** a landing, o portão, "← Voltar para o início" e o histórico ainda não existem (tickets 02 e 05). A decisão 0004 e a fidelidade visual ainda não citam a entrada como tela escura por design (ticket 07).
+
+**Pendências:** os tickets 02 a 05 e 07 da landing. Também falta investigar a falha de foco pré-existente em `tests/matchmaking.test.tsx`.
+
 ## Expo: tela de entrada Dividida estreita — 24 de novembro de 2026
 
 Ticket 06 da [landing e nova tela de entrada](#plano-da-landing-e-da-nova-tela-de-entrada--24-de-novembro-de-2026). A tela de entrada do Expo adota a versão estreita da Dividida. Ela é escura por design e igual nos temas Dia e Noite, sem landing e sem portão.
