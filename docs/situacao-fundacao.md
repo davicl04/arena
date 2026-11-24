@@ -1,5 +1,46 @@
 # Situação da fundação do Arena
 
+## Landing da web: modalidades, Como funciona e Mais da Arena — 24 de novembro de 2026
+
+Ticket 03 da [landing e nova tela de entrada](#plano-da-landing-e-da-nova-tela-de-entrada--24-de-novembro-de-2026). A landing ganhou as seções informativas entre o hero e o fecho, nesta ordem: modalidades, lugar reservado para a subida de elo (ticket 04), "Como funciona" e "Mais da Arena". A seta de rolagem do hero passou a levar às modalidades.
+
+- **Colunas expansíveis** (`web/src/components/landing/ExpandableColumns.tsx`), um único componente para as duas seções:
+  - colunas altas lado a lado, cada uma no seu tom;
+  - a primeira começa aberta, e só uma fica aberta por vez;
+  - abrem pelo mouse, pelo foco e pelo clique ou toque; passar o dedo sem tocar não abre;
+  - o título é um botão com `aria-expanded` e `aria-controls` que cobre a coluna, com o foco visível em volta dela;
+  - até 860 px, viram faixas empilhadas, com a aberta maior.
+- **Modalidades:** Futebol, Tênis e Corrida, com número, nome, descrição, etiquetas e o ícone de `SportIcon` em marca d'água. Número, nome e valor vêm de `sports`, e textos e tons vêm de `web/src/data/landing.ts`. Não há título visível: o `h2` existe só para leitores de tela.
+- **Como funciona:** quatro passos em verdes crescentes, com numerais romanos I–IV em SVG próprio. Os numerais têm serifas retas e traço dourado, ficam preenchidos na coluna aberta, são decorativos e ficam ocultos nas colunas recolhidas em telas estreitas.
+- **Mais da Arena:** sanfona com Times, Campeonatos, Comunidade e Privacidade, sinal +/− e o título aberto em menta.
+- **Revelação ao rolar** (`web/src/hooks/useLandingScroll.ts`): os blocos surgem com fade e deslocamento curto por `IntersectionObserver`. Sem `IntersectionObserver`, ou com "reduzir movimento", tudo fica visível de imediato e não há transição de abrir e fechar.
+- **Progresso para seções presas:** o mesmo hook expõe `useScrollProgress`, que grava o progresso de 0 a 1 em `--progresso`. Ele usa um único ouvinte de rolagem por `requestAnimationFrame`, ligado só enquanto houver seção registrada e removido ao sair da landing. A subida de elo vai usá-lo.
+- **Tokens e escopo:** novos tokens do bloco escuro em `web/src/ui.css` (tons das modalidades, verdes dos passos e base das colunas). Sem dados fictícios e sem mudança de API.
+
+**Verificações:**
+- **Em `web/`, na árvore integrada com o portão:**
+  - `npm run lint`: ok;
+  - `npm run build`: ok;
+  - `npm run test:coverage`: 1.345 de 1.346 testes passaram. A única falha é a de foco pré-existente em `tests/matchmaking.test.tsx`.
+- **Na rodada do worker:** 1.337 de 1.337, com 94,06% de instruções, 88,02% de ramos, 93,67% de funções e 96,87% de linhas, acima dos pisos.
+- **Testes:** 9 testes novos em `tests/landing-sections.test.tsx`. `tests/landing.test.tsx` foi ajustado para a seta levar às modalidades.
+- **Integração:** o cherry-pick conflitou só em `web/src/ui.css`, porque as seções do ticket 03 e do portão foram acrescentadas no mesmo ponto. O arquivo resolvido é o do ticket 03 seguido da seção do portão.
+- **Navegador:** Playwright contra a API real, com banco descartável, em 136 de 136 verificações, em 320, 390 e 1440 px, nos temas Dia e Noite:
+  - ordem das seções e seta até as modalidades;
+  - abertura por mouse, toque, Tab e clique, com uma aberta por vez e foco visível;
+  - numerais e menta da sanfona;
+  - revelação ao rolar e de novo ao voltar à landing;
+  - sem rolagem horizontal e sem erros no console;
+  - com "reduzir movimento", sem revelação nem transição, e telas Dia e Noite idênticas;
+  - sem `IntersectionObserver`, tudo visível.
+
+**Limitações:**
+- A sensação das animações só foi conferida no Chromium headless, sem aparelho nem Safari.
+- Com o mouse parado sobre as colunas durante a rolagem no desktop, a coluna sob o ponteiro abre, conforme o hover pedido.
+- A combinação com o portão foi validada pelos testes, não no navegador. A conferência ponta a ponta fica com o ticket 07.
+
+**Pendências:** a subida de elo (ticket 04), a correção do "Pular para conteúdo" (ticket 02) e a documentação final (ticket 07).
+
 ## Portão da landing para a tela de entrada (web) — 24 de novembro de 2026
 
 Ticket 05 da [landing e nova tela de entrada](#plano-da-landing-e-da-nova-tela-de-entrada--24-de-novembro-de-2026).
