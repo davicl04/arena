@@ -1,5 +1,70 @@
 # Situação da fundação do Arena
 
+## Fechamento da landing e da nova tela de entrada — 24 de novembro de 2026
+
+Fecha a entrega da [landing e nova tela de entrada](#plano-da-landing-e-da-nova-tela-de-entrada--24-de-novembro-de-2026) (tickets 01 a 07). A entrega é só de frontend e não completa o MVP.
+
+- **O que a entrega contém:**
+  - **Web, tela de entrada Dividida (ticket 01):** escura por design, com a metade da marca e o formulário sem cartão. A data de nascimento usa o `DatePicker` do shadcn, com mês e ano em listas e validação da data ausente.
+  - **Web, landing e navegação (ticket 02):**
+    - hero "A arena te chama", fecho e rodapé;
+    - o contêiner `PublicScreen`, que alterna landing e entrada com `pushState` em `/`;
+    - sessão expirada, falha de `/me` e convite abrem a entrada direto;
+    - a segunda rodada corrigiu o "Pular para conteúdo".
+  - **Web, seções (ticket 03):** modalidades e "Como funciona" em colunas expansíveis, com numerais romanos em SVG, "Mais da Arena" em sanfona e revelação ao rolar.
+  - **Web, subida de elo (ticket 04):** seção presa do Bronze ao Lendário, explicativa e sem atribuir elo.
+  - **Web, portão (ticket 05):** fecha em 0,55 s, troca de tela por volta de 0,88 s e abre em 0,85 s. Bloqueia a página durante a sequência e não aparece com "reduzir movimento", nos retornos nem nos atalhos diretos.
+  - **Expo, Dividida estreita (ticket 06):** faixa da marca no topo e formulário escuro, sem landing nem portão, com a data em DD/MM/AAAA.
+  - **Documentação (ticket 07):**
+    - `docs/fidelidade-figma.md` ganhou a seção "Landing e nova tela de entrada", com as decisões das seis rodadas, o que foi descartado e por quê e os desvios mantidos.
+    - `docs/decisoes/0004-tema.md` ganhou uma emenda datada que leva a landing, o portão e as entradas da web e do Expo para as telas escuras por design, mantendo a frase original como histórico.
+    - O README e os diagramas não mudaram, porque nenhum comando, dependência, contrato ou modelagem mudou.
+- **Sem mudança de backend, contrato, migração, cookie ou armazenamento de token.**
+
+**Verificações:**
+- **`web/`**, na árvore integrada:
+  - `npm run lint`: ok.
+  - `npm run build`: ok, só com o aviso antigo de chunk maior que 500 kB.
+  - `npm run test:coverage`: 1.351 de 1.352 testes, em 98 arquivos. A única falha é a de foco pré-existente em `tests/matchmaking.test.tsx`, que também falha na base `b4aa00d`.
+  - Cobertura: 94,06% de instruções, 88,02% de ramos, 93,72% de funções e 96,87% de linhas, acima dos pisos.
+- **`mobile/`**, na árvore integrada:
+  - `npm run lint`: ok.
+  - `npm run typecheck`: ok.
+  - `npm run export:android`: ok.
+  - `npm run test:coverage`: 1.673 de 1.673 testes, em 109 arquivos, com 96,56% de instruções, 91,01% de ramos, 95,9% de funções e 98,5% de linhas.
+- **Navegador, de ponta a ponta:** Playwright com Chromium headless, contra a API real, com banco descartável e contas e time sintéticos. Foram 84 de 85 verificações, em 320, 390 e 1440 px, nos temas Dia e Noite:
+  - landing completa, na ordem certa, com dois pontos de entrada e o cabeçalho só com a marca;
+  - landing → portão → entrar e criar conta, com o foco no primeiro campo e o endereço em `/`;
+  - Voltar do navegador e "← Voltar para o início" retornando à landing sem portão;
+  - criar conta pelo seletor de data, com o envio bloqueado sem data, `birth_date` gravado como `1992-07-21`, o toast e o modo Entrar;
+  - credenciais inválidas;
+  - login, com a sessão mantida ao recarregar;
+  - sessão expirada abrindo a entrada direto;
+  - convite de time `/entrar/{token}` abrindo a entrada direto, e o time depois do login;
+  - "Pular para conteúdo" na landing e na entrada;
+  - com "reduzir movimento", sem portão, sem animação de entrada e sem a subida presa;
+  - sem rolagem horizontal em toda a landing, na entrada e no calendário.
+- **Resultado do navegador:**
+  - Não houve erros de console além dos 401 esperados.
+  - A única falha foi a comparação de pixels Dia × Noite do hero com movimento reduzido. Os estilos calculados são idênticos, e a diferença também aparece entre duas capturas Dia, por isso foi tratada como ruído de captura.
+  - Nenhum defeito de comportamento foi encontrado.
+
+**Limitações:**
+- As animações e a sensação da rolagem só foram conferidas no Chromium headless, sem Safari nem aparelho. O `100dvh` com a barra de endereço móvel não foi conferido.
+- Não houve validação do Expo em aparelho, simulador ou Expo web. O build não comprova o funcionamento em Android ou iOS, e não há declaração de paridade visual do Expo com a web.
+- O CI remoto não foi executado.
+- Seguem valendo os desvios registrados em `docs/fidelidade-figma.md`, entre eles:
+  - o aviso de sessão expirada do Expo sem o "para continuar";
+  - um Voltar do navegador sem mudança visível depois de entrar pela landing;
+  - a roda do mouse rolando por baixo do portão.
+- **Divergência registrada:** `docs/plano-tema.md` ainda diz que o tema vale nas telas de entrada. A emenda da decisão 0004 marca esse trecho como histórico.
+
+**Pendências:**
+- Revisão de código da entrega inteira.
+- A falha de foco pré-existente em `tests/matchmaking.test.tsx`, fora desta entrega.
+- Conferir em aparelho a faixa sob a barra de status, o teclado e as telas pequenas do Expo.
+- Afinar, se preciso, a duração do portão e o mês inicial do calendário.
+
 ## Landing da web: subida de elo — 24 de novembro de 2026
 
 Ticket 04 da [landing e nova tela de entrada](#plano-da-landing-e-da-nova-tela-de-entrada--24-de-novembro-de-2026). A landing ganhou, entre as modalidades e "Como funciona", a **subida de elo**. É uma seção explicativa da progressão, com o sobretítulo "Progressão · cada modalidade tem o seu ranking".
@@ -286,7 +351,7 @@ A tela de entrada foi redesenhada numa sessão de protótipos com seis rodadas. 
 
   O botão fecha um portão animado e o abre na tela de entrada Dividida, com o Coliseu dourado de um lado e o formulário do outro. A data de nascimento passa a usar o `DatePicker` do shadcn, com navegação de mês e ano. Sessão expirada, falha de conexão e convite de time abrem a entrada direto. O Voltar do navegador retorna à landing.
 - **Expo:** só a Dividida estreita, com uma faixa da marca no topo. Não há landing nem portão, e a data continua no campo DD/MM/AAAA.
-- **Sem mudança de backend, contrato ou migração.** O código ainda não foi alterado.
+- **Sem mudança de backend, contrato ou migração.** Nesta data, o código ainda não tinha sido alterado. A implementação está registrada no [fechamento](#fechamento-da-landing-e-da-nova-tela-de-entrada--24-de-novembro-de-2026).
 
 **Verificações:** só documentação. Conferi o fluxo atual de entrada no `App` e no `AuthPage` da web, o `AuthScreen` do Expo, o `DatePicker` e o Calendar existentes e os testes de autenticação dos dois clientes. Nenhum teste de código foi executado, porque nada no código mudou.
 
