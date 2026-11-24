@@ -24,7 +24,8 @@ vi.mock('../global.css', () => ({}))
 vi.mock('../src/api/client', async original => ({ ...await original<typeof import('../src/api/client')>(), request: vi.fn(), clearToken: vi.fn() }))
 vi.mock('../src/screens/AuthScreen', async () => {
   const ReactModule = await import('react')
-  return { default: (props: Record<string, unknown>) => ReactModule.createElement('AuthScreen', props) }
+  // Os avisos do aplicativo (sessão expirada, falha de conexão) entram pela tela de entrada, no `notice`: o sósia os desenha.
+  return { default: (props: Record<string, unknown>) => ReactModule.createElement('AuthScreen', props, props.notice as React.ReactNode) }
 })
 vi.mock('../src/screens/CommunityScreen', () => ({ default: () => null }))
 vi.mock('../src/screens/ProfileScreen', () => ({ default: () => null }))

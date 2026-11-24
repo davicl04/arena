@@ -13,6 +13,7 @@ import { Screen } from './src/components/Screen'
 import { useJoinLink } from './src/navigation/useJoinLink'
 import { cx, tw } from './src/styles'
 import { themeStore, useResolvedTheme, useThemeColors } from './src/hooks/useTheme'
+import { colors as fixedColors } from './src/theme'
 import ArenaShell from './src/screens/ArenaShell'
 import AuthScreen from './src/screens/AuthScreen'
 
@@ -44,10 +45,18 @@ export default function App() {
     setUser(null); setSessionExpired(true); void clearToken()
   }, [restoreJoinToken])
   const logout = useCallback(() => { toastStore.reset(); setUser(null) }, [])
-  return <SafeAreaProvider><Screen className={tw.screen}><StatusBar style={theme === 'dark' ? 'light' : 'dark'} /><KeyboardAvoidingView className="grow basis-0" behavior={Platform.OS === 'ios' ? 'padding' : 'height'}><ErrorBoundary>
+  // Tela de entrada (Dividida estreita): escura por design nos dois temas. A faixa da marca sobe por baixo da barra de status, que fica clara.
+  const entrance = !loading && !user
+  const retry = () => { setLoadFailure(null); setLoading(true); setAttempt(v => v + 1) }
+  return <SafeAreaProvider><Screen className={entrance ? 'grow basis-0 bg-night' : tw.screen} edges={entrance ? ['right', 'bottom', 'left'] : undefined}><StatusBar style={entrance || theme === 'dark' ? 'light' : 'dark'} /><KeyboardAvoidingView className="grow basis-0" behavior={Platform.OS === 'ios' ? 'padding' : 'height'}><ErrorBoundary>
     {loading ? <ScrollView contentContainerClassName={tw.content}><Text className={cx(tw.brand, 'mb-7.5')}>arena.</Text><ActivityIndicator accessibilityLabel="Carregando Arena" color={colors.brand} /></ScrollView> : user
       ? <ArenaShell user={user} onUser={setUser} onLogout={logout} onExpired={expired} joinToken={joinToken} onJoinOpened={joinOpened} />
-      : <ScrollView contentContainerClassName={tw.content} keyboardShouldPersistTaps="handled"><Text className={cx(tw.brand, 'mb-7.5')}>arena.</Text>{sessionExpired ? <Text className={tw.error} accessibilityRole="alert">Sua sessão expirou. Entre novamente.</Text> : null}{loadFailure ? <LoadError size="section" title="Não foi possível conectar" text={loadFailure.message} cause={loadFailure.cause} onRetry={() => { setLoadFailure(null); setLoading(true); setAttempt(v => v + 1) }} /> : null}<AuthScreen onLogin={value => { setUser(value); setSessionExpired(false); setLoadFailure(null) }} onConnectionFailure={cause => setLoadFailure({ message: cause.message, cause })} /></ScrollView>}
+      : <ScrollView contentContainerStyle={{ flexGrow: 1, paddingBottom: 48 }} keyboardShouldPersistTaps="handled">
+        <AuthScreen notice={<>
+          {sessionExpired ? <Text accessibilityRole="alert" style={{ marginTop: 14, overflow: 'hidden', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, backgroundColor: 'rgba(244,197,106,0.1)', color: fixedColors['warning-soft'], fontSize: 13, lineHeight: 19 }}>Sua sessão expirou. Entre novamente.</Text> : null}
+          {loadFailure ? <LoadError size="section" tone="dark" title="Não foi possível conectar" text={loadFailure.message} cause={loadFailure.cause} onRetry={retry} /> : null}
+        </>} onLogin={value => { setUser(value); setSessionExpired(false); setLoadFailure(null) }} onConnectionFailure={cause => setLoadFailure({ message: cause.message, cause })} />
+      </ScrollView>}
     {/* Sem a área logada (carregando ou tela de entrada): confirmações de cadastro e recuperação, a 16 pt da base. */}
     {!user ? <ToastViewport placement="screen" /> : null}
   </ErrorBoundary></KeyboardAvoidingView></Screen></SafeAreaProvider>
