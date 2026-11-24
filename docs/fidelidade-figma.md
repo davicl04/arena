@@ -150,3 +150,62 @@ Ajuste posterior pedido pelo usuário, decidido numa sessão de protótipos com 
 - No Expo, a marca d'água do Placar fica centralizada (placa `TeamsPlate`), e a das Pílulas fica no canto. Os ícones usam os SVGs com alfa e o `Icon` existentes, sem desfoque.
 
 A web foi conferida no navegador, com API e PostgreSQL reais, em 320, 390 e 1440 px, nos temas claro e escuro. As verificações estão na [situação da fundação](situacao-fundacao.md). No Expo, não há declaração de paridade visual nem validação em aparelho.
+
+## Landing e nova tela de entrada — 24 de novembro de 2026
+
+Ajuste posterior pedido pelo usuário, decidido numa sessão de protótipos com seis rodadas. Não vem do Figma. A especificação de trabalho está em `.scratch/landing-entrada/spec.md`, e o protótipo consolidado, em `artifacts/login-prototipos/index-final.html`, com as imagens da mesma pasta. Nenhum dos dois é versionado, e o protótipo deve ser aberto por um servidor HTTP local. Ele é material de consulta: os textos, as cores e os comportamentos da spec prevalecem. O registro da entrega está na [situação da fundação](situacao-fundacao.md).
+
+**Decisões da sessão de protótipos:**
+- **Conceito (rodada 1):** entre "Estádio à noite", "Pôr do sol", "Dividida" com foto, "Página com rolagem" e "O Portão", ficou o hero do **Estádio à noite**: tela escura por design, com refletores, brilho do gramado e arco do campo. Dele vêm a informação ao rolar, da "Página com rolagem", e a animação do portão ao entrar, do "O Portão".
+- **Rolagem (rodada 2):** entre revelação suave, refletores, subida de elo, trilho horizontal e amanhecer, ficou a **subida de elo**. A seção fica presa enquanto a rolagem sobe do Bronze ao Lendário, trocando brasão, nome, texto e tom do fundo, com um trilho vertical dourado. Os demais blocos surgem com a revelação suave. A seção só explica a progressão e não atribui elo a ninguém.
+- **Hero:** o título passou a ser "A arena te chama", com "arena" em menta e sem sobretítulo. Abaixo vêm o texto de apoio, o botão "Entrar na Arena" e uma seta fina de rolagem, que balança devagar e leva às modalidades.
+- **Modalidades (rodada 3):** entre lista editorial, frase que acende, **colunas**, placar e faixa dentro do hero, ficaram as colunas. São três colunas altas, cada uma no tom da modalidade e com o ícone de `SportIcon` em marca d'água. A coluna em foco se expande e mostra a descrição e os formatos. Não há título acima.
+- **Como funciona e Mais da Arena (rodada 4):** entre "Apito a apito", "Ingressos", "Numeral e mapa", **"Colunas também"** e "Manifesto", ficou "Colunas também". "Como funciona" usa as mesmas colunas, com quatro passos em verdes crescentes, e "Mais da Arena" vira uma **sanfona** de nomes grandes, com um item aberto por vez e o título aberto em menta.
+- **Numerais (rodada 5):** entre degradê, traço desenhado, **romano**, sete segmentos e matriz de LED, ficaram os **numerais romanos I–IV**. São SVGs próprios, com serifas retas e traço dourado, que conversam com o Coliseu e com o Lendário. O numeral da coluna aberta ganha preenchimento.
+- **"Criar conta" (rodada 5):** entre contorno, **embaixo**, pílula, ícone e sublinhado, ficou "embaixo": "Primeira vez por aqui? Crie sua conta →" abaixo do botão, com a seta deslizando no hover e no foco. O mesmo par fica no hero e no fecho "Os portões estão abertos.".
+- **Portão:** duas folhas forest, cada uma com metade do Coliseu, fecham sobre a landing com o selo `arena.` no centro e abrem já na tela de entrada. Com "reduzir movimento", a troca é direta.
+- **Tela depois do portão (rodada 6):** entre vidro central, portão entreaberto, **Dividida**, túnel e sem cartão, ficou a Dividida. Uma metade tem o Coliseu dourado esmaecido e a chamada, que muda com o modo: "A arena te chama" ou "Sua trajetória começa aqui". A outra metade tem o formulário sem cartão. Até 860 px, a metade da marca vira uma faixa no topo.
+- **Expo:** fica só com a **Dividida estreita**, com a faixa da marca no topo e o formulário abaixo. Não há landing nem portão, e a data continua no campo DD/MM/AAAA, sem nova dependência nativa.
+- **Data de nascimento na web:** usa o `DatePicker` do shadcn no tom escuro, com mês e ano em listas.
+
+**O que foi descartado e por quê:**
+- **Sobretítulo + título + grade de cards** nas modalidades: o usuário achou o padrão genérico demais. As modalidades viraram colunas, e "Como funciona" e "Mais da Arena" também ficaram sem título com grade de cards. Cada seção tem um `h2` só para leitores de tela, sem título visível.
+- **Sobretítulo "Futebol · Tênis · Corrida" acima do hero e o título "Suba de elo. Em campo."**: retirados a pedido. O título passou a ser "A arena te chama".
+- **Botão redondo pulsante**, com ondas e brilho, do conceito "O Portão": também foi considerado excessivo. O usuário queria só a animação do portão ao clicar. Todos os "Entrar na Arena" viraram botões comuns, sem brilho nem pulso.
+- **Botão no cabeçalho:** com ele, a página tinha três "Entrar na Arena". Ficaram só o do hero e o do fecho, e o cabeçalho mostra apenas a marca.
+- **Numerais por contorno de fonte:** o vazado com `text-stroke` na Sora desenhava as emendas dos contornos sobrepostos da fonte, e o 3 e o 4 saíam malfeitos. Por isso os numerais passaram a ser SVGs desenhados à parte.
+- **Indicador de rolagem anterior:** deu lugar à seta fina.
+
+**Desvios mantidos em relação ao protótipo e à spec:**
+- **Tela de entrada da web:**
+  - O seletor de data usa o tom `dark` existente do `DatePicker`.
+  - A metade da marca entra com uma animação de 0,3 s a cada montagem, só com movimento permitido.
+  - Só o login recusado (401) marca e-mail e senha como inválidos.
+  - O aviso de sessão expirada usa o novo tom `warning` dos avisos.
+- **Landing:**
+  - O título do hero tem largura máxima de 16 caracteres e fica numa linha a 1440 px.
+  - "Crie sua conta" é um botão em linha com alvo de 24 px.
+  - Cada seção tem um `h2` só para leitores de tela. O sobretítulo da subida de elo é o `h2` visível.
+  - Os nomes acessíveis das colunas incluem o número ("01 Futebol", "Passo 01 Crie sua conta"). Assim, a landing mantém exatamente dois convites "Crie sua conta".
+  - Escolher o item já aberto o mantém aberto. O fecho também é revelado ao rolar. O movimento reduzido é lido uma vez, ao montar a landing.
+- **Subida de elo:**
+  - A seção ocupa cinco telas de rolagem, com cada elo a 25% do caminho, como no protótipo.
+  - Com 1440 px, o conteúdo preso fica à esquerda do centro, como no protótipo.
+  - Há ajustes extras para larguras e alturas até 560 px.
+  - O elo ativo não usa `aria-current`.
+  - Com movimento reduzido, o trilho e o fundo não aparecem, e os cinco elos ficam em sequência.
+- **Portão:**
+  - As durações seguem o protótipo: fecha em 0,55 s, troca de tela por volta de 0,88 s, abre em 0,85 s e some por volta de 2,1 s.
+  - Durante a sequência, as teclas sem modificador são bloqueadas, porque Tab + Enter chegava ao "Pular para conteúdo", fora da área inerte.
+  - A roda do mouse ainda rola a página por baixo do portão.
+- **Navegação:**
+  - Ao voltar à landing, o foco não é movido nem a rolagem é restaurada.
+  - Depois de entrar pela landing, um Voltar do navegador passa pela entrada anterior da landing sem mudança visível.
+  - Uma nova tentativa depois de falha de `/me` que termina sem sessão mostra a landing. Sair da conta também mostra a landing.
+- **Expo:**
+  - O aviso de sessão expirada mantém "Sua sessão expirou. Entre novamente.", sem o "para continuar" da web.
+  - Os campos de credencial não ficam marcados como inválidos.
+  - Os rótulos seguem o estilo do `FormField` escuro, em caixa alta pequena, e não os rótulos brancos do protótipo.
+  - O carregamento antes da leitura de `/me` continua seguindo o tema.
+
+A web foi conferida no navegador, com API e PostgreSQL reais, em 320, 390 e 1440 px, nos temas Dia e Noite e com movimento reduzido. As animações só foram vistas no Chromium headless, sem aparelho nem Safari. No Expo, não há declaração de paridade visual com a web nem validação em aparelho.
