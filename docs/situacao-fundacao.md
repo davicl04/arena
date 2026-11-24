@@ -1,5 +1,40 @@
 # Situação da fundação do Arena
 
+## Plano da landing e da nova tela de entrada — 24 de novembro de 2026
+
+A tela de entrada foi redesenhada numa sessão de protótipos com seis rodadas. As rodadas trataram do conceito, da rolagem, das modalidades, de "Como funciona" e "Mais da Arena", dos numerais e do "criar conta", e da tela depois do portão. A especificação de trabalho está em `.scratch/landing-entrada/spec.md`, e o protótipo de referência, em `artifacts/login-prototipos/index-final.html`. Nenhum dos dois é versionado.
+
+- **Web:** a landing é escura por design e segue esta ordem:
+  - hero "A arena te chama", com o botão "Entrar na Arena" e "Primeira vez por aqui? Crie sua conta →" abaixo;
+  - modalidades em colunas expansíveis;
+  - subida de elo do Bronze ao Lendário;
+  - "Como funciona" em colunas com numerais romanos I–IV;
+  - "Mais da Arena" em sanfona;
+  - fecho "Os portões estão abertos.".
+
+  O botão fecha um portão animado e o abre na tela de entrada Dividida, com o Coliseu dourado de um lado e o formulário do outro. A data de nascimento passa a usar o `DatePicker` do shadcn, com navegação de mês e ano. Sessão expirada, falha de conexão e convite de time abrem a entrada direto. O Voltar do navegador retorna à landing.
+- **Expo:** só a Dividida estreita, com uma faixa da marca no topo. Não há landing nem portão, e a data continua no campo DD/MM/AAAA.
+- **Sem mudança de backend, contrato ou migração.** O código ainda não foi alterado.
+
+**Verificações:** só documentação. Conferi o fluxo atual de entrada no `App` e no `AuthPage` da web, o `AuthScreen` do Expo, o `DatePicker` e o Calendar existentes e os testes de autenticação dos dois clientes. Nenhum teste de código foi executado, porque nada no código mudou.
+
+## Novas capturas de tela da web com dados de demonstração — 24 de novembro de 2026
+
+Refeitas com Playwright as capturas da [seção de 22/11](#capturas-de-tela-da-web-com-dados-de-demonstração--22-de-novembro-de-2026), agora com o novo Início, a tela de modalidades e o ranking por rating. Nenhum código, contrato, esquema ou dependência do projeto mudou. São 50 PNG de 1170 × 2532 px (viewport de 390 × 844 com DPR 3, `pt-BR`, fuso de São Paulo) em `artifacts/prints-demo-2026-11-24/`. As capturas de 22/11 continuam em `artifacts/prints-demo/`. O seed e o roteiro ficam em `.local/demo/`. Nada disso é versionado.
+
+**Ambiente:** o mesmo da rodada anterior, só com recursos de demonstração. O banco `arena_demo` foi recriado por `reset-and-seed.sh` e migrado até a `0017`. Bucket `arena-media-demo`, API na porta 8020 (com `ALLOWED_ORIGINS` só para a 5190) e web na 5190. Os servidores foram encerrados ao final. O banco `arena` e o bucket `arena-media` não foram alterados.
+
+**Dados:** o seed de 22/11 rodou sem mudanças. Ele cria 22 contas em Brasília (código IBGE 5300108, válido no catálogo nacional), 6 times, 12 posts, 31 marcas de corrida e 4 eventos pela API. Pelos modelos, entram 27 jogos de futebol e 85 de tênis com placar confirmado e duas partidas agendadas. O recálculo usou a `calc_version` 2, então futebol · time e tênis aparecem com rating, e o futebol · individual com a média ajustada.
+
+**Telas:** as 38 do roteiro anterior (Início com Placar, Para responder, Seu elo e Campeonatos; Ranking das três modalidades com rating; Jogar; resultado e partida agendada; campeonatos; Comunidade; perfil; Menu; Meus times; organizadora e administração). Também 12 novas, nos temas claro e escuro: folha de categoria e Ranking do futebol · individual (Society 7×7, Meio de campo) e "Suas modalidades" com a folha passo a passo do futebol (cidade, posição e revisão). A folha foi fechada sem salvar e a geolocalização foi simulada em Brasília.
+
+**Verificações:** o roteiro terminou sem falhas, e todas as capturas foram conferidas visualmente em folhas de contato. Não houve testes de código, porque não houve mudança de código.
+
+**Limitações:**
+- Valem as mesmas da rodada anterior: o histórico de partidas foi inserido sem o fluxo de busca, proposta e placar, as fotos são cartazes gerados e o Expo não foi capturado.
+- O perfil já tinha cidade, então o passo da cidade mostra "Escolhida por você" em vez da sugestão pela localização.
+- No futebol · individual, só Lucas está classificado como Meio de campo, então a lista tem um atleta.
+
 ## Correções da revisão do PR #6 — 23 de novembro de 2026
 
 - Clientes anteriores à busca nacional continuam recebendo as seis cidades originais em `GET /cities` sem parâmetros. Na busca nacional, a UF exata tem prioridade antes do limite de 20 resultados.
