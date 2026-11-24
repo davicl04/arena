@@ -15,6 +15,9 @@ import { Popover, PopoverContent, PopoverTrigger } from "./popover"
  * (`tone="dark"` para as telas escuras, como o Criar evento V4) e mostra "sáb, 25 out".
  * O valor é o dia do calendário local ("2026-10-25"); para a API, combine com a hora em `combineDateTime`.
  * Teclado: Enter/Espaço abre, as setas andam pelos dias, Enter escolhe e Esc fecha sem fechar a folha em volta.
+ * Opcionais, sem mudar os usos atuais: `captionLayout="dropdown"` (mês e ano por listas, como na data de nascimento),
+ * `defaultMonth` (mês que abre sem dia escolhido) e `popupClassName` (ex.: `escuro-por-design` numa tela escura por
+ * design, já que o calendário vai para o `body`).
  */
 const triggerTones = {
   light:
@@ -42,6 +45,12 @@ export interface DatePickerProps {
   tone?: keyof typeof triggerTones
   "aria-describedby"?: string
   className?: string
+  /** Legenda do calendário: o mês por extenso (padrão) ou listas de mês e ano. */
+  captionLayout?: "label" | "dropdown"
+  /** Dia ("2008-11-01") cujo mês o calendário mostra quando não há dia escolhido. */
+  defaultMonth?: string
+  /** Classes do cartão do calendário. */
+  popupClassName?: string
 }
 
 export function DatePicker({
@@ -58,6 +67,9 @@ export function DatePicker({
   tone = "light",
   "aria-describedby": describedBy,
   className,
+  captionLayout = "label",
+  defaultMonth,
+  popupClassName,
 }: DatePickerProps) {
   const [open, setOpen] = useState(false)
   const popupRef = useRef<HTMLDivElement>(null)
@@ -103,7 +115,7 @@ export function DatePicker({
         ref={popupRef}
         align="start"
         aria-label={`Escolher ${label.toLowerCase()}`}
-        className="w-75"
+        className={cn("w-75", popupClassName)}
         initialFocus={() =>
           popupRef.current?.querySelector<HTMLElement>('[data-slot="calendar-day"][tabindex="0"]') ?? true
         }
@@ -114,7 +126,8 @@ export function DatePicker({
           required
           locale={ptBR}
           selected={selected}
-          defaultMonth={selected ?? first ?? today}
+          captionLayout={captionLayout}
+          defaultMonth={selected ?? fromDateKey(defaultMonth) ?? first ?? today}
           startMonth={first}
           endMonth={last}
           disabled={blocked}
