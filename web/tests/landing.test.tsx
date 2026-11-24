@@ -131,13 +131,13 @@ describe('seta de rolagem do hero', () => {
     mockApi({ 'GET /me': noSession })
     render(<App />)
     await landingTitle()
-    const target = document.getElementById('landing-fecho')!
+    const target = document.getElementById('landing-modalidades')!
     target.scrollIntoView = vi.fn()
     await userEvent.click(screen.getByRole('button', { name: 'Rolar para o conteúdo' }))
     return target.scrollIntoView
   }
 
-  it('leva ao conteúdo seguinte com rolagem suave', async () => {
+  it('leva às modalidades com rolagem suave', async () => {
     expect(await scrollWith(false)).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' })
   })
 

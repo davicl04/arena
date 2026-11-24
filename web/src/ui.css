@@ -683,6 +683,191 @@
 }
 
 /*
+ * ===== Landing (web) · colunas, sanfona e revelação ao rolar =====
+ * Seções informativas da landing (components/landing/ExpandableColumns.tsx, LandingAccordion.tsx, RomanNumeral.tsx,
+ * LandingSections.tsx), escuras por design e iguais nos dois temas.
+ * - Colunas (modalidades e "Como funciona"): lado a lado, no tom de cada item; a aberta cresce e mostra o painel. Até
+ *   860 px viram faixas empilhadas, com a aberta maior; o numeral romano das recolhidas some.
+ * - Sanfona ("Mais da Arena"): nome grande, sinal +/− e o título aberto em menta.
+ * - Revelação (hooks/useLandingScroll.ts): sob `[data-revelar]`, os blocos `data-reveal` ficam ocultos até receberem
+ *   `data-revelado`, e surgem com fade e deslocamento curto, escalonados por `--reveal-ordem`.
+ * Com "reduzir movimento", nada aqui anima: sem revelação e sem transição de abrir e fechar.
+ */
+@theme static {
+  /* Tom de cada modalidade nas colunas (o degradê vai dele para a base). */
+  --color-sport-futebol-tint: #0f4a2c;
+  --color-sport-tenis-tint: #3d4a12;
+  --color-sport-corrida-tint: #5a3410;
+  /* Verdes crescentes dos passos de "Como funciona". */
+  --color-step-1-tint: #0f3a26;
+  --color-step-2-tint: #124a30;
+  --color-step-3-tint: #165838;
+  --color-step-4-tint: #1b6642;
+  /* Base escura do degradê das colunas. */
+  --color-column-base: #060c09;
+}
+
+@layer components {
+  .landing-secao-colunas { padding: clamp(48px, 7vw, 96px) clamp(16px, 2vw, 24px); }
+  .landing-colunas {
+    display: flex;
+    gap: 10px;
+    height: min(86dvh, 760px);
+    min-height: 440px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .landing-colunas[data-variante="passos"] { height: min(70dvh, 600px); min-height: 420px; }
+  .landing-coluna {
+    position: relative;
+    isolation: isolate;
+    display: flex;
+    flex: 1 1 0;
+    flex-direction: column;
+    justify-content: flex-end;
+    min-width: 0;
+    overflow: hidden;
+    border-radius: 26px;
+    padding: clamp(20px, 3vw, 40px);
+    background: radial-gradient(120% 80% at 30% 0%, var(--coluna-tom) 0%, var(--color-column-base) 75%);
+  }
+  .landing-coluna[data-aberta] { flex-grow: 2.6; }
+  .landing-coluna:has(.landing-coluna-botao:focus-visible) { outline: 3px solid var(--color-focus); outline-offset: 3px; }
+  .landing-coluna-decoracao { position: absolute; inset: 0; z-index: -1; pointer-events: none; }
+  .landing-coluna-kicker {
+    font-family: var(--font-display);
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    color: var(--color-info-soft);
+  }
+  .landing-coluna-titulo { margin: 8px 0 0; font-size: clamp(34px, 4.6vw, 64px); line-height: 1; letter-spacing: -0.03em; }
+  .landing-colunas[data-variante="passos"] .landing-coluna-titulo { font-size: clamp(24px, 2.6vw, 38px); line-height: 1.1; }
+  /* O botão do título cobre a coluna inteira; o foco visível fica em volta da coluna. */
+  .landing-coluna-botao,
+  .landing-sanfona-botao {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    letter-spacing: inherit;
+    text-align: left;
+  }
+  .landing-coluna-botao::after,
+  .landing-sanfona-botao::after { content: ""; position: absolute; inset: 0; z-index: 1; }
+  .landing-coluna-botao:focus-visible,
+  .landing-sanfona-botao:focus-visible { outline: none; }
+  /* Painel: recolhido, sem altura e fora da leitura (`visibility`); aberto, cresce até o conteúdo. */
+  .landing-coluna-painel,
+  .landing-sanfona-painel { display: grid; grid-template-rows: 0fr; visibility: hidden; }
+  .landing-coluna-painel { opacity: 0; }
+  .landing-coluna[data-aberta] .landing-coluna-painel,
+  .landing-sanfona-item[data-aberta] .landing-sanfona-painel { grid-template-rows: 1fr; visibility: visible; opacity: 1; }
+  .landing-coluna-painel > div,
+  .landing-sanfona-painel > div { min-height: 0; overflow: hidden; }
+  .landing-coluna-painel p { max-width: 40ch; padding-top: 14px; font-size: 15px; line-height: 1.65; color: var(--color-ink); }
+  .landing-coluna-etiquetas { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 12px 0 0; list-style: none; }
+  .landing-coluna-etiquetas li {
+    padding: 5px 10px;
+    border-radius: 14px;
+    background: var(--color-line-strong);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--color-heading);
+  }
+  /* Marca d'água da modalidade (máscara do PNG com alfa, pintada de branco translúcido). */
+  .landing-coluna-marca {
+    --sport-icon-color: var(--color-heading);
+    position: absolute;
+    top: 8%;
+    right: -8%;
+    width: 62%;
+    aspect-ratio: 1;
+    opacity: 0.07;
+  }
+  .landing-coluna[data-aberta] .landing-coluna-marca { opacity: 0.12; }
+  .landing-coluna-marca > [data-slot="sport-icon"] { width: 100% !important; height: 100% !important; }
+  /* Numeral romano: traço dourado; a coluna aberta preenche. */
+  .landing-numeral {
+    position: absolute;
+    top: clamp(18px, 2.4vw, 32px);
+    left: clamp(20px, 3vw, 40px);
+    width: auto;
+    height: clamp(84px, 11vw, 160px);
+    overflow: visible;
+  }
+  .landing-numeral polygon {
+    fill: color-mix(in srgb, var(--color-legend) 3%, transparent);
+    stroke: color-mix(in srgb, var(--color-legend) 34%, transparent);
+    stroke-width: 1.4;
+    stroke-linejoin: miter;
+    vector-effect: non-scaling-stroke;
+  }
+  .landing-coluna[data-aberta] .landing-numeral polygon {
+    fill: color-mix(in srgb, var(--color-legend) 16%, transparent);
+    stroke: var(--color-legend);
+  }
+
+  .landing-sanfona-item { position: relative; padding: 22px 0; border-top: 1px solid var(--color-line); }
+  .landing-sanfona-item:last-child { border-bottom: 1px solid var(--color-line); }
+  .landing-sanfona-item:has(.landing-sanfona-botao:focus-visible) { outline: 3px solid var(--color-focus); outline-offset: 4px; }
+  .landing-sanfona-titulo { margin: 0; font-size: clamp(28px, 4vw, 52px); line-height: 1.1; letter-spacing: -0.03em; }
+  .landing-sanfona-item[data-aberta] .landing-sanfona-titulo { color: var(--color-mint); }
+  .landing-sanfona-botao { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 16px; }
+  .landing-sanfona-sinal { position: relative; flex: none; width: 22px; height: 22px; }
+  .landing-sanfona-sinal::before,
+  .landing-sanfona-sinal::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    right: 0;
+    left: 0;
+    height: 2px;
+    background: currentColor;
+    translate: 0 -50%;
+  }
+  .landing-sanfona-sinal::after { rotate: 90deg; }
+  .landing-sanfona-item[data-aberta] .landing-sanfona-sinal::after { rotate: 0deg; }
+  .landing-sanfona-painel p { max-width: 52ch; padding-top: 12px; font-size: 16px; line-height: 1.65; color: var(--color-ink-muted); }
+
+  @media (max-width: 860px) {
+    .landing-colunas,
+    .landing-colunas[data-variante="passos"] { flex-direction: column; height: auto; min-height: 0; }
+    .landing-coluna { flex: none; min-height: 110px; }
+    .landing-coluna[data-aberta] { flex-grow: 0; min-height: 340px; }
+    .landing-coluna-marca { top: 6%; width: 40%; }
+    .landing-numeral { height: 72px; }
+    .landing-coluna:not([data-aberta]) .landing-numeral { visibility: hidden; opacity: 0; }
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .landing-coluna { transition: flex-grow 0.7s cubic-bezier(0.7, 0, 0.2, 1), min-height 0.6s cubic-bezier(0.7, 0, 0.2, 1); }
+    .landing-coluna-painel {
+      transition: grid-template-rows 0.6s cubic-bezier(0.7, 0, 0.2, 1), opacity 0.4s, visibility 0s 0.6s;
+    }
+    .landing-sanfona-painel { transition: grid-template-rows 0.5s cubic-bezier(0.7, 0, 0.2, 1), visibility 0s 0.5s; }
+    .landing-coluna[data-aberta] .landing-coluna-painel,
+    .landing-sanfona-item[data-aberta] .landing-sanfona-painel { transition-delay: 0s; }
+    .landing-coluna-marca { transition: opacity 0.5s; }
+    .landing-numeral { transition: opacity 0.3s, visibility 0.3s; }
+    .landing-numeral polygon { transition: fill 0.5s, stroke 0.5s; }
+    .landing-sanfona-titulo { transition: color 0.3s; }
+    .landing-sanfona-sinal::after { transition: rotate 0.3s; }
+
+    [data-revelar] [data-reveal]:not([data-revelado]) { opacity: 0; }
+    [data-revelar] [data-reveal][data-revelado] {
+      animation: landing-revelar 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) calc(var(--reveal-ordem, 0) * 110ms) backwards;
+    }
+  }
+}
+
+@keyframes landing-revelar {
+  from { opacity: 0; transform: translateY(32px); }
+}
+
+/*
  * ===== Landing (web) · portão =====
  * Transição da landing para a tela de entrada (components/landing/Gate.tsx, sequência em hooks/useGate.ts), oculta
  * para leitores de tela e igual nos dois temas. Duas folhas forest, cada uma com metade do Coliseu em menta esmaecida
