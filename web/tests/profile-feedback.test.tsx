@@ -43,6 +43,17 @@ describe('SportProfileSheet', () => {
     expect(screen.queryByRole('alert')).toBeNull()
     expect(screen.getByRole('dialog', { name: 'Tênis' })).not.toBeNull()
   })
+
+  it('o ícone da folha é o selo da modalidade no ladrilho redondo, oculto e sem PNG', () => {
+    const profile: Profile = { id: 3, sport: 'tenis', city_id: cities[0].id, city: cities[0], position: null, looking_for: false, is_public: false, level: null }
+    renderWithToaster(<SportProfileSheet sport="tenis" profile={profile} onSave={vi.fn()} onSaved={vi.fn()} onClose={vi.fn()} onExpired={vi.fn()} />)
+    const dialog = screen.getByRole('dialog', { name: 'Tênis' })
+    const icon = dialog.querySelector('[data-slot="sport-icon"]')!
+    expect(icon.getAttribute('data-forma')).toBe('selo')
+    expect(icon.closest('[data-slot="icon-tile"]')?.getAttribute('data-shape')).toBe('round')
+    expect(icon.closest('[aria-hidden="true"]')).not.toBeNull()
+    expect(dialog.querySelector('img[src*="/images/sports/"]')).toBeNull()
+  })
 })
 
 describe('EditProfilePage', () => {

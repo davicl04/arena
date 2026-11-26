@@ -1,14 +1,14 @@
 import type { ReactNode } from 'react'
 import type { TimelineItem, TimelineSport } from '@/api/profile'
-import SportIcon from '@/components/SportIcon'
+import { SeloLadrilho } from '@/components/SportIcon'
 import { DuelCard } from './DuelCard'
 import { RunDuelCard } from './RunDuelCard'
 import { groupByMonth, itemSport } from './timelineView'
 
-/** Nó do trilho: círculo branco com o ícone da modalidade, sobre a linha vertical. */
+/** Nó do trilho: círculo opaco da superfície (cobre a linha vertical) com o selo da modalidade no ladrilho redondo. */
 function Node({ sport }: { sport: TimelineSport }) {
   return <span data-slot="timeline-node" className="absolute top-2.5 left-0 grid size-8 place-items-center overflow-hidden rounded-full border border-solid border-line bg-surface noite:border-surface-edge">
-    <SportIcon sport={sport} size={20} />
+    <SeloLadrilho sport={sport} size={30} />
   </span>
 }
 

@@ -165,7 +165,9 @@ describe('Início: Campeonatos', () => {
     const { go } = renderHome([football], { [`GET ${FOOTBALL_EVENTS}`]: page([full, ongoing]) })
     await waitFor(() => expect(rows()).toHaveLength(2))
     const [first, second] = rows()
-    expect(first.querySelector('[data-slot="sport-icon"]')).not.toBeNull()
+    expect(first.querySelector('[data-slot="sport-icon"]')?.getAttribute('data-forma')).toBe('selo')
+    expect(first.querySelector('[data-slot="sport-icon"]')?.closest('[data-slot="icon-tile"]')?.getAttribute('data-shape')).toBe('round')
+    expect(first.querySelector('img')).toBeNull()
     expect(first.textContent).toContain('Liga em Curso')
     expect(first.textContent).toContain('· Quadra Central')
     expect(first.textContent).toContain('Em andamento')
@@ -178,6 +180,17 @@ describe('Início: Campeonatos', () => {
     expect(second.textContent).not.toContain('Você pode se inscrever')
     await userEvent.setup().click(second)
     expect(go).toHaveBeenLastCalledWith('event', { eventId: 22, sport: 'futebol' })
+  })
+
+  it('o campeonato sem modalidade mostra o troféu no mesmo ladrilho redondo do selo', async () => {
+    renderHome([football], { [`GET ${FOOTBALL_EVENTS}`]: page([footballCup(31), footballCup(32, { name: 'Copa Aberta', sport: null })]) })
+    await waitFor(() => expect(rows()).toHaveLength(2))
+    const tiles = rows().map(row => row.querySelector<HTMLElement>('[data-slot="icon-tile"]')!)
+    expect(tiles.map(tile => tile.getAttribute('data-shape'))).toEqual(['round', 'round'])
+    expect(tiles[0].querySelector('[data-slot="sport-icon"]')?.getAttribute('data-forma')).toBe('selo')
+    expect(tiles[1].querySelector('[data-slot="sport-icon"]')).toBeNull()
+    expect(tiles[1].querySelector('svg.lucide-trophy')).not.toBeNull()
+    expect(tiles.every(tile => tile.getAttribute('aria-hidden') === 'true')).toBe(true)
   })
 
   it('"Você pode se inscrever" com eligibility.eligible; "Ver todos" abre a lista na modalidade do primeiro campeonato exibido; teclado abre a linha', async () => {

@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import type { Position, Profile } from '@/api/client'
 import { sports } from '@/api/client'
-import SportIcon from '@/components/SportIcon'
+import SportIcon, { SeloLadrilho } from '@/components/SportIcon'
 import { Button } from '@/components/ui/button'
 import { Chip } from '@/components/ui/chip'
 import { Sheet } from '@/components/ui/sheet'
@@ -50,7 +50,7 @@ export function CategorySheet({ profiles, category, onChange, onClose }: {
                 <button key={sport} type="button" aria-pressed={selected} onClick={() => onChange({ sport })}
                   className={cn('grid min-w-0 justify-items-center gap-1.5 rounded-card border border-solid px-1.5 pt-3 pb-2.5 text-[12px] font-semibold',
                     selected ? 'border-brand bg-success-bg text-forest noite:text-heading shadow-[inset_0_0_0_1px_var(--color-brand)]' : 'border-line bg-surface text-ink')}>
-                  <SportIcon sport={sport} size={34} />
+                  <SeloLadrilho sport={sport} size={34} />
                   <span className="max-w-full truncate">{item?.label}</span>
                 </button>
               )
