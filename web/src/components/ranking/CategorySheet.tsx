@@ -60,7 +60,7 @@ export function CategorySheet({ profiles, category, onChange, onClose }: {
       )}
       {only && (
         <p className="mt-3 mb-0 flex items-center gap-2 text-[12px] leading-normal text-ink-muted">
-          <SportIcon sport={only.value} size={22} />
+          <SportIcon sport={only.value} forma="aro" size={22} className="text-icon-tile-ink" />
           <span>{only.label} é a sua única modalidade ativa</span>
         </p>
       )}

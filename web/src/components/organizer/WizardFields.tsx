@@ -24,7 +24,7 @@ export interface ChoiceOption<T extends string | number> {
   ariaLabel?: string
 }
 
-const choiceItem = 'h-auto min-h-[40px] min-w-0 rounded-xl border border-solid border-white/18 bg-white/5 px-3 py-1.5 text-[12px] font-bold whitespace-normal text-white hover:bg-white/10 focus-visible:ring-mint/70 data-pressed:border-mint data-pressed:bg-mint data-pressed:text-night data-pressed:hover:bg-mint [&_[data-slot=sport-icon]]:mix-blend-screen [&_[data-slot=sport-icon]]:[filter:invert(1)] data-pressed:[&_[data-slot=sport-icon]]:mix-blend-multiply data-pressed:[&_[data-slot=sport-icon]]:[filter:none]'
+const choiceItem = 'h-auto min-h-[40px] min-w-0 rounded-xl border border-solid border-white/18 bg-white/5 px-3 py-1.5 text-[12px] font-bold whitespace-normal text-white hover:bg-white/10 focus-visible:ring-mint/70 data-pressed:border-mint data-pressed:bg-mint data-pressed:text-night data-pressed:hover:bg-mint'
 
 /**
  * Escolha única em pílulas (ToggleGroup do Base UI: as setas movem o foco, Enter/Espaço escolhem). O rótulo visível

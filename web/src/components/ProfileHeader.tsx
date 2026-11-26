@@ -3,7 +3,8 @@ import type { ReactNode, Ref } from 'react'
 import { Shield, UserCog } from 'lucide-react'
 import { apiUrl, sports } from '../api/client'
 import type { Sport, SocialUser } from '../api/client'
-import { cover as defaultCover, sportIcons } from '../data/arena'
+import { cover as defaultCover } from '../data/arena'
+import SportIcon from './SportIcon'
 import { ChipLabel } from '@/components/ui/chip'
 import { SocialPhoto } from './SocialPhoto'
 
@@ -102,10 +103,10 @@ export default function ProfileHeader({ mode, name, username, avatar, coverUrl, 
         <span className="min-w-0 flex-1 text-[11px] leading-[1.45] text-ink group-hover:underline [&_b]:wrap-anywhere"><MutualSummary items={mutual.items} total={mutual.total} /></span>
       </button>}
       <div className="flex flex-wrap gap-1.5 empty:hidden">
-        {sportList.map(sport => {
-          const Icon = sportIcons[sport]
-          return <ChipLabel size="sm" active key={sport}><Icon size={13} />{sports.find(s => s.value === sport)?.label}</ChipLabel>
-        })}
+        {/* Chips sempre ativos (as modalidades do perfil): símbolo com aro na cor do texto sobre a marca. */}
+        {sportList.map(sport => <ChipLabel size="sm" active key={sport}>
+          <SportIcon sport={sport} forma="aro" size={20} />{sports.find(s => s.value === sport)?.label}
+        </ChipLabel>)}
         {mode === 'own' && !sportList.length && <span className="text-[11px] leading-[1.6] text-ink-muted">Adicione sua primeira modalidade</span>}
       </div>
       <p className="my-4 flex items-center gap-[5px] text-[10px] wrap-anywhere text-ink-muted"><Shield size={13} />Conta {isPublic ? 'pública' : 'privada'}</p>

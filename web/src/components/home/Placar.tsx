@@ -58,7 +58,7 @@ export function Placar({ match, now, hasProfiles, onOpen }: {
     <span className="relative flex items-center justify-between gap-2">
       <span className={labelClass}>Próxima partida</span>
       <span className="inline-flex flex-none items-center gap-[5px] rounded-full bg-white/8 px-[9px] py-1 text-[10px] font-semibold text-white">
-        <SportIcon sport={match.sport} size={14} mask />{sport}
+        <SportIcon sport={match.sport} forma="aro" size={14} />{sport}
       </span>
     </span>
     <span data-slot="countdown" className="relative mt-2.5 flex flex-wrap items-end gap-x-2.5 gap-y-1">

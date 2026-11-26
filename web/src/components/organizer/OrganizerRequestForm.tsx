@@ -17,7 +17,7 @@ import { cn } from '@/lib/utils'
 import { errorClass, hintClass, invalidClass, textareaClass } from './fieldStyles'
 
 const fieldOrder: (keyof OrganizerRequestDraft)[] = ['display_name', 'city_id', 'sports', 'experience', 'contact', 'link', 'accept_terms']
-const sportToggle = 'h-auto min-h-[38px] rounded-xl border border-solid border-line-strong bg-surface py-1 pr-3 pl-1.5 text-[11.5px] font-bold text-ink hover:bg-subtle data-pressed:border-forest data-pressed:bg-forest data-pressed:text-white data-pressed:hover:bg-forest data-pressed:hover:text-white data-pressed:[&_[data-slot=sport-icon]]:mix-blend-screen data-pressed:[&_[data-slot=sport-icon]]:[filter:grayscale(1)_invert(1)] focus-visible:ring-focus/60'
+const sportToggle = 'h-auto min-h-[38px] rounded-xl border border-solid border-line-strong bg-surface px-3 py-1 text-[11.5px] font-bold text-ink hover:bg-subtle data-pressed:border-forest data-pressed:bg-forest data-pressed:text-white data-pressed:hover:bg-forest data-pressed:hover:text-white data-pressed:pl-1.5 focus-visible:ring-focus/60'
 
 /** Campo com rótulo, dica e erro ligados por `aria-describedby`. */
 function Field({ id, label, hint, error, children }: { id: string; label: string; hint?: ReactNode; error?: string; children: ReactNode }) {
@@ -93,7 +93,7 @@ export function OrganizerRequestForm({ defaultCity, onSent, onExpired }: {
         <ToggleGroup multiple id={fid('sports')} aria-labelledby={`${fid('sports')}-label`} aria-describedby={describedBy(fid('sports'), errors.sports, false)}
           value={draft.sports} onValueChange={value => update({ sports: value as Sport[] })} className="w-full flex-wrap gap-1.5">
           {sports.map(sport => <ToggleGroupItem key={sport.value} value={sport.value} className={sportToggle}>
-            <SportIcon sport={sport.value} size={22} />{sport.label}
+            {draft.sports.includes(sport.value) && <SportIcon sport={sport.value} forma="aro" size={22} className="size-[22px]" />}{sport.label}
           </ToggleGroupItem>)}
         </ToggleGroup>
         {errors.sports && <p id={`${fid('sports')}-error`} className={errorClass}>{errors.sports}</p>}

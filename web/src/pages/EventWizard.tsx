@@ -342,7 +342,11 @@ function SportStep({ form, errors, category }: Omit<StepProps, 'update'> & { cat
   return <>
     <span id="ev-sport-label" className={darkLabel}>Modalidade</span>
     <DarkChoice id={FIELD_ID.sport} labelId="ev-sport-label" value={form.sport} error={errors.sport}
-      options={sports.map(sport => ({ value: sport.value, label: <><SportIcon sport={sport.value} size={22} />{sport.label}</> }))}
+      options={sports.map(sport => ({
+        value: sport.value,
+        // Símbolo com aro só na opção marcada, na cor do texto do item selecionado (menta com texto escuro).
+        label: <>{form.sport === sport.value && <SportIcon sport={sport.value} forma="aro" size={22} className="size-[22px]" />}{sport.label}</>,
+      }))}
       onChange={value => category({ sport: value })} />
     {form.sport === 'futebol' && <>
       <span id="ev-format-label" className={darkLabel}>Formato</span>

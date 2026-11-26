@@ -67,8 +67,8 @@ export function Pilulas({ standings, standingsLoading, profiles, profilesLoading
             : () => onOpenRanking(status.kind === 'tier' && status.distanceKm ? { sport, distance: status.distanceKm } : { sport })
           return <button key={sport} type="button" data-slot="pill" data-sport={sport} onClick={open}
             aria-label={pillAccessibilityLabel(label, status)} aria-busy={status.kind === 'loading' || undefined}
-            className="flex min-h-11 min-w-0 cursor-pointer flex-col items-center gap-[3px] rounded-xl border-0 bg-white/7 px-1 py-2 text-center text-[10px] leading-[1.3] text-white [--sport-icon-color:rgb(255_255_255/0.82)] hover:bg-white/11 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mint">
-            <SportIcon sport={sport} size={20} mask />
+            className="flex min-h-11 min-w-0 cursor-pointer flex-col items-center gap-[3px] rounded-xl border-0 bg-white/7 px-1 py-2 text-center text-[10px] leading-[1.3] text-white hover:bg-white/11 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mint">
+            <SportIcon sport={sport} forma="aro" size={20} className="text-white/82" />
             <b className="block max-w-full truncate text-[11px]">{label}</b>
             <PillBody status={status} />
           </button>
