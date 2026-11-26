@@ -1,5 +1,55 @@
 # Situação da fundação do Arena
 
+## Fechamento dos selos de modalidade: remoção dos PNGs e documentação — 26 de novembro de 2026
+
+Fecha a feature dos selos de modalidade (tickets 01 a 07): os ícones provisórios de futebol, tênis e corrida dão lugar aos selos vetoriais na web e no Expo. A entrega é só de frontend e não completa o MVP.
+
+- **O que a entrega contém:**
+  - **Geometria única (ticket 01):** `scripts/gerar_selos.py`, só com a biblioteca padrão, gera `web/src/data/selos.ts` e `mobile/src/data/selos.ts`, idênticos e sem cor. `--check` confere se estão atualizados.
+  - **Três formas, escolhidas por uma prop obrigatória:** `forma` na web e `shape` no Expo.
+    - **Selo em ladrilho redondo** (`icon-tile`, selo a 75%), tickets 02 e 05: linhas de campeonato do Início, inclusive o troféu sem modalidade; card e folha de categoria do ranking; folha do perfil esportivo; trilho e filtro da linha do tempo.
+    - **Símbolo com aro** (85% da caixa), tickets 03 e 06: só no item ativo dos chips de modalidade, das abas do Jogar, do pedido de organizador e do assistente de evento; sempre nas pílulas "Seu elo", no placar, no cartaz de evento e na linha de modalidade única.
+    - **Marca d'água**, tickets 04 e 06: faixas de "Suas modalidades" e colunas da landing (só na web), com posição e opacidades mantidas.
+  - **Cores por token:**
+    - claro: disco `#153a2b` e detalhes brancos; escuro: disco `#16201b` e detalhes `#F4DE9A`;
+    - na web, `--color-selo-disco` e `--color-selo-detalhe`; no Expo, `selo-disco` e `selo-detalhe`;
+    - a troca de tema recolore sem recarregar.
+  - **Remoção (ticket 07):**
+    - saíram `{futebol,tenis,corrida}{,-alfa}.png` da web e do Expo, `web/scripts/gerar-icones-alfa.py` (Pillow) e `mobile/src/data/sportIcons.ts`;
+    - saiu o caminho raster do `SportIcon` nos dois clientes: máscara, `--sport-icon-color`, `mix-blend`, `invert`, `tintColor`, `inverted` e a ampliação de 138%;
+    - saíram o mapa `sportIcons` e os atalhos `FootballIcon`, `TennisIcon` e `RunningIcon` da web, sem uso;
+    - saíram os testes e os 37 mocks do Expo que fixavam o PNG.
+  - **Documentação:**
+    - a [decisão do tema](decisoes/0004-tema.md) ganhou emendas datadas nos itens de ícones de esporte e a nova §6, "Selos de modalidade";
+    - a [fidelidade visual](fidelidade-figma.md) ganhou a seção dos selos, com as decisões das cinco rodadas, o que foi descartado (ajuste óptico do tênis) e os desvios de cada ticket;
+    - o README perdeu a linha do script com Pillow e manteve a do gerador;
+    - não foi criada ADR própria; a justificativa está no 0004 §6.
+- **Sem mudança de backend, contrato, migração ou dependência.**
+
+**Verificações:**
+- **Árvore integrada final, idêntica à do ticket 07:**
+  - `python3 -I scripts/gerar_selos.py --check`: saída 0.
+  - **`web/`:** `npm run lint` e `npm run build`: ok. `vitest run --coverage`: 1.384 de 1.384 testes, em 102 arquivos. Cobertura: 94,09% de instruções, 88,04% de ramos, 93,72% de funções e 96,9% de linhas, acima dos pisos.
+  - **`mobile/`:** `npm run lint`, `npm run typecheck` e `npm run export:android`: ok. `vitest run --coverage`: 1.704 de 1.704 testes, em 112 arquivos. Cobertura: 96,56% de instruções, 91,05% de ramos, 95,9% de funções e 98,5% de linhas, acima dos pisos.
+- **Busca de referências:** em `web/`, `mobile/`, `scripts/` e `.github/`, fora de `node_modules`, não há referência a `-alfa.png`, `sports/*.png`, `images/sports`, `assets/sports`, `gerar-icones-alfa`, `sportIconsAlpha` nem `data/sportIcons`.
+- **Navegador (ticket 07):** API e PostgreSQL reais, com banco descartável populado só pela API e apagado ao fim.
+  - Telas: landing e Início em 320, 390 e 1440 px; Jogar, Campeonatos, Suas modalidades, ranking, folha de categoria e Perfil › Partidas em 390 px. Temas Dia e Noite.
+  - Nenhuma requisição a `/images/sports/`, nenhum overflow horizontal e nenhum erro de console além do 401 esperado de `/me` na landing sem sessão.
+  - Todos os ícones de modalidade são SVG com `data-forma` e `aria-hidden`.
+- As verificações de cada ticket estão nas entradas abaixo.
+
+**Limitações:**
+- Expo sem validação em aparelho ou simulador. O build e os testes não comprovam a renderização nem a paridade visual com a web.
+- O selo de 18 px nas folhas e nos filtros pequenos pode perder detalhe da coroa, sobretudo em aparelho.
+- A falha intermitente de `web/tests/matchmaking.test.tsx` ("prepara a busca com vagas…"), anterior à feature, continua. Ela apareceu em algumas execuções dos tickets, mas não na verificação final.
+- O CI remoto não foi executado.
+
+**Pendências:**
+- `AGENTS.md` ainda cita os ícones provisórios em `web/public/images/sports/` e o mapeamento de `web/src/data/arena.ts`, que não existem mais. A atualização depende da decisão do usuário.
+- `docs/plano-tema.md`, que é um plano histórico, mantém links para a pasta removida.
+- O `--check` do gerador não está no CI.
+- Review final da feature ainda não iniciado.
+
 ## Símbolo com aro nos usos pequenos da web — 26 de novembro de 2026
 
 Ticket 03 de 7 da feature dos selos de modalidade. A entrega é só de frontend web e não completa o MVP.
