@@ -1,4 +1,3 @@
-import { FootballIcon, TennisIcon, RunningIcon } from "../components/SportIcon";
 import { Home, Trophy, User, Users, Zap } from "lucide-react";
 import { positions } from "../api/client";
 import type { Position, Sport } from "../api/client";
@@ -49,11 +48,6 @@ export type Screen =
 export type ConnectionsTab = "followers" | "following";
 export { version as appVersion } from "../../package.json";
 export const cover = "/images/arena-cover.jpg";
-export const sportIcons = {
-  futebol: FootballIcon,
-  tenis: TennisIcon,
-  corrida: RunningIcon,
-};
 export const navItems = [
   { screen: "home", label: "Início", Icon: Home },
   { screen: "ranking", label: "Ranking", Icon: Trophy },

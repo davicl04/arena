@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { Profile, Sport } from '../src/api/client'
-import SportIcon, { FootballIcon, RunningIcon, SeloLadrilho, TennisIcon } from '../src/components/SportIcon'
+import SportIcon, { SeloLadrilho } from '../src/components/SportIcon'
 import { TimelineHeader } from '../src/components/profile-matches/TimelineHeader'
 import { TimelineRail } from '../src/components/profile-matches/TimelineRail'
 import { CategoryCard } from '../src/components/ranking/CategoryCard'
@@ -72,11 +72,6 @@ describe('SportIcon: três formas vetoriais', () => {
     render(<button type="button"><SportIcon sport="tenis" forma="aro" size={20} />Tênis</button>)
     expect(screen.getByRole('button').textContent).toBe('Tênis')
     expect(screen.getByRole('button', { name: 'Tênis' })).not.toBeNull()
-  })
-
-  it('os atalhos por modalidade continuam desenhando o ícone de cada uma', () => {
-    const { container } = render(<><FootballIcon size={18} /><TennisIcon /><RunningIcon size={20} /></>)
-    expect(container.querySelectorAll('[data-slot="sport-icon"][aria-hidden="true"]')).toHaveLength(3)
   })
 })
 

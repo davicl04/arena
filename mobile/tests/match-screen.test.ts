@@ -21,7 +21,6 @@ vi.mock('react-native', async () => (await import('./support/native')).reactNati
 vi.mock('react-native-svg', async () => (await import('./support/native')).svgMock())
 vi.mock('expo-secure-store', () => ({ getItemAsync: vi.fn(), setItemAsync: vi.fn(), deleteItemAsync: vi.fn() }))
 vi.mock('../src/api/client', async original => ({ ...await original<typeof import('../src/api/client')>(), request: vi.fn() }))
-vi.mock('../src/data/sportIcons', () => ({ sportIcons: { futebol: 'futebol.png', tenis: 'tenis.png', corrida: 'corrida.png' } }))
 
 /*
  * Tela da partida (P2): cabeçalho, estados da tela, cartão de condições, folha "Propor condições" (data, horário, quadra e

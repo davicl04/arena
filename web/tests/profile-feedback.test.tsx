@@ -52,7 +52,7 @@ describe('SportProfileSheet', () => {
     expect(icon.getAttribute('data-forma')).toBe('selo')
     expect(icon.closest('[data-slot="icon-tile"]')?.getAttribute('data-shape')).toBe('round')
     expect(icon.closest('[aria-hidden="true"]')).not.toBeNull()
-    expect(dialog.querySelector('img[src*="/images/sports/"]')).toBeNull()
+    expect(dialog.querySelector('img')).toBeNull()
   })
 })
 

@@ -21,10 +21,6 @@ import { byId, render } from './support/review'
 vi.mock('react-native', async () => (await import('./support/native')).reactNativeMock())
 vi.mock('react-native-svg', async () => (await import('./support/native')).svgMock())
 vi.mock('expo-secure-store', () => ({ getItemAsync: vi.fn(), setItemAsync: vi.fn(), deleteItemAsync: vi.fn() }))
-vi.mock('../src/data/sportIcons', () => ({
-  sportIcons: { futebol: 'futebol.png', tenis: 'tenis.png', corrida: 'corrida.png' },
-  sportIconsAlpha: { futebol: 'futebol-alfa.png', tenis: 'tenis-alfa.png', corrida: 'corrida-alfa.png' },
-}))
 
 const h = React.createElement
 const SPORTS: Sport[] = ['futebol', 'tenis', 'corrida']

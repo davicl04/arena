@@ -10,7 +10,6 @@ import { admin } from './support/review'
 vi.mock('react-native', async () => (await import('./support/native')).reactNativeMock())
 vi.mock('react-native-svg', async () => (await import('./support/native')).svgMock())
 vi.mock('expo-secure-store', () => ({ getItemAsync: vi.fn(), setItemAsync: vi.fn(), deleteItemAsync: vi.fn() }))
-vi.mock('../src/data/sportIcons', () => ({ sportIcons: { futebol: 'futebol.png', tenis: 'tenis.png', corrida: 'corrida.png' } }))
 // As telas que carregam o seletor de imagens do Expo ficam fora: o registro só precisa delas como componentes.
 vi.mock('../src/screens/CommunityScreen', async () => (await import('./support/review')).hostScreen('CommunityScreen'))
 vi.mock('../src/screens/ProfileScreen', async () => (await import('./support/review')).hostScreen('ProfileScreen'))

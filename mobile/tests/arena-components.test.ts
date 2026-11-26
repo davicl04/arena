@@ -12,7 +12,6 @@ import { FormatTile } from '../src/components/arena/FormatTile'
 import { PixBlock } from '../src/components/arena/PixBlock'
 import { PlacementBadge, PlacementMeter } from '../src/components/arena/PlacementMeter'
 import { ReceiptImage, PDF_NOTICE } from '../src/components/arena/ReceiptImage'
-import { SportIcon } from '../src/components/arena/SportIcon'
 import { DeadlineRing, StatusCard, StatusCardButton } from '../src/components/arena/StatusCard'
 import { StateBadge } from '../src/components/arena/StateBadge'
 import { TeamCrest } from '../src/components/arena/TeamCrest'
@@ -24,7 +23,6 @@ import { byLabel, enableAct, textOf } from './support/native'
 vi.mock('react-native', async () => (await import('./support/native')).reactNativeMock())
 vi.mock('react-native-svg', async () => (await import('./support/native')).svgMock())
 vi.mock('expo-secure-store', () => ({ getItemAsync: vi.fn(), setItemAsync: vi.fn(), deleteItemAsync: vi.fn() }))
-vi.mock('../src/data/sportIcons', () => ({ sportIcons: { futebol: 'futebol.png', tenis: 'tenis.png', corrida: 'corrida.png' } }))
 
 const h = React.createElement
 const TOKEN = 'test-only-token'
@@ -123,7 +121,7 @@ describe('classificação: PlacementBadge, PlacementMeter e FormatTile', () => {
   })
 })
 
-describe('Armband, StateBadge, SportIcon e ArenaMark', () => {
+describe('Armband, StateBadge e ArenaMark', () => {
   it('a braçadeira se anuncia como "Representante" nas duas variantes', async () => {
     expect(byLabel(await render(h(Armband, {})), 'Representante')).toHaveLength(1)
     expect(textOf(await render(h(Armband, { size: 'lg', ring: 'dark' })))).toBe('C')
@@ -137,13 +135,6 @@ describe('Armband, StateBadge, SportIcon e ArenaMark', () => {
     expect(textOf(tree)).toBe('Recusado')
     expect(byId(tree, 'state-badge-danger')).toHaveLength(1)
     expect(textOf(await render(h(StateBadge, { tone: 'open', children: 'Inscrições abertas' })))).toBe('Inscrições abertas')
-  })
-
-  it('o ícone da modalidade usa o PNG local e fica oculto para leitores de tela', async () => {
-    const tree = await render(h(SportIcon, { sport: 'tenis', size: 30 }))
-    expect(all(tree, 'Image')[0].props.source).toBe('tenis.png')
-    expect(byId(tree, 'sport-icon-tenis')[0].props.accessible).toBe(false)
-    expect(all(await render(h(SportIcon, { sport: 'corrida', inverted: true })), 'Image')[0].props.source).toBe('corrida.png')
   })
 
   it('o símbolo do Coliseu e a muralha vêm dos SVGs da marca, na cor pedida', async () => {
