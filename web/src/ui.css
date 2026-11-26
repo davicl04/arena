@@ -84,6 +84,9 @@
   --color-heading: #495057;
   --color-icon-tile: #005a3612;
   --color-icon-tile-ink: #005a36;
+  /* Selo de modalidade (SportIcon forma="selo"): disco verde e detalhes (coroa, anel e símbolo) brancos. */
+  --color-selo-disco: #153a2b;
+  --color-selo-detalhe: #fff;
   --color-eyebrow: #626970;
   --color-hover: #f6f7f9;
   --color-nav: #e2e4e9f7;
@@ -202,6 +205,8 @@
   --color-heading: #fff;
   --color-icon-tile: #f4de9a14;
   --color-icon-tile-ink: #f4de9a;
+  --color-selo-disco: #16201b; /* selo no escuro: disco escuro e detalhes no dourado dos elos */
+  --color-selo-detalhe: #f4de9a;
   --color-eyebrow: #f4de9acc;
   --color-hover: #ffffff08;
   --color-nav: #040806f2;
