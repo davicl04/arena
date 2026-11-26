@@ -1,5 +1,51 @@
 # Situação da fundação do Arena
 
+## Selos de modalidade na web: componente de três formas e selo em ladrilho redondo — 26 de novembro de 2026
+
+Ticket 02 de 7 da feature dos selos de modalidade. A entrega é só de frontend web e não completa o MVP.
+
+- **Componente:** o `SportIcon` da web desenha três formas a partir da geometria gerada em `src/data/selos.ts`, escolhidas explicitamente pela prop `forma`:
+  - `selo`: disco, coroa, anel e símbolo;
+  - `aro`: símbolo com aro a 85% da caixa, numa cor só;
+  - `marca`: só o símbolo.
+- **Tokens:** o selo usa os novos `--color-selo-disco` e `--color-selo-detalhe`. No claro são `#153a2b` e branco; no escuro, `#16201b` e `#F4DE9A`. A troca de tema recolore pelo CSS, sem recarregar nem piscar.
+- **Ladrilho redondo:** o `IconTile` ganhou a variante `shape="round"`, com o tingido `icon-tile`, e o `SeloLadrilho` põe o selo a 75% do diâmetro.
+- **Usos migrados:** os seis usos de selo deixaram PNG, máscara e inversão:
+  - linhas de campeonato do Início, com 40 px (o campeonato sem modalidade mostra o troféu no mesmo ladrilho redondo);
+  - card de categoria do ranking, com 38 px;
+  - opções de modalidade da folha de categoria, com 34 px;
+  - ícone da folha do perfil esportivo, com 24 px;
+  - nó do trilho da linha do tempo, com 30 px dentro do círculo de 32 px;
+  - opções do filtro da linha do tempo, com 24 px.
+- **Quadros sem modalidade:** continuam com cantos arredondados.
+- **Usos não migrados:** chips, abas, pílulas, placar, cartaz, faixas, landing, pedido de organizador e assistente ainda usam o ícone provisório em PNG (sem `forma`) até os tickets 03 e 04. Nenhum asset foi removido.
+
+**Verificações:**
+- **`web/`, no worker:**
+  - `npm run lint` e `npm run build`: ok.
+  - `npm run test:coverage`: 1.372 testes, em 100 arquivos.
+  - Cobertura: 94,1% de instruções, 88,06% de ramos, 93,73% de funções e 96,9% de linhas, acima dos pisos.
+- **Árvore integrada:** o subdiretório `web/` é idêntico ao do worker.
+  - `npm run lint` e `npm run build`: ok.
+  - `vitest run`: 1.371 de 1.372 testes. A única falha é a pré-existente de `tests/matchmaking.test.tsx`.
+- **Testes:**
+  - O teste que verificava a máscara `tenis-alfa.png` foi substituído por um que prova a troca de cor do selo pelos tokens entre claro e escuro, sem PNG.
+  - Os testes novos cobrem as três formas nas três modalidades, o ladrilho redondo a 75%, o troféu no ladrilho redondo e os seis usos com nomes acessíveis iguais.
+- **Navegador:** Playwright, com banco descartável e contas, perfis, marca de corrida e dois campeonatos criados pela API real. Conferidos em 320, 390 e 1440 px, Dia e Noite:
+  - Início, ranking (card e folha), folha do perfil esportivo e linha do tempo (trilho e filtro): sem overflow horizontal e sem erros no console;
+  - nenhum PNG de modalidade nesses usos;
+  - a troca Dia → Noite → Dia pelo cartão Aparência recolore o selo no mesmo documento.
+
+**Limitações:**
+- O troféu no ladrilho redondo só foi verificado em teste. O Início lista campeonatos por modalidade, então o fluxo real não exibe campeonato sem modalidade.
+- Nas folhas e no filtro, a medida atual do ícone virou o diâmetro do ladrilho, então o selo fica com 18 px.
+- O card do ranking trocou `bg-tile` por `bg-icon-tile`, porque no escuro `tile` tem a mesma cor do disco do selo.
+
+**Pendências:**
+- Símbolo com aro em chips, abas, seletores, pílulas, placar, cartaz e linha de modalidade única (ticket 03).
+- Marca d'água nas faixas e na landing (ticket 04).
+- Remoção dos PNGs, do script com Pillow e da forma provisória, com a documentação (ticket 07).
+
 ## Selos de modalidade no Expo: componente de três formas e ladrilho redondo — 26 de novembro de 2026
 
 Ticket 05 de 7 da feature dos selos de modalidade. A entrega é só de frontend Expo e não completa o MVP.
