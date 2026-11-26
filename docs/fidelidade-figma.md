@@ -33,6 +33,8 @@ Moedas, carteira e seus acessos foram removidos da web. A sequência visual de e
 
 Os ícones de modalidades foram posteriormente substituídos pelos três PNGs enviados pelo usuário, de forma provisória. A troca foi centralizada no componente `SportIcon`, incluindo home, preparação esportiva, filtros e chips, sem modificar a marca nem os SVGs de elo.
 
+**Emenda de 26 de novembro de 2026:** os PNGs provisórios foram substituídos pelos [selos de modalidade](#selos-de-modalidade--26-de-novembro-de-2026) vetoriais e removidos do repositório.
+
 ## Revisão do conteúdo do perfil — 10 de outubro de 2026
 
 Em sessão de protótipos, o usuário fechou as decisões abaixo para o conteúdo do perfil, registradas no [plano](plano-perfil-conteudo.md). Elas valem para a web e para o Expo e também para o feed da Comunidade. O HTML final do protótipo foi copiado para `artifacts/prototipos/perfil-conteudo.html` (não versionado) como referência.
@@ -116,6 +118,7 @@ Ajuste posterior pedido pelo usuário, decidido em sessão de protótipos e regi
 - **Navegação inferior:** preta translúcida com desfoque, moldura dourada no item ativo e botão Jogar em menta com brilho.
 - **Controle:** cartão "Luzes do estádio" no Menu do Perfil (seção Aparência), com Dia, Noite e Automático.
 - **Ícones de esporte:** brancos no escuro, pintados por máscara a partir do PNG com alfa.
+  - **Emenda de 26 de novembro de 2026:** a máscara e o PNG com alfa saíram. No escuro, o selo usa disco escuro e detalhes no dourado dos elos, por token (ver [selos de modalidade](#selos-de-modalidade--26-de-novembro-de-2026)).
 
 No Expo, o cartão escuro é chapado (sem degradê) e não há borda acesa onde o claro não tinha borda. Não há declaração de paridade visual do Expo nem validação em aparelho.
 
@@ -146,7 +149,7 @@ Ajuste posterior pedido pelo usuário, decidido numa sessão de protótipos com 
 - As etiquetas dos campeonatos seguem o formato dos cartazes ("R$ 40", "8 de 16 times"), e não "R$ 40 por time" e "8 de 16 vagas".
 - O cartão do próximo passo mantém o texto atual ("Mostre onde e como você gosta de jogar."), e o convite sem perfis segue a spec ("Configure suas modalidades"). O protótipo mostrava "Escolha suas modalidades para jogar" e "Defina sua cidade".
 - Os lados do confronto usam os tamanhos existentes de escudo e avatar. Sem quadra definida, a linha do local não aparece.
-- Na web, os ícones de modalidade sobre os blocos escuros são pintados por máscara (`SportIcon`). A 320 px, o título dos Campeonatos e o convite sem perfis truncam com reticências, e a métrica da corrida ("1:45:30 · 21 km") quebra em duas linhas, sem overflow.
+- Na web, os ícones de modalidade sobre os blocos escuros são pintados por máscara (`SportIcon`; desde 26 de novembro de 2026, símbolo com aro vetorial em branco, ver [selos de modalidade](#selos-de-modalidade--26-de-novembro-de-2026)). A 320 px, o título dos Campeonatos e o convite sem perfis truncam com reticências, e a métrica da corrida ("1:45:30 · 21 km") quebra em duas linhas, sem overflow.
 - No Expo, a marca d'água do Placar fica centralizada (placa `TeamsPlate`), e a das Pílulas fica no canto. Os ícones usam os SVGs com alfa e o `Icon` existentes, sem desfoque.
 
 A web foi conferida no navegador, com API e PostgreSQL reais, em 320, 390 e 1440 px, nos temas claro e escuro. As verificações estão na [situação da fundação](situacao-fundacao.md). No Expo, não há declaração de paridade visual nem validação em aparelho.
@@ -209,3 +212,40 @@ Ajuste posterior pedido pelo usuário, decidido numa sessão de protótipos com 
   - O carregamento antes da leitura de `/me` continua seguindo o tema.
 
 A web foi conferida no navegador, com API e PostgreSQL reais, em 320, 390 e 1440 px, nos temas Dia e Noite e com movimento reduzido. As animações só foram vistas no Chromium headless, sem aparelho nem Safari. No Expo, não há declaração de paridade visual com a web nem validação em aparelho.
+
+## Selos de modalidade — 26 de novembro de 2026
+
+Ajuste posterior pedido pelo usuário. Não vem do Figma. O designer entregou novos ícones de futebol, tênis e corrida: selos circulares com disco verde, coroa de louros, anel e símbolo central. Os arquivos chegaram como bitmaps embutidos em SVG, com um defeito de recorte, e foram recriados como vetores reais. Uma sessão de protótipos com cinco rodadas decidiu como os selos entram no app. Eles **substituem os ícones provisórios em PNG** de 9 de outubro, que saíram dos dois clientes junto com o script com Pillow. A especificação de trabalho está em `.scratch/selos-modalidade/spec.md`, e o protótipo, em `artifacts/prototipo-selos/index.html`. Nenhum dos dois é versionado, e o protótipo deve ser aberto por um servidor HTTP local. Ele é material de consulta: a spec prevalece. As cores por tema e o fim das compensações estão na [decisão do tema](decisoes/0004-tema.md#6-selos-de-modalidade--26-de-novembro-de-2026), e o registro da entrega, na [situação da fundação](situacao-fundacao.md).
+
+**Decisões da sessão de protótipos:**
+- **Três formas:** o **selo** completo (disco, coroa, anel e símbolo) nos tamanhos maiores, o **símbolo com aro** (só o desenho central num anel fino) nos tamanhos pequenos e a **marca d'água** (só o símbolo, grande e translúcido, cortado no canto). A direção "selo + símbolo" veio da primeira rodada, e a segunda definiu o tratamento de cada grupo de componentes.
+- **Ladrilho redondo (rodada 3):** o selo fica centralizado num ladrilho circular tingido `icon-tile`, ocupando 75% do diâmetro, no tamanho de cada contexto. O troféu de campeonato sem modalidade usa o mesmo ladrilho, para a coluna de ícones da lista ficar uniforme. No escuro, o selo tem disco escuro e detalhes no dourado dos elos.
+- **Símbolo com aro (rodada 4):** entre 100%, **85%** e 78% da caixa, ficou 85%. A mesma escala vale para as três modalidades.
+- **Onde cada forma entra:**
+  - **selo em ladrilho redondo:** linhas de campeonato do Início, card de categoria do ranking, ícone da folha do perfil esportivo, nó do trilho da linha do tempo, opções de modalidade da folha de categoria e opções do filtro da linha do tempo;
+  - **símbolo com aro só no item ativo:** chips de filtro por modalidade, abas do Jogar, modalidades do pedido de organizador e do assistente de evento. O item inativo mostra só o texto, sem espaço reservado, e a largura do item pode variar ao ganhar o ícone;
+  - **símbolo com aro sempre:** pílulas "Seu elo", selo de modalidade do placar, rodapé do cartaz de evento e a linha "{Modalidade} é a sua única modalidade ativa" da folha de categoria;
+  - **marca d'água (rodada 5):** faixas de "Suas modalidades" e colunas de modalidade da landing, mantendo posição, tamanho e opacidades anteriores.
+
+**O que foi descartado e por quê:**
+- **Ajuste óptico do tênis** ("Tênis maior"): avaliado na rodada 4 e não escolhido. A raquete usa a mesma escala da bola e da pista.
+- **Ícone em todos os itens** de chips, abas e seletores: ficou só no item ativo, decisão fixada antes da rodada 5. O ícone não substitui o estado de seleção, que continua no estilo e em `aria-pressed`, `aria-selected` ou `checked`.
+- **Inversões, misturas e máscaras de PNG:** a geometria vetorial é colorida por token ou pela cor do texto, nos dois temas.
+
+**Desvios mantidos em relação ao protótipo e à spec:**
+- **Geometria:** o símbolo do futebol inclui o anel interno fino do desenho do designer, que aparece também no símbolo com aro e na marca d'água. As cordas da raquete são recortadas analiticamente.
+- **Web:**
+  - O fundo do ladrilho do card de categoria do ranking passou de `tile` para `icon-tile`, porque o `tile` do escuro é igual ao disco do selo.
+  - O trilho da linha do tempo mantém o círculo opaco de 32 px, com o ladrilho redondo de 30 px dentro.
+  - Onde não havia quadro (folha de categoria e filtro da linha do tempo), o tamanho do ícone anterior virou o diâmetro do ladrilho. O selo fica com 18 px nesses contextos.
+  - Os chips do cabeçalho do perfil (`ProfileHeader`), fora do mapeamento, estão sempre ativos e mostram o símbolo com aro em `on-brand`, pela regra do chip.
+  - O ícone tem tamanho explícito: 20 px nos chips e 22 px nas opções de modalidade. No pedido de organizador, a opção marcada reduz o espaçamento à esquerda para acomodar o ícone.
+  - Na faixa de "Suas modalidades", o deslocamento inferior passou de 18 para 14 px, o que compensa o espaço de linha do ícone anterior e mantém a posição desenhada igual. O símbolo novo é um pouco mais alto que os louros antigos na mesma caixa, e a raquete é mais estreita.
+  - O troféu no ladrilho redondo foi conferido só nos testes, porque o Início real lista campeonatos por modalidade.
+- **Expo:**
+  - Nas pílulas ativas, o símbolo com aro segue a cor do texto da pílula ativa, e não o `on-brand` literal, que sumiria sobre o forest no escuro.
+  - O fundo dos ladrilhos de Campeonatos e do card de categoria passou de `tile` para `icon-tile`, e o troféu, de `brand` para `icon-tile-ink`.
+  - O ladrilho do trilho tem 26 pt dentro do nó opaco de 30 pt, e a opção de categoria selecionada mantém o selo sobre o forest.
+  - O selo de 18 pt da folha do perfil esportivo pode perder detalhe da coroa em aparelho.
+
+A web foi conferida no navegador, com API e PostgreSQL reais, em 320, 390 e 1440 px, nos temas Dia e Noite, sem requisições a ícones raster de modalidade. No Expo, as verificações foram testes, checagem de tipos e exportação do bundle Android. Não há declaração de paridade visual do Expo nem validação em aparelho.
