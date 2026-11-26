@@ -1,5 +1,46 @@
 # Situação da fundação do Arena
 
+## Símbolo com aro nos usos pequenos da web — 26 de novembro de 2026
+
+Ticket 03 de 7 da feature dos selos de modalidade. A entrega é só de frontend web e não completa o MVP.
+
+- **O que mudou:** na web, o símbolo com aro (`SportIcon forma="aro"`, SVG em linha, com o desenho a 85% da caixa) substitui o ícone de louros em PNG nos usos pequenos de modalidade.
+- **Só no item ativo**, pelo estado de seleção que já existia e sem espaço reservado no item inativo:
+  - chips de modalidade dos Campeonatos;
+  - abas de modalidade do Jogar, pelo novo campo opcional `activeIcon` em `TabItem`;
+  - modalidades marcadas no pedido de organizador;
+  - modalidade escolhida no assistente de evento.
+- **Sempre:**
+  - pílulas "Seu elo", em branco a 82%;
+  - selo de modalidade do placar, em branco;
+  - rodapé do cartaz de evento, em branco, também na prévia do assistente;
+  - linha "{Modalidade} é a sua única modalidade ativa" da folha de categoria, em `icon-tile-ink`.
+- **Chips do perfil:** os chips das modalidades do perfil, que estão sempre ativos e não constam do mapeamento da spec, seguem a regra dos chips e mostram o aro na cor do texto sobre a marca.
+- **Cores:** o chip ou a opção ativos usam a cor do próprio texto (`on-brand`, ou a do item selecionado no seletor escuro). Os blocos escuros por design ficam iguais nos dois temas.
+- **Compensações removidas** desses componentes: inversões, misturas (`screen`, `multiply`), máscaras de PNG e `--sport-icon-color`.
+- **Acessibilidade:** a seleção continua em `aria-pressed`/`aria-selected` e no estilo atual. Os nomes acessíveis e a ordem de foco não mudam, e o ícone segue `aria-hidden`, com `data-slot="sport-icon"`.
+
+**Verificações:**
+- **`web/`, no worker:**
+  - `npm run lint` e `npm run build`: ok.
+  - `npm run test:coverage`: 1.381 testes, em 101 arquivos.
+  - Cobertura: 94,1% de instruções, 88,07% de ramos, 93,73% de funções e 96,9% de linhas.
+- **Árvore integrada, que já inclui o ticket 04:** `npm run lint` e `npm run build` passaram. `vitest run` teve 1.384 de 1.385 testes; a única falha é a pré-existente de `tests/matchmaking.test.tsx`.
+- **Teste novo:** `tests/sport-icon-aro.test.tsx`, com 9 casos, todos falhando com os componentes anteriores:
+  - ícone só no item ativo, mudando ao selecionar pelo clique e pelo teclado, e sumindo ao desmarcar;
+  - ícone sempre nas pílulas, no placar, no cartaz, na linha única e nos chips do perfil;
+  - nomes acessíveis inalterados.
+- **Navegador:** Playwright, com banco descartável populado só pela API real (com uma partida de tênis agendada pelo fluxo de busca) e removido ao fim.
+  - Telas conferidas em 320, 390 e 1440 px, nos temas Dia e Noite: Início, Jogar (abas pelo teclado), Campeonatos (chips pelo teclado), Perfil, cartazes do Menu, pedido de organizador, assistente com a prévia do cartaz e folha de categoria.
+  - Sem overflow horizontal, inclusive quando o chip ou a aba ganham o ícone, sem erros no console e sem requisições a `/images/sports/*.png`.
+  - A troca de tema sem recarregar recolore o chip ativo; as pílulas não mudam.
+
+**Limitações:**
+- O mapa `sportIcons` de `web/src/data/arena.ts` e os atalhos `FootballIcon`, `TennisIcon` e `RunningIcon` ficaram sem uso em `src`, mas ainda apontam para o ícone provisório em PNG.
+
+**Pendências:**
+- Remoção dos PNGs, do script com Pillow, do caminho legado do `SportIcon` e dos atalhos sem uso, mais a documentação final (ticket 07).
+
 ## Marca d'água vetorial dos selos nas faixas e na landing (web) — 26 de novembro de 2026
 
 Ticket 04 de 7 da feature dos selos de modalidade. A entrega é só de frontend web e não completa o MVP.
