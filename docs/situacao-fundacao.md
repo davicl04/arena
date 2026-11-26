@@ -1,5 +1,41 @@
 # Situação da fundação do Arena
 
+## Selos de modalidade no Expo: componente de três formas e ladrilho redondo — 26 de novembro de 2026
+
+Ticket 05 de 7 da feature dos selos de modalidade. A entrega é só de frontend Expo e não completa o MVP.
+
+- **Componente:** o `SportIcon` do Expo desenha as três formas do selo com `react-native-svg`, a partir da geometria gerada em `mobile/src/data/selos.ts`. A forma é escolhida pela prop `shape`, nunca pela medida:
+  - `selo`: disco, coroa, anel e símbolo, nas cores do tema;
+  - `aro`: símbolo com aro, numa cor só, ocupando 85% da caixa;
+  - `marca`: só o símbolo, numa cor só.
+- **Tokens:** os novos `selo-disco` e `selo-detalhe` ficam em `src/theme.ts` e `global.css`. No claro são `#153a2b` e branco; no escuro, `#16201b` e `#F4DE9A`. São lidos por `useThemeColors()`, então o selo acompanha a troca de tema.
+- **Ladrilho redondo:** os novos `RoundTile` e `SeloTile` (`components/arena/RoundTile.tsx`) usam o tingido `icon-tile`, com o selo em 75% do diâmetro. Tamanhos de ladrilho por uso:
+  - linhas de campeonato do Início: 40 (o campeonato sem modalidade mostra o troféu no mesmo ladrilho);
+  - card de categoria do ranking: 40;
+  - ícone da folha do perfil esportivo: 24;
+  - nó do trilho da linha do tempo: 26, dentro do nó de 30;
+  - opções de modalidade da folha de categoria: 30;
+  - opções do filtro da linha do tempo: 26.
+- **Compensações removidas:** nesses usos saíram `inverted`, a ampliação de 138%, `tintColor` e `mixBlendMode`. Os demais quadros de ícone não mudam.
+- **Usos não migrados:** pílulas, placar, cartaz, chips, PlateChips, faixas e a linha de modalidade única continuam no caminho raster provisório até o ticket 06. Nenhum PNG foi removido.
+
+**Verificações:**
+- **`mobile/`, no worker:**
+  - `npm ci`, `npm run lint` e `npm run typecheck`: ok.
+  - `npm run test:coverage`: 1.695 testes, em 111 arquivos. Inclui o novo `tests/sport-icon-selos.test.ts` e asserções novas em `profile-timeline` e `sports-profiles`.
+  - Cobertura: 96,57% de instruções, 91,04% de ramos, 95,91% de funções e 98,5% de linhas, acima dos pisos.
+  - `npm run export:android`: ok.
+- **Árvore integrada (idêntica à do worker):** `npm run lint`, `npm run typecheck` e `vitest run` com 1.695 de 1.695 testes.
+
+**Limitações:**
+- O build e os testes, que simulam o `react-native-svg` em Node, não comprovam a renderização em Android ou iOS. Não há paridade visual declarada do Expo.
+- Os ladrilhos do Campeonatos e do card do ranking trocaram o fundo `tile` pelo `icon-tile` da spec, e o troféu passou a `icon-tile-ink`.
+- Nas folhas e no trilho, que não tinham ladrilho, a caixa atual do ícone foi tomada como diâmetro do ladrilho.
+
+**Pendências:**
+- Símbolo com aro e marca d'água nos usos restantes do Expo (ticket 06).
+- Remoção dos PNGs, de `data/sportIcons.ts` e do caminho raster do `SportIcon` (ticket 07).
+
 ## Gerador da geometria dos selos de modalidade — 26 de novembro de 2026
 
 Primeira entrega da feature dos selos de modalidade (ticket 01 de 7), que vai trocar os ícones provisórios em PNG por selos vetoriais na web e no Expo. Nenhum componente usa a geometria ainda, e a entrega não completa o MVP.
