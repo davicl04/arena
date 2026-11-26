@@ -66,6 +66,8 @@
   --color-heading: #343d39;
   --color-icon-tile: #005a3612;
   --color-icon-tile-ink: #005a36;
+  --color-selo-disco: #153a2b;
+  --color-selo-detalhe: #ffffff;
   --color-eyebrow: #606965;
   --color-surface-edge: transparent;
   --color-nav: #ffffff;
@@ -110,6 +112,8 @@
     --color-heading: #ffffff;
     --color-icon-tile: #f4de9a14;
     --color-icon-tile-ink: #f4de9a;
+    --color-selo-disco: #16201b;
+    --color-selo-detalhe: #F4DE9A;
     --color-eyebrow: #f4de9acc;
     --color-surface-edge: #ffffff12;
     --color-nav: #040806;
