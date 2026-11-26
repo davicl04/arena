@@ -1,5 +1,38 @@
 # Situação da fundação do Arena
 
+## Símbolo com aro e marca d'água dos selos no Expo — 26 de novembro de 2026
+
+Ticket 06 de 7 da feature dos selos de modalidade. A entrega é só de frontend Expo e não completa o MVP.
+
+- **Símbolo com aro só no item marcado:** chips de modalidade do filtro de campeonatos, modalidades do pedido de organizador, seletor de modalidade do assistente de evento e abas de modalidade do Jogar.
+  - O aro vem na cor do texto do item: branco sobre `forest`, `night` sobre a menta do seletor escuro e branco nas abas.
+  - Os itens desmarcados mostram só o nome, sem espaço reservado. As quatro telas existem no Expo, então não há divergência a registrar.
+- **Símbolo com aro sempre:**
+  - pílulas "Seu elo": branco a 82%;
+  - selo de modalidade do placar e rodapé do cartaz: branco, igual nos dois temas;
+  - linha "{Modalidade} é a sua única modalidade ativa" da folha de categoria: `icon-tile-ink`.
+- **Marca d'água:** as faixas de "Suas modalidades" mostram só o símbolo, branco na faixa ativa e `icon-tile-ink` na inativa. Posição, tamanho e opacidades continuam os atuais.
+- **Compensações removidas:** nenhum uso de ícone de modalidade depende mais de `inverted`, da ampliação de 138%, de `tintColor` ou de `mixBlendMode`. O caminho raster do `SportIcon` ficou sem uso no app e sai na remoção dos assets.
+- **Mudanças de assinatura:** `ChoiceOption.leading` passou a receber também a cor do texto da pílula (mudança aditiva), e `sportChoices` deixou de receber o tom.
+
+**Verificações:**
+- **`mobile/`, no worker:**
+  - `npm ci`, `npm run lint` e `npm run typecheck`: ok.
+  - `npm run test:coverage`: 1.706 testes, em 112 arquivos.
+  - Cobertura: 96,56% de instruções, 91,03% de ramos, 95,91% de funções e 98,49% de linhas, acima dos pisos.
+  - `npm run export:android`: ok.
+- **Testes:**
+  - O novo `tests/sport-icon-aro-marca.test.ts` cobre o ícone só no item ativo e removido ao desmarcar; pílulas, placar e cartaz sempre com o aro; a linha da folha de categoria acompanhando o tema; a marca d'água das faixas; e a acessibilidade inalterada.
+  - O teste do rodapé do cartaz em `arena-components` deixou de verificar o PNG.
+- **Árvore integrada:** o subdiretório `mobile/` é idêntico ao do worker. `npm run lint`, `npm run typecheck` e `vitest run` passaram, com 1.706 de 1.706 testes.
+
+**Limitações:**
+- Sem validação em aparelho ou simulador. O build e os testes não comprovam a renderização em Android ou iOS nem a paridade visual com a web.
+- Na pílula marcada, a cor do aro segue o texto da pílula (branco sobre `forest` no tom claro), e não o token `on-brand`. No escuro, `on-brand` ficaria ilegível sobre `forest`.
+
+**Pendências:**
+- Remover os PNGs, o caminho raster do `SportIcon`, `data/sportIcons.ts` e o teste legado do PNG em `arena-components`, e atualizar a documentação dos selos (ticket 07).
+
 ## Selos de modalidade na web: componente de três formas e selo em ladrilho redondo — 26 de novembro de 2026
 
 Ticket 02 de 7 da feature dos selos de modalidade. A entrega é só de frontend web e não completa o MVP.
