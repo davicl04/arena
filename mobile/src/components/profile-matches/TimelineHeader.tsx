@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Pressable, Text, View } from 'react-native'
 import { useThemeColors } from '../../hooks/useTheme'
-import { SportIcon } from '../arena/SportIcon'
+import { SeloTile } from '../arena/RoundTile'
 import { Icon } from '../Icon'
 import Sheet from '../Sheet'
 import { countLine, filterLabel, filterOptions } from './timelineView'
@@ -31,7 +31,7 @@ export function TimelineHeader({ total, filter, onFilter }: { total: number | un
           return <Pressable key={option.label} accessibilityRole="radio" accessibilityLabel={option.label} accessibilityState={{ checked: selected }}
             onPress={() => { onFilter(option.value); setOpen(false) }}
             style={{ minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: 1, borderBottomColor: colors.line }}>
-            {option.value ? <SportIcon sport={option.value} size={26} /> : <View style={{ width: 26 }} />}
+            {option.value ? <SeloTile sport={option.value} size={26} /> : <View style={{ width: 26 }} />}
             <Text style={{ flex: 1, color: selected ? colors.brand : colors.ink, fontSize: 15, fontWeight: selected ? '800' : '600' }}>{option.label}</Text>
             {selected ? <Icon name="check" size={18} color={colors.brand} /> : null}
           </Pressable>

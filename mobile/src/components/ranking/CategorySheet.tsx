@@ -8,6 +8,7 @@ import { colors } from '../../theme'
 import { useThemeColors } from '../../hooks/useTheme'
 import { ChoicePills } from '../arena/controls'
 import type { ChoiceOption } from '../arena/controls'
+import { SeloTile } from '../arena/RoundTile'
 import { SportIcon } from '../arena/SportIcon'
 import { SectionTabs } from '../events/SectionTabs'
 import Sheet from '../Sheet'
@@ -32,7 +33,7 @@ function Group({ label, children }: { label: string; children: ReactNode }) {
 }
 
 /**
- * Folha "Categoria do ranking": a modalidade em blocos com o ícone (só as modalidades com perfil ativo; com uma só, o bloco some
+ * Folha "Categoria do ranking": a modalidade em blocos com o selo no ladrilho redondo (só as modalidades com perfil ativo; com uma só, o bloco some
  * e a folha diz que é a única), Times | Individual, o formato e a posição (futebol) ou a distância (corrida). A escolha vale na hora;
  * "Ver ranking" fecha a folha.
  */
@@ -54,7 +55,7 @@ export function CategorySheet({ available, value, onChange, onClose }: {
               onPress={() => { if (!selected) onChange({ sport }) }}
               style={{ flex: 1, minHeight: 76, alignItems: 'center', justifyContent: 'center', gap: 4, borderRadius: 14, borderWidth: 1, paddingVertical: 8,
                 backgroundColor: selected ? colors.forest : c.surface, borderColor: selected ? colors.forest : c['line-strong'] }}>
-              <SportIcon sport={sport} size={30} inverted={selected} />
+              <SeloTile sport={sport} size={30} />
               <Text style={{ color: selected ? '#ffffff' : c.ink, fontSize: 12, fontWeight: '700' }}>{sportLabel(sport)}</Text>
             </Pressable>
           })}

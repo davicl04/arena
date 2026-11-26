@@ -9,7 +9,7 @@ import { useThemeColors } from '../../hooks/useTheme'
 import { announce } from '../../utils/announce'
 import { ActionSheet } from '../arena/ActionSheet'
 import { ActionButton, ErrorText, SwitchRow, TextAction } from '../arena/controls'
-import { SportIcon } from '../arena/SportIcon'
+import { SeloTile } from '../arena/RoundTile'
 import { LocationCityStep } from './LocationCityStep'
 import { PositionStep } from './PositionStep'
 import { finishLabel, positionLabel, profileSteps, sportLabel, stepTitle } from './profileSteps'
@@ -83,7 +83,7 @@ export function SportProfileSheet({ sport, profile, onSave, onSaved, onClose, on
   }
 
   return <ActionSheet title={sportLabel(sport)} onClose={onClose} locked={busy}
-    icon={<SportIcon sport={sport} size={24} />}
+    icon={<SeloTile sport={sport} size={24} />}
     aside={<Text style={{ color: c['ink-muted'], fontSize: 11.5 }}>{progress}</Text>}>
     <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ flexDirection: 'row', gap: 5, marginTop: 6, marginBottom: 14 }}>
       {steps.map((item, position) => <View key={item} testID={position <= index ? 'profile-step-done' : 'profile-step-todo'}
