@@ -442,7 +442,8 @@ describe('EventPoster: cartaz E2/O3', () => {
     expect(byLabel(pending, '2 pendências')).toHaveLength(1)
     expect(byLabel(await render(h(EventPoster, { ...base, pendingCount: 1 })), '1 pendência')).toHaveLength(1)
     const sport = await render(h(EventPoster, { ...base, showSport: true }))
-    expect(all(sport, 'Image')[0].props.source).toBe('futebol.png')
+    expect(all(sport, 'Image')).toHaveLength(0)
+    expect(byId(sport, 'sport-icon-futebol')[0].findAllByType('Path' as never).map(path => path.props.fill)).toEqual(['#ffffff'])
   })
 
   it('o cartaz da lista é um botão com a descrição completa; o hero não', async () => {
