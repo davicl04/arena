@@ -786,18 +786,18 @@
     font-weight: 600;
     color: var(--color-heading);
   }
-  /* Marca d'água da modalidade (máscara do PNG com alfa, pintada de branco translúcido). */
+  /* Marca d'água da modalidade (SportIcon forma="marca": só o símbolo, em SVG na cor do texto), na cor de título. */
   .landing-coluna-marca {
-    --sport-icon-color: var(--color-heading);
     position: absolute;
     top: 8%;
     right: -8%;
     width: 62%;
     aspect-ratio: 1;
+    color: var(--color-heading);
     opacity: 0.07;
   }
   .landing-coluna[data-aberta] .landing-coluna-marca { opacity: 0.12; }
-  .landing-coluna-marca > [data-slot="sport-icon"] { width: 100% !important; height: 100% !important; }
+  .landing-coluna-marca > [data-slot="sport-icon"] { width: 100%; height: 100%; }
   /* Numeral romano: traço dourado; a coluna aberta preenche. */
   .landing-numeral {
     position: absolute;

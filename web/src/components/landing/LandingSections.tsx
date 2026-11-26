@@ -18,8 +18,8 @@ const sportColumns: ColumnItem[] = sports.map(sport => {
     tone: details.tone,
     kicker: sport.symbol,
     title: sport.label,
-    // Ícone da modalidade (PNG com alfa como máscara) em marca d'água.
-    decoration: <span className="landing-coluna-marca"><SportIcon sport={sport.value} size={480} mask /></span>,
+    // Marca d'água da modalidade: só o símbolo, na cor de título (`.landing-coluna-marca`).
+    decoration: <span className="landing-coluna-marca"><SportIcon sport={sport.value} forma="marca" size={480} /></span>,
     content: (
       <>
         <p>{details.description}</p>
