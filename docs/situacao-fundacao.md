@@ -1,5 +1,39 @@
 # Situação da fundação do Arena
 
+## Gerador da geometria dos selos de modalidade — 26 de novembro de 2026
+
+Primeira entrega da feature dos selos de modalidade (ticket 01 de 7), que vai trocar os ícones provisórios em PNG por selos vetoriais na web e no Expo. Nenhum componente usa a geometria ainda, e a entrega não completa o MVP.
+
+- **Gerador:** o novo `scripts/gerar_selos.py` usa só a biblioteca padrão e evolui o gerador da sessão, com as proporções aprovadas. Ele grava `web/src/data/selos.ts` e `mobile/src/data/selos.ts`, dois módulos TS idênticos, marcados como gerados.
+- **Conteúdo:** geometria sem cor dos selos de futebol, tênis e corrida:
+  - coroa com dois ramos de 15 pares de folhas, haste e anel;
+  - símbolo, com o anel interno duplo do futebol;
+  - símbolo com aro: anel com r ≈ 0,92 da caixa, traço ≈ 6,6% e símbolo em escala 0,95, sem ajuste óptico.
+- **Formato:** traços, recortes e `use` do desenho saem resolvidos em caminhos fechados. Os clientes montam as três formas só com `<circle>` e `<path>` e pintam por token ou `currentColor`. A escolha de um módulo TS por cliente, gerado da mesma origem, resolve a questão não bloqueante da spec: um JSON compartilhado ficaria fora das raízes do Vite e do Metro.
+- **Comando:** `python3 -I scripts/gerar_selos.py`, registrado no README. `--check` confere se os arquivos estão atualizados e `--previa <pasta>` grava SVGs de prévia.
+- **Testes:** os novos `tests/selos-geometria.test.ts` (web e mobile) conferem formato, ausência de cor, comandos aceitos, aro e tamanho.
+- Os PNGs e o script com Pillow continuam até a migração dos clientes. Sem mudança de backend, contrato ou dependência.
+
+**Verificações:**
+- `python3 -I scripts/gerar_selos.py`, duas vezes seguidas: sem diff. `--check` sai com 0, e com 1 depois de uma alteração proposital.
+- **`web/`:**
+  - `npm run lint` e `npm run build`: ok.
+  - `npm run test:coverage`: 1.355 de 1.356 testes, em 99 arquivos. A única falha é a pré-existente de `tests/matchmaking.test.tsx`, que também falha na base `d1dfcc6`.
+  - Cobertura: 94,09% de instruções e 88,03% de ramos.
+- **`mobile/`:**
+  - `npm run lint` e `npm run typecheck`: ok.
+  - `npm run test:coverage`: 1.677 testes, em 110 arquivos.
+  - Cobertura: 96,56% de instruções e 91,01% de ramos.
+- **Comparação visual:** Playwright, pixel a pixel a 512 px, contra os SVGs da sessão e o aro do protótipo. As diferenças são só de suavização nas bordas.
+
+**Limitações:**
+- O selo completo tem cerca de 9 a 10 KB sem compressão e cerca de 4 KB com gzip. A coroa é a mesma nas três modalidades.
+- `npm run export:android` não foi executado, porque a geometria ainda não tem consumidor no app.
+
+**Pendências:**
+- Consumo nos componentes da web (tickets 02 a 04) e do Expo (05 e 06).
+- Remoção dos PNGs e do script com Pillow, e atualização da documentação (07).
+
 ## Fechamento da landing e da nova tela de entrada — 24 de novembro de 2026
 
 Fecha a entrega da [landing e nova tela de entrada](#plano-da-landing-e-da-nova-tela-de-entrada--24-de-novembro-de-2026) (tickets 01 a 07). A entrega é só de frontend e não completa o MVP.
