@@ -62,7 +62,7 @@ export function CategorySheet({ available, value, onChange, onClose }: {
         </View>
       </Group>
       : <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 }}>
-        <SportIcon sport={available[0] ?? value.sport} size={26} />
+        <SportIcon sport={available[0] ?? value.sport} shape="aro" size={26} color={c['icon-tile-ink']} />
         <Text style={{ flex: 1, color: c['ink-muted'], fontSize: 12.5 }}>{`${sportLabel(available[0] ?? value.sport)} é a sua única modalidade ativa`}</Text>
       </View>}
     {value.sport === 'futebol' ? <>

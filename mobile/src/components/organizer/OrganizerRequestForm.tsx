@@ -28,7 +28,7 @@ export function serverFieldErrors(cause: unknown): OrganizerRequestErrors {
   return errors
 }
 
-const sportOptions = sportChoices('light')
+const sportOptions = sportChoices()
 
 /**
  * Formulário do pedido de organizador (P5): nome, cidade (busca no catálogo), modalidades, experiência, contato, link e aceite.

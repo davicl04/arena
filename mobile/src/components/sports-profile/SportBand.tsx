@@ -35,7 +35,7 @@ export function SportBand({ sport, profile, onPress }: { sport: Sport; profile?:
       </Svg>
     </View> : null}
     <View pointerEvents="none" style={{ position: 'absolute', right: -14, bottom: -18, opacity: active ? 0.16 : 0.08 }}>
-      <SportIcon sport={sport} size={150} alpha color={active ? '#ffffff' : c['icon-tile-ink']} />
+      <SportIcon sport={sport} shape="marca" size={150} color={active ? '#ffffff' : c['icon-tile-ink']} />
     </View>
     <View style={{ position: 'absolute', top: 16, right: 16, bottom: 16, left: 16, justifyContent: 'space-between' }}>
       <Text style={{ alignSelf: 'flex-start', overflow: 'hidden', borderRadius: 999, paddingHorizontal: 9, paddingVertical: 4, fontSize: 10, fontWeight: '700', color: active ? colors.night : c['icon-tile-ink'], backgroundColor: active ? colors.mint : c['icon-tile'] }}>

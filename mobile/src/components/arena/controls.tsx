@@ -223,16 +223,19 @@ const pillLook = (c: ThemeColors) => ({
   },
 }) as const
 
-/** Modalidades como escolhas em pílulas, com o ícone da modalidade (invertido na pílula marcada, conforme o fundo). */
-export const sportChoices = (tone: Surface): ChoiceOption<Sport>[] => sports.map(sport => ({
-  value: sport.value, label: sport.label, leading: selected => <SportIcon sport={sport.value} size={22} inverted={tone === 'dark' ? !selected : selected} color={tone === 'dark' && selected ? colors.night : undefined} />,
+/**
+ * Modalidades como escolhas em pílulas: o símbolo com aro aparece só na pílula marcada, na cor do texto dela (branco sobre
+ * `forest` no tom claro, `night` sobre menta no seletor escuro). A desmarcada mostra só o nome, sem espaço reservado.
+ */
+export const sportChoices = (): ChoiceOption<Sport>[] => sports.map(sport => ({
+  value: sport.value, label: sport.label, leading: (selected, color) => (selected ? <SportIcon sport={sport.value} shape="aro" size={22} color={color} /> : null),
 }))
 
 export interface ChoiceOption<T extends string | number> {
   value: T
   label: string
-  /** Conteúdo antes do rótulo (ícone da modalidade, brasão do elo); recebe se a pílula está escolhida. */
-  leading?: (selected: boolean) => ReactNode
+  /** Conteúdo antes do rótulo (ícone da modalidade, brasão do elo); recebe se a pílula está escolhida e a cor do texto dela. */
+  leading?: (selected: boolean, color: string) => ReactNode
   /** Nome acessível, quando o rótulo visível é abreviado. */
   accessibilityLabel?: string
 }
@@ -247,7 +250,7 @@ function Pill<T extends string | number>({ option, selected, role, tone, accent,
   const look = accent && selected ? { bg: accentColor(c)[accent], border: accentColor(c)[accent], fg: c['on-brand'] } : base
   return <Pressable accessibilityRole={role} accessibilityLabel={option.accessibilityLabel ?? option.label} accessibilityState={{ checked: selected, selected, disabled }} disabled={disabled} onPress={onPress}
     style={{ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 12, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 6, backgroundColor: look.bg, borderColor: look.border, opacity: disabled ? 0.5 : 1 }}>
-    {option.leading ? option.leading(selected) : null}
+    {option.leading ? option.leading(selected, look.fg) : null}
     <Text style={{ color: look.fg, fontSize: 12.5, fontWeight: '700', flexShrink: 1 }}>{option.label}</Text>
   </Pressable>
 }

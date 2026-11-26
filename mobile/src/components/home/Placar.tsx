@@ -20,7 +20,7 @@ const unit = { color: '#ffffff', fontSize: 18, fontWeight: '700' as const }
 function SportTag({ sport }: { sport: MatchCard['sport'] }) {
   const label = sports.find(item => item.value === sport)?.label ?? sport
   return <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, borderRadius: 99, paddingHorizontal: 9, paddingVertical: 4, backgroundColor: 'rgba(255,255,255,0.08)' }}>
-    <SportIcon sport={sport} size={14} alpha color="#ffffff" />
+    <SportIcon sport={sport} shape="aro" size={14} color="#ffffff" />
     <Text style={{ color: '#ffffff', fontSize: 10.5, fontWeight: '600' }}>{label}</Text>
   </View>
 }

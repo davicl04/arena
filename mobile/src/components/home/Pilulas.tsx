@@ -78,7 +78,7 @@ export function Pilulas({ standings, standingsLoading, profiles, profilesLoading
             accessibilityHint={status.kind === 'no-profile' ? 'Abre suas modalidades' : `Abre o Ranking de ${label}`} onPress={open}
             style={{ flex: 1, minWidth: 0, minHeight: 44, alignItems: 'center', gap: 3, borderRadius: 12, paddingVertical: 8, paddingHorizontal: 4, backgroundColor: 'rgba(255,255,255,0.07)' }}>
             <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ width: '100%', alignItems: 'center', gap: 3 }}>
-              <SportIcon sport={sport} size={20} alpha color="rgba(255,255,255,0.82)" />
+              <SportIcon sport={sport} shape="aro" size={20} color="rgba(255,255,255,0.82)" />
               <Text numberOfLines={1} style={{ color: '#ffffff', fontSize: 11, fontWeight: '700' }}>{label}</Text>
               <PillBody status={status} />
             </View>

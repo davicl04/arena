@@ -20,7 +20,7 @@ import { useThemeColors } from '../hooks/useTheme'
 import { eventDateParts } from '../utils/format'
 
 /** Perfis esportivos e cidades: a cidade do filtro vem do perfil da modalidade. */
-const sportOptions = sportChoices('light')
+const sportOptions = sportChoices()
 
 /** Linha abaixo do cartaz: o motivo do cadeado ou por que não dá para se inscrever agora. */
 function posterNote(card: EventCard, locked: boolean): string {
