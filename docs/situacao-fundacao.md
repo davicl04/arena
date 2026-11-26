@@ -1,5 +1,40 @@
 # Situação da fundação do Arena
 
+## Marca d'água vetorial dos selos nas faixas e na landing (web) — 26 de novembro de 2026
+
+Ticket 04 de 7 da feature dos selos de modalidade. A entrega é só de frontend web e não completa o MVP.
+
+- **O que mudou:** as faixas de "Suas modalidades" e as colunas de modalidade da landing mostram a marca d'água da modalidade no lugar do ícone de louros em PNG com máscara alfa. É só o símbolo, em SVG (`SportIcon forma="marca"`), grande, translúcido e cortado no canto.
+- **Cores:**
+  - faixa ativa: branco;
+  - faixa inativa: `icon-tile-ink`;
+  - landing: a cor de título (`--color-heading`).
+
+  A cor vem do texto, então a troca de tema recolore pelo CSS, sem recarregar.
+- **Compensações removidas:** saíram desses componentes a variável `--sport-icon-color`, a máscara e os `!important` que existiam para o PNG.
+- **Posição, tamanho e opacidade iguais:** na faixa, o deslocamento inferior passou de 18 para 14 px. Os 4 px eram a folga de linha do `span` antigo; com o ajuste, a caixa de 150 px fica exatamente no mesmo lugar.
+- Os PNGs continuam no repositório para os usos ainda não migrados.
+
+**Verificações:**
+- **`web/`, no worker:**
+  - `npm run lint` e `npm run build`: ok.
+  - `npm run test:coverage`: 1.375 de 1.376 testes, com a falha pré-existente de `tests/matchmaking.test.tsx`. Numa nova execução, os 1.376 passaram, em 101 arquivos.
+  - Cobertura: 94,1% de instruções, 88,06% de ramos, 93,73% de funções e 96,9% de linhas.
+- **Árvore integrada:** o subdiretório `web/` é idêntico ao do worker. `npm run lint` e `npm run build` passaram, e `vitest run` teve 1.376 de 1.376 testes.
+- **Teste novo:** `tests/sport-icon-marca.test.tsx` verifica que as faixas (ativa e inativa) e as colunas da landing renderizam a marca nas três modalidades, oculta à acessibilidade e sem PNG.
+- **Navegador:** Playwright, com banco descartável populado só pela API e removido ao fim. Conferido em 320, 390 e 1440 px, Dia e Noite, antes e depois da mudança:
+  - caixa do ícone, opacidade e cor idênticas nas faixas e nas colunas abertas e fechadas;
+  - sem overflow horizontal;
+  - nenhuma requisição a `/images/sports/*.png` na landing nem nas faixas.
+
+**Limitações:**
+- Dentro da mesma caixa, o símbolo ocupa a caixa inteira, como decidido no protótipo, e fica um pouco mais alto que os louros antigos. A raquete do tênis é mais estreita pela própria forma.
+- A troca de tema foi conferida alterando `data-theme` no documento, e não pelo controle da interface.
+
+**Pendências:**
+- Símbolo com aro na web (ticket 03).
+- Remoção dos PNGs, do script com Pillow e da forma provisória, com a documentação (ticket 07).
+
 ## Símbolo com aro e marca d'água dos selos no Expo — 26 de novembro de 2026
 
 Ticket 06 de 7 da feature dos selos de modalidade. A entrega é só de frontend Expo e não completa o MVP.
