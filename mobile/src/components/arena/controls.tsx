@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import type { ReactNode } from 'react'
-import { Pressable, Text, TextInput, View } from 'react-native'
+import { Pressable, ScrollView, View } from 'react-native'
+import { Text, TextInput } from '../Text'
 import type { TextInputProps } from 'react-native'
 import { sports } from '../../api/client'
 import type { Sport } from '../../api/client'
@@ -33,7 +34,7 @@ const toneLook = (c: ThemeColors): Record<ActionTone, { bg: string; fg: string; 
 })
 
 export type ActionSize = 'sm' | 'md'
-const sizeLook = { sm: { radius: 11, pad: 11, font: 11.5 }, md: { radius: 8, pad: 14, font: 13 } } as const
+const sizeLook = { sm: { radius: 11, pad: 11, font: 11.5 }, md: { radius: 13, pad: 14, font: 13 } } as const
 
 export interface ActionButtonProps {
   title: string
@@ -53,6 +54,8 @@ export interface ActionButtonProps {
   grow?: boolean
   /** Só o ícone (quadrado de 44 pt): `title` vira o rótulo falado. */
   iconOnly?: boolean
+  /** Botão principal de tela (52 pt, texto 14 e ícone 20), como o botão do Início da web. */
+  tall?: boolean
   accessibilityLabel?: string
   accessibilityHint?: string
   testID?: string
@@ -62,16 +65,16 @@ export interface ActionButtonProps {
  * Botão do app (mínimo de 44 pt; o `block` tem 48): `mint`, `line` e `danger-fixed` são para a placa e as telas escuras, `brand`,
  * `outline` e `danger` para as claras. Uma só peça para times, organizador e eventos.
  */
-export function ActionButton({ title, onPress, tone = 'brand', icon, disabled = false, busy = false, size = 'md', block = false, fit = false, grow = false, iconOnly = false, accessibilityLabel, accessibilityHint, testID }: ActionButtonProps) {
+export function ActionButton({ title, onPress, tone = 'brand', icon, disabled = false, busy = false, size = 'md', block = false, fit = false, grow = false, iconOnly = false, tall = false, accessibilityLabel, accessibilityHint, testID }: ActionButtonProps) {
   const look = toneLook(useThemeColors())[tone]
   const measure = sizeLook[size]
   const off = disabled || busy
   const layout = block ? { alignSelf: 'stretch' as const } : iconOnly ? { width: 44, flexGrow: 0 } : grow ? { flexGrow: 1, flexBasis: 0, flexShrink: 1 } : fit ? null : { flexGrow: 1 }
   return <Pressable accessibilityRole="button" accessibilityLabel={accessibilityLabel ?? title} accessibilityHint={accessibilityHint}
     accessibilityState={{ disabled: off, busy }} disabled={off} onPress={onPress} testID={testID}
-    style={{ minHeight: block ? 48 : 44, minWidth: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderRadius: measure.radius, borderWidth: 1, paddingHorizontal: iconOnly ? 0 : block ? 16 : measure.pad, backgroundColor: look.bg, borderColor: look.border, opacity: off ? 0.5 : 1, ...layout }}>
-    {icon ? <Icon name={icon} size={17} color={look.fg} /> : null}
-    {iconOnly ? null : <Text style={{ color: look.fg, fontSize: block ? 13.5 : measure.font, fontWeight: '700', flexShrink: 1, textAlign: 'center' }}>{title}</Text>}
+    style={{ minHeight: tall ? 52 : block ? 48 : 44, minWidth: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderRadius: measure.radius, borderWidth: 1, paddingHorizontal: iconOnly ? 0 : block ? 16 : measure.pad, backgroundColor: look.bg, borderColor: look.border, opacity: off ? 0.5 : 1, ...layout }}>
+    {icon ? <Icon name={icon} size={tall ? 20 : 17} color={look.fg} /> : null}
+    {iconOnly ? null : <Text style={{ color: look.fg, fontSize: tall ? 14 : block ? 13.5 : measure.font, fontWeight: '700', flexShrink: 1, textAlign: 'center' }}>{title}</Text>}
   </Pressable>
 }
 
@@ -213,9 +216,10 @@ export function FormField({ label, hint, error, surface = 'light', multiline, st
 /* ===== Escolhas em pílulas ===== */
 
 const pillLook = (c: ThemeColors) => ({
+  // O `Chip` da web: contorno `line` e texto `ink-muted`; marcado, a marca (`brand`) com o texto sobre ela.
   light: {
-    idle: { bg: c.surface, border: c['line-strong'], fg: c.ink },
-    on: { bg: colors.forest, border: colors.forest, fg: '#ffffff' },
+    idle: { bg: 'transparent', border: c.line, fg: c['ink-muted'] },
+    on: { bg: c.brand, border: c.brand, fg: c['on-brand'] },
   },
   dark: {
     idle: { bg: 'rgba(255,255,255,0.05)', border: 'rgba(255,255,255,0.18)', fg: '#ffffff' },
@@ -248,15 +252,15 @@ function Pill<T extends string | number>({ option, selected, role, tone, accent,
   const c = useThemeColors()
   const base = pillLook(c)[tone][selected ? 'on' : 'idle']
   const look = accent && selected ? { bg: accentColor(c)[accent], border: accentColor(c)[accent], fg: c['on-brand'] } : base
-  return <Pressable accessibilityRole={role} accessibilityLabel={option.accessibilityLabel ?? option.label} accessibilityState={{ checked: selected, selected, disabled }} disabled={disabled} onPress={onPress}
-    style={{ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 12, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 6, backgroundColor: look.bg, borderColor: look.border, opacity: disabled ? 0.5 : 1 }}>
+  return <Pressable accessibilityRole={role} accessibilityLabel={option.accessibilityLabel ?? option.label} accessibilityState={{ checked: selected, selected, disabled }} disabled={disabled} onPress={onPress} hitSlop={{ top: 2, bottom: 2 }}
+    style={{ minHeight: 40, flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 18, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 6, backgroundColor: look.bg, borderColor: look.border, opacity: disabled ? 0.5 : 1 }}>
     {option.leading ? option.leading(selected, look.fg) : null}
-    <Text style={{ color: look.fg, fontSize: 12.5, fontWeight: '700', flexShrink: 1 }}>{option.label}</Text>
+    <Text maxFontSizeMultiplier={1.3} style={{ color: look.fg, fontSize: 12, fontWeight: '700', flexShrink: 1 }}>{option.label}</Text>
   </Pressable>
 }
 
 /** Escolha única em pílulas (grupo de rádio): tocar numa escolhida não a desfaz. */
-export function ChoicePills<T extends string | number>({ label, options, value, onChange, tone = 'light', accent, disabled = false, error }: {
+export function ChoicePills<T extends string | number>({ label, options, value, onChange, tone = 'light', accent, disabled = false, error, row }: {
   /** Nome do grupo para leitores de tela ("Modalidade"). */
   label: string
   options: readonly ChoiceOption<T>[]
@@ -267,11 +271,17 @@ export function ChoicePills<T extends string | number>({ label, options, value, 
   accent?: PillAccent
   disabled?: boolean
   error?: string
+  /**
+   * Uma linha só, rolando na horizontal, sem quebrar. O número é o recuo lateral de quem a contém: a fileira encosta nas bordas
+   * da tela e começa alinhada ao conteúdo.
+   */
+  row?: number
 }) {
+  const pills = options.map(option => <Pill key={String(option.value)} option={option} role="radio" tone={tone} accent={accent} disabled={disabled} selected={option.value === value} onPress={() => { if (option.value !== value) onChange(option.value) }} />)
   return <View>
-    <View accessibilityRole="radiogroup" accessibilityLabel={label} style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-      {options.map(option => <Pill key={String(option.value)} option={option} role="radio" tone={tone} accent={accent} disabled={disabled} selected={option.value === value} onPress={() => { if (option.value !== value) onChange(option.value) }} />)}
-    </View>
+    {row === undefined ? <View accessibilityRole="radiogroup" accessibilityLabel={label} style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>{pills}</View>
+      : <ScrollView horizontal showsHorizontalScrollIndicator={false} accessibilityRole="radiogroup" accessibilityLabel={label}
+        style={{ marginHorizontal: -row, marginVertical: -2 }} contentContainerStyle={{ gap: 8, paddingHorizontal: row, paddingVertical: 2 }}>{pills}</ScrollView>}
     <FieldError error={error} surface={tone} />
   </View>
 }

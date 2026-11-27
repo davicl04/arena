@@ -26,6 +26,8 @@ export interface ScreenParams {
   community: { compose?: boolean } | undefined
   /** Aba do conteúdo preservada ao abrir uma partida e voltar ao perfil. */
   profile: { tab?: 'Fotos' | 'Partidas' } | undefined
+  /** Suas modalidades (o `sports` da web): os cartões de futebol, tênis e corrida, abertos pela linha "Minhas modalidades" do perfil. */
+  sports: undefined
   /** Perfil de outro atleta (o `user-profile` da web), empilhado sobre a tela de origem: "Ver perfil" do elenco e das filas. */
   'user-profile': { userId: number }
   /* Atleta: notificações, campeonatos e provas. */
@@ -108,6 +110,7 @@ export const titles: Record<ScreenName, string> = {
   'user-profile': 'Perfil',
   notifications: 'Notificações',
   'follow-requests': 'Pedidos para seguir',
+  sports: 'Suas modalidades',
   events: eventNoun.futebol.many,
   event: eventNoun.futebol.one,
   match: 'Partida',
@@ -145,7 +148,7 @@ export function titleFor(entry: Entry): string {
 
 /* Telas empilhadas que acendem uma aba diferente da própria. */
 const profileScreens: readonly ScreenName[] = [
-  'organizer-request', 'organizer-events', 'event-wizard', 'event-manage', 'event-receipts', 'event-bracket', 'event-matches', 'result-decision',
+  'sports', 'organizer-request', 'organizer-events', 'event-wizard', 'event-manage', 'event-receipts', 'event-bracket', 'event-matches', 'result-decision',
   'admin-organizer-requests', 'admin-paid-events', 'admin-revoked-events', 'admin-refund-disputes', 'admin-court-suggestions', 'admin-walkover-disputes', 'moderation',
 ]
 const playScreens: readonly ScreenName[] = ['teams', 'team-form', 'team-invite', 'join', 'events', 'event', 'match']
@@ -168,11 +171,11 @@ export function activeNavFor(screen: ScreenName, root: ScreenName): TabScreen {
  * escura de Meus times, do organizador, dos comprovantes e do Criar evento (voltar ou fechar e o título dentro dela), a capa
  * do perfil de outro atleta (voltar e ••• na barra fixa), o cabeçalho da partida (P2) e as telas do campeonato do organizador
  * (chaveamento, partidas e decisão) e a placa das notificações (voltar, título e filtros; os pedidos para seguir usam o cabeçalho padrão).
- * Entre as abas, o Início (marca e sino) e o Jogar (placa `forest` com o Coliseu) também
- * trazem o topo, e por isso o shell não põe a faixa "arena." acima delas. Telas novas que não desenhem a barra ficam fora da lista.
+ * As cinco abas também trazem o topo, como na web: o Início (marca e sino), o Ranking (título), o Jogar e a Comunidade (placa
+ * `forest`) e o Perfil (capa). Telas novas que não desenhem a barra ficam fora da lista.
  */
 const ownHeaderScreens: readonly ScreenName[] = [
-  'home', 'ranking', 'legends', 'play', 'user-profile', 'teams', 'team-form', 'team-invite', 'join', 'organizer-events', 'event-wizard', 'event-manage', 'event-receipts',
+  'home', 'ranking', 'community', 'profile', 'legends', 'play', 'user-profile', 'teams', 'team-form', 'team-invite', 'join', 'organizer-events', 'event-wizard', 'event-manage', 'event-receipts',
   'match', 'event-bracket', 'event-matches', 'result-decision', 'notifications',
 ]
 export const hasOwnHeader = (screen: ScreenName): boolean => ownHeaderScreens.includes(screen)

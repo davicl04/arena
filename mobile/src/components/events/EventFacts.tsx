@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
-import { Pressable, Text, View } from 'react-native'
+import { Pressable, View } from 'react-native'
+import { Text } from '../Text'
 import type { EventDetail } from '../../api/entries'
 import { eventFormatParts, eventNoun, tiers } from '../../data/arena'
 import { useThemeColors } from '../../hooks/useTheme'

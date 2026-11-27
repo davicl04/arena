@@ -1,4 +1,5 @@
-import { Pressable, Text, View } from 'react-native'
+import { Pressable, View } from 'react-native'
+import { Text } from './Text'
 import { useThemeColors } from '../hooks/useTheme'
 import { Icon } from './Icon'
 
@@ -9,7 +10,7 @@ export default function ScreenHeader({ title, onBack }: { title: string; onBack:
     <Pressable accessibilityRole="button" accessibilityLabel="Voltar" onPress={onBack} className="min-h-11 min-w-11 items-center justify-center">
       <Icon name="arrow-left" size={22} color={colors.ink} />
     </Pressable>
-    <Text accessibilityRole="header" numberOfLines={1} className="shrink px-2 text-[17px] font-bold text-ink">{title}</Text>
+    <Text accessibilityRole="header" numberOfLines={1} className="shrink px-2 text-[17px] text-heading">{title}</Text>
     <View className="w-11" />
   </View>
 }

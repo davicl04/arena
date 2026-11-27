@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
-import { Text, View } from 'react-native'
+import { View } from 'react-native'
+import { Text } from '../Text'
 import { useThemeColors } from '../../hooks/useTheme'
 import { SeloTile } from '../arena/RoundTile'
 import { DuelCard } from './DuelCard'

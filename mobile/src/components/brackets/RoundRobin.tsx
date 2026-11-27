@@ -1,4 +1,5 @@
-import { ScrollView, Text, View } from 'react-native'
+import { ScrollView, View } from 'react-native'
+import { Text } from '../Text'
 import type { Bracket, Competitor, TableRow } from '../../api/brackets'
 import { useSessionToken } from '../../hooks/useSessionToken'
 import { useThemeColors } from '../../hooks/useTheme'

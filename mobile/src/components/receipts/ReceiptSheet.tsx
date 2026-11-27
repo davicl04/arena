@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Text, View } from 'react-native'
+import { View } from 'react-native'
+import { Text } from '../Text'
 import type { EventPix, Receipt, ReceiptReview } from '../../api/events'
 import { RECEIPT_LIMITS, decideReceipt, receiptRefusalError, receiptRefusalInput, receiptRefusalText, subjectName } from '../../api/receipts'
 import { pixKeyType, receiptRefusalReasons } from '../../data/arena'

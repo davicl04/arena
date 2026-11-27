@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
-import { Image, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native'
+import { Image, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, View } from 'react-native'
+import { Text, TextInput } from './Text'
 import * as ImagePicker from 'expo-image-picker'
 import { request } from '../api/client'
 import type { Post } from '../api/client'

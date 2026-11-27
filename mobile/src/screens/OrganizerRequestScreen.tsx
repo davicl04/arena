@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { KeyboardAvoidingView, Platform, ScrollView, Text, View } from 'react-native'
+import { KeyboardAvoidingView, Platform, ScrollView, View } from 'react-native'
+import { Text } from '../components/Text'
 import { getOrganizerStatus, refusalText, sentence } from '../api/organizer'
 import type { OrganizerRequest } from '../api/organizer'
 import { ArenaMark } from '../components/arena/ArenaMark'

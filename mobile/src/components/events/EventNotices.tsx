@@ -1,4 +1,5 @@
-import { Text, View } from 'react-native'
+import { View } from 'react-native'
+import { Text } from '../Text'
 import { eventMessagesPath } from '../../api/events'
 import type { EventMessage } from '../../api/events'
 import { usePagedList } from '../../hooks/usePagedList'

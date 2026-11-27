@@ -1,4 +1,5 @@
-import { Pressable, Text, View } from 'react-native'
+import { Pressable, View } from 'react-native'
+import { Text } from '../Text'
 import type { NotificationSummary } from '../../api/notifications'
 import { notificationFilters, summaryLine } from '../../data/notifications'
 import type { NotificationFilter } from '../../data/notifications'
@@ -31,19 +32,17 @@ export function NotificationsPlate({ summary, filter, onFilter, busy, onBack, on
   onBack: () => void
   onReadAll: () => void
 }) {
-  return <TeamsPlate bottom={20} testID="notifications-plate">
+  return <TeamsPlate bottom={14} testID="notifications-plate">
     <View style={{ minHeight: 54, flexDirection: 'row', alignItems: 'center', gap: 6, paddingTop: 6, paddingHorizontal: 8 }}>
       <Pressable accessibilityRole="button" accessibilityLabel="Voltar" onPress={onBack}
-        style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.1)' }}>
+        style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 22 }}>
         <Icon name="arrow-left" size={21} color="#ffffff" />
       </Pressable>
-      <Text accessibilityRole="header" style={{ flex: 1, color: '#ffffff', fontSize: 19, fontWeight: '800' }}>Notificações</Text>
+      <Text accessibilityRole="header" style={{ flex: 1, color: '#ffffff', fontSize: 17, fontWeight: '700' }}>Notificações</Text>
       {summary && summary.unread_count > 0
         ? <TextAction surface="dark" title="Ler todas" accessibilityLabel="Marcar todas as notificações como lidas" disabled={busy} onPress={onReadAll} /> : null}
     </View>
-    {summary ? <Text accessibilityLiveRegion="polite" style={{ paddingHorizontal: 20, paddingTop: 2, paddingBottom: 14, color: 'rgba(255,255,255,0.8)', fontSize: 12, lineHeight: 17 }}>{summaryLine(summary)}</Text> : <View style={{ height: 12 }} />}
-    <View style={{ paddingHorizontal: 16 }}>
-      <PlateChips label="Filtrar notificações" options={filterOptions(summary)} value={filter} onChange={onFilter} />
-    </View>
+    {summary ? <Text accessibilityLiveRegion="polite" style={{ paddingHorizontal: 20, paddingTop: 2, paddingBottom: 14, color: 'rgba(255,255,255,0.7)', fontSize: 12, lineHeight: 17 }}>{summaryLine(summary)}</Text> : <View style={{ height: 12 }} />}
+    <PlateChips variant="filter" label="Filtrar notificações" options={filterOptions(summary)} value={filter} onChange={onFilter} />
   </TeamsPlate>
 }

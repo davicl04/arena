@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { Platform, Text, View } from 'react-native'
+import { Platform, View } from 'react-native'
+import { Text } from '../Text'
 import { ApiError } from '../../api/client'
 import type { MatchCard } from '../../api/matches'
 import { timelinePath } from '../../api/profile'

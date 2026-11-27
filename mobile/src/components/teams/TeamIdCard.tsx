@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
-import { Text, View } from 'react-native'
+import { View } from 'react-native'
+import { Text } from '../Text'
 import type { RosterPreviewItem } from '../../api/teams'
 import { colors } from '../../theme'
 import { FormatTile } from '../arena/FormatTile'

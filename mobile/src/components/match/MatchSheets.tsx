@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { ReactNode } from 'react'
-import { Text, View } from 'react-native'
+import { View } from 'react-native'
+import { Text } from '../Text'
 import { useThemeColors } from '../../hooks/useTheme'
 import type { ThemeColors } from '../../theme'
 import { ActionButton, BusyStatus, ErrorText, FormField } from '../arena/controls'

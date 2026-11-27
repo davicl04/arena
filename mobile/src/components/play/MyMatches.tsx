@@ -1,10 +1,12 @@
 import { useState } from 'react'
-import { Pressable, Text, View } from 'react-native'
+import { Pressable, View } from 'react-native'
+import { Text } from '../Text'
+import { SectionTitle } from '../SectionTitle'
 import { MY_MATCHES_HISTORY_PATH } from '../../api/matchmaking'
 import type { MatchCard } from '../../api/matches'
 import { matchPhases, sideOf } from '../../data/match'
 import { usePagedList } from '../../hooks/usePagedList'
-import { useResolvedTheme, useThemeColors } from '../../hooks/useTheme'
+import { useThemeColors } from '../../hooks/useTheme'
 import { ActionButton } from '../arena/controls'
 import { LoadError } from '../arena/LoadError'
 import { StateBadge } from '../arena/StateBadge'
@@ -71,11 +73,10 @@ export function MyMatches({ sport, upcoming, onOpen, onExpired }: {
   onExpired: () => void
 }) {
   const c = useThemeColors()
-  const night = useResolvedTheme() === 'dark'
   const [scope, setScope] = useState<Scope>('proximas')
   const shown = upcoming.filter(card => card.sport === sport)
   return <View style={{ paddingHorizontal: 20 }}>
-    <Text accessibilityRole="header" style={{ marginTop: 22, marginBottom: 10, color: night ? c.eyebrow : c.brand, fontSize: 11, fontWeight: '700', letterSpacing: 2 }}>MINHAS PARTIDAS</Text>
+    <SectionTitle title="Minhas partidas" top={22} bottom={10} />
     <View accessibilityRole="tablist" accessibilityLabel="Minhas partidas" style={{ marginBottom: 8, flexDirection: 'row', gap: 4, borderRadius: 12, padding: 3, backgroundColor: c.tile }}>
       {scopes.map(item => {
         const selected = item.value === scope

@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Text, View } from 'react-native'
+import { View } from 'react-native'
+import { Text } from '../Text'
 import { eventEntriesPath } from '../../api/events'
 import type { OrganizerEntry } from '../../api/events'
 import { subjectName } from '../../api/receipts'

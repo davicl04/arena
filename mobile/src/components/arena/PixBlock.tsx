@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Pressable, Share, Text, View } from 'react-native'
+import { Pressable, Share, View } from 'react-native'
+import { Text } from '../Text'
 import { pixKeyType } from '../../data/arena'
 import { useResolvedTheme, useThemeColors } from '../../hooks/useTheme'
 import { formatPrice } from '../../utils/format'

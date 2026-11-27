@@ -1,4 +1,5 @@
-import { Pressable, Text, View } from 'react-native'
+import { Pressable, View } from 'react-native'
+import { Text } from '../Text'
 import type { Sport } from '../../api/client'
 import { useThemeColors } from '../../hooks/useTheme'
 import { SeloTile } from '../arena/RoundTile'

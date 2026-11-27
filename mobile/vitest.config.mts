@@ -6,22 +6,29 @@ export default defineConfig({
   // trazem sintaxe Flow que o Node não lê (e o reanimated, o expo-secure-store e o expo-location dependem do runtime nativo): os
   // testes usam as simulações de tests/support (um vi.mock próprio ainda vale). A captura (react-native-view-shot), a galeria
   // (expo-media-library), a barra de status (expo-status-bar), o menu de compartilhar (expo-sharing), os gestos
-  // (react-native-gesture-handler) e os worklets (react-native-worklets) também dependem do runtime nativo.
+  // (react-native-gesture-handler), os worklets (react-native-worklets) e as fontes (expo-font) também dependem do runtime nativo.
   resolve: {
-    alias: {
-      nativewind: fileURLToPath(new URL('./tests/support/nativewind.ts', import.meta.url)),
-      'react-native-svg': fileURLToPath(new URL('./tests/support/svg.ts', import.meta.url)),
-      'react-native-safe-area-context': fileURLToPath(new URL('./tests/support/safe-area.ts', import.meta.url)),
-      'react-native-reanimated': fileURLToPath(new URL('./tests/support/reanimated.ts', import.meta.url)),
-      'expo-secure-store': fileURLToPath(new URL('./tests/support/secure-store.ts', import.meta.url)),
-      'expo-location': fileURLToPath(new URL('./tests/support/location.ts', import.meta.url)),
-      'react-native-view-shot': fileURLToPath(new URL('./tests/support/view-shot.ts', import.meta.url)),
-      'expo-media-library/legacy': fileURLToPath(new URL('./tests/support/media-library.ts', import.meta.url)),
-      'expo-status-bar': fileURLToPath(new URL('./tests/support/status-bar.ts', import.meta.url)),
-      'expo-sharing': fileURLToPath(new URL('./tests/support/sharing.ts', import.meta.url)),
-      'react-native-gesture-handler': fileURLToPath(new URL('./tests/support/gesture-handler.ts', import.meta.url)),
-      'react-native-worklets': fileURLToPath(new URL('./tests/support/worklets.ts', import.meta.url)),
-    },
+    alias: [
+      // As fontes (expo-font e os .ttf do @expo-google-fonts) dependem do runtime nativo e do Metro.
+      { find: /^expo-font$/, replacement: fileURLToPath(new URL('./tests/support/font.ts', import.meta.url)) },
+      { find: /^@expo-google-fonts\/.+$/, replacement: fileURLToPath(new URL('./tests/support/font.ts', import.meta.url)) },
+      // Imagens locais (a capa padrão): o Metro as transforma em fonte de imagem; nos testes, um número qualquer.
+      { find: /^.*\.jpg$/, replacement: fileURLToPath(new URL('./tests/support/font.ts', import.meta.url)) },
+      ...Object.entries({
+        nativewind: fileURLToPath(new URL('./tests/support/nativewind.ts', import.meta.url)),
+        'react-native-svg': fileURLToPath(new URL('./tests/support/svg.ts', import.meta.url)),
+        'react-native-safe-area-context': fileURLToPath(new URL('./tests/support/safe-area.ts', import.meta.url)),
+        'react-native-reanimated': fileURLToPath(new URL('./tests/support/reanimated.ts', import.meta.url)),
+        'expo-secure-store': fileURLToPath(new URL('./tests/support/secure-store.ts', import.meta.url)),
+        'expo-location': fileURLToPath(new URL('./tests/support/location.ts', import.meta.url)),
+        'react-native-view-shot': fileURLToPath(new URL('./tests/support/view-shot.ts', import.meta.url)),
+        'expo-media-library/legacy': fileURLToPath(new URL('./tests/support/media-library.ts', import.meta.url)),
+        'expo-status-bar': fileURLToPath(new URL('./tests/support/status-bar.ts', import.meta.url)),
+        'expo-sharing': fileURLToPath(new URL('./tests/support/sharing.ts', import.meta.url)),
+        'react-native-gesture-handler': fileURLToPath(new URL('./tests/support/gesture-handler.ts', import.meta.url)),
+        'react-native-worklets': fileURLToPath(new URL('./tests/support/worklets.ts', import.meta.url)),
+      }).map(([find, replacement]) => ({ find, replacement })),
+    ],
   },
   test: {
     environment: 'node',

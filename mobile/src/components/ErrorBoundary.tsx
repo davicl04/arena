@@ -1,6 +1,8 @@
 import { Component, Fragment } from 'react'
 import type { ReactNode } from 'react'
-import { Pressable, Text, View } from 'react-native'
+import { Pressable, View } from 'react-native'
+import { Text } from './Text'
+import { Logo } from './Brand'
 import { StatusBar } from 'expo-status-bar'
 import { colors } from '../theme'
 
@@ -8,7 +10,7 @@ import { colors } from '../theme'
 export function ErrorPlate({ onRetry }: { onRetry: () => void }) {
   return <View testID="error-plate" style={{ flex: 1, justifyContent: 'center', padding: 24, backgroundColor: colors.forest }}>
     <StatusBar style="light" />
-    <Text accessible={false} style={{ marginBottom: 16, color: colors.mint, fontSize: 34, fontWeight: '800', letterSpacing: -2 }}>arena.</Text>
+    <View style={{ marginBottom: 20 }}><Logo tone="dark" /></View>
     <View style={{ borderRadius: 20, backgroundColor: '#ffffff', padding: 20 }}>
       <Text accessibilityRole="header" style={{ color: colors.ink, fontSize: 20, fontWeight: '800' }}>Algo deu errado</Text>
       <Text accessibilityRole="alert" style={{ marginTop: 8, color: colors['ink-muted'], fontSize: 14, lineHeight: 21 }}>

@@ -1,4 +1,5 @@
-import { Pressable, Text, View } from 'react-native'
+import { Pressable, View } from 'react-native'
+import { Text } from '../Text'
 import type { TeamInviteReceived } from '../../api/teams'
 import { colors } from '../../theme'
 import { TeamCrest } from '../arena/TeamCrest'

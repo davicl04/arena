@@ -1,4 +1,5 @@
-import { Pressable, Text, View } from 'react-native'
+import { Pressable, View } from 'react-native'
+import { Text } from '../Text'
 import type { MatchDetail } from '../../api/matches'
 import { headerNames, matchPhases, orderedSides, sideName, whenText } from '../../data/match'
 import { colors } from '../../theme'

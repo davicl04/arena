@@ -1,5 +1,6 @@
 import React from 'react'
 import { act, create } from 'react-test-renderer'
+import type { ReactTestInstance } from 'react-test-renderer'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiError, clearToken, request } from '../src/api/client'
 import CommunityScreen from '../src/screens/CommunityScreen'
@@ -13,10 +14,6 @@ vi.mock('react-native-safe-area-context', async () => {
   return { useSafeAreaInsets: () => ({ top: 0, right: 0, bottom: 0, left: 0 }), SafeAreaView: ({ children, ...props }: Record<string, unknown>) => ReactModule.createElement('SafeAreaView', props, children as React.ReactNode) }
 })
 vi.mock('expo-image-picker', () => ({ launchImageLibraryAsync: vi.fn(), ImagePickerResult: undefined }))
-vi.mock('../src/components/sports-profile/SportsProfiles', async () => {
-  const ReactModule = await import('react')
-  return { SportsProfiles: () => ReactModule.createElement('SportsProfiles') }
-})
 vi.mock('../src/components/ui', async () => {
   const ReactModule = await import('react')
   return {
@@ -38,9 +35,15 @@ const athlete = { id: 2, name: 'Atleta A', username: 'atleta.a', avatar_url: nul
   follower_count: 3, following_count: 2, follows_you: false, follow_state: 'none' as const }
 type Tree = ReturnType<typeof create>
 const baseData = (path: string) => (path === '/me/sports-profiles' ? [] : { items: [], next_cursor: null }) as never
-const texts = (tree: Tree) => tree.root.findAllByType('Text' as never).map(entry => JSON.stringify(entry.props.children)).join(' ')
+// Os textos primitivos de cada <Text>, entre aspas (o @usuário do cabeçalho aninha um <Text> no outro).
+const strings = (value: unknown): string[] => Array.isArray(value) ? value.flatMap(strings) : typeof value === 'string' || typeof value === 'number' ? [String(value)] : []
+const texts = (tree: Tree) => tree.root.findAllByType('Text' as never).map(entry => JSON.stringify(strings(entry.props.children).join(''))).join(' ')
+/** Texto completo de um nó, com os <Text> aninhados ("@" + usuário). */
+const deepText = (node: ReactTestInstance): string => node.children.map(child => typeof child === 'string' ? child : deepText(child)).join('')
 const pressables = (tree: Tree, label: string) => tree.root.findAllByType('Pressable' as never).filter(entry => entry.props.accessibilityLabel === label)
-const titles = (tree: Tree, username: string) => tree.root.findAll(node => node.props.accessibilityRole === 'header' && node.props.accessibilityLabel === `@${username}`)
+// O título @usuário: rótulo próprio (perfil visitado) ou o texto do cabeçalho (perfil próprio, o "@" num <Text> aninhado).
+const titles = (tree: Tree, username: string) => tree.root.findAll(node => typeof node.type === 'string' && node.props.accessibilityRole === 'header'
+  && (node.props.accessibilityLabel === `@${username}` || deepText(node) === `@${username}`))
 async function press(tree: Tree, label: string) {
   const targets = pressables(tree, label)
   expect(targets.length, `Pressable "${label}"`).toBeGreaterThan(0)
@@ -75,7 +78,8 @@ describe('menu do perfil', () => {
     const text = texts(tree)
     for (const expected of ['"Menu"', '"CONTA"', '"APP"', '"Sair da conta"']) expect(text).toContain(expected)
     expect(pressables(tree, 'Editar perfil')).toHaveLength(2)
-    expect(pressables(tree, 'Minhas modalidades')).toHaveLength(1)
+    // A linha do perfil e a do menu.
+    expect(pressables(tree, 'Minhas modalidades')).toHaveLength(2)
     // Sem a abertura das Notificações (entregue pelo shell), a linha não leva a lugar nenhum.
     expect(pressables(tree, 'Notificações')[0].props.onPress).toBeUndefined()
     expect(pressables(tree, `Sobre o ARENA: Versão ${appVersion}`)).toHaveLength(1)
@@ -119,12 +123,21 @@ describe('menu do perfil', () => {
     await act(async () => { tree.unmount() })
   })
 
-  it('Minhas modalidades fecha o menu e deixa a lista de modalidades à vista', async () => {
-    const tree = await mount()
+  it('Minhas modalidades fecha o menu e abre Suas modalidades; a linha do perfil também abre, sem menu', async () => {
+    const onOpenSports = vi.fn()
+    const tree = await mount({ onOpenSports })
+    // As faixas das modalidades saíram do perfil: ficam na tela Suas modalidades.
+    expect(texts(tree)).not.toContain('Onde você joga?')
     await press(tree, 'Menu')
     await press(tree, 'Minhas modalidades')
     expect(texts(tree)).not.toContain('"CONTA"')
-    expect(tree.root.findAllByType('SportsProfiles' as never)).toHaveLength(1)
+    expect(onOpenSports).toHaveBeenCalledTimes(1)
+    const row = pressables(tree, 'Minhas modalidades')
+    expect(row).toHaveLength(1)
+    expect(row[0].props.accessibilityHint).toBe('Cidade, posição e disponibilidade')
+    await press(tree, 'Minhas modalidades')
+    expect(onOpenSports).toHaveBeenCalledTimes(2)
+    expect(texts(tree)).not.toContain('"CONTA"')
     await act(async () => { tree.unmount() })
   })
 
@@ -205,7 +218,8 @@ describe('menu do perfil', () => {
     await searchAthletes(tree, 'atleta')
     await press(tree, 'Abrir perfil de Atleta A')
     expect(titles(tree, 'atleta.a').length).toBeGreaterThan(0)
-    expect(texts(tree)).toContain('Perfil público')
+    expect(texts(tree)).toContain('"Atleta A"')
+    expect(texts(tree)).toContain('"Conta pública"')
     await act(async () => { tree.unmount() })
   })
 })

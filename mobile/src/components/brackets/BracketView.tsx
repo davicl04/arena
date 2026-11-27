@@ -1,4 +1,5 @@
-import { Text, View } from 'react-native'
+import { View } from 'react-native'
+import { Text } from '../Text'
 import type { Bracket, BracketNode, BracketRound } from '../../api/brackets'
 import { whenText } from '../../data/match'
 import { useThemeColors } from '../../hooks/useTheme'

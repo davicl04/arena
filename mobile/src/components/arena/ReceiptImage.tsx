@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { ActivityIndicator, Image, Text, View } from 'react-native'
+import { ActivityIndicator, Image, View } from 'react-native'
+import { Text } from '../Text'
 import type { Receipt } from '../../api/events'
 import { fileSize, receiptImageSource } from '../../api/receipts'
 import { useSessionToken } from '../../hooks/useSessionToken'

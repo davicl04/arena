@@ -1,4 +1,5 @@
-import { Pressable, Text, View } from 'react-native'
+import { Pressable, View } from 'react-native'
+import { Text } from '../Text'
 import { sports } from '../../api/client'
 import type { Profile } from '../../api/client'
 import type { MeStandings } from '../../api/play'
@@ -59,7 +60,7 @@ export function Pilulas({ standings, standingsLoading, profiles, profilesLoading
   const list = Array.isArray(profiles) ? profiles : null
   return <View testID="pilulas" className="mb-3.5">
     <View className="mb-2 flex-row items-center justify-between gap-2">
-      <Text accessibilityRole="header" className="text-base font-bold text-heading">Seu elo</Text>
+      <Text accessibilityRole="header" className="text-[16px] font-bold text-heading">Seu elo</Text>
       <TextAction title="Ver elos" accessibilityLabel="Ver elos no Ranking" onPress={() => onOpenRanking()} />
     </View>
     <View testID="pilulas-plate" style={{ overflow: 'hidden', borderRadius: RADIUS, backgroundColor: colors.forest, padding: 12 }}>

@@ -18,6 +18,7 @@ import EventMatchesScreen from '../screens/EventMatchesScreen'
 import EventScreen from '../screens/EventScreen'
 import EventsScreen from '../screens/EventsScreen'
 import FollowRequestsScreen from '../screens/FollowRequestsScreen'
+import SportsScreen from '../screens/SportsScreen'
 import EventWizardScreen from '../screens/EventWizardScreen'
 import HomeScreen from '../screens/HomeScreen'
 import JoinScreen from '../screens/JoinScreen'
@@ -82,6 +83,7 @@ function ProfileRoute({ user, params, navigation, onUser, onLogout, onExpired, p
   const changeTab = useCallback((tab: 'Fotos' | 'Partidas') => navigation.setParams('profile', { tab }), [navigation])
   return <ProfileScreen user={user} onUser={onUser} onLogout={onLogout} onExpired={onExpired}
     tab={params?.tab} onTabChange={changeTab} onNewPhoto={() => navigation.go('community', { compose: true })}
+    onOpenSports={() => navigation.go('sports')}
     notificationCount={notificationSummary.count} onOpenNotifications={() => navigation.go('notifications')}
     upcoming={playBoard.board?.matches} onOpenMatch={matchId => navigation.go('match', { matchId })} onPlay={() => navigation.go('play')}
     menuSections={close => <OrganizerMenu isAdmin={user.is_admin} navigation={navigation} onLeave={close} onExpired={onExpired} />} />
@@ -102,6 +104,7 @@ export const screens: { [S in ScreenName]: ScreenComponent<S> } = {
   profile: ProfileRoute,
   notifications: NotificationsScreen,
   'follow-requests': FollowRequestsScreen,
+  sports: SportsScreen,
   events: EventsScreen,
   event: EventScreen,
   match: MatchScreen,

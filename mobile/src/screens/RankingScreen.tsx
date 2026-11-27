@@ -1,11 +1,12 @@
 import { useCallback, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import { ScrollView, Text, View } from 'react-native'
+import { ScrollView, View } from 'react-native'
+import { Text } from '../components/Text'
+import { EmptyState } from '../components/EmptyState'
 import type { Position, Profile, Sport } from '../api/client'
 import type { MyRankingOverviewLine, RankingOverview } from '../api/results'
 import { ActionButton, TextAction } from '../components/arena/controls'
 import { LoadError } from '../components/arena/LoadError'
-import { Icon } from '../components/Icon'
 import type { IconName } from '../components/Icon'
 import { NotificationBell } from '../components/notifications/NotificationBell'
 import { rankedTier } from '../components/play/tierLines'
@@ -29,16 +30,9 @@ import type { ScreenProps } from '../navigation/screens'
 import { useThemeColors } from '../hooks/useTheme'
 
 /** Estado vazio honesto: sem ninguém classificado, sem pontos nem posições inventados. */
+/** Estado vazio do Ranking: o `EmptyState` da web (quadro do ícone, título e texto, sem cartão). */
 function EmptyCard({ icon, title, text, action, testID = 'ranking-empty' }: { icon: IconName; title: string; text: string; action?: ReactNode; testID?: string }) {
-  const c = useThemeColors()
-  return <View testID={testID} style={{ alignItems: 'center', gap: 6, borderRadius: 16, backgroundColor: c.surface, padding: 22 }}>
-    <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 22, backgroundColor: c['success-bg'] }}>
-      <Icon name={icon} size={22} color={c.brand} />
-    </View>
-    <Text accessibilityRole="header" style={{ color: c.ink, fontSize: 14, fontWeight: '700', textAlign: 'center' }}>{title}</Text>
-    <Text style={{ color: c['ink-muted'], fontSize: 12, lineHeight: 18, textAlign: 'center' }}>{text}</Text>
-    {action}
-  </View>
+  return <EmptyState testID={testID} icon={icon} title={title} text={text} action={action} />
 }
 
 type Chosen = Omit<CategoryChoice, 'position'> & { position: Position | null }
@@ -141,10 +135,10 @@ export default function RankingScreen({ user, navigation, params, onExpired, not
     node.measureLayout(base, (_x, y) => scroll.current?.scrollTo({ y: Math.max(0, y - 200), animated: true }), () => undefined)
   }, [])
 
-  return <ScrollView ref={scroll} testID="ranking-screen" contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 14, paddingBottom: 32 }} keyboardShouldPersistTaps="handled">
+  return <ScrollView ref={scroll} testID="ranking-screen" contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 10, paddingBottom: 32 }} keyboardShouldPersistTaps="handled">
     <View ref={content} collapsable={false} style={{ gap: 14 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-        <Text accessibilityRole="header" style={{ color: c.heading, fontSize: 28, fontWeight: '800' }}>Ranking</Text>
+        <Text accessibilityRole="header" style={{ color: c.heading, fontSize: 17, fontWeight: '700' }}>Ranking</Text>
         <View style={{ marginRight: -8 }}><NotificationBell tone="light" count={notificationSummary.count} onOpen={() => navigation.go('notifications')} /></View>
       </View>
       {profiles.loading
@@ -155,7 +149,7 @@ export default function RankingScreen({ user, navigation, params, onExpired, not
             ? <RankingBody user={user} navigation={navigation} params={params} onExpired={onExpired} available={available} profilePosition={profilePosition} reveal={reveal} />
             : <EmptyCard testID="ranking-no-profile" icon="trophy" title="Você ainda não joga nenhuma modalidade"
               text="O Ranking mostra os elos das modalidades em que você tem perfil ativo. Configure futebol, tênis ou corrida para entrar."
-              action={<View style={{ alignSelf: 'stretch', marginTop: 8 }}><ActionButton block title="Configurar modalidade" onPress={() => navigation.go('profile')} /></View>} />}
+              action={<View style={{ alignSelf: 'stretch', marginTop: 8 }}><ActionButton block title="Configurar modalidade" onPress={() => navigation.go('sports')} /></View>} />}
     </View>
   </ScrollView>
 }

@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
-import { Pressable, Text, View } from 'react-native'
+import { Pressable, View } from 'react-native'
+import { Text } from '../Text'
 import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated'
 import Svg, { Defs, LinearGradient, Path, Rect, Stop } from 'react-native-svg'
 import { Icon } from '../Icon'

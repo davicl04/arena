@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Text, View, useWindowDimensions } from 'react-native'
+import { View, useWindowDimensions } from 'react-native'
+import { Text } from '../Text'
 import type { ResultInput, ResultMatch } from '../../api/results'
 import type { MatchSideOut, ScoreOut } from '../../api/matches'
 import { sideName, sideOf } from '../../data/match'

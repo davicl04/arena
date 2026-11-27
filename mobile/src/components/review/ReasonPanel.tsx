@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
-import { Text, View } from 'react-native'
+import { View } from 'react-native'
+import { Text } from '../Text'
 import { useResolvedTheme, useThemeColors } from '../../hooks/useTheme'
 import { Icon } from '../Icon'
 import { ActionButton, ChoicePills, ErrorText } from '../arena/controls'

@@ -14,7 +14,6 @@ vi.mock('react-native-safe-area-context', async () => {
   return { useSafeAreaInsets: () => ({ top: 0, right: 0, bottom: 0, left: 0 }), SafeAreaView: ({ children, ...props }: Record<string, unknown>) => ReactModule.createElement('SafeAreaView', props, children as React.ReactNode) }
 })
 vi.mock('expo-image-picker', () => ({ launchImageLibraryAsync: vi.fn(), ImagePickerResult: undefined }))
-vi.mock('../src/components/sports-profile/SportsProfiles', () => ({ SportsProfiles: () => null }))
 vi.mock('../src/components/ui', async () => {
   const ReactModule = await import('react')
   return {
@@ -95,7 +94,7 @@ describe('CommunityScreen', () => {
     await pressLabel('Carregar mais comentários')
     expect(request).toHaveBeenCalledWith('/posts/7/comments?cursor=comments-next')
     await searchAthletes(tree, 'Atleta')
-    await click('Carregar mais atletas')
+    await pressLabel('Carregar mais atletas')
     expect(request).toHaveBeenCalledWith('/users?q=Atleta&cursor=people-next')
     await pressLabel('Abrir perfil de Atleta A')
     await click('Carregar mais fotos')
@@ -134,7 +133,7 @@ describe('CommunityScreen', () => {
     expect(button).toBeTruthy()
     await act(async () => { button!.props.onPress() })
     expect(request).toHaveBeenCalledWith(`${paths[which]}?cursor=next-page`)
-    const text = tree.root.findAllByType('Text' as never).map(entry => JSON.stringify(entry.props.children)).join(' ')
+    const text = textsOf(tree)
     expect(text).toContain('Outra conta')
     expect(text).toContain('Atleta A')
     await act(async () => { tree.unmount() })
@@ -145,7 +144,8 @@ describe('CommunityScreen', () => {
     expect(target).toBeTruthy()
     await act(async () => { target!.props.onPress() })
   }
-  const textOf = (tree: ReturnType<typeof create>) => tree.root.findAllByType('Text' as never).map(entry => JSON.stringify(entry.props.children)).join(' ')
+  // Textos primitivos de cada <Text> (o @usuário do cabeçalho do perfil aninha um <Text> no outro).
+  const textOf = textsOf
   const me = { id: 1, name: 'Eu', username: 'eu.atleta', email: 'eu@example.com', birth_date: '1995-01-01', social_public: false, is_admin: false, avatar: null, cover: null }
 
   /** Monta o perfil com `total` pedidos pendentes no servidor; tornar a conta pública os aprova todos. */
@@ -238,7 +238,11 @@ describe('CommunityScreen', () => {
     await press(tree, 'Pressable', props => props.accessibilityLabel === 'Abrir perfil de Atleta A')
     const text = textOf(tree)
     expect(text).toContain('Ana, Bia e mais 3 que você segue também seguem esta conta.')
-    expect(text).toContain('9 seguidores · 4 seguindo')
+    // As conexões ficam no cabeçalho (números em Text aninhado); o rótulo da linha diz os dois números.
+    expect(tree.root.findAll(node => typeof node.type === 'string' && node.props.accessibilityLabel === 'Conexões: 9 seguidores · 4 seguindo')).toHaveLength(1)
+    // Sem `onConnections` no perfil de outra pessoa, a linha só informa: não é botão.
+    expect(tree.root.findAll(node => typeof node.type === 'string' && node.props.accessibilityLabel === 'Conexões: 9 seguidores · 4 seguindo')[0].props.accessibilityRole).toBeUndefined()
+    expect(text).toContain('Conta privada')
     expect(text).toContain('Esta conta é privada')
     expect(request).not.toHaveBeenCalledWith('/users/2/posts')
     await act(async () => { tree.unmount() })
@@ -256,7 +260,9 @@ describe('CommunityScreen', () => {
     await act(async () => { tree = create(React.createElement(CommunityScreen, { user: me, onExpired: vi.fn() })) })
     await searchAthletes(tree, 'atleta')
     await press(tree, 'Pressable', props => props.accessibilityLabel === 'Abrir perfil de Atleta A')
-    expect(textOf(tree)).toContain('3 seguidores · 2 seguindo')
+    expect(tree.root.findAll(node => typeof node.type === 'string' && node.props.accessibilityLabel === 'Conexões: 3 seguidores · 2 seguindo')).toHaveLength(1)
+    expect(textOf(tree)).toContain('Conta pública')
+    expect(textOf(tree)).not.toContain('que você segue')
     await act(async () => { tree.unmount() })
   })
 

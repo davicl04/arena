@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react'
-import { Text, View } from 'react-native'
+import { View } from 'react-native'
+import { Text } from '../Text'
 import { REFUND_REASON_MESSAGE, decideRefund, reasonError } from '../../api/admin'
 import type { RefundDecision, RefundDispute } from '../../api/admin'
 import { ORGANIZER_LIMITS } from '../../api/organizer'

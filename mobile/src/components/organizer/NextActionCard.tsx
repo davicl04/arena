@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
-import { Text, View } from 'react-native'
+import { View } from 'react-native'
+import { Text } from '../Text'
 import type { OrganizerEventDetail } from '../../api/events'
 import { sentence } from '../../api/organizer'
 import { useResolvedTheme, useThemeColors } from '../../hooks/useTheme'

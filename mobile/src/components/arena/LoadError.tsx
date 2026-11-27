@@ -1,4 +1,5 @@
-import { Text, View } from 'react-native'
+import { View } from 'react-native'
+import { Text } from '../Text'
 import { ApiError } from '../../api/client'
 import { colors } from '../../theme'
 import { useThemeColors } from '../../hooks/useTheme'

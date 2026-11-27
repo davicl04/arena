@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, View } from 'react-native'
+import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, View } from 'react-native'
+import { Text } from '../Text'
 import { ApiError } from '../../api/client'
 import { createRun, getRunRaces, previewRun } from '../../api/runs'
 import type { RunCreated, RunInput, RunPreview, RunRace, RunSource } from '../../api/runs'

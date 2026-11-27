@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Pressable, ScrollView, Text, View } from 'react-native'
+import { Pressable, ScrollView, View } from 'react-native'
+import { Text } from '../components/Text'
 import { listEventMatches, scheduleConflict, scheduleMatch } from '../api/brackets'
 import type { EventMatchList, EventMatchRow, ScheduleConflict, ScheduleInput } from '../api/brackets'
 import { ApiError } from '../api/client'

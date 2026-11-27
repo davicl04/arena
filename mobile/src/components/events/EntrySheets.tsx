@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Pressable, Text, View } from 'react-native'
+import { Pressable, View } from 'react-native'
+import { Text } from '../Text'
 import type { UploadFile } from '../../api/client'
 import { CONTEST_LIMITS } from '../../api/entries'
 import type { EventDetail, MyEntry, TeamEligibility } from '../../api/entries'

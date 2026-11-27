@@ -1,4 +1,5 @@
-import { Pressable, Text, View } from 'react-native'
+import { Pressable, View } from 'react-native'
+import { Text } from '../Text'
 import type { MatchCard } from '../../api/matches'
 import { footballFormat } from '../../data/arena'
 import { useThemeColors } from '../../hooks/useTheme'

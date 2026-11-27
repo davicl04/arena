@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
-import { Text, View } from 'react-native'
+import { View } from 'react-native'
+import { Text } from '../Text'
 import Svg, { Circle } from 'react-native-svg'
 import { colors } from '../../theme'
 import { useNow } from '../../hooks/useNow'

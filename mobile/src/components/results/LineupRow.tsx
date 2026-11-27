@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Pressable, Text, View } from 'react-native'
+import { Pressable, View } from 'react-native'
+import { Text } from '../Text'
 import type { Position } from '../../api/client'
 import { contestStat, reviewStat } from '../../api/results'
 import type { Lineup, StatField, StatReviewInput } from '../../api/results'

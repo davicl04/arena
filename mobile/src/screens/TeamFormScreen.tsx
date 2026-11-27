@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { Pressable, ScrollView, Text, TextInput, View } from 'react-native'
+import { Pressable, ScrollView, View } from 'react-native'
+import { Text, TextInput } from '../components/Text'
 import Svg, { Path } from 'react-native-svg'
 import { ApiError } from '../api/client'
 import type { City, Profile, UploadFile } from '../api/client'

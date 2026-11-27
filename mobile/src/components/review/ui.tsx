@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
-import { ActivityIndicator, Text, View } from 'react-native'
+import { ActivityIndicator, View } from 'react-native'
+import { Text } from '../Text'
 import type { PagedList } from '../../hooks/usePagedList'
 import { useResolvedTheme, useThemeColors } from '../../hooks/useTheme'
 import { Icon } from '../Icon'

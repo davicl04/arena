@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Pressable, Text, TextInput, View } from 'react-native'
+import { Pressable, View } from 'react-native'
+import { Text, TextInput } from './Text'
 import { REPORT_DETAILS_MAX, REPORT_REASONS, sendReport } from '../api/social'
 import type { ReportReason, ReportTarget } from '../api/social'
 import { reportActionError } from '../hooks/useSubmit'

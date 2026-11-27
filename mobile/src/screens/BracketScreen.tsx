@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from 'react'
-import { ScrollView, Text, View } from 'react-native'
+import { ScrollView, View } from 'react-native'
+import { Text } from '../components/Text'
 import { confirmBracket, drawBracket, getBracket, swapBracket } from '../api/brackets'
 import type { Bracket } from '../api/brackets'
 import { ApiError } from '../api/client'

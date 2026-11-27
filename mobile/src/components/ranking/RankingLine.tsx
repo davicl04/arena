@@ -1,4 +1,5 @@
-import { Pressable, Text, View } from 'react-native'
+import { Pressable, View } from 'react-native'
+import { Text } from '../Text'
 import type { Ref } from 'react'
 import type { RankingKey, RankingRow } from '../../api/results'
 import { useSessionToken } from '../../hooks/useSessionToken'

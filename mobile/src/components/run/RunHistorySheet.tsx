@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Text, View } from 'react-native'
+import { View } from 'react-native'
+import { Text } from '../Text'
 import { deleteRun, runsPath } from '../../api/runs'
 import type { Run, RunFilter } from '../../api/runs'
 import { runDistances } from '../../data/arena'

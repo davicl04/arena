@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Pressable, Text, View } from 'react-native'
+import { Pressable, View } from 'react-native'
+import { Text } from '../Text'
 import { colors } from '../../theme'
 import { useThemeColors } from '../../hooks/useTheme'
 import type { ThemeColors } from '../../theme'

@@ -1,4 +1,5 @@
-import { Pressable, Text, View } from 'react-native'
+import { Pressable, View } from 'react-native'
+import { Text } from '../Text'
 import type { ArenaNotification } from '../../api/notifications'
 import { deadlineSentence, notificationView, pendingDeadline, pendingView } from '../../data/notifications'
 import { morePendingLabel, urgencyLabel } from '../../data/home'
@@ -39,7 +40,7 @@ export function Destaque({ notification, total, now, isAdmin = false, onOpen, on
   const more = morePendingLabel(total)
   return <View testID="destaque" className="mb-3.5">
     <View className="mb-2 flex-row items-center justify-between gap-2">
-      <Text accessibilityRole="header" className="text-base font-bold text-heading">Para responder</Text>
+      <Text accessibilityRole="header" className="text-[16px] font-bold text-heading">Para responder</Text>
       <View testID="destaque-total" accessible accessibilityLabel={`${total} ${total === 1 ? 'pendência' : 'pendências'}`}
         style={{ borderRadius: 99, backgroundColor: colors['warning-bg'], paddingHorizontal: 9, paddingVertical: 3 }}>
         <Text style={{ color: colors.warning, fontSize: 11, fontWeight: '700', fontVariant: ['tabular-nums'] }}>{total}</Text>

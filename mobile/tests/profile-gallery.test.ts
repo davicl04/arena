@@ -1,5 +1,6 @@
 import React from 'react'
 import { act, create } from 'react-test-renderer'
+import type { ReactTestInstance } from 'react-test-renderer'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { request } from '../src/api/client'
 import type { Post } from '../src/api/client'
@@ -13,7 +14,6 @@ vi.mock('react-native', async () => (await import('./support/native')).reactNati
 vi.mock('react-native-safe-area-context', async () => (await import('./support/native')).safeAreaMock())
 vi.mock('../src/components/ui', async () => (await import('./support/native')).uiMock())
 vi.mock('expo-image-picker', () => ({ launchImageLibraryAsync: vi.fn() }))
-vi.mock('../src/components/sports-profile/SportsProfiles', () => ({ SportsProfiles: () => null }))
 vi.mock('../src/api/client', () => ({
   positions: [],
   ApiError: class ApiError extends Error { constructor(message: string, public status: number) { super(message) } },
@@ -139,7 +139,9 @@ describe('galeria do perfil e visualizador "Publicações"', () => {
     expect(onPostRemove).toHaveBeenCalledWith(4)
     expect(tree.root.findAllByType('Modal' as never)).toHaveLength(0)
     expect(textOf(tree)).toContain('Nenhuma foto por aqui')
-    await click(tree, 'Publicar foto')
+    // O vazio é o EmptyState com o ActionButton "Publicar foto".
+    expect(byLabel(tree, 'Publicar foto')).toHaveLength(1)
+    await press(tree, 'Publicar foto')
     expect(onNewPhoto).toHaveBeenCalledOnce()
     await act(async () => { tree.unmount() })
   })
@@ -196,7 +198,9 @@ describe('telas com abas, topo fixo e ações da conta', () => {
     expect(barTitle()).toHaveLength(0)
     await act(async () => { scroll.props.onScroll({ nativeEvent: { contentOffset: { y: 200 } } }) })
     expect(barTitle()).toHaveLength(1)
-    expect(textOf(tree)).toContain('@ | eu.atleta')
+    // O título junta o "@" (em destaque, num Text aninhado) e o usuário: "@eu.atleta".
+    const deepText = (node: ReactTestInstance): string => node.children.map(child => typeof child === 'string' ? child : deepText(child)).join('')
+    expect(deepText(barTitle()[0])).toBe('@eu.atleta')
     expect(byLabel(tree, 'Menu')).toHaveLength(1)
     await act(async () => { scroll.props.onScroll({ nativeEvent: { contentOffset: { y: 10 } } }) })
     expect(barTitle()).toHaveLength(0)
@@ -261,7 +265,9 @@ describe('telas com abas, topo fixo e ações da conta', () => {
     await press(tree, 'Abrir perfil de @eu.atleta')
     expect(byLabel(tree, 'Ações da conta')).toHaveLength(0)
     expect(byLabel(tree, 'Nova foto')).toHaveLength(0)
-    expect(textOf(tree)).toContain('1 publicações')
+    // Como na web, o cabeçalho do perfil visitado não conta publicações: a grade mostra a foto.
+    expect(textOf(tree)).not.toMatch(/\d+ publicaç/)
+    expect(tiles(tree)).toEqual(['Abrir publicação: Foto 7'])
     await press(tree, 'Abrir publicação: Foto 7')
     await press(tree, 'Comentários, 0')
     await type(tree, 'Escreva um comentário', 'Valeu')
@@ -275,7 +281,9 @@ describe('telas com abas, topo fixo e ações da conta', () => {
     await click(tree, 'Excluir')
     expect(request).toHaveBeenCalledWith('/posts/7', 'DELETE')
     expect(byLabel(tree, 'Ações da publicação')).toHaveLength(0)
-    expect(textOf(tree)).toContain('0 publicações')
+    // A grade do perfil fica vazia e o feed também.
+    expect(tiles(tree)).toHaveLength(0)
+    expect(textOf(tree)).toContain('Nenhuma foto por aqui')
     expect(textOf(tree)).toContain('A arquibancada está vazia')
     await act(async () => { tree.unmount() })
   })

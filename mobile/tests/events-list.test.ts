@@ -91,13 +91,13 @@ describe('Campeonatos e provas (E2): lista', () => {
     expect(vi.mocked(request).mock.calls.some(call => String(call[0]).startsWith('/cities'))).toBe(false)
   })
 
-  it('sem cidade no perfil lista todas as cidades e "Definir cidade" leva ao Perfil', async () => {
+  it('sem cidade no perfil lista todas as cidades e "Definir cidade" leva às modalidades', async () => {
     serve({ '/me/sports-profiles': [], '/me/entries?scope=ativas&limit=50': page<MyEntry>([]), '/events?sport=futebol': page([open]) })
     const navigation = navigationMock()
     const tree = await mountScreen(navigation)
     expect(allText(tree)).toContain('Sem cidade no perfil de Futebol · todas as cidades')
     await pressButton(tree, 'Definir cidade')
-    expect(navigation.go).toHaveBeenCalledWith('profile')
+    expect(navigation.go).toHaveBeenCalledWith('sports')
   })
 
   it('os chips trocam a modalidade (a tela chama os eventos da corrida de Provas)', async () => {

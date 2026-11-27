@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Text, View } from 'react-native'
+import { View } from 'react-native'
+import { Text } from '../Text'
 import { CANCEL_REASON_MESSAGE, decideRevocation, reasonError } from '../../api/admin'
 import type { AdminEvent } from '../../api/admin'
 import { ORGANIZER_LIMITS } from '../../api/organizer'

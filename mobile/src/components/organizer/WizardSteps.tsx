@@ -1,4 +1,5 @@
-import { Text, View } from 'react-native'
+import { View } from 'react-native'
+import { Text } from '../Text'
 import type { City, Sport } from '../../api/client'
 import { EVENT_LIMITS } from '../../api/events'
 import { eliminationCapacities, eventNoun, eventTypes, footballFormats, pixKeyType, pixKeyTypes, runDistances } from '../../data/arena'

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { ReactNode } from 'react'
-import { Pressable, Text, TextInput, View } from 'react-native'
+import { Pressable, View } from 'react-native'
+import { Text, TextInput } from '../Text'
 import { tiers as tierInfo } from '../../data/arena'
 import type { TierKey } from '../../data/arena'
 import { colors } from '../../theme'

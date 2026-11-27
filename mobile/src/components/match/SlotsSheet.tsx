@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Text, View } from 'react-native'
+import { View } from 'react-native'
+import { Text } from '../Text'
 import type { MatchDetail, MatchSlotOut, OpenSlots } from '../../api/matches'
 import { footballFormat, positionShort } from '../../data/arena'
 import { currentSlotCounts, guestSlots, maxSlots, shortName, sideOf, slotPositions, slotTotal } from '../../data/match'

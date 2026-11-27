@@ -1,4 +1,5 @@
-import { Pressable, Text, View } from 'react-native'
+import { Pressable, View } from 'react-native'
+import { Text } from '../Text'
 import type { TimelineRun } from '../../api/profile'
 import { useThemeColors } from '../../hooks/useTheme'
 import { StateBadge } from '../arena/StateBadge'

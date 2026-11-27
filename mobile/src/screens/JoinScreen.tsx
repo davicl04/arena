@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native'
+import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native'
+import { Text } from '../components/Text'
 import { ApiError } from '../api/client'
 import { cancelJoinRequest, joinPreview, requestJoin } from '../api/teams'
 import type { JoinPreview } from '../api/teams'

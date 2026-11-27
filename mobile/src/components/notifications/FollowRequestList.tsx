@@ -1,4 +1,5 @@
-import { Pressable, Text, View } from 'react-native'
+import { Pressable, View } from 'react-native'
+import { Text } from '../Text'
 import type { SocialUser } from '../../api/client'
 import { useSessionToken } from '../../hooks/useSessionToken'
 import { useThemeColors } from '../../hooks/useTheme'

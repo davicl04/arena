@@ -1,6 +1,7 @@
 import { Children } from 'react'
 import type { ReactNode } from 'react'
-import { Pressable, Text, View } from 'react-native'
+import { Pressable, View } from 'react-native'
+import { Text } from '../Text'
 import { useResolvedTheme, useThemeColors } from '../../hooks/useTheme'
 import { Icon } from '../Icon'
 

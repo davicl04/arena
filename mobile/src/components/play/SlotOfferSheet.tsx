@@ -1,4 +1,5 @@
-import { Text, View } from 'react-native'
+import { View } from 'react-native'
+import { Text } from '../Text'
 import { acceptSlotOffer, declineSlotOffer } from '../../api/matchmaking'
 import type { SlotOffer } from '../../api/matchmaking'
 import { footballFormat } from '../../data/arena'

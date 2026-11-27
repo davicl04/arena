@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react'
-import { Animated, Text, View, useWindowDimensions } from 'react-native'
+import { Animated, View, useWindowDimensions } from 'react-native'
+import { Text } from './Text'
 import { LoadError } from './arena/LoadError'
+import { ArenaMark } from './arena/ArenaMark'
+import { ActionButton, TextAction } from './arena/controls'
+import { colors as fixedColors } from '../theme'
 import { Button } from './ui'
-import { cx, tw } from '../styles'
 import { useThemeColors } from '../hooks/useTheme'
 
 const SEGMENT = 0.4
@@ -38,22 +41,17 @@ export function FeedLoading() {
   </View>
 }
 
-/** Ícone neutro de foto (não há símbolo do Coliseu entre os assets do app). */
-function PhotoGlyph() {
-  return <View className="h-7 w-8 items-center justify-center rounded-[6px] border-2 border-glass-accent">
-    <View className="h-3 w-3 rounded-full border-2 border-glass-accent" />
-  </View>
-}
-
-/** Feed vazio ("A arquibancada está vazia"). */
+/** Feed vazio ("A arquibancada está vazia"), como o estado da web: o Coliseu menta no disco `forest`, título, texto e as duas ações. */
 export function FeedEmpty({ onPublish, onSearch }: { onPublish: () => void; onSearch: () => void }) {
-  return <View className="items-center px-6 pt-10 pb-6">
-    <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" className="mb-4 h-18 w-18 items-center justify-center rounded-full bg-forest"><PhotoGlyph /></View>
-    <Text accessibilityRole="header" className={cx(tw.heading, 'text-center')}>A arquibancada está vazia</Text>
-    <Text className={cx(tw.body, 'text-center')}>Siga atletas para ver as fotos deles aqui, ou abra os trabalhos com a sua.</Text>
-    <View className="w-full max-w-[320px]">
-      <Button title="Publicar foto" onPress={onPublish} />
-      <Button secondary title="Buscar atletas" onPress={onSearch} />
+  return <View className="mx-6 mt-10 items-center gap-1">
+    <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" className="mb-4 size-34 items-center justify-center rounded-full bg-[#0b221814]">
+      <View className="size-30 items-center justify-center rounded-full bg-forest"><ArenaMark width={72} height={54} color={fixedColors.mint} /></View>
+    </View>
+    <Text accessibilityRole="header" className="text-center text-[16px] text-heading">A arquibancada está vazia</Text>
+    <Text className="mt-1 mb-3.5 max-w-[270px] text-center text-[11.5px] leading-[18px] text-ink-muted">Siga atletas para ver as fotos deles aqui, ou abra os trabalhos com a sua.</Text>
+    <View className="flex-row flex-wrap justify-center gap-2">
+      <ActionButton fit size="sm" icon="camera" title="Publicar foto" onPress={onPublish} />
+      <TextAction title="Buscar atletas" onPress={onSearch} />
     </View>
   </View>
 }

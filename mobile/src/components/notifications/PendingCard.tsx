@@ -1,4 +1,5 @@
-import { Text, View } from 'react-native'
+import { View } from 'react-native'
+import { Text } from '../Text'
 import type { ArenaNotification } from '../../api/notifications'
 import { deadlineSentence, notificationView, pendingDeadline, pendingView } from '../../data/notifications'
 import { useResolvedTheme, useThemeColors } from '../../hooks/useTheme'

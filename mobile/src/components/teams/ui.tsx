@@ -1,6 +1,7 @@
 import { createContext, useContext } from 'react'
 import type { ReactNode } from 'react'
-import { Text, View } from 'react-native'
+import { View } from 'react-native'
+import { Text } from '../Text'
 import { useThemeColors } from '../../hooks/useTheme'
 import { colors } from '../../theme'
 

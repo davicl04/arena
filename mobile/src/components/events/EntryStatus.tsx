@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
-import { Text, View } from 'react-native'
+import { View } from 'react-native'
+import { Text } from '../Text'
 import type { EventDetail, MyEntry } from '../../api/entries'
 import type { Receipt } from '../../api/events'
 import { useThemeColors } from '../../hooks/useTheme'

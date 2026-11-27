@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
-import { AccessibilityInfo, Text } from 'react-native'
+import { AccessibilityInfo } from 'react-native'
+import { Text } from '../Text'
 import type { TextStyle } from 'react-native'
 import { useNow } from '../../hooks/useNow'
 import { formatCountdown, spokenDuration } from '../../utils/clock'

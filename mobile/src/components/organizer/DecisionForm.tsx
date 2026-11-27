@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { ReactNode } from 'react'
-import { Pressable, Text, View } from 'react-native'
+import { Pressable, View } from 'react-native'
+import { Text } from '../Text'
 import { JUSTIFICATION_MAX, JUSTIFICATION_MIN } from '../../api/brackets'
 import type { ResultDecisionInput } from '../../api/brackets'
 import type { MatchDetail, ScoreOut, Side } from '../../api/matches'

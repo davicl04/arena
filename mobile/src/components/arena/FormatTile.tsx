@@ -1,4 +1,5 @@
-import { Text, View } from 'react-native'
+import { View } from 'react-native'
+import { Text } from '../Text'
 import { footballFormat, placementRequired, shownTier, tiers } from '../../data/arena'
 import type { FootballFormat, TierKey } from '../../data/arena'
 import { colors } from '../../theme'

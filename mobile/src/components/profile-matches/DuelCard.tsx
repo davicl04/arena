@@ -1,4 +1,5 @@
-import { Pressable, Text, View } from 'react-native'
+import { Pressable, View } from 'react-native'
+import { Text } from '../Text'
 import type { TimelineMatch, TimelineMatchSide } from '../../api/profile'
 import { useSessionToken } from '../../hooks/useSessionToken'
 import { useThemeColors } from '../../hooks/useTheme'

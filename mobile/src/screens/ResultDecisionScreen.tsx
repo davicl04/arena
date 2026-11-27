@@ -1,5 +1,6 @@
 import { useCallback } from 'react'
-import { ScrollView, Text, View } from 'react-native'
+import { ScrollView, View } from 'react-native'
+import { Text } from '../components/Text'
 import { ApiError } from '../api/client'
 import { decideResult } from '../api/brackets'
 import type { ResultDecisionInput } from '../api/brackets'

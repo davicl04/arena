@@ -1,4 +1,5 @@
-import { Pressable, Text, View } from 'react-native'
+import { Pressable, View } from 'react-native'
+import { Text } from '../Text'
 import type { Profile, Sport } from '../../api/client'
 import type { EventCard } from '../../api/entries'
 import { championshipMeta, championshipTags, championshipsTitle, emptyChampionshipsText } from '../../data/home'
@@ -72,7 +73,7 @@ export function Campeonatos({ state, profiles, allSport, onOpenEvent, onOpenEven
   const card = { borderRadius: 16, borderWidth: 1, borderColor: c['surface-edge'], backgroundColor: c.surface } as const
   return <View testID="campeonatos">
     <View className="mb-2 flex-row items-center justify-between gap-2">
-      <Text accessibilityRole="header" numberOfLines={1} className="shrink text-base font-bold text-heading">{championshipsTitle(profiles)}</Text>
+      <Text accessibilityRole="header" numberOfLines={1} className="shrink text-[16px] font-bold text-heading">{championshipsTitle(profiles)}</Text>
       {allSport ? <TextAction title="Ver todos" accessibilityLabel="Ver todos os campeonatos" onPress={() => onOpenEvents(allSport)} /> : null}
     </View>
     {state.kind === 'loading' ? <Text accessibilityLiveRegion="polite" style={{ color: c['ink-muted'], fontSize: 13 }}>Carregando campeonatos…</Text>

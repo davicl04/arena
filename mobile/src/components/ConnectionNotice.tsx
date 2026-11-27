@@ -1,5 +1,7 @@
 import { useEffect } from 'react'
-import { AppState, Pressable, Text, View } from 'react-native'
+import { AppState, Pressable, View } from 'react-native'
+import { useBottomInset } from '../hooks/useBottomInset'
+import { Text } from './Text'
 import Animated, { cancelAnimation, useAnimatedStyle, useReducedMotion, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated'
 import { connection, useConnection } from '../api/connection'
 import type { ConnectionState } from '../api/connection'
@@ -49,6 +51,8 @@ function Strip({ state }: { state: ConnectionState }) {
   const retry = useRetryText(state)
   const reduced = useReducedMotion()
   const shake = useSharedValue(0)
+  // Acima da navegação inferior, que cobre a área segura de baixo.
+  const navTop = NAV_HEIGHT + useBottomInset()
   useEffect(() => { announce(offline ? 'Sem conexão com a ARENA' : 'Conexão restabelecida') }, [offline])
   // Ação tentada com a folha dispensada: a faixa treme (sem movimento com "reduzir movimento").
   useEffect(() => {
@@ -57,7 +61,7 @@ function Strip({ state }: { state: ConnectionState }) {
   }, [state.nudge, reduced, shake])
   const style = useAnimatedStyle(() => ({ transform: [{ translateX: shake.value }] }))
   return <Animated.View testID="connection-strip" accessibilityRole={offline ? 'alert' : undefined} style={[{
-    position: 'absolute', left: 0, right: 0, bottom: NAV_HEIGHT, height: STRIP_HEIGHT, zIndex: 40, elevation: 12, flexDirection: 'row', alignItems: 'center', gap: 12,
+    position: 'absolute', left: 0, right: 0, bottom: navTop, height: STRIP_HEIGHT, zIndex: 40, elevation: 12, flexDirection: 'row', alignItems: 'center', gap: 12,
     paddingHorizontal: 16, borderTopLeftRadius: 16, borderTopRightRadius: 16, borderTopWidth: 1, borderTopColor: `${offline ? colors['warning-soft'] : colors.mint}55`, backgroundColor: colors.toast,
   }, style]}>
     <Dot restored={!offline} />

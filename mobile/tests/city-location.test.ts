@@ -7,8 +7,10 @@ import * as SecureStore from 'expo-secure-store'
 import { ApiError, request } from '../src/api/client'
 import type { City, Position, Profile, ProfileInput, Sport, User } from '../src/api/client'
 import { LAST_KNOWN_MAX_AGE_MS, LOCATION_TIMEOUT_MS } from '../src/hooks/useCityLocation'
-import ProfileScreen from '../src/screens/ProfileScreen'
+import SportsScreen from '../src/screens/SportsScreen'
 import { byLabel, enableAct, press, textOf } from './support/native'
+import { playContext } from './support/play'
+import { fakeNavigation } from './support/teams'
 import { brasiliaCity, goianiaCity, searchCity, searchPath, valparaisoCity } from './support/cities'
 import { denied, granted } from './support/location'
 
@@ -26,7 +28,7 @@ vi.mock('../src/api/client', async original => ({
 }))
 
 /*
- * Cidade pela localização no passo da cidade da tela de modalidades do Expo, com `expo-location` e a API simulados:
+ * Cidade pela localização no passo da cidade da tela de modalidades do Expo (Suas modalidades), com `expo-location` e a API simulados:
  * permissão não decidida (pedida só no toque), já concedida (perfil novo vai direto para a sugestão; perfil existente
  * mantém a cidade salva), negada, falha, tempo esgotado e 404; o corpo de `POST /cities/nearest`; "Não, escolher outra
  * cidade"; e salvar com a cidade sugerida. O transporte (Bearer, URL fixa) está em api-cities-nearest.test.ts.
@@ -68,7 +70,8 @@ function deferred<T>() {
 }
 async function mount(onExpired = vi.fn()) {
   let tree!: ReactTestRenderer
-  await act(async () => { tree = create(React.createElement(ProfileScreen, { user: me, onExpired, onLogout: vi.fn(), onUser: vi.fn() })) })
+  const props = { user: me, navigation: fakeNavigation(), onUser: vi.fn(), onLogout: vi.fn(), ...playContext(), onExpired, params: undefined, title: 'Suas modalidades' }
+  await act(async () => { tree = create(React.createElement(SportsScreen, props)) })
   trees.push(tree)
   return { tree, onExpired }
 }

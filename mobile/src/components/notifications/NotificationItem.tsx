@@ -1,4 +1,5 @@
-import { Pressable, Text, View } from 'react-native'
+import { Pressable, View } from 'react-native'
+import { Text } from '../Text'
 import type { ArenaNotification } from '../../api/notifications'
 import { notificationView } from '../../data/notifications'
 import type { NotificationView } from '../../data/notifications'

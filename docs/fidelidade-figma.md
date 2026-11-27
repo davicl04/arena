@@ -102,7 +102,7 @@ Ajuste posterior pedido pelo usuário, decidido em sessão de protótipos e regi
 - **Erro de carregamento (`LoadError`):** Coliseu grande, título, texto e "Tentar novamente" nas telas; variante compacta nas seções.
 - **Junto ao campo:** validação de formulário, como antes.
 
-No Expo o vidro é sólido (sem desfoque) e o texto usa a fonte do sistema, sem Sora nem Inter. Não há declaração de paridade visual do Expo nem validação em aparelho.
+No Expo o vidro é sólido (sem desfoque). Até 27 de novembro de 2026 o texto usava a fonte do sistema; desde então usa Inter e Sora (veja "Paridade visual do Expo com a web", no fim deste documento).
 
 ## Tema claro e escuro "Estádio à noite" — 13 de outubro de 2026
 
@@ -293,3 +293,15 @@ As regras completas estão na especificação de trabalho, em `.scratch/comparti
   - os botões de lupa acompanham o seletor de posição, numa linha só, e não aparecem sobre a prévia;
   - "Trocar foto" fica desabilitado enquanto não há foto, porque a pílula da prévia já faz a escolha;
   - "Centro" e "Base" mantêm os deslocamentos já definidos no desenho do adesivo, e a assinatura continua embaixo.
+
+## Paridade visual do Expo com a web — 27 de novembro de 2026
+
+Pedido do usuário depois de abrir o app pelo Expo Go no iPhone e achar as telas "distorcidas", isto é, diferentes da web. A referência é a web atual no navegador. As decisões registradas para o Expo continuam valendo: Dividida estreita na entrada, sem landing, data DD/MM/AAAA, folhas sem arrasto e vidro sem desfoque.
+
+- **Base visual:** paleta e raios com os valores da web; Inter e Sora; a marca `arena.` como o `Logo` da web (Coliseu, "arena" na cor do título e ponto verde circular).
+- **Contorno:** topos escuros (Jogar, Comunidade, notificações, Meus times e demais placas) e a capa do perfil sobem por trás da barra de status, e a navegação inferior cobre a área do indicador de início. A faixa "arena." saiu do topo da Comunidade e do Perfil.
+- **Telas:** Início (Placar com o Coliseu no canto, botão de 52 pt, títulos de seção de 16 pt), Jogar e Ranking (títulos de seção e de tela, chips e cartão dos Lendários vazio), Comunidade (barra com Coliseu, abas com ícone e estado vazio da web), Perfil (capa padrão `arena-cover.jpg`, cabeçalho da web, linha "Minhas modalidades", "Suas estatísticas" e abas com ícone) e a nova tela **Suas modalidades**, como o `sports` da web. Nas subtelas: notificações (filtros em linha rolável e `EmptyState`), Campeonatos, Meus times e o cabeçalho das telas empilhadas.
+- **Adaptações nativas:** "Entrar com QR" continua em Meus times, porque o app lê o QR pela câmera. O menu e a edição do perfil seguem em folhas, e não em páginas.
+
+A conferência foi lado a lado, no simulador iOS (iPhone 17, Expo Go) e no navegador a 402 px, com a mesma conta, nos dois temas. Não houve conferência em Android nem em aparelho físico. As telas que dependem de dados que a conta de teste não alcança (partida em andamento, organizador, administração, Salão dos Lendários com atletas) receberam só as correções dos componentes compartilhados.
+

@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
-import { Pressable, Text, View } from 'react-native'
+import { Pressable, View } from 'react-native'
+import { Text } from '../Text'
 import type { Sport } from '../../api/client'
 import { entryState as entryStates, eventFormatParts, eventNoun, eventPhase as eventPhases, eventState as eventStates, tiers } from '../../data/arena'
 import type { EntryState, EventPhase, EventState, EventType, FootballFormat, TierKey } from '../../data/arena'

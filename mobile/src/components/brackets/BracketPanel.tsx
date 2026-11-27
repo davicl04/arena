@@ -1,5 +1,6 @@
 import { useCallback } from 'react'
-import { Text, View } from 'react-native'
+import { View } from 'react-native'
+import { Text } from '../Text'
 import { getBracket } from '../../api/brackets'
 import { ApiError } from '../../api/client'
 import type { TennisBonus } from '../../api/events'

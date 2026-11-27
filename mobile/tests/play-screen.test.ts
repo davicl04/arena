@@ -80,6 +80,8 @@ const lastCall = (method: string) => calls(method).at(-1)
 const stateOf = (tree: ReactTestRenderer, label: string) => byLabel(tree, label).at(-1)?.props.accessibilityState
 const host = (tree: ReactTestRenderer, id: string) => tree.root.findAll(node => typeof node.type === 'string' && node.props.testID === id)
 const has = (tree: ReactTestRenderer, text: string) => textOf(tree).includes(text)
+/** Títulos de seção (`accessibilityRole="header"`) da tela, na ordem. */
+const headers = (tree: ReactTestRenderer) => tree.root.findAll(node => String(node.type) === 'Text' && node.props.accessibilityRole === 'header').map(node => String(node.props.children))
 const later = (minutes: number) => new Date(Date.now() + minutes * 60_000).toISOString()
 
 beforeEach(() => {
@@ -132,7 +134,7 @@ describe('Jogar: a placa', () => {
     expect(play.props.disabled).toBe(false)
     expect(play.props.accessibilityHint).toBe('Times de Brasília de qualquer nível.')
     await press(tree, 'Cidade do perfil de Futebol: Brasília. Alterar em Suas modalidades')
-    expect(navigation.go).toHaveBeenCalledWith('profile')
+    expect(navigation.go).toHaveBeenCalledWith('sports')
   })
 
   it('o formato escolhido muda a linha do elo; as abas trocam a modalidade', async () => {
@@ -163,7 +165,7 @@ describe('Jogar: a placa', () => {
     expect(['Futebol', 'Tênis', 'Corrida'].map(name => stateOf(again, name)?.selected)).toEqual([false, true, false])
   })
 
-  it('sem perfil na modalidade o botão é PREPARAR e leva ao perfil, sem busca', async () => {
+  it('sem perfil na modalidade o botão é PREPARAR e leva às modalidades, sem busca', async () => {
     serve(() => undefined, standings(), [football])
     const tree = await mount()
     await press(tree, 'Tênis')
@@ -172,7 +174,7 @@ describe('Jogar: a placa', () => {
     expect(has(tree, 'Prepare seu perfil de tênis: o Arena usa a sua cidade para encontrar partidas perto de você.')).toBe(true)
     expect(byLabel(tree, 'Definir a cidade do perfil de Tênis')).toHaveLength(1)
     await press(tree, 'Preparar perfil de Tênis')
-    expect(navigation.go).toHaveBeenCalledWith('profile')
+    expect(navigation.go).toHaveBeenCalledWith('sports')
     await press(tree, 'Corrida')
     expect(host(tree, 'play-button')[0].props.accessibilityLabel).toBe('Preparar perfil de Corrida')
     expect(has(tree, 'Prepare seu perfil de corrida')).toBe(true)
@@ -856,7 +858,7 @@ describe('Jogar: minhas partidas', () => {
     const tree = await mount(playBoard())
     expect(has(tree, 'Nenhuma partida em andamento. Encontre um adversário para começar.')).toBe(true)
     await press(tree, 'Corrida')
-    expect(has(tree, 'MINHAS PARTIDAS')).toBe(false)
+    expect(headers(tree)).not.toContain('Minhas partidas')
   })
 
   it('histórico: lê só ao abrir, filtra pela modalidade, pagina e mostra o vazio', async () => {
@@ -927,7 +929,8 @@ describe('Jogar: corrida', () => {
     await press(tree, '10 km')
     expect(has(tree, 'Ouro nos 10 km')).toBe(true)
     expect(has(tree, 'Melhor 52:40 · Corrida do Lago')).toBe(true)
-    expect(has(tree, 'PROVAS')).toBe(true)
+    expect(headers(tree)).toContain('Provas')
+    expect(headers(tree)).not.toContain('Outras formas de jogar')
     await press(tree, 'Provas. Provas de corrida abertas, com inscrição pelo Arena')
     expect(navigation.go).toHaveBeenLastCalledWith('events', { sport: 'corrida' })
     expect(calls('POST')).toHaveLength(0)

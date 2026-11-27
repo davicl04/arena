@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Text, View } from 'react-native'
+import { View } from 'react-native'
+import { Text } from '../Text'
 import { EVENT_LIMITS, eventMessagesPath, postEventMessage } from '../../api/events'
 import type { EventMessage } from '../../api/events'
 import { usePagedList } from '../../hooks/usePagedList'

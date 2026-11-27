@@ -6,7 +6,6 @@ import ProfileScreen from '../src/screens/ProfileScreen'
 
 vi.mock('react-native', async () => (await import('./support/native')).reactNativeMock())
 vi.mock('expo-image-picker', () => ({ launchImageLibraryAsync: vi.fn(), ImagePickerResult: undefined }))
-vi.mock('../src/components/sports-profile/SportsProfiles', () => ({ SportsProfiles: () => null }))
 vi.mock('../src/api/client', () => ({
   positions: [],
   ApiError: class ApiError extends Error { constructor(message: string, public status: number) { super(message) } },
@@ -18,7 +17,9 @@ vi.mock('../src/api/client', () => ({
 
 const me = { id: 1, name: 'Maria Souza', username: 'maria.s', email: 'maria@example.com', birth_date: '1995-01-01', social_public: false, is_admin: false, avatar: null, cover: null }
 type Tree = ReturnType<typeof create>
-const texts = (tree: Tree) => tree.root.findAllByType('Text' as never).map(entry => JSON.stringify(entry.props.children)).join(' ')
+// Um item por <Text>, só com os textos primitivos (o @usuário do cabeçalho aninha um <Text> no outro).
+const strings = (value: unknown): string[] => Array.isArray(value) ? value.flatMap(strings) : typeof value === 'string' ? [value] : []
+const texts = (tree: Tree) => tree.root.findAllByType('Text' as never).map(entry => strings(entry.props.children).join(''))
 const pressables = (tree: Tree, label: string) => tree.root.findAllByType('Pressable' as never).filter(entry => entry.props.accessibilityLabel === label)
 async function press(tree: Tree, label: string) {
   const targets = pressables(tree, label)
@@ -40,12 +41,13 @@ describe('Menu do perfil: seções de outras áreas (organizador e administraç�
     await press(tree, 'Menu')
     const text = texts(tree)
     expect(sections).toHaveBeenCalled()
-    expect(text.indexOf('"CONTA"')).toBeLessThan(text.indexOf('"ORGANIZADOR"'))
-    expect(text.indexOf('"ORGANIZADOR"')).toBeLessThan(text.indexOf('"APP"'))
+    expect(text).toContain('CONTA')
+    expect(text.indexOf('CONTA')).toBeLessThan(text.indexOf('ORGANIZADOR'))
+    expect(text.indexOf('ORGANIZADOR')).toBeLessThan(text.indexOf('APP'))
     // Fechar o Menu pela função recebida: a folha some (a seção sai junto).
     await press(tree, 'Seção de teste')
-    expect(texts(tree)).not.toContain('"ORGANIZADOR"')
-    expect(texts(tree)).not.toContain('"CONTA"')
+    expect(texts(tree)).not.toContain('ORGANIZADOR')
+    expect(texts(tree)).not.toContain('CONTA')
     await act(async () => { tree.unmount() })
   })
 })

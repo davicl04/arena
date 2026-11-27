@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Pressable, Text, View } from 'react-native'
+import { Pressable, View } from 'react-native'
+import { Text } from './Text'
 import { ApiError, request } from '../api/client'
 import type { User, UsernameAvailability } from '../api/client'
 import { availabilityMessage, normalizeUsername, usernameProblem } from '../utils/profile'

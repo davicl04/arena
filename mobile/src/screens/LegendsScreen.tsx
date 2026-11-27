@@ -1,4 +1,5 @@
-import { Pressable, ScrollView, Text, View } from 'react-native'
+import { Pressable, ScrollView, View } from 'react-native'
+import { Text } from '../components/Text'
 import { SvgXml } from 'react-native-svg'
 import { brandSvgs } from '../assets/brand-svgs'
 import { ActionButton } from '../components/arena/controls'

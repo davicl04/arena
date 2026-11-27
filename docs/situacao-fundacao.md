@@ -1,5 +1,83 @@
 # Situação da fundação do Arena
 
+## Paridade visual do Expo com a web — 27 de novembro de 2026
+
+O usuário abriu o app pelo Expo Go no iPhone e achou as telas "distorcidas". Na conversa ficou claro que eram as diferenças visuais em relação à web: o Expo nunca tinha recebido a revisão visual e ainda usava a paleta e as fontes do app anterior. Feature Coordenado `expo-paridade-visual`, com 5 tickets (spec local em `.scratch/expo-paridade-visual/`), na branch `feat/mobile-review`.
+
+- **Base visual:**
+  - Tokens do `global.css` e do `theme.ts` com os **valores** da web, no claro e no escuro: `ink`/`heading` `#495057`, `line` `#49505726`, `field` branco, `nav` `#e2e4e9f7`, `scrim`, `placeholder`; raios `field` 11, `control` 13, `panel` 18 e `sheet` 24. O vidro e o toast mantêm os tons sem desfoque.
+  - **Fontes Inter e Sora** carregadas por `expo-font` antes da primeira tela; se o carregamento falhar, o app segue na fonte do sistema. O novo `Text`/`TextInput` (`src/components/Text.tsx`) troca o peso pela família carregada, que funciona no iOS e no Android, e usa Sora nos títulos (`accessibilityRole="header"`), em `display`/`font-display` e na marca. As 198 importações do app foram trocadas, e uma regra de lint bloqueia `Text`/`TextInput` do `react-native`.
+  - **Marca:** componente `Logo` (`src/components/Brand.tsx`), igual ao da web, no Início, no carregamento, na entrada e no erro.
+- **Shell:**
+  - A área logada não pinta mais a área segura de cima. Cada tela declara o topo (`src/navigation/topArea.tsx`): as placas escuras (`TeamsPlate` de ponta a ponta, `DarkScreen`, barra da Comunidade) pintam a faixa de `forest`, e a capa do perfil sobe por baixo da barra de status.
+  - A navegação inferior cobre a área segura de baixo, e o toast e a faixa de conexão sobem junto. A faixa "arena." saiu da Comunidade e do Perfil.
+  - Rótulos da navegação, abas e chips com `maxFontSizeMultiplier`, sem corte com texto ampliado.
+  - Na entrada, o campo focado fica acima do teclado (`automaticallyAdjustKeyboardInsets`).
+- **Telas:**
+  - **Início:** Placar com o Coliseu no canto e números em Sora, botão principal de 52 pt, títulos de seção de 16 pt e margens de 20 pt, como a web.
+  - **Jogar:** "Minhas partidas", "Outras formas de jogar"/"Provas" e "Suas marcas" como títulos de seção (`SectionTitle`).
+  - **Ranking:** título de 17 pt, chips no estilo da web e cartão claro tracejado para "Nenhum Lendário ainda".
+  - **Comunidade:** barra com o Coliseu, título de 17 pt, botão + e abas com ícone, e o estado vazio da web.
+  - **Perfil próprio:** capa padrão `arena-cover.jpg` (copiada para `mobile/assets/images/`) com degradê; cabeçalho da web (`ProfileHeader`: avatar de 88 pt, `@usuário` em Sora, conexões, chips das modalidades, visibilidade); linha "Minhas modalidades"; "Suas estatísticas" em cartões centrados; abas Fotos/Partidas com ícone; botões de vidro escuro sobre a capa.
+  - **Nova tela `sports` ("Suas modalidades")**, como a da web: os cartões de modalidades saíram do Perfil, e os atalhos de configurar modalidade (Início, Jogar, Ranking, Campeonatos e menu) passaram a abri-la.
+  - **Perfil de outra pessoa:** o mesmo cabeçalho, com o Seguir à direita; a contagem de publicações saiu, como na web.
+  - **Subtelas:** notificações (título de 17 pt, filtros numa linha rolável e `EmptyState`), Campeonatos, Ranking e Meus times com o `EmptyState` da web, e o voltar das placas escuras sem círculo.
+- **Dependências novas** (autorizadas pelo usuário), instaladas com `npx expo install`: `expo-font` ~57.0.4, `@expo-google-fonts/inter` e `@expo-google-fonts/sora` ^0.4.2. O plugin `expo-font` foi acrescentado ao `app.json`. Rodam no Expo Go.
+
+**Verificações:**
+- Em `mobile/`: `npm run lint` e `npm run typecheck` sem problemas. `npm run test:coverage`: 118 arquivos e 1757 testes aprovados (novos: `fonts.test.ts`, `top-area.test.ts` e o erro de carregamento de Suas modalidades). Cobertura: 96,61% de instruções, 91,19% de ramos, 95,84% de funções e 98,5% de linhas. `CI=1 npm run export:android`: ok.
+- `npx expo install --check`: aponta só o desvio anterior a esta entrega (`expo` 57.0.27, `expo-image-picker` 57.0.20 e `expo-location` 57.0.23). Os pacotes novos não são apontados.
+- **Simulador iOS** (iPhone 17, iOS 27.2, Expo Go SDK 57, Metro do worktree, API e PostgreSQL locais), lado a lado com a web no navegador a 402 px, com uma conta de teste local criada para a revisão. Conferidos nos dois temas: entrada (Entrar e Criar conta, teclado), Início, Ranking, Jogar, Comunidade (Publicações e Atletas), Perfil, Suas modalidades, notificações, Campeonatos, Meus times, menu e perfil de outra pessoa. A maior escala de texto não acessível do iOS também foi conferida. `runtime:errors` sem erros.
+
+**Limitações:**
+- Sem Android (sem SDK nem emulador nesta máquina) e sem aparelho físico. O Android fica validado só pelo build, inclusive a troca de peso das fontes.
+- Não conferidas por falta de dados na conta de teste: partida em andamento, telas do organizador e da administração e Salão dos Lendários com atletas. Elas receberam só as correções dos componentes compartilhados (tokens, fontes, `ActionButton`, chips, `DarkTopBar`).
+- O menu e a edição do perfil continuam em folhas, e não em páginas como na web. "Entrar com QR" continua em Meus times (é do app).
+- Na troca do tamanho do texto do sistema com o app aberto, o iOS pode manter por um instante a medida antiga de um cartão. Um reload resolve; parece comportamento do React Native, não do app.
+
+**Pendências:** revisão independente da entrega, se desejada; conferência em Android e em aparelho; atualização das três dependências Expo defasadas, a critério do time.
+
+### Ajustes pedidos depois da revisão — 27 de novembro de 2026
+
+O usuário aprovou a entrega e apontou três pontos: a navegação inferior, os elos do Ranking quebrando linha e a busca de atletas, que deveria seguir a web mais de perto.
+
+- **Navegação inferior** com as medidas do `BottomNav` da web:
+  - barra de 82 pt mais a área segura, com o fundo ocupando a barra toda; itens de 55 pt;
+  - o JOGAR sobe 25 pt acima do próprio item, com a sombra `--shadow-play` (brilho menta no escuro);
+  - rótulos de 9 pt em `heading` (ativo e JOGAR) e `ink-muted`;
+  - moldura com sombra no item ativo, dourada no escuro. O Ranking, só com o Coliseu, não tem moldura, como na web.
+- **Ranking:** os quatro elos (Bronze a Diamante) ficam numa linha que rola na horizontal, sem quebrar. Isso vem da nova opção `row` do `ChoicePills`. O texto de introdução tem 11 pt. A pedido do usuário, o emblema fica sem o ladrilho verde-escuro que o chip da web usa. A web continua quebrando a linha a 402 px; ela não foi alterada.
+- **Busca de atletas**, como a `CommunityPeople` da web:
+  - campo de vidro claro com lupa, texto de 13 pt e botão de limpar (iOS);
+  - "Quem você segue · N" como título de seção, com a foto de 56 pt no anel verde e o primeiro nome;
+  - dica e "Nenhum atleta encontrado" centralizados, com ícone verde e título em Sora, sem cartão;
+  - linhas de pessoa com foto de 42 pt, @ em verde e "Conta pública/privada · Segue você", e o botão compacto (38 pt, com o ícone de adicionar no Seguir/Solicitar);
+  - "Buscando atletas…" em texto e "Carregar mais atletas" com o contorno da web.
+  - As iniciais do `Avatar` ficaram verdes e em extranegrito, como no `SocialPhoto` da web, em todo o app.
+- Ícones novos: `search-x` e `user-round-plus`.
+
+**Verificações:**
+- Em `mobile/`: `npm run lint` e `npm run typecheck` sem problemas. `npm run test:coverage`: 118 arquivos e 1757 testes aprovados, com dois testes da Comunidade ajustados ao novo layout. Cobertura: 96,61% de instruções, 91,17% de ramos, 95,85% de funções e 98,5% de linhas. `npm run export:android`: ok.
+- Simulador iOS (iPhone 17) ao lado da web a 402 px, nos dois temas: Ranking, aba Atletas antes da busca e com resultados, e a navegação inferior. `runtime:errors` sem erros.
+
+**Limitações:** a fileira "Quem você segue" não foi vista no simulador porque a conta de teste não segue ninguém; ela está coberta pelos testes. Android segue validado só pelo build.
+
+### Correções da revisão independente e rebase — 27 de novembro de 2026
+
+A entrega foi rebaseada sobre a `main` (PR #9, compartilhamento nos Stories). Houve dois conflitos de acréscimo: o import do `MatchTimeline` e este arquivo. Depois, passou por revisão independente com Opus 5.5 (esforço alto), sem bloqueantes. Correções feitas:
+
+- **Android, entrada:** o `KeyboardAvoidingView` volta a valer na tela de entrada no Android. Com o edge-to-edge do SDK 57, a janela não se redimensiona, e o `automaticallyAdjustKeyboardInsets` só existe no iOS.
+- **Teclado na área logada:** com o teclado aberto, a navegação inferior, o toast e o aviso de conexão deixam de somar a área segura de baixo (`useBottomInset`). Assim a barra encosta no teclado, sem faixa vazia. Conferido no simulador iOS, na busca de atletas.
+- **Alvos de toque:** as pílulas (40 pt), o botão Seguir da busca (38 pt) e os filtros das notificações (36 pt) ganharam `hitSlop` para chegar a 44 pt sem mudar o visual.
+- **Código sem uso removido:** `ProfileTitle.tsx` e `tw.brand`.
+- **Segunda rodada da revisão** (aprovada, com dois detalhes menores):
+  - As fileiras roláveis de chips (elos e filtros das notificações) ganharam padding vertical, para a folga de toque caber dentro do `ScrollView`.
+  - O recuo começa zerado quando o componente monta com o teclado já aberto (`Keyboard.isVisible()`).
+
+**Verificações:** em `mobile/`, `npm run lint` e `npm run typecheck` sem problemas. `npm run test:coverage` com 119 arquivos e 1761 testes aprovados (novo: `bottom-inset.test.ts`). Cobertura: 96,63% de instruções, 91,19% de ramos, 95,89% de funções e 98,52% de linhas. `CI=1 npm run export:android`: ok. `npx expo install --check` aponta só o desvio anterior.
+
+**Limitações:** o Android segue sem emulador. Ficam por conferir lá o teclado da entrada e os toques fora dos limites do pai: a metade de cima do JOGAR, e as fileiras de elos e de "Quem você segue" a partir da margem.
+
 ## Correções da revisão do compartilhamento nos Stories — 27 de novembro de 2026
 
 Ajustes pedidos pela revisão com Opus 5.5 (duas rodadas, aprovada na segunda) antes do PR.

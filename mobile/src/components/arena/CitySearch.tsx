@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { ActivityIndicator, Pressable, Text, View } from 'react-native'
+import { ActivityIndicator, Pressable, View } from 'react-native'
+import { Text } from '../Text'
 import type { City } from '../../api/client'
 import { CITY_SEARCH_MIN, cityLabel } from '../../api/cities'
 import { useCity, useCitySearch } from '../../hooks/useCities'

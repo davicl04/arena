@@ -1,4 +1,5 @@
-import { Pressable, ScrollView, Text, View } from 'react-native'
+import { Pressable, ScrollView, View } from 'react-native'
+import { Text } from '../components/Text'
 import { listOpenOrganizerEvents, organizerEventsPath } from '../api/events'
 import type { OrganizerEventCard } from '../api/events'
 import { getOrganizerStatus } from '../api/organizer'

@@ -1,5 +1,8 @@
 import { useCallback, useState } from 'react'
-import { ActivityIndicator, Pressable, Text, View } from 'react-native'
+import { ActivityIndicator, Pressable, View } from 'react-native'
+import { Text } from './Text'
+import { EmptyState } from './EmptyState'
+import { ActionButton } from './arena/controls'
 import type { Post } from '../api/client'
 import { usePagedList } from '../hooks/usePagedList'
 import { LoadError } from './arena/LoadError'
@@ -37,10 +40,9 @@ export default function ProfileGallery({ userId, ownerName, ownerUsername, viewe
   if (list.loading) return <ActivityIndicator accessibilityLabel="Carregando fotos" color={colors.brand} className="my-6" />
   if (list.error) return <LoadError size="section" title="Não foi possível carregar as fotos" text={list.error.message} cause={list.error} onRetry={list.reload} />
   // O visualizador continua montado quando a lista esvazia, para se fechar sozinho.
-  if (!list.items.length) return <View className="items-center p-5.5">
-    <Text accessibilityRole="header" className={cx(tw.heading, 'text-center')}>Nenhuma foto por aqui</Text>
-    <Text className={cx(tw.body, 'text-center')}>{own ? 'Publique pela Comunidade e suas fotos aparecem nesta grade.' : 'Esta conta ainda não publicou fotos.'}</Text>
-    {own && onNewPhoto ? <Button title="Publicar foto" onPress={onNewPhoto} /> : null}
+  if (!list.items.length) return <View className="px-5">
+    <EmptyState icon="image" title="Nenhuma foto por aqui" text={own ? 'Publique pela Comunidade e suas fotos aparecem nesta grade.' : 'Esta conta ainda não publicou fotos.'}
+      action={own && onNewPhoto ? <ActionButton fit icon="plus" title="Publicar foto" onPress={onNewPhoto} /> : undefined} />
     {viewer}
   </View>
 

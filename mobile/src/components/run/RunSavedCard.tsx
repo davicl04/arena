@@ -1,4 +1,5 @@
-import { Pressable, Text, View } from 'react-native'
+import { Pressable, View } from 'react-native'
+import { Text } from '../Text'
 import type { RunCreated } from '../../api/runs'
 import { colors } from '../../theme'
 import { Icon } from '../Icon'

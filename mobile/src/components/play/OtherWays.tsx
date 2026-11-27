@@ -1,6 +1,8 @@
-import { Pressable, Text, View } from 'react-native'
+import { Pressable, View } from 'react-native'
+import { Text } from '../Text'
+import { SectionTitle } from '../SectionTitle'
 import type { Sport } from '../../api/client'
-import { useResolvedTheme, useThemeColors } from '../../hooks/useTheme'
+import { useThemeColors } from '../../hooks/useTheme'
 import { Icon } from '../Icon'
 import type { IconName } from '../Icon'
 
@@ -25,10 +27,9 @@ function Row({ icon, title, text, divider = false, onPress }: { icon: IconName; 
  */
 export function OtherWays({ sport, onTeams, onEvents }: { sport: Sport; onTeams: () => void; onEvents: () => void }) {
   const c = useThemeColors()
-  const night = useResolvedTheme() === 'dark'
   const run = sport === 'corrida'
   return <View style={{ paddingHorizontal: 20 }}>
-    <Text accessibilityRole="header" style={{ marginTop: 22, marginBottom: 10, color: night ? c.eyebrow : c.brand, fontSize: 11, fontWeight: '700', letterSpacing: 2 }}>{run ? 'PROVAS' : 'OUTRAS FORMAS DE JOGAR'}</Text>
+    <SectionTitle title={run ? 'Provas' : 'Outras formas de jogar'} top={22} bottom={10} />
     <View style={{ borderRadius: 16, paddingHorizontal: 14, paddingVertical: 4, backgroundColor: c.surface }}>
       {sport === 'futebol' ? <Row icon="shield" title="Meu time" text="Elenco, convites e pedidos para entrar" onPress={onTeams} /> : null}
       <Row icon={run ? 'flag' : 'trophy'} title={run ? 'Provas' : 'Campeonatos'} divider={sport === 'futebol'} onPress={onEvents}

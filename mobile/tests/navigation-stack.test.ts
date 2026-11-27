@@ -20,7 +20,7 @@ describe('entradas tipadas', () => {
 
   it('declara as telas de todas as frentes seguintes, cada uma com título', () => {
     const declared: ScreenName[] = [
-      'home', 'ranking', 'legends', 'play', 'community', 'profile', 'user-profile', 'notifications', 'follow-requests', 'events', 'event', 'match',
+      'home', 'ranking', 'legends', 'play', 'community', 'profile', 'sports', 'user-profile', 'notifications', 'follow-requests', 'events', 'event', 'match',
       'event-bracket', 'event-matches', 'result-decision',
       'teams', 'team-form', 'team-invite', 'join',
       'organizer-request', 'organizer-events', 'event-wizard', 'event-manage', 'event-receipts',
@@ -36,11 +36,11 @@ describe('entradas tipadas', () => {
     expect(Object.keys(titles)).not.toContain('admin-walkovers')
   })
 
-  it('as telas com placa escura ou capa própria dispensam o cabeçalho do shell; as demais o usam', () => {
-    for (const screen of ['home', 'ranking', 'legends', 'play', 'user-profile', 'teams', 'team-form', 'team-invite', 'join', 'organizer-events', 'event-wizard', 'event-manage', 'event-receipts',
+  it('as abas e as telas com placa escura ou capa própria dispensam o cabeçalho do shell; as demais o usam', () => {
+    for (const screen of ['home', 'ranking', 'community', 'profile', 'legends', 'play', 'user-profile', 'teams', 'team-form', 'team-invite', 'join', 'organizer-events', 'event-wizard', 'event-manage', 'event-receipts',
       'match', 'event-bracket', 'event-matches', 'result-decision', 'notifications'] as const) expect(hasOwnHeader(screen)).toBe(true)
     // A placa das notificações tem voltar e título próprios; os pedidos para seguir usam o cabeçalho padrão do shell.
-    for (const screen of ['community', 'profile', 'follow-requests', 'events', 'event', 'organizer-request', 'moderation', 'admin-paid-events', 'admin-court-suggestions', 'admin-walkover-disputes'] as const) expect(hasOwnHeader(screen)).toBe(false)
+    for (const screen of ['follow-requests', 'sports', 'events', 'event', 'organizer-request', 'moderation', 'admin-paid-events', 'admin-court-suggestions', 'admin-walkover-disputes'] as const) expect(hasOwnHeader(screen)).toBe(false)
   })
 
   it('"Ver perfil" empilha o perfil do atleta; o próprio perfil é a aba Perfil', () => {
@@ -114,9 +114,9 @@ describe('pilha', () => {
 })
 
 describe('aba acesa e título', () => {
-  it('Meus times e os eventos do atleta acendem JOGAR; organizador e administração, Perfil', () => {
+  it('Meus times e os eventos do atleta acendem JOGAR; Suas modalidades, organizador e administração, Perfil', () => {
     for (const screen of ['teams', 'team-form', 'team-invite', 'join', 'events', 'event', 'match'] as const) expect(activeNavFor(screen, 'home')).toBe('play')
-    for (const screen of ['organizer-request', 'organizer-events', 'event-wizard', 'event-manage', 'event-receipts', 'event-bracket', 'event-matches', 'result-decision', 'admin-paid-events', 'admin-court-suggestions', 'admin-walkover-disputes', 'moderation'] as const)
+    for (const screen of ['sports', 'organizer-request', 'organizer-events', 'event-wizard', 'event-manage', 'event-receipts', 'event-bracket', 'event-matches', 'result-decision', 'admin-paid-events', 'admin-court-suggestions', 'admin-walkover-disputes', 'moderation'] as const)
       expect(activeNavFor(screen, 'home')).toBe('profile')
   })
 
@@ -138,6 +138,7 @@ describe('aba acesa e título', () => {
     expect(makeEntry('notifications', { filter: 'responder' })).toEqual({ screen: 'notifications', params: { filter: 'responder' } })
     expect(makeEntry('notifications')).toEqual({ screen: 'notifications' })
     expect(titleFor(makeEntry('follow-requests'))).toBe('Pedidos para seguir')
+    expect(titleFor(makeEntry('sports'))).toBe('Suas modalidades')
   })
 
   it('o título muda na edição de time e de rascunho e chama os eventos da corrida de Provas', () => {

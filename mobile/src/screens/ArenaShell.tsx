@@ -1,5 +1,7 @@
-import { useCallback, useEffect, useRef } from 'react'
-import { Text, View } from 'react-native'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { View } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { StatusBar } from 'expo-status-bar'
 import type { User } from '../api/client'
 import BottomNav from '../components/BottomNav'
 import { ConnectionNotice } from '../components/ConnectionNotice'
@@ -9,11 +11,14 @@ import { ToastViewport } from '../components/toast/ToastViewport'
 import { usePlayBoard } from '../hooks/usePlayBoard'
 import { screens } from '../navigation/screens'
 import type { ScreenComponent } from '../navigation/screens'
-import { activeNavFor, hasOwnHeader, isRootScreen, titleFor } from '../navigation/routes'
+import { activeNavFor, hasOwnHeader, titleFor } from '../navigation/routes'
+import { TopAreaProvider } from '../navigation/topArea'
+import type { TopArea } from '../navigation/topArea'
+import { useThemeColors } from '../hooks/useTheme'
+import { colors as fixedColors } from '../theme'
 import type { ScreenName } from '../navigation/routes'
 import { currentOf } from '../navigation/stack'
 import { useNavigation } from '../navigation/useNavigation'
-import { cx, tw } from '../styles'
 
 /**
  * Área logada: a pilha de telas (`useNavigation`), a barra superior e a navegação inferior. As abas
@@ -53,17 +58,21 @@ export default function ArenaShell({ user, onUser, onLogout, onExpired: expireSe
   const notificationSummary = useNotificationSummary(onExpired, current.screen === root ? root : `${root}:subtela`)
   const Body = screens[current.screen] as ScreenComponent<ScreenName>
   const title = titleFor(current)
-  return <>
-    {/* O Início e o Jogar desenham o próprio topo, e as telas com placa escura ou capa trazem o voltar e o título dentro delas
-        (`hasOwnHeader`); as outras abas mantêm a marca no topo e as demais telas, o cabeçalho com voltar. */}
-    {hasOwnHeader(current.screen) ? null
-      : isRootScreen(current.screen) ? <View className="px-5.5 pt-3.5"><Text className={cx(tw.brand, 'mb-2')}>arena.</Text></View>
-        : <ScreenHeader title={title} onBack={navigation.back} />}
+  // Faixa da barra de status (navigation/topArea): cada tela declara o próprio topo; a capa do perfil sobe por baixo dela.
+  const insets = useSafeAreaInsets()
+  const themeColors = useThemeColors()
+  const [topArea, setTopArea] = useState<TopArea>('app')
+  return <TopAreaProvider value={setTopArea}>
+    {topArea === 'bleed' ? null : <View testID="status-area" style={{ height: insets.top, backgroundColor: topArea === 'forest' ? fixedColors.forest : themeColors.app }} />}
+    {topArea === 'forest' ? <StatusBar style="light" /> : null}
+    {/* As abas e as telas com placa escura ou capa desenham o próprio topo (`hasOwnHeader`), como o `ArenaPage` da web; as
+        demais telas usam o cabeçalho com voltar. */}
+    {hasOwnHeader(current.screen) ? null : <ScreenHeader title={title} onBack={navigation.back} />}
     <View className="grow basis-0"><Body key={`${stack.length}-${current.screen}`} user={user} navigation={navigation} onUser={onUser} onLogout={onLogout} onExpired={onExpired}
       playBoard={playBoard} refreshPlayBoard={playBoard.reload} notificationSummary={notificationSummary} params={current.params as never} title={title} /></View>
     <BottomNav active={activeNavFor(current.screen, root)} onGo={tab => navigation.go(tab)} playAttention={Boolean(playBoard.board?.attention)} />
     {/* Faixa e folha de "Sem conexão" e os toasts: absolutos sobre a navegação inferior (o toast sobe com a faixa). */}
     <ConnectionNotice />
     <ToastViewport placement="nav" />
-  </>
+  </TopAreaProvider>
 }

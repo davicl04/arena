@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Image, Text, View } from 'react-native'
+import { Image, View } from 'react-native'
+import { Text } from './Text'
 import { cx } from '../styles'
 import { authSource } from './media'
 // Foto de publicação: privada, carregada com o Bearer da sessão. Sem token ou após falha mostra um bloco neutro.
