@@ -83,7 +83,7 @@ export function reactNativeMock() {
         return { remove: () => { appState.listeners.splice(appState.listeners.indexOf(listener), 1) } }
       },
     },
-    ActivityIndicator: element('ActivityIndicator'), Alert: { alert: vi.fn() }, Animated, FlatList, Image: element('Image'), KeyboardAvoidingView: element('KeyboardAvoidingView'), Keyboard: { addListener: vi.fn(() => ({ remove: vi.fn() })), dismiss: vi.fn() },
+    ActivityIndicator: element('ActivityIndicator'), Alert: { alert: vi.fn() }, Animated, FlatList, Image: element('Image'), KeyboardAvoidingView: element('KeyboardAvoidingView'), Keyboard: { addListener: vi.fn(() => ({ remove: vi.fn() })), dismiss: vi.fn(), isVisible: () => false },
     BackHandler: {
       addEventListener: (_event: string, handler: () => boolean | null | undefined) => {
         hardwareBack.handlers.push(handler)

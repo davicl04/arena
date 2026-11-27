@@ -40,7 +40,7 @@ export function PlateChips<T extends string>({ label, options, value, onChange, 
 }) {
   const segmented = variant === 'segmented'
   if (variant === 'filter') return <ScrollView horizontal showsHorizontalScrollIndicator={false} accessibilityRole="radiogroup" accessibilityLabel={label}
-    contentContainerStyle={{ flexDirection: 'row', gap: 6, paddingHorizontal: 16 }}>
+    style={{ marginVertical: -4 }} contentContainerStyle={{ flexDirection: 'row', gap: 6, paddingHorizontal: 16, paddingVertical: 4 }}>
     {options.map(option => {
       const selected = option.value === value
       const ink = selected ? colors.night : 'rgba(255,255,255,0.8)'

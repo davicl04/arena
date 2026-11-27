@@ -9,7 +9,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
  */
 export function useBottomInset() {
   const { bottom } = useSafeAreaInsets()
-  const [keyboard, setKeyboard] = useState(false)
+  // Quem monta com o teclado já aberto (o aviso de conexão que aparece no meio da digitação) começa sem o recuo.
+  const [keyboard, setKeyboard] = useState(() => Keyboard.isVisible())
   useEffect(() => {
     // No iOS, os eventos "will" acompanham a animação do teclado; o Android só emite os "did".
     const show = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow', () => setKeyboard(true))

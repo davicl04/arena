@@ -70,8 +70,11 @@ A entrega foi rebaseada sobre a `main` (PR #9, compartilhamento nos Stories). Ho
 - **Teclado na área logada:** com o teclado aberto, a navegação inferior, o toast e o aviso de conexão deixam de somar a área segura de baixo (`useBottomInset`). Assim a barra encosta no teclado, sem faixa vazia. Conferido no simulador iOS, na busca de atletas.
 - **Alvos de toque:** as pílulas (40 pt), o botão Seguir da busca (38 pt) e os filtros das notificações (36 pt) ganharam `hitSlop` para chegar a 44 pt sem mudar o visual.
 - **Código sem uso removido:** `ProfileTitle.tsx` e `tw.brand`.
+- **Segunda rodada da revisão** (aprovada, com dois detalhes menores):
+  - As fileiras roláveis de chips (elos e filtros das notificações) ganharam padding vertical, para a folga de toque caber dentro do `ScrollView`.
+  - O recuo começa zerado quando o componente monta com o teclado já aberto (`Keyboard.isVisible()`).
 
-**Verificações:** em `mobile/`, `npm run lint` e `npm run typecheck` sem problemas. `npm run test:coverage` com 119 arquivos e 1760 testes aprovados (novo: `bottom-inset.test.ts`). Cobertura: 96,63% de instruções, 91,19% de ramos, 95,89% de funções e 98,52% de linhas. `CI=1 npm run export:android`: ok. `npx expo install --check` aponta só o desvio anterior.
+**Verificações:** em `mobile/`, `npm run lint` e `npm run typecheck` sem problemas. `npm run test:coverage` com 119 arquivos e 1761 testes aprovados (novo: `bottom-inset.test.ts`). Cobertura: 96,63% de instruções, 91,19% de ramos, 95,89% de funções e 98,52% de linhas. `CI=1 npm run export:android`: ok. `npx expo install --check` aponta só o desvio anterior.
 
 **Limitações:** o Android segue sem emulador. Ficam por conferir lá o teclado da entrada e os toques fora dos limites do pai: a metade de cima do JOGAR, e as fileiras de elos e de "Quem você segue" a partir da margem.
 

@@ -281,7 +281,7 @@ export function ChoicePills<T extends string | number>({ label, options, value, 
   return <View>
     {row === undefined ? <View accessibilityRole="radiogroup" accessibilityLabel={label} style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>{pills}</View>
       : <ScrollView horizontal showsHorizontalScrollIndicator={false} accessibilityRole="radiogroup" accessibilityLabel={label}
-        style={{ marginHorizontal: -row }} contentContainerStyle={{ gap: 8, paddingHorizontal: row }}>{pills}</ScrollView>}
+        style={{ marginHorizontal: -row, marginVertical: -2 }} contentContainerStyle={{ gap: 8, paddingHorizontal: row, paddingVertical: 2 }}>{pills}</ScrollView>}
     <FieldError error={error} surface={tone} />
   </View>
 }
