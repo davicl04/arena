@@ -2,13 +2,12 @@ import { Pressable, View } from 'react-native'
 import { Text } from './Text'
 import { tabItems } from '../navigation/routes'
 import type { TabScreen } from '../navigation/routes'
-import { useBottomInset } from '../hooks/useBottomInset'
+import { NAV_HEIGHT, NAV_PADDING_BOTTOM, useNavInset } from '../hooks/useBottomInset'
 import { useResolvedTheme, useThemeColors } from '../hooks/useTheme'
 import { ArenaMark } from './arena/ArenaMark'
 import { Icon } from './Icon'
 
-/** Medidas da web: barra de 82 (mais a área segura), itens de 55 e o JOGAR subindo 25 acima do próprio item. */
-const BAR_HEIGHT = 82
+/** Medidas da web: barra de 82 (mais a parte da área segura que a folga de baixo não cobre), itens de 55 e o JOGAR subindo 25 acima do próprio item. */
 const ITEM_HEIGHT = 55
 const PLAY_RISE = 25
 /** Nome do JOGAR quando há algo em andamento: "JOGAR, há uma busca, proposta ou partida em andamento" (o aviso da web). */
@@ -26,16 +25,17 @@ export const playAttentionLabel = (label: string) => `${label}, há uma busca, p
 export default function BottomNav({ active, onGo, playAttention = false }: { active: TabScreen; onGo: (screen: TabScreen) => void; playAttention?: boolean }) {
   const colors = useThemeColors()
   const dark = useResolvedTheme() === 'dark'
-  // A barra cobre a área segura de baixo (o indicador de início), como a web com `env(safe-area-inset-bottom)`.
-  const bottom = useBottomInset()
-  return <View accessibilityRole="tablist" style={{ height: BAR_HEIGHT + bottom, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 4, paddingTop: 7, paddingBottom: 11 + bottom, borderTopWidth: 1, borderTopColor: colors.line, backgroundColor: colors.nav }}>
+  // A barra cobre a área segura de baixo (o indicador de início), com a folga de baixo dentro dela.
+  const inset = useNavInset()
+  return <View accessibilityRole="tablist" style={{ height: NAV_HEIGHT + inset, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 4, paddingTop: 7, paddingBottom: NAV_PADDING_BOTTOM + inset, borderTopWidth: 1, borderTopColor: colors.line, backgroundColor: colors.nav }}>
     {tabItems.map(item => {
       const on = active === item.screen
       const play = item.screen === 'play'
       const tint = on || play ? colors.heading : colors['ink-muted']
-      // Moldura do item ativo (Início, Comunidade e Perfil; o Ranking, só com o Coliseu, não tem), como na web.
-      const frame = { borderRadius: 14, borderWidth: 1, paddingHorizontal: 8, paddingVertical: 5, borderColor: 'transparent' as string }
-      if (on) Object.assign(frame, dark ? { borderColor: '#f4de9a55' } : { borderColor: colors.line, shadowColor: '#495057', shadowOpacity: 0.12, shadowRadius: 3, shadowOffset: { width: 0, height: 2 } })
+      // Moldura do item ativo (Início, Ranking, Comunidade e Perfil), como na web. Inativa, a caixa fica invisível, mas mantém
+      // o tamanho, para os nomes ficarem na mesma linha.
+      const box = { borderRadius: 14, borderWidth: 1, paddingHorizontal: 8, paddingVertical: 5, borderColor: 'transparent' }
+      const frame = !on ? box : { ...box, ...(dark ? { borderColor: '#f4de9a55' } : { borderColor: colors.line, shadowColor: '#495057', shadowOpacity: 0.12, shadowRadius: 3, shadowOffset: { width: 0, height: 2 } }) }
       return <Pressable key={item.screen} accessibilityRole="tab" accessibilityLabel={play && playAttention ? playAttentionLabel(item.label) : item.label} accessibilityState={{ selected: on }}
         onPress={() => onGo(item.screen)}
         style={{ flex: 1, height: ITEM_HEIGHT, alignItems: 'center', justifyContent: 'center', gap: 4, paddingHorizontal: 6 }}>
@@ -46,7 +46,7 @@ export default function BottomNav({ active, onGo, playAttention = false }: { act
             style={{ position: 'absolute', top: 1, right: 1, width: 12, height: 12, borderRadius: 6, borderWidth: 2, borderColor: colors.app, backgroundColor: colors.mint }} /> : null}
         </View>
           : item.icon ? <View style={frame}><Icon name={item.icon} size={21} color={tint} /></View>
-          : <ArenaMark width={27} height={21} color={tint} />}
+          : <View style={frame}><ArenaMark width={27} height={21} color={tint} /></View>}
         <Text numberOfLines={1} maxFontSizeMultiplier={1.15} style={{ color: tint, fontSize: 9, fontWeight: play ? '800' : on ? '700' : '400', letterSpacing: play && !on ? 0.27 : 0 }}>{item.label}</Text>
       </Pressable>
     })}

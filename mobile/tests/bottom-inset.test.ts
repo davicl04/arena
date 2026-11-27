@@ -2,7 +2,7 @@ import React from 'react'
 import { act, create } from 'react-test-renderer'
 import { describe, expect, it, vi } from 'vitest'
 import { enableAct } from './support/native'
-import { useBottomInset } from '../src/hooks/useBottomInset'
+import { useBottomInset, useNavInset } from '../src/hooks/useBottomInset'
 
 const listeners = new Map<string, () => void>()
 const keyboard = { visible: false }
@@ -37,5 +37,19 @@ describe('recuo de baixo da área logada', () => {
     expect(seen.at(-1)).toBe(0)
     await act(async () => { tree.unmount() })
     keyboard.visible = false
+  })
+
+  it('a navegação cresce só o que a folga de 11 de baixo não cobre da área segura, e nada com o teclado aberto', async () => {
+    enableAct()
+    const grown: number[] = []
+    const Nav = () => { grown.push(useNavInset()); return null }
+    let tree!: ReturnType<typeof create>
+    await act(async () => { tree = create(React.createElement(Nav)) })
+    expect(grown.at(-1)).toBe(23)
+    await act(async () => { listeners.get('keyboardWillShow')?.() })
+    expect(grown.at(-1)).toBe(0)
+    await act(async () => { listeners.get('keyboardWillHide')?.() })
+    expect(grown.at(-1)).toBe(23)
+    await act(async () => { tree.unmount() })
   })
 })

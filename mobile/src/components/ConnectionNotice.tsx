@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { AppState, Pressable, View } from 'react-native'
-import { useBottomInset } from '../hooks/useBottomInset'
+import { NAV_HEIGHT, useNavInset } from '../hooks/useBottomInset'
 import { Text } from './Text'
 import Animated, { cancelAnimation, useAnimatedStyle, useReducedMotion, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated'
 import { connection, useConnection } from '../api/connection'
@@ -22,7 +22,6 @@ import { ActionButton, TextAction } from './arena/controls'
  * novamente". Ao voltar ao primeiro plano com o aviso ligado, consulta o servidor na hora (o Expo não tem NetInfo).
  */
 const STRIP_HEIGHT = 52
-const NAV_HEIGHT = 82
 
 /** Ponto do aviso: âmbar e pulsante sem conexão, menta e parado quando a conexão voltou. */
 function Dot({ restored = false }: { restored?: boolean }) {
@@ -52,7 +51,7 @@ function Strip({ state }: { state: ConnectionState }) {
   const reduced = useReducedMotion()
   const shake = useSharedValue(0)
   // Acima da navegação inferior, que cobre a área segura de baixo.
-  const navTop = NAV_HEIGHT + useBottomInset()
+  const navTop = NAV_HEIGHT + useNavInset()
   useEffect(() => { announce(offline ? 'Sem conexão com a ARENA' : 'Conexão restabelecida') }, [offline])
   // Ação tentada com a folha dispensada: a faixa treme (sem movimento com "reduzir movimento").
   useEffect(() => {
