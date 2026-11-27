@@ -189,7 +189,7 @@ Ajuste posterior pedido pelo usuário, decidido numa sessão de protótipos com 
   - O título do hero tem largura máxima de 16 caracteres e fica numa linha a 1440 px.
   - "Crie sua conta" é um botão em linha com alvo de 24 px.
   - Cada seção tem um `h2` só para leitores de tela. O sobretítulo da subida de elo é o `h2` visível.
-  - Os nomes acessíveis das colunas incluem o número ("01 Futebol", "Passo 01 Crie sua conta"). Assim, a landing mantém exatamente dois convites "Crie sua conta".
+  - Os nomes acessíveis das colunas incluem o número ("01 Futebol", "Passo 1 Cruze os portões"). Nos passos, o rótulo "Passo n" fica só para leitores de tela e na tela aparece só o numeral romano (revisão de textos de 26 de novembro de 2026). Assim, a landing mantém exatamente dois convites "Crie sua conta" e o passo "Cruze os portões" não se confunde com eles.
   - Escolher o item já aberto o mantém aberto. O fecho também é revelado ao rolar. O movimento reduzido é lido uma vez, ao montar a landing.
 - **Subida de elo:**
   - A seção ocupa cinco telas de rolagem, com cada elo a 25% do caminho, como no protótipo.

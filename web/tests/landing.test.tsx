@@ -28,7 +28,7 @@ describe('landing sem sessão', () => {
     // Cabeçalho só com a marca.
     expect(within(screen.getByRole('banner')).queryByRole('button')).toBeNull()
     expect(screen.getByRole('heading', { level: 2, name: 'Os portões estão abertos.' })).toBeTruthy()
-    expect(within(screen.getByRole('contentinfo')).getByText('Futebol, tênis e corrida amadores.')).toBeTruthy()
+    expect(within(screen.getByRole('contentinfo')).getByText('O esporte amador da sua cidade.')).toBeTruthy()
     expect(screen.getByRole('main').id).toBe('main')
     expect(screen.queryByLabelText('E-mail')).toBeNull()
     expect(screen.queryByRole('alert')).toBeNull()

@@ -5,13 +5,13 @@ import { apiError, mockApi } from './teams-fixtures'
 
 const noSession = () => apiError(401, 'Entre na sua conta para continuar.')
 
-const eyebrow = 'Progressão · cada modalidade tem o seu ranking'
+const eyebrow = 'Sua ascensão · um ranking para cada modalidade'
 const tiers = [
-  ['Bronze', 'Toda trajetória começa aqui. Depois de 3 partidas, você recebe o primeiro elo.'],
-  ['Prata', 'Resultados confirmados pelos dois lados fazem o seu rating subir.'],
-  ['Ouro', 'Adversários do seu nível, na sua cidade, a cada partida.'],
-  ['Diamante', 'Poucos chegam. Cada modalidade tem o seu próprio ranking.'],
-  ['Lendário', 'O topo da arena e um lugar no Salão dos Lendários.'],
+  ['Bronze', 'Toda lenda começa na primeira partida. Depois de 3, a arena define o seu nível inicial.'],
+  ['Prata', 'Cada vitória confirmada pelos dois lados reergue mais um pedaço do seu Coliseu.'],
+  ['Ouro', 'O Coliseu quase inteiro. Rivais à altura, na sua cidade, a cada partida.'],
+  ['Diamante', 'Poucos chegam aqui. O Coliseu está de pé e a torcida sabe o seu nome.'],
+  ['Lendário', 'O topo da arena. Seu nome gravado no Salão dos Lendários.'],
 ] as const
 
 beforeEach(() => { Element.prototype.scrollTo = () => {} })

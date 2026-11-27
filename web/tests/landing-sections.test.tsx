@@ -40,17 +40,20 @@ describe('seções da landing', () => {
     const sports = within(section('Modalidades')).getAllByRole('button')
     expect(sports.map(button => button.textContent)).toEqual(['Futebol', 'Tênis', 'Corrida'])
     expect(sports.map(expanded)).toEqual(['true', 'false', 'false'])
-    expect(screen.getByText('Monte o seu time e convide amigos, ou entre avulso numa partida aberta.')).toBeTruthy()
-    expect(screen.getByText('Registre as suas marcas e se inscreva nas provas da sua cidade.')).toBeTruthy()
-    for (const tag of ['Society', 'Campo', 'Futsal', 'Simples', 'Sets', 'Rating', 'Marcas', 'Provas', 'Distâncias']) {
+    expect(screen.getByText('Monte seu time e convoque os amigos, ou entre avulso numa partida aberta.')).toBeTruthy()
+    expect(screen.getByText('Registre suas marcas, inscreva-se nas provas da sua cidade e conquiste cada distância.')).toBeTruthy()
+    for (const tag of ['Society', 'Campo', 'Futsal', 'Simples', 'Sets', 'Pontos', 'Marcas', 'Provas', 'Distâncias']) {
       expect(within(section('Modalidades')).getByText(tag)).toBeTruthy()
     }
-    // Como funciona: quatro passos; o nome do botão leva "Passo 0X", sem se confundir com o convite "Crie sua conta".
+    // Como funciona: quatro passos; na tela, só o numeral romano; o nome do botão leva "Passo X" (só para leitores de
+    // tela), sem que "Cruze os portões" se confunda com os convites de entrada.
     const steps = within(section('Como funciona')).getAllByRole('button')
-    expect(steps.map(button => button.textContent)).toEqual(['Crie sua conta', 'Monte seus perfis', 'Aperte Jogar', 'Confirme o resultado'])
-    expect(within(section('Como funciona')).getByRole('button', { name: 'Passo 04 Confirme o resultado' })).toBe(steps[3])
+    expect(steps.map(button => button.textContent)).toEqual(['Cruze os portões', 'Escolha suas modalidades', 'Toque em Jogar', 'Sele o resultado'])
+    expect(within(section('Como funciona')).getByRole('button', { name: 'Passo 1 Cruze os portões' })).toBe(steps[0])
+    expect(within(section('Como funciona')).getByRole('button', { name: 'Passo 4 Sele o resultado' })).toBe(steps[3])
+    expect(section('Como funciona').querySelectorAll('.landing-coluna-kicker')).toHaveLength(0)
     expect(steps.map(expanded)).toEqual(['true', 'false', 'false', 'false'])
-    expect(screen.getByText('Os dois lados informam o placar, e o ranking se atualiza.')).toBeTruthy()
+    expect(screen.getByText('Os dois lados confirmam o placar, o ranking se atualiza e você ganha seus louros para compartilhar.')).toBeTruthy()
     // Numerais romanos decorativos.
     const numerals = section('Como funciona').querySelectorAll('svg.landing-numeral')
     expect(numerals).toHaveLength(4)
@@ -71,7 +74,7 @@ describe('seções da landing', () => {
     await ui.click(tennis)
     expect([football, tennis, running].map(expanded)).toEqual(['false', 'true', 'false'])
     const panel = document.getElementById(tennis.getAttribute('aria-controls')!)!
-    expect(panel.textContent).toContain('Partidas de simples com placar por sets, confirmado pelos dois lados.')
+    expect(panel.textContent).toContain('Duelos de simples, com placar por sets confirmado pelos dois lados.')
     // Tab leva o foco (e a abertura) à próxima coluna; Enter na aberta a mantém aberta.
     await ui.tab()
     expect(document.activeElement).toBe(running)
@@ -101,7 +104,7 @@ describe('seções da landing', () => {
     const items = within(section('Mais da Arena')).getAllByRole('button')
     await ui.click(items[2])
     expect(items.map(expanded)).toEqual(['false', 'false', 'true', 'false'])
-    expect(document.getElementById(items[2].getAttribute('aria-controls')!)!.textContent).toBe('Publique, siga atletas e acompanhe a sua cidade.')
+    expect(document.getElementById(items[2].getAttribute('aria-controls')!)!.textContent).toBe('Publique seus louros, faça alianças com outros atletas e acompanhe a sua cidade.')
     await ui.tab()
     expect(document.activeElement).toBe(items[3])
     expect(items.map(expanded)).toEqual(['false', 'false', 'false', 'true'])

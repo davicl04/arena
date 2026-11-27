@@ -35,6 +35,7 @@ const stepColumns: ColumnItem[] = landingSteps.map(step => ({
   key: String(step.numeral),
   tone: step.tone,
   kicker: stepLabel(step.numeral),
+  kickerHidden: true,
   title: step.title,
   decoration: <RomanNumeral value={step.numeral} />,
   content: <p>{step.text}</p>,
