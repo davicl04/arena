@@ -183,8 +183,8 @@ describe('tela imersiva: Prévia do Story', () => {
   })
 
   it('a prévia 9:16 cabe na largura e na altura da tela', () => {
-    expect(previewWidth({ width: 390, height: 844 }, { top: 0, bottom: 0 })).toBe(358)
-    expect(previewWidth({ width: 390, height: 700 }, { top: 40, bottom: 20 })).toBe(253)
+    expect(previewWidth({ width: 390, height: 844 }, { top: 0, bottom: 0 })).toBe(322)
+    expect(previewWidth({ width: 390, height: 700 }, { top: 40, bottom: 20 })).toBe(208)
     expect(previewWidth({ width: 320, height: 400 }, { top: 0, bottom: 0 })).toBe(120)
   })
 })

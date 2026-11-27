@@ -1,5 +1,6 @@
 import type { ReactNode, Ref } from 'react'
 import { Text, View } from 'react-native'
+import type { AccessibilityProps } from 'react-native'
 import Svg, { Path, Rect, SvgXml } from 'react-native-svg'
 import { brandSvgs } from '../../assets/brand-svgs'
 import { colors } from '../../theme'
@@ -38,7 +39,8 @@ export const stickerPalette = {
   checkerCell: '#6d7671',
 } as const
 
-const storyHeight = (width: number) => Math.round(width * STORY_DESIGN.height / STORY_DESIGN.width)
+/** Altura do quadro 9:16 de `width` pontos. */
+export const storyHeight = (width: number) => Math.round(width * STORY_DESIGN.height / STORY_DESIGN.width)
 
 function Plate({ cells, u }: { cells: PlateCell[]; u: (n: number) => number }) {
   return <View testID="sticker-plate" style={{ alignSelf: 'stretch', flexDirection: 'row', backgroundColor: stickerPalette.panel, borderWidth: u(1), borderColor: stickerPalette.edge, borderRadius: u(18), paddingTop: u(16), paddingBottom: u(15), paddingHorizontal: u(4) }}>
@@ -85,7 +87,7 @@ function Signature({ u }: { u: (n: number) => number }) {
 
 /**
  * O adesivo sobre fundo transparente, num quadro 9:16 de `width` pontos: placa, barra do elo (quando há categoria) e
- * assinatura. `plate` desloca a placa e a barra (o ticket da foto oferece o seletor); o padrão é o design aprovado.
+ * assinatura. `plate` desloca a placa e a barra (o seletor Topo / Centro / Base do editor); o padrão é o design aprovado.
  */
 export function ResultSticker({ model, width, plate = 'topo' }: { model: StickerModel; width: number; plate?: PlatePosition }) {
   const k = width / STORY_DESIGN.width
@@ -103,13 +105,14 @@ export function ResultSticker({ model, width, plate = 'topo' }: { model: Sticker
 }
 
 /**
- * Quadro capturado (`captureRef`): transparente, com a camada de foto opcional por baixo (`photo`, do ticket da foto) e o
- * adesivo por cima. `collapsable={false}` mantém a vista nativa no Android para a captura.
+ * Quadro capturado (`captureRef`): transparente, com a camada de foto opcional por baixo (`photo`) e o adesivo por cima.
+ * `collapsable={false}` mantém a vista nativa no Android para a captura. `accessibility` troca o papel de imagem pelo
+ * do enquadramento (ajustável, com ações) quando há foto.
  */
-export function StoryCanvas({ ref, model, width, plate, photo, accessibilityLabel }: {
-  ref?: Ref<View>; model: StickerModel; width: number; plate?: PlatePosition; photo?: ReactNode; accessibilityLabel?: string
+export function StoryCanvas({ ref, model, width, plate, photo, accessibilityLabel, accessibility }: {
+  ref?: Ref<View>; model: StickerModel; width: number; plate?: PlatePosition; photo?: ReactNode; accessibilityLabel?: string; accessibility?: AccessibilityProps
 }) {
-  return <View ref={ref} collapsable={false} testID="story-canvas" accessible accessibilityRole="image" accessibilityLabel={accessibilityLabel}
+  return <View ref={ref} collapsable={false} testID="story-canvas" accessible accessibilityRole="image" accessibilityLabel={accessibilityLabel} {...accessibility}
     style={{ width, height: storyHeight(width), overflow: 'hidden', backgroundColor: 'transparent' }}>
     {photo}
     <ResultSticker model={model} width={width} plate={plate} />
