@@ -1,4 +1,5 @@
 import { View } from 'react-native'
+import type { HostInstance } from 'react-native'
 import { Text } from '../Text'
 import type { ReactNode } from 'react'
 import type { MyRankingOverviewLine, RankingCategory, RankingKey, RankingRow, TierCounts } from '../../api/results'
@@ -51,7 +52,7 @@ export function TierPlate({ category, ranking, tier, counts, mineTier, line, win
   onHall: () => void
   onExpired: () => void
   onOpenUser?: (userId: number) => void
-  reveal?: (node: View | null) => void
+  reveal?: (node: HostInstance | null) => void
 }) {
   const mine = mineTier === tier && line
   const shown = Math.min(5, counts[tier])

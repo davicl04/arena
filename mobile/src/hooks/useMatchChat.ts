@@ -22,7 +22,7 @@ export function mergeMessages(old: MatchMessageOut[], incoming: MatchMessageOut[
 
 const messageOf = (cause: unknown, fallback: string) => cause instanceof Error && cause.message ? cause.message : fallback
 /** O app está à vista? Em segundo plano (ou transição de tela do sistema) a leitura periódica pausa. */
-const visible = (state: string) => state !== 'background' && state !== 'inactive'
+const visible = (state: string | null | undefined) => state !== 'background' && state !== 'inactive'
 
 /**
  * Chat da partida (contrato 0002, 11.1; porta de `useMatchChat` da web): lê as últimas mensagens ao abrir e depois só as

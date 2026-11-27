@@ -1,7 +1,7 @@
 import type { ReactNode, Ref } from 'react'
 import { View } from 'react-native'
 import { Text } from '../Text'
-import type { AccessibilityProps } from 'react-native'
+import type { AccessibilityProps, HostInstance } from 'react-native'
 import Svg, { Path, Rect, SvgXml } from 'react-native-svg'
 import { brandSvgs } from '../../assets/brand-svgs'
 import { colors } from '../../theme'
@@ -113,7 +113,7 @@ export function ResultSticker({ model, width, plate = 'topo' }: { model: Sticker
  * do enquadramento (ajustável, com ações) quando há foto.
  */
 export function StoryCanvas({ ref, model, width, plate, photo, accessibilityLabel, accessibility }: {
-  ref?: Ref<View>; model: StickerModel; width: number; plate?: PlatePosition; photo?: ReactNode; accessibilityLabel?: string; accessibility?: AccessibilityProps
+  ref?: Ref<HostInstance>; model: StickerModel; width: number; plate?: PlatePosition; photo?: ReactNode; accessibilityLabel?: string; accessibility?: AccessibilityProps
 }) {
   return <View ref={ref} collapsable={false} testID="story-canvas" accessible accessibilityRole="image" accessibilityLabel={accessibilityLabel} {...accessibility}
     style={{ width, height: storyHeight(width), overflow: 'hidden', backgroundColor: 'transparent' }}>

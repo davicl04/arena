@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react'
 import { AccessibilityInfo, Platform, Pressable, ScrollView, View, useWindowDimensions } from 'react-native'
 import { Text } from '../Text'
-import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native'
+import type { NativeScrollEvent, NativeSyntheticEvent, ScrollViewInstance } from 'react-native'
 import type { TeamCard } from '../../api/teams'
 import { colors } from '../../theme'
 import { TeamIdCard } from './TeamIdCard'
@@ -38,7 +38,7 @@ export function TeamCardCarousel({ teams, selectedId, onSelect, onCreate, onInvi
 }) {
   const { width } = useWindowDimensions()
   const { card, step, side } = carouselMetrics(width)
-  const scroller = useRef<ScrollView>(null)
+  const scroller = useRef<ScrollViewInstance>(null)
   /** Time que a própria rolagem acabou de selecionar: a tela não precisa rolar de novo até ele. */
   const fromScroll = useRef<number | null>(null)
   /** O deslocamento inicial só vale depois que o conteúdo tem largura (antes disso a rolagem seria limitada a 0). */
