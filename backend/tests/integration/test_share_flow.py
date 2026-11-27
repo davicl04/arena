@@ -159,7 +159,9 @@ def test_football_payload_has_the_plate_numbers_and_the_owner_stats(world):
     assert (body['owner_side'], body['outcome'], body['points'], body['walkover_absent_side']) == (
         'a', 'vitoria', 3, None)
     assert body['stats'] == {'position': 'atacante', 'goals': 2, 'assists': 1, 'position_stat': 4}
-    assert body['category'] is None
+    # The elo bar is the individual ranking of the position played; no standing yet: placement with nothing played.
+    assert (body['category']['ranking'], body['category']['state'], body['category']['played']) == (
+        'futebol_individual', 'classificacao', 0)
     assert [(side['side'], side['kind'], side['is_owner']) for side in body['sides']] == [
         ('a', 'time', True), ('b', 'time', False)]
     assert body['sides'][0]['team']['name'] == 'Time Dono' and body['sides'][0]['athlete'] is None
@@ -178,7 +180,8 @@ def test_tennis_payload_has_sets_with_tiebreak(world):
     rival = make_user(db, 'tenista')
     match = tennis(db, owner, rival, sets=[{'a': 6, 'b': 4}, {'a': 7, 'b': 6, 'tiebreak': {'a': 7, 'b': 5}}])
     body = share_match(http, login(db, owner), match.id).json()
-    assert (body['sport'], body['format'], body['stats'], body['category']) == ('tenis', None, None, None)
+    assert (body['sport'], body['format'], body['stats']) == ('tenis', None, None)
+    assert (body['category']['ranking'], body['category']['state']) == ('tenis', 'classificacao')
     assert (body['outcome'], body['points']) == ('vitoria', 10)
     assert body['score'] == {'a': 2, 'b': 0, 'winner': 'a', 'sets': [
         {'a': 6, 'b': 4, 'tiebreak': None, 'super_tiebreak': False},
@@ -211,7 +214,11 @@ def test_run_on_a_standard_distance_carries_the_previous_best(client, monkeypatc
     assert (body['pace_s_per_km'], body['previous_best_s'], body['mark_kind']) == (290, 1500, 'novo_melhor')
     assert body['date'] == TODAY.isoformat() and body['occurred_at'].startswith(TODAY.isoformat())
     assert body['origin'] == {'source': 'treino', 'label': 'Treino', 'event_id': None}
-    assert body['category'] is None
+    # Registering the marks recalculated the 5 km ranking: best 24:10 is Ouro (<= 27:00), 130 s from Diamante
+    # (22:00), the only one classified, so without Lendário slots.
+    assert body['category'] == {'ranking': 'corrida_5', 'state': 'ranqueado', 'tier': 'ouro', 'tier_position': 1,
+                                'tier_size': 1, 'played': 2, 'required': 1, 'progress': 0.5667,
+                                'next_tier': 'diamante', 'gap': {'amount': 130.0, 'unit': 'segundos'}}
     opening = share_run(http, headers, first['id']).json()
     assert (opening['previous_best_s'], opening['mark_kind']) == (None, 'primeira_marca')
 
