@@ -39,7 +39,7 @@ describe('navegação inferior, faixa de conexão e toast com a área segura de 
   it.each([
     // iPhone com indicador de início: a folga de 11 da barra fica dentro dos 34, e a barra cresce só 23.
     [34, { nav: 105, padding: 34, strip: 105, toast: 161 }],
-    // Área segura menor que a folga (Android com gestos): a barra fica com as medidas da web.
+    // Área segura menor que a folga de 11: a barra fica com as medidas da web.
     [6, { nav: 82, padding: 11, strip: 82, toast: 138 }],
   ] as const)('com %i pt de área segura, os três ficam na mesma altura', async (bottom, expected) => {
     inset.bottom = bottom
