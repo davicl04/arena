@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { Linking, Modal, Pressable, Text, View } from 'react-native'
+import { Linking, Modal, Pressable, View } from 'react-native'
+import { Text } from '../Text'
 import { CameraView, useCameraPermissions } from 'expo-camera'
 import { colors } from '../../theme'
 import { joinTokenFromUrl } from '../../utils/joinLink'

@@ -1,4 +1,4 @@
-import { Text } from 'react-native'
+import { Text } from '../Text'
 import { getQueueCounts } from '../../api/admin'
 import { listOpenOrganizerEvents } from '../../api/events'
 import { getOrganizerStatus } from '../../api/organizer'

@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import type { ReactNode } from 'react'
-import { BackHandler, Pressable, ScrollView, Text, View } from 'react-native'
+import { BackHandler, Pressable, ScrollView, View } from 'react-native'
+import { Text } from './Text'
 import { cx } from '../styles'
 export function GlassButton({ label, glyph, onPress, disabled }: { label: string; glyph: string; onPress: () => void; disabled?: boolean }) {
   return <Pressable accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ disabled: Boolean(disabled) }} disabled={disabled} onPress={onPress} hitSlop={4}

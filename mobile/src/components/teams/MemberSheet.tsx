@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Pressable, Text, View } from 'react-native'
+import { Pressable, View } from 'react-native'
+import { Text } from '../Text'
 import { removeMember, updateMember } from '../../api/teams'
 import type { TeamCard, TeamMember } from '../../api/teams'
 import { isStale, useSubmit } from '../../hooks/useSubmit'

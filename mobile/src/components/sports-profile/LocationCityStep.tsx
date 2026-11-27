@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { ActivityIndicator, Pressable, Text, View } from 'react-native'
+import { ActivityIndicator, Pressable, View } from 'react-native'
+import { Text } from '../Text'
 import type { City } from '../../api/client'
 import { cityLabel } from '../../api/cities'
 import type { CityLocation } from '../../hooks/useCityLocation'

@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Text, View } from 'react-native'
+import { View } from 'react-native'
+import { Text } from '../Text'
 import { ApiError } from '../../api/client'
 import type { City } from '../../api/client'
 import { fieldMessage } from '../../api/events'

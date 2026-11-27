@@ -15,9 +15,12 @@
     "generate:brand": "node scripts/generate-brand-svgs.mjs"
   },
   "dependencies": {
+    "@expo-google-fonts/inter": "^0.4.2",
+    "@expo-google-fonts/sora": "^0.4.2",
     "expo": "57.0.27",
     "expo-camera": "~57.0.6",
     "expo-document-picker": "~57.0.3",
+    "expo-font": "~57.0.4",
     "expo-image-picker": "~57.0.20",
     "expo-location": "~57.0.23",
     "expo-media-library": "~57.0.6",

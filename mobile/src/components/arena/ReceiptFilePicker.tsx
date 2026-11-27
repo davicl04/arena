@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Image, Pressable, Text, View } from 'react-native'
+import { Image, Pressable, View } from 'react-native'
+import { Text } from '../Text'
 import type { UploadFile } from '../../api/client'
 import { fileSize, receiptFileError } from '../../api/receipts'
 import { useThemeColors } from '../../hooks/useTheme'

@@ -1,5 +1,6 @@
 import { useEffect, useMemo } from 'react'
-import { PanResponder, Pressable, Text, View } from 'react-native'
+import { PanResponder, Pressable, View } from 'react-native'
+import { Text } from '../Text'
 import Animated, { Easing, cancelAnimation, useAnimatedProps, useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated'
 import { Circle, Defs, LinearGradient, Rect, Stop, Svg } from 'react-native-svg'
 import { colors } from '../../theme'

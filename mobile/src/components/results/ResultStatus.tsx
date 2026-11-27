@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { Text } from 'react-native'
+import { Text } from '../Text'
 import type { ResultMatch } from '../../api/results'
 import type { MatchResultOut, ScoreOut } from '../../api/matches'
 import { sideName, sideOf } from '../../data/match'

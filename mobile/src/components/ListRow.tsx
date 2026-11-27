@@ -1,4 +1,5 @@
-import { Pressable, Text } from 'react-native'
+import { Pressable } from 'react-native'
+import { Text } from './Text'
 import { cx } from '../styles'
 // Linha de lista: botão com chevron quando há ação, estática quando não há. A linha 'danger' fica em vermelho e sem chevron.
 export default function ListRow({ label, value, onPress, tone, disabled }: { label: string; value?: string; onPress?: () => void; tone?: 'danger'; disabled?: boolean }) {

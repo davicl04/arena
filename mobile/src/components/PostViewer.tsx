@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
-import { ActivityIndicator, FlatList, KeyboardAvoidingView, Modal, Platform, Pressable, Text, View } from 'react-native'
+import { ActivityIndicator, FlatList, KeyboardAvoidingView, Modal, Platform, Pressable, View } from 'react-native'
+import { Text } from './Text'
 import type { Post } from '../api/client'
 import type { PagedList } from '../hooks/usePagedList'
 import PostItem from './PostItem'

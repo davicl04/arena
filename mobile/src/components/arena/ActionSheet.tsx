@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
-import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, View } from 'react-native'
+import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, View } from 'react-native'
+import { Text } from '../Text'
 import { colors } from '../../theme'
 import { useThemeColors } from '../../hooks/useTheme'
 import { Icon } from '../Icon'

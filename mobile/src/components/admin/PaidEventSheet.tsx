@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Text } from 'react-native'
+import { Text } from '../Text'
 import { decideEvent, eventRefusalInput, refusalError } from '../../api/admin'
 import type { AdminEvent } from '../../api/admin'
 import { ORGANIZER_LIMITS } from '../../api/organizer'

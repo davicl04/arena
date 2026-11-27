@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react'
-import { ActivityIndicator, Platform, Share, Text, View } from 'react-native'
+import { ActivityIndicator, Platform, Share, View } from 'react-native'
+import { Text } from '../Text'
 import QRCode from 'react-native-qrcode-svg'
 import { regenerateLink, teamLink } from '../../api/teams'
 import { useResource } from '../../hooks/useResource'

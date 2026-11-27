@@ -1,4 +1,5 @@
-import { View, Text } from 'react-native'
+import { View } from 'react-native'
+import { Text } from '../Text'
 import { colors } from '../../theme'
 import { Icon } from '../Icon'
 import { TierEmblem } from '../arena/TierEmblem'

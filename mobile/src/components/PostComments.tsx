@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-native'
+import { ActivityIndicator, Pressable, View } from 'react-native'
+import { Text, TextInput } from './Text'
 import type { Post, SocialComment } from '../api/client'
 import { COMMENT_MAX, createComment, deleteComment } from '../api/social'
 import { usePagedList } from '../hooks/usePagedList'

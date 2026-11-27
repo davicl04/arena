@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react'
-import { Text, View } from 'react-native'
+import { View } from 'react-native'
+import { Text } from '../Text'
 import { WALKOVER_REASON_MESSAGE, decideWalkover, reasonError } from '../../api/admin'
 import type { DisputeMatch, WalkoverDecision, WalkoverDispute } from '../../api/admin'
 import { ApiError } from '../../api/client'

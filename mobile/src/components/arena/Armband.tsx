@@ -1,4 +1,5 @@
-import { Text, View } from 'react-native'
+import { View } from 'react-native'
+import { Text } from '../Text'
 import Svg, { Path, Rect, Text as SvgText } from 'react-native-svg'
 import { colors } from '../../theme'
 import { useThemeColors } from '../../hooks/useTheme'

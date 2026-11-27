@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { Pressable, Text, TextInput, View } from 'react-native'
+import { Pressable, View } from 'react-native'
+import { Text, TextInput } from '../Text'
 import { colors } from '../../theme'
 import { useThemeColors } from '../../hooks/useTheme'
 import type { ThemeColors } from '../../theme'

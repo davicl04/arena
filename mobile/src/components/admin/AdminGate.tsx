@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
-import { ScrollView, Text, View } from 'react-native'
+import { ScrollView, View } from 'react-native'
+import { Text } from '../Text'
 import type { User } from '../../api/client'
 import { tw } from '../../styles'
 

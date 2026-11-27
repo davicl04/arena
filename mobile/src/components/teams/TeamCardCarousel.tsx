@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react'
-import { AccessibilityInfo, Platform, Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native'
+import { AccessibilityInfo, Platform, Pressable, ScrollView, View, useWindowDimensions } from 'react-native'
+import { Text } from '../Text'
 import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native'
 import type { TeamCard } from '../../api/teams'
 import { colors } from '../../theme'

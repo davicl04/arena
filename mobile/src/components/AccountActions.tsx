@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Text, View } from 'react-native'
+import { View } from 'react-native'
+import { Text } from './Text'
 import type { SocialUser } from '../api/client'
 import { blockUser } from '../api/social'
 import { reportActionError } from '../hooks/useSubmit'

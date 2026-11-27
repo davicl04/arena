@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Linking, Pressable, Text, View } from 'react-native'
+import { Linking, Pressable, View } from 'react-native'
+import { Text } from '../Text'
 import { decideOrganizerRequest, refusalError, refusalInput, revokeError, revokeOrganizer } from '../../api/admin'
 import { ApiError } from '../../api/client'
 import { ORGANIZER_LIMITS, ORGANIZER_REFUSAL_REASONS, refusalText, sportNames } from '../../api/organizer'

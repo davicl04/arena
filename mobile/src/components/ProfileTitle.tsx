@@ -1,4 +1,5 @@
-import { Text, View } from 'react-native'
+import { View } from 'react-native'
+import { Text } from './Text'
 
 // Identidade do perfil: "@usuario" como título (o @ em verde) e o nome real abaixo, menor e em cinza.
 export default function ProfileTitle({ name, username }: { name: string; username: string }) {

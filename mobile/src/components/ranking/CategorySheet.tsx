@@ -1,4 +1,5 @@
-import { Pressable, Text, View } from 'react-native'
+import { Pressable, View } from 'react-native'
+import { Text } from '../Text'
 import type { ReactNode } from 'react'
 import { sports } from '../../api/client'
 import type { Position, Sport } from '../../api/client'

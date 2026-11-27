@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react'
-import { Text, View } from 'react-native'
+import { View } from 'react-native'
+import { Text } from '../Text'
 import { COURT_LIMITS, courtKindLabel, courtPublishError, courtRejectError, decideCourt } from '../../api/admin'
 import type { AdminCourtSuggestion, CourtDecisionInput, MatchRef } from '../../api/admin'
 import { ApiError } from '../../api/client'

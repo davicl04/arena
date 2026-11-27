@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Pressable, Text, View } from 'react-native'
+import { Pressable, View } from 'react-native'
+import { Text } from './Text'
 import type { Post } from '../api/client'
 import { setLike } from '../api/social'
 import { reportActionError } from '../hooks/useSubmit'

@@ -1,4 +1,5 @@
-import { Pressable, Text, View } from 'react-native'
+import { Pressable, View } from 'react-native'
+import { Text } from '../Text'
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg'
 import { sports } from '../../api/client'
 import type { Profile, Sport } from '../../api/client'

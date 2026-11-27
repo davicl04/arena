@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Pressable, RefreshControl, ScrollView, Text, View } from 'react-native'
+import { Pressable, RefreshControl, ScrollView, View } from 'react-native'
+import { Text } from '../components/Text'
 import { cancelEntry, confirmRefund, contestRefund, createEntry, getEntry, getEvent, pixInfo, sendReceipt } from '../api/entries'
 import type { EventDetail, MyEntry } from '../api/entries'
 import { ApiError } from '../api/client'

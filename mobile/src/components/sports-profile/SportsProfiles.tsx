@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Text, View } from 'react-native'
+import { View } from 'react-native'
+import { Text } from '../Text'
 import { sports } from '../../api/client'
 import type { Profile, ProfileInput, Sport } from '../../api/client'
 import { useThemeColors } from '../../hooks/useTheme'

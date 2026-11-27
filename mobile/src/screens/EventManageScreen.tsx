@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import { Pressable, ScrollView, Text, View } from 'react-native'
+import { Pressable, ScrollView, View } from 'react-native'
+import { Text } from '../components/Text'
 import { ApiError, sports } from '../api/client'
 import { getOrganizerEvent, PUBLISHED_STATES, submitEvent, withdrawEvent } from '../api/events'
 import type { OrganizerEventDetail } from '../api/events'

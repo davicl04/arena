@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
-import { Pressable, Text, View } from 'react-native'
+import { Pressable, View } from 'react-native'
+import { Text } from '../Text'
 import { useThemeColors } from '../../hooks/useTheme'
 import { Icon } from '../Icon'
 import type { IconName } from '../Icon'

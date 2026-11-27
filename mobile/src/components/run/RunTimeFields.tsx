@@ -1,4 +1,5 @@
-import { Pressable, Text, TextInput, View } from 'react-native'
+import { Pressable, View } from 'react-native'
+import { Text, TextInput } from '../Text'
 import type { AccessibilityActionEvent } from 'react-native'
 import { colors } from '../../theme'
 import { Icon } from '../Icon'

@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Image, Pressable, Text, View } from 'react-native'
+import { Image, Pressable, View } from 'react-native'
+import { Text } from '../Text'
 import {
   JUSTIFICATION_LIMITS, decideReport, justificationError, moderationActions, previewContext, previewText, reactivateAccount, reportReasonLabel, reportTargetLabel,
 } from '../../api/moderation'

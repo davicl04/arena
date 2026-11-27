@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Pressable, Text, View } from 'react-native'
+import { Pressable, View } from 'react-native'
+import { Text } from '../Text'
 import type { AdminEvent } from '../../api/admin'
 import type { EventPix, EventPoster as EventPosterData } from '../../api/events'
 import { entryStates, eventFormatParts, eventNoun, pixKeyType } from '../../data/arena'

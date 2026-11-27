@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
-import { Text, View } from 'react-native'
+import { View } from 'react-native'
+import { Text } from '../Text'
 import { positions } from '../../api/client'
 import type { Position } from '../../api/client'
 import { useThemeColors } from '../../hooks/useTheme'

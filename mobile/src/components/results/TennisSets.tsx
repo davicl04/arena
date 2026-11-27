@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
-import { Text, View } from 'react-native'
+import { View } from 'react-native'
+import { Text } from '../Text'
 import { useThemeColors } from '../../hooks/useTheme'
 import { Stepper } from './Stepper'
 import { needsTiebreak, setWinner, showsThirdSet } from './tennis'

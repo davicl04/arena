@@ -1,7 +1,7 @@
 /**
  * Tokens visuais do app. Os mesmos valores estão em `global.css` (@theme e o bloco escuro) para as classes do NativeWind:
  * ao alterar um token aqui, altere também lá (e vice-versa). Os nomes seguem os tokens da web
- * (`brand`, `ink`, `ink-muted`, `line`, `app`); os valores são os do mobile.
+ * (`brand`, `ink`, `ink-muted`, `line`, `app`) e os valores também (web/src/ui.css), salvo os tons sem desfoque do vidro e do toast.
  * Tema claro e escuro (docs/plano-tema.md): `lightColors` e `darkColors` têm os mesmos nomes. Onde a classe não chega
  * (props de cor como placeholderTextColor, ActivityIndicator, Switch, ícones, e estilos em `style`), use
  * `useThemeColors()` de `hooks/useTheme`, que devolve o objeto do tema resolvido. `colors` é o claro: sirva-se dele só
@@ -10,17 +10,17 @@
 export const lightColors = {
   brand: '#005a36',
   'brand-soft': '#edf3ef',
-  ink: '#343d39',
-  'ink-muted': '#606965',
+  ink: '#495057',
+  'ink-muted': '#626970',
   'ink-soft': '#626970',
-  line: '#cdd4d0',
+  line: '#49505726',
   app: '#e2e4e9',
-  field: '#fafbfa',
-  placeholder: '#727b76',
+  field: '#ffffff',
+  placeholder: '#747b82',
   error: '#94351e',
   danger: '#b42318',
   like: '#ff8a80',
-  scrim: '#0008',
+  scrim: '#101814b8',
   glass: 'rgba(8,20,14,0.92)',
   'glass-ink': '#08140e',
   'glass-pill': 'rgba(8,20,14,0.6)',
@@ -41,7 +41,7 @@ export const lightColors = {
   night: '#08140e',
   subtle: '#f1f2f5',
   tile: '#dfe3e0',
-  'line-strong': '#a3aaa7',
+  'line-strong': '#49505755',
   'success-bg': '#eaf5ed',
   'warning-bg': '#fdf3e2',
   warning: '#6f4305',
@@ -65,17 +65,17 @@ export const lightColors = {
   surface: '#ffffff',
   sheet: '#ffffff',
   'on-brand': '#ffffff',
-  heading: '#343d39',
+  heading: '#495057',
   /** Quadro de ícone verde-claro e o ícone dele (dourado no escuro); sobretítulos; borda acesa do cartão escuro. */
   'icon-tile': '#005a3612',
   'icon-tile-ink': '#005a36',
   /** Selo da modalidade (`SportIcon shape="selo"`): o disco e os detalhes (coroa, anel e símbolo); dourado dos elos no escuro. */
   'selo-disco': '#153a2b',
   'selo-detalhe': '#ffffff',
-  eyebrow: '#606965',
+  eyebrow: '#626970',
   'surface-edge': 'transparent',
   /** Fundo da navegação inferior. */
-  nav: '#ffffff',
+  nav: '#e2e4e9f7',
 }
 
 export type ThemeColors = { [K in keyof typeof lightColors]: string }
@@ -91,7 +91,7 @@ export const darkColors: ThemeColors = {
   ink: '#d2dcd6',
   'ink-muted': '#87978e',
   'ink-soft': '#87978e',
-  line: '#ffffff1a',
+  line: '#ffffff10',
   app: '#040806',
   field: '#0b130f',
   placeholder: '#7d8b83',
@@ -99,7 +99,7 @@ export const darkColors: ThemeColors = {
   danger: '#ff8a80',
   subtle: '#ffffff10',
   tile: '#16201b',
-  'line-strong': '#ffffff40',
+  'line-strong': '#ffffff30',
   'success-bg': '#8fe0b41a',
   'warning-bg': '#f4c56a1a',
   warning: '#f4c56a',
@@ -113,11 +113,11 @@ export const darkColors: ThemeColors = {
   'selo-detalhe': '#F4DE9A',
   eyebrow: '#f4de9acc',
   'surface-edge': '#ffffff12',
-  nav: '#040806',
+  nav: '#040806f2',
 }
 
 /** Valores do claro (compatibilidade): use `useThemeColors()` para cores que mudam com o tema. */
 export const colors = lightColors
 
-/** Raios em pontos (dp). Classes: rounded-control, rounded-lg, rounded-card, rounded-sheet. */
-export const radius = { control: 8, lg: 12, card: 16, sheet: 20 } as const
+/** Raios em pontos (dp), os mesmos da web. Classes: rounded-field, rounded-control, rounded-lg, rounded-card, rounded-panel, rounded-sheet. */
+export const radius = { field: 11, control: 13, lg: 12, card: 16, panel: 18, sheet: 24 } as const

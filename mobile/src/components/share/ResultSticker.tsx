@@ -1,5 +1,6 @@
 import type { ReactNode, Ref } from 'react'
-import { Text, View } from 'react-native'
+import { View } from 'react-native'
+import { Text } from '../Text'
 import type { AccessibilityProps } from 'react-native'
 import Svg, { Path, Rect, SvgXml } from 'react-native-svg'
 import { brandSvgs } from '../../assets/brand-svgs'

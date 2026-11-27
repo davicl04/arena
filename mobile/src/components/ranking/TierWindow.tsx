@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import { Text, View } from 'react-native'
+import { View } from 'react-native'
+import { Text } from '../Text'
 import type { MyRankingOverviewLine, RankingCategory, RankingKey, RankingRow, TierCounts } from '../../api/results'
 import type { TierKey } from '../../data/arena'
 import { ActionButton, TextAction } from '../arena/controls'

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Text, View } from 'react-native'
+import { View } from 'react-native'
+import { Text } from '../components/Text'
 import { ApiError } from '../api/client'
 import { connection } from '../api/connection'
 import { LoadError } from '../components/arena/LoadError'

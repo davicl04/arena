@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Text, View } from 'react-native'
+import { View } from 'react-native'
+import { Text } from '../Text'
 import type { UploadFile } from '../../api/client'
 import type { OrganizerEntry } from '../../api/events'
 import { sendRefundReceipt, subjectName } from '../../api/receipts'

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ActivityIndicator, Image, Modal, Pressable, Text, useWindowDimensions, View } from 'react-native'
+import { ActivityIndicator, Image, Modal, Pressable, useWindowDimensions, View } from 'react-native'
+import { Text } from '../Text'
 import { StatusBar } from 'expo-status-bar'
 import { GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler'
 import Animated from 'react-native-reanimated'

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Animated, RefreshControl, Text, View } from 'react-native'
+import { Animated, RefreshControl, View } from 'react-native'
+import { Text } from '../components/Text'
 import type { FlatList } from 'react-native'
 import { getToken } from '../api/client'
 import type { Post, SocialUser, User } from '../api/client'

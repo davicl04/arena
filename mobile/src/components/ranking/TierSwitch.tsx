@@ -1,4 +1,5 @@
-import { Pressable, Text, View } from 'react-native'
+import { Pressable, View } from 'react-native'
+import { Text } from '../Text'
 import type { TierCounts } from '../../api/results'
 import { tiers } from '../../data/arena'
 import type { TierKey } from '../../data/arena'

@@ -1,5 +1,10 @@
-// Imagens locais (PNG) importadas pelo Metro como fontes de imagem do React Native.
+// Imagens locais (PNG e JPG) importadas pelo Metro como fontes de imagem do React Native.
 declare module '*.png' {
+  import type { ImageSourcePropType } from 'react-native'
+  const source: ImageSourcePropType
+  export default source
+}
+declare module '*.jpg' {
   import type { ImageSourcePropType } from 'react-native'
   const source: ImageSourcePropType
   export default source

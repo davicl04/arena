@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Text, View } from 'react-native'
+import { View } from 'react-native'
+import { Text } from '../Text'
 import { createSearch } from '../../api/matchmaking'
 import type { SearchCreated } from '../../api/matchmaking'
 import type { OpenSlots } from '../../api/matches'

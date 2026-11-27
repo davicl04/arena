@@ -1,5 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
-import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native'
+import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native'
+import { Text, TextInput } from '../Text'
 import { getTeam, inviteCandidatesPath, sendInvite } from '../../api/teams'
 import type { InviteCandidate, TeamStatus } from '../../api/teams'
 import { usePagedList } from '../../hooks/usePagedList'

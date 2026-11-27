@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { ReactNode } from 'react'
-import { Pressable, Text, View } from 'react-native'
+import { Pressable, View } from 'react-native'
+import { Text } from '../Text'
 import { reportResult } from '../../api/results'
 import type { ResultInput, ResultMatch } from '../../api/results'
 import { sideName, sideOf } from '../../data/match'

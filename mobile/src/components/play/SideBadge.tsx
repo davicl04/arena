@@ -1,4 +1,5 @@
-import { Text, View } from 'react-native'
+import { View } from 'react-native'
+import { Text } from '../Text'
 import type { MatchSideOut } from '../../api/matches'
 import { sideName } from '../../data/match'
 import { useSessionToken } from '../../hooks/useSessionToken'

@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Text, View } from 'react-native'
+import { View } from 'react-native'
+import { Text } from '../Text'
 import type { Position } from '../../api/client'
 import { putAttendance } from '../../api/results'
 import type { AttendanceItem, Lineup, ResultMatch } from '../../api/results'

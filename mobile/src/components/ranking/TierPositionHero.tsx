@@ -1,4 +1,5 @@
-import { Text, View } from 'react-native'
+import { View } from 'react-native'
+import { Text } from '../Text'
 import type { MyRankingOverviewLine, RankingKey } from '../../api/results'
 import type { TierKey } from '../../data/arena'
 import { colors } from '../../theme'

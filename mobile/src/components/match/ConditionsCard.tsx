@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { ReactNode } from 'react'
-import { Pressable, Text, View } from 'react-native'
+import { Pressable, View } from 'react-native'
+import { Text } from '../Text'
 import type { MatchDetail, MatchTermsOut, Side } from '../../api/matches'
 import { currentSlotCounts, guestSlots, nameOf, orderedSides, shortName, sideName, slotTotal, whenText } from '../../data/match'
 import { useNow } from '../../hooks/useNow'

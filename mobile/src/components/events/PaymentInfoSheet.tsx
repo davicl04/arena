@@ -1,4 +1,5 @@
-import { Text, View } from 'react-native'
+import { View } from 'react-native'
+import { Text } from '../Text'
 import type { Sport } from '../../api/client'
 import { eventNoun } from '../../data/arena'
 import { useThemeColors } from '../../hooks/useTheme'

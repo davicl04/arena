@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react'
-import { ScrollView, Text, View } from 'react-native'
+import { ScrollView, View } from 'react-native'
+import { Text } from '../components/Text'
 import { ApiError } from '../api/client'
 import type { ReceiptReview } from '../api/events'
 import { eventReceiptsPath, getReceiptsEvent, subjectName } from '../api/receipts'

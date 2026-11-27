@@ -1,4 +1,5 @@
-import { Pressable, Text, View } from 'react-native'
+import { Pressable, View } from 'react-native'
+import { Text } from '../Text'
 import { useNow } from '../../hooks/useNow'
 import { colors } from '../../theme'
 import { formatElapsed, spokenDuration } from '../../utils/clock'

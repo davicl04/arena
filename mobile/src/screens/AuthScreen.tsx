@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { ReactNode } from 'react'
-import { Pressable, Text, View } from 'react-native'
+import { Pressable, View } from 'react-native'
+import { Text } from '../components/Text'
 import { ApiError, request, saveToken } from '../api/client'
 import type { User } from '../api/client'
 import { ActionButton, FormField, Notice } from '../components/arena/controls'

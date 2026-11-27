@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Text, View } from 'react-native'
+import { View } from 'react-native'
+import { Text } from '../Text'
 import type { CourtOut, MatchDetail, Side, TermsInput } from '../../api/matches'
 import { nameOf, orderedSides, sideName } from '../../data/match'
 import { useThemeColors } from '../../hooks/useTheme'
