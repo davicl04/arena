@@ -1,5 +1,28 @@
 # Situação da fundação do Arena
 
+## Correções da revisão do compartilhamento nos Stories — 27 de novembro de 2026
+
+Ajustes pedidos pela revisão com Opus 5.5 (duas rodadas, aprovada na segunda) antes do PR.
+
+- **Expo, iOS:** a prévia do Story só abre 400 ms depois de a folha de ações fechar. O iOS não apresenta um `Modal` enquanto outro ainda está saindo. No Android nada muda.
+- **Expo, barra do elo:** passa a usar a cor do elo, com os mesmos valores da web. Em classificação, usa branco translúcido. Antes ela ficava sempre prateada.
+- **Textos desatualizados:** as descrições da API em `app/core/openapi.py` e o estado da [decisão 0007](decisoes/0007-compartilhamento-stories.md) agora refletem o que está implementado.
+
+**Verificações:**
+- `mobile/`:
+  - `npm run lint` e `npm run typecheck`: ok;
+  - `npm run test:coverage`: 1747 testes aprovados, com cobertura de 96,63% de instruções e 91,14% de ramos;
+  - o teste novo do iOS falha com o atraso desligado e passa com ele.
+- `backend/`: `ruff check app` e `pytest tests/test_openapi_docs.py`: ok.
+
+**Limitações:** o atraso de 400 ms é uma estimativa da animação da folha. Ele ainda não foi conferido num iPhone.
+
+**Pendências** (sugestões menores da revisão, não aplicadas):
+- foto da web reduzida ao tamanho que cobre o quadro, o que deixa o Story menos nítido ao ampliar até 3×;
+- `navigator.share` só depois de gerar o JPEG;
+- diferenças cosméticas entre web e Expo (coluna de sets no W.O. do tênis e cor da "1ª marca");
+- tocar em outro card durante os 400 ms abre a prévia por cima da nova folha.
+
 ## Compartilhar nos Stories no Expo: foto, editor e Story montado — 27 de novembro de 2026
 
 Ticket 06 de 6, que fecha a implementação da feature de compartilhar resultado nos Stories.
