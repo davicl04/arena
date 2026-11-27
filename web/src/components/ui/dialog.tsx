@@ -25,6 +25,11 @@ function DialogContainerProvider({ container, children }: { container: HTMLEleme
   return <DialogContainerContext.Provider value={container}>{children}</DialogContainerContext.Provider>
 }
 
+/** Moldura do app onde entram os diálogos (ou `null` fora do `ArenaPage`): também serve a folhas e telas cheias em portal. */
+function useDialogContainer(): HTMLElement | null {
+  return React.useContext(DialogContainerContext)
+}
+
 function Dialog({ ...props }: DialogPrimitive.Root.Props) {
   return <DialogPrimitive.Root data-slot="dialog" {...props} />
 }
@@ -168,4 +173,7 @@ export {
   DialogPortal,
   DialogTitle,
   DialogTrigger,
+  // O gancho lê o mesmo contexto do provedor; separá-lo exigiria exportar o contexto.
+  // eslint-disable-next-line react-refresh/only-export-components
+  useDialogContainer,
 }

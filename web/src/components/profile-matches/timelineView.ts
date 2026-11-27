@@ -1,7 +1,9 @@
 import type { MatchSideOut, Side } from '@/api/matches'
 import type { TimelineItem, TimelineMatch, TimelineRun, TimelineSide, TimelineSport } from '@/api/profile'
 import type { StateTone } from '@/data/arena'
-import { positionStat, setsCount } from '@/components/results/format'
+import { formatKm } from '@/components/play/runView'
+import { formatDuration } from '@/components/play/tierLines'
+import { positionStat, scoreText, setsCount } from '@/components/results/format'
 import { footballFormat } from '@/data/arena'
 import { sideName } from '@/data/match'
 import { formatClock, formatShortDate, parseIso } from '@/utils/format'
@@ -157,4 +159,15 @@ export function markBadge(kind: TimelineRun['mark_kind']): { label: string; tone
   if (kind === 'novo_melhor') return { label: 'Novo melhor', tone: 'open' }
   if (kind === 'primeira_marca') return { label: 'Primeira marca', tone: 'live' }
   return null
+}
+
+// ----- Compartilhar nos Stories -------------------------------------------------------------------------------
+
+/** Resumo da atividade no título da folha de ações: "Vitória · 3 × 1 · Society" ou "Corrida · 24:12 · 5 km". */
+export function activitySummary(item: TimelineItem): string {
+  if (item.kind === 'corrida') return `Corrida · ${formatDuration(item.duration_s)} · ${formatKm(item.distance_m)}`
+  const parts = [resultBadge(item).label]
+  if (item.score && item.owner_side && !item.walkover_absent_side) parts.push(scoreText(item.sport, item.score, item.owner_side))
+  parts.push(formatLabel(item))
+  return parts.join(' · ')
 }

@@ -14,9 +14,15 @@ const cardClass = 'block w-full overflow-hidden rounded-card border border-solid
 /**
  * Duelo: a partida como um mini placar claro. Os dois lados em linhas (marca, nome, "você" no lado do titular só no
  * perfil próprio, vencedor em negrito), o resultado do titular no canto, as pílulas de pontos e estatísticas embaixo.
- * Vira botão só com `onOpen` (perfil próprio); cancelada e sem resultado ficam esmaecidas, com "–" no placar.
+ * Vira botão só com `onOpen` (perfil próprio); cancelada e sem resultado ficam esmaecidas, com "–" no placar. Com
+ * `actions`, o toque abre a folha de ações (compartilhar nos Stories ou ver a partida) em vez da tela da partida.
  */
-export function DuelCard({ match, own, onOpen }: { match: TimelineMatch; own: boolean; onOpen?: (matchId: number) => void }) {
+export function DuelCard({ match, own, onOpen, actions = false }: {
+  match: TimelineMatch
+  own: boolean
+  onOpen?: (matchId: number) => void
+  actions?: boolean
+}) {
   const badge = resultBadge(match)
   const faded = isFaded(match)
   const sides = orderedTimelineSides(match)
@@ -68,5 +74,6 @@ export function DuelCard({ match, own, onOpen }: { match: TimelineMatch; own: bo
   </>
   if (!onOpen) return <article data-slot="duel-card" data-state={match.state} className={cardClass} aria-label={timelineTitle(match)}>{body}</article>
   return <button type="button" data-slot="duel-card" data-state={match.state} className={cn(cardClass, 'min-h-11')}
-    aria-label={`Abrir partida: ${timelineTitle(match)}, ${badge.label}`} onClick={() => onOpen(match.id)}>{body}</button>
+    aria-label={`${actions ? 'Ações da partida' : 'Abrir partida'}: ${timelineTitle(match)}, ${badge.label}`} aria-haspopup={actions ? 'dialog' : undefined}
+    onClick={() => onOpen(match.id)}>{body}</button>
 }
