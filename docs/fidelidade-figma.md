@@ -279,3 +279,17 @@ Funcionalidade nova pedida pelo usuário, na linha do que o Strava faz. Não vem
 - **Stories nativo, como o Strava:** fica fora desta entrega. Exigiria um build próprio e um Facebook App ID.
 
 As regras completas estão na especificação de trabalho, em `.scratch/compartilhar-stories/spec.md`, e o glossário, em [CONTEXT.md](../CONTEXT.md).
+
+**Editor do Story montado na web (layout final), 27 de novembro de 2026:** o editor com foto não foi prototipado. Ele parte da tela imersiva da rodada 7 e mantém a mesma linguagem: fundo `night` igual nos dois temas, botão principal em menta e ações pequenas com ícone sobre o rótulo.
+- **Topo:** fechar e "Prévia do Story". A chave "Fundo transparente / Foto de exemplo" do protótipo saiu, porque agora a foto é a da pessoa.
+- **Prévia 9:16:** sem foto, mostra o adesivo sobre o xadrez escuro e uma pílula menta "Escolher foto". A pílula fica na maior faixa livre acima ou abaixo da placa, para não cobrir o adesivo em nenhuma posição. Com foto, a foto cobre o quadro, e o próprio quadro é o enquadramento: arrastar move; pinça, roda do mouse ou os botões de lupa ampliam de 1× a 3×; com o quadro focado (contorno menta), as setas movem (Shift move mais longe) e + e − ampliam. A foto nunca deixa área vazia.
+- **Controles, de cima para baixo:**
+  - seletor segmentado Topo / Centro / Base (grupo de opções, com a opção escolhida em menta) e, ao lado, os botões "Reduzir a foto" e "Ampliar a foto";
+  - "Compartilhar imagem" em menta, desabilitado até haver foto;
+  - ações pequenas "Baixar imagem", "Trocar foto" e "Salvar só o adesivo", numa linha só, também em 320 px.
+- **Desvios em relação ao protótipo e à especificação:**
+  - "Copiar" e "Mais" do protótipo não entraram; o menu do sistema já oferece os destinos;
+  - "Baixar PNG" virou "Baixar imagem" (JPEG do Story montado), e o PNG transparente ficou em "Salvar só o adesivo", que respeita a posição escolhida;
+  - os botões de lupa acompanham o seletor de posição, numa linha só, e não aparecem sobre a prévia;
+  - "Trocar foto" fica desabilitado enquanto não há foto, porque a pílula da prévia já faz a escolha;
+  - "Centro" e "Base" mantêm os deslocamentos já definidos no desenho do adesivo, e a assinatura continua embaixo.
