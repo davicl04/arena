@@ -117,6 +117,14 @@ describe('adesivo: folha e descrição', () => {
 describe('ResultSticker: a árvore RN/SVG do adesivo', () => {
   beforeEach(enableAct)
 
+  it('a barra usa a cor do elo, como na web', async () => {
+    const base = shareMatch()
+    const model = stickerModel({ kind: 'partida', data: shareMatch({ category: { ...base.category!, tier: 'ouro', next_tier: 'diamante' } }) })
+    const tree = await render(h(ResultSticker, { model, width: 180 }))
+    expect(find(tree, 'sticker-bar-fill')[0].props.style.backgroundColor).toBe('#E0A82E')
+    await act(async () => { tree.unmount() })
+  })
+
   it('classificado: placa de três colunas, barra com o brasão do elo e a assinatura, no topo e na escala da prévia', async () => {
     const model = stickerModel({ kind: 'partida', data: shareMatch() })
     const tree = await render(h(ResultSticker, { model, width: 180 }))
@@ -125,6 +133,7 @@ describe('ResultSticker: a árvore RN/SVG do adesivo', () => {
     expect(find(tree, 'sticker-cell')).toHaveLength(3)
     expect(find(tree, 'sticker-tier-prata')).toHaveLength(1)
     expect(find(tree, 'sticker-bar-fill')[0].props.style.width).toBe('42%')
+    expect(find(tree, 'sticker-bar-fill')[0].props.style.backgroundColor).toBe('#C3CAD1')
     // Metade do quadro de 360: o topo do design (118) vira 59 e a assinatura fica a 48 da base.
     expect(find(tree, 'sticker-block-topo')[0].props.style.top).toBe(59)
     expect(find(tree, 'sticker-signature')[0].props.style.bottom).toBe(48)
@@ -137,6 +146,7 @@ describe('ResultSticker: a árvore RN/SVG do adesivo', () => {
     expect(textOf(placement)).toContain('Em classificação')
     expect(textOf(placement)).toContain('2 de 3 partidas')
     expect(find(placement, 'sport-icon-tenis')).toHaveLength(1)
+    expect(find(placement, 'sticker-bar-fill')[0].props.style.backgroundColor).toBe('rgba(255,255,255,0.6)')
     expect(placement.root.findAll(node => typeof node.type === 'string' && String(node.props.testID).startsWith('sticker-tier-'))).toHaveLength(0)
     expect(find(placement, 'sticker-block-centro')[0].props.style).toMatchObject({ top: 0, bottom: 0, justifyContent: 'center' })
     await act(async () => { placement.unmount() })

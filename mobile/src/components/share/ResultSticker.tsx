@@ -28,7 +28,9 @@ export const stickerPalette = {
   edge: 'rgba(255,255,255,0.12)',
   divider: 'rgba(255,255,255,0.14)',
   track: 'rgba(255,255,255,0.12)',
-  fill: '#C3CAD1',
+  /** Preenchimento da barra: a cor do elo (como na web) ou, em classificação, branco translúcido. */
+  tierFill: { bronze: '#C98A4B', prata: '#C3CAD1', ouro: '#E0A82E', diamante: '#BFE9F2', lendario: '#F4DE9A' },
+  placementFill: 'rgba(255,255,255,0.6)',
   foot: '#9fb2a7',
   down: '#ff8a9a',
   label: colors.mint,
@@ -67,7 +69,7 @@ function Bar({ bar, u }: { bar: EloBar; u: (n: number) => number }) {
       {meta ? <Text style={{ color: meta.tone === 'down' ? stickerPalette.down : stickerPalette.label, fontSize: u(12), lineHeight: u(15), fontWeight: '700', fontVariant: ['tabular-nums'] }}>{meta.text}</Text> : null}
     </View>
     <View style={{ height: u(6), borderRadius: u(3), overflow: 'hidden', backgroundColor: stickerPalette.track }}>
-      <View testID="sticker-bar-fill" style={{ width: `${Math.round(bar.progress * 1000) / 10}%`, height: '100%', borderRadius: u(3), backgroundColor: stickerPalette.fill }} />
+      <View testID="sticker-bar-fill" style={{ width: `${Math.round(bar.progress * 1000) / 10}%`, height: '100%', borderRadius: u(3), backgroundColor: ranked ? stickerPalette.tierFill[bar.tier] : stickerPalette.placementFill }} />
     </View>
     {ranked && bar.foot ? <Text numberOfLines={2} style={{ color: stickerPalette.foot, fontSize: u(9.5), lineHeight: u(12), fontWeight: '600' }}>{bar.foot}</Text> : null}
   </View>
