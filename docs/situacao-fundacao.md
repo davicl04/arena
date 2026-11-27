@@ -1,5 +1,23 @@
 # Situação da fundação do Arena
 
+## Orientação dos selos no AGENTS.md — 26 de novembro de 2026
+
+Ajuste de documentação a pedido do usuário, incluído no PR dos selos de modalidade.
+
+- **O que mudou:** a orientação de identidade visual do `AGENTS.md` citava os ícones provisórios em `web/public/images/sports/` e o mapeamento de `web/src/data/arena.ts`, removidos no ticket 07. Agora ela descreve os selos vetoriais:
+  - o gerador `scripts/gerar_selos.py` e os dois arquivos que ele gera;
+  - o `SportIcon` com a forma explícita (`forma` na web, `shape` no Expo);
+  - `SeloLadrilho` (web) e `SeloTile` (Expo);
+  - a seção 6 da decisão 0004.
+- Nenhum código mudou.
+
+**Verificações:**
+- Os nomes citados existem: `SeloLadrilho` em `web/src/components/SportIcon.tsx`, `SeloTile` em `mobile/src/components/arena/RoundTile.tsx` e a seção "6. Selos de modalidade" em `docs/decisoes/0004-tema.md`.
+- Por ser só documentação, não foram executados testes de código.
+
+**Pendências:**
+- `docs/plano-tema.md`, que é um plano histórico, ainda tem links para a pasta removida.
+
 ## Fechamento dos selos de modalidade: remoção dos PNGs e documentação — 26 de novembro de 2026
 
 Fecha a feature dos selos de modalidade (tickets 01 a 07): os ícones provisórios de futebol, tênis e corrida dão lugar aos selos vetoriais na web e no Expo. A entrega é só de frontend e não completa o MVP.
@@ -45,7 +63,7 @@ Fecha a feature dos selos de modalidade (tickets 01 a 07): os ícones provisóri
 - O CI remoto não foi executado.
 
 **Pendências:**
-- `AGENTS.md` ainda cita os ícones provisórios em `web/public/images/sports/` e o mapeamento de `web/src/data/arena.ts`, que não existem mais. A atualização depende da decisão do usuário.
+- ~~`AGENTS.md` ainda cita os ícones provisórios em `web/public/images/sports/` e o mapeamento de `web/src/data/arena.ts`.~~ Resolvido na entrada "Orientação dos selos no AGENTS.md", acima.
 - `docs/plano-tema.md`, que é um plano histórico, mantém links para a pasta removida.
 - O `--check` do gerador não está no CI.
 - Review final da feature ainda não iniciado.
