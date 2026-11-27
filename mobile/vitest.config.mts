@@ -4,7 +4,8 @@ import { defineConfig } from 'vitest/config'
 export default defineConfig({
   // O NativeWind só processa classes no Metro; nos testes, `styled` vira identidade. O react-native-svg e o safe-area-context
   // trazem sintaxe Flow que o Node não lê (e o reanimated, o expo-secure-store e o expo-location dependem do runtime nativo): os
-  // testes usam as simulações de tests/support (um vi.mock próprio ainda vale).
+  // testes usam as simulações de tests/support (um vi.mock próprio ainda vale). A captura (react-native-view-shot), a galeria
+  // (expo-media-library) e a barra de status (expo-status-bar) também dependem do runtime nativo.
   resolve: {
     alias: {
       nativewind: fileURLToPath(new URL('./tests/support/nativewind.ts', import.meta.url)),
@@ -13,6 +14,9 @@ export default defineConfig({
       'react-native-reanimated': fileURLToPath(new URL('./tests/support/reanimated.ts', import.meta.url)),
       'expo-secure-store': fileURLToPath(new URL('./tests/support/secure-store.ts', import.meta.url)),
       'expo-location': fileURLToPath(new URL('./tests/support/location.ts', import.meta.url)),
+      'react-native-view-shot': fileURLToPath(new URL('./tests/support/view-shot.ts', import.meta.url)),
+      'expo-media-library/legacy': fileURLToPath(new URL('./tests/support/media-library.ts', import.meta.url)),
+      'expo-status-bar': fileURLToPath(new URL('./tests/support/status-bar.ts', import.meta.url)),
     },
   },
   test: {
