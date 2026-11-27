@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
-import { ScrollView, Text, View } from 'react-native'
+import { ScrollView, View } from 'react-native'
+import { Text } from '../components/Text'
+import { EmptyState } from '../components/EmptyState'
 import { markAllNotificationsRead, notificationsPath } from '../api/notifications'
 import type { ArenaNotification } from '../api/notifications'
 import { LoadError } from '../components/arena/LoadError'
-import { Icon } from '../components/Icon'
 import type { FollowRequest } from '../components/notifications/FollowRequestList'
 import { FollowRequestsLine } from '../components/notifications/FollowRequestsLine'
 import { NotificationItem } from '../components/notifications/NotificationItem'
@@ -121,11 +122,8 @@ export default function NotificationsScreen({ user, navigation, onExpired, notif
       </View>) : null}
       {feedOn && feed.moreError ? <Text accessibilityRole="alert" style={{ ...feedback, color: colors.error }}>{feed.moreError}</Text> : null}
       {feedOn && feed.hasMore ? <Button secondary title={feed.busy ? 'Carregando…' : 'Carregar mais notificações'} disabled={busy || feed.busy} onPress={() => void feed.loadMore()} /> : null}
-      {nothing && filter === 'tudo' ? <View testID="notifications-empty" style={{ alignItems: 'center', borderRadius: 16, backgroundColor: colors.surface, padding: 24 }}>
-        <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants"><Icon name="bell" size={28} color={colors.brand} /></View>
-        <Text accessibilityRole="header" style={{ color: colors.ink, fontSize: 17, fontWeight: '700', marginTop: 8 }}>Tudo em dia</Text>
-        <Text style={{ color: colors['ink-muted'], fontSize: 13, lineHeight: 19, marginTop: 4, textAlign: 'center' }}>Convites e pedidos dos seus times, propostas e partidas, inscrições em campeonatos e provas e as respostas da administração aparecem aqui.</Text>
-      </View> : null}
+      {nothing && filter === 'tudo' ? <EmptyState testID="notifications-empty" icon="coliseum" title="Tudo em dia"
+        text="Convites e pedidos dos seus times, propostas e partidas, inscrições em campeonatos e provas e as respostas da administração aparecem aqui." /> : null}
       {nothing && filter !== 'tudo' ? <Text testID="notifications-filter-empty" style={{ borderRadius: 16, backgroundColor: colors.surface, paddingHorizontal: 14, paddingVertical: 16, color: colors['ink-muted'], fontSize: 12, lineHeight: 19 }}>Nada neste filtro.</Text> : null}
     </View>
   </ScrollView>

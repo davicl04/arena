@@ -1,4 +1,5 @@
-import { Pressable, Text, View } from 'react-native'
+import { Pressable, View } from 'react-native'
+import { Text } from '../Text'
 import { useThemeColors } from '../../hooks/useTheme'
 import { Icon } from '../Icon'
 
@@ -9,7 +10,7 @@ import { Icon } from '../Icon'
 export function ProximoPasso({ onOpen }: { onOpen: () => void }) {
   const c = useThemeColors()
   return <View testID="proximo-passo" className="mb-3.5">
-    <Text accessibilityRole="header" className="mb-2 text-base font-bold text-heading">Seu próximo passo</Text>
+    <Text accessibilityRole="header" className="mb-2 text-[16px] font-bold text-heading">Seu próximo passo</Text>
     <Pressable accessibilityRole="button" accessibilityLabel="Complete seu perfil esportivo. Mostre onde e como você gosta de jogar."
       accessibilityHint="Abre suas modalidades" onPress={onOpen}
       style={{ minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: 11, borderRadius: 16, borderWidth: 1, borderColor: c['surface-edge'], backgroundColor: c.surface, padding: 14 }}>

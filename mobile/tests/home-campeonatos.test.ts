@@ -191,7 +191,7 @@ describe('Início: Campeonatos', () => {
     expect(section(tree)).not.toContain('Campeonatos')
     expect(findButton(tree, 'Ver todos os campeonatos')).toBeUndefined()
     await pressButton(tree, 'Configure suas modalidades. Para ver campeonatos perto de você')
-    expect(navigation.go).toHaveBeenLastCalledWith('profile')
+    expect(navigation.go).toHaveBeenLastCalledWith('sports')
     expect(section(tree)).toContain('Para ver campeonatos perto de você')
   })
 
@@ -248,7 +248,7 @@ describe('Início: próximo passo e fim dos atalhos', () => {
     expect(order.every(index => index >= 0)).toBe(true)
     expect(order).toEqual([...order].sort((a, b) => a - b))
     await pressButton(tree, 'Complete seu perfil esportivo. Mostre onde e como você gosta de jogar.')
-    expect(navigation.go).toHaveBeenLastCalledWith('profile')
+    expect(navigation.go).toHaveBeenLastCalledWith('sports')
   })
 
   it('sem perfis o cartão aparece; com as três modalidades, não', async () => {

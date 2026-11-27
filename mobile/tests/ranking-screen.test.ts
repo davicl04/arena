@@ -154,7 +154,7 @@ describe('Ranking: estrutura e categoria', () => {
     expect(byId(m.tree, 'category-card')).toHaveLength(0)
     expect(callsTo('GET', OVERVIEW)).toHaveLength(0)
     await pressButton(m.tree, 'Configurar modalidade')
-    expect(m.navigation.go).toHaveBeenCalledWith('profile')
+    expect(m.navigation.go).toHaveBeenCalledWith('sports')
   })
 
   it('a lista de perfis fora do formato esperado não derruba a tela (estado sem modalidade)', async () => {

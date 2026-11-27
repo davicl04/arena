@@ -1,4 +1,6 @@
-import { Pressable, Text, View } from 'react-native'
+import { Pressable, View } from 'react-native'
+import { Text } from '../Text'
+import { useResolvedTheme, useThemeColors } from '../../hooks/useTheme'
 import type { RankingSubject } from '../../api/results'
 import { useSessionToken } from '../../hooks/useSessionToken'
 import { colors } from '../../theme'
@@ -31,13 +33,15 @@ function Faces({ subjects, extra }: { subjects: RankingSubject[]; extra: number 
  * quando as vagas abrem.
  */
 export function LegendsEntry({ count, preview, inHall, onOpen }: { count: number; preview: RankingSubject[]; inHall: boolean; onOpen: () => void }) {
+  const theme = useThemeColors()
+  const dark = useResolvedTheme() === 'dark'
   if (count <= 0) {
     return <View testID="legends-none" accessible accessibilityLabel="Nenhum Lendário ainda. As vagas abrem com 7 classificados, 15% deles, entre quem tem os pontos de Diamante."
-      style={{ flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 16, backgroundColor: colors.forest, padding: 12 }}>
-      <View style={{ opacity: 0.55 }}><TierEmblem tier="lendario" size="lg" decorative /></View>
+      style={{ flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 16, borderWidth: 1, borderStyle: 'dashed', borderColor: '#b8962f66', backgroundColor: theme.surface, paddingHorizontal: 14, paddingVertical: 12 }}>
+      <View style={{ opacity: 0.45 }}><TierEmblem tier="lendario" size="lg" decorative /></View>
       <View style={{ flex: 1, minWidth: 0 }}>
-        <Text style={{ color: '#ffffff', fontSize: 13, fontWeight: '700' }}>Nenhum Lendário ainda</Text>
-        <Text style={{ marginTop: 2, color: 'rgba(255,255,255,0.6)', fontSize: 11, lineHeight: 16 }}>As vagas abrem com 7 classificados (15%), entre quem tem os pontos de Diamante.</Text>
+        <Text display style={{ color: dark ? theme.heading : colors.forest, fontSize: 12.5, fontWeight: '700' }}>Nenhum Lendário ainda</Text>
+        <Text style={{ marginTop: 2, color: theme['ink-muted'], fontSize: 10.5, lineHeight: 15 }}>As vagas abrem com 7 classificados (15%), entre quem tem os pontos de Diamante.</Text>
       </View>
     </View>
   }

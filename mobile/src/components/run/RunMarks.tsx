@@ -1,4 +1,6 @@
-import { Pressable, Text, View, useWindowDimensions } from 'react-native'
+import { Pressable, View, useWindowDimensions } from 'react-native'
+import { Text } from '../Text'
+import { SectionTitle } from '../SectionTitle'
 import type { RunBest, RunFilter } from '../../api/runs'
 import { runDistances, shownTier, tiers } from '../../data/arena'
 import type { RunDistance } from '../../data/arena'
@@ -100,13 +102,9 @@ export function RunMarks({ items, loading, error, errorCause, selected, onAdd, o
   now?: Date
 }) {
   const c = useThemeColors()
-  const night = useResolvedTheme() === 'dark'
   const wide = useWindowDimensions().width >= TWO_COLUMNS_FROM
   return <View accessibilityLabel="Suas marcas" testID="run-marks">
-    <View style={{ marginTop: 22, marginBottom: 6, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-      <Text accessibilityRole="header" style={{ color: night ? c.eyebrow : c.brand, fontSize: 11, fontWeight: '700', letterSpacing: 2, textTransform: 'uppercase' }}>Suas marcas</Text>
-      <TextAction title="Ver ranking" accessibilityLabel="Ver ranking" onPress={() => onOpenRanking(selected)} />
-    </View>
+    <SectionTitle title="Suas marcas" bottom={6} action={<TextAction title="Ver ranking" accessibilityLabel="Ver ranking" onPress={() => onOpenRanking(selected)} />} />
     {loading && !items.length ? <Text accessibilityLiveRegion="polite" style={{ color: c['ink-muted'], fontSize: 12 }}>Carregando suas marcas…</Text> : null}
     {error && !items.length ? <LoadError size="section" title="Não foi possível carregar suas marcas" text={error} cause={errorCause} onRetry={onRetry} /> : null}
     {items.length > 0 ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 10 }}>

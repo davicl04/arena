@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native'
+import { Pressable, ScrollView, View } from 'react-native'
+import { Text } from '../components/Text'
 import * as ImagePicker from 'expo-image-picker'
 import { ApiError, clearToken, getToken, request } from '../api/client'
 import { connection } from '../api/connection'
 import type { MatchCard } from '../api/matches'
-import type { Page, Profile, ProfileInput, SocialUser, Sport, User } from '../api/client'
+import type { Page, Profile, SocialUser, User } from '../api/client'
 import { Button, Field } from '../components/ui'
 import { LoadError } from '../components/arena/LoadError'
 import { toast } from '../components/toast/toastStore'
@@ -13,25 +14,29 @@ import { reportActionError } from '../hooks/useSubmit'
 import { cx, tw } from '../styles'
 import { Avatar, Cover } from '../components/media'
 import ListRow from '../components/ListRow'
-import ProfileTitle from '../components/ProfileTitle'
 import Sheet from '../components/Sheet'
 import { AppearanceCard } from '../components/menu/AppearanceCard'
 import UsernameForm from '../components/UsernameForm'
-import { SportsProfiles } from '../components/sports-profile/SportsProfiles'
+import { ProfileHeader } from '../components/ProfileHeader'
+import { Icon } from '../components/Icon'
+import { SectionTitle } from '../components/SectionTitle'
+import { useThemeColors } from '../hooks/useTheme'
 import ProfileGallery from '../components/ProfileGallery'
 import { NotificationBell } from '../components/notifications/NotificationBell'
 import { MatchTimeline } from '../components/profile-matches/MatchTimeline'
 import { ProfileStatsBlocks } from '../components/profile-matches/ProfileStatsBlocks'
 import { ProfileTabs } from '../components/ProfileTabs'
 import type { ProfileTab } from '../components/ProfileTabs'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { useTopArea } from '../navigation/topArea'
 import ProfileTopBar, { TopBarButton, useCondensedTopBar } from '../components/ProfileTopBar'
 import { appVersion } from '../utils/appInfo'
-import { connectionsText } from '../utils/profile'
 
 type Which = 'blocks' | 'followers' | 'following'
 type SheetName = 'edit' | 'avatar' | 'cover' | 'name' | 'username' | 'visibility' | 'blocked' | 'connections' | 'menu'
 const MAX_IMAGE = 5 * 1024 * 1024
-const COVER_HEIGHT = 120
+/** Altura da capa do perfil, a mesma da web (158 px), sem contar a barra de status. */
+const COVER_HEIGHT = 158
 
 function PersonRow({ person, token, children }: { person: SocialUser; token: string | null; children?: ReactNode }) {
   return <View className="my-1.5 flex-row flex-nowrap items-center gap-2.5">
@@ -49,7 +54,7 @@ function VisibilityOption({ selected, title, facts, onPress }: { selected: boole
   </Pressable>
 }
 
-export default function ProfileScreen({ user, onUser, onLogout, onExpired, onNewPhoto, menuSections, upcoming, onOpenMatch, onPlay, tab: activeContentTab, onTabChange, notificationCount = 0, onOpenNotifications }: {
+export default function ProfileScreen({ user, onUser, onLogout, onExpired, onNewPhoto, onOpenSports, menuSections, upcoming, onOpenMatch, onPlay, tab: activeContentTab, onTabChange, notificationCount = 0, onOpenNotifications }: {
   user: User; onUser: (user: User) => void; onLogout: () => void; onExpired: () => void; onNewPhoto?: () => void; menuSections?: (close: () => void) => ReactNode
   /** Número do sino (não lidas mais pedidos para seguir), lido pelo shell. */
   notificationCount?: number
@@ -62,11 +67,17 @@ export default function ProfileScreen({ user, onUser, onLogout, onExpired, onNew
   onPlay?: () => void
   tab?: ProfileTab
   onTabChange?: (tab: ProfileTab) => void
+  /** Abre Suas modalidades (a linha "Minhas modalidades" do perfil e do menu). */
+  onOpenSports?: () => void
 }) {
+  const themeColors = useThemeColors()
   const [localTab, setLocalTab] = useState<ProfileTab>('Fotos')
   const contentTab = activeContentTab ?? localTab
   const setContentTab = onTabChange ?? setLocalTab
   const { condensed, onScroll } = useCondensedTopBar(COVER_HEIGHT)
+  // A capa sobe por baixo da barra de status (navigation/topArea), como a capa da web encosta no topo.
+  useTopArea('bleed')
+  const insets = useSafeAreaInsets()
   const [profiles, setProfiles] = useState<Profile[]>([])
   const [loading, setLoading] = useState(true)
   /* Carregamento (LoadError), ação (toast) e validação local (junto à folha) não se misturam. */
@@ -135,12 +146,6 @@ export default function ProfileScreen({ user, onUser, onLogout, onExpired, onNew
   function open(next: SheetName | null) { setProblem(''); if (next === null || next === 'menu') setFromMenu(false); setSheet(next) }
   // "Editar perfil" aberto pelo menu volta ao menu; aberto pelo selo do avatar apenas fecha.
   function editFromMenu() { open('edit'); setFromMenu(true) }
-  async function save(sport: Sport, input: ProfileInput) {
-    // As falhas sobem para a folha da modalidade, que mostra o 422 e classifica o resto (reportActionError).
-    const p = await request<Profile>(`/me/sports-profiles/${sport}`, 'PUT', input)
-    setProfiles(old => [...old.filter(v => v.sport !== sport), p])
-    return p
-  }
   async function logout() {
     setBusy(true); setProblem('')
     // Avisar o servidor é o melhor esforço: sem rede (ou com a sessão já inválida) a pessoa sai mesmo assim, apagando o token
@@ -221,22 +226,26 @@ export default function ProfileScreen({ user, onUser, onLogout, onExpired, onNew
   // A rolagem é própria da tela: a barra superior fica fixa por fora do ScrollView.
   return <View className="grow basis-0">
     <ScrollView onScroll={onScroll} scrollEventThrottle={16} keyboardShouldPersistTaps="handled" contentContainerClassName="pb-12">
-      <View className="bg-surface">
-        <Cover path={user.cover?.url ?? null} token={token} height={COVER_HEIGHT} />
-        <View className="px-5.5 pb-5.5">
-          <View className="-mt-9 w-20">
-            <View className="rounded-[40px] border-[3px] border-surface"><Avatar path={user.avatar?.url ?? null} name={user.name} token={token} size={74} /></View>
-            <Pressable accessibilityRole="button" accessibilityLabel="Editar perfil" onPress={() => open('edit')} className="absolute -right-1 bottom-0 size-8 items-center justify-center rounded-[16px] bg-brand"><Text className="text-on-brand">⚙</Text></Pressable>
-          </View>
-          <View className="mt-2.5"><ProfileTitle name={user.name} username={user.username} /></View>
-          <Text className="mb-2 text-ink-muted">{user.social_public ? 'Conta pública' : 'Conta privada'}</Text>
-          <Pressable accessibilityRole="button" accessibilityLabel={`Conexões: ${connectionsText(counts.followers, counts.following)}`} onPress={() => open('connections')} className="min-h-11 justify-center"><Text className="font-semibold text-ink">{connectionsText(counts.followers, counts.following)}</Text></Pressable>
-        </View>
-      </View>
-      <View className={tw.content}>
+      <Cover hero path={user.cover?.url ?? null} token={token} height={COVER_HEIGHT + insets.top} />
+      <ProfileHeader name={user.name} username={user.username} isPublic={user.social_public} followerCount={counts.followers} followingCount={counts.following}
+        sportList={loading || loadError ? undefined : profiles.map(profile => profile.sport)}
+        avatar={<Avatar path={user.avatar?.url ?? null} name={user.name} token={token} size={80} />}
+        onEdit={() => open('edit')} onConnections={() => open('connections')} />
+      <View className="px-5">
         {!sheet && loadError ? <LoadError size="section" title="Não foi possível carregar o perfil" text={loadError.message} cause={loadError.cause} onRetry={retryLoad} /> : null}
-        {/* Sem a leitura dos perfis, as faixas não fingem "0 de 3 ativas": o LoadError acima oferece tentar de novo. */}
-        {loading ? <ActivityIndicator accessibilityLabel="Carregando modalidades" /> : loadError ? null : <SportsProfiles profiles={profiles} onSave={save} onExpired={onExpired} />}
+        {/* Como na web, as modalidades ficam numa tela própria (Suas modalidades); o perfil mostra o atalho. */}
+        <View className="overflow-hidden rounded-card border border-line">
+          <Pressable accessibilityRole="button" accessibilityLabel="Minhas modalidades" accessibilityHint="Cidade, posição e disponibilidade" onPress={onOpenSports}
+            className="min-h-[61px] flex-row items-center gap-3 px-3.25 py-2.5">
+            <Icon name="trophy" size={21} color={themeColors.brand} />
+            <View className="grow basis-0">
+              <Text className="text-[11px] font-bold text-ink">Minhas modalidades</Text>
+              <Text className="mt-0.75 text-[9px] text-ink-muted">Cidade, posição e disponibilidade</Text>
+            </View>
+            <Icon name="chevron" size={17} color={themeColors.brand} />
+          </Pressable>
+        </View>
+        <SectionTitle title="Suas estatísticas" />
       </View>
       <ProfileStatsBlocks onExpired={onExpired} />
       <ProfileTabs value={contentTab} onChange={setContentTab} />
@@ -314,7 +323,7 @@ export default function ProfileScreen({ user, onUser, onLogout, onExpired, onNew
       {feedback}
       <Text className={tw.eyebrow}>CONTA</Text>
       <ListRow label="Editar perfil" onPress={editFromMenu} />
-      <ListRow label="Minhas modalidades" onPress={() => open(null)} />
+      <ListRow label="Minhas modalidades" onPress={() => { open(null); onOpenSports?.() }} />
       {menuSections?.(() => open(null))}
       <Text className={cx(tw.eyebrow, 'mt-5')}>APARÊNCIA</Text>
       <AppearanceCard />

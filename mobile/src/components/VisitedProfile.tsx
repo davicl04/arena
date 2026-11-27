@@ -1,22 +1,25 @@
 import { useState } from 'react'
-import { Modal, ScrollView, Text, View } from 'react-native'
+import { Modal, ScrollView, View } from 'react-native'
+import { Text } from './Text'
 import type { SocialUser, User } from '../api/client'
 import { cx, tw } from '../styles'
-import { connectionsText } from '../utils/profile'
 import AccountActions from './AccountActions'
 import { Avatar, Cover } from './media'
+import { ProfileHeader } from './ProfileHeader'
+import { ActionButton } from './arena/controls'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { useTopArea } from '../navigation/topArea'
 import type { PostUpdate } from './PostItem'
 import ProfileGallery from './ProfileGallery'
 import { MatchTimeline } from './profile-matches/MatchTimeline'
 import { ProfileTabs } from './ProfileTabs'
 import type { ProfileTab } from './ProfileTabs'
-import ProfileTitle from './ProfileTitle'
 import ProfileTopBar, { TopBarButton, useCondensedTopBar } from './ProfileTopBar'
 import { Screen } from './Screen'
 import { ToastViewport } from './toast/ToastViewport'
-import { Button } from './ui'
 
-const COVER_HEIGHT = 120
+/** Altura da capa, a mesma da web (158 px), sem contar a barra de status. */
+const COVER_HEIGHT = 158
 
 /**
  * Perfil visitado em tela cheia: topo fixo (‹ e •••), abas Fotos | Partidas e grade compartilhada com o visualizador.
@@ -32,21 +35,19 @@ export default function VisitedProfile({ profile, user, token, mutualText, modal
   const [tab, setTab] = useState<ProfileTab>('Fotos')
   const [actions, setActions] = useState(false)
   const { condensed, onScroll } = useCondensedTopBar(COVER_HEIGHT)
+  // A capa sobe por baixo da barra de status: na tela, pelo shell (navigation/topArea); no Modal, que já cobre a tela inteira.
+  useTopArea(modal ? null : 'bleed')
+  const insets = useSafeAreaInsets()
   const own = profile.id === user.id
   const canView = profile.social_public || profile.follow_state === 'approved' || own
   const content = <>
     <ScrollView onScroll={onScroll} scrollEventThrottle={16} keyboardShouldPersistTaps="handled" contentContainerClassName="pb-10">
-      <View className="bg-surface">
-        <Cover path={profile.cover_url} token={token} height={COVER_HEIGHT} />
-        <View className="px-5.5 pb-4.5">
-          <View className="-mt-8 w-[72px] rounded-[36px] border-[3px] border-surface"><Avatar path={profile.avatar_url} name={profile.name} token={token} size={66} /></View>
-          <View className="mt-2.5"><ProfileTitle name={profile.name} username={profile.username} /></View>
-          <Text className={tw.body}>{profile.social_public ? 'Perfil público' : 'Perfil privado'}</Text>
-          <Text accessibilityLabel="Contagens do perfil" className={tw.body}>{canView ? `${profile.post_count} publicações · ` : ''}{connectionsText(profile.follower_count, profile.following_count)}</Text>
-          {mutualText ? <Text className={tw.body}>{mutualText}</Text> : null}
-          {!own ? <Button title={profile.follow_state === 'approved' ? 'Deixar de seguir' : profile.follow_state === 'pending' ? 'Cancelar solicitação' : profile.social_public ? 'Seguir' : 'Solicitar acesso'} onPress={() => onFollow(profile)} /> : null}
-        </View>
-      </View>
+      {/* Capa e cabeçalho do perfil de outra pessoa, como o `ProfileHeader` da web no modo visitante: o Seguir fica à direita, acima do @. */}
+      <Cover hero path={profile.cover_url} token={token} height={COVER_HEIGHT + insets.top} />
+      <ProfileHeader name={profile.name} username={profile.username} isPublic={profile.social_public} followerCount={profile.follower_count} followingCount={profile.following_count}
+        avatar={<Avatar path={profile.avatar_url} name={profile.name} token={token} size={80} />} mutualText={mutualText}
+        actions={own ? undefined : <ActionButton fit size="sm" tone={profile.follow_state === 'none' ? 'brand' : 'outline'}
+          title={profile.follow_state === 'approved' ? 'Deixar de seguir' : profile.follow_state === 'pending' ? 'Cancelar solicitação' : profile.social_public ? 'Seguir' : 'Solicitar acesso'} onPress={() => onFollow(profile)} />} />
       {canView ? <>
         <ProfileTabs value={tab} onChange={setTab} />
         <View accessibilityLabel={tab} className="min-h-[280px]">
@@ -54,7 +55,7 @@ export default function VisitedProfile({ profile, user, token, mutualText, modal
             ? <ProfileGallery key={profile.id} userId={profile.id} ownerName={profile.name} ownerUsername={profile.username} viewerId={user.id} token={token} onPostUpdate={onPostUpdate} onPostRemove={onPostRemove} onExpired={onExpired} />
             : <MatchTimeline key={profile.id} userId={profile.id} own={false} onExpired={onExpired} />}
         </View>
-      </> : <Text className={cx(tw.body, 'p-5.5')}>Esta conta é privada. Solicite acesso para ver as publicações; as listas de seguidores também ficam fechadas até lá.</Text>}
+      </> : <Text className={cx(tw.body, 'p-5 text-center')}>Esta conta é privada. Solicite acesso para ver as publicações; as listas de seguidores também ficam fechadas até lá.</Text>}
     </ScrollView>
     <ProfileTopBar condensed={condensed} username={profile.username}
       leading={<TopBarButton label="Voltar" glyph="‹" condensed={condensed} onPress={onClose} />}
@@ -63,7 +64,8 @@ export default function VisitedProfile({ profile, user, token, mutualText, modal
   </>
   if (!modal) return <View className="grow basis-0 bg-app">{content}</View>
   return <Modal visible animationType="slide" onRequestClose={() => { if (actions) setActions(false); else onClose() }}>
-    <Screen className={tw.screen}>{content}</Screen>
+    {/* A capa sobe por baixo da barra de status também no Modal: a área segura de cima fica com a capa e a barra do perfil. */}
+    <Screen className={tw.screen} edges={['right', 'bottom', 'left']}>{content}</Screen>
     <ToastViewport />
   </Modal>
 }

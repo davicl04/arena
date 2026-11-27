@@ -58,7 +58,7 @@ describe('NotificationBell', () => {
     }
   })
 
-  it('claro: contador verde com anel do fundo; escuro: vidro com contador menta e anel forest; capa: vidro claro, sem vidro quando condensada', async () => {
+  it('claro: contador verde com anel do fundo; escuro: vidro com contador menta e anel forest; capa: vidro escuro com contador menta, sem vidro quando condensada', async () => {
     const light = await mount({ count: 3, tone: 'light' })
     expect(light.badge.props.style).toMatchObject({ backgroundColor: '#005a36', borderColor: '#e2e4e9' })
     expect(light.button.props.style.backgroundColor).toBe('transparent')
@@ -66,9 +66,12 @@ describe('NotificationBell', () => {
     expect(dark.badge.props.style).toMatchObject({ backgroundColor: '#8fe0b4', borderColor: '#0b2218' })
     expect(dark.button.props.style.backgroundColor).toBe('rgba(255,255,255,0.1)')
     const cover = await mount({ count: 3, tone: 'cover' })
-    expect(cover.button.props.style.backgroundColor).toBe('#ffffffd9')
-    expect(cover.badge.props.style.backgroundColor).toBe('#005a36')
+    expect(cover.button.props.style).toMatchObject({ backgroundColor: '#0b221859', borderWidth: 1, borderColor: '#ffffff2e' })
+    expect(cover.badge.props.style).toMatchObject({ backgroundColor: '#8fe0b4', borderColor: '#0b2218' })
+    expect(cover.tree.root.findAll(node => String(node.type) === 'Text')[0].props.style.color).toBe('#08140e')
     const condensed = await mount({ count: 3, tone: 'cover', condensed: true })
     expect(condensed.button.props.style.backgroundColor).toBe('transparent')
+    expect(condensed.button.props.style.borderWidth).toBeUndefined()
+    expect(condensed.badge.props.style.backgroundColor).toBe('#005a36')
   })
 })

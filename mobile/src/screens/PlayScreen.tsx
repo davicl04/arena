@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Pressable, ScrollView, Text, View } from 'react-native'
+import { Pressable, ScrollView, View } from 'react-native'
+import { Text } from '../components/Text'
 import { sports } from '../api/client'
 import type { Profile, Sport } from '../api/client'
 import { cancelSearch, createSearch, normalizeBoard } from '../api/matchmaking'
@@ -214,7 +215,7 @@ export default function PlayScreen({ navigation, onExpired, playBoard: board, re
     boardLoaded: Boolean(board.board), boardLoading: board.loading,
   })
   const actions: Record<PlateAction, () => void> = {
-    prepare: () => navigation.go('profile'),
+    prepare: () => navigation.go('sports'),
     teams: () => navigation.go('teams'),
     start: () => { if (timeMode) setSheet(true); else void startDirect() },
     cancel: () => setConfirming(true),
@@ -230,7 +231,7 @@ export default function PlayScreen({ navigation, onExpired, playBoard: board, re
         <View style={{ minHeight: 54, flexDirection: 'row', alignItems: 'center', gap: 10, paddingTop: 6, paddingRight: 12, paddingLeft: 18 }}>
           <ArenaMark compact width={30} height={22} color={colors.mint} />
           <Text accessibilityRole="header" style={{ flex: 1, color: '#ffffff', fontSize: 17, fontWeight: '800' }}>Jogar</Text>
-          <Pressable accessibilityRole="button" onPress={() => navigation.go('profile')}
+          <Pressable accessibilityRole="button" onPress={() => navigation.go('sports')}
             accessibilityLabel={city ? `Cidade do perfil de ${sportLabel}: ${city.name}. Alterar em Suas modalidades` : `Definir a cidade do perfil de ${sportLabel}`}
             style={{ maxWidth: '55%', minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 5, borderRadius: 22, paddingHorizontal: 12, backgroundColor: 'rgba(255,255,255,0.08)' }}>
             <Icon name="map-pin" size={13} color={colors.mint} />

@@ -30,7 +30,7 @@ it('authSource só devolve fonte (com o Bearer) para caminhos da API; qualquer o
   for (const path of ['@evil.example/x', '.evil.example/x', '//evil.example/x', 'https://evil.example/x', 'api/v1/x', '']) expect(authSource(path, 'session-a'), path).toBeNull()
 })
 
-it.each(['@evil.example/x', '.evil.example/x', '//evil.example/x', 'https://evil.example/x'])('avatar, capa e foto de publicação com o caminho %s mostram o substituto, sem imagem', async path => {
+it.each(['@evil.example/x', '.evil.example/x', '//evil.example/x', 'https://evil.example/x'])('avatar, capa e foto de publicação com o caminho %s mostram o substituto, sem imagem autenticada', async path => {
   ;(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true
   const trees: ReturnType<typeof create>[] = []
   await act(async () => {
@@ -38,7 +38,12 @@ it.each(['@evil.example/x', '.evil.example/x', '//evil.example/x', 'https://evil
     trees.push(create(React.createElement(Cover, { path, token: 'session-a' })))
     trees.push(create(React.createElement(PostImage, { path, token: 'session-a', label: 'Foto' })))
   })
-  for (const tree of trees) expect(tree.root.findAllByType('Image' as never)).toHaveLength(0)
+  // Avatar e foto de publicação ficam sem imagem; a capa mostra só a capa padrão (fonte local, sem `uri` nem Bearer).
+  for (const tree of [trees[0], trees[2]]) expect(tree.root.findAllByType('Image' as never)).toHaveLength(0)
+  const coverImages = trees[1].root.findAllByType('Image' as never)
+  expect(coverImages).toHaveLength(1)
+  expect(coverImages[0].props.accessibilityLabel).toBe('Capa padrão')
+  expect(coverImages[0].props.source).toBe(0)
   expect(trees[0].root.findAllByType('Text' as never)[0].props.children).toBe('AU')
   expect(trees[2].root.findAllByType('Text' as never)[0].props.children).toBe('Imagem indisponível')
   await act(async () => { trees.forEach(tree => tree.unmount()) })

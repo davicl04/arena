@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { AccessibilityInfo, findNodeHandle, Text, View } from 'react-native'
+import { AccessibilityInfo, findNodeHandle, View } from 'react-native'
+import { Text } from '../Text'
+import type { TextRef } from '../Text'
 import { ApiError } from '../../api/client'
 import type { City, Position, Profile, ProfileInput, Sport } from '../../api/client'
 import { cityLabel } from '../../api/cities'
@@ -58,7 +60,7 @@ export function SportProfileSheet({ sport, profile, onSave, onSaved, onClose, on
   const step = steps[index]
   const title = stepTitle[step]
   const progress = `${index + 1} de ${steps.length}`
-  const titleRef = useRef<Text>(null)
+  const titleRef = useRef<TextRef>(null)
   useEffect(() => { announce(`${title}. Passo ${progress}`) }, [title, progress])
   // A folha só existe montada enquanto está aberta: o efeito roda ao abrir e a cada troca de passo.
   useEffect(() => {

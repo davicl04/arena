@@ -5,8 +5,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiError, request } from '../src/api/client'
 import type { City, Position, Profile, ProfileInput, Sport, User } from '../src/api/client'
 import { connection } from '../src/api/connection'
-import ProfileScreen from '../src/screens/ProfileScreen'
+import SportsScreen from '../src/screens/SportsScreen'
 import { byLabel, enableAct, press, textOf } from './support/native'
+import { playContext } from './support/play'
+import { fakeNavigation } from './support/teams'
 import { brasiliaCity, searchCity, searchPath, valparaisoCity } from './support/cities'
 import { toasts } from './support/toast'
 
@@ -33,7 +35,7 @@ vi.mock('../src/api/client', async original => ({
 }))
 
 /*
- * Tela de modalidades do Expo dentro do perfil próprio, com a API simulada: faixas e contador, a folha passo a passo por
+ * Tela de modalidades do Expo (Suas modalidades, aberta pela linha "Minhas modalidades" do perfil), com a API simulada: faixas e contador, a folha passo a passo por
  * modalidade (Cidade → Posição → Revisão no futebol; Cidade → Revisão no tênis e na corrida), "Alterar", o corpo do `PUT`,
  * o toast de sucesso, o 422 na folha, os demais erros por `reportActionError`, fechar sem salvar e o perfil existente.
  */
@@ -70,7 +72,8 @@ async function mount(onExpired = vi.fn()) {
   let tree!: ReactTestRenderer
   // Só o título do passo ganha um nó nativo simulado (os demais refs seguem nulos, como no renderizador de teste).
   const createNodeMock = (element: React.ReactElement<{ accessibilityLabel?: string }>) => String(element.props.accessibilityLabel).includes(' Passo ') ? { stepTitle: true } : null
-  await act(async () => { tree = create(React.createElement(ProfileScreen, { user: me, onExpired, onLogout: vi.fn(), onUser: vi.fn() }), { createNodeMock }) })
+  const props = { user: me, navigation: fakeNavigation(), onUser: vi.fn(), onLogout: vi.fn(), ...playContext(), onExpired, params: undefined, title: 'Suas modalidades' }
+  await act(async () => { tree = create(React.createElement(SportsScreen, props), { createNodeMock }) })
   trees.push(tree)
   focus.read = () => stepHeader(tree)
   return { tree, onExpired }
@@ -107,6 +110,26 @@ describe('Tela de modalidades: faixas', () => {
     expect(text).toContain('Seus perfis começam privados.')
     expect(text).not.toMatch(/Bronze|Prata|Ouro|Diamante|Lendário|pontos|Sem classificação/)
     expect(sheetOpen(tree)).toBe(false)
+  })
+
+  it('a falha ao ler os perfis é um erro de seção com "Tentar novamente", sem fingir "0 de 3 ativas"; a leitura é refeita', async () => {
+    let fail = true
+    const base = vi.mocked(request).getMockImplementation()!
+    vi.mocked(request).mockImplementation(async (...args) => {
+      if (args[0] === '/me/sports-profiles' && fail) throw new ApiError('Perfis fora do ar.', 500)
+      return base(...args)
+    })
+    const { tree } = await mount()
+    const loadErrors = () => tree.root.findAll(node => typeof node.type === 'string' && node.props.testID === 'load-error-section')
+    expect(loadErrors()).toHaveLength(1)
+    expect(textOf(tree)).toContain('Não foi possível carregar suas modalidades')
+    expect(textOf(tree)).toContain('Perfis fora do ar.')
+    expect(textOf(tree)).not.toContain('de 3 ativas')
+    expect(toasts()).toEqual([])
+    fail = false
+    await press(tree, 'Tentar novamente')
+    expect(loadErrors()).toHaveLength(0)
+    expect(textOf(tree)).toContain('0 de 3 ativas')
   })
 })
 

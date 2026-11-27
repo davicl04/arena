@@ -1,5 +1,7 @@
 import { useState } from 'react'
-import { Pressable, ScrollView, Text, View } from 'react-native'
+import { Pressable, ScrollView, View } from 'react-native'
+import { Text } from '../components/Text'
+import { EmptyState } from '../components/EmptyState'
 import { sports } from '../api/client'
 import type { Profile, Sport } from '../api/client'
 import { eventsPath, myEntriesPath } from '../api/entries'
@@ -50,14 +52,9 @@ function EventGrid({ path, sport, cityName, onAllCities, onOpen, onExpired }: {
   const noun = eventNoun[sport]
   if (list.loading) return <Text accessibilityLiveRegion="polite" style={{ color: colors['ink-muted'], fontSize: 14 }}>Carregando {noun.many.toLowerCase()}…</Text>
   if (list.error) return <LoadError size="screen" title={`Não foi possível carregar ${noun.many.toLowerCase()}`} text={list.error.message} cause={list.error} onRetry={list.reload} />
-  if (list.items.length === 0) return <View testID="events-empty" style={{ alignItems: 'center', borderRadius: 16, backgroundColor: colors.surface, padding: 22 }}>
-    <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants"><Icon name={sport === 'corrida' ? 'flag' : 'trophy'} size={26} color={colors.brand} /></View>
-    <Text accessibilityRole="header" style={{ color: colors.ink, fontSize: 16, fontWeight: '700', marginTop: 8, textAlign: 'center' }}>{cityName ? `${none(sport)} em ${cityName}` : none(sport)}</Text>
-    <Text style={{ color: colors['ink-muted'], fontSize: 13, lineHeight: 19, marginTop: 4, textAlign: 'center' }}>
-      Quando um organizador publicar {sport === 'corrida' ? 'uma prova' : 'um campeonato'}{cityName ? ' na sua cidade' : ''}, {sport === 'corrida' ? 'ela' : 'ele'} aparece aqui.
-    </Text>
-    {onAllCities ? <View style={{ alignSelf: 'stretch' }}><Button secondary title="Ver todas as cidades" onPress={onAllCities} /></View> : null}
-  </View>
+  if (list.items.length === 0) return <EmptyState testID="events-empty" icon={sport === 'corrida' ? 'flag' : 'trophy'} title={cityName ? `${none(sport)} em ${cityName}` : none(sport)}
+    text={`Quando um organizador publicar ${sport === 'corrida' ? 'uma prova' : 'um campeonato'}${cityName ? ' na sua cidade' : ''}, ${sport === 'corrida' ? 'ela' : 'ele'} aparece aqui.`}
+    action={onAllCities ? <Button secondary title="Ver todas as cidades" onPress={onAllCities} /> : undefined} />
   const rows: EventCard[][] = []
   for (let index = 0; index < list.items.length; index += 2) rows.push(list.items.slice(index, index + 2))
   return <View style={{ gap: 10 }}>
@@ -141,7 +138,7 @@ export default function EventsScreen({ params, navigation, onExpired }: ScreenPr
         <Text style={{ color: colors.brand, fontSize: 12, fontWeight: '700' }}>Tentar de novo</Text>
       </Pressable> : city ? <Pressable accessibilityRole="button" accessibilityLabel={filtered ? 'Ver todas as cidades' : `Só ${city.name}`} accessibilityState={{ selected: !filtered }} onPress={() => setAllCities(value => !value)} style={{ minHeight: 44, justifyContent: 'center', paddingHorizontal: 10 }}>
         <Text style={{ color: colors.brand, fontSize: 12, fontWeight: '700' }}>{filtered ? 'Ver todas' : `Só ${city.name}`}</Text>
-      </Pressable> : <Pressable accessibilityRole="button" accessibilityLabel="Definir cidade" onPress={() => navigation.go('profile')} style={{ minHeight: 44, justifyContent: 'center', paddingHorizontal: 10 }}>
+      </Pressable> : <Pressable accessibilityRole="button" accessibilityLabel="Definir cidade" onPress={() => navigation.go('sports')} style={{ minHeight: 44, justifyContent: 'center', paddingHorizontal: 10 }}>
         <Text style={{ color: colors.brand, fontSize: 12, fontWeight: '700' }}>Definir cidade</Text>
       </Pressable>}
     </View>

@@ -1,4 +1,5 @@
-import { Text, View } from 'react-native'
+import { View } from 'react-native'
+import { Text } from '../Text'
 import { tierOrder, tiers } from '../../data/arena'
 import type { TierKey } from '../../data/arena'
 import { useThemeColors } from '../../hooks/useTheme'
@@ -11,11 +12,11 @@ const options: ChoiceOption<TierKey>[] = tierOrder.filter(tier => tier !== 'lend
   value: tier, label: tiers[tier].name, leading: () => <TierEmblem tier={tier} size="xs" decorative />,
 }))
 
-/** Quem está sem elo escolhe qual faixa ver; a placa começa no Bronze. */
+/** Quem está sem elo escolhe qual faixa ver; a placa começa no Bronze. As quatro faixas ficam numa linha que rola, sem quebrar. */
 export function TierPicker({ value, onChange }: { value: TierKey; onChange: (tier: TierKey) => void }) {
   const c = useThemeColors()
   return <View style={{ gap: 8 }}>
-    <Text style={{ color: c['ink-muted'], fontSize: 12, lineHeight: 18 }}>Você ainda não tem elo. Veja quem está em cada faixa:</Text>
-    <ChoicePills label="Elo" options={options} value={value} onChange={onChange} />
+    <Text style={{ color: c['ink-muted'], fontSize: 11, lineHeight: 16.5 }}>Você ainda não tem elo. Veja quem está em cada faixa:</Text>
+    <ChoicePills label="Elo" options={options} value={value} onChange={onChange} row={20} />
   </View>
 }

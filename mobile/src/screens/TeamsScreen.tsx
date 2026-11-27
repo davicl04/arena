@@ -1,5 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
-import { ActivityIndicator, ScrollView, Text, View } from 'react-native'
+import { ActivityIndicator, ScrollView, View } from 'react-native'
+import { Text } from '../components/Text'
+import { EmptyState } from '../components/EmptyState'
 import { ApiError } from '../api/client'
 import { cancelInvite, decideJoinRequest, joinRequests, myInvites, myTeams, removeMember, sentInvites, teamMembers } from '../api/teams'
 import type { JoinRequest, TeamCard, TeamInviteReceived, TeamInviteSent, TeamMember } from '../api/teams'
@@ -193,17 +195,13 @@ export default function TeamsScreen({ user, navigation, onExpired, params }: Scr
         {invitesError ? <LoadError size="section" title="Não foi possível carregar os convites" text={invitesError.message} cause={invitesError.cause} onRetry={reload} /> : null}
         {listError ? <LoadError size="section" title="Não foi possível carregar pedidos e convites" text={listError.message} cause={listError.cause} onRetry={reload} /> : null}
         {!selected
-          ? <View style={{ marginTop: 18, alignItems: 'center', borderRadius: 16, backgroundColor: colors.surface, padding: 22 }}>
-            <Icon name="shield" size={36} color={colors.brand} />
-            <Text accessibilityRole="header" style={{ marginTop: 10, color: colors.ink, fontSize: 17, fontWeight: '800', textAlign: 'center' }}>Você ainda não tem time</Text>
-            <Text style={{ marginTop: 6, color: colors['ink-muted'], fontSize: 13, lineHeight: 20, textAlign: 'center' }}>
-              Crie um time e convide o elenco, ou aceite o convite de um representante. Um atleta pode estar em vários times.
-            </Text>
-            <View style={{ marginTop: 14, alignSelf: 'stretch', gap: 8 }}>
-              <ActionButton tone="brand" block icon="shield-plus" title="Criar time" onPress={create} />
-              <ActionButton tone="outline" block icon="qr-code" title="Entrar com QR" onPress={() => setScanning(true)} />
-            </View>
-          </View>
+          // O vazio da web (`EmptyState`); "Entrar com QR" é do app, que lê o QR pela câmera.
+          ? <EmptyState icon="shield" title="Você ainda não tem time"
+            text="Crie um time e convide o elenco, ou aceite o convite de um representante. Um atleta pode estar em vários times."
+            action={<View style={{ alignItems: 'center', gap: 8 }}>
+              <ActionButton tone="brand" fit icon="shield-plus" title="Criar time" onPress={create} />
+              <ActionButton tone="outline" fit icon="qr-code" title="Entrar com QR" onPress={() => setScanning(true)} />
+            </View>} />
           : <>
             <RosterGrid key={selected.id} members={members} loading={!currentRoster} error={currentRoster?.error ?? ''} errorCause={currentRoster?.cause}
               onRetry={() => setRosterAttempt(n => n + 1)} onOpen={member => setSheet({ kind: 'member', member })}

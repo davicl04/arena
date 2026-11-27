@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
-import { Pressable, Text, View } from 'react-native'
+import { Pressable, View, ScrollView } from 'react-native'
+import { Text } from '../Text'
 import { sports } from '../../api/client'
 import type { Sport } from '../../api/client'
 import { colors } from '../../theme'
@@ -33,10 +34,25 @@ export function PlateChips<T extends string>({ label, options, value, onChange, 
   options: readonly PlateOption<T>[]
   value: T
   onChange: (value: T) => void
-  variant?: 'segmented' | 'pill'
+  /** `filter`: a linha rolável de filtros das notificações (pílulas preenchidas, a escolhida em menta), como na web. */
+  variant?: 'segmented' | 'pill' | 'filter'
   disabled?: boolean
 }) {
   const segmented = variant === 'segmented'
+  if (variant === 'filter') return <ScrollView horizontal showsHorizontalScrollIndicator={false} accessibilityRole="radiogroup" accessibilityLabel={label}
+    contentContainerStyle={{ flexDirection: 'row', gap: 6, paddingHorizontal: 16 }}>
+    {options.map(option => {
+      const selected = option.value === value
+      const ink = selected ? colors.night : 'rgba(255,255,255,0.8)'
+      return <Pressable key={option.value} accessibilityRole="radio" accessibilityLabel={option.accessibilityLabel ?? option.label}
+        accessibilityState={{ checked: selected, selected, disabled }} disabled={disabled}
+        onPress={() => { if (!selected) onChange(option.value) }}
+        style={{ minHeight: 36, flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 18, paddingHorizontal: 12, paddingVertical: 7, backgroundColor: selected ? colors.mint : 'rgba(255,255,255,0.07)', opacity: disabled ? 0.5 : 1 }}>
+        <Text numberOfLines={1} maxFontSizeMultiplier={1.3} style={{ color: ink, fontSize: 11, fontWeight: '600' }}>{option.label}</Text>
+        {option.detail ? <Text style={{ color: ink, opacity: 0.8, fontSize: 10, fontFamily: 'monospace' }}>{option.detail}</Text> : null}
+      </Pressable>
+    })}
+  </ScrollView>
   return <View accessibilityRole="radiogroup" accessibilityLabel={label}
     style={segmented
       ? { alignSelf: 'stretch', flexDirection: 'row', gap: 3, borderRadius: 13, padding: 3, backgroundColor: 'rgba(255,255,255,0.08)' }

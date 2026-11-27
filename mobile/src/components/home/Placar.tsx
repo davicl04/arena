@@ -1,5 +1,6 @@
 import { Fragment } from 'react'
-import { Pressable, Text, View } from 'react-native'
+import { Pressable, View } from 'react-native'
+import { Text } from '../Text'
 import { sports } from '../../api/client'
 import type { MatchCard } from '../../api/matches'
 import { countdownParts, countdownText, emptyPlacarText, matchupLabel } from '../../data/home'
@@ -13,7 +14,8 @@ import { SideMark } from '../play/SideBadge'
 
 const RADIUS = 22
 const muted = 'rgba(255,255,255,0.66)'
-const big = { color: '#ffffff', fontSize: 46, lineHeight: 50, fontWeight: '800' as const, fontVariant: ['tabular-nums' as const] }
+// Números e unidades da contagem em Sora (`display`), como `font-display` na web.
+const big = { color: '#ffffff', fontSize: 46, lineHeight: 50, fontWeight: '700' as const, fontVariant: ['tabular-nums' as const] }
 const unit = { color: '#ffffff', fontSize: 18, fontWeight: '700' as const }
 
 /** Etiqueta da modalidade sobre o bloco escuro: ícone e nome ("Futebol", "Tênis"). */
@@ -42,12 +44,12 @@ export function Placar({ match, now, hasProfiles, onOpen }: {
   if (!match) {
     const text = emptyPlacarText(hasProfiles)
     return <View testID="placar-empty" accessible accessibilityLabel={`Próxima partida: nenhuma partida agendada. ${text}`} style={{ borderRadius: RADIUS, overflow: 'hidden' }}>
-      <TeamsPlate round={RADIUS} testID="placar-plate">
+      <TeamsPlate round={RADIUS} mark="corner" testID="placar-plate">
         <View style={{ padding: 18 }}>
           <DarkEyebrow>Próxima partida</DarkEyebrow>
-          <Text style={{ ...big, marginTop: 10, color: 'rgba(255,255,255,0.32)' }}>—</Text>
-          <Text style={{ marginTop: 8, color: '#ffffff', fontSize: 17, lineHeight: 22, fontWeight: '800' }}>Nenhuma partida agendada</Text>
-          <Text style={{ marginTop: 4, color: muted, fontSize: 12, lineHeight: 18 }}>{text}</Text>
+          <Text display style={{ ...big, marginTop: 10, color: 'rgba(255,255,255,0.3)' }}>—</Text>
+          <Text display style={{ marginTop: 8, marginBottom: 4, color: '#ffffff', fontSize: 17, lineHeight: 22, fontWeight: '700' }}>Nenhuma partida agendada</Text>
+          <Text style={{ color: muted, fontSize: 12, lineHeight: 18 }}>{text}</Text>
         </View>
       </TeamsPlate>
     </View>
@@ -62,13 +64,13 @@ export function Placar({ match, now, hasProfiles, onOpen }: {
   const label = [`Próxima partida em ${countdownText(left)}`, matchup, when, place].filter(Boolean).join(', ')
   return <Pressable testID="placar" accessibilityRole="button" accessibilityLabel={label} accessibilityHint="Abre a partida" onPress={() => onOpen(match.id)}
     style={{ borderRadius: RADIUS, overflow: 'hidden' }}>
-    <TeamsPlate round={RADIUS} testID="placar-plate">
+    <TeamsPlate round={RADIUS} mark="corner" testID="placar-plate">
       <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ padding: 18 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
           <DarkEyebrow>Próxima partida</DarkEyebrow>
           <SportTag sport={match.sport} />
         </View>
-        <Text testID="placar-countdown" style={{ marginTop: 10, color: '#ffffff' }}>
+        <Text testID="placar-countdown" display style={{ marginTop: 10, color: '#ffffff' }}>
           {parts.map((part, index) => <Fragment key={part.unit}>
             {index > 0 ? ' ' : ''}<Text style={big}>{part.value}</Text> <Text style={unit}>{part.unit}</Text>
           </Fragment>)}
