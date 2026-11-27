@@ -1,5 +1,47 @@
 # Situação da fundação do Arena
 
+## Compartilhar nos Stories na web: foto, editor e Story montado — 27 de novembro de 2026
+
+Ticket 04 de 6 da feature de compartilhar resultado nos Stories. Com ele, o fluxo da web fica completo: tocar na atividade, escolher a foto, enquadrar, posicionar a placa e exportar.
+
+- **Foto:** "Escolher foto", uma pílula menta na prévia, e "Trocar foto" usam `<input type="file" accept="image/*">`.
+  - A imagem é decodificada e reduzida no navegador, ao tamanho que cobre 1080×1920 em 1×, e nunca vai ao servidor.
+  - Um arquivo inválido gera aviso.
+  - Trocar a foto mantém a posição da placa.
+- **Enquadramento:**
+  - a foto sempre cobre o quadro;
+  - arrastar move a foto;
+  - pinça, roda do mouse e os botões ampliam de 1× a 3×;
+  - com o quadro focado, as setas movem e + e − ampliam;
+  - a foto nunca deixa área vazia.
+- **Posição da placa:** Topo, Centro e Base, num grupo de opções acessível (`Segmented`, com o novo tom `night`).
+- **Exportação:**
+  - "Compartilhar imagem" (menta) fica desabilitado sem foto. Usa `navigator.share` quando `canShare({ files })` aceita o JPEG 1080×1920; sem suporte, baixa o arquivo e avisa. Cancelar o menu não é erro.
+  - "Baixar imagem" baixa o JPEG.
+  - "Salvar só o adesivo" gera o PNG transparente, na posição escolhida.
+  - A prévia e o arquivo saem da mesma `drawSticker`.
+- O layout final e os desvios estão na [fidelidade visual](fidelidade-figma.md), seção dos Stories.
+
+**Verificações:**
+- **Worktree do ticket:**
+  - Testes novos: `tests/share-story.test.ts` (17) e `tests/share-editor.test.tsx` (18).
+  - Navegador (Chromium headless) com API e PostgreSQL reais em banco descartável, conta sintética:
+    - temas Dia e Noite, em 320, 390 e 1440 px, sem overflow horizontal e sem erros de console;
+    - Story nas três posições e na corrida: JPEG 1080×1920 igual à prévia, com diferença média de cerca de 1/255;
+    - adesivo: PNG com alfa 0;
+    - Web Share simulado recebeu o JPEG; cancelar não mostrou erro; sem suporte, o arquivo foi baixado com aviso.
+- **Árvore integrada:**
+  - `npm run lint` e `npm run build`: ok.
+  - `npm run test:coverage`: 1458 aprovados e 1 reprovado, o instável conhecido `matchmaking.test.tsx` › "prepara a busca com vagas…".
+  - Cobertura sem esse teste: 94,25% de instruções, 88,11% de ramos, 93,82% de funções e 97,03% de linhas.
+
+**Limitações:**
+- Conferido só no Chromium headless. O menu real de compartilhar, fotos HEIC e gestos em aparelho não foram testados.
+- Ampliar acima de 1× reamostra a foto reduzida.
+- O toast cobre os controles por cerca de 4 s.
+
+**Pendências:** nenhuma desta entrega na web. O Stories nativo continua fora da feature.
+
 ## Compartilhar nos Stories no Expo: folha de ações e adesivo de resultado — 27 de novembro de 2026
 
 Ticket 05 de 6 da feature de compartilhar resultado nos Stories. O Expo ainda não tem foto, gestos, Story montado nem menu do sistema (ticket 06).
