@@ -3,7 +3,8 @@ import { Keyboard, Platform } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 /**
- * Área segura de baixo para o que fica colado na base da área logada (navegação inferior, toast, aviso de conexão). Com o
+ * Área segura de baixo para o que fica colado na base da tela (o toast dentro de um `Modal`; a navegação inferior, o aviso
+ * de conexão e o toast acima dela usam `useNavInset`, que parte daqui). Com o
  * teclado aberto, o `KeyboardAvoidingView` já empurra tudo até a borda do teclado, e o indicador de início fica embaixo dele:
  * o recuo vira 0 para não sobrar uma faixa vazia entre a barra e o teclado.
  */
@@ -30,5 +31,8 @@ export const NAV_PADDING_BOTTOM = 11
  * Use também para posicionar o que fica acima da barra (aviso de conexão, toast).
  */
 export function useNavInset() {
-  return Math.max(0, useBottomInset() - NAV_PADDING_BOTTOM)
+  return navInsetFor(useBottomInset())
 }
+
+/** O mesmo cálculo de `useNavInset`, para quem já tem a área segura de baixo em mãos. */
+export const navInsetFor = (bottom: number) => Math.max(0, bottom - NAV_PADDING_BOTTOM)
