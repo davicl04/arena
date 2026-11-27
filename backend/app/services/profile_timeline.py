@@ -6,7 +6,9 @@ descending, then `kind` ascending ('corrida' before 'partida') and `id` descendi
 a start. A run happens on a Brasília calendar day: its `occurred_at` is midnight in Brasília of `ran_on`.
 
 Access is the caller's (`social._can_view`). The court is only loaded for the owner of the profile; the next match,
-chat, conditions, contests and sports profile data never leave here.
+chat, conditions, contests and sports profile data never leave here. `shareable` comes from `share_rules` and is
+always false for a viewer who is not the owner; the result sticker routes reuse the same items
+(`own_match_item`, `own_run_item`).
 
 `previous_best_s` of a run is recalculated per row with the semantics of `runs.create_run`: the best time of the
 same athlete and standard distance among the marks that already existed when it was registered
@@ -55,6 +57,7 @@ from app.services.profile_history import (
     valid_walkover_side,
 )
 from app.services.runs import _origin, _with_event
+from app.services.share_rules import match_shareable, run_shareable
 
 CURSOR_INVALID = 'Cursor de paginação inválido.'
 KIND_RUN = 'corrida'
@@ -142,7 +145,7 @@ def _match_items(db: Session, viewer: User, owner: User, matches: Sequence[Match
     if viewer.id == owner.id and court_ids:
         courts = {court.id: court.name for court in db.scalars(select(Court).where(Court.id.in_(court_ids)))}
     return [_match_out(match, sides[match.id], mine[match.id], stats.get(match.id), teams, people, events, rounds,
-                       courts) for match in matches]
+                       courts, match_shareable(viewer.id, owner.id, match, mine[match.id])) for match in matches]
 
 
 def _round_label(match: Match, event: Event | None, rounds: dict) -> str | None:
@@ -154,7 +157,7 @@ def _round_label(match: Match, event: Event | None, rounds: dict) -> str | None:
 
 
 def _match_out(match: Match, by_side, owner_side: str | None, stat: dict | None, teams, people, events, rounds,
-               courts) -> TimelineMatchOut:
+               courts, shareable: bool) -> TimelineMatchOut:
     final = is_final(match)
     outcome = outcome_of(match, owner_side)
     absent = valid_walkover_side(match) if final else None
@@ -179,7 +182,8 @@ def _match_out(match: Match, by_side, owner_side: str | None, stat: dict | None,
         stats=TimelineStatsOut(**stat) if stat else None,
         event=TimelineEventOut(id=event.id, name=event.name) if event is not None else None,
         round_label=_round_label(match, event, rounds),
-        court=TimelineCourtOut(name=courts[match.court_id]) if match.court_id in courts else None)
+        court=TimelineCourtOut(name=courts[match.court_id]) if match.court_id in courts else None,
+        shareable=shareable)
 
 
 # ----- Runs --------------------------------------------------------------------------------------------------
@@ -199,7 +203,8 @@ def _run_statement(owner_id: int):
     return _with_event(select(Run, _previous_best().label('previous_best')).where(Run.user_id == owner_id))
 
 
-def _run_out(run: Run, previous: int | None, event_id: int | None, event_name: str | None) -> TimelineRunOut:
+def _run_out(run: Run, previous: int | None, event_id: int | None, event_name: str | None,
+             shareable: bool) -> TimelineRunOut:
     kind = None
     if run.standard_distance_km is not None:
         kind = run_rules.run_kind(run.standard_distance_km, previous, run.duration_s)
@@ -208,7 +213,8 @@ def _run_out(run: Run, previous: int | None, event_id: int | None, event_name: s
         standard_distance_km=run.standard_distance_km, duration_s=run.duration_s,
         pace_s_per_km=run_rules.pace_s_per_km(run.distance_m, run.duration_s),
         origin=_origin(run.source, event_id, event_name),
-        previous_best_s=previous if run.standard_distance_km is not None else None, mark_kind=kind)
+        previous_best_s=previous if run.standard_distance_km is not None else None, mark_kind=kind,
+        shareable=shareable)
 
 
 # ----- Page --------------------------------------------------------------------------------------------------
@@ -249,9 +255,26 @@ def timeline(db: Session, viewer: User, owner: User, *, sport: str | None, curso
             items.append(built_matches[item.id])
         else:
             run, previous, event_id, event_name = item
-            items.append(_run_out(run, previous, event_id, event_name))
+            items.append(_run_out(run, previous, event_id, event_name, run_shareable(viewer.id, run)))
     next_cursor = encode_cursor(merged[-1][0]) if more and merged else None
     return TimelinePageOut(items=items, next_cursor=next_cursor, total=total)
 
 
-__all__ = ['decode_cursor', 'encode_cursor', 'timeline']
+# ----- One activity of the owner (result sticker) ------------------------------------------------------------
+
+def own_match_item(db: Session, owner: User, match_id: int) -> TimelineMatchOut | None:
+    """The timeline item of one match of the owner's history, as the owner sees it; None outside the history."""
+    match = db.scalar(_match_statement(owner.id, None).where(Match.id == match_id))
+    return _match_items(db, owner, owner, [match])[0] if match is not None else None
+
+
+def own_run_item(db: Session, owner: User, run_id: int) -> TimelineRunOut | None:
+    """The timeline item of one run of the owner, as the owner sees it; None for a run of someone else."""
+    row = db.execute(_run_statement(owner.id).where(Run.id == run_id)).first()
+    if row is None:
+        return None
+    run, previous, event_id, event_name = row
+    return _run_out(run, previous, event_id, event_name, run_shareable(owner.id, run))
+
+
+__all__ = ['decode_cursor', 'encode_cursor', 'own_match_item', 'own_run_item', 'timeline']

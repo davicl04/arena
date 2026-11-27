@@ -1,7 +1,8 @@
 """Profile history (aba Partidas do perfil): the timeline of matches and runs and the stats of the own profile.
 
-Contract: docs/plano-perfil-partidas.md, parts A2 and A3. Nothing here carries the next match, chat, pending
-conditions, contests, deadlines or sports profile data; the court is only filled for the owner of the profile.
+Contract: docs/plano-perfil-partidas.md, parts A2 and A3 (`shareable`: docs/decisoes/0007-compartilhamento-stories.md).
+Nothing here carries the next match, chat, pending conditions, contests, deadlines or sports profile data; the court
+is only filled for the owner of the profile.
 """
 from __future__ import annotations
 
@@ -68,6 +69,7 @@ class TimelineMatchOut(BaseModel):
     event: TimelineEventOut | None
     round_label: str | None
     court: TimelineCourtOut | None
+    shareable: bool                 # result sticker (decision 0007): only ever true for the owner of the profile
 
 
 class TimelineRunOut(BaseModel):
@@ -82,6 +84,7 @@ class TimelineRunOut(BaseModel):
     origin: RunOriginOut
     previous_best_s: int | None
     mark_kind: Literal['primeira_marca', 'novo_melhor', 'sem_melhora'] | None
+    shareable: bool                 # result sticker (decision 0007): only ever true for the owner of the profile
 
 
 TimelineItemOut = Annotated[TimelineMatchOut | TimelineRunOut, Field(discriminator='kind')]
