@@ -1,5 +1,41 @@
 # Situação da fundação do Arena
 
+## Compartilhar nos Stories no Expo: foto, editor e Story montado — 27 de novembro de 2026
+
+Ticket 06 de 6, que fecha a implementação da feature de compartilhar resultado nos Stories.
+
+- **Foto:** "Escolher foto" e "Trocar foto" usam o `expo-image-picker` já instalado.
+  - O texto da permissão de fotos agora cobre o perfil e a montagem do Story.
+  - A foto fica só no aparelho.
+- **Enquadramento:** a foto cobre o quadro.
+  - Arrastar move e pinçar amplia de 1× a 3×, com `react-native-gesture-handler` 2.32.0 e o Reanimated, sem área vazia.
+  - No leitor de tela, o quadro é ajustável e tem ações para mover a foto.
+- **Posição da placa:** seletor Topo / Centro / Base, com estado marcado.
+- **Compartilhar nos Stories:** fica desabilitado sem foto.
+  - Captura o JPEG 1080×1920 do mesmo quadro da prévia e abre o menu do sistema (`expo-sharing` 57.0.27, `image/jpeg`).
+  - Fechar o menu não é erro.
+  - Sem menu no aparelho, um aviso orienta a salvar.
+- **Salvar imagem:** grava o JPEG na galeria.
+- **Salvar só o adesivo:** gera o PNG transparente na posição escolhida, tirando a foto do quadro durante a captura.
+- Dependências instaladas com `npx expo install`, sem módulo nativo próprio, Facebook App ID ou esquema do Instagram. O plugin `expo-sharing` entrou no `app.json` sem opções.
+
+**Verificações** (árvore integrada, em worktree descartável limpa):
+- `npm ci`, `npm run lint`, `npm run typecheck` e `npm run export:android`: ok.
+- `npm run test:coverage`: 116 arquivos e 1745 testes aprovados. Cobertura: 96,63% de instruções, 91,13% de ramos, 95,97% de funções e 98,55% de linhas.
+- `npx expo install --check`: aponta só a defasagem anterior (`expo`, `expo-image-picker` e `expo-location`). Os pacotes novos não aparecem.
+- Teste novo: `tests/share-story-editor.test.ts`.
+- `tests/share-flow.test.ts`: o valor esperado da largura da prévia mudou, porque a base da tela cresceu.
+
+**Limitações:**
+- **Sem validação em Android, iOS ou Expo Go.** Captura, gestos, menu do sistema, abertura do Instagram, galeria e permissões não foram conferidos em aparelho.
+- A foto não é reduzida antes da composição, porque isso exigiria o `expo-image-manipulator`.
+- O pinch amplia em torno do centro do quadro.
+- Não há paridade visual declarada com a web.
+
+**Pendências:**
+- Validar o fluxo completo em aparelho.
+- Review final da feature, ainda não iniciado.
+
 ## Compartilhar nos Stories na web: foto, editor e Story montado — 27 de novembro de 2026
 
 Ticket 04 de 6 da feature de compartilhar resultado nos Stories. Com ele, o fluxo da web fica completo: tocar na atividade, escolher a foto, enquadrar, posicionar a placa e exportar.
