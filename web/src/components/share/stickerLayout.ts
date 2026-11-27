@@ -250,6 +250,18 @@ export function stickerLayout(content: StickerContent, { position = 'topo', meas
   }
 }
 
+/**
+ * Centro vertical, em fração do quadro, da maior faixa livre acima ou abaixo da placa e da barra (até a assinatura): onde
+ * o editor põe o "Escolher foto" sem cobrir o adesivo, em qualquer posição da placa.
+ */
+export function emptySpot({ plate, bar, signature }: StickerLayout): number {
+  const top = plate.box.y
+  const bottom = bar ? bar.box.y + bar.box.h : plate.box.y + plate.box.h
+  const signatureTop = Math.min(signature.mark.y, signature.word.y - signature.word.font.size / 2)
+  const center = top >= signatureTop - bottom ? top / 2 : (bottom + signatureTop) / 2
+  return center / STICKER_HEIGHT
+}
+
 /** Todos os textos do adesivo, na ordem de leitura (testes e conferência). */
 export function layoutTexts(layout: StickerLayout): string[] {
   const plate = layout.plate.columns.flatMap(column => [column.label.text, column.value.text, ...(column.unit ? [column.unit.text] : [])])

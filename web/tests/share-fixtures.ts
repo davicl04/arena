@@ -50,8 +50,8 @@ export function fakeContext() {
   const texts: { text: string; x: number; y: number; font: string }[] = []
   const ctx = {
     font: '10px sans-serif', fillStyle: '', strokeStyle: '', lineWidth: 1, textAlign: 'left', textBaseline: 'alphabetic',
-    letterSpacing: '0px', shadowColor: '', shadowBlur: 0, shadowOffsetY: 0,
-    save: vi.fn(), restore: vi.fn(), clearRect: vi.fn(), fillRect: vi.fn(), beginPath: vi.fn(), moveTo: vi.fn(),
+    letterSpacing: '0px', shadowColor: '', shadowBlur: 0, shadowOffsetY: 0, imageSmoothingEnabled: true, imageSmoothingQuality: 'low',
+    drawImage: vi.fn(), save: vi.fn(), restore: vi.fn(), clearRect: vi.fn(), fillRect: vi.fn(), beginPath: vi.fn(), moveTo: vi.fn(),
     arcTo: vi.fn(), arc: vi.fn(), closePath: vi.fn(), fill: vi.fn(), stroke: vi.fn(), translate: vi.fn(), scale: vi.fn(),
     measureText: vi.fn((text: string) => ({ width: text.length * (Number(/([\d.]+)px/.exec(ctx.font)?.[1]) || 10) * 0.55 })),
     fillText: vi.fn((text: string, x: number, y: number) => { texts.push({ text, x, y, font: ctx.font }) }),
@@ -66,3 +66,9 @@ export class FakePath2D {
 }
 
 export const coliseumSvg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 146" fill="currentColor"><path fill-rule="evenodd" d="M0 0L10 10Z"/><path d="M5 5L6 6Z"/></svg>'
+
+/** Bitmap falso de `createImageBitmap` (o jsdom não decodifica imagens). */
+export const fakeBitmap = (width: number, height: number) => ({ width, height, close: vi.fn() })
+
+/** Arquivo de foto escolhido pela pessoa. */
+export const photoFile = (name = 'foto.jpg', type = 'image/jpeg') => new File(['foto'], name, { type })

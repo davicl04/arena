@@ -4,6 +4,9 @@ import {
   EXPORT_SCALE, STICKER_COLORS, STICKER_FONTS, STICKER_HEIGHT, STICKER_WIDTH, TIER_COLORS, stickerLayout,
 } from './stickerLayout'
 import type { Box, FontSpec, Measure, PlatePosition, StickerLayout, TextItem } from './stickerLayout'
+import { photoRect } from './storyFraming'
+import type { Framing } from './storyFraming'
+import type { StoryPhoto } from './storyPhoto'
 
 /*
  * Desenho do adesivo em Canvas 2D: uma única função (`drawSticker`) pinta a prévia (escalada ao tamanho da tela) e a
@@ -12,7 +15,8 @@ import type { Box, FontSpec, Measure, PlatePosition, StickerLayout, TextItem } f
  * Inter e Sora são carregadas (e `document.fonts.ready` aguardado) antes de medir e desenhar.
  *
  * O fundo é uma opção: `transparent` (o PNG do adesivo), `checker` (o xadrez escuro da prévia sem foto) ou uma função
- * que pinta o quadro inteiro antes do adesivo — por onde o editor de foto (ticket 04) entra com a foto enquadrada.
+ * que pinta o quadro inteiro antes do adesivo — por onde o editor entra com a foto enquadrada (`photoBackground`). O
+ * Story montado (JPEG) e o adesivo (PNG) saem de `renderSticker`, que chama a mesma `drawSticker` da prévia.
  */
 
 export const COLISEUM_URL = '/images/brand/coliseum.svg'
@@ -213,22 +217,52 @@ export function measuredLayout(ctx: CanvasRenderingContext2D, content: StickerCo
   return layout
 }
 
+/**
+ * Fundo com a foto enquadrada: o retângulo de `photoRect` (quadro de 360×640) escalado ao Canvas. Prévia e exportação
+ * recebem o mesmo fundo, então a foto fica no mesmo lugar nos dois.
+ */
+export function photoBackground(photo: StoryPhoto, framing: Framing): StickerBackground {
+  return (ctx, width, height) => {
+    const scale = width / STICKER_WIDTH
+    const rect = photoRect(framing, photo)
+    // Base opaca: o JPEG não tem transparência, e a borda antisserrilhada da foto não vira contorno claro.
+    ctx.fillStyle = '#000000'
+    ctx.fillRect(0, 0, width, height)
+    ctx.imageSmoothingEnabled = true
+    ctx.imageSmoothingQuality = 'high'
+    ctx.drawImage(photo.source, rect.x * scale, rect.y * scale, rect.w * scale, rect.h * scale)
+  }
+}
+
 function toBlob(canvas: HTMLCanvasElement, type: string, quality?: number): Promise<Blob> {
   return new Promise((resolve, reject) => {
     canvas.toBlob(blob => (blob ? resolve(blob) : reject(new Error('Não foi possível gerar a imagem.'))), type, quality)
   })
 }
 
-/** PNG 1080×1920 só com o adesivo, de fundo transparente. */
-export async function stickerPng(content: StickerContent, position: PlatePosition = 'topo'): Promise<Blob> {
+/** Arquivo 1080×1920 do adesivo sobre o fundo dado, pela mesma `drawSticker` da prévia. */
+export async function renderSticker(content: StickerContent, position: PlatePosition, background: StickerBackground, type: 'image/png' | 'image/jpeg', quality?: number): Promise<Blob> {
   const assets = await prepareSticker()
   const canvas = document.createElement('canvas')
   canvas.width = STICKER_WIDTH * EXPORT_SCALE
   canvas.height = STICKER_HEIGHT * EXPORT_SCALE
   const ctx = canvas.getContext('2d')
   if (!ctx) throw new Error('Não foi possível gerar a imagem.')
-  drawSticker(ctx, measuredLayout(ctx, content, position), assets, { scale: EXPORT_SCALE, background: 'transparent' })
-  return toBlob(canvas, 'image/png')
+  drawSticker(ctx, measuredLayout(ctx, content, position), assets, { scale: EXPORT_SCALE, background })
+  return toBlob(canvas, type, quality)
+}
+
+/** PNG 1080×1920 só com o adesivo, de fundo transparente, com a placa na posição escolhida. */
+export function stickerPng(content: StickerContent, position: PlatePosition = 'topo'): Promise<Blob> {
+  return renderSticker(content, position, 'transparent', 'image/png')
+}
+
+/** Qualidade do JPEG do Story montado. */
+export const STORY_JPEG_QUALITY = 0.92
+
+/** Story montado: JPEG 1080×1920 com a foto enquadrada atrás do adesivo. */
+export function storyJpeg(content: StickerContent, position: PlatePosition, photo: StoryPhoto, framing: Framing): Promise<Blob> {
+  return renderSticker(content, position, photoBackground(photo, framing), 'image/jpeg', STORY_JPEG_QUALITY)
 }
 
 /** Baixa o arquivo por `<a download>` com uma URL de Blob, liberada logo depois. */
@@ -243,4 +277,35 @@ export function downloadBlob(blob: Blob, fileName: string) {
   link.click()
   link.remove()
   setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+
+/** Resultado de "Compartilhar imagem": enviado pelo menu do sistema, cancelado pela pessoa ou baixado (sem suporte). */
+export type ShareResult = 'shared' | 'cancelled' | 'downloaded'
+
+type ShareNavigator = Pick<Navigator, 'share' | 'canShare'>
+
+/**
+ * Compartilha o arquivo pelo menu do navegador quando `navigator.canShare({ files })` o aceita; sem esse suporte, baixa o
+ * arquivo (quem chama avisa). Cancelar o menu não é erro; outra falha do compartilhamento é repassada.
+ */
+export async function shareOrDownload(blob: Blob, fileName: string, nav: Partial<ShareNavigator> | undefined = typeof navigator === 'undefined' ? undefined : navigator): Promise<ShareResult> {
+  const file = new File([blob], fileName, { type: blob.type })
+  let supported: boolean
+  try {
+    supported = typeof nav?.share === 'function' && typeof nav.canShare === 'function' && nav.canShare({ files: [file] })
+  } catch {
+    supported = false
+  }
+  if (!supported || !nav?.share) {
+    downloadBlob(blob, fileName)
+    return 'downloaded'
+  }
+  try {
+    await nav.share({ files: [file] })
+    return 'shared'
+  } catch (error) {
+    // `DOMException` nem sempre herda de `Error` (jsdom); o nome basta.
+    if ((error as { name?: unknown } | null)?.name === 'AbortError') return 'cancelled'
+    throw error
+  }
 }

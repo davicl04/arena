@@ -64,15 +64,16 @@ export function Stepper({ value, onChange, label, min = 0, max = 99, size = 'md'
 
 /**
  * Escolha de uma opção entre poucas (posição em que jogou): `radiogroup` com as setas movendo a seleção e o foco, como
- * as abas. `size="sm"` para as linhas do elenco.
+ * as abas. `size="sm"` para as linhas do elenco; `tone="night"` sobre os blocos escuros por design (editor do Story).
  */
-export function Segmented<T extends string>({ items, value, onChange, label, disabled = false, size = 'md', className }: {
+export function Segmented<T extends string>({ items, value, onChange, label, disabled = false, size = 'md', tone = 'default', className }: {
   items: readonly { value: T; label: string; title?: string }[]
   value: T | null
   onChange: (value: T) => void
   label: string
   disabled?: boolean
   size?: 'md' | 'sm'
+  tone?: 'default' | 'night'
   className?: string
 }) {
   function onKeyDown(event: KeyboardEvent<HTMLButtonElement>, index: number) {
@@ -85,7 +86,7 @@ export function Segmented<T extends string>({ items, value, onChange, label, dis
   }
   const active = value ?? items[0]?.value
   return (
-    <div data-slot="segmented" role="radiogroup" aria-label={label} className={cn('flex gap-1 rounded-[11px] bg-subtle p-[3px]', className)}>
+    <div data-slot="segmented" role="radiogroup" aria-label={label} className={cn('flex gap-1 rounded-[11px] p-[3px]', tone === 'night' ? 'bg-white/8' : 'bg-subtle', className)}>
       {items.map((item, index) => {
         const on = item.value === value
         return (
@@ -95,7 +96,9 @@ export function Segmented<T extends string>({ items, value, onChange, label, dis
             onClick={() => onChange(item.value)} onKeyDown={event => onKeyDown(event, index)}
             className={cn('min-w-0 flex-1 rounded-lg border-0 font-bold',
               size === 'sm' ? 'min-h-8 text-[10px]' : 'min-h-9 text-[11px]',
-              on ? 'bg-brand text-on-brand' : 'bg-transparent text-ink-muted enabled:hover:bg-white/70 noite:enabled:hover:bg-[#ffffff12]')}
+              tone === 'night'
+                ? cn('focus-visible:outline-mint', on ? 'bg-mint text-night' : 'bg-transparent text-[#cfdad3] enabled:hover:bg-white/10')
+                : on ? 'bg-brand text-on-brand' : 'bg-transparent text-ink-muted enabled:hover:bg-white/70 noite:enabled:hover:bg-[#ffffff12]')}
           >
             {item.label}
           </button>
