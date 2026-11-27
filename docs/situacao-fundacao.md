@@ -1,5 +1,44 @@
 # Situação da fundação do Arena
 
+## Backend do compartilhamento de resultado nos Stories: compartilhável e dados da placa — 26 de novembro de 2026
+
+Ticket 01 de 6 da feature de compartilhar resultado nos Stories. A entrega é só de backend: os clientes ainda não consomem o contrato, e a funcionalidade não está completa.
+
+- **O que mudou:**
+  - **Regra única de compartilhável** (`app/services/share_rules.py`):
+    - partida com resultado final (`realizada` ou `encerrada` com `outcome`) é compartilhável, exceto a vitória do titular por W.O.;
+    - toda corrida do titular é compartilhável;
+    - partida sem resultado (inclusive com W.O. anulado) ou cancelada nunca é.
+  - **Linha do tempo:** `GET /users/{id}/timeline` ganhou `shareable` em cada item, sempre `false` para quem não é o titular.
+  - **Rotas novas:** `GET /me/share/matches/{match_id}` e `GET /me/share/runs/{run_id}`, com o titular vindo da sessão.
+    - Devolvem os números da placa do adesivo de resultado, a partir do mesmo item da linha do tempo, e `category: null`.
+    - Atividade alheia, inexistente ou não compartilhável responde 404 com o mesmo corpo.
+  - Sem migração e sem tabela nova.
+- **Documentação:**
+  - decisão nova [0007](decisoes/0007-compartilhamento-stories.md), com regra, rotas, tipos, erros e a forma planejada de `category`;
+  - `shareable` acrescentado à parte A2 do [plano do perfil](plano-perfil-partidas.md) e à seção 19.2 da [decisão do Jogar](decisoes/0002-jogar.md#192-get-apiv1usersuser_idtimeline).
+
+**Verificações:**
+- **Worktree do ticket:**
+  - `python -m ruff check app migrations tests`: sem apontamentos.
+  - `python -m pytest -q --cov=app --cov-branch --cov-fail-under=85`: 1802 aprovados e 1 pulado (o round-trip S3 real), com cobertura de 98,52%.
+  - 12 testes novos de integração em `tests/integration/test_share_flow.py`. Eles cobrem:
+    - titular x outra pessoa, seguidor aprovado e ID inexistente;
+    - vitória, derrota e anulação por W.O.;
+    - partida sem resultado, cancelada, confirmada e `realizada`;
+    - futebol com e sem estatísticas;
+    - tênis com tie-break;
+    - corrida padrão e livre;
+    - `shareable` do visitante.
+  - `test_profile_timeline_flow.py` passou a incluir `shareable` no conjunto exato de campos.
+- **Árvore integrada** (`feat/compartilhar-stories`, com banco descartável):
+  - `ruff`: sem apontamentos.
+  - `pytest -q`: 1802 aprovados e 1 pulado.
+
+**Limitações:** `category` ainda vem nulo, e web e Expo não usam as rotas nem o campo.
+
+**Pendências:** barra do elo (`category`) no ticket 02; folha de ações, adesivo e editor na web e no Expo.
+
 ## Design do compartilhamento de resultado nos Stories — 26 de novembro de 2026
 
 Fase de design de uma funcionalidade nova, pedida pelo usuário: compartilhar o resultado de uma partida ou corrida nos Stories do Instagram, com adesivo de fundo transparente, como no Strava. **Nenhum código do app mudou.** A funcionalidade não está implementada.
