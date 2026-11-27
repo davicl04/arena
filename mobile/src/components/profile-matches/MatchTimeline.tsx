@@ -4,12 +4,15 @@ import { ApiError } from '../../api/client'
 import type { MatchCard } from '../../api/matches'
 import { timelinePath } from '../../api/profile'
 import type { TimelineItem } from '../../api/profile'
+import type { ShareTarget } from '../../api/share'
 import { usePagedList } from '../../hooks/usePagedList'
 import { useNow } from '../../hooks/useNow'
 import { useThemeColors } from '../../hooks/useTheme'
 import { ActionButton } from '../arena/controls'
 import { LoadError } from '../arena/LoadError'
 import { nextScheduledMatch } from '../play/matchView'
+import { ActivityActionSheet } from '../share/ActivityActionSheet'
+import { ShareStoryModal } from '../share/ShareStoryModal'
 import { NextMatchNode } from './NextMatchNode'
 import { TimelineHeader } from './TimelineHeader'
 import { TimelineRail } from './TimelineRail'
@@ -27,6 +30,8 @@ function Skeleton() {
  * Aba Partidas do perfil: topo com a contagem e o filtro, a próxima partida (só no perfil próprio, vinda da placa do Jogar
  * já lida pela tela) e o trilho da linha do tempo, tudo dentro da rolagem da tela (sem lista aninhada), com "Carregar mais".
  * No perfil visitado (`own = false`) nada é tocável, não há próxima partida nem quadra, e um 404 vira o vazio de visitante.
+ * No perfil próprio, tocar numa atividade compartilhável abre a folha de ações ("Compartilhar nos Stories" e, na partida,
+ * "Ver partida"), e o compartilhar abre a tela imersiva com o adesivo.
  */
 export function MatchTimeline({ userId, own, upcoming = [], onOpenMatch, onPlay, onExpired }: {
   userId: number
@@ -41,6 +46,8 @@ export function MatchTimeline({ userId, own, upcoming = [], onOpenMatch, onPlay,
   const colors = useThemeColors()
   const message = { color: colors['ink-muted'], fontSize: 12, lineHeight: 18, textAlign: 'center' as const }
   const [filter, setFilter] = useState<SportFilter>(null)
+  const [selected, setSelected] = useState<TimelineItem | null>(null)
+  const [sharing, setSharing] = useState<ShareTarget | null>(null)
   const list = usePagedList<TimelineItem>(timelinePath(userId, filter), onExpired)
   const now = useNow(60_000, own)
   const scheduled = own ? nextScheduledMatch(upcoming, now) : null
@@ -71,11 +78,15 @@ export function MatchTimeline({ userId, own, upcoming = [], onOpenMatch, onPlay,
       </View>
     </View>
   }
+  const openMatch = selected?.kind === 'partida' && onOpenMatch ? () => { const id = selected.id; setSelected(null); onOpenMatch(id) } : undefined
   return <View>
     {header}
-    <TimelineRail items={list.items} own={own} continues={list.hasMore} onOpenMatch={onOpenMatch}
+    <TimelineRail items={list.items} own={own} continues={list.hasMore} onOpenMatch={onOpenMatch} onSelect={own ? setSelected : undefined}
       leading={next && onOpenMatch ? <NextMatchNode card={next} onOpen={onOpenMatch} /> : undefined} />
     {list.moreError ? <Text accessibilityRole="alert" style={{ ...message, color: colors.error, paddingVertical: 8 }}>{list.moreError}</Text> : null}
     {list.hasMore ? <View style={{ paddingHorizontal: 20, paddingBottom: 8 }}><ActionButton tone="outline" title={list.busy ? 'Carregando…' : 'Carregar mais'} disabled={list.busy} onPress={() => void list.loadMore()} /></View> : null}
+    {own && selected ? <ActivityActionSheet item={selected} onClose={() => setSelected(null)} onOpenMatch={openMatch}
+      onShare={() => { setSharing({ kind: selected.kind, id: selected.id }); setSelected(null) }} /> : null}
+    {own && sharing ? <ShareStoryModal target={sharing} onClose={() => setSharing(null)} onExpired={onExpired} /> : null}
   </View>
 }

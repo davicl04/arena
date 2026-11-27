@@ -58,9 +58,10 @@ function summary(match: TimelineMatch, heading: string, badge: MatchBadge | null
 /**
  * Uma partida na linha do tempo: o mini placar claro com os dois lados em linhas. O lado do titular leva "você" (só no
  * perfil próprio) e o vencedor fica em negrito. Vira botão só com `onOpen` (perfil próprio); cancelada e sem resultado ficam
- * esmaecidas, com "–" no placar. A quadra só aparece no perfil próprio (o servidor já a omite para visitantes).
+ * esmaecidas, com "–" no placar. A quadra só aparece no perfil próprio (o servidor já a omite para visitantes). `hint`
+ * diz o que o toque faz (a partida compartilhável abre a folha de ações).
  */
-export function DuelCard({ match, own, onOpen }: { match: TimelineMatch; own: boolean; onOpen?: (matchId: number) => void }) {
+export function DuelCard({ match, own, onOpen, hint = 'Abre a partida' }: { match: TimelineMatch; own: boolean; onOpen?: (matchId: number) => void; hint?: string }) {
   const colors = useThemeColors()
   const heading = matchHeading(match)
   const badge = matchBadge(match)
@@ -98,7 +99,7 @@ export function DuelCard({ match, own, onOpen }: { match: TimelineMatch; own: bo
   </>
   const frame = { overflow: 'hidden' as const, borderRadius: 14, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, opacity: isFaded(match) ? 0.6 : 1 }
   if (onOpen) {
-    return <Pressable testID="duel-card" accessibilityRole="button" accessibilityLabel={summary(match, heading, badge)} accessibilityHint="Abre a partida" onPress={() => onOpen(match.id)} style={{ ...frame, minHeight: 44 }}>{body}</Pressable>
+    return <Pressable testID="duel-card" accessibilityRole="button" accessibilityLabel={summary(match, heading, badge)} accessibilityHint={hint} onPress={() => onOpen(match.id)} style={{ ...frame, minHeight: 44 }}>{body}</Pressable>
   }
   return <View testID="duel-card" style={frame}>{body}</View>
 }
