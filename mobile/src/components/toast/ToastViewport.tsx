@@ -60,7 +60,8 @@ export function ToastViewport({ placement = 'modal' }: { placement?: ToastPlacem
   const standing = toasts.filter(item => !item.ending).slice(-TOAST_LIMIT)
   const shown = toasts.filter(item => item.ending || standing.includes(item))
   if (!shown.length) return null
-  const bottom = placement === 'nav' ? NAV_OFFSET + (connection.status === 'online' ? 0 : DOCK_HEIGHT)
+  // Na área logada a navegação cobre a área segura de baixo; o toast fica acima das duas.
+  const bottom = placement === 'nav' ? NAV_OFFSET + insets.bottom + (connection.status === 'online' ? 0 : DOCK_HEIGHT)
     : placement === 'screen' ? MARGIN : MARGIN + insets.bottom
   return <View testID="toast-viewport" pointerEvents="box-none" style={{ position: 'absolute', left: 12, right: 12, bottom, zIndex: 50, elevation: 50 }}>
     {shown.map(item => <ToastCard key={item.id} item={item} level={item.ending ? 0 : standing.length - 1 - standing.indexOf(item)} />)}

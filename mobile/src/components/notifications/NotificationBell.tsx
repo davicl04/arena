@@ -1,4 +1,5 @@
-import { Pressable, Text, View } from 'react-native'
+import { Pressable, View } from 'react-native'
+import { Text } from '../Text'
 import { useThemeColors } from '../../hooks/useTheme'
 import { colors as lightColors } from '../../theme'
 import type { ThemeColors } from '../../theme'
@@ -10,6 +11,10 @@ export type BellTone = 'light' | 'dark' | 'cover'
 /** Rótulo do sino: "Notificações", "Notificações, 1 nova" ou "Notificações, 5 novas". */
 export const bellLabel = (count: number) => count > 0 ? `Notificações, ${count} ${count === 1 ? 'nova' : 'novas'}` : 'Notificações'
 
+/** Vidro escuro dos botões sobre a capa do perfil e a borda dele (o `tone="cover"` da web). */
+export const COVER_GLASS = '#0b221859'
+export const COVER_GLASS_LINE = '#ffffff2e'
+
 /** Contador do sino: o número, ou "9+" acima de 9. */
 export const bellCount = (count: number) => count > 9 ? '9+' : String(count)
 
@@ -18,11 +23,10 @@ const lookOf = (colors: ThemeColors, flat: boolean) => ({
   light: { shell: 'transparent', ink: colors.ink, badge: colors.brand, badgeInk: colors['on-brand'], ring: colors.app },
   // Vidro sobre a placa `forest`: contador menta com anel `forest`.
   dark: { shell: 'rgba(255,255,255,0.1)', ink: '#ffffff', badge: colors.mint, badgeInk: colors.night, ring: colors.forest },
-  // Vidro claro sobre a capa; sem fundo depois que a barra se condensa (fundo branco).
-  // Sobre a capa o vidro é claro nos dois temas (tons do claro); condensada, a barra é a superfície do tema.
+  // Vidro escuro sobre a capa (o `IconButton tone="cover"` da web), igual nos dois temas; condensada, a barra é a superfície do tema.
   cover: flat
     ? { shell: lightColors['glass-light'], ink: colors.ink, badge: colors.brand, badgeInk: colors['on-brand'], ring: colors.surface }
-    : { shell: lightColors['glass-light'], ink: lightColors.ink, badge: lightColors.brand, badgeInk: lightColors['on-brand'], ring: '#ffffff' },
+    : { shell: COVER_GLASS, ink: '#ffffff', badge: colors.mint, badgeInk: colors.night, ring: '#0b2218' },
 }) as const
 
 /**
@@ -39,7 +43,8 @@ export function NotificationBell({ count, tone, onOpen, condensed = false }: {
   const flat = tone === 'cover' && condensed
   const colorsOf = lookOf(useThemeColors(), flat)[tone]
   return <Pressable accessibilityRole="button" accessibilityLabel={bellLabel(count)} onPress={onOpen}
-    style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 22, backgroundColor: flat ? 'transparent' : colorsOf.shell }}>
+    style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 22, backgroundColor: flat ? 'transparent' : colorsOf.shell,
+      ...(tone === 'cover' && !flat ? { borderWidth: 1, borderColor: COVER_GLASS_LINE } : null) }}>
     <Icon name="bell" size={22} color={colorsOf.ink} />
     {count > 0 ? <View testID="unread-indicator" accessibilityElementsHidden importantForAccessibility="no-hide-descendants"
       style={{ position: 'absolute', top: 3, right: 1, minWidth: 18, height: 18, alignItems: 'center', justifyContent: 'center', borderRadius: 9, borderWidth: 2, borderColor: colorsOf.ring, backgroundColor: colorsOf.badge, paddingHorizontal: 3 }}>

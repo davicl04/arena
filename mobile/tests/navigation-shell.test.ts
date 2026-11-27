@@ -128,7 +128,8 @@ describe('barra inferior e abas', () => {
     await press(tree, 'Comunidade')
     expect(host(tree, 'CommunityScreen')).toHaveLength(1)
     expect(selectedTab(tree)).toEqual(['Comunidade'])
-    expect(textOf(tree)).toContain('arena.')
+    // Como na web, a Comunidade traz a própria barra escura: o shell não põe a marca acima dela.
+    expect(textOf(tree)).not.toContain('arena')
     await press(tree, 'Perfil')
     expect(host(tree, 'ProfileScreen')).toHaveLength(1)
     expect(selectedTab(tree)).toEqual(['Perfil'])
