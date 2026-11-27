@@ -1,7 +1,7 @@
 import { Children, createContext, isValidElement, useContext } from 'react'
-import type { Ref } from 'react'
+import type { ComponentType, Ref } from 'react'
 import { Text as NativeText, TextInput as NativeTextInput } from 'react-native'
-import type { StyleProp, TextInputProps, TextProps, TextStyle } from 'react-native'
+import type { StyleProp, TextInputInstance, TextInputProps, TextInstance, TextProps, TextStyle } from 'react-native'
 import { styled } from 'nativewind'
 import { DISPLAY_FAMILY, fontFamilyFor, weightOf } from '../fonts'
 import type { FontRole } from '../fonts'
@@ -19,6 +19,8 @@ import type { FontRole } from '../fonts'
  */
 
 type Inherited = { role: FontRole; weight: number }
+/** `TextStyle` é só leitura; o objeto achatado é uma cópia nossa, que pode ser alterada. */
+type MutableTextStyle = { -readonly [K in keyof TextStyle]: TextStyle[K] }
 const Inheritance = createContext<Inherited | null>(null)
 
 let fontsAvailable = false
@@ -26,7 +28,7 @@ let fontsAvailable = false
 export function setFontsAvailable(value: boolean) { fontsAvailable = value }
 
 /** Junta um estilo em camadas (arrays aninhados, valores falsos ignorados) num único objeto, como o `StyleSheet.flatten`. */
-function flatten(style: StyleProp<TextStyle>, into: TextStyle = {}): TextStyle {
+function flatten(style: StyleProp<TextStyle>, into: MutableTextStyle = {}): MutableTextStyle {
   if (Array.isArray(style)) for (const item of style) flatten(item as StyleProp<TextStyle>, into)
   else if (style && typeof style === 'object') Object.assign(into, style)
   return into
@@ -53,7 +55,7 @@ export function resolveFont(style: StyleProp<TextStyle>, options: { header?: boo
   return { style: flat, inherit }
 }
 
-function AppText({ style, display, children, ...props }: TextProps & { display?: boolean; ref?: Ref<NativeText> }) {
+function AppText({ style, display, children, ...props }: TextProps & { display?: boolean; ref?: Ref<TextInstance> }) {
   const inherited = useContext(Inheritance)
   const resolved = resolveFont(style, { header: props.accessibilityRole === 'header', display, inherited })
   if (!resolved) return <NativeText style={style} {...props}>{children}</NativeText>
@@ -62,14 +64,24 @@ function AppText({ style, display, children, ...props }: TextProps & { display?:
   return Children.toArray(children).some(isValidElement) ? <Inheritance.Provider value={resolved.inherit}>{text}</Inheritance.Provider> : text
 }
 
-function AppTextInput({ style, ...props }: TextInputProps & { ref?: Ref<NativeTextInput> }) {
+function AppTextInput({ style, ...props }: TextInputProps & { ref?: Ref<TextInputInstance> }) {
   const resolved = resolveFont(style)
   return <NativeTextInput style={resolved?.style ?? style} {...props} />
 }
 
-/** `className` vira `style` antes do componente, para o peso das classes (`font-bold`) chegar ao mapeamento. */
-export const Text = styled(AppText, { className: 'style' })
-export const TextInput = styled(AppTextInput, { className: 'style' })
+/**
+ * `className` vira `style` antes do componente, para o peso das classes (`font-bold`) chegar ao mapeamento.
+ *
+ * O `styled` confere o mapeamento contra todas as props do componente em notação de ponto; com as props de `Text` e
+ * `TextInput` do React Native 0.88 essa união passa do limite do TypeScript (TS2590). O `styled` passa a ver só a prop
+ * `style` (o mapeamento em tempo de execução é o mesmo) e o tipo público é o que ele daria: as props do componente com
+ * `className`.
+ */
+function styledText<P extends { style?: StyleProp<TextStyle> }>(component: ComponentType<P>) {
+  return styled(component as ComponentType<{ style?: StyleProp<TextStyle> }>, { className: 'style' }) as ComponentType<P & { className?: string }>
+}
+export const Text = styledText(AppText)
+export const TextInput = styledText(AppTextInput)
 /** Tipos das instâncias, para `useRef<TextRef>` e `useRef<TextInputRef>`. */
-export type TextRef = NativeText
-export type TextInputRef = NativeTextInput
+export type TextRef = TextInstance
+export type TextInputRef = TextInputInstance

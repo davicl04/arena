@@ -1,5 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { ActivityIndicator, ScrollView, View } from 'react-native'
+import type { ScrollViewInstance } from 'react-native'
 import { Text } from '../components/Text'
 import { EmptyState } from '../components/EmptyState'
 import { ApiError } from '../api/client'
@@ -62,7 +63,7 @@ export default function TeamsScreen({ user, navigation, onExpired, params }: Scr
   const [bodyY, setBodyY] = useState(0)
   const [requestsY, setRequestsY] = useState<number | null>(null)
   const leave = useSubmit(onExpired)
-  const scroller = useRef<ScrollView>(null)
+  const scroller = useRef<ScrollViewInstance>(null)
 
   const fail = useCallback((cause: unknown) => {
     if (cause instanceof ApiError && cause.status === 401) onExpired()

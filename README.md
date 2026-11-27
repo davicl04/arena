@@ -8,7 +8,7 @@ Leia o [plano inicial](docs/plano-criacao-inicial.md), as [decisões adotadas](d
 
 - Python 3.13 e Node.js 24 LTS com npm.
 - Docker Desktop funcionando, para PostgreSQL 16.
-- Expo Go compatível com SDK 57 no aparelho, ou ambiente Android configurado. iOS pode ser aberto em aparelho físico; simulador iOS exige macOS.
+- Expo Go compatível com SDK 58 no aparelho, ou ambiente Android configurado. iOS pode ser aberto em aparelho físico; simulador iOS exige macOS.
 
 ## Instalação no macOS
 
@@ -229,7 +229,7 @@ O Expo tem as telas das etapas 1 a 5: Meus times, Convidar e Entrar pelo link, o
 - **Dependências acrescentadas no Expo**, todas aprovadas pelo usuário: `react-native-svg` (chaveamento e marca), `react-native-qrcode-svg` (QR do time), `expo-camera` (ler o QR) e `expo-document-picker` (comprovantes). `expo-clipboard`, `expo-file-system` e `expo-sharing` foram recusadas.
 - **Marca:** `npm run generate:brand` (em `mobile/`) regenera `src/assets/brand-svgs.ts` a partir de `web/public/images/brand/*.svg`; rode depois de alterar esses SVGs. O arquivo gerado é versionado.
 - **Selos de modalidade:** `python3 -I scripts/gerar_selos.py` (na raiz, só biblioteca padrão) regenera `web/src/data/selos.ts` e `mobile/src/data/selos.ts`, módulos idênticos com a geometria vetorial dos selos de futebol, tênis e corrida (selo, símbolo com aro e símbolo da marca d'água), sem cor fixa. `--check` só confere se os arquivos estão atualizados e sai com erro se não estiverem; `--previa <pasta>` também grava SVGs de prévia (use `artifacts/`, não versionado). Os arquivos gerados são versionados e não devem ser editados à mão.
-- **Verificação:** em `mobile/`, `npm run lint`, `npm run typecheck`, `npm run test:coverage`, `npm run export:android` e `npx expo install --check` (que hoje só aponta `expo@57.0.27` contra `~57.0.28`, um desvio conhecido). Os números e os pisos estão em [qualidade do código](docs/qualidade-codigo.md).
+- **Verificação:** em `mobile/`, `npm run lint`, `npm run typecheck`, `npm run test:coverage`, `npm run export:android` e `npx expo install --check`. Os números e os pisos estão em [qualidade do código](docs/qualidade-codigo.md).
 
 ## Demonstrar a primeira entrega
 
@@ -385,7 +385,7 @@ $env:TEST_DATABASE_URL='postgresql+psycopg2://arena:arena@localhost:5432/arena'
 
 Os testes criam e removem somente um schema aleatório próprio no PostgreSQL indicado. A credencial precisa de permissão para criar schemas. Sem `TEST_DATABASE_URL`, testes de integração ficam pulados; isso não comprova a entrega. Para executar só unidades, use `pytest tests/unit -q` pelo Python do ambiente.
 
-No diretório `web/`: `npm run lint`, `npm run typecheck`, `npm run build` e `npm run test:coverage`. No diretório `mobile/`: `npm run lint`, `npm run typecheck`, `npm run test:coverage`, `npm run export:android` e `npx expo install --check` (que hoje só aponta `expo@57.0.27` contra `~57.0.28`, um desvio conhecido). O workflow `.github/workflows/ci.yml` executa os checks com PostgreSQL e ambos os clientes. A geração do bundle não substitui validação Android/iOS em aparelho.
+No diretório `web/`: `npm run lint`, `npm run typecheck`, `npm run build` e `npm run test:coverage`. No diretório `mobile/`: `npm run lint`, `npm run typecheck`, `npm run test:coverage`, `npm run export:android` e `npx expo install --check`. O workflow `.github/workflows/ci.yml` executa os checks com PostgreSQL e ambos os clientes. A geração do bundle não substitui validação Android/iOS em aparelho.
 
 Sessões expiram em 24 horas, não têm renovação automática e são revogadas no logout. Na web o token fica em cookie HttpOnly; no mobile, no SecureStore. Perfis sociais públicos são distintos dos perfis esportivos, que continuam privados. Para ambiente fora de desenvolvimento, configure `COOKIE_SECURE=true`, HTTPS, origens explícitas e infraestrutura conforme as decisões documentadas.
 

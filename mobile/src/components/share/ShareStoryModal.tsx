@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ActivityIndicator, Image, Modal, Pressable, useWindowDimensions, View } from 'react-native'
+import type { HostInstance } from 'react-native'
 import { Text } from '../Text'
 import { StatusBar } from 'expo-status-bar'
 import { GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler'
@@ -88,7 +89,7 @@ export function ShareStoryModal({ target, onClose, onExpired }: { target: ShareT
   const { kind, id } = target
   const load = useCallback(() => getShareSubject({ kind, id }), [kind, id])
   const resource = useResource(load, onExpired, { fallback: 'Não foi possível carregar o adesivo.' })
-  const canvas = useRef<View>(null)
+  const canvas = useRef<HostInstance>(null)
   const [busy, setBusy] = useState<Busy>(null)
   const [plate, setPlate] = useState<PlatePosition>('topo')
   const [photo, setPhoto] = useState<StoryPhoto | null>(null)

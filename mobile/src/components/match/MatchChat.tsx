@@ -3,7 +3,7 @@ import type { RefObject } from 'react'
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from 'react-native'
 import { Text, TextInput } from '../Text'
 import type { TextInputRef } from '../Text'
-import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native'
+import type { NativeScrollEvent, NativeSyntheticEvent, ScrollViewInstance } from 'react-native'
 import { MESSAGE_MAX } from '../../api/matches'
 import type { MatchDetail, MatchMessageOut } from '../../api/matches'
 import { eventWhen, shortName, sideOf } from '../../data/match'
@@ -168,7 +168,7 @@ export function MatchChat({ detail, onExpired, onReport, onPropose, onEvent, com
   const colors = useThemeColors()
   const dark = useResolvedTheme() === 'dark'
   const chat = useMatchChat(detail.id, detail.permissions.read_chat, onExpired, onEvent, !FINISHED.includes(detail.state))
-  const scroller = useRef<ScrollView>(null)
+  const scroller = useRef<ScrollViewInstance>(null)
   const stick = useRef(true)
   const lastSeen = useRef<number | null>(null)
   const [unseen, setUnseen] = useState(0)

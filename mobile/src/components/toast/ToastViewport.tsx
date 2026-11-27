@@ -50,7 +50,7 @@ export function ToastViewport({ placement = 'modal' }: { placement?: ToastPlacem
   const insets = { bottom: useBottomInset() }
   useEffect(() => {
     if (!active) return
-    const sync = (state: string) => toastStore.setPaused('app', state !== 'active')
+    const sync = (state: string | null | undefined) => toastStore.setPaused('app', state !== 'active')
     sync(AppState.currentState)
     const subscription = AppState.addEventListener('change', sync)
     return () => { subscription.remove(); toastStore.setPaused('app', false) }

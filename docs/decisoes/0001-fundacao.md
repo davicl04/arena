@@ -71,7 +71,7 @@ Backend usa Python 3.13, FastAPI, SQLAlchemy e Alembic com driver explícito `ps
 - Os valores preservam o visual anterior do app, por isso `ink`, `ink-muted`, `line` e `danger` diferem da web. `--spacing` é 4 px.
 - Valores dinâmicos, como avatar, altura da capa e sombra de texto, ficam em `style`.
 
-Mobile usa versões compatíveis com o template e SDK Expo 57. Dependências dos clientes são registradas com versões e `package-lock.json` para `npm ci`.
+Mobile usa versões compatíveis com o template e SDK Expo 58 (atualizado do 57 em 27 de novembro de 2026, quando o Expo Go das lojas passou a exigir o 58). Dependências dos clientes são registradas com versões e `package-lock.json` para `npm ci`.
 
 A web preserva a paleta do documento de iniciação e usa Sora/Inter com fallback de sistema. As fontes web vêm do Google Fonts; o mobile usa fontes de sistema nesta entrega. Cada cliente mantém seus componentes; os contratos são os mesmos, descritos pelo OpenAPI da API.
 
