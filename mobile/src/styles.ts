@@ -8,7 +8,6 @@
 export const tw = {
   screen: 'grow basis-0 bg-app',
   content: 'p-5 pb-12',
-  brand: 'text-[34px] font-extrabold tracking-[-2px] text-brand',
   eyebrow: 'mb-3 text-[11px] font-bold tracking-[2px] text-brand',
   title: 'mb-3.5 text-[34px] font-bold tracking-[-1px] text-ink',
   heading: 'mb-2.5 text-[23px] font-bold text-ink',

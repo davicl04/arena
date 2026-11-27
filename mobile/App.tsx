@@ -53,13 +53,13 @@ export default function App() {
   }, [restoreJoinToken])
   const logout = useCallback(() => { toastStore.reset(); setUser(null) }, [])
   // Tela de entrada (Dividida estreita): escura por design nos dois temas. A faixa da marca sobe por baixo da barra de status, que fica clara.
-  // Na entrada, a rolagem desvia do teclado sozinha (`automaticallyAdjustKeyboardInsets` no iOS; o Android redimensiona a janela) e leva
-  // o campo focado para cima dele; o `KeyboardAvoidingView` fica para a área logada.
+  // Na entrada, no iOS, a rolagem desvia do teclado sozinha (`automaticallyAdjustKeyboardInsets`) e leva o campo focado para cima dele.
+  // O Android (edge-to-edge, sem redimensionar a janela) segue com o `KeyboardAvoidingView` também na entrada.
   // Área logada: o shell cuida do topo (faixa da barra de status de cada tela) e a navegação inferior cobre a área segura de baixo.
   const entrance = !loading && !user
   const retry = () => { setLoadFailure(null); setLoading(true); setAttempt(v => v + 1) }
   if (!fontsLoaded && !fontError) return <View style={{ flex: 1, backgroundColor: colors.app }} />
-  return <SafeAreaProvider><Screen className={entrance ? 'grow basis-0 bg-night' : tw.screen} edges={user ? ['right', 'left'] : entrance ? ['right', 'bottom', 'left'] : undefined}><StatusBar style={entrance || theme === 'dark' ? 'light' : 'dark'} /><KeyboardAvoidingView className="grow basis-0" enabled={!entrance} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}><ErrorBoundary>
+  return <SafeAreaProvider><Screen className={entrance ? 'grow basis-0 bg-night' : tw.screen} edges={user ? ['right', 'left'] : entrance ? ['right', 'bottom', 'left'] : undefined}><StatusBar style={entrance || theme === 'dark' ? 'light' : 'dark'} /><KeyboardAvoidingView className="grow basis-0" enabled={!entrance || Platform.OS === 'android'} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}><ErrorBoundary>
     {loading ? <ScrollView contentContainerClassName={tw.content}><View className="mb-7.5"><Logo /></View><ActivityIndicator accessibilityLabel="Carregando Arena" color={colors.brand} /></ScrollView> : user
       ? <ArenaShell user={user} onUser={setUser} onLogout={logout} onExpired={expired} joinToken={joinToken} onJoinOpened={joinOpened} />
       : <ScrollView contentContainerStyle={{ flexGrow: 1, paddingBottom: 48 }} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets>

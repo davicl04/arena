@@ -252,7 +252,7 @@ function Pill<T extends string | number>({ option, selected, role, tone, accent,
   const c = useThemeColors()
   const base = pillLook(c)[tone][selected ? 'on' : 'idle']
   const look = accent && selected ? { bg: accentColor(c)[accent], border: accentColor(c)[accent], fg: c['on-brand'] } : base
-  return <Pressable accessibilityRole={role} accessibilityLabel={option.accessibilityLabel ?? option.label} accessibilityState={{ checked: selected, selected, disabled }} disabled={disabled} onPress={onPress}
+  return <Pressable accessibilityRole={role} accessibilityLabel={option.accessibilityLabel ?? option.label} accessibilityState={{ checked: selected, selected, disabled }} disabled={disabled} onPress={onPress} hitSlop={{ top: 2, bottom: 2 }}
     style={{ minHeight: 40, flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 18, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 6, backgroundColor: look.bg, borderColor: look.border, opacity: disabled ? 0.5 : 1 }}>
     {option.leading ? option.leading(selected, look.fg) : null}
     <Text maxFontSizeMultiplier={1.3} style={{ color: look.fg, fontSize: 12, fontWeight: '700', flexShrink: 1 }}>{option.label}</Text>

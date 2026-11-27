@@ -1,6 +1,6 @@
 import { useEffect, useState, useSyncExternalStore } from 'react'
 import { AppState, View } from 'react-native'
-import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { useBottomInset } from '../../hooks/useBottomInset'
 import { useConnection } from '../../api/connection'
 import { ToastCard } from './ToastCard'
 import { TOAST_LIMIT, toastStore, useToasts } from './toastStore'
@@ -47,7 +47,7 @@ export function ToastViewport({ placement = 'modal' }: { placement?: ToastPlacem
   const active = useInnermost()
   const { toasts } = useToasts()
   const connection = useConnection()
-  const insets = useSafeAreaInsets()
+  const insets = { bottom: useBottomInset() }
   useEffect(() => {
     if (!active) return
     const sync = (state: string) => toastStore.setPaused('app', state !== 'active')

@@ -62,6 +62,19 @@ O usuário aprovou a entrega e apontou três pontos: a navegação inferior, os 
 
 **Limitações:** a fileira "Quem você segue" não foi vista no simulador porque a conta de teste não segue ninguém; ela está coberta pelos testes. Android segue validado só pelo build.
 
+### Correções da revisão independente e rebase — 27 de novembro de 2026
+
+A entrega foi rebaseada sobre a `main` (PR #9, compartilhamento nos Stories). Houve dois conflitos de acréscimo: o import do `MatchTimeline` e este arquivo. Depois, passou por revisão independente com Opus 5.5 (esforço alto), sem bloqueantes. Correções feitas:
+
+- **Android, entrada:** o `KeyboardAvoidingView` volta a valer na tela de entrada no Android. Com o edge-to-edge do SDK 57, a janela não se redimensiona, e o `automaticallyAdjustKeyboardInsets` só existe no iOS.
+- **Teclado na área logada:** com o teclado aberto, a navegação inferior, o toast e o aviso de conexão deixam de somar a área segura de baixo (`useBottomInset`). Assim a barra encosta no teclado, sem faixa vazia. Conferido no simulador iOS, na busca de atletas.
+- **Alvos de toque:** as pílulas (40 pt), o botão Seguir da busca (38 pt) e os filtros das notificações (36 pt) ganharam `hitSlop` para chegar a 44 pt sem mudar o visual.
+- **Código sem uso removido:** `ProfileTitle.tsx` e `tw.brand`.
+
+**Verificações:** em `mobile/`, `npm run lint` e `npm run typecheck` sem problemas. `npm run test:coverage` com 119 arquivos e 1760 testes aprovados (novo: `bottom-inset.test.ts`). Cobertura: 96,63% de instruções, 91,19% de ramos, 95,89% de funções e 98,52% de linhas. `CI=1 npm run export:android`: ok. `npx expo install --check` aponta só o desvio anterior.
+
+**Limitações:** o Android segue sem emulador. Ficam por conferir lá o teclado da entrada e os toques fora dos limites do pai: a metade de cima do JOGAR, e as fileiras de elos e de "Quem você segue" a partir da margem.
+
 ## Correções da revisão do compartilhamento nos Stories — 27 de novembro de 2026
 
 Ajustes pedidos pela revisão com Opus 5.5 (duas rodadas, aprovada na segunda) antes do PR.

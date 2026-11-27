@@ -46,7 +46,7 @@ export function PlateChips<T extends string>({ label, options, value, onChange, 
       const ink = selected ? colors.night : 'rgba(255,255,255,0.8)'
       return <Pressable key={option.value} accessibilityRole="radio" accessibilityLabel={option.accessibilityLabel ?? option.label}
         accessibilityState={{ checked: selected, selected, disabled }} disabled={disabled}
-        onPress={() => { if (!selected) onChange(option.value) }}
+        onPress={() => { if (!selected) onChange(option.value) }} hitSlop={{ top: 4, bottom: 4 }}
         style={{ minHeight: 36, flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 18, paddingHorizontal: 12, paddingVertical: 7, backgroundColor: selected ? colors.mint : 'rgba(255,255,255,0.07)', opacity: disabled ? 0.5 : 1 }}>
         <Text numberOfLines={1} maxFontSizeMultiplier={1.3} style={{ color: ink, fontSize: 11, fontWeight: '600' }}>{option.label}</Text>
         {option.detail ? <Text style={{ color: ink, opacity: 0.8, fontSize: 10, fontFamily: 'monospace' }}>{option.detail}</Text> : null}

@@ -1,8 +1,8 @@
 import { Pressable, View } from 'react-native'
-import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Text } from './Text'
 import { tabItems } from '../navigation/routes'
 import type { TabScreen } from '../navigation/routes'
+import { useBottomInset } from '../hooks/useBottomInset'
 import { useResolvedTheme, useThemeColors } from '../hooks/useTheme'
 import { ArenaMark } from './arena/ArenaMark'
 import { Icon } from './Icon'
@@ -27,7 +27,7 @@ export default function BottomNav({ active, onGo, playAttention = false }: { act
   const colors = useThemeColors()
   const dark = useResolvedTheme() === 'dark'
   // A barra cobre a área segura de baixo (o indicador de início), como a web com `env(safe-area-inset-bottom)`.
-  const bottom = useSafeAreaInsets().bottom
+  const bottom = useBottomInset()
   return <View accessibilityRole="tablist" style={{ height: BAR_HEIGHT + bottom, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 4, paddingTop: 7, paddingBottom: 11 + bottom, borderTopWidth: 1, borderTopColor: colors.line, backgroundColor: colors.nav }}>
     {tabItems.map(item => {
       const on = active === item.screen

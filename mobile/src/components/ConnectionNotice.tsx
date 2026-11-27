@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { AppState, Pressable, View } from 'react-native'
-import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { useBottomInset } from '../hooks/useBottomInset'
 import { Text } from './Text'
 import Animated, { cancelAnimation, useAnimatedStyle, useReducedMotion, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated'
 import { connection, useConnection } from '../api/connection'
@@ -52,7 +52,7 @@ function Strip({ state }: { state: ConnectionState }) {
   const reduced = useReducedMotion()
   const shake = useSharedValue(0)
   // Acima da navegação inferior, que cobre a área segura de baixo.
-  const navTop = NAV_HEIGHT + useSafeAreaInsets().bottom
+  const navTop = NAV_HEIGHT + useBottomInset()
   useEffect(() => { announce(offline ? 'Sem conexão com a ARENA' : 'Conexão restabelecida') }, [offline])
   // Ação tentada com a folha dispensada: a faixa treme (sem movimento com "reduzir movimento").
   useEffect(() => {

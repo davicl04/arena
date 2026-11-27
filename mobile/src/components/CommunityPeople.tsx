@@ -66,7 +66,7 @@ function PersonRow({ person, token, pending, first, onFollow, onOpenProfile }: {
         <Text className="text-[10.5px] text-ink-muted">{info}</Text>
       </View>
     </Pressable>
-    {person.follow_state !== 'self' ? <Pressable accessibilityRole="button" accessibilityLabel={`${label}: @${person.username}`} accessibilityState={{ disabled: pending, selected: active }} disabled={pending} onPress={() => onFollow(person)}
+    {person.follow_state !== 'self' ? <Pressable accessibilityRole="button" accessibilityLabel={`${label}: @${person.username}`} accessibilityState={{ disabled: pending, selected: active }} disabled={pending} onPress={() => onFollow(person)} hitSlop={{ top: 3, bottom: 3 }}
       style={{ borderWidth: 1.5, borderColor: active ? colors['line-strong'] : 'transparent', backgroundColor: active ? 'transparent' : colors.brand }}
       className={cx('min-h-[38px] flex-row items-center justify-center gap-2 rounded-control px-2.5 py-1.5', pending && 'opacity-60')}>
       {active ? null : <Icon name="user-round-plus" size={16} color={colors['on-brand']} />}
