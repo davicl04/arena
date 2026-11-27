@@ -1,5 +1,10 @@
 # Situação da fundação do Arena
 
+## Ajuste no sumário do roteiro — 27 de novembro de 2026
+
+- O [roteiro do projeto](roteiro-projeto.docx) apresenta o sumário em lista vertical, com uma seção por linha, pontilhado e números de página alinhados à direita. As oito entradas levam aos respectivos títulos.
+- A capa foi conferida no Word. Os números coincidem com os destinos dos links, e a comparação das imagens renderizadas confirmou a mesma paginação e o mesmo conteúdo visual nas páginas 2 a 40. A alteração foi documental.
+
 ## Revisão do roteiro para apresentação — 27 de novembro de 2026
 
 - **Documento:** o [roteiro do projeto](roteiro-projeto.docx) ganhou capa revisada, sumário clicável, hierarquia de títulos, tabelas com cabeçalhos repetidos e ajustes para manter protótipos e diagramas junto das respectivas legendas. As 27 imagens originais e os identificadores de requisitos e testes foram preservados.
