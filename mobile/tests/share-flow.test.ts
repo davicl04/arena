@@ -3,6 +3,7 @@ import { act, create } from 'react-test-renderer'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as MediaLibrary from 'expo-media-library/legacy'
 import { captureRef } from 'react-native-view-shot'
+import { Platform } from 'react-native'
 import { ApiError, request } from '../src/api/client'
 import type { TimelineItem } from '../src/api/profile'
 import { MatchTimeline } from '../src/components/profile-matches/MatchTimeline'
@@ -145,6 +146,22 @@ describe('tela imersiva: Prévia do Story', () => {
     expect(textOf(tree)).toContain('Em classificação')
     expect(textOf(tree)).toContain('0 de 1 marca')
     await act(async () => { tree.unmount() })
+  })
+
+  it('no iOS a prévia só abre depois que a folha termina de fechar (um Modal não se apresenta sobre outro saindo)', async () => {
+    api()
+    Platform.OS = 'ios'
+    try {
+      const tree = await mountTimeline()
+      await openShare(tree, duelCards(tree)[0])
+      expect(find(tree, 'activity-actions')).toHaveLength(0)
+      expect(find(tree, 'share-story')).toHaveLength(0)
+      await act(async () => { await new Promise(done => setTimeout(done, 450)) })
+      expect(find(tree, 'share-story')).toHaveLength(1)
+      await act(async () => { tree.unmount() })
+    } finally {
+      Platform.OS = 'android'
+    }
   })
 
   it('erro mostra a mensagem e "Tentar de novo" lê de novo', async () => {

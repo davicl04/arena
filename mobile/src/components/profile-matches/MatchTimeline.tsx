@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Text, View } from 'react-native'
+import { useEffect, useRef, useState } from 'react'
+import { Platform, Text, View } from 'react-native'
 import { ApiError } from '../../api/client'
 import type { MatchCard } from '../../api/matches'
 import { timelinePath } from '../../api/profile'
@@ -17,6 +17,9 @@ import { NextMatchNode } from './NextMatchNode'
 import { TimelineHeader } from './TimelineHeader'
 import { TimelineRail } from './TimelineRail'
 import type { SportFilter } from './timelineView'
+
+/** Duração da animação de saída da folha (`animationType="slide"`) antes de apresentar a prévia no iOS. */
+const SHEET_DISMISS_MS = 400
 
 /** Esqueleto de 3 cartões enquanto a primeira página chega. */
 function Skeleton() {
@@ -48,6 +51,13 @@ export function MatchTimeline({ userId, own, upcoming = [], onOpenMatch, onPlay,
   const [filter, setFilter] = useState<SportFilter>(null)
   const [selected, setSelected] = useState<TimelineItem | null>(null)
   const [sharing, setSharing] = useState<ShareTarget | null>(null)
+  const shareTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => () => { if (shareTimer.current) clearTimeout(shareTimer.current) }, [])
+  /* No iOS um Modal não se apresenta enquanto outro ainda está fechando: a prévia abre depois da animação da folha. */
+  const openShare = (target: ShareTarget) => {
+    if (Platform.OS === 'ios') shareTimer.current = setTimeout(() => setSharing(target), SHEET_DISMISS_MS)
+    else setSharing(target)
+  }
   const list = usePagedList<TimelineItem>(timelinePath(userId, filter), onExpired)
   const now = useNow(60_000, own)
   const scheduled = own ? nextScheduledMatch(upcoming, now) : null
@@ -86,7 +96,7 @@ export function MatchTimeline({ userId, own, upcoming = [], onOpenMatch, onPlay,
     {list.moreError ? <Text accessibilityRole="alert" style={{ ...message, color: colors.error, paddingVertical: 8 }}>{list.moreError}</Text> : null}
     {list.hasMore ? <View style={{ paddingHorizontal: 20, paddingBottom: 8 }}><ActionButton tone="outline" title={list.busy ? 'Carregando…' : 'Carregar mais'} disabled={list.busy} onPress={() => void list.loadMore()} /></View> : null}
     {own && selected ? <ActivityActionSheet item={selected} onClose={() => setSelected(null)} onOpenMatch={openMatch}
-      onShare={() => { setSharing({ kind: selected.kind, id: selected.id }); setSelected(null) }} /> : null}
+      onShare={() => { openShare({ kind: selected.kind, id: selected.id }); setSelected(null) }} /> : null}
     {own && sharing ? <ShareStoryModal target={sharing} onClose={() => setSharing(null)} onExpired={onExpired} /> : null}
   </View>
 }
