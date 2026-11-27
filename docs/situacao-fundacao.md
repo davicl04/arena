@@ -1,5 +1,36 @@
 # Situação da fundação do Arena
 
+## Design do compartilhamento de resultado nos Stories — 26 de novembro de 2026
+
+Fase de design de uma funcionalidade nova, pedida pelo usuário: compartilhar o resultado de uma partida ou corrida nos Stories do Instagram, com adesivo de fundo transparente, como no Strava. **Nenhum código do app mudou.** A funcionalidade não está implementada.
+
+- **O que mudou:** a sessão de protótipos de nove rodadas definiu o adesivo, a tela de compartilhar e o ponto de entrada. As decisões estão na [fidelidade visual](fidelidade-figma.md), seção "Compartilhamento de resultado nos Stories".
+- **Protótipo:** `artifacts/compartilhar-stories/`, não versionado.
+- **Dados conferidos no código:**
+  - A linha do tempo (`GET /users/{id}/timeline`) já traz placar, sets, resultado, pontos (nunca negativos), gols e assistências, distância, tempo, ritmo e tipo de marca. Isso basta para a placa do adesivo.
+  - Partidas não guardam duração. Por isso a "Duração" da imagem de referência ficou de fora.
+  - Os cortes de Prata, Ouro e Diamante de cada ranking existem no servidor (`RankCut`, com `metric_value` por linha), mas não são expostos aos clientes. A barra de progresso precisa de um campo novo na API.
+  - A linha do tempo não registra o elo antes e depois de cada partida. O estado "subiu de elo" depende de dado novo.
+  - Lendário depende da posição no ranking (`legend_share`), não de um valor. A barra precisa de outro texto nesse elo.
+
+**Verificações:** não houve, por ser só documentação. Conferi os caminhos citados e os campos de `web/src/api/profile.ts`, `web/src/api/play.ts`, `backend/app/services/rankings.py` e `backend/app/services/ranking_views.py`.
+
+**Decisões técnicas (grilling):**
+- **Montagem e envio:** o Story é montado no próprio ARENA, com a foto escolhida no app, e exportado no cliente. O envio é pelo menu de compartilhar do sistema ou por download. O PNG só com o adesivo é opção secundária. Funciona no Expo Go, sem Facebook App ID, e a foto não é enviada ao servidor.
+- **Clientes:** web e Expo.
+- **API:** um endpoint dedicado por atividade, com o titular vindo da sessão.
+- **Barra do elo:**
+  - estado atual, sem migração;
+  - no futebol, o ranking individual da posição; sem posição registrada, o do time;
+  - posição dentro do elo;
+  - em Diamante, as posições que faltam até Lendário.
+- **Compartilháveis:** atividades do perfil próprio. Ficam de fora vitória por W.O., partida sem resultado e partida cancelada.
+- **Glossário:** novo `CONTEXT.md` na raiz.
+
+**Pendências:**
+- **Especificação e tickets:** a spec e 6 tickets estão em `.scratch/compartilhar-stories/`, que não é versionado. São dois tickets de backend (o que pode ser compartilhado e a barra do elo), dois da web e dois do Expo. A implementação ainda não começou.
+- **Stories nativo, como o Strava:** com build próprio e Facebook App ID, fica como etapa futura.
+
 ## Revisão dos textos da landing (web) — 26 de novembro de 2026
 
 Ajuste de textos a pedido do usuário, a partir do documento "ARENA - Textos" (seções 3 a 7, a landing). A entrega é só de frontend web e não completa o MVP.
