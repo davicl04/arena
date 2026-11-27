@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { Text, View } from 'react-native'
 import { useThemeColors } from '../../hooks/useTheme'
-import { SportIcon } from '../arena/SportIcon'
+import { SeloTile } from '../arena/RoundTile'
 import { DuelCard } from './DuelCard'
 import { RunDuelCard } from './RunDuelCard'
 import { itemSport, railEntries } from './timelineView'
@@ -9,6 +9,8 @@ import type { TimelineItem } from '../../api/profile'
 
 const RAIL_WIDTH = 40
 const NODE = 30
+/** Ladrilho do selo dentro do aro de 2 pontos do nó. */
+const NODE_TILE = NODE - 4
 
 /** Linha de uma entrada do trilho: coluna do fio com o nó à esquerda e o conteúdo à direita. */
 export function RailRow({ node, last = false, children }: { node: ReactNode; last?: boolean; children: ReactNode }) {
@@ -22,7 +24,7 @@ export function RailRow({ node, last = false, children }: { node: ReactNode; las
   </View>
 }
 
-/** Nó com o ícone da modalidade (decorativo: o texto do cartão diz tudo). */
+/** Nó do trilho (decorativo: o texto do cartão diz tudo); nos registros, o selo da modalidade no ladrilho redondo, dentro do aro. */
 export function RailNode({ children, dark = false }: { children: ReactNode; dark?: boolean }) {
   const colors = useThemeColors()
   return <View accessible={false} importantForAccessibility="no-hide-descendants" style={{ width: NODE, height: NODE, borderRadius: NODE / 2, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: dark ? colors.forest : colors.line, backgroundColor: dark ? colors.forest : colors.surface }}>
@@ -49,7 +51,7 @@ export function TimelineRail({ items, own, leading, continues, onOpenMatch }: {
         </RailRow>
       }
       const { item } = entry
-      return <RailRow key={entry.key} last={last} node={<RailNode><SportIcon sport={itemSport(item)} size={18} /></RailNode>}>
+      return <RailRow key={entry.key} last={last} node={<RailNode><SeloTile sport={itemSport(item)} size={NODE_TILE} /></RailNode>}>
         {item.kind === 'corrida'
           ? <RunDuelCard run={item} />
           : <DuelCard match={item} own={own} onOpen={own ? onOpenMatch : undefined} />}

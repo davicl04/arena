@@ -116,6 +116,11 @@ describe('Tela de modalidades: folha passo a passo', () => {
     await press(tree, 'Futebol, ativar')
     expect(stepHeader(tree)).toBe('Em que cidade você joga? Passo 1 de 3.')
     expect(textOf(tree)).toContain('1 de 3')
+    // O ícone da folha é o selo no ladrilho redondo de 24 pt, decorativo.
+    const sheetIcon = tree.root.findAll(node => typeof node.type === 'string' && node.props.testID === 'selo-tile-futebol')
+    expect(sheetIcon).toHaveLength(1)
+    expect(sheetIcon[0].props).toMatchObject({ accessible: false, importantForAccessibility: 'no-hide-descendants', style: { width: 24, borderRadius: 12 } })
+    expect(sheetIcon[0].findAllByType('Circle' as never)).toHaveLength(1)
     expect(tree.root.findAll(node => typeof node.type === 'string' && node.props.testID === 'profile-step-done')).toHaveLength(1)
     expect(disabled(tree, 'Continuar')).toBe(true)
     expect(byLabel(tree, 'Voltar')).toHaveLength(0)

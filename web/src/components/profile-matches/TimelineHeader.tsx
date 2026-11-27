@@ -3,7 +3,7 @@ import { ListFilter } from 'lucide-react'
 import { iconButtonVariants } from '@/components/ui/button-variants'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
-import SportIcon from '@/components/SportIcon'
+import { SeloLadrilho } from '@/components/SportIcon'
 import { plural } from '@/utils/format'
 import { filterOptions, filterSummary } from './timelineView'
 import type { SportFilter } from './timelineView'
@@ -27,7 +27,7 @@ export function TimelineHeader({ total, filter, onFilter }: { total: number | nu
           onValueChange={value => onFilter(value as SportFilter)}>
           {filterOptions.map(option => <label key={option.value} htmlFor={`${id}-${option.value}`}
             className="flex min-h-11 cursor-pointer items-center gap-2.5 rounded-control px-2 text-[12.5px] font-semibold hover:bg-subtle has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-focus">
-            {option.value === 'todas' ? <span className="size-6 flex-none" aria-hidden="true" /> : <SportIcon sport={option.value} size={24} />}
+            {option.value === 'todas' ? <span className="size-6 flex-none" aria-hidden="true" /> : <SeloLadrilho sport={option.value} size={24} />}
             <span className="flex-1">{option.label}</span>
             <RadioGroupItem value={option.value} id={`${id}-${option.value}`} />
           </label>)}

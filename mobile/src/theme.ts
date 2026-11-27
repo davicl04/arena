@@ -69,6 +69,9 @@ export const lightColors = {
   /** Quadro de ícone verde-claro e o ícone dele (dourado no escuro); sobretítulos; borda acesa do cartão escuro. */
   'icon-tile': '#005a3612',
   'icon-tile-ink': '#005a36',
+  /** Selo da modalidade (`SportIcon shape="selo"`): o disco e os detalhes (coroa, anel e símbolo); dourado dos elos no escuro. */
+  'selo-disco': '#153a2b',
+  'selo-detalhe': '#ffffff',
   eyebrow: '#606965',
   'surface-edge': 'transparent',
   /** Fundo da navegação inferior. */
@@ -106,6 +109,8 @@ export const darkColors: ThemeColors = {
   heading: '#ffffff',
   'icon-tile': '#f4de9a14',
   'icon-tile-ink': '#f4de9a',
+  'selo-disco': '#16201b',
+  'selo-detalhe': '#F4DE9A',
   eyebrow: '#f4de9acc',
   'surface-edge': '#ffffff12',
   nav: '#040806',

@@ -1,7 +1,7 @@
 import { ChevronRight, MapPin, Trophy } from 'lucide-react'
 import type { Profile, Sport } from '@/api/client'
 import type { EventCard } from '@/api/entries'
-import SportIcon from '@/components/SportIcon'
+import { SeloLadrilho } from '@/components/SportIcon'
 import { StateBadge } from '@/components/events/StateBadge'
 import { Button } from '@/components/ui/button'
 import { IconTile } from '@/components/ui/icon-tile'
@@ -48,9 +48,8 @@ function ChampionshipRow({ event, divider, onOpen }: { event: EventCard; divider
       aria-label={[event.name, meta, ...tags.map(tag => tag.label)].join(', ')}
       onClick={() => onOpen(event)}
       className="flex w-full cursor-pointer items-start gap-3 p-3.5 text-left">
-      <IconTile aria-hidden="true" className="size-10 flex-none">
-        {event.sport ? <SportIcon sport={event.sport} size={26} /> : <Trophy size={20} />}
-      </IconTile>
+      {event.sport ? <SeloLadrilho sport={event.sport} size={40} />
+        : <IconTile shape="round" aria-hidden="true" className="size-10 flex-none"><Trophy size={20} /></IconTile>}
       <span className="min-w-0 flex-1">
         <b className="block truncate text-[13px] text-heading">{event.name}</b>
         <small className="mt-0.5 truncate text-[11px] text-ink-muted">{meta}</small>

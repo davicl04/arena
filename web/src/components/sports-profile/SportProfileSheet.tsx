@@ -1,9 +1,8 @@
 import { useEffect, useId, useRef, useState } from 'react'
-import type { CSSProperties } from 'react'
 import { ApiError } from '@/api/client'
 import type { City, Position, Profile, ProfileInput, Sport } from '@/api/client'
 import { cityLabel } from '@/api/cities'
-import SportIcon from '@/components/SportIcon'
+import { SeloLadrilho } from '@/components/SportIcon'
 import { Button } from '@/components/ui/button'
 import { feedbackVariants } from '@/components/ui/feedback'
 import { Sheet } from '@/components/ui/sheet'
@@ -76,7 +75,7 @@ export function SportProfileSheet({ sport, profile, onSave, onSaved, onClose, on
 
   return (
     <Sheet title={sportLabel(sport)} onClose={() => { if (!busy) onClose() }}
-      icon={<span className="flex" style={{ '--sport-icon-color': 'var(--color-icon-tile-ink)' } as CSSProperties}><SportIcon sport={sport} size={24} mask /></span>}
+      icon={<SeloLadrilho sport={sport} size={24} />}
       aside={<span className="text-[11.5px] text-ink-muted tabular-nums" aria-hidden="true">{index + 1} de {steps.length}</span>}>
       <div className="mt-1.5 mb-3.5 flex gap-[5px]" aria-hidden="true">
         {steps.map((item, position) => <i key={item} className={cn('block h-1 flex-1 rounded-[9px]', position <= index ? 'bg-brand' : 'bg-line')} />)}

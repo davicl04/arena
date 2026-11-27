@@ -109,6 +109,32 @@ describe('DatePicker', () => {
     expect(screen.getByRole('dialog', { name: 'Agendar partida' })).toBeTruthy()
   })
 
+  it('mantém a legenda por extenso por padrão e, quando pedido, navega mês e ano por listas a partir do mês inicial', async () => {
+    const user = userEvent.setup()
+    const { unmount } = render(<Controlled />)
+    await user.click(screen.getByRole('button', { name: /^Data:/ }))
+    const plain = await screen.findByRole('dialog')
+    expect(within(plain).queryAllByRole('combobox')).toHaveLength(0)
+    expect(plain.textContent).toContain('outubro de 2026')
+    unmount()
+
+    const onChange = vi.fn()
+    render(<Controlled onChange={onChange} captionLayout="dropdown" defaultMonth="2008-10-01" max="2026-10-12" popupClassName="escuro-por-design" />)
+    await user.click(screen.getByRole('button', { name: /^Data:/ }))
+    const dialog = await screen.findByRole('dialog')
+    expect(dialog.className).toContain('escuro-por-design')
+    const year = within(dialog).getByRole<HTMLSelectElement>('combobox', { name: 'Escolha o ano' })
+    const month = within(dialog).getByRole<HTMLSelectElement>('combobox', { name: 'Escolha o mês' })
+    expect([year.value, month.value]).toEqual(['2008', '9'])
+    await user.selectOptions(year, '1999')
+    await user.selectOptions(month, '2')
+    expect(within(dialog).getByRole('grid', { name: 'março de 1999' })).toBeTruthy()
+    const day = Array.from(dialog.querySelectorAll<HTMLButtonElement>('[data-slot="calendar-day"]:not([data-outside])'))
+      .find(button => button.textContent === '7')!
+    await user.click(day)
+    expect(onChange).toHaveBeenCalledWith('1999-03-07')
+  })
+
   it('mostra o estado inválido e o tom escuro', () => {
     render(<Controlled tone="dark" invalid disabled placeholder="Dia do evento" aria-describedby="ajuda" />)
     const trigger = screen.getByRole('button', { name: 'Data: Dia do evento' })

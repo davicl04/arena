@@ -7,7 +7,7 @@ import { useThemeColors } from '../../hooks/useTheme'
 import type { ThemeColors } from '../../theme'
 import { Icon } from '../Icon'
 import { LoadError } from '../arena/LoadError'
-import { SportIcon } from '../arena/SportIcon'
+import { RoundTile, SeloTile } from '../arena/RoundTile'
 import { StateBadge } from '../arena/StateBadge'
 import { TextAction } from '../arena/controls'
 
@@ -31,7 +31,7 @@ function Tag({ tag }: { tag: ChampionshipTag }) {
   </View>
 }
 
-/** Uma linha de campeonato: ícone da modalidade, nome, "{data e hora} · {local}" e as etiquetas; o toque abre o campeonato. */
+/** Uma linha de campeonato: o selo da modalidade (ou o troféu) no ladrilho redondo, nome, "{data e hora} · {local}" e as etiquetas; o toque abre o campeonato. */
 function ChampionshipRow({ card, divider, onOpen }: { card: EventCard; divider: boolean; onOpen: (card: EventCard) => void }) {
   const c = useThemeColors()
   const meta = championshipMeta(card)
@@ -39,9 +39,8 @@ function ChampionshipRow({ card, divider, onOpen }: { card: EventCard; divider: 
   return <Pressable testID={`campeonato-${card.id}`} accessibilityRole="button" accessibilityLabel={[card.name, meta, ...tags.map(tag => tag.label)].join(', ')}
     accessibilityHint="Abre o campeonato" onPress={() => onOpen(card)}
     style={{ minHeight: 64, flexDirection: 'row', alignItems: 'flex-start', gap: 12, padding: 14, borderTopWidth: divider ? 1 : 0, borderTopColor: c.line }}>
-    <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ width: 40, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: c.tile }}>
-      {card.sport ? <SportIcon sport={card.sport} size={26} /> : <Icon name="trophy" size={20} color={c.brand} />}
-    </View>
+    {card.sport ? <SeloTile sport={card.sport} size={40} />
+      : <RoundTile size={40} testID="campeonato-sem-modalidade"><Icon name="trophy" size={20} color={c['icon-tile-ink']} /></RoundTile>}
     <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ flex: 1, minWidth: 0 }}>
       <Text numberOfLines={1} style={{ color: c.heading, fontSize: 13, fontWeight: '700' }}>{card.name}</Text>
       <Text numberOfLines={1} style={{ marginTop: 2, color: c['ink-muted'], fontSize: 11 }}>{meta}</Text>

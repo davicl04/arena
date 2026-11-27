@@ -16,6 +16,8 @@ import { iconButtonVariants } from "@/components/ui/button-variants"
  * sobrescreveria o nosso; visual do protótipo do Jogar (`.cal-pop`/`.day`): legenda "outubro de 2026",
  * iniciais dos dias da semana, dias de 36 px com raio 9, hoje com filete, escolhido em `brand` e passados
  * apagados. O idioma vem de `locale` (o Date Picker passa `ptBR` de `react-day-picker/locale`).
+ * `captionLayout="dropdown"` (opcional; o padrão continua "label") troca a legenda por listas de mês e ano: cada
+ * `<select>` nativo fica transparente sobre o rótulo visível ("nov." ˅ "2008" ˅), com o foco desenhado no rótulo.
  */
 const weekdayInitial = (date: Date, locale?: Partial<Locale>) =>
   new Intl.DateTimeFormat(locale?.code ?? "pt-BR", { weekday: "narrow" }).format(date)
@@ -77,13 +79,19 @@ function Calendar({
           "flex h-8 w-full items-center justify-center gap-1.5 text-[12.5px] font-bold",
           defaultClassNames.dropdowns
         ),
-        dropdown_root: cn("relative rounded-[9px]", defaultClassNames.dropdown_root),
-        dropdown: cn("absolute inset-0 bg-white opacity-0", defaultClassNames.dropdown),
+        dropdown_root: cn(
+          "relative rounded-[9px] hover:bg-subtle has-[select:focus-visible]:outline-3 has-[select:focus-visible]:outline-offset-2 has-[select:focus-visible]:outline-focus has-[select:focus-visible]:outline-solid",
+          defaultClassNames.dropdown_root
+        ),
+        dropdown: cn(
+          "absolute inset-0 min-h-0 cursor-pointer appearance-none bg-sheet p-0 text-ink opacity-0",
+          defaultClassNames.dropdown
+        ),
         caption_label: cn(
           "font-bold select-none",
           captionLayout === "label"
             ? "text-[12.5px]"
-            : "flex items-center gap-1 rounded-[9px] text-[12.5px] [&>svg]:size-3.5 [&>svg]:text-ink-muted",
+            : "flex h-8 items-center gap-1 rounded-[9px] px-1.5 text-[12.5px] capitalize [&>svg]:size-3.5 [&>svg]:text-ink-muted",
           defaultClassNames.caption_label
         ),
         month_grid: cn("w-full border-collapse", defaultClassNames.month_grid),

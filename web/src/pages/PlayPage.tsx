@@ -44,7 +44,8 @@ type Mode = 'time' | 'avulso'
 const sportTabs = sports.map(sport => ({
   value: sport.value,
   label: sport.label,
-  icon: <span className="inline-flex opacity-60 [[aria-selected=true]>&]:opacity-100 [&_[data-slot=sport-icon]]:mix-blend-screen [&_[data-slot=sport-icon]]:[filter:grayscale(1)_invert(1)]"><SportIcon sport={sport.value} size={18} /></span>,
+  // Bloco escuro por design: símbolo com aro em branco, só na aba selecionada.
+  activeIcon: <SportIcon sport={sport.value} forma="aro" size={18} className="text-white" />,
 }))
 const modeOptions: PlateOption<Mode>[] = [
   { value: 'time', label: <><Shield aria-hidden="true" />Com meu time</> },

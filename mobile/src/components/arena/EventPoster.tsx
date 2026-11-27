@@ -89,7 +89,7 @@ export function EventPoster({ name, sport, startsAt, format, distanceKm, eventTy
   const badge: ReactNode = entryInfo ? <FooterPill>{entryState === 'confirmada' ? <Icon name="check" size={12} color="#ffffff" /> : null}<Text style={pillText()}>{entryInfo.short}</Text></FooterPill>
     : locked ? <FooterPill><Icon name="lock" size={12} color="#ffffff" /><Text style={pillText()}>Fora da faixa</Text></FooterPill>
     : pendingCount > 0 ? <FooterPill danger label={plural(pendingCount, 'pendência', 'pendências')}><Icon name="alert" size={12} color="#ffb3bd" /><Text style={pillText(true)}>{pendingCount}</Text></FooterPill>
-    : showSport && sport ? <SportIcon sport={sport} size={22} inverted />
+    : showSport && sport ? <SportIcon sport={sport} shape="aro" size={22} color="#ffffff" />
     : null
 
   const spoken = [name, formatParts.join(', '), date ? date.label : 'Sem data definida', price, stateText, entryInfo?.short, locked ? 'Fora da faixa' : '', pendingCount > 0 ? plural(pendingCount, 'pendência', 'pendências') : '']

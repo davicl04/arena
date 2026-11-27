@@ -21,7 +21,6 @@ vi.mock('expo-secure-store', () => ({ getItemAsync: vi.fn().mockResolvedValue('t
 vi.mock('expo-document-picker', () => ({ getDocumentAsync: vi.fn() }))
 vi.mock('expo-image-picker', () => ({ launchImageLibraryAsync: vi.fn() }))
 vi.mock('../src/api/client', async original => ({ ...await original<typeof import('../src/api/client')>(), request: vi.fn() }))
-vi.mock('../src/data/sportIcons', () => ({ sportIcons: { futebol: 'futebol.png', tenis: 'tenis.png', corrida: 'corrida.png' } }))
 
 const h = React.createElement
 const brl = (cents: number) => formatPrice(cents, { compact: true })

@@ -12,7 +12,6 @@ import { searchCity, searchPath, valparaisoCity } from './support/cities'
 
 vi.mock('react-native', async () => (await import('./support/native')).reactNativeMock())
 vi.mock('expo-secure-store', () => ({ getItemAsync: vi.fn(), setItemAsync: vi.fn(), deleteItemAsync: vi.fn() }))
-vi.mock('../src/data/sportIcons', () => ({ sportIcons: { futebol: 'futebol.png', tenis: 'tenis.png', corrida: 'corrida.png' } }))
 vi.mock('../src/api/client', async original => ({ ...await original<typeof import('../src/api/client')>(), request: vi.fn() }))
 
 const h = React.createElement

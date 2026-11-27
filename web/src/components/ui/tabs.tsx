@@ -37,8 +37,11 @@ const tabVariants = cva('border-0 border-b-2 border-transparent bg-transparent f
   defaultVariants: { variant: 'profile' },
 })
 
-/** `Icon`: ícone Lucide; `icon`: nó pronto (ex.: `SportIcon` nas abas das modalidades), decorativo. */
-export interface TabItem<T extends string> { value: T; label: string; Icon?: LucideIcon; icon?: ReactNode }
+/**
+ * `Icon`: ícone Lucide; `icon`: nó pronto, decorativo, em todas as abas; `activeIcon`: nó decorativo só na aba selecionada
+ * (ex.: o símbolo com aro nas abas das modalidades), sem espaço reservado nas demais.
+ */
+export interface TabItem<T extends string> { value: T; label: string; Icon?: LucideIcon; icon?: ReactNode; activeIcon?: ReactNode }
 
 export function Tabs<T extends string>({ items, value, onChange, label, idPrefix, controls, variant = 'profile', className }: {
   items: readonly TabItem<T>[]
@@ -69,6 +72,7 @@ export function Tabs<T extends string>({ items, value, onChange, label, idPrefix
         tabIndex={selected ? 0 : -1} className={cn(tabVariants({ variant }))} onClick={() => onChange(item.value)} onKeyDown={event => onKeyDown(event, index)}>
         {item.Icon && <item.Icon size={16} aria-hidden="true" />}
         {item.icon}
+        {selected && item.activeIcon}
         {item.label}
       </button>
     })}

@@ -34,7 +34,7 @@ export function NameStep({ form, errors, update }: StepProps) {
     onChangeText={value => update({ name: value })} />
 }
 
-const sportOptions = sportChoices('dark')
+const sportOptions = sportChoices()
 const formatOptions: ChoiceOption<string>[] = footballFormats.map(format => ({ value: format.value, label: `${format.label} ${format.size}`, accessibilityLabel: `${format.label}, ${format.players} contra ${format.players}` }))
 const typeOptions: ChoiceOption<string>[] = eventTypes.map(type => ({ value: type.value, label: type.label }))
 const distanceOptions: ChoiceOption<number>[] = runDistances.map(distance => ({ value: distance.value, label: distance.label }))

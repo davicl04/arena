@@ -58,7 +58,10 @@ export function PlateChips<T extends string>({ label, options, value, onChange, 
   </View>
 }
 
-/** Abas Futebol | Tênis | Corrida do topo da placa, com o ícone provisório da modalidade e o traço menta na escolhida. */
+/**
+ * Abas Futebol | Tênis | Corrida do topo da placa, com o traço menta e o símbolo com aro (branco) só na escolhida; as demais
+ * mostram só o nome, sem espaço reservado.
+ */
 export function SportTabs({ value, onChange }: { value: Sport; onChange: (sport: Sport) => void }) {
   return <View accessibilityRole="tablist" accessibilityLabel="Modalidade"
     style={{ flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.07)' }}>
@@ -66,7 +69,7 @@ export function SportTabs({ value, onChange }: { value: Sport; onChange: (sport:
       const selected = sport.value === value
       return <Pressable key={sport.value} accessibilityRole="tab" accessibilityLabel={sport.label} accessibilityState={{ selected }} onPress={() => { if (!selected) onChange(sport.value) }}
         style={{ flex: 1, minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderBottomWidth: 2, borderBottomColor: selected ? colors.mint : 'transparent' }}>
-        <View style={{ opacity: selected ? 1 : 0.6 }}><SportIcon sport={sport.value} size={18} inverted /></View>
+        {selected ? <SportIcon sport={sport.value} shape="aro" size={18} color="#ffffff" /> : null}
         <Text style={{ color: selected ? '#ffffff' : 'rgba(255,255,255,0.6)', fontSize: 12.5, fontWeight: selected ? '800' : '600' }}>{sport.label}</Text>
       </Pressable>
     })}

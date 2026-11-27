@@ -115,9 +115,7 @@ export function EventPoster({
       <span className="sr-only">{pendingCount === 1 ? "1 pendência" : `${pendingCount} pendências`}</span>
     </FooterPill>
   ) : showSport && sport ? (
-    <span className="[&_[data-slot=sport-icon]]:mix-blend-screen [&_[data-slot=sport-icon]]:[filter:invert(1)]">
-      <SportIcon sport={sport} size={22} />
-    </span>
+    <SportIcon sport={sport} forma="aro" size={22} className="text-white" />
   ) : null;
 
   const content = (

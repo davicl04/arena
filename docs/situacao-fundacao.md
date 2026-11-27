@@ -1,5 +1,670 @@
 # Situação da fundação do Arena
 
+## Orientação dos selos no AGENTS.md — 26 de novembro de 2026
+
+Ajuste de documentação a pedido do usuário, incluído no PR dos selos de modalidade.
+
+- **O que mudou:** a orientação de identidade visual do `AGENTS.md` citava os ícones provisórios em `web/public/images/sports/` e o mapeamento de `web/src/data/arena.ts`, removidos no ticket 07. Agora ela descreve os selos vetoriais:
+  - o gerador `scripts/gerar_selos.py` e os dois arquivos que ele gera;
+  - o `SportIcon` com a forma explícita (`forma` na web, `shape` no Expo);
+  - `SeloLadrilho` (web) e `SeloTile` (Expo);
+  - a seção 6 da decisão 0004.
+- Nenhum código mudou.
+
+**Verificações:**
+- Os nomes citados existem: `SeloLadrilho` em `web/src/components/SportIcon.tsx`, `SeloTile` em `mobile/src/components/arena/RoundTile.tsx` e a seção "6. Selos de modalidade" em `docs/decisoes/0004-tema.md`.
+- Por ser só documentação, não foram executados testes de código.
+
+**Pendências:**
+- `docs/plano-tema.md`, que é um plano histórico, ainda tem links para a pasta removida.
+
+## Fechamento dos selos de modalidade: remoção dos PNGs e documentação — 26 de novembro de 2026
+
+Fecha a feature dos selos de modalidade (tickets 01 a 07): os ícones provisórios de futebol, tênis e corrida dão lugar aos selos vetoriais na web e no Expo. A entrega é só de frontend e não completa o MVP.
+
+- **O que a entrega contém:**
+  - **Geometria única (ticket 01):** `scripts/gerar_selos.py`, só com a biblioteca padrão, gera `web/src/data/selos.ts` e `mobile/src/data/selos.ts`, idênticos e sem cor. `--check` confere se estão atualizados.
+  - **Três formas, escolhidas por uma prop obrigatória:** `forma` na web e `shape` no Expo.
+    - **Selo em ladrilho redondo** (`icon-tile`, selo a 75%), tickets 02 e 05: linhas de campeonato do Início, inclusive o troféu sem modalidade; card e folha de categoria do ranking; folha do perfil esportivo; trilho e filtro da linha do tempo.
+    - **Símbolo com aro** (85% da caixa), tickets 03 e 06: só no item ativo dos chips de modalidade, das abas do Jogar, do pedido de organizador e do assistente de evento; sempre nas pílulas "Seu elo", no placar, no cartaz de evento e na linha de modalidade única.
+    - **Marca d'água**, tickets 04 e 06: faixas de "Suas modalidades" e colunas da landing (só na web), com posição e opacidades mantidas.
+  - **Cores por token:**
+    - claro: disco `#153a2b` e detalhes brancos; escuro: disco `#16201b` e detalhes `#F4DE9A`;
+    - na web, `--color-selo-disco` e `--color-selo-detalhe`; no Expo, `selo-disco` e `selo-detalhe`;
+    - a troca de tema recolore sem recarregar.
+  - **Remoção (ticket 07):**
+    - saíram `{futebol,tenis,corrida}{,-alfa}.png` da web e do Expo, `web/scripts/gerar-icones-alfa.py` (Pillow) e `mobile/src/data/sportIcons.ts`;
+    - saiu o caminho raster do `SportIcon` nos dois clientes: máscara, `--sport-icon-color`, `mix-blend`, `invert`, `tintColor`, `inverted` e a ampliação de 138%;
+    - saíram o mapa `sportIcons` e os atalhos `FootballIcon`, `TennisIcon` e `RunningIcon` da web, sem uso;
+    - saíram os testes e os 37 mocks do Expo que fixavam o PNG.
+  - **Documentação:**
+    - a [decisão do tema](decisoes/0004-tema.md) ganhou emendas datadas nos itens de ícones de esporte e a nova §6, "Selos de modalidade";
+    - a [fidelidade visual](fidelidade-figma.md) ganhou a seção dos selos, com as decisões das cinco rodadas, o que foi descartado (ajuste óptico do tênis) e os desvios de cada ticket;
+    - o README perdeu a linha do script com Pillow e manteve a do gerador;
+    - não foi criada ADR própria; a justificativa está no 0004 §6.
+- **Sem mudança de backend, contrato, migração ou dependência.**
+
+**Verificações:**
+- **Árvore integrada final, idêntica à do ticket 07:**
+  - `python3 -I scripts/gerar_selos.py --check`: saída 0.
+  - **`web/`:** `npm run lint` e `npm run build`: ok. `vitest run --coverage`: 1.384 de 1.384 testes, em 102 arquivos. Cobertura: 94,09% de instruções, 88,04% de ramos, 93,72% de funções e 96,9% de linhas, acima dos pisos.
+  - **`mobile/`:** `npm run lint`, `npm run typecheck` e `npm run export:android`: ok. `vitest run --coverage`: 1.704 de 1.704 testes, em 112 arquivos. Cobertura: 96,56% de instruções, 91,05% de ramos, 95,9% de funções e 98,5% de linhas, acima dos pisos.
+- **Busca de referências:** em `web/`, `mobile/`, `scripts/` e `.github/`, fora de `node_modules`, não há referência a `-alfa.png`, `sports/*.png`, `images/sports`, `assets/sports`, `gerar-icones-alfa`, `sportIconsAlpha` nem `data/sportIcons`.
+- **Navegador (ticket 07):** API e PostgreSQL reais, com banco descartável populado só pela API e apagado ao fim.
+  - Telas: landing e Início em 320, 390 e 1440 px; Jogar, Campeonatos, Suas modalidades, ranking, folha de categoria e Perfil › Partidas em 390 px. Temas Dia e Noite.
+  - Nenhuma requisição a `/images/sports/`, nenhum overflow horizontal e nenhum erro de console além do 401 esperado de `/me` na landing sem sessão.
+  - Todos os ícones de modalidade são SVG com `data-forma` e `aria-hidden`.
+- As verificações de cada ticket estão nas entradas abaixo.
+
+**Limitações:**
+- Expo sem validação em aparelho ou simulador. O build e os testes não comprovam a renderização nem a paridade visual com a web.
+- O selo de 18 px nas folhas e nos filtros pequenos pode perder detalhe da coroa, sobretudo em aparelho.
+- A falha intermitente de `web/tests/matchmaking.test.tsx` ("prepara a busca com vagas…"), anterior à feature, continua. Ela apareceu em algumas execuções dos tickets, mas não na verificação final.
+- O CI remoto não foi executado.
+
+**Pendências:**
+- ~~`AGENTS.md` ainda cita os ícones provisórios em `web/public/images/sports/` e o mapeamento de `web/src/data/arena.ts`.~~ Resolvido na entrada "Orientação dos selos no AGENTS.md", acima.
+- `docs/plano-tema.md`, que é um plano histórico, mantém links para a pasta removida.
+- O `--check` do gerador não está no CI.
+- Review final da feature ainda não iniciado.
+
+## Símbolo com aro nos usos pequenos da web — 26 de novembro de 2026
+
+Ticket 03 de 7 da feature dos selos de modalidade. A entrega é só de frontend web e não completa o MVP.
+
+- **O que mudou:** na web, o símbolo com aro (`SportIcon forma="aro"`, SVG em linha, com o desenho a 85% da caixa) substitui o ícone de louros em PNG nos usos pequenos de modalidade.
+- **Só no item ativo**, pelo estado de seleção que já existia e sem espaço reservado no item inativo:
+  - chips de modalidade dos Campeonatos;
+  - abas de modalidade do Jogar, pelo novo campo opcional `activeIcon` em `TabItem`;
+  - modalidades marcadas no pedido de organizador;
+  - modalidade escolhida no assistente de evento.
+- **Sempre:**
+  - pílulas "Seu elo", em branco a 82%;
+  - selo de modalidade do placar, em branco;
+  - rodapé do cartaz de evento, em branco, também na prévia do assistente;
+  - linha "{Modalidade} é a sua única modalidade ativa" da folha de categoria, em `icon-tile-ink`.
+- **Chips do perfil:** os chips das modalidades do perfil, que estão sempre ativos e não constam do mapeamento da spec, seguem a regra dos chips e mostram o aro na cor do texto sobre a marca.
+- **Cores:** o chip ou a opção ativos usam a cor do próprio texto (`on-brand`, ou a do item selecionado no seletor escuro). Os blocos escuros por design ficam iguais nos dois temas.
+- **Compensações removidas** desses componentes: inversões, misturas (`screen`, `multiply`), máscaras de PNG e `--sport-icon-color`.
+- **Acessibilidade:** a seleção continua em `aria-pressed`/`aria-selected` e no estilo atual. Os nomes acessíveis e a ordem de foco não mudam, e o ícone segue `aria-hidden`, com `data-slot="sport-icon"`.
+
+**Verificações:**
+- **`web/`, no worker:**
+  - `npm run lint` e `npm run build`: ok.
+  - `npm run test:coverage`: 1.381 testes, em 101 arquivos.
+  - Cobertura: 94,1% de instruções, 88,07% de ramos, 93,73% de funções e 96,9% de linhas.
+- **Árvore integrada, que já inclui o ticket 04:** `npm run lint` e `npm run build` passaram. `vitest run` teve 1.384 de 1.385 testes; a única falha é a pré-existente de `tests/matchmaking.test.tsx`.
+- **Teste novo:** `tests/sport-icon-aro.test.tsx`, com 9 casos, todos falhando com os componentes anteriores:
+  - ícone só no item ativo, mudando ao selecionar pelo clique e pelo teclado, e sumindo ao desmarcar;
+  - ícone sempre nas pílulas, no placar, no cartaz, na linha única e nos chips do perfil;
+  - nomes acessíveis inalterados.
+- **Navegador:** Playwright, com banco descartável populado só pela API real (com uma partida de tênis agendada pelo fluxo de busca) e removido ao fim.
+  - Telas conferidas em 320, 390 e 1440 px, nos temas Dia e Noite: Início, Jogar (abas pelo teclado), Campeonatos (chips pelo teclado), Perfil, cartazes do Menu, pedido de organizador, assistente com a prévia do cartaz e folha de categoria.
+  - Sem overflow horizontal, inclusive quando o chip ou a aba ganham o ícone, sem erros no console e sem requisições a `/images/sports/*.png`.
+  - A troca de tema sem recarregar recolore o chip ativo; as pílulas não mudam.
+
+**Limitações:**
+- O mapa `sportIcons` de `web/src/data/arena.ts` e os atalhos `FootballIcon`, `TennisIcon` e `RunningIcon` ficaram sem uso em `src`, mas ainda apontam para o ícone provisório em PNG.
+
+**Pendências:**
+- Remoção dos PNGs, do script com Pillow, do caminho legado do `SportIcon` e dos atalhos sem uso, mais a documentação final (ticket 07).
+
+## Marca d'água vetorial dos selos nas faixas e na landing (web) — 26 de novembro de 2026
+
+Ticket 04 de 7 da feature dos selos de modalidade. A entrega é só de frontend web e não completa o MVP.
+
+- **O que mudou:** as faixas de "Suas modalidades" e as colunas de modalidade da landing mostram a marca d'água da modalidade no lugar do ícone de louros em PNG com máscara alfa. É só o símbolo, em SVG (`SportIcon forma="marca"`), grande, translúcido e cortado no canto.
+- **Cores:**
+  - faixa ativa: branco;
+  - faixa inativa: `icon-tile-ink`;
+  - landing: a cor de título (`--color-heading`).
+
+  A cor vem do texto, então a troca de tema recolore pelo CSS, sem recarregar.
+- **Compensações removidas:** saíram desses componentes a variável `--sport-icon-color`, a máscara e os `!important` que existiam para o PNG.
+- **Posição, tamanho e opacidade iguais:** na faixa, o deslocamento inferior passou de 18 para 14 px. Os 4 px eram a folga de linha do `span` antigo; com o ajuste, a caixa de 150 px fica exatamente no mesmo lugar.
+- Os PNGs continuam no repositório para os usos ainda não migrados.
+
+**Verificações:**
+- **`web/`, no worker:**
+  - `npm run lint` e `npm run build`: ok.
+  - `npm run test:coverage`: 1.375 de 1.376 testes, com a falha pré-existente de `tests/matchmaking.test.tsx`. Numa nova execução, os 1.376 passaram, em 101 arquivos.
+  - Cobertura: 94,1% de instruções, 88,06% de ramos, 93,73% de funções e 96,9% de linhas.
+- **Árvore integrada:** o subdiretório `web/` é idêntico ao do worker. `npm run lint` e `npm run build` passaram, e `vitest run` teve 1.376 de 1.376 testes.
+- **Teste novo:** `tests/sport-icon-marca.test.tsx` verifica que as faixas (ativa e inativa) e as colunas da landing renderizam a marca nas três modalidades, oculta à acessibilidade e sem PNG.
+- **Navegador:** Playwright, com banco descartável populado só pela API e removido ao fim. Conferido em 320, 390 e 1440 px, Dia e Noite, antes e depois da mudança:
+  - caixa do ícone, opacidade e cor idênticas nas faixas e nas colunas abertas e fechadas;
+  - sem overflow horizontal;
+  - nenhuma requisição a `/images/sports/*.png` na landing nem nas faixas.
+
+**Limitações:**
+- Dentro da mesma caixa, o símbolo ocupa a caixa inteira, como decidido no protótipo, e fica um pouco mais alto que os louros antigos. A raquete do tênis é mais estreita pela própria forma.
+- A troca de tema foi conferida alterando `data-theme` no documento, e não pelo controle da interface.
+
+**Pendências:**
+- Símbolo com aro na web (ticket 03).
+- Remoção dos PNGs, do script com Pillow e da forma provisória, com a documentação (ticket 07).
+
+## Símbolo com aro e marca d'água dos selos no Expo — 26 de novembro de 2026
+
+Ticket 06 de 7 da feature dos selos de modalidade. A entrega é só de frontend Expo e não completa o MVP.
+
+- **Símbolo com aro só no item marcado:** chips de modalidade do filtro de campeonatos, modalidades do pedido de organizador, seletor de modalidade do assistente de evento e abas de modalidade do Jogar.
+  - O aro vem na cor do texto do item: branco sobre `forest`, `night` sobre a menta do seletor escuro e branco nas abas.
+  - Os itens desmarcados mostram só o nome, sem espaço reservado. As quatro telas existem no Expo, então não há divergência a registrar.
+- **Símbolo com aro sempre:**
+  - pílulas "Seu elo": branco a 82%;
+  - selo de modalidade do placar e rodapé do cartaz: branco, igual nos dois temas;
+  - linha "{Modalidade} é a sua única modalidade ativa" da folha de categoria: `icon-tile-ink`.
+- **Marca d'água:** as faixas de "Suas modalidades" mostram só o símbolo, branco na faixa ativa e `icon-tile-ink` na inativa. Posição, tamanho e opacidades continuam os atuais.
+- **Compensações removidas:** nenhum uso de ícone de modalidade depende mais de `inverted`, da ampliação de 138%, de `tintColor` ou de `mixBlendMode`. O caminho raster do `SportIcon` ficou sem uso no app e sai na remoção dos assets.
+- **Mudanças de assinatura:** `ChoiceOption.leading` passou a receber também a cor do texto da pílula (mudança aditiva), e `sportChoices` deixou de receber o tom.
+
+**Verificações:**
+- **`mobile/`, no worker:**
+  - `npm ci`, `npm run lint` e `npm run typecheck`: ok.
+  - `npm run test:coverage`: 1.706 testes, em 112 arquivos.
+  - Cobertura: 96,56% de instruções, 91,03% de ramos, 95,91% de funções e 98,49% de linhas, acima dos pisos.
+  - `npm run export:android`: ok.
+- **Testes:**
+  - O novo `tests/sport-icon-aro-marca.test.ts` cobre o ícone só no item ativo e removido ao desmarcar; pílulas, placar e cartaz sempre com o aro; a linha da folha de categoria acompanhando o tema; a marca d'água das faixas; e a acessibilidade inalterada.
+  - O teste do rodapé do cartaz em `arena-components` deixou de verificar o PNG.
+- **Árvore integrada:** o subdiretório `mobile/` é idêntico ao do worker. `npm run lint`, `npm run typecheck` e `vitest run` passaram, com 1.706 de 1.706 testes.
+
+**Limitações:**
+- Sem validação em aparelho ou simulador. O build e os testes não comprovam a renderização em Android ou iOS nem a paridade visual com a web.
+- Na pílula marcada, a cor do aro segue o texto da pílula (branco sobre `forest` no tom claro), e não o token `on-brand`. No escuro, `on-brand` ficaria ilegível sobre `forest`.
+
+**Pendências:**
+- Remover os PNGs, o caminho raster do `SportIcon`, `data/sportIcons.ts` e o teste legado do PNG em `arena-components`, e atualizar a documentação dos selos (ticket 07).
+
+## Selos de modalidade na web: componente de três formas e selo em ladrilho redondo — 26 de novembro de 2026
+
+Ticket 02 de 7 da feature dos selos de modalidade. A entrega é só de frontend web e não completa o MVP.
+
+- **Componente:** o `SportIcon` da web desenha três formas a partir da geometria gerada em `src/data/selos.ts`, escolhidas explicitamente pela prop `forma`:
+  - `selo`: disco, coroa, anel e símbolo;
+  - `aro`: símbolo com aro a 85% da caixa, numa cor só;
+  - `marca`: só o símbolo.
+- **Tokens:** o selo usa os novos `--color-selo-disco` e `--color-selo-detalhe`. No claro são `#153a2b` e branco; no escuro, `#16201b` e `#F4DE9A`. A troca de tema recolore pelo CSS, sem recarregar nem piscar.
+- **Ladrilho redondo:** o `IconTile` ganhou a variante `shape="round"`, com o tingido `icon-tile`, e o `SeloLadrilho` põe o selo a 75% do diâmetro.
+- **Usos migrados:** os seis usos de selo deixaram PNG, máscara e inversão:
+  - linhas de campeonato do Início, com 40 px (o campeonato sem modalidade mostra o troféu no mesmo ladrilho redondo);
+  - card de categoria do ranking, com 38 px;
+  - opções de modalidade da folha de categoria, com 34 px;
+  - ícone da folha do perfil esportivo, com 24 px;
+  - nó do trilho da linha do tempo, com 30 px dentro do círculo de 32 px;
+  - opções do filtro da linha do tempo, com 24 px.
+- **Quadros sem modalidade:** continuam com cantos arredondados.
+- **Usos não migrados:** chips, abas, pílulas, placar, cartaz, faixas, landing, pedido de organizador e assistente ainda usam o ícone provisório em PNG (sem `forma`) até os tickets 03 e 04. Nenhum asset foi removido.
+
+**Verificações:**
+- **`web/`, no worker:**
+  - `npm run lint` e `npm run build`: ok.
+  - `npm run test:coverage`: 1.372 testes, em 100 arquivos.
+  - Cobertura: 94,1% de instruções, 88,06% de ramos, 93,73% de funções e 96,9% de linhas, acima dos pisos.
+- **Árvore integrada:** o subdiretório `web/` é idêntico ao do worker.
+  - `npm run lint` e `npm run build`: ok.
+  - `vitest run`: 1.371 de 1.372 testes. A única falha é a pré-existente de `tests/matchmaking.test.tsx`.
+- **Testes:**
+  - O teste que verificava a máscara `tenis-alfa.png` foi substituído por um que prova a troca de cor do selo pelos tokens entre claro e escuro, sem PNG.
+  - Os testes novos cobrem as três formas nas três modalidades, o ladrilho redondo a 75%, o troféu no ladrilho redondo e os seis usos com nomes acessíveis iguais.
+- **Navegador:** Playwright, com banco descartável e contas, perfis, marca de corrida e dois campeonatos criados pela API real. Conferidos em 320, 390 e 1440 px, Dia e Noite:
+  - Início, ranking (card e folha), folha do perfil esportivo e linha do tempo (trilho e filtro): sem overflow horizontal e sem erros no console;
+  - nenhum PNG de modalidade nesses usos;
+  - a troca Dia → Noite → Dia pelo cartão Aparência recolore o selo no mesmo documento.
+
+**Limitações:**
+- O troféu no ladrilho redondo só foi verificado em teste. O Início lista campeonatos por modalidade, então o fluxo real não exibe campeonato sem modalidade.
+- Nas folhas e no filtro, a medida atual do ícone virou o diâmetro do ladrilho, então o selo fica com 18 px.
+- O card do ranking trocou `bg-tile` por `bg-icon-tile`, porque no escuro `tile` tem a mesma cor do disco do selo.
+
+**Pendências:**
+- Símbolo com aro em chips, abas, seletores, pílulas, placar, cartaz e linha de modalidade única (ticket 03).
+- Marca d'água nas faixas e na landing (ticket 04).
+- Remoção dos PNGs, do script com Pillow e da forma provisória, com a documentação (ticket 07).
+
+## Selos de modalidade no Expo: componente de três formas e ladrilho redondo — 26 de novembro de 2026
+
+Ticket 05 de 7 da feature dos selos de modalidade. A entrega é só de frontend Expo e não completa o MVP.
+
+- **Componente:** o `SportIcon` do Expo desenha as três formas do selo com `react-native-svg`, a partir da geometria gerada em `mobile/src/data/selos.ts`. A forma é escolhida pela prop `shape`, nunca pela medida:
+  - `selo`: disco, coroa, anel e símbolo, nas cores do tema;
+  - `aro`: símbolo com aro, numa cor só, ocupando 85% da caixa;
+  - `marca`: só o símbolo, numa cor só.
+- **Tokens:** os novos `selo-disco` e `selo-detalhe` ficam em `src/theme.ts` e `global.css`. No claro são `#153a2b` e branco; no escuro, `#16201b` e `#F4DE9A`. São lidos por `useThemeColors()`, então o selo acompanha a troca de tema.
+- **Ladrilho redondo:** os novos `RoundTile` e `SeloTile` (`components/arena/RoundTile.tsx`) usam o tingido `icon-tile`, com o selo em 75% do diâmetro. Tamanhos de ladrilho por uso:
+  - linhas de campeonato do Início: 40 (o campeonato sem modalidade mostra o troféu no mesmo ladrilho);
+  - card de categoria do ranking: 40;
+  - ícone da folha do perfil esportivo: 24;
+  - nó do trilho da linha do tempo: 26, dentro do nó de 30;
+  - opções de modalidade da folha de categoria: 30;
+  - opções do filtro da linha do tempo: 26.
+- **Compensações removidas:** nesses usos saíram `inverted`, a ampliação de 138%, `tintColor` e `mixBlendMode`. Os demais quadros de ícone não mudam.
+- **Usos não migrados:** pílulas, placar, cartaz, chips, PlateChips, faixas e a linha de modalidade única continuam no caminho raster provisório até o ticket 06. Nenhum PNG foi removido.
+
+**Verificações:**
+- **`mobile/`, no worker:**
+  - `npm ci`, `npm run lint` e `npm run typecheck`: ok.
+  - `npm run test:coverage`: 1.695 testes, em 111 arquivos. Inclui o novo `tests/sport-icon-selos.test.ts` e asserções novas em `profile-timeline` e `sports-profiles`.
+  - Cobertura: 96,57% de instruções, 91,04% de ramos, 95,91% de funções e 98,5% de linhas, acima dos pisos.
+  - `npm run export:android`: ok.
+- **Árvore integrada (idêntica à do worker):** `npm run lint`, `npm run typecheck` e `vitest run` com 1.695 de 1.695 testes.
+
+**Limitações:**
+- O build e os testes, que simulam o `react-native-svg` em Node, não comprovam a renderização em Android ou iOS. Não há paridade visual declarada do Expo.
+- Os ladrilhos do Campeonatos e do card do ranking trocaram o fundo `tile` pelo `icon-tile` da spec, e o troféu passou a `icon-tile-ink`.
+- Nas folhas e no trilho, que não tinham ladrilho, a caixa atual do ícone foi tomada como diâmetro do ladrilho.
+
+**Pendências:**
+- Símbolo com aro e marca d'água nos usos restantes do Expo (ticket 06).
+- Remoção dos PNGs, de `data/sportIcons.ts` e do caminho raster do `SportIcon` (ticket 07).
+
+## Gerador da geometria dos selos de modalidade — 26 de novembro de 2026
+
+Primeira entrega da feature dos selos de modalidade (ticket 01 de 7), que vai trocar os ícones provisórios em PNG por selos vetoriais na web e no Expo. Nenhum componente usa a geometria ainda, e a entrega não completa o MVP.
+
+- **Gerador:** o novo `scripts/gerar_selos.py` usa só a biblioteca padrão e evolui o gerador da sessão, com as proporções aprovadas. Ele grava `web/src/data/selos.ts` e `mobile/src/data/selos.ts`, dois módulos TS idênticos, marcados como gerados.
+- **Conteúdo:** geometria sem cor dos selos de futebol, tênis e corrida:
+  - coroa com dois ramos de 15 pares de folhas, haste e anel;
+  - símbolo, com o anel interno duplo do futebol;
+  - símbolo com aro: anel com r ≈ 0,92 da caixa, traço ≈ 6,6% e símbolo em escala 0,95, sem ajuste óptico.
+- **Formato:** traços, recortes e `use` do desenho saem resolvidos em caminhos fechados. Os clientes montam as três formas só com `<circle>` e `<path>` e pintam por token ou `currentColor`. A escolha de um módulo TS por cliente, gerado da mesma origem, resolve a questão não bloqueante da spec: um JSON compartilhado ficaria fora das raízes do Vite e do Metro.
+- **Comando:** `python3 -I scripts/gerar_selos.py`, registrado no README. `--check` confere se os arquivos estão atualizados e `--previa <pasta>` grava SVGs de prévia.
+- **Testes:** os novos `tests/selos-geometria.test.ts` (web e mobile) conferem formato, ausência de cor, comandos aceitos, aro e tamanho.
+- Os PNGs e o script com Pillow continuam até a migração dos clientes. Sem mudança de backend, contrato ou dependência.
+
+**Verificações:**
+- `python3 -I scripts/gerar_selos.py`, duas vezes seguidas: sem diff. `--check` sai com 0, e com 1 depois de uma alteração proposital.
+- **`web/`:**
+  - `npm run lint` e `npm run build`: ok.
+  - `npm run test:coverage`: 1.355 de 1.356 testes, em 99 arquivos. A única falha é a pré-existente de `tests/matchmaking.test.tsx`, que também falha na base `d1dfcc6`.
+  - Cobertura: 94,09% de instruções e 88,03% de ramos.
+- **`mobile/`:**
+  - `npm run lint` e `npm run typecheck`: ok.
+  - `npm run test:coverage`: 1.677 testes, em 110 arquivos.
+  - Cobertura: 96,56% de instruções e 91,01% de ramos.
+- **Comparação visual:** Playwright, pixel a pixel a 512 px, contra os SVGs da sessão e o aro do protótipo. As diferenças são só de suavização nas bordas.
+
+**Limitações:**
+- O selo completo tem cerca de 9 a 10 KB sem compressão e cerca de 4 KB com gzip. A coroa é a mesma nas três modalidades.
+- `npm run export:android` não foi executado, porque a geometria ainda não tem consumidor no app.
+
+**Pendências:**
+- Consumo nos componentes da web (tickets 02 a 04) e do Expo (05 e 06).
+- Remoção dos PNGs e do script com Pillow, e atualização da documentação (07).
+
+## Fechamento da landing e da nova tela de entrada — 24 de novembro de 2026
+
+Fecha a entrega da [landing e nova tela de entrada](#plano-da-landing-e-da-nova-tela-de-entrada--24-de-novembro-de-2026) (tickets 01 a 07). A entrega é só de frontend e não completa o MVP.
+
+- **O que a entrega contém:**
+  - **Web, tela de entrada Dividida (ticket 01):** escura por design, com a metade da marca e o formulário sem cartão. A data de nascimento usa o `DatePicker` do shadcn, com mês e ano em listas e validação da data ausente.
+  - **Web, landing e navegação (ticket 02):**
+    - hero "A arena te chama", fecho e rodapé;
+    - o contêiner `PublicScreen`, que alterna landing e entrada com `pushState` em `/`;
+    - sessão expirada, falha de `/me` e convite abrem a entrada direto;
+    - a segunda rodada corrigiu o "Pular para conteúdo".
+  - **Web, seções (ticket 03):** modalidades e "Como funciona" em colunas expansíveis, com numerais romanos em SVG, "Mais da Arena" em sanfona e revelação ao rolar.
+  - **Web, subida de elo (ticket 04):** seção presa do Bronze ao Lendário, explicativa e sem atribuir elo.
+  - **Web, portão (ticket 05):** fecha em 0,55 s, troca de tela por volta de 0,88 s e abre em 0,85 s. Bloqueia a página durante a sequência e não aparece com "reduzir movimento", nos retornos nem nos atalhos diretos.
+  - **Expo, Dividida estreita (ticket 06):** faixa da marca no topo e formulário escuro, sem landing nem portão, com a data em DD/MM/AAAA.
+  - **Documentação (ticket 07):**
+    - `docs/fidelidade-figma.md` ganhou a seção "Landing e nova tela de entrada", com as decisões das seis rodadas, o que foi descartado e por quê e os desvios mantidos.
+    - `docs/decisoes/0004-tema.md` ganhou uma emenda datada que leva a landing, o portão e as entradas da web e do Expo para as telas escuras por design, mantendo a frase original como histórico.
+    - O README e os diagramas não mudaram, porque nenhum comando, dependência, contrato ou modelagem mudou.
+- **Sem mudança de backend, contrato, migração, cookie ou armazenamento de token.**
+
+**Verificações:**
+- **`web/`**, na árvore integrada:
+  - `npm run lint`: ok.
+  - `npm run build`: ok, só com o aviso antigo de chunk maior que 500 kB.
+  - `npm run test:coverage`: 1.351 de 1.352 testes, em 98 arquivos. A única falha é a de foco pré-existente em `tests/matchmaking.test.tsx`, que também falha na base `b4aa00d`.
+  - Cobertura: 94,06% de instruções, 88,02% de ramos, 93,72% de funções e 96,87% de linhas, acima dos pisos.
+- **`mobile/`**, na árvore integrada:
+  - `npm run lint`: ok.
+  - `npm run typecheck`: ok.
+  - `npm run export:android`: ok.
+  - `npm run test:coverage`: 1.673 de 1.673 testes, em 109 arquivos, com 96,56% de instruções, 91,01% de ramos, 95,9% de funções e 98,5% de linhas.
+- **Navegador, de ponta a ponta:** Playwright com Chromium headless, contra a API real, com banco descartável e contas e time sintéticos. Foram 84 de 85 verificações, em 320, 390 e 1440 px, nos temas Dia e Noite:
+  - landing completa, na ordem certa, com dois pontos de entrada e o cabeçalho só com a marca;
+  - landing → portão → entrar e criar conta, com o foco no primeiro campo e o endereço em `/`;
+  - Voltar do navegador e "← Voltar para o início" retornando à landing sem portão;
+  - criar conta pelo seletor de data, com o envio bloqueado sem data, `birth_date` gravado como `1992-07-21`, o toast e o modo Entrar;
+  - credenciais inválidas;
+  - login, com a sessão mantida ao recarregar;
+  - sessão expirada abrindo a entrada direto;
+  - convite de time `/entrar/{token}` abrindo a entrada direto, e o time depois do login;
+  - "Pular para conteúdo" na landing e na entrada;
+  - com "reduzir movimento", sem portão, sem animação de entrada e sem a subida presa;
+  - sem rolagem horizontal em toda a landing, na entrada e no calendário.
+- **Resultado do navegador:**
+  - Não houve erros de console além dos 401 esperados.
+  - A única falha foi a comparação de pixels Dia × Noite do hero com movimento reduzido. Os estilos calculados são idênticos, e a diferença também aparece entre duas capturas Dia, por isso foi tratada como ruído de captura.
+  - Nenhum defeito de comportamento foi encontrado.
+
+**Limitações:**
+- As animações e a sensação da rolagem só foram conferidas no Chromium headless, sem Safari nem aparelho. O `100dvh` com a barra de endereço móvel não foi conferido.
+- Não houve validação do Expo em aparelho, simulador ou Expo web. O build não comprova o funcionamento em Android ou iOS, e não há declaração de paridade visual do Expo com a web.
+- O CI remoto não foi executado.
+- Seguem valendo os desvios registrados em `docs/fidelidade-figma.md`, entre eles:
+  - o aviso de sessão expirada do Expo sem o "para continuar";
+  - um Voltar do navegador sem mudança visível depois de entrar pela landing;
+  - a roda do mouse rolando por baixo do portão.
+- **Divergência registrada:** `docs/plano-tema.md` ainda diz que o tema vale nas telas de entrada. A emenda da decisão 0004 marca esse trecho como histórico.
+
+**Pendências:**
+- Revisão de código da entrega inteira.
+- A falha de foco pré-existente em `tests/matchmaking.test.tsx`, fora desta entrega.
+- Conferir em aparelho a faixa sob a barra de status, o teclado e as telas pequenas do Expo.
+- Afinar, se preciso, a duração do portão e o mês inicial do calendário.
+
+## Landing da web: subida de elo — 24 de novembro de 2026
+
+Ticket 04 da [landing e nova tela de entrada](#plano-da-landing-e-da-nova-tela-de-entrada--24-de-novembro-de-2026). A landing ganhou, entre as modalidades e "Como funciona", a **subida de elo**. É uma seção explicativa da progressão, com o sobretítulo "Progressão · cada modalidade tem o seu ranking".
+
+- **Com movimento:** a seção fica presa na tela por cinco telas de rolagem. O progresso vem do hook único de rolagem da landing (`useScrollProgress`), sem um segundo ouvinte, e escolhe o elo ativo:
+  - o brasão, o nome e o texto trocam por opacidade e deslocamento; os brasões são os SVGs de `web/public/images/brand/`;
+  - o fundo radial passa ao tom do elo, pelos tokens `--color-tier-*-tint`;
+  - o trilho vertical com os cinco nomes se preenche em dourado (`--color-legend`, por `transform: scaleY(--progresso)`).
+- **Com "reduzir movimento":** não há rolagem presa, trilho nem troca. Os cinco elos aparecem em sequência, cada um num cartão no seu tom.
+- **Explicativa:** nenhum elo é atribuído a uma pessoa, e não há rating, pontos nem posições.
+- **Acessibilidade:** os nomes e os textos ficam acessíveis a leitores de tela em qualquer posição da rolagem. Brasões, fundo e trilho são decorativos.
+- **Arquivos:** `web/src/components/landing/LandingClimb.tsx`, `web/src/data/landing.ts` (`landingClimb`), `web/src/pages/LandingPage.tsx` e a seção "Landing (web) · subida de elo" de `web/src/ui.css`.
+
+**Verificações:**
+- **Em `web/`, na árvore integrada com a correção do "Pular para conteúdo":**
+  - `npm run lint`: ok.
+  - `npm run build`: ok.
+  - `npm run test:coverage`: 1.351 de 1.352 testes passaram. A única falha é a de foco pré-existente em `tests/matchmaking.test.tsx`.
+- **No primeiro commit do worker:** 1.349 de 1.349, com 94,09% de instruções, 88,03% de ramos, 93,72% de funções e 96,9% de linhas, acima dos pisos.
+- **Testes novos:** 3, em `tests/landing-elo.test.tsx`. Eles cobrem os cinco elos e textos, inclusive sem `IntersectionObserver` e com movimento reduzido, e um único ouvinte de rolagem.
+- **Navegador:** Chromium headless contra a API real, com banco descartável, em 194 de 195 verificações. Foram conferidos em 320, 390 e 1440 px, nos temas Dia e Noite:
+  - a troca dos cinco elos ao rolar;
+  - o trilho igual ao progresso;
+  - o fundo no tom do elo ativo;
+  - o palco preso;
+  - a ausência de rolagem horizontal.
+
+  Com movimento, as capturas de Dia e Noite são idênticas. Com movimento reduzido, os estilos calculados são idênticos.
+  - A única falha foi uma comparação de pixels Dia × Noite com movimento reduzido. Ela variou de largura entre as execuções e não se repetiu nas capturas isoladas, por isso foi tratada como ruído de rasterização do texto.
+  - A árvore de acessibilidade é a mesma com e sem movimento.
+  - Não houve erros de console além do 401 esperado.
+
+**Limitações:**
+- A sensação da rolagem só foi conferida no Chromium headless.
+- O `100dvh` com a barra de endereço de navegadores móveis não foi conferido em aparelho.
+
+**Pendências:** a conferência de ponta a ponta da landing completa e a documentação final (ticket 07).
+
+## Correção do "Pular para conteúdo" na tela pública — 24 de novembro de 2026
+
+Segunda rodada do ticket 02 da [landing e nova tela de entrada](#plano-da-landing-e-da-nova-tela-de-entrada--24-de-novembro-de-2026), aberta pela verificação do portão (ticket 05).
+
+- **Defeito:** na entrada aberta pela landing, o "Pular para conteúdo" navegava para `#main`. Isso criava uma entrada no histórico com estado vazio. O `popstate` da tela pública tratava essa entrada como volta e mostrava a landing, com o endereço em `/#main`.
+- **Correção** (`web/src/App.tsx`): o link agora leva o foco por script ao `main#main` da tela atual. Ele usa `preventDefault` e acrescenta `tabindex="-1"` quando o `main` não o tem.
+  - A tela, o endereço e o histórico não mudam.
+  - O `href="#main"` continua para quem está sem JavaScript.
+  - O `main` com foco não ganha anel (`#main:focus` em `web/src/ui.css`).
+  - Vale para a landing, para a entrada (pela landing ou direta) e para o aplicativo.
+
+**Verificações:**
+- **Em `web/`, na árvore integrada com as seções e o portão:**
+  - `npm run lint`: ok.
+  - `npm run build`: ok.
+  - `npm run test:coverage`: 1.348 de 1.349 testes passaram. A única falha é a de foco pré-existente em `tests/matchmaking.test.tsx`.
+- **Testes novos:** 3, em `tests/skip-link.test.tsx`. Os três falhavam antes da correção.
+- **Navegador:** Playwright contra a API real, com banco descartável, em 9 de 9 verificações:
+  - landing;
+  - entrada pela landing, com portão e com movimento reduzido;
+  - entrada direta após falha de `/me`;
+  - aplicativo depois de entrar.
+
+  Os casos rodaram em 390 e 1440 px. Em todos, o foco foi ao `main`, a tela se manteve, o endereço e o histórico ficaram iguais, e o Voltar do navegador ainda leva à landing. Não houve erros de console além dos 401 esperados e da falha de rede provocada.
+
+**Limitação:** outro link de fragmento dentro da entrada ainda acionaria o retorno à landing pelo `popstate`. Hoje não existe nenhum.
+
+## Landing da web: modalidades, Como funciona e Mais da Arena — 24 de novembro de 2026
+
+Ticket 03 da [landing e nova tela de entrada](#plano-da-landing-e-da-nova-tela-de-entrada--24-de-novembro-de-2026). A landing ganhou as seções informativas entre o hero e o fecho, nesta ordem: modalidades, lugar reservado para a subida de elo (ticket 04), "Como funciona" e "Mais da Arena". A seta de rolagem do hero passou a levar às modalidades.
+
+- **Colunas expansíveis** (`web/src/components/landing/ExpandableColumns.tsx`), um único componente para as duas seções:
+  - colunas altas lado a lado, cada uma no seu tom;
+  - a primeira começa aberta, e só uma fica aberta por vez;
+  - abrem pelo mouse, pelo foco e pelo clique ou toque; passar o dedo sem tocar não abre;
+  - o título é um botão com `aria-expanded` e `aria-controls` que cobre a coluna, com o foco visível em volta dela;
+  - até 860 px, viram faixas empilhadas, com a aberta maior.
+- **Modalidades:** Futebol, Tênis e Corrida, com número, nome, descrição, etiquetas e o ícone de `SportIcon` em marca d'água. Número, nome e valor vêm de `sports`, e textos e tons vêm de `web/src/data/landing.ts`. Não há título visível: o `h2` existe só para leitores de tela.
+- **Como funciona:** quatro passos em verdes crescentes, com numerais romanos I–IV em SVG próprio. Os numerais têm serifas retas e traço dourado, ficam preenchidos na coluna aberta, são decorativos e ficam ocultos nas colunas recolhidas em telas estreitas.
+- **Mais da Arena:** sanfona com Times, Campeonatos, Comunidade e Privacidade, sinal +/− e o título aberto em menta.
+- **Revelação ao rolar** (`web/src/hooks/useLandingScroll.ts`): os blocos surgem com fade e deslocamento curto por `IntersectionObserver`. Sem `IntersectionObserver`, ou com "reduzir movimento", tudo fica visível de imediato e não há transição de abrir e fechar.
+- **Progresso para seções presas:** o mesmo hook expõe `useScrollProgress`, que grava o progresso de 0 a 1 em `--progresso`. Ele usa um único ouvinte de rolagem por `requestAnimationFrame`, ligado só enquanto houver seção registrada e removido ao sair da landing. A subida de elo vai usá-lo.
+- **Tokens e escopo:** novos tokens do bloco escuro em `web/src/ui.css` (tons das modalidades, verdes dos passos e base das colunas). Sem dados fictícios e sem mudança de API.
+
+**Verificações:**
+- **Em `web/`, na árvore integrada com o portão:**
+  - `npm run lint`: ok;
+  - `npm run build`: ok;
+  - `npm run test:coverage`: 1.345 de 1.346 testes passaram. A única falha é a de foco pré-existente em `tests/matchmaking.test.tsx`.
+- **Na rodada do worker:** 1.337 de 1.337, com 94,06% de instruções, 88,02% de ramos, 93,67% de funções e 96,87% de linhas, acima dos pisos.
+- **Testes:** 9 testes novos em `tests/landing-sections.test.tsx`. `tests/landing.test.tsx` foi ajustado para a seta levar às modalidades.
+- **Integração:** o cherry-pick conflitou só em `web/src/ui.css`, porque as seções do ticket 03 e do portão foram acrescentadas no mesmo ponto. O arquivo resolvido é o do ticket 03 seguido da seção do portão.
+- **Navegador:** Playwright contra a API real, com banco descartável, em 136 de 136 verificações, em 320, 390 e 1440 px, nos temas Dia e Noite:
+  - ordem das seções e seta até as modalidades;
+  - abertura por mouse, toque, Tab e clique, com uma aberta por vez e foco visível;
+  - numerais e menta da sanfona;
+  - revelação ao rolar e de novo ao voltar à landing;
+  - sem rolagem horizontal e sem erros no console;
+  - com "reduzir movimento", sem revelação nem transição, e telas Dia e Noite idênticas;
+  - sem `IntersectionObserver`, tudo visível.
+
+**Limitações:**
+- A sensação das animações só foi conferida no Chromium headless, sem aparelho nem Safari.
+- Com o mouse parado sobre as colunas durante a rolagem no desktop, a coluna sob o ponteiro abre, conforme o hover pedido.
+- A combinação com o portão foi validada pelos testes, não no navegador. A conferência ponta a ponta fica com o ticket 07.
+
+**Pendências:** a subida de elo (ticket 04), a correção do "Pular para conteúdo" (ticket 02) e a documentação final (ticket 07).
+
+## Portão da landing para a tela de entrada (web) — 24 de novembro de 2026
+
+Ticket 05 da [landing e nova tela de entrada](#plano-da-landing-e-da-nova-tela-de-entrada--24-de-novembro-de-2026).
+
+- **Sequência:** ao escolher "Entrar na Arena" ou "Crie sua conta" na landing, no hero ou no fecho, um portão se fecha sobre a página.
+  - Duas folhas forest, cada uma com metade do Coliseu em menta esmaecida, deslizam das laterais em 0,55 s, e o selo `arena.` aparece no centro.
+  - Com o portão fechado, por volta de 0,88 s, a tela de entrada substitui a landing no modo escolhido.
+  - As folhas se abrem em 0,85 s, e o portão some por volta de 2,1 s. Ao terminar, o foco vai ao primeiro campo.
+- **Durante o portão:** a página fica inerte (`inert`), o ponteiro cai no portão e as teclas sem modificador não agem. Cliques repetidos não iniciam outra sequência.
+- **Histórico:** segue o ticket 02, com uma entrada por abertura e o endereço em `/`. O Voltar do navegador no meio do portão interrompe a sequência e mostra a landing.
+- **Sem portão:**
+  - com "reduzir movimento", a troca é direta e o foco vai ao primeiro campo;
+  - no retorno à landing, por "← Voltar para o início" ou pelo Voltar/Avançar do navegador;
+  - nos atalhos diretos: sessão expirada, falha de `/me` e convite pendente.
+- **Acessibilidade e tema:** o portão é decorativo (`aria-hidden`), escuro por design e igual em Dia e Noite. Ele só existe durante a sequência e não deixa conteúdo focável ou oculto.
+- **Código:**
+  - `web/src/components/landing/Gate.tsx`;
+  - `web/src/hooks/useGate.ts`, com temporizadores limpos ao desmontar;
+  - `web/src/pages/PublicScreen.tsx`;
+  - a seção "Landing (web) · portão" de `web/src/ui.css`.
+
+**Verificações** (em `web/`, na árvore integrada):
+- `npm run lint`: ok.
+- `npm run build`: ok.
+- `npm run test:coverage`: 1.336 de 1.337 testes passaram.
+  - A única falha é a de foco pré-existente em `tests/matchmaking.test.tsx`.
+  - Na rodada final do worker, passaram 1.337 de 1.337, com 94,03% de instruções, 88,02% de ramos, 93,62% de funções e 96,84% de linhas, acima dos pisos.
+- **Testes:** 9 testes novos em `tests/landing-gate.test.tsx`, com temporizadores falsos. Em `tests/landing.test.tsx`, o grupo "landing sem sessão" passou a simular movimento reduzido, porque dois testes exigiam o foco logo após o clique. Nenhuma asserção foi removida.
+- **Navegador:** Playwright contra a API real, com banco descartável, em 22 de 22 verificações:
+  - portão a partir do hero e do fecho, nos dois modos, em 320, 390 e 1440 px, nos temas Dia e Noite, sem rolagem horizontal;
+  - quadros no meio da sequência, com o portão fechado idêntico em Dia e Noite;
+  - cliques repetidos e teclado durante o portão;
+  - foco ao fim;
+  - movimento reduzido;
+  - Voltar, sessão expirada, convite e falha de `/me`, todos sem portão.
+
+  Não houve erros de console além dos 401 esperados.
+
+**Limitações:**
+- As durações seguem o protótipo e ainda podem ser afinadas.
+- A roda do mouse ainda rola a página por baixo do portão. É inofensivo, porque a troca leva a página ao topo.
+- A animação foi conferida só no Chromium headless.
+
+**Pendências:** a verificação do portão encontrou um defeito do ticket 02. Na entrada aberta pela landing, "Pular para conteúdo" navega para `#main`, o que dispara `popstate` sem estado e volta à landing. A correção cabe ao ticket 02.
+
+## Landing da web e navegação entre landing e entrada — 24 de novembro de 2026
+
+Ticket 02 da [landing e nova tela de entrada](#plano-da-landing-e-da-nova-tela-de-entrada--24-de-novembro-de-2026). Quem abre a web sem sessão e sem contexto vê a landing "Estádio à noite", escura por design nos dois temas.
+
+- **Cabeçalho:** só a marca `arena.`.
+- **Hero em tela cheia:**
+  - refletores, brilho do gramado e arco do campo, decorativos e ocultos para leitores de tela;
+  - "A arena te chama", com "arena" em menta, e o texto de apoio;
+  - "Entrar na Arena" e "Primeira vez por aqui? Crie sua conta →", com a seta deslizando no hover e no foco;
+  - entrada escalonada;
+  - seta de rolagem fina com balanço, que por ora rola até o fecho.
+- **Fecho e rodapé:** o fecho "Os portões estão abertos." repete o mesmo par de botão e convite. O rodapé traz a marca e "Futebol, tênis e corrida amadores.".
+- **Pontos de entrada e textos:** a landing tem exatamente dois "Entrar na Arena". Os textos ficam em `web/src/data/landing.ts`, junto do mapeamento de modalidades.
+- **Contêiner da tela pública** (`web/src/pages/PublicScreen.tsx`): decide entre a landing e a tela de entrada.
+  - "Entrar na Arena" abre a entrada no modo Entrar, e "Crie sua conta", no modo Criar conta. Nos dois casos, o foco vai ao primeiro campo e aparece "← Voltar para o início".
+  - A abertura faz `pushState` com estado próprio, sem mudar o endereço, que continua em `/`. O Voltar do navegador e o botão retornam à landing.
+  - Sessão expirada, falha da leitura inicial de `/me` e convite de time pendente abrem a entrada direto, com os avisos atuais, sem landing e sem empurrar histórico.
+  - A limpeza de `/entrar/{token}` e a abertura do convite depois do login não mudaram.
+  - A entrada aberta pela landing continua aberta depois de "Tentar conexão novamente". Ao entrar, a marca de histórico é descartada.
+- **Movimento reduzido:** não há entrada animada, balanço da seta nem rolagem suave.
+- **Sem mudanças de rede ou contrato:** nenhuma requisição nova além de `/me`, e nenhuma mudança de backend, contrato ou sessão.
+
+**Verificações** (em `web/`, na árvore integrada):
+- `npm run lint`: ok.
+- `npm run build`: ok, só com o aviso antigo de chunk maior que 500 kB.
+- `npm run test:coverage`: 1.328 de 1.328 testes, em 94 arquivos. Cobertura de 94,01% de instruções, 88,02% de ramos, 93,58% de funções e 96,83% de linhas, acima dos pisos.
+- **Falhas intermitentes nas execuções do worker**, uma vez cada:
+  - a falha de foco já conhecida de `tests/matchmaking.test.tsx`;
+  - um timeout sob carga em `tests/notifications-feed.test.tsx`, que passou nas três execuções isoladas.
+- **Testes:** 9 testes novos em `tests/landing.test.tsx`. Em `tests/authentication.test.tsx`, os três testes que renderizam o `App` sem sessão foram adaptados ao passo pela landing.
+- **Navegador:** Playwright contra a API real, com banco descartável, em 59 de 59 verificações:
+  - landing → entrada nos dois modos → Voltar, pelo botão e pelo navegador, com o endereço em `/`;
+  - sessão expirada real e falha de `/me` abrindo direto a entrada;
+  - link real de convite `/entrar/{token}` abrindo direto a entrada, com o convite aberto depois do login;
+  - login mantido ao recarregar;
+  - 320, 390 e 1440 px nos temas Dia e Noite, sem rolagem horizontal, e landing idêntica nos dois temas;
+  - movimento reduzido;
+  - foco e seta do "Crie sua conta".
+
+  Não houve erros de console além dos 401 esperados de `GET /me` sem sessão.
+
+**Limitações:**
+- Depois de entrar pela landing, um Voltar do navegador passa pela entrada anterior da landing sem mudança visível. Isso é inerente ao `pushState` sem roteador.
+- Ao voltar à landing, o foco não é movido nem a posição de rolagem é restaurada.
+
+**Pendências:** os tickets 03, 04, 05 e 07, além da falha de foco pré-existente em `tests/matchmaking.test.tsx`.
+
+## Web: tela de entrada Dividida — 24 de novembro de 2026
+
+Ticket 01 da [landing e nova tela de entrada](#plano-da-landing-e-da-nova-tela-de-entrada--24-de-novembro-de-2026). A tela de entrada da web troca o cartão estreito pela **Dividida**, escura por design nos dois temas. Ainda não há landing: sem sessão, o `App` continua abrindo a entrada direto.
+
+- **Metade da marca** (`web/src/components/auth/AuthBrand.tsx`): degradê radial forest, a marca `arena.` e o Coliseu dourado esmaecido, decorativo e oculto para leitores de tela. O título é "A arena te chama" no modo Entrar e "Sua trajetória começa aqui" no modo Criar conta, com o destaque em menta, seguido de "Futebol, tênis e corrida amadores.". Até 860 px, a metade vira uma faixa no topo.
+- **Metade do formulário**, sem cartão:
+  - "Bem-vindo à Arena", "Bom ter você aqui" ou "Comece sua jornada" e o subtítulo de cada modo;
+  - seletor Entrar | Criar conta, com `aria-pressed` e o ativo em dourado;
+  - botões "Entrar na Arena" e "Criar minha conta", com "Aguarde…" durante o envio;
+  - nota de privacidade.
+- **Avisos e erros:** a sessão expirada aparece no estilo de aviso (novo tom `warning` em `feedbackVariants`), e a falha de conexão mostra "Tentar conexão novamente". Os erros do servidor ficam no formulário. O login recusado (401) marca e-mail e senha como inválidos. A falha de conexão no envio continua aparecendo uma vez só. O cadastro volta ao modo Entrar com o toast "Conta criada.".
+- **Data de nascimento:** usa o `DatePicker` do shadcn no tom escuro, com mês e ano por listas.
+  - Sem data escolhida, o calendário abre no mês atual de 18 anos atrás, e o último dia permitido é hoje.
+  - A ajuda dos 18 anos fica associada ao campo.
+  - Sem data, o envio é bloqueado e o campo mostra "Informe a data de nascimento.".
+  - `birth_date` continua `YYYY-MM-DD`, e a idade mínima continua sendo regra do servidor.
+- **`DatePicker`:** ganhou as props opcionais `captionLayout`, `defaultMonth` e `popupClassName`. Os usos atuais não mudaram.
+- **Tokens:** `web/src/ui.css` ganhou a classe `.escuro-por-design`, que aplica os valores do escuro e a variante `noite:` nos dois temas. Ganhou também os tokens `on-legend`, `forest-glow` e `forest-deep`, a animação `side-in` e a variante `entrada-estreita:` (até 860 px).
+- Sem mudança de backend, contrato, cookie ou armazenamento de token.
+
+**Verificações** (em `web/`, na árvore integrada):
+- `npm run lint`: ok.
+- `npm run build`: ok, só com o aviso antigo de chunk maior que 500 kB.
+- `npm run test:coverage`: 1.318 de 1.319 testes passaram.
+  - A única falha é a de foco em `tests/matchmaking.test.tsx` ("prepara a busca com vagas…"), já registrada nas correções do PR #6. Ela também falhou nas três execuções isoladas na base `b4aa00d`, sem esta entrega.
+  - Na execução completa do worker que passou em 1.319 de 1.319, a cobertura ficou em 93,95% de instruções, 87,96% de ramos, 93,54% de funções e 96,79% de linhas, acima dos pisos. `AuthPage.tsx` ficou com 100% de linhas.
+- **Testes novos:** cadastro sem data, calendário no mês de 18 anos atrás, recusa do servidor ao menor de idade, seletor com `aria-pressed`, campos de credencial inválidos e as listas de mês e ano do `DatePicker`.
+- **Testes ajustados aos novos nomes:** `tests/authentication.test.tsx` (agora com a data escolhida pelo `DatePicker`) e `tests/join-page.test.tsx`.
+- **Navegador:** Playwright, contra a API real, com banco descartável. Foram conferidos:
+  - entrar e recarregar com a sessão mantida;
+  - criar conta pelo seletor de data, com `birth_date` gravado e sem autenticação implícita;
+  - cadastro sem data, sem pedido à API;
+  - credenciais inválidas;
+  - sessão expirada real;
+  - falha de `/me` com nova tentativa;
+  - foco com o token do escuro e "Pular para conteúdo".
+
+  Não houve rolagem horizontal em 320, 390 e 1440 px. As capturas Dia e Noite saíram idênticas byte a byte, também com o calendário aberto. O console não teve erros de JavaScript.
+- **Contraste**, por cálculo:
+  - ink-muted: 6,6:1;
+  - subtítulo sobre a faixa: cerca de 5,9:1;
+  - texto sobre o dourado: 13,8:1;
+  - foco: 9,4:1.
+
+**Limitações:** a landing, o portão, "← Voltar para o início" e o histórico ainda não existem (tickets 02 e 05). A decisão 0004 e a fidelidade visual ainda não citam a entrada como tela escura por design (ticket 07).
+
+**Pendências:** os tickets 02 a 05 e 07 da landing. Também falta investigar a falha de foco pré-existente em `tests/matchmaking.test.tsx`.
+
+## Expo: tela de entrada Dividida estreita — 24 de novembro de 2026
+
+Ticket 06 da [landing e nova tela de entrada](#plano-da-landing-e-da-nova-tela-de-entrada--24-de-novembro-de-2026). A tela de entrada do Expo adota a versão estreita da Dividida. Ela é escura por design e igual nos temas Dia e Noite, sem landing e sem portão.
+
+- **Faixa da marca** (`mobile/src/components/auth/AuthBrandBand.tsx`): fundo forest com brilho verde no topo, `ArenaMark` e `arena.` com o ponto menta e o Coliseu dourado esmaecido, decorativo e oculto para acessibilidade. O título acompanha o modo: "A arena te chama" ou "Sua trajetória começa aqui", com o destaque em menta. Abaixo dele vem "Futebol, tênis e corrida amadores.". A faixa sobe por baixo da barra de status, que fica clara.
+- **Formulário** (`mobile/src/screens/AuthScreen.tsx`):
+  - "Bem-vindo à Arena", "Bom ter você aqui" ou "Comece sua jornada" e o subtítulo do modo;
+  - seletor Entrar | Criar conta, com o ativo em dourado e o estado `selected` exposto, no lugar do antigo botão secundário;
+  - campos escuros (`FormField`);
+  - botão "Entrar na Arena" ou "Criar minha conta", com "Aguarde…";
+  - nota de privacidade.
+
+  A data de nascimento continua em DD/MM/AAAA, com a ajuda "A Arena é para pessoas com 18 anos completos ou mais." associada ao campo.
+- **Avisos:** a sessão expirada e a falha de conexão com "Tentar novamente" continuam vindo do `App`, agora dentro do formulário (prop `notice`). Os erros de credencial ficam no formulário. O cadastro volta ao modo Entrar com o toast, sem autenticar.
+- Bearer, SecureStore e os contratos da API não mudaram.
+
+**Verificações** (em `mobile/`, na árvore integrada): `npm run lint` e `npm run typecheck` sem erros. `npm run test:coverage` passou em 109 arquivos e 1.673 testes, com 96,56% de instruções, 91,01% de ramos, 95,9% de funções e 98,5% de linhas, acima dos pisos. `npm run export:android` gerou o bundle Android. Foram atualizados `tests/auth-screen.test.ts` (novos textos, seletor, envio e erros) e o sósia do `AuthScreen` em `tests/app-join-link.test.ts` (avisos pelo `notice`).
+
+**Limitações:**
+- Não houve validação em aparelho, simulador ou Expo web. O build não comprova o funcionamento em Android ou iOS.
+- O aviso de sessão expirada do Expo mantém o texto atual ("Entre novamente."), sem o "para continuar" da web.
+- O estado de carregamento, antes da leitura de `/me`, continua seguindo o tema.
+- Os campos de credencial não ficam marcados como inválidos no Expo, porque o ticket não pede isso.
+
+**Pendências:** conferir em aparelho a faixa sob a barra de status, o teclado e as telas pequenas. O registro em `docs/fidelidade-figma.md` e na decisão 0004 fica com o ticket 07.
+
+## Plano da landing e da nova tela de entrada — 24 de novembro de 2026
+
+A tela de entrada foi redesenhada numa sessão de protótipos com seis rodadas. As rodadas trataram do conceito, da rolagem, das modalidades, de "Como funciona" e "Mais da Arena", dos numerais e do "criar conta", e da tela depois do portão. A especificação de trabalho está em `.scratch/landing-entrada/spec.md`, e o protótipo de referência, em `artifacts/login-prototipos/index-final.html`. Nenhum dos dois é versionado.
+
+- **Web:** a landing é escura por design e segue esta ordem:
+  - hero "A arena te chama", com o botão "Entrar na Arena" e "Primeira vez por aqui? Crie sua conta →" abaixo;
+  - modalidades em colunas expansíveis;
+  - subida de elo do Bronze ao Lendário;
+  - "Como funciona" em colunas com numerais romanos I–IV;
+  - "Mais da Arena" em sanfona;
+  - fecho "Os portões estão abertos.".
+
+  O botão fecha um portão animado e o abre na tela de entrada Dividida, com o Coliseu dourado de um lado e o formulário do outro. A data de nascimento passa a usar o `DatePicker` do shadcn, com navegação de mês e ano. Sessão expirada, falha de conexão e convite de time abrem a entrada direto. O Voltar do navegador retorna à landing.
+- **Expo:** só a Dividida estreita, com uma faixa da marca no topo. Não há landing nem portão, e a data continua no campo DD/MM/AAAA.
+- **Sem mudança de backend, contrato ou migração.** Nesta data, o código ainda não tinha sido alterado. A implementação está registrada no [fechamento](#fechamento-da-landing-e-da-nova-tela-de-entrada--24-de-novembro-de-2026).
+
+**Verificações:** só documentação. Conferi o fluxo atual de entrada no `App` e no `AuthPage` da web, o `AuthScreen` do Expo, o `DatePicker` e o Calendar existentes e os testes de autenticação dos dois clientes. Nenhum teste de código foi executado, porque nada no código mudou.
+
+## Novas capturas de tela da web com dados de demonstração — 24 de novembro de 2026
+
+Refeitas com Playwright as capturas da [seção de 22/11](#capturas-de-tela-da-web-com-dados-de-demonstração--22-de-novembro-de-2026), agora com o novo Início, a tela de modalidades e o ranking por rating. Nenhum código, contrato, esquema ou dependência do projeto mudou. São 50 PNG de 1170 × 2532 px (viewport de 390 × 844 com DPR 3, `pt-BR`, fuso de São Paulo) em `artifacts/prints-demo-2026-11-24/`. As capturas de 22/11 continuam em `artifacts/prints-demo/`. O seed e o roteiro ficam em `.local/demo/`. Nada disso é versionado.
+
+**Ambiente:** o mesmo da rodada anterior, só com recursos de demonstração. O banco `arena_demo` foi recriado por `reset-and-seed.sh` e migrado até a `0017`. Bucket `arena-media-demo`, API na porta 8020 (com `ALLOWED_ORIGINS` só para a 5190) e web na 5190. Os servidores foram encerrados ao final. O banco `arena` e o bucket `arena-media` não foram alterados.
+
+**Dados:** o seed de 22/11 rodou sem mudanças. Ele cria 22 contas em Brasília (código IBGE 5300108, válido no catálogo nacional), 6 times, 12 posts, 31 marcas de corrida e 4 eventos pela API. Pelos modelos, entram 27 jogos de futebol e 85 de tênis com placar confirmado e duas partidas agendadas. O recálculo usou a `calc_version` 2, então futebol · time e tênis aparecem com rating, e o futebol · individual com a média ajustada.
+
+**Telas:** as 38 do roteiro anterior (Início com Placar, Para responder, Seu elo e Campeonatos; Ranking das três modalidades com rating; Jogar; resultado e partida agendada; campeonatos; Comunidade; perfil; Menu; Meus times; organizadora e administração). Também 12 novas, nos temas claro e escuro: folha de categoria e Ranking do futebol · individual (Society 7×7, Meio de campo) e "Suas modalidades" com a folha passo a passo do futebol (cidade, posição e revisão). A folha foi fechada sem salvar e a geolocalização foi simulada em Brasília.
+
+**Verificações:** o roteiro terminou sem falhas, e todas as capturas foram conferidas visualmente em folhas de contato. Não houve testes de código, porque não houve mudança de código.
+
+**Limitações:**
+- Valem as mesmas da rodada anterior: o histórico de partidas foi inserido sem o fluxo de busca, proposta e placar, as fotos são cartazes gerados e o Expo não foi capturado.
+- O perfil já tinha cidade, então o passo da cidade mostra "Escolhida por você" em vez da sugestão pela localização.
+- No futebol · individual, só Lucas está classificado como Meio de campo, então a lista tem um atleta.
+
 ## Correções da revisão do PR #6 — 23 de novembro de 2026
 
 - Clientes anteriores à busca nacional continuam recebendo as seis cidades originais em `GET /cities` sem parâmetros. Na busca nacional, a UF exata tem prioridade antes do limite de 20 resultados.

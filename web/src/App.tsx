@@ -1,13 +1,28 @@
 import { useCallback, useEffect, useState } from 'react'
+import type { MouseEvent } from 'react'
 import { ApiError, request } from './api/client'
 import type { User } from './api/client'
-import AuthPage from './pages/AuthPage'
 import ArenaPage from './pages/ArenaPage'
+import PublicScreen from './pages/PublicScreen'
 import { clearJoinPath, joinTokenFrom } from './utils/joinLink'
+
+/*
+ * "Pular para conteúdo" leva o foco ao `main#main` da tela atual sem navegar pelo fragmento: a navegação para `#main`
+ * criaria uma entrada no histórico, com estado vazio, e o `popstate` da tela pública trocaria a entrada pela landing.
+ * O `href` continua `#main` para quem abre o link sem JavaScript.
+ */
+function skipToMain(event: MouseEvent<HTMLAnchorElement>) {
+  const main = document.getElementById('main')
+  if (!main) return
+  event.preventDefault()
+  if (!main.hasAttribute('tabindex')) main.setAttribute('tabindex', '-1')
+  main.focus()
+}
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
+  // Sem sessão, a tela pública (`PublicScreen`) mostra a landing ou, nestes sinais e no convite pendente, a entrada direto.
   // Dois estados distintos na tela de entrada: a leitura de `/me` falhou (com "Tentar conexão novamente") e a sessão expirou.
   const [bootError, setBootError] = useState('')
   const [sessionExpired, setSessionExpired] = useState(false)
@@ -46,6 +61,7 @@ export default function App() {
       <a
         className="absolute -top-20 left-5 z-skip-link rounded-[8px] bg-sheet p-3.5 underline focus:top-2.5"
         href="#main"
+        onClick={skipToMain}
       >
         Pular para conteúdo
       </a>
@@ -63,7 +79,8 @@ export default function App() {
           onJoinOpened={joinOpened}
         />
       ) : (
-        <AuthPage
+        <PublicScreen
+          joinPending={joinToken !== null}
           onLogin={(value) => {
             setUser(value)
             setBootError('')

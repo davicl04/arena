@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -157,16 +159,36 @@ describe('tema', () => {
     expect(root.dataset.theme).toBe('dark')
   })
 
-  it('o ícone de esporte vira máscara no escuro', () => {
+  it('o selo de modalidade é vetorial e muda de cor com o tema pelos tokens, sem PNG e sem renderizar de novo', () => {
     vi.stubGlobal('matchMedia', fakeMedia(false).matchMedia)
-    const { container } = render(<span className="aria-pressed:bg-brand"><SportIcon sport="tenis" size={20} /></span>)
+    // Os valores dos tokens do selo como `ui.css` os define no claro (`@theme`) e no escuro (o bloco do tema escuro).
+    const css = readFileSync(join(process.cwd(), 'src', 'ui.css'), 'utf8')
+    const token = (block: string, name: string) => block.match(new RegExp(`--color-${name}:\\s*([^;]+);`))?.[1].trim()
+    const darkStart = css.indexOf(':root[data-theme="dark"],\n.escuro-por-design {')
+    const light = css.slice(css.indexOf('@theme static'), darkStart)
+    const dark = css.slice(darkStart)
+    const style = document.createElement('style')
+    style.textContent = `:root { --color-selo-disco: ${token(light, 'selo-disco')}; --color-selo-detalhe: ${token(light, 'selo-detalhe')}; }
+      :root[data-theme="dark"] { --color-selo-disco: ${token(dark, 'selo-disco')}; --color-selo-detalhe: ${token(dark, 'selo-detalhe')}; }`
+    document.head.append(style)
+    const { container } = render(<SportIcon sport="tenis" forma="selo" size={30} />)
+    const icon = container.querySelector<SVGElement>('[data-slot="sport-icon"]')!
+    const colors = () => {
+      const computed = getComputedStyle(icon)
+      return [computed.getPropertyValue('--color-selo-disco').trim(), computed.getPropertyValue('--color-selo-detalhe').trim()]
+    }
     act(() => themeStore().setPreference('light'))
-    expect(container.querySelector('img')?.getAttribute('src')).toBe('/images/sports/tenis.png')
+    const markup = container.innerHTML
+    expect(colors()).toEqual(['#153a2b', '#fff'])
     act(() => themeStore().setPreference('dark'))
+    expect(colors()).toEqual(['#16201b', '#f4de9a'])
+    // A cor vem só do CSS: o SVG é o mesmo nos dois temas (nada a trocar depois da pintura) e não há PNG nem máscara.
+    expect(container.innerHTML).toBe(markup)
+    expect(icon.querySelector('circle')?.getAttribute('class')).toContain('fill-selo-disco')
+    expect(icon.querySelector('g')?.getAttribute('class')).toContain('fill-selo-detalhe')
     expect(container.querySelector('img')).toBeNull()
-    const icon = container.querySelector<HTMLElement>('[data-slot="sport-icon"]')!
-    expect(icon.style.mask).toContain('/images/sports/tenis-alfa.png')
-    expect(icon.style.filter).toBe('none')
+    expect(markup).not.toMatch(/\.png|mask/)
+    style.remove()
     act(() => themeStore().setPreference('system'))
   })
 })

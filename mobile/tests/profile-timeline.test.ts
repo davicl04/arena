@@ -236,6 +236,11 @@ describe('MatchTimeline: a aba Partidas', () => {
     expect(find(tree, 'duel-card')).toHaveLength(2)
     expect(find(tree, 'run-duel-card')).toHaveLength(1)
     expect(find(tree, 'timeline-rail')).toHaveLength(1)
+    // Cada nó do trilho traz o selo da modalidade no ladrilho redondo (26 pt dentro do aro de 30), sem PNG.
+    expect(find(tree, 'selo-tile-futebol')).toHaveLength(2)
+    expect(find(tree, 'selo-tile-corrida')).toHaveLength(1)
+    expect(find(tree, 'selo-tile-corrida')[0].props.style).toMatchObject({ width: 26, borderRadius: 13 })
+    expect(find(tree, 'sport-icon-corrida')[0].findAllByType('Circle' as never)).toHaveLength(1)
     expect(tree.root.findAllByType('FlatList' as never)).toHaveLength(0)
     await act(async () => { find(tree, 'duel-card')[1].props.onPress() })
     expect(onOpenMatch).toHaveBeenCalledWith(3)

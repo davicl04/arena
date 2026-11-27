@@ -7,7 +7,8 @@ import type { EventCard, MyEntry } from "../api/entries";
 import { EventPoster } from "../components/events/EventPoster";
 import { StateBadge } from "../components/events/StateBadge";
 import { isLocked } from "../components/events/entryCta";
-import { entryState, eventNoun, sportIcons } from "../data/arena";
+import SportIcon from "../components/SportIcon";
+import { entryState, eventNoun } from "../data/arena";
 import { usePagedList } from "../hooks/usePagedList";
 import { Button } from "@/components/ui/button";
 import { Chip } from "@/components/ui/chip";
@@ -176,10 +177,10 @@ export default function EventsPage({ sport, profiles, loading, onSport, onOpen, 
     <div className="min-w-0">
       <div className="mb-3 flex flex-wrap gap-[7px]" role="group" aria-label="Modalidade">
         {sports.map((item) => {
-          const Icon = sportIcons[item.value];
+          const active = sport === item.value;
           return (
-            <Chip key={item.value} aria-pressed={sport === item.value} onClick={() => onSport(item.value)}>
-              <Icon size={15} />
+            <Chip key={item.value} aria-pressed={active} onClick={() => onSport(item.value)}>
+              {active && <SportIcon sport={item.value} forma="aro" size={20} />}
               {item.label}
             </Chip>
           );
