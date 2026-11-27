@@ -1,5 +1,29 @@
 # Situação da fundação do Arena
 
+## Revisão dos textos da landing (web) — 26 de novembro de 2026
+
+Ajuste de textos a pedido do usuário, a partir do documento "ARENA - Textos" (seções 3 a 7, a landing). A entrega é só de frontend web e não completa o MVP.
+
+- **O que mudou** (textos centralizados em `web/src/data/landing.ts`):
+  - **Hero:** subtítulo "Adversários do seu nível, na sua cidade. Times, campeonatos e um ranking para cada modalidade.", sem repetir "a arena" do título.
+  - **Assinatura da marca:** "O esporte amador da sua cidade.", sem número fixo de modalidades. A mesma constante aparece no rodapé da landing e na metade da marca da tela de entrada (web).
+  - **Modalidades:** novos textos de futebol ("convoque os amigos"), tênis ("Duelos de simples") e corrida ("conquiste cada distância"); a etiqueta "Rating" do tênis virou "Pontos".
+  - **Subida de elo:** sobretítulo "Sua ascensão · um ranking para cada modalidade" e novos textos dos cinco níveis, ligados à reconstrução do Coliseu, sem "ruínas" nem "primeiro elo".
+  - **Como funciona:** "Cruze os portões", "Escolha suas modalidades", "Toque em Jogar" e "Sele o resultado", com os textos novos. O rótulo visível "Passo 01" saiu e fica só o numeral romano; "Passo n" continua no nome acessível do botão (`kickerHidden` em `ExpandableColumns`), para o passo I não se confundir com os convites de entrada.
+  - **Mais da Arena:** Times ("Reúna a sua turma"), Campeonatos ("Dispute torneios e ligas da sua cidade") e Comunidade ("faça alianças com outros atletas", sem "siga"). Privacidade e o fecho ficaram iguais.
+  - **CSS:** os títulos dos passos ganharam `hyphens: auto`, porque "modalidades" era cortado na coluna fechada a 1440 px; agora quebra com hífen.
+- Foram adotadas as propostas do documento nos itens ainda em aberto com os sócios: "Sele o resultado" (alternativa: "Confirme o resultado") e "louros" para o cartão de desempenho. Se mudarem, os textos estão em `web/src/data/landing.ts`.
+
+**Verificações:**
+- `web/`: `npm run lint` e `npm run build`: ok. `npm run test:coverage`: 1.384 de 1.384 testes, em 102 arquivos. Testes da landing (`landing`, `landing-elo`, `landing-sections`) atualizados com os textos novos e o nome acessível "Passo n".
+- **Navegador:** Playwright (Chromium) com o servidor Vite e `/me` respondendo 401, sem backend: "Como funciona" conferida em 1440 px (claro), 390 px (escuro) e 320 px (claro), sem overflow horizontal. Medição do título nas colunas fechadas entre 880 e 1920 px: nenhum título de passo é cortado.
+
+**Limitações e pendências:**
+- As seções 8 (cadastro e login) e 9 (Início) do documento não foram aplicadas nesta entrega.
+- O Expo (`mobile/src/components/auth/AuthBrandBand.tsx`) ainda mostra "Futebol, tênis e corrida amadores.".
+- Pré-existente: o nome "Corrida" continua cortado na coluna fechada das modalidades entre 880 e 1280 px.
+- A hifenização depende do suporte do navegador ao português; sem ele, a palavra volta a ser cortada.
+
 ## Orientação dos selos no AGENTS.md — 26 de novembro de 2026
 
 Ajuste de documentação a pedido do usuário, incluído no PR dos selos de modalidade.

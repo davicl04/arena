@@ -752,7 +752,8 @@
     color: var(--color-info-soft);
   }
   .landing-coluna-titulo { margin: 8px 0 0; font-size: clamp(34px, 4.6vw, 64px); line-height: 1; letter-spacing: -0.03em; }
-  .landing-colunas[data-variante="passos"] .landing-coluna-titulo { font-size: clamp(24px, 2.6vw, 38px); line-height: 1.1; }
+  /* Nos passos, palavra longa ("modalidades") quebra com hífen na coluna fechada, em vez de ser cortada. */
+  .landing-colunas[data-variante="passos"] .landing-coluna-titulo { font-size: clamp(24px, 2.6vw, 38px); line-height: 1.1; hyphens: auto; }
   /* O botão do título cobre a coluna inteira; o foco visível fica em volta da coluna. */
   .landing-coluna-botao,
   .landing-sanfona-botao {

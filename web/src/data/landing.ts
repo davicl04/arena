@@ -7,12 +7,12 @@ import type { Sport } from '@/api/client'
 import type { TierKey } from '@/data/arena'
 
 /** Assinatura da marca: rodapé da landing e metade da marca da tela de entrada. */
-export const arenaTagline = 'Futebol, tênis e corrida amadores.'
+export const arenaTagline = 'O esporte amador da sua cidade.'
 
 /** Hero "Estádio à noite": título com o trecho em menta, texto de apoio e rótulo da seta de rolagem. */
 export const landingHero = {
   title: { before: 'A ', highlight: 'arena', after: ' te chama' },
-  lede: 'A arena do esporte amador: partidas do seu nível na sua cidade, times, campeonatos e um ranking para cada modalidade.',
+  lede: 'Adversários do seu nível, na sua cidade. Times, campeonatos e um ranking para cada modalidade.',
   scrollLabel: 'Rolar para o conteúdo',
 } as const
 
@@ -41,34 +41,34 @@ export const landingSectionTitles = {
 /** Modalidades em colunas: o número, o nome e o valor vêm de `sports` (api/client); aqui, a descrição, as etiquetas e o tom. */
 export const landingSportDetails: Record<Sport, { description: string; tags: readonly string[]; tone: string }> = {
   futebol: {
-    description: 'Monte o seu time e convide amigos, ou entre avulso numa partida aberta.',
+    description: 'Monte seu time e convoque os amigos, ou entre avulso numa partida aberta.',
     tags: ['Society', 'Campo', 'Futsal'],
     tone: 'var(--color-sport-futebol-tint)',
   },
   tenis: {
-    description: 'Partidas de simples com placar por sets, confirmado pelos dois lados.',
-    tags: ['Simples', 'Sets', 'Rating'],
+    description: 'Duelos de simples, com placar por sets confirmado pelos dois lados.',
+    tags: ['Simples', 'Sets', 'Pontos'],
     tone: 'var(--color-sport-tenis-tint)',
   },
   corrida: {
-    description: 'Registre as suas marcas e se inscreva nas provas da sua cidade.',
+    description: 'Registre suas marcas, inscreva-se nas provas da sua cidade e conquiste cada distância.',
     tags: ['Marcas', 'Provas', 'Distâncias'],
     tone: 'var(--color-sport-corrida-tint)',
   },
 }
 
 /*
- * Subida de elo, entre as modalidades e "Como funciona": explicativa, sem atribuir elo a ninguém e sem rating, pontos
- * ou posições. Os nomes, os brasões e os tons dos elos vêm de `arena.ts` (`tiers`, `tierOrder`, `tierTints`).
+ * Subida de elo, entre as modalidades e "Como funciona": explicativa, sem atribuir elo a ninguém e sem valores de
+ * pontos ou posições. Os nomes, os brasões e os tons dos elos vêm de `arena.ts` (`tiers`, `tierOrder`, `tierTints`).
  */
 export const landingClimb = {
-  eyebrow: 'Progressão · cada modalidade tem o seu ranking',
+  eyebrow: 'Sua ascensão · um ranking para cada modalidade',
   texts: {
-    bronze: 'Toda trajetória começa aqui. Depois de 3 partidas, você recebe o primeiro elo.',
-    prata: 'Resultados confirmados pelos dois lados fazem o seu rating subir.',
-    ouro: 'Adversários do seu nível, na sua cidade, a cada partida.',
-    diamante: 'Poucos chegam. Cada modalidade tem o seu próprio ranking.',
-    lendario: 'O topo da arena e um lugar no Salão dos Lendários.',
+    bronze: 'Toda lenda começa na primeira partida. Depois de 3, a arena define o seu nível inicial.',
+    prata: 'Cada vitória confirmada pelos dois lados reergue mais um pedaço do seu Coliseu.',
+    ouro: 'O Coliseu quase inteiro. Rivais à altura, na sua cidade, a cada partida.',
+    diamante: 'Poucos chegam aqui. O Coliseu está de pé e a torcida sabe o seu nome.',
+    lendario: 'O topo da arena. Seu nome gravado no Salão dos Lendários.',
   } satisfies Record<TierKey, string>,
 } as const
 
@@ -76,37 +76,40 @@ export const landingClimb = {
 export const landingSteps = [
   {
     numeral: 1,
-    title: 'Crie sua conta',
-    text: 'E-mail e senha. A Arena é para pessoas com 18 anos ou mais.',
+    title: 'Cruze os portões',
+    text: 'Crie sua conta com e-mail e senha. A entrada é só para maiores de 18 anos.',
     tone: 'var(--color-step-1-tint)',
   },
   {
     numeral: 2,
-    title: 'Monte seus perfis',
-    text: 'Um perfil por modalidade, com a sua cidade e o seu jeito de jogar.',
+    title: 'Escolha suas modalidades',
+    text: 'Um perfil para cada esporte, com a sua cidade e o seu jeito de jogar.',
     tone: 'var(--color-step-2-tint)',
   },
   {
     numeral: 3,
-    title: 'Aperte Jogar',
-    text: 'Encontre adversários do seu nível perto de você.',
+    title: 'Toque em Jogar',
+    text: 'Entre na arena e encontre adversários do seu nível, perto de você.',
     tone: 'var(--color-step-3-tint)',
   },
   {
     numeral: 4,
-    title: 'Confirme o resultado',
-    text: 'Os dois lados informam o placar, e o ranking se atualiza.',
+    title: 'Sele o resultado',
+    text: 'Os dois lados confirmam o placar, o ranking se atualiza e você ganha seus louros para compartilhar.',
     tone: 'var(--color-step-4-tint)',
   },
 ] as const satisfies readonly { numeral: 1 | 2 | 3 | 4; title: string; text: string; tone: string }[]
 
-/** Rótulo de cada passo: "Passo 01" a "Passo 04". */
-export const stepLabel = (numeral: number) => `Passo ${String(numeral).padStart(2, '0')}`
+/**
+ * Rótulo de cada passo só para leitores de tela ("Passo 1" a "Passo 4"): na tela fica só o numeral romano, e o rótulo
+ * evita que "Cruze os portões" se confunda com os convites de entrada da landing.
+ */
+export const stepLabel = (numeral: number) => `Passo ${numeral}`
 
 /** "Mais da Arena" em sanfona. */
 export const landingMore = [
-  { name: 'Times', text: 'Convide amigos, monte o elenco e jogue junto.' },
-  { name: 'Campeonatos', text: 'Inscreva-se em torneios e ligas de organizadores.' },
-  { name: 'Comunidade', text: 'Publique, siga atletas e acompanhe a sua cidade.' },
+  { name: 'Times', text: 'Reúna a sua turma: convide amigos, monte o elenco e jogue junto.' },
+  { name: 'Campeonatos', text: 'Dispute torneios e ligas da sua cidade e entre para a história da arena.' },
+  { name: 'Comunidade', text: 'Publique seus louros, faça alianças com outros atletas e acompanhe a sua cidade.' },
   { name: 'Privacidade', text: 'Seu perfil começa privado. Você decide o que mostrar.' },
 ] as const

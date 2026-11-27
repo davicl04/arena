@@ -6,8 +6,10 @@ export type ColumnItem = {
   key: string
   /** Cor de fundo da coluna (valor CSS, em geral um token `var(--color-…-tint)`). */
   tone: string
-  /** Linha curta acima do título ("01", "Passo 01"). */
+  /** Linha curta acima do título ("01", "Passo 1"). */
   kicker: string
+  /** A linha curta fica só para leitores de tela (nos passos, o numeral romano já numera a coluna). */
+  kickerHidden?: boolean
   title: string
   /** Decoração (marca d'água, numeral), oculta para leitores de tela e posicionada por quem chama. */
   decoration?: ReactNode
@@ -19,7 +21,7 @@ export type ColumnItem = {
  * Colunas expansíveis da landing (modalidades e "Como funciona"): colunas altas lado a lado, cada uma no seu tom; a
  * aberta cresce e mostra o conteúdo. A primeira começa aberta e só uma fica aberta por vez; abrem pelo mouse, pelo foco
  * e pelo clique/toque. O título é um botão com `aria-expanded` e `aria-controls`, que cobre a coluna inteira (clique em
- * qualquer ponto) e põe o foco visível em volta dela. O nome do botão leva a linha curta ("Passo 01 Crie sua conta"),
+ * qualquer ponto) e põe o foco visível em volta dela. O nome do botão leva a linha curta ("Passo 1 Cruze os portões"),
  * para não se confundir com os convites da landing. Em telas estreitas, viram faixas empilhadas, com a aberta maior
  * (`.landing-colunas*` em ui.css). Cada coluna é um bloco da revelação ao rolar (`data-reveal`).
  */
@@ -47,7 +49,7 @@ export function ExpandableColumns({ items, variant }: { items: readonly ColumnIt
                 {item.decoration}
               </span>
             ) : null}
-            <span id={kickerId} className="landing-coluna-kicker">{item.kicker}</span>
+            <span id={kickerId} className={item.kickerHidden ? 'sr-only' : 'landing-coluna-kicker'}>{item.kicker}</span>
             <h3 className="landing-coluna-titulo">
               <button
                 type="button"
