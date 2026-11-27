@@ -1,5 +1,42 @@
 # Situação da fundação do Arena
 
+## Barra do elo no adesivo de resultado (backend) — 27 de novembro de 2026
+
+Ticket 02 de 6 da feature de compartilhar resultado nos Stories. A entrega é só de backend, e os clientes ainda não consomem o bloco.
+
+- **O que mudou:** as rotas `GET /me/share/matches/{id}` e `GET /me/share/runs/{id}` passam a preencher `category` com o estado atual da categoria da atividade.
+  - **Categoria resolvida:**
+    - tênis: `tenis`;
+    - futebol: o individual do formato e da posição do titular na escalação ou, sem posição, `futebol_time` do time do titular no formato;
+    - corrida: `corrida_<km>` na distância padrão; fora dela, `null`.
+  - **Origem do elo:** elo, posição no elo e tamanho do elo vêm da mesma leitura da tela de Ranking (`ranking_views.my_lines`).
+  - **Cálculo:** o serviço novo `share_category` calcula:
+    - o próximo elo;
+    - a distância até ele, na unidade da métrica (rating, média ou segundos), respeitando a direção dos cortes da versão de cálculo atual;
+    - o progresso de 0 a 1 entre o corte do elo atual e o do próximo.
+  - **Piso do Bronze:** fica uma largura da Prata abaixo do corte da Prata (850 no rating, 1,3 na média e 43:00 nos 5 km). O rating inicial (1000) não serve de piso, porque fica acima do corte da Prata.
+  - **Diamante:** a distância vem em posições até a última vaga de Lendário, e o progresso vai até a métrica de quem ocupa essa vaga. Sem vagas, a barra fica cheia.
+  - **Lendário:** barra cheia, sem distância.
+  - **Em classificação:** só `played` e `required`, sem expor a métrica. Quem não tem linha na categoria aparece com `played` 0.
+  - Sem migração.
+- **Documentação:** a [decisão 0007](decisoes/0007-compartilhamento-stories.md), seção 5, registra o contrato final. `ranking` e `gap.unit` são enums fechados.
+
+**Verificações:**
+- **Worktree do ticket:**
+  - `ruff`: sem apontamentos.
+  - `pytest -q --cov=app --cov-branch --cov-fail-under=85`: 1829 aprovados e 1 pulado (round-trip S3), com cobertura de 98,53%.
+  - Testes novos: 18 unitários (`tests/unit/test_share_category.py`) e 10 de integração (`tests/integration/test_share_category_flow.py`), com comparação contra `GET /rankings/overview` e dois casos pelo recálculo real.
+  - Três asserções de `test_share_flow.py` que fixavam `category` nulo foram atualizadas.
+- **Árvore integrada** (`feat/compartilhar-stories`, com banco descartável):
+  - `ruff`: sem apontamentos.
+  - `pytest -q`: 1829 aprovados e 1 pulado.
+
+**Limitações:**
+- Estado atual, sem histórico nem "Subiu de elo".
+- O piso do Bronze e o progresso do Diamante são regras desta entrega. Podem ser recalibrados sem mudar a forma do contrato.
+
+**Pendências:** consumo do bloco pela web (tickets 03 e 04) e pelo Expo (tickets 05 e 06).
+
 ## Backend do compartilhamento de resultado nos Stories: compartilhável e dados da placa — 26 de novembro de 2026
 
 Ticket 01 de 6 da feature de compartilhar resultado nos Stories. A entrega é só de backend: os clientes ainda não consomem o contrato, e a funcionalidade não está completa.
