@@ -300,12 +300,18 @@ describe('editor do Story: foto, posição e exportação', () => {
     await press(tree, 'Base')
     await choosePhoto(tree)
     let photoAtCapture: number | null = null
+    // A captura só termina quando o teste libera: o estado ocupado fica visível sem depender do relógio do runner.
+    let release!: () => void
+    const gate = new Promise<void>(done => { release = done })
     vi.mocked(captureRef).mockImplementationOnce(async () => {
       photoAtCapture = find(tree, 'story-photo').length
+      await gate
       return 'file:///tmp/adesivo.png'
     })
     await press(tree, 'Salvar só o adesivo')
     expect(byLabel(tree, 'Salvando…')[0].props.accessibilityState).toMatchObject({ busy: true })
+    await settle()
+    release()
     await settle()
     expect(photoAtCapture).toBe(0)
     expect(vi.mocked(captureRef).mock.calls[0][1]).toEqual({ format: 'png', quality: 1, width: 1080, height: 1920, result: 'tmpfile' })
