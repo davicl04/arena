@@ -1,5 +1,39 @@
 # Situação da fundação do Arena
 
+## Compartilhar nos Stories no Expo: folha de ações e adesivo de resultado — 27 de novembro de 2026
+
+Ticket 05 de 6 da feature de compartilhar resultado nos Stories. O Expo ainda não tem foto, gestos, Story montado nem menu do sistema (ticket 06).
+
+- **Folha de ações e toque:** iguais aos da web. Usam o `ActionSheet` existente e a corrida passa a ser tocável no perfil próprio.
+- **Tela imersiva "Prévia do Story":** fundo `night` nos dois temas.
+  - Mostra o adesivo real numa árvore RN/SVG em 9:16 sobre o xadrez: placa, barra do elo em todos os estados de `category` e assinatura, com a fonte do sistema.
+  - Estados de carregamento, erro, 401 (Bearer/SecureStore existentes) e 404.
+- **Salvar só o adesivo:**
+  - pede a permissão só de gravação no toque;
+  - captura um PNG 1080×1920 transparente com `react-native-view-shot`;
+  - grava na galeria com `expo-media-library` (API `legacy`), com toast "Imagem salva" e negação explicada.
+- **Dependências novas**, instaladas com `npx expo install`:
+  - `react-native-view-shot` 5.1.0;
+  - `expo-media-library` 57.0.6, com o texto da permissão de gravação em português no `app.json`.
+
+**Verificações** (árvore integrada, em worktree descartável):
+- `npm ci`, `npm run lint`, `npm run typecheck` e `npm run export:android`: ok.
+- `npm run test:coverage`: 115 arquivos e 1733 testes aprovados.
+  - Cobertura: 96,61% de instruções, 91,08% de ramos, 95,96% de funções e 98,53% de linhas.
+  - `src/api`: 100% de instruções, linhas e funções.
+- `npx expo install --check`: aponta só o desvio anterior a esta feature: `expo@57.0.27` (~57.0.34), `expo-image-picker@57.0.20` (~57.0.22) e `expo-location@57.0.23` (~57.0.24). Os pacotes novos não são apontados.
+- `npx expo config --type introspect`: confirma `NSPhotoLibraryAddUsageDescription` em português, conferido no worktree do ticket.
+
+**Limitações:**
+- **Sem validação em Android ou iOS.** O build não comprova a captura, a transparência do PNG, a gravação na galeria nem o pedido de permissão em aparelho.
+- Não há paridade visual declarada com a web.
+- A sombra do Coliseu usa `filter`, que só vale no Android.
+- A API `legacy` da galeria registra um aviso no Expo Go.
+
+**Pendências:**
+- Foto, gestos, posição da placa, Story montado e `expo-sharing` (ticket 06).
+- A atualização das três dependências Expo defasadas fica a critério do time.
+
 ## Compartilhar nos Stories na web: folha de ações e adesivo de resultado — 27 de novembro de 2026
 
 Ticket 03 de 6 da feature de compartilhar resultado nos Stories. A web ainda não tem foto, editor nem Story montado (ticket 04).
