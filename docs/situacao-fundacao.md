@@ -1,5 +1,293 @@
 # Situação da fundação do Arena
 
+## Correções da revisão do compartilhamento nos Stories — 27 de novembro de 2026
+
+Ajustes pedidos pela revisão com Opus 5.5 (duas rodadas, aprovada na segunda) antes do PR.
+
+- **Expo, iOS:** a prévia do Story só abre 400 ms depois de a folha de ações fechar. O iOS não apresenta um `Modal` enquanto outro ainda está saindo. No Android nada muda.
+- **Expo, barra do elo:** passa a usar a cor do elo, com os mesmos valores da web. Em classificação, usa branco translúcido. Antes ela ficava sempre prateada.
+- **Textos desatualizados:** as descrições da API em `app/core/openapi.py` e o estado da [decisão 0007](decisoes/0007-compartilhamento-stories.md) agora refletem o que está implementado.
+
+**Verificações:**
+- `mobile/`:
+  - `npm run lint` e `npm run typecheck`: ok;
+  - `npm run test:coverage`: 1747 testes aprovados, com cobertura de 96,63% de instruções e 91,14% de ramos;
+  - o teste novo do iOS falha com o atraso desligado e passa com ele.
+- `backend/`: `ruff check app` e `pytest tests/test_openapi_docs.py`: ok.
+
+**Limitações:** o atraso de 400 ms é uma estimativa da animação da folha. Ele ainda não foi conferido num iPhone.
+
+**Pendências** (sugestões menores da revisão, não aplicadas):
+- foto da web reduzida ao tamanho que cobre o quadro, o que deixa o Story menos nítido ao ampliar até 3×;
+- `navigator.share` só depois de gerar o JPEG;
+- diferenças cosméticas entre web e Expo (coluna de sets no W.O. do tênis e cor da "1ª marca");
+- tocar em outro card durante os 400 ms abre a prévia por cima da nova folha.
+
+## Compartilhar nos Stories no Expo: foto, editor e Story montado — 27 de novembro de 2026
+
+Ticket 06 de 6, que fecha a implementação da feature de compartilhar resultado nos Stories.
+
+- **Foto:** "Escolher foto" e "Trocar foto" usam o `expo-image-picker` já instalado.
+  - O texto da permissão de fotos agora cobre o perfil e a montagem do Story.
+  - A foto fica só no aparelho.
+- **Enquadramento:** a foto cobre o quadro.
+  - Arrastar move e pinçar amplia de 1× a 3×, com `react-native-gesture-handler` 2.32.0 e o Reanimated, sem área vazia.
+  - No leitor de tela, o quadro é ajustável e tem ações para mover a foto.
+- **Posição da placa:** seletor Topo / Centro / Base, com estado marcado.
+- **Compartilhar nos Stories:** fica desabilitado sem foto.
+  - Captura o JPEG 1080×1920 do mesmo quadro da prévia e abre o menu do sistema (`expo-sharing` 57.0.27, `image/jpeg`).
+  - Fechar o menu não é erro.
+  - Sem menu no aparelho, um aviso orienta a salvar.
+- **Salvar imagem:** grava o JPEG na galeria.
+- **Salvar só o adesivo:** gera o PNG transparente na posição escolhida, tirando a foto do quadro durante a captura.
+- Dependências instaladas com `npx expo install`, sem módulo nativo próprio, Facebook App ID ou esquema do Instagram. O plugin `expo-sharing` entrou no `app.json` sem opções.
+
+**Verificações** (árvore integrada, em worktree descartável limpa):
+- `npm ci`, `npm run lint`, `npm run typecheck` e `npm run export:android`: ok.
+- `npm run test:coverage`: 116 arquivos e 1745 testes aprovados. Cobertura: 96,63% de instruções, 91,13% de ramos, 95,97% de funções e 98,55% de linhas.
+- `npx expo install --check`: aponta só a defasagem anterior (`expo`, `expo-image-picker` e `expo-location`). Os pacotes novos não aparecem.
+- Teste novo: `tests/share-story-editor.test.ts`.
+- `tests/share-flow.test.ts`: o valor esperado da largura da prévia mudou, porque a base da tela cresceu.
+
+**Limitações:**
+- **Sem validação em Android, iOS ou Expo Go.** Captura, gestos, menu do sistema, abertura do Instagram, galeria e permissões não foram conferidos em aparelho.
+- A foto não é reduzida antes da composição, porque isso exigiria o `expo-image-manipulator`.
+- O pinch amplia em torno do centro do quadro.
+- Não há paridade visual declarada com a web.
+
+**Pendências:**
+- Validar o fluxo completo em aparelho.
+- Review final da feature, ainda não iniciado.
+
+## Compartilhar nos Stories na web: foto, editor e Story montado — 27 de novembro de 2026
+
+Ticket 04 de 6 da feature de compartilhar resultado nos Stories. Com ele, o fluxo da web fica completo: tocar na atividade, escolher a foto, enquadrar, posicionar a placa e exportar.
+
+- **Foto:** "Escolher foto", uma pílula menta na prévia, e "Trocar foto" usam `<input type="file" accept="image/*">`.
+  - A imagem é decodificada e reduzida no navegador, ao tamanho que cobre 1080×1920 em 1×, e nunca vai ao servidor.
+  - Um arquivo inválido gera aviso.
+  - Trocar a foto mantém a posição da placa.
+- **Enquadramento:**
+  - a foto sempre cobre o quadro;
+  - arrastar move a foto;
+  - pinça, roda do mouse e os botões ampliam de 1× a 3×;
+  - com o quadro focado, as setas movem e + e − ampliam;
+  - a foto nunca deixa área vazia.
+- **Posição da placa:** Topo, Centro e Base, num grupo de opções acessível (`Segmented`, com o novo tom `night`).
+- **Exportação:**
+  - "Compartilhar imagem" (menta) fica desabilitado sem foto. Usa `navigator.share` quando `canShare({ files })` aceita o JPEG 1080×1920; sem suporte, baixa o arquivo e avisa. Cancelar o menu não é erro.
+  - "Baixar imagem" baixa o JPEG.
+  - "Salvar só o adesivo" gera o PNG transparente, na posição escolhida.
+  - A prévia e o arquivo saem da mesma `drawSticker`.
+- O layout final e os desvios estão na [fidelidade visual](fidelidade-figma.md), seção dos Stories.
+
+**Verificações:**
+- **Worktree do ticket:**
+  - Testes novos: `tests/share-story.test.ts` (17) e `tests/share-editor.test.tsx` (18).
+  - Navegador (Chromium headless) com API e PostgreSQL reais em banco descartável, conta sintética:
+    - temas Dia e Noite, em 320, 390 e 1440 px, sem overflow horizontal e sem erros de console;
+    - Story nas três posições e na corrida: JPEG 1080×1920 igual à prévia, com diferença média de cerca de 1/255;
+    - adesivo: PNG com alfa 0;
+    - Web Share simulado recebeu o JPEG; cancelar não mostrou erro; sem suporte, o arquivo foi baixado com aviso.
+- **Árvore integrada:**
+  - `npm run lint` e `npm run build`: ok.
+  - `npm run test:coverage`: 1458 aprovados e 1 reprovado, o instável conhecido `matchmaking.test.tsx` › "prepara a busca com vagas…".
+  - Cobertura sem esse teste: 94,25% de instruções, 88,11% de ramos, 93,82% de funções e 97,03% de linhas.
+
+**Limitações:**
+- Conferido só no Chromium headless. O menu real de compartilhar, fotos HEIC e gestos em aparelho não foram testados.
+- Ampliar acima de 1× reamostra a foto reduzida.
+- O toast cobre os controles por cerca de 4 s.
+
+**Pendências:** nenhuma desta entrega na web. O Stories nativo continua fora da feature.
+
+## Compartilhar nos Stories no Expo: folha de ações e adesivo de resultado — 27 de novembro de 2026
+
+Ticket 05 de 6 da feature de compartilhar resultado nos Stories. O Expo ainda não tem foto, gestos, Story montado nem menu do sistema (ticket 06).
+
+- **Folha de ações e toque:** iguais aos da web. Usam o `ActionSheet` existente e a corrida passa a ser tocável no perfil próprio.
+- **Tela imersiva "Prévia do Story":** fundo `night` nos dois temas.
+  - Mostra o adesivo real numa árvore RN/SVG em 9:16 sobre o xadrez: placa, barra do elo em todos os estados de `category` e assinatura, com a fonte do sistema.
+  - Estados de carregamento, erro, 401 (Bearer/SecureStore existentes) e 404.
+- **Salvar só o adesivo:**
+  - pede a permissão só de gravação no toque;
+  - captura um PNG 1080×1920 transparente com `react-native-view-shot`;
+  - grava na galeria com `expo-media-library` (API `legacy`), com toast "Imagem salva" e negação explicada.
+- **Dependências novas**, instaladas com `npx expo install`:
+  - `react-native-view-shot` 5.1.0;
+  - `expo-media-library` 57.0.6, com o texto da permissão de gravação em português no `app.json`.
+
+**Verificações** (árvore integrada, em worktree descartável):
+- `npm ci`, `npm run lint`, `npm run typecheck` e `npm run export:android`: ok.
+- `npm run test:coverage`: 115 arquivos e 1733 testes aprovados.
+  - Cobertura: 96,61% de instruções, 91,08% de ramos, 95,96% de funções e 98,53% de linhas.
+  - `src/api`: 100% de instruções, linhas e funções.
+- `npx expo install --check`: aponta só o desvio anterior a esta feature: `expo@57.0.27` (~57.0.34), `expo-image-picker@57.0.20` (~57.0.22) e `expo-location@57.0.23` (~57.0.24). Os pacotes novos não são apontados.
+- `npx expo config --type introspect`: confirma `NSPhotoLibraryAddUsageDescription` em português, conferido no worktree do ticket.
+
+**Limitações:**
+- **Sem validação em Android ou iOS.** O build não comprova a captura, a transparência do PNG, a gravação na galeria nem o pedido de permissão em aparelho.
+- Não há paridade visual declarada com a web.
+- A sombra do Coliseu usa `filter`, que só vale no Android.
+- A API `legacy` da galeria registra um aviso no Expo Go.
+
+**Pendências:**
+- Foto, gestos, posição da placa, Story montado e `expo-sharing` (ticket 06).
+- A atualização das três dependências Expo defasadas fica a critério do time.
+
+## Compartilhar nos Stories na web: folha de ações e adesivo de resultado — 27 de novembro de 2026
+
+Ticket 03 de 6 da feature de compartilhar resultado nos Stories. A web ainda não tem foto, editor nem Story montado (ticket 04).
+
+- **Folha de ações:** na aba Partidas do perfil próprio, tocar numa atividade compartilhável (`shareable` da linha do tempo) abre a folha.
+  - **Partida:** "Compartilhar nos Stories" e "Ver partida".
+  - **Corrida:** passa a ser tocável e abre a folha só com o compartilhar.
+  - **Partida não compartilhável:** continua abrindo a tela da partida.
+  - **Perfil visitado:** segue sem toque.
+  - A folha reusa o `Sheet` e entra por portal na moldura do app.
+- **Tela imersiva:** "Compartilhar nos Stories" a abre por cima do perfil, e fechar volta ao mesmo ponto da linha do tempo.
+  - Fundo `night` igual nos dois temas e título "Prévia do Story".
+  - Prévia 9:16 em Canvas sobre o xadrez escuro.
+  - "Salvar só o adesivo" baixa um PNG 1080×1920 transparente.
+  - Estados de carregamento, erro com "Tentar de novo", 401 pelo fluxo de sessão expirada e 404.
+  - Cada abertura faz uma leitura de `GET /me/share/...` (cliente `api/share.ts`).
+- **Adesivo:** segue o design aprovado.
+  - Placa Floresta com três números por modalidade.
+  - Barra do elo em todos os estados de `category`: classificado, Diamante com e sem vagas, Lendário, classificação e ausente na corrida livre.
+  - Assinatura Coliseu + `arena.` sem caixa.
+- **Implementação:**
+  - Conteúdo (`stickerContent`) e geometria (`stickerLayout`, posições topo/centro/base) são camadas puras.
+  - Uma única função (`drawSticker`) desenha a prévia e a exportação, com o Coliseu por `Path2D` e Inter/Sora carregadas antes.
+  - O fundo é plugável, para receber a foto no ticket 04.
+  - Sem dependência nova e sem token em localStorage.
+
+**Verificações:**
+- **Worktree do ticket:**
+  - `npm run lint` e `npm run build`: ok.
+  - Testes novos: `tests/share-sticker.test.ts` (28) e `tests/share-flow.test.tsx` (12).
+  - Navegador (Playwright/Chromium) com API e PostgreSQL reais em banco descartável, com linhas de `standings` inseridas só nesse banco para ver os estados do elo:
+    - temas Dia e Noite, em 320, 390 e 1440 px, sem overflow horizontal e sem erros de console;
+    - folha, imersiva, partida não compartilhável e perfil visitado;
+    - oito PNGs baixados, todos 1080×1920 com fundo de alfa 0.
+- **Árvore integrada:**
+  - `npm run lint` e `npm run build`: ok.
+  - `npm run test:coverage`: 1423 aprovados e 1 reprovado, o instável conhecido `matchmaking.test.tsx` › "prepara a busca com vagas…", que também falha na base.
+  - Cobertura sem esse teste: 94,2% de instruções, 88,09% de ramos, 93,73% de funções e 96,96% de linhas, acima dos pisos.
+
+**Limitações:**
+- PNG conferido só no Chromium.
+- O brasão do elo na barra é o Coliseu na cor do elo, como no protótipo.
+- O segmento de "ganho" da barra do protótipo não existe, porque a API não informa essa parte.
+
+**Pendências:** foto, enquadramento, posição da placa, Story montado e compartilhamento nativo (ticket 04).
+
+## Barra do elo no adesivo de resultado (backend) — 27 de novembro de 2026
+
+Ticket 02 de 6 da feature de compartilhar resultado nos Stories. A entrega é só de backend, e os clientes ainda não consomem o bloco.
+
+- **O que mudou:** as rotas `GET /me/share/matches/{id}` e `GET /me/share/runs/{id}` passam a preencher `category` com o estado atual da categoria da atividade.
+  - **Categoria resolvida:**
+    - tênis: `tenis`;
+    - futebol: o individual do formato e da posição do titular na escalação ou, sem posição, `futebol_time` do time do titular no formato;
+    - corrida: `corrida_<km>` na distância padrão; fora dela, `null`.
+  - **Origem do elo:** elo, posição no elo e tamanho do elo vêm da mesma leitura da tela de Ranking (`ranking_views.my_lines`).
+  - **Cálculo:** o serviço novo `share_category` calcula:
+    - o próximo elo;
+    - a distância até ele, na unidade da métrica (rating, média ou segundos), respeitando a direção dos cortes da versão de cálculo atual;
+    - o progresso de 0 a 1 entre o corte do elo atual e o do próximo.
+  - **Piso do Bronze:** fica uma largura da Prata abaixo do corte da Prata (850 no rating, 1,3 na média e 43:00 nos 5 km). O rating inicial (1000) não serve de piso, porque fica acima do corte da Prata.
+  - **Diamante:** a distância vem em posições até a última vaga de Lendário, e o progresso vai até a métrica de quem ocupa essa vaga. Sem vagas, a barra fica cheia.
+  - **Lendário:** barra cheia, sem distância.
+  - **Em classificação:** só `played` e `required`, sem expor a métrica. Quem não tem linha na categoria aparece com `played` 0.
+  - Sem migração.
+- **Documentação:** a [decisão 0007](decisoes/0007-compartilhamento-stories.md), seção 5, registra o contrato final. `ranking` e `gap.unit` são enums fechados.
+
+**Verificações:**
+- **Worktree do ticket:**
+  - `ruff`: sem apontamentos.
+  - `pytest -q --cov=app --cov-branch --cov-fail-under=85`: 1829 aprovados e 1 pulado (round-trip S3), com cobertura de 98,53%.
+  - Testes novos: 18 unitários (`tests/unit/test_share_category.py`) e 10 de integração (`tests/integration/test_share_category_flow.py`), com comparação contra `GET /rankings/overview` e dois casos pelo recálculo real.
+  - Três asserções de `test_share_flow.py` que fixavam `category` nulo foram atualizadas.
+- **Árvore integrada** (`feat/compartilhar-stories`, com banco descartável):
+  - `ruff`: sem apontamentos.
+  - `pytest -q`: 1829 aprovados e 1 pulado.
+
+**Limitações:**
+- Estado atual, sem histórico nem "Subiu de elo".
+- O piso do Bronze e o progresso do Diamante são regras desta entrega. Podem ser recalibrados sem mudar a forma do contrato.
+
+**Pendências:** consumo do bloco pela web (tickets 03 e 04) e pelo Expo (tickets 05 e 06).
+
+## Backend do compartilhamento de resultado nos Stories: compartilhável e dados da placa — 26 de novembro de 2026
+
+Ticket 01 de 6 da feature de compartilhar resultado nos Stories. A entrega é só de backend: os clientes ainda não consomem o contrato, e a funcionalidade não está completa.
+
+- **O que mudou:**
+  - **Regra única de compartilhável** (`app/services/share_rules.py`):
+    - partida com resultado final (`realizada` ou `encerrada` com `outcome`) é compartilhável, exceto a vitória do titular por W.O.;
+    - toda corrida do titular é compartilhável;
+    - partida sem resultado (inclusive com W.O. anulado) ou cancelada nunca é.
+  - **Linha do tempo:** `GET /users/{id}/timeline` ganhou `shareable` em cada item, sempre `false` para quem não é o titular.
+  - **Rotas novas:** `GET /me/share/matches/{match_id}` e `GET /me/share/runs/{run_id}`, com o titular vindo da sessão.
+    - Devolvem os números da placa do adesivo de resultado, a partir do mesmo item da linha do tempo, e `category: null`.
+    - Atividade alheia, inexistente ou não compartilhável responde 404 com o mesmo corpo.
+  - Sem migração e sem tabela nova.
+- **Documentação:**
+  - decisão nova [0007](decisoes/0007-compartilhamento-stories.md), com regra, rotas, tipos, erros e a forma planejada de `category`;
+  - `shareable` acrescentado à parte A2 do [plano do perfil](plano-perfil-partidas.md) e à seção 19.2 da [decisão do Jogar](decisoes/0002-jogar.md#192-get-apiv1usersuser_idtimeline).
+
+**Verificações:**
+- **Worktree do ticket:**
+  - `python -m ruff check app migrations tests`: sem apontamentos.
+  - `python -m pytest -q --cov=app --cov-branch --cov-fail-under=85`: 1802 aprovados e 1 pulado (o round-trip S3 real), com cobertura de 98,52%.
+  - 12 testes novos de integração em `tests/integration/test_share_flow.py`. Eles cobrem:
+    - titular x outra pessoa, seguidor aprovado e ID inexistente;
+    - vitória, derrota e anulação por W.O.;
+    - partida sem resultado, cancelada, confirmada e `realizada`;
+    - futebol com e sem estatísticas;
+    - tênis com tie-break;
+    - corrida padrão e livre;
+    - `shareable` do visitante.
+  - `test_profile_timeline_flow.py` passou a incluir `shareable` no conjunto exato de campos.
+- **Árvore integrada** (`feat/compartilhar-stories`, com banco descartável):
+  - `ruff`: sem apontamentos.
+  - `pytest -q`: 1802 aprovados e 1 pulado.
+
+**Limitações:** `category` ainda vem nulo, e web e Expo não usam as rotas nem o campo.
+
+**Pendências:** barra do elo (`category`) no ticket 02; folha de ações, adesivo e editor na web e no Expo.
+
+## Design do compartilhamento de resultado nos Stories — 26 de novembro de 2026
+
+Fase de design de uma funcionalidade nova, pedida pelo usuário: compartilhar o resultado de uma partida ou corrida nos Stories do Instagram, com adesivo de fundo transparente, como no Strava. **Nenhum código do app mudou.** A funcionalidade não está implementada.
+
+- **O que mudou:** a sessão de protótipos de nove rodadas definiu o adesivo, a tela de compartilhar e o ponto de entrada. As decisões estão na [fidelidade visual](fidelidade-figma.md), seção "Compartilhamento de resultado nos Stories".
+- **Protótipo:** `artifacts/compartilhar-stories/`, não versionado.
+- **Dados conferidos no código:**
+  - A linha do tempo (`GET /users/{id}/timeline`) já traz placar, sets, resultado, pontos (nunca negativos), gols e assistências, distância, tempo, ritmo e tipo de marca. Isso basta para a placa do adesivo.
+  - Partidas não guardam duração. Por isso a "Duração" da imagem de referência ficou de fora.
+  - Os cortes de Prata, Ouro e Diamante de cada ranking existem no servidor (`RankCut`, com `metric_value` por linha), mas não são expostos aos clientes. A barra de progresso precisa de um campo novo na API.
+  - A linha do tempo não registra o elo antes e depois de cada partida. O estado "subiu de elo" depende de dado novo.
+  - Lendário depende da posição no ranking (`legend_share`), não de um valor. A barra precisa de outro texto nesse elo.
+
+**Verificações:** não houve, por ser só documentação. Conferi os caminhos citados e os campos de `web/src/api/profile.ts`, `web/src/api/play.ts`, `backend/app/services/rankings.py` e `backend/app/services/ranking_views.py`.
+
+**Decisões técnicas (grilling):**
+- **Montagem e envio:** o Story é montado no próprio ARENA, com a foto escolhida no app, e exportado no cliente. O envio é pelo menu de compartilhar do sistema ou por download. O PNG só com o adesivo é opção secundária. Funciona no Expo Go, sem Facebook App ID, e a foto não é enviada ao servidor.
+- **Clientes:** web e Expo.
+- **API:** um endpoint dedicado por atividade, com o titular vindo da sessão.
+- **Barra do elo:**
+  - estado atual, sem migração;
+  - no futebol, o ranking individual da posição; sem posição registrada, o do time;
+  - posição dentro do elo;
+  - em Diamante, as posições que faltam até Lendário.
+- **Compartilháveis:** atividades do perfil próprio. Ficam de fora vitória por W.O., partida sem resultado e partida cancelada.
+- **Glossário:** novo `CONTEXT.md` na raiz.
+
+**Pendências:**
+- ~~**Especificação e tickets:** a spec e 6 tickets estão em `.scratch/compartilhar-stories/`, que não é versionado. São dois tickets de backend (o que pode ser compartilhado e a barra do elo), dois da web e dois do Expo. A implementação ainda não começou.~~ Implementados em 27 de novembro de 2026; ver as entradas dos tickets 01 a 06, acima.
+- **Stories nativo, como o Strava:** com build próprio e Facebook App ID, fica como etapa futura.
+
 ## Revisão dos textos da landing (web) — 26 de novembro de 2026
 
 Ajuste de textos a pedido do usuário, a partir do documento "ARENA - Textos" (seções 3 a 7, a landing). A entrega é só de frontend web e não completa o MVP.

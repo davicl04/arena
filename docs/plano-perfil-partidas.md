@@ -76,11 +76,14 @@ Rota nova em `routers/social.py` (ou `routers/profile.py`), autenticada.
     - `points` (3/1/0 ou 10/0, nulo se não houver resultado);
     - `stats` ({goals, assists, position_stat}, só dos campos contados por `counted_stat_fields`, nulo no W.O. e no tênis);
     - `event` ({id, name} | null) e `round_label` (de `bracket_rules`, ex.: "Semifinal");
-    - `court` ({name} | null), **sempre nulo para quem não é o titular**.
+    - `court` ({name} | null), **sempre nulo para quem não é o titular**;
+    - `shareable` (boolean): a partida pode virar adesivo de resultado nos Stories. **Sempre `false` para quem não é o titular.**
   - `kind: "corrida"` traz:
     - id, distance_m, standard_distance_km, duration_s e pace_s_per_km;
     - `origin` ({source, label});
-    - `previous_best_s` e `mark_kind` (`primeira_marca` | `novo_melhor` | `sem_melhora` | null).
+    - `previous_best_s` e `mark_kind` (`primeira_marca` | `novo_melhor` | `sem_melhora` | null);
+    - `shareable` (boolean): toda corrida é compartilhável pelo titular. **Sempre `false` para quem não é o titular.**
+- **`shareable` (acréscimo de 26 de novembro de 2026):** a regra é única no servidor (`services/share_rules.py`) e serve também às rotas do adesivo de resultado. A partida é compartilhável com resultado final (`realizada` ou `encerrada` com `outcome`), exceto a vitória do titular por W.O.; sem resultado e cancelada nunca. Contrato completo na [decisão 0007](decisoes/0007-compartilhamento-stories.md).
 - **Melhor anterior da corrida:** o menor `duration_s` do mesmo titular e `standard_distance_km` dentro da janela de 52 semanas anterior àquela corrida. É a mesma semântica de `Before`/`_in_window` em `services/runs.py`, recalculada por linha (subconsulta lateral ou `window function`). `mark_kind` reutiliza `run_rules.run_kind`. Uma distância fora das faixas não tem comparação.
 - **O que não é exposto:** próxima partida, chat, condições pendentes, contestações, prazos e dados de perfis esportivos (cidade, posição preferida, disponibilidade). Isso preserva a [decisão 0001](decisoes/0001-fundacao.md).
 

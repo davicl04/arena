@@ -1,4 +1,5 @@
-"""Profile history: the timeline of matches and runs (any viewer that can see the profile) and the own stats."""
+"""Profile history: the timeline of matches and runs (any viewer that can see the profile), the own stats and the
+result sticker data of one own activity (Stories, decision 0007)."""
 from __future__ import annotations
 
 from typing import Literal
@@ -12,8 +13,10 @@ from app.core.security import current_user
 from app.models.identity import User
 from app.routers.social import _can_view
 from app.schemas.profile import ProfileStatsOut, TimelinePageOut
+from app.schemas.share import ShareMatchOut, ShareRunOut
 from app.services.profile_history import profile_stats
 from app.services.profile_timeline import timeline
+from app.services.result_share import match_share, run_share
 
 router = APIRouter(prefix='/api/v1')
 
@@ -31,3 +34,13 @@ def get_timeline(user_id: int, sport: Literal['futebol', 'tenis', 'corrida'] | N
 @router.get('/me/profile-stats', response_model=ProfileStatsOut)
 def get_profile_stats(user: User = Depends(current_user), db: Session = Depends(get_db)):
     return profile_stats(db, user)
+
+
+@router.get('/me/share/matches/{match_id}', response_model=ShareMatchOut)
+def get_match_share(match_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    return match_share(db, user, match_id)
+
+
+@router.get('/me/share/runs/{run_id}', response_model=ShareRunOut)
+def get_run_share(run_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    return run_share(db, user, run_id)

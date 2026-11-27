@@ -35,9 +35,12 @@ export function RailNode({ children, dark = false }: { children: ReactNode; dark
 /**
  * O trilho vertical único: separadores de mês e um nó por registro, do mais recente para o mais antigo. `leading` é o
  * primeiro nó (a próxima partida, só no perfil próprio) e `continues` mantém o fio descendo quando há mais páginas.
+ * No perfil próprio, a atividade compartilhável (`shareable`, decidido pelo servidor) abre a folha de ações (`onSelect`);
+ * a partida não compartilhável abre a tela da partida. No perfil visitado nada é tocável.
  */
-export function TimelineRail({ items, own, leading, continues, onOpenMatch }: {
+export function TimelineRail({ items, own, leading, continues, onOpenMatch, onSelect }: {
   items: readonly TimelineItem[]; own: boolean; leading?: ReactNode; continues: boolean; onOpenMatch?: (matchId: number) => void
+  onSelect?: (item: TimelineItem) => void
 }) {
   const colors = useThemeColors()
   const entries = railEntries(items)
@@ -53,8 +56,10 @@ export function TimelineRail({ items, own, leading, continues, onOpenMatch }: {
       const { item } = entry
       return <RailRow key={entry.key} last={last} node={<RailNode><SeloTile sport={itemSport(item)} size={NODE_TILE} /></RailNode>}>
         {item.kind === 'corrida'
-          ? <RunDuelCard run={item} />
-          : <DuelCard match={item} own={own} onOpen={own ? onOpenMatch : undefined} />}
+          ? <RunDuelCard run={item} onOpen={own && item.shareable && onSelect ? () => onSelect(item) : undefined} />
+          : own && item.shareable && onSelect
+            ? <DuelCard match={item} own onOpen={() => onSelect(item)} hint="Abre as opções: compartilhar nos Stories ou ver a partida" />
+            : <DuelCard match={item} own={own} onOpen={own ? onOpenMatch : undefined} />}
       </RailRow>
     })}
   </View>

@@ -94,6 +94,8 @@ _OPERATIONS: dict[str, tuple[tuple[str, str, str], ...]] = {
         ('PUT', '/me/sports-profiles/{sport}', 'Salvar perfil esportivo da modalidade'),
         ('GET', '/me/profile-stats', 'Obter estatísticas do perfil'),
         ('GET', '/users/{user_id}/timeline', 'Obter linha do tempo esportiva do usuário'),
+        ('GET', '/me/share/matches/{match_id}', 'Obter dados do adesivo de resultado de uma partida'),
+        ('GET', '/me/share/runs/{run_id}', 'Obter dados do adesivo de resultado de uma corrida'),
     ),
     'Usuários e seguidores': (
         ('GET', '/users', 'Buscar usuários'),
@@ -306,6 +308,18 @@ DESCRIPTIONS: dict[tuple[str, str], str] = {
     ('PUT', '/me/sports-profiles/{sport}'): ('Cria ou atualiza o perfil da modalidade do titular da sessão com '
                                              '`city_id` (município do catálogo), `position` (só no futebol) e '
                                              '`looking_for`. A resposta traz o objeto `city` além de `city_id`.'),
+    ('GET', '/users/{user_id}/timeline'): ('Partidas e corridas do perfil, da mais recente para a mais antiga. Cada item '
+                                           'traz `shareable`, verdadeiro só para o titular e nas atividades que '
+                                           'podem virar adesivo de resultado.'),
+    ('GET', '/me/share/matches/{match_id}'): ('Números da placa do adesivo de resultado de uma partida do titular da '
+                                              'sessão, compartilhável quando tem resultado final, exceto a vitória '
+                                              'por W.O. Partida de outra pessoa, inexistente ou não compartilhável '
+                                              'responde 404, sem distinguir os casos. `category` traz a barra do elo '
+                                              '(estado atual da categoria da partida).'),
+    ('GET', '/me/share/runs/{run_id}'): ('Números da placa do adesivo de resultado de uma corrida do titular da '
+                                         'sessão; toda corrida é compartilhável. Corrida de outra pessoa ou '
+                                         'inexistente responde 404. `category` traz a barra do elo (nula fora das '
+                                         'distâncias padrão).'),
     ('PUT', '/me/avatar'): 'Envio em `multipart/form-data`, somente imagem, até 5 MiB.',
     ('PUT', '/me/cover'): 'Envio em `multipart/form-data`, somente imagem, até 5 MiB.',
     ('POST', '/posts'): 'Envio em `multipart/form-data` com a imagem e a legenda, até 5 MiB.',

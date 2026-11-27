@@ -3,7 +3,8 @@ import type { Position, Sport } from './client'
 import type { TierKey } from '../data/arena'
 
 /**
- * Cliente da aba Partidas do perfil (linha do tempo) e das estatísticas do perfil. Contrato: docs/plano-perfil-partidas.md.
+ * Cliente da aba Partidas do perfil (linha do tempo) e das estatísticas do perfil. Contrato: docs/plano-perfil-partidas.md
+ * (e `shareable`, docs/decisoes/0007-compartilhamento-stories.md, seção 3).
  * O titular das estatísticas vem da sessão; a linha do tempo de outra pessoa respeita a visibilidade do servidor (404 sem acesso).
  */
 
@@ -39,6 +40,8 @@ export interface TimelineMatch {
   round_label: string | null
   /** Sempre nulo quando quem vê não é o titular do perfil. */
   court: { name: string } | null
+  /** O titular pode compartilhar nos Stories (regra do servidor; sempre falso para quem não é o titular). */
+  shareable: boolean
 }
 
 export interface TimelineRun {
@@ -55,6 +58,8 @@ export interface TimelineRun {
   previous_best_s: number | null
   /** Nulo fora das faixas (sem comparação). */
   mark_kind: TimelineMarkKind | null
+  /** O titular pode compartilhar nos Stories (regra do servidor; sempre falso para quem não é o titular). */
+  shareable: boolean
 }
 
 export type TimelineItem = TimelineMatch | TimelineRun

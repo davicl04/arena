@@ -14,12 +14,15 @@ function Node({ sport }: { sport: TimelineSport }) {
 
 /**
  * Trilho vertical único, do mais recente ao mais antigo: separadores por mês e um nó por registro. A partida só é
- * tocável com `onOpenMatch`; corridas nunca são. `first` é o nó antes do primeiro mês (a próxima partida).
+ * tocável com `onOpenMatch`; com `onSelect` (perfil próprio), a atividade compartilhável (`shareable`) abre a folha de
+ * ações no lugar da tela da partida, e a corrida compartilhável passa a ser tocável. `first` é o nó antes do primeiro
+ * mês (a próxima partida).
  */
-export function TimelineRail({ items, own, onOpenMatch, first }: {
+export function TimelineRail({ items, own, onOpenMatch, onSelect, first }: {
   items: readonly TimelineItem[]
   own: boolean
   onOpenMatch?: (matchId: number) => void
+  onSelect?: (item: TimelineItem) => void
   first?: ReactNode
 }) {
   return <div data-slot="timeline-rail" className="relative before:absolute before:top-3 before:bottom-3 before:left-[15px] before:w-0.5 before:rounded-full before:bg-line">
@@ -29,7 +32,11 @@ export function TimelineRail({ items, own, onOpenMatch, first }: {
       <ol className="m-0 mb-3 grid list-none gap-3 p-0">
         {group.items.map(item => <li key={`${item.kind}-${item.id}`} className="relative pl-11">
           <Node sport={itemSport(item)} />
-          {item.kind === 'partida' ? <DuelCard match={item} own={own} onOpen={onOpenMatch} /> : <RunDuelCard run={item} />}
+          {item.kind === 'partida'
+            ? onSelect && item.shareable
+              ? <DuelCard match={item} own={own} actions onOpen={() => onSelect(item)} />
+              : <DuelCard match={item} own={own} onOpen={onOpenMatch} />
+            : <RunDuelCard run={item} onOpen={onSelect && item.shareable ? () => onSelect(item) : undefined} />}
         </li>)}
       </ol>
     </section>)}

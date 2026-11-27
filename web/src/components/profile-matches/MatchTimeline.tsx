@@ -5,7 +5,10 @@ import type { MatchCard } from '@/api/matches'
 import { getPlayBoard, normalizeBoard } from '@/api/matchmaking'
 import { timelinePath } from '@/api/profile'
 import type { TimelineItem } from '@/api/profile'
+import type { ShareTarget } from '@/api/share'
 import { nextScheduledMatch } from '@/components/play/matchView'
+import { ShareActionSheet } from '@/components/share/ShareActionSheet'
+import { ShareStoryScreen } from '@/components/share/ShareStoryScreen'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { LoadError } from '@/components/ui/load-error'
@@ -41,8 +44,10 @@ function useNextMatch(enabled: boolean, matches: readonly MatchCard[] | null | u
 
 /**
  * Aba Partidas do perfil: a linha do tempo de partidas e corridas (carreira inteira). No perfil próprio (`own`) abre
- * com a próxima partida e as partidas levam à tela da partida (`onOpenMatch`); no visitado nada é tocável e uma
- * conta que a API recusa (404) mostra o vazio de visitante.
+ * com a próxima partida; a atividade compartilhável (`shareable`) abre a folha de ações ("Compartilhar nos Stories" e,
+ * na partida, "Ver partida") e a partida não compartilhável leva direto à tela da partida (`onOpenMatch`). O
+ * compartilhar abre a tela imersiva por cima do perfil, que continua montado (fechar volta ao mesmo ponto da linha do
+ * tempo). No visitado nada é tocável e uma conta que a API recusa (404) mostra o vazio de visitante.
  */
 export function MatchTimeline({ userId, own, onOpenMatch, onPlay, matches, onExpired }: {
   userId: number
@@ -55,6 +60,8 @@ export function MatchTimeline({ userId, own, onOpenMatch, onPlay, matches, onExp
   onExpired: () => void
 }) {
   const [filter, setFilter] = useState<SportFilter>('todas')
+  const [selected, setSelected] = useState<TimelineItem | null>(null)
+  const [sharing, setSharing] = useState<ShareTarget | null>(null)
   const list = usePagedList<TimelineItem>(timelinePath(userId, filter === 'todas' ? null : filter), onExpired)
   const now = useNow(60_000, own)
   const next = useNextMatch(own, matches, now)
@@ -81,9 +88,14 @@ export function MatchTimeline({ userId, own, onOpenMatch, onPlay, matches, onExp
         {empty && filtered && <EmptyState Icon={Funnel} title="Nenhum registro neste filtro" text={`Sem registros em ${filterSummary(filter).toLowerCase()}.`}
           action={<Button variant="text" className="mx-auto" onClick={() => setFilter('todas')}>Ver todas as modalidades</Button>} />}
         {(!empty || nextShown) && <TimelineRail items={list.items} own={own} onOpenMatch={own ? onOpenMatch : undefined}
+          onSelect={own ? setSelected : undefined}
           first={nextShown && onOpenMatch && <NextMatchNode match={nextShown} now={new Date(now)} onOpen={onOpenMatch} />} />}
         {list.moreError && <p role="alert" className="m-0 py-2 text-center text-[11px] text-error">{list.moreError}</p>}
         {list.hasMore && <Button variant="text" className="mx-auto" disabled={list.busy} onClick={() => void list.loadMore()}>{list.busy ? 'Carregando…' : 'Carregar mais'}</Button>}
       </>}
+    {own && selected && <ShareActionSheet item={selected} onClose={() => setSelected(null)}
+      onShare={() => { setSelected(null); setSharing({ kind: selected.kind, id: selected.id }) }}
+      onOpenMatch={selected.kind === 'partida' && onOpenMatch ? () => { setSelected(null); onOpenMatch(selected.id) } : undefined} />}
+    {own && sharing && <ShareStoryScreen target={sharing} onClose={() => setSharing(null)} onExpired={onExpired} />}
   </div>
 }

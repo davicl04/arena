@@ -14,9 +14,9 @@ from tests.integration.run_helpers import logged, mark, minutes, runner, use_clo
 
 API = '/api/v1'
 MATCH_KEYS = {'kind', 'id', 'sport', 'format', 'origin', 'state', 'occurred_at', 'sides', 'owner_side', 'score',
-              'outcome', 'walkover_absent_side', 'points', 'stats', 'event', 'round_label', 'court'}
+              'outcome', 'walkover_absent_side', 'points', 'stats', 'event', 'round_label', 'court', 'shareable'}
 RUN_KEYS = {'kind', 'id', 'occurred_at', 'date', 'distance_m', 'standard_distance_km', 'duration_s',
-            'pace_s_per_km', 'origin', 'previous_best_s', 'mark_kind'}
+            'pace_s_per_km', 'origin', 'previous_best_s', 'mark_kind', 'shareable'}
 
 
 @pytest.fixture

@@ -249,3 +249,47 @@ Ajuste posterior pedido pelo usuário. Não vem do Figma. O designer entregou no
   - O selo de 18 pt da folha do perfil esportivo pode perder detalhe da coroa em aparelho.
 
 A web foi conferida no navegador, com API e PostgreSQL reais, em 320, 390 e 1440 px, nos temas Dia e Noite, sem requisições a ícones raster de modalidade. No Expo, as verificações foram testes, checagem de tipos e exportação do bundle Android. Não há declaração de paridade visual do Expo nem validação em aparelho.
+
+## Compartilhamento de resultado nos Stories (design planejado) — 26 de novembro de 2026
+
+Funcionalidade nova pedida pelo usuário, na linha do que o Strava faz. Não vem do Figma e **ainda não está implementada**. Uma sessão de protótipos com nove rodadas definiu o adesivo e o fluxo. O ponto de partida foram duas imagens de referência do usuário: uma placa escura com três números, a pílula do elo e a marca embaixo. O protótipo está em `artifacts/compartilhar-stories/prototipo.html`, gerado por `build.mjs` a partir de `template.html`, e deve ser aberto por um servidor HTTP local. Ele não é versionado e é só material de consulta. Os números do protótipo são exemplos; a funcionalidade real usa só dados da conta.
+
+**Decisões da sessão de protótipos:**
+- **Adesivo:** PNG com **fundo transparente**. A pessoa escolhe a foto no próprio Instagram, e o adesivo vai por cima.
+- **Composição (rodadas 1 e 2):** a da referência. A placa com os números e o bloco do elo ficam no terço superior, e a marca fica solta embaixo.
+- **Material (rodadas 3 e 3b):** **Floresta sólida**, verde-floresta quase opaco, rótulos em menta e números em Sora. O vidro e o *liquid glass* foram descartados porque o PNG não desfoca a foto do usuário. Numa foto movimentada, a imitação de vidro perde leitura.
+- **Conteúdo da placa (rodada 4):** três números por modalidade:
+  - futebol: resultado, placar e gols/assistências; sem estatísticas informadas, o terceiro número vira o formato;
+  - tênis: resultado, placar e sets;
+  - corrida: distância, tempo e ritmo.
+- **Bloco do elo (rodada 5):** **barra de progresso** até o próximo elo, com nome do elo, pontos da partida, posição na cidade e quanto falta. Há um estado próprio para quem acabou de subir de elo, e "Em classificação" aparece sem elo atribuído.
+- **Marca (rodada 6):** **assinatura sem caixa**, com Coliseu e `arena.` em branco e sombra.
+- **Tela de compartilhar (rodada 7):** **imersiva**, com fundo `night` e prévia quase em tela cheia. Uma chave alterna entre o xadrez do fundo transparente e uma foto de exemplo. O botão principal fica em menta, com Salvar, Copiar e Mais embaixo. No app, o botão é "Compartilhar nos Stories"; na web, "Compartilhar imagem" e "Baixar PNG".
+- **Entrada (rodadas 8 e 9):** na aba **Partidas do perfil próprio**, tocar numa atividade abre uma **folha de ações** com "Compartilhar nos Stories" e "Ver partida". Na corrida, a folha tem só o compartilhar.
+
+**Descartados:** composições em cartão único, coluna, manchete e faixa; materiais claro, contorno, serifada (Romana) e destaque; vidro simulado e vidro real; fichas, brasão e elo dentro da marca; convite após a confirmação, bloco no Início e menu ⋯ do card.
+
+**Mudança de comportamento prevista:** hoje, tocar numa partida do perfil próprio abre a tela da partida, e a corrida não responde ao toque. Com a folha de ações, a tela da partida fica a um toque, e a corrida passa a ser tocável.
+
+**Ajustes do detalhamento técnico, na mesma data:**
+- **Montagem no ARENA:** a pessoa escolhe a foto dentro do app, e o ARENA exporta o Story montado, em 9:16, com o adesivo por cima. O PNG só com o adesivo, de fundo transparente, continua como opção secundária ("Salvar só o adesivo").
+- **Editor:** a placa pode ficar no topo, no centro ou na base, e a foto pode ser enquadrada. O layout fino parte da tela imersiva.
+- **Barra do elo:** mostra o estado atual, sem "Subiu para Prata", e a **posição dentro do elo** ("3º na Prata"). O "#14 Brasília" do protótipo estava errado, porque os rankings são gerais, sem cidade.
+- **Corrida fora das distâncias do ranking:** sai sem a barra do elo.
+- **Stories nativo, como o Strava:** fica fora desta entrega. Exigiria um build próprio e um Facebook App ID.
+
+As regras completas estão na especificação de trabalho, em `.scratch/compartilhar-stories/spec.md`, e o glossário, em [CONTEXT.md](../CONTEXT.md).
+
+**Editor do Story montado na web (layout final), 27 de novembro de 2026:** o editor com foto não foi prototipado. Ele parte da tela imersiva da rodada 7 e mantém a mesma linguagem: fundo `night` igual nos dois temas, botão principal em menta e ações pequenas com ícone sobre o rótulo.
+- **Topo:** fechar e "Prévia do Story". A chave "Fundo transparente / Foto de exemplo" do protótipo saiu, porque agora a foto é a da pessoa.
+- **Prévia 9:16:** sem foto, mostra o adesivo sobre o xadrez escuro e uma pílula menta "Escolher foto". A pílula fica na maior faixa livre acima ou abaixo da placa, para não cobrir o adesivo em nenhuma posição. Com foto, a foto cobre o quadro, e o próprio quadro é o enquadramento: arrastar move; pinça, roda do mouse ou os botões de lupa ampliam de 1× a 3×; com o quadro focado (contorno menta), as setas movem (Shift move mais longe) e + e − ampliam. A foto nunca deixa área vazia.
+- **Controles, de cima para baixo:**
+  - seletor segmentado Topo / Centro / Base (grupo de opções, com a opção escolhida em menta) e, ao lado, os botões "Reduzir a foto" e "Ampliar a foto";
+  - "Compartilhar imagem" em menta, desabilitado até haver foto;
+  - ações pequenas "Baixar imagem", "Trocar foto" e "Salvar só o adesivo", numa linha só, também em 320 px.
+- **Desvios em relação ao protótipo e à especificação:**
+  - "Copiar" e "Mais" do protótipo não entraram; o menu do sistema já oferece os destinos;
+  - "Baixar PNG" virou "Baixar imagem" (JPEG do Story montado), e o PNG transparente ficou em "Salvar só o adesivo", que respeita a posição escolhida;
+  - os botões de lupa acompanham o seletor de posição, numa linha só, e não aparecem sobre a prévia;
+  - "Trocar foto" fica desabilitado enquanto não há foto, porque a pílula da prévia já faz a escolha;
+  - "Centro" e "Base" mantêm os deslocamentos já definidos no desenho do adesivo, e a assinatura continua embaixo.

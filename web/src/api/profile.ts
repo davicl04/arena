@@ -41,6 +41,8 @@ export interface TimelineMatch {
   round_label: string | null
   /** Sempre nulo para quem não é o titular. */
   court: { name: string } | null
+  /** O titular pode compartilhar nos Stories (decisão 0007, seção 3); sempre falso para quem não é o titular. */
+  shareable: boolean
 }
 
 export interface TimelineRun {
@@ -55,6 +57,8 @@ export interface TimelineRun {
   origin: { source: RunSource; label: string; event_id: number | null }
   previous_best_s: number | null
   mark_kind: 'primeira_marca' | 'novo_melhor' | 'sem_melhora' | null
+  /** Toda corrida do titular é compartilhável; sempre falso para quem não é o titular. */
+  shareable: boolean
 }
 
 export type TimelineItem = TimelineMatch | TimelineRun

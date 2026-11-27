@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils'
  */
 export const CONNECTION_LOAD_TEXT = 'Sem conexão com a ARENA. Vamos tentar de novo assim que voltar.'
 
-export function LoadError({ title = 'Não foi possível carregar', text, onRetry, size, tone = 'light', cause, className }: {
+export function LoadError({ title = 'Não foi possível carregar', text, onRetry, size, tone = 'light', cause, retryLabel = 'Tentar novamente', className }: {
   title?: string
   /** O que aconteceu; ignorado quando `cause` é uma falha de conexão. */
   text: string
@@ -21,6 +21,8 @@ export function LoadError({ title = 'Não foi possível carregar', text, onRetry
   tone?: 'light' | 'dark'
   /** O erro lançado pelo carregamento (para reconhecer a falta de conexão). */
   cause?: unknown
+  /** Rótulo do botão de nova tentativa. */
+  retryLabel?: string
   className?: string
 }) {
   const dark = tone === 'dark'
@@ -32,7 +34,7 @@ export function LoadError({ title = 'Não foi possível carregar', text, onRetry
     <h2 className={cn('font-display', screen ? 'text-[16px]' : 'text-[14px]')}>{title}</h2>
     <p className={cn('m-0 max-w-[30ch] text-[12px] leading-[1.6]', dark ? 'text-white/65' : 'text-ink-muted')}>{connection ? CONNECTION_LOAD_TEXT : text}</p>
     {screen
-      ? <Button type="button" variant={dark ? 'glass' : 'primary'} className="mt-2" onClick={onRetry}>Tentar novamente</Button>
-      : <Button type="button" variant={dark ? 'glass-link' : 'text'} className={dark ? undefined : 'min-h-9 py-1'} onClick={onRetry}>Tentar novamente</Button>}
+      ? <Button type="button" variant={dark ? 'glass' : 'primary'} className="mt-2" onClick={onRetry}>{retryLabel}</Button>
+      : <Button type="button" variant={dark ? 'glass-link' : 'text'} className={dark ? undefined : 'min-h-9 py-1'} onClick={onRetry}>{retryLabel}</Button>}
   </div>
 }

@@ -1,4 +1,4 @@
-import { Text, View } from 'react-native'
+import { Pressable, Text, View } from 'react-native'
 import type { TimelineRun } from '../../api/profile'
 import { useThemeColors } from '../../hooks/useTheme'
 import { StateBadge } from '../arena/StateBadge'
@@ -18,13 +18,14 @@ function Column({ title, distance, time, muted = false }: { title: string; dista
 /**
  * Corrida contra a própria marca: "Esta marca" (distância e tempo) diante do "Melhor anterior" na mesma distância, ou
  * "Sem marca anterior". O selo diz "Novo melhor" ou "Primeira marca"; fora das faixas não há comparação nem selo.
- * Corridas não são tocáveis.
+ * Vira botão só com `onOpen` (corrida compartilhável do perfil próprio, que abre a folha de ações).
  */
-export function RunDuelCard({ run }: { run: TimelineRun }) {
+export function RunDuelCard({ run, onOpen }: { run: TimelineRun; onOpen?: () => void }) {
   const colors = useThemeColors()
   const mark = run.mark_kind ? markLabel[run.mark_kind] : null
   const best = run.previous_best_s !== null ? formatDuration(run.previous_best_s) : 'Sem marca anterior'
-  return <View testID="run-duel-card" style={{ borderRadius: 14, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, padding: 12, gap: 8 }}>
+  const frame = { borderRadius: 14, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, padding: 12, gap: 8 }
+  const body = <>
     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
       <Text style={{ flexShrink: 1, color: colors['ink-muted'], fontSize: 11, fontWeight: '600' }}>{runHeading(run)}</Text>
       {mark ? <StateBadge tone="open">{mark}</StateBadge> : null}
@@ -33,5 +34,10 @@ export function RunDuelCard({ run }: { run: TimelineRun }) {
       <Column title="Esta marca" distance={formatKm(run.distance_m)} time={formatDuration(run.duration_s)} />
       {run.mark_kind !== null ? <Column title="Melhor anterior" time={best} muted /> : null}
     </View>
-  </View>
+  </>
+  if (onOpen) {
+    const label = [`Corrida, ${runHeading(run)}`, `${formatKm(run.distance_m)} em ${formatDuration(run.duration_s)}`, mark].filter(Boolean).join(', ')
+    return <Pressable testID="run-duel-card" accessibilityRole="button" accessibilityLabel={label} accessibilityHint="Abre a opção de compartilhar nos Stories" onPress={onOpen} style={{ ...frame, minHeight: 44 }}>{body}</Pressable>
+  }
+  return <View testID="run-duel-card" style={frame}>{body}</View>
 }
