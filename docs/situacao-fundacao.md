@@ -1,5 +1,11 @@
 # Situação da fundação do Arena
 
+## Revisão do roteiro para apresentação — 27 de novembro de 2026
+
+- **Documento:** o [roteiro do projeto](roteiro-projeto.docx) ganhou capa revisada, sumário clicável, hierarquia de títulos, tabelas com cabeçalhos repetidos e ajustes para manter protótipos e diagramas junto das respectivas legendas. As 27 imagens originais e os identificadores de requisitos e testes foram preservados.
+- **Conteúdo:** o roteiro agora registra o ranking de tênis por rating, o editor de Stories incorporado à versão principal e o alcance da conferência visual do Expo no simulador de iPhone. A data oficial de entrega segue a confirmar na capa.
+- **Verificações:** exportação pelo Word e conferência visual das 40 páginas, validação dos oito links do sumário, das imagens e dos identificadores de requisitos e testes. A entrega foi documental. A validação do fluxo de Stories em aparelho, a conferência em Android e a implantação em produção seguem pendentes.
+
 ## Moldura e alinhamento do Ranking na navegação inferior — 27 de novembro de 2026
 
 - **O que mudou:** na navegação inferior da web e do Expo, o Ranking era o único item sem a moldura de item ativo, a caixa com borda e sombra leve (dourada no escuro) que Início, Comunidade e Perfil ganham. Agora, a pedido do usuário, ele também a recebe quando está ativo. Inativa, a moldura continua invisível, mas mantém o tamanho. Com isso, o nome "Ranking" deixou de ficar cerca de 6 pt acima dos outros: antes o Coliseu ficava fora da caixa e o item ficava mais baixo. Arquivos: `web/src/components/BottomNav.tsx` e `mobile/src/components/BottomNav.tsx`.
