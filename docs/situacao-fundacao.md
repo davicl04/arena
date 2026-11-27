@@ -1,5 +1,51 @@
 # Situação da fundação do Arena
 
+## Compartilhar nos Stories na web: folha de ações e adesivo de resultado — 27 de novembro de 2026
+
+Ticket 03 de 6 da feature de compartilhar resultado nos Stories. A web ainda não tem foto, editor nem Story montado (ticket 04).
+
+- **Folha de ações:** na aba Partidas do perfil próprio, tocar numa atividade compartilhável (`shareable` da linha do tempo) abre a folha.
+  - **Partida:** "Compartilhar nos Stories" e "Ver partida".
+  - **Corrida:** passa a ser tocável e abre a folha só com o compartilhar.
+  - **Partida não compartilhável:** continua abrindo a tela da partida.
+  - **Perfil visitado:** segue sem toque.
+  - A folha reusa o `Sheet` e entra por portal na moldura do app.
+- **Tela imersiva:** "Compartilhar nos Stories" a abre por cima do perfil, e fechar volta ao mesmo ponto da linha do tempo.
+  - Fundo `night` igual nos dois temas e título "Prévia do Story".
+  - Prévia 9:16 em Canvas sobre o xadrez escuro.
+  - "Salvar só o adesivo" baixa um PNG 1080×1920 transparente.
+  - Estados de carregamento, erro com "Tentar de novo", 401 pelo fluxo de sessão expirada e 404.
+  - Cada abertura faz uma leitura de `GET /me/share/...` (cliente `api/share.ts`).
+- **Adesivo:** segue o design aprovado.
+  - Placa Floresta com três números por modalidade.
+  - Barra do elo em todos os estados de `category`: classificado, Diamante com e sem vagas, Lendário, classificação e ausente na corrida livre.
+  - Assinatura Coliseu + `arena.` sem caixa.
+- **Implementação:**
+  - Conteúdo (`stickerContent`) e geometria (`stickerLayout`, posições topo/centro/base) são camadas puras.
+  - Uma única função (`drawSticker`) desenha a prévia e a exportação, com o Coliseu por `Path2D` e Inter/Sora carregadas antes.
+  - O fundo é plugável, para receber a foto no ticket 04.
+  - Sem dependência nova e sem token em localStorage.
+
+**Verificações:**
+- **Worktree do ticket:**
+  - `npm run lint` e `npm run build`: ok.
+  - Testes novos: `tests/share-sticker.test.ts` (28) e `tests/share-flow.test.tsx` (12).
+  - Navegador (Playwright/Chromium) com API e PostgreSQL reais em banco descartável, com linhas de `standings` inseridas só nesse banco para ver os estados do elo:
+    - temas Dia e Noite, em 320, 390 e 1440 px, sem overflow horizontal e sem erros de console;
+    - folha, imersiva, partida não compartilhável e perfil visitado;
+    - oito PNGs baixados, todos 1080×1920 com fundo de alfa 0.
+- **Árvore integrada:**
+  - `npm run lint` e `npm run build`: ok.
+  - `npm run test:coverage`: 1423 aprovados e 1 reprovado, o instável conhecido `matchmaking.test.tsx` › "prepara a busca com vagas…", que também falha na base.
+  - Cobertura sem esse teste: 94,2% de instruções, 88,09% de ramos, 93,73% de funções e 96,96% de linhas, acima dos pisos.
+
+**Limitações:**
+- PNG conferido só no Chromium.
+- O brasão do elo na barra é o Coliseu na cor do elo, como no protótipo.
+- O segmento de "ganho" da barra do protótipo não existe, porque a API não informa essa parte.
+
+**Pendências:** foto, enquadramento, posição da placa, Story montado e compartilhamento nativo (ticket 04).
+
 ## Barra do elo no adesivo de resultado (backend) — 27 de novembro de 2026
 
 Ticket 02 de 6 da feature de compartilhar resultado nos Stories. A entrega é só de backend, e os clientes ainda não consomem o bloco.
