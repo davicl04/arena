@@ -19,3 +19,16 @@ export function useBottomInset() {
   }, [])
   return keyboard ? 0 : bottom
 }
+
+/** Navegação inferior com as medidas da web: 82 de altura, com 11 de folga embaixo. */
+export const NAV_HEIGHT = 82
+export const NAV_PADDING_BOTTOM = 11
+
+/**
+ * O que a navegação inferior cresce por causa da área segura de baixo. A folga de 11 da web fica dentro da área segura (o
+ * indicador de início) em vez de somar a ela, senão sobra um vão embaixo dos nomes: com 34 de área segura, a barra cresce 23.
+ * Use também para posicionar o que fica acima da barra (aviso de conexão, toast).
+ */
+export function useNavInset() {
+  return Math.max(0, useBottomInset() - NAV_PADDING_BOTTOM)
+}

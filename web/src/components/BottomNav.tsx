@@ -50,7 +50,15 @@ export default function BottomNav({
                 )}
               </span>
             ) : screen === "ranking" ? (
-              <ArenaMark className="h-[21px] w-[27px]" />
+              // Mesma moldura dos outros ícones (invisível quando inativa), para o nome do Ranking ficar na linha deles.
+              <span
+                className={cn(
+                  "grid rounded-[14px] border border-solid border-transparent px-2 py-[5px]",
+                  on && "border-line shadow-[0_2px_6px_#4950571f] noite:border-[#f4de9a55] noite:shadow-none",
+                )}
+              >
+                <ArenaMark className="h-[21px] w-[27px]" />
+              </span>
             ) : (
               <Icon
                 size={21}
