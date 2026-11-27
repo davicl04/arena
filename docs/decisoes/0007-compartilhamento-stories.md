@@ -2,7 +2,7 @@
 
 Data: 26 de novembro de 2026. Contrato do backend do **adesivo de resultado**: o que pode ser compartilhado, o campo `shareable` da linha do tempo e as rotas que entregam os números da placa. Os termos (atividade, adesivo de resultado, barra do elo, categoria da atividade, posição no elo) estão no [glossário](../../CONTEXT.md); o design aprovado está na [fidelidade visual](../fidelidade-figma.md), seção "Compartilhamento de resultado nos Stories".
 
-> **Estado (27 de novembro de 2026):** a regra de compartilhável, o `shareable` da linha do tempo, as duas rotas e o bloco `category` (barra do elo, seção 5) estão implementados no backend. Web e Expo ainda não consomem este contrato. Não há migração nem tabela nova.
+> **Estado (27 de novembro de 2026):** a regra de compartilhável, o `shareable` da linha do tempo, as duas rotas e o bloco `category` (barra do elo, seção 5) estão implementados no backend. Web e Expo consomem este contrato na folha de ações da aba Partidas e na tela imersiva do Story. Não há migração nem tabela nova.
 
 Código: `app/services/share_rules.py` (regra única), `app/services/profile_timeline.py` (`shareable` e os itens de uma atividade do titular, `own_match_item` e `own_run_item`), `app/services/result_share.py` (rotas), `app/services/share_category.py` (barra do elo), `app/schemas/share.py`, `app/schemas/profile.py` e `app/routers/profile.py`. Testes: `tests/integration/test_share_flow.py`, `tests/integration/test_share_category_flow.py` e `tests/unit/test_share_category.py`.
 

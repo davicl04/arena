@@ -314,11 +314,12 @@ DESCRIPTIONS: dict[tuple[str, str], str] = {
     ('GET', '/me/share/matches/{match_id}'): ('Números da placa do adesivo de resultado de uma partida do titular da '
                                               'sessão, compartilhável quando tem resultado final, exceto a vitória '
                                               'por W.O. Partida de outra pessoa, inexistente ou não compartilhável '
-                                              'responde 404, sem distinguir os casos. `category` (barra do elo) '
-                                              'ainda vem nula.'),
+                                              'responde 404, sem distinguir os casos. `category` traz a barra do elo '
+                                              '(estado atual da categoria da partida).'),
     ('GET', '/me/share/runs/{run_id}'): ('Números da placa do adesivo de resultado de uma corrida do titular da '
                                          'sessão; toda corrida é compartilhável. Corrida de outra pessoa ou '
-                                         'inexistente responde 404. `category` (barra do elo) ainda vem nula.'),
+                                         'inexistente responde 404. `category` traz a barra do elo (nula fora das '
+                                         'distâncias padrão).'),
     ('PUT', '/me/avatar'): 'Envio em `multipart/form-data`, somente imagem, até 5 MiB.',
     ('PUT', '/me/cover'): 'Envio em `multipart/form-data`, somente imagem, até 5 MiB.',
     ('POST', '/posts'): 'Envio em `multipart/form-data` com a imagem e a legenda, até 5 MiB.',
