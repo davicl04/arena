@@ -262,7 +262,7 @@ Fase de design de uma funcionalidade nova, pedida pelo usuário: compartilhar o 
 - **Glossário:** novo `CONTEXT.md` na raiz.
 
 **Pendências:**
-- **Especificação e tickets:** a spec e 6 tickets estão em `.scratch/compartilhar-stories/`, que não é versionado. São dois tickets de backend (o que pode ser compartilhado e a barra do elo), dois da web e dois do Expo. A implementação ainda não começou.
+- ~~**Especificação e tickets:** a spec e 6 tickets estão em `.scratch/compartilhar-stories/`, que não é versionado. São dois tickets de backend (o que pode ser compartilhado e a barra do elo), dois da web e dois do Expo. A implementação ainda não começou.~~ Implementados em 27 de novembro de 2026; ver as entradas dos tickets 01 a 06, acima.
 - **Stories nativo, como o Strava:** com build próprio e Facebook App ID, fica como etapa futura.
 
 ## Revisão dos textos da landing (web) — 26 de novembro de 2026
