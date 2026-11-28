@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { KeyboardAvoidingView, Platform, ScrollView, View } from 'react-native'
+import { KeyboardAvoidingView, Platform, View } from 'react-native'
 import { Text } from '../components/Text'
 import { getOrganizerStatus, refusalText, sentence } from '../api/organizer'
 import type { OrganizerRequest } from '../api/organizer'
@@ -12,6 +12,7 @@ import { useResource } from '../hooks/useResource'
 import type { ScreenProps } from '../navigation/screens'
 import { useThemeColors } from '../hooks/useTheme'
 import { Icon } from '../components/Icon'
+import { KeyboardScrollView } from '../components/KeyboardScrollView'
 
 
 const rules: { icon: Parameters<typeof Icon>[0]['name']; title: string; text: string }[] = [
@@ -37,7 +38,7 @@ export default function OrganizerRequestScreen({ navigation, onExpired }: Screen
   const ready = !status.loading && !profiles.loading
 
   return <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-    <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 20, paddingBottom: 48 }}>
+    <KeyboardScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 20, paddingBottom: 48 }}>
       <View style={{ overflow: 'hidden', borderRadius: 20, backgroundColor: colors.forest, paddingHorizontal: 18, paddingTop: 16, paddingBottom: 20 }}>
         <View pointerEvents="none" style={{ position: 'absolute', right: -24, bottom: -20, opacity: 0.06 }}><ArenaMark width={180} height={110} color="#ffffff" /></View>
         <Text style={{ color: colors.mint, fontSize: 10, fontWeight: '800', letterSpacing: 1 }}>ORGANIZAR NO ARENA</Text>
@@ -76,6 +77,6 @@ export default function OrganizerRequestScreen({ navigation, onExpired }: Screen
               {state === 'revogado' && status.data?.revocation ? <Notice>{`Sua permissão foi revogada. Motivo: ${sentence(status.data.revocation.reason)}`}</Notice> : null}
               <OrganizerRequestForm defaultCity={defaultCity} onSent={setSent} onExpired={onExpired} />
             </> : null}
-    </ScrollView>
+    </KeyboardScrollView>
   </KeyboardAvoidingView>
 }

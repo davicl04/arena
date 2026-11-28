@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ScrollView, View } from 'react-native'
+import { View } from 'react-native'
 import { courtKindLabel, courtSuggestionsPath } from '../api/admin'
 import type { AdminCourtSuggestion, CourtQueue } from '../api/admin'
 import type { User } from '../api/client'
@@ -14,6 +14,7 @@ import { RowList } from '../components/review/Rows'
 import { ListMessage, LoadMore } from '../components/review/ui'
 import { usePagedList } from '../hooks/usePagedList'
 import { relativeTime } from '../utils/relativeTime'
+import { KeyboardScrollView } from '../components/KeyboardScrollView'
 
 const tabs: { value: CourtQueue; label: string }[] = [
   { value: 'em_revisao', label: 'Para analisar' },
@@ -60,7 +61,7 @@ function CourtQueueList({ queue, onExpired }: { queue: CourtQueue; onExpired: ()
 
 function CourtQueues({ onExpired }: { onExpired: () => void }) {
   const [tab, setTab] = useState<CourtQueue>('em_revisao')
-  return <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 48 }} keyboardShouldPersistTaps="handled">
+  return <KeyboardScrollView contentContainerStyle={{ padding: 20, paddingBottom: 48 }} keyboardShouldPersistTaps="handled">
     <Hint>As quadras sugeridas valem só na partida de origem até a sua decisão. Publique as que existem; quem sugeriu recebe a resposta nas notificações.</Hint>
     <View style={{ marginTop: 10 }}>
       <SectionTabs label="Filas de quadras" items={tabs} value={tab} onChange={setTab} />
@@ -68,7 +69,7 @@ function CourtQueues({ onExpired }: { onExpired: () => void }) {
     <View style={{ paddingTop: 8 }}>
       <CourtQueueList key={tab} queue={tab} onExpired={onExpired} />
     </View>
-  </ScrollView>
+  </KeyboardScrollView>
 }
 
 /**

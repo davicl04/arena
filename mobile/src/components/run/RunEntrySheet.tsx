@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, View } from 'react-native'
+import { KeyboardAvoidingView, Modal, Platform, Pressable, View } from 'react-native'
 import { Text } from '../Text'
 import { ApiError } from '../../api/client'
 import { createRun, getRunRaces, previewRun } from '../../api/runs'
@@ -21,6 +21,7 @@ import type { HmsParts } from '../play/runView'
 import { PreviewHint, RunPreviewCard } from './RunPreviewCard'
 import { RunRaces } from './RunRaces'
 import { RunTimeFields } from './RunTimeFields'
+import { KeyboardScrollView } from '../KeyboardScrollView'
 
 /** Espera depois da última mudança antes de pedir a prévia (cada toque numa seta não vira uma chamada). */
 export const PREVIEW_DELAY_MS = 300
@@ -175,7 +176,7 @@ export function RunEntrySheet({ initialDistance, onClose, onSaved, onFindRaces, 
           <Text accessibilityRole="header" style={{ color: '#ffffff', fontSize: 15, fontWeight: '800' }}>Registrar corrida</Text>
           <View style={{ width: 44 }} />
         </View>
-        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingHorizontal: 18, paddingTop: 12, paddingBottom: 20 }}>
+        <KeyboardScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingHorizontal: 18, paddingTop: 12, paddingBottom: 20 }}>
           <View accessibilityRole="radiogroup" accessibilityLabel="Distância" style={{ flexDirection: 'row', borderBottomWidth: 2, borderBottomColor: 'rgba(255,255,255,0.15)' }}>
             {rulerItems.map(item => <RulerTick key={String(item.value)} item={item} selected={choice === item.value} onPress={() => setChoice(item.value)} />)}
           </View>
@@ -213,7 +214,7 @@ export function RunEntrySheet({ initialDistance, onClose, onSaved, onFindRaces, 
           <View accessibilityLiveRegion="polite" style={{ marginTop: 16, minHeight: 68 }}>
             {view ? <RunPreviewCard view={view} stale={!fresh} /> : hint ? <PreviewHint>{hint}</PreviewHint> : null}
           </View>
-        </ScrollView>
+        </KeyboardScrollView>
         <View style={{ paddingHorizontal: 18, paddingTop: 12, paddingBottom: 18, backgroundColor: colors.forest }}>
           {problems?.general ? <Notice tone="error" surface="dark">{problems.general}</Notice> : null}
           <View style={{ marginTop: problems?.general ? 10 : 0 }}>

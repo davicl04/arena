@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ScrollView, View } from 'react-native'
+import { View } from 'react-native'
 import type { User } from '../api/client'
 import { adminReportsPath, previewText, reportReasonLabel, reportTargetLabel } from '../api/moderation'
 import type { AdminReport, ReportStatus } from '../api/moderation'
@@ -15,6 +15,7 @@ import { usePagedList } from '../hooks/usePagedList'
 import { useSessionToken } from '../hooks/useSessionToken'
 import { useThemeColors } from '../hooks/useTheme'
 import { relativeTime } from '../utils/relativeTime'
+import { KeyboardScrollView } from '../components/KeyboardScrollView'
 
 const tabs: { value: ReportStatus; label: string }[] = [{ value: 'pending', label: 'Pendentes' }, { value: 'resolved', label: 'Resolvidas' }]
 
@@ -33,7 +34,7 @@ function Reports({ onExpired }: { onExpired: () => void }) {
   const list = usePagedList<AdminReport>(adminReportsPath(status), onExpired)
   const [open, setOpen] = useState<AdminReport | null>(null)
   const pending = status === 'pending'
-  return <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 48 }} keyboardShouldPersistTaps="handled">
+  return <KeyboardScrollView contentContainerStyle={{ padding: 20, paddingBottom: 48 }} keyboardShouldPersistTaps="handled">
     <Hint>Decida cada denúncia com uma justificativa; a decisão fica registrada.</Hint>
     <View style={{ marginTop: 10 }}>
       <SectionTabs label="Estado das denúncias" items={tabs} value={status} onChange={setStatus} />
@@ -63,7 +64,7 @@ function Reports({ onExpired }: { onExpired: () => void }) {
         setOpen(null)
         toast.success('Conta reativada.')
       }} /> : null}
-  </ScrollView>
+  </KeyboardScrollView>
 }
 
 /**

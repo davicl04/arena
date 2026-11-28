@@ -1,11 +1,12 @@
 import type { ReactNode } from 'react'
-import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, View } from 'react-native'
+import { KeyboardAvoidingView, Modal, Platform, Pressable, View } from 'react-native'
 import { Text } from '../Text'
 import { colors } from '../../theme'
 import { useThemeColors } from '../../hooks/useTheme'
 import { useBottomInset } from '../../hooks/useBottomInset'
 import { Icon } from '../Icon'
 import { ToastViewport } from '../toast/ToastViewport'
+import { KeyboardScrollView } from '../KeyboardScrollView'
 
 /**
  * Folha inferior das ações e confirmações de Meus times e do Jogar: clara (atleta, sair do time, encerrar) ou escura
@@ -34,7 +35,7 @@ export function ActionSheet({ title, onClose, dark = false, locked = false, icon
               <Icon name="x" size={20} color={dark ? 'rgba(255,255,255,0.7)' : theme['ink-muted']} />
             </Pressable>
           </View>
-          <ScrollView keyboardShouldPersistTaps="handled">{children}</ScrollView>
+          <KeyboardScrollView keyboardShouldPersistTaps="handled">{children}</KeyboardScrollView>
         </View>
       </View>
     </KeyboardAvoidingView>

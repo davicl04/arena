@@ -1,5 +1,5 @@
 import { useCallback } from 'react'
-import { ScrollView, View } from 'react-native'
+import { View } from 'react-native'
 import { Text } from '../components/Text'
 import { ApiError } from '../api/client'
 import { decideResult } from '../api/brackets'
@@ -20,6 +20,7 @@ import { useSubmit } from '../hooks/useSubmit'
 import type { ScreenProps } from '../navigation/screens'
 import { useResolvedTheme, useThemeColors } from '../hooks/useTheme'
 import { formatClock, parseIso } from '../utils/format'
+import { KeyboardScrollView } from '../components/KeyboardScrollView'
 
 interface TimelineEvent { icon: IconName; title: string; detail: string; bad?: boolean }
 
@@ -133,7 +134,7 @@ export default function ResultDecisionScreen({ params, navigation, onExpired }: 
   const timeline = timelineOf(detail)
 
   return <View style={{ flex: 1 }}>
-    <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 48 }}>
+    <KeyboardScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 48 }}>
       <TeamsPlate bottom={16}><DarkTopBar eyebrow={detail.event?.name ?? 'Organizador'} title={title} onBack={navigation.back} /></TeamsPlate>
 
       <View style={{ padding: 16, gap: 14 }}>
@@ -185,6 +186,6 @@ export default function ResultDecisionScreen({ params, navigation, onExpired }: 
             {detail.state === 'cancelada' ? 'Esta partida foi cancelada.' : detail.state === 'agendada' ? 'A partida ainda não começou: a decisão fica disponível depois do horário.' : 'Não há resultado para decidir nesta partida agora.'}
           </Text> : null}
       </View>
-    </ScrollView>
+    </KeyboardScrollView>
   </View>
 }

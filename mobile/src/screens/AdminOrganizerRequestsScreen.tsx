@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ScrollView, View } from 'react-native'
+import { View } from 'react-native'
 import type { User } from '../api/client'
 import { ADMIN_ORGANIZERS_PATH, organizerRequestsPath } from '../api/admin'
 import type { OrganizerQueue } from '../api/admin'
@@ -17,6 +17,7 @@ import { usePagedList } from '../hooks/usePagedList'
 import { useSessionToken } from '../hooks/useSessionToken'
 import type { StateTone } from '../data/arena'
 import { relativeTime, shortDate } from '../utils/relativeTime'
+import { KeyboardScrollView } from '../components/KeyboardScrollView'
 
 type AdminTab = OrganizerQueue | 'organizadores'
 const tabs: { value: AdminTab; label: string }[] = [
@@ -85,7 +86,7 @@ function OrganizerList({ token, onOpenProfile, onExpired }: Shared) {
 function OrganizerQueues({ onOpenProfile, onExpired }: Pick<Shared, 'onOpenProfile' | 'onExpired'>) {
   const token = useSessionToken()
   const [tab, setTab] = useState<AdminTab>('em_analise')
-  return <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 48 }} keyboardShouldPersistTaps="handled">
+  return <KeyboardScrollView contentContainerStyle={{ padding: 20, paddingBottom: 48 }} keyboardShouldPersistTaps="handled">
     <Hint>Aprove quem pode criar campeonatos e provas. A pessoa recebe a decisão nas notificações.</Hint>
     <View style={{ marginTop: 10 }}>
       <SectionTabs label="Filas do organizador" items={tabs} value={tab} onChange={setTab} />
@@ -95,7 +96,7 @@ function OrganizerQueues({ onOpenProfile, onExpired }: Pick<Shared, 'onOpenProfi
         ? <OrganizerList token={token} onOpenProfile={onOpenProfile} onExpired={onExpired} />
         : <RequestQueue key={tab} queue={tab} token={token} onOpenProfile={onOpenProfile} onExpired={onExpired} />}
     </View>
-  </ScrollView>
+  </KeyboardScrollView>
 }
 
 /**

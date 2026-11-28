@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, View } from 'react-native'
+import { KeyboardAvoidingView, Modal, Platform, Pressable, View } from 'react-native'
 import { Text } from '../components/Text'
 import { ApiError } from '../api/client'
 import type { City } from '../api/client'
@@ -26,6 +26,7 @@ import { makeEntry } from '../navigation/routes'
 import { useThemeColors } from '../hooks/useTheme'
 import { colors } from '../theme'
 import { Icon } from '../components/Icon'
+import { KeyboardScrollView } from '../components/KeyboardScrollView'
 
 
 type Busy = 'draft' | 'publish' | null
@@ -225,7 +226,7 @@ export default function EventWizardScreen({ params, navigation, onExpired }: Scr
     </View>
     : <>
       <StepBars done={step + 1} total={WIZARD_STEPS.length} inset={16} />
-      <ScrollView key={step} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40 }}>
+      <KeyboardScrollView key={step} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40 }}>
         <Text accessibilityLiveRegion="polite" style={{ position: 'absolute', width: 1, height: 1, opacity: 0 }}>{`Passo ${step + 1} de ${WIZARD_STEPS.length}. ${WIZARD_STEPS[step].question}`}</Text>
         <Text accessibilityRole="header" style={{ marginTop: 18, marginBottom: 4, color: '#ffffff', fontSize: 24, lineHeight: 28, fontWeight: '800' }}>{WIZARD_STEPS[step].question}</Text>
 
@@ -255,7 +256,7 @@ export default function EventWizardScreen({ params, navigation, onExpired }: Scr
         <EventPoster name={form.name.trim() || 'Nome do evento'} sport={form.sport} startsAt={previewStart} format={form.format} distanceKm={form.distanceKm} eventType={form.competitionType}
           priceCents={form.paid === null ? null : paid ? parsePrice(form.price) : 0} acceptedTiers={form.restricted ? form.tiers : null}
           entries={previewCapacity ? { count: 0, capacity: previewCapacity } : null} state="rascunho" stateLabel={paid ? 'Vai para aprovação' : 'Rascunho'} showSport />
-      </ScrollView>
+      </KeyboardScrollView>
     </>
 
   return <View style={{ flex: 1, backgroundColor: colors.forest }}>

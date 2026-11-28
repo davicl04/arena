@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { Image, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, View } from 'react-native'
+import { Image, KeyboardAvoidingView, Modal, Platform, Pressable, View } from 'react-native'
 import { Text, TextInput } from './Text'
 import * as ImagePicker from 'expo-image-picker'
 import { request } from '../api/client'
@@ -10,6 +10,7 @@ import { ModalScreen } from './ModalScreen'
 import { ToastViewport } from './toast/ToastViewport'
 import { cx } from '../styles'
 import { colors } from '../theme'
+import { KeyboardScrollView } from './KeyboardScrollView'
 
 export const POST_IMAGE_MAX_BYTES = 5 * 1024 * 1024
 export type PhotoAsset = ImagePicker.ImagePickerAsset
@@ -83,7 +84,7 @@ export default function PostComposer({ initial, onClose, onPublished, onExpired 
           </View>
         </View>
       </View>
-      <ScrollView keyboardShouldPersistTaps="handled" contentContainerClassName="pb-8">
+      <KeyboardScrollView keyboardShouldPersistTaps="handled" contentContainerClassName="pb-8">
         <Image source={{ uri: asset.uri }} accessibilityLabel="Prévia da foto recortada" resizeMode="cover" className="aspect-square w-full bg-glass-ink" />
         <View className="gap-3 p-4">
           <TextInput value={caption} onChangeText={setCaption} maxLength={CAPTION_MAX} multiline editable={!busy}
@@ -96,7 +97,7 @@ export default function PostComposer({ initial, onClose, onPublished, onExpired 
             <Text className="text-[15px] font-bold text-forest">{busy ? 'Publicando…' : 'Publicar'}</Text>
           </Pressable>
         </View>
-      </ScrollView>
+      </KeyboardScrollView>
     </KeyboardAvoidingView></ModalScreen>
     <ToastViewport />
   </Modal>

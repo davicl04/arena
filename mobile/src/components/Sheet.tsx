@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, View } from 'react-native'
+import { KeyboardAvoidingView, Modal, Platform, Pressable, View } from 'react-native'
 import { Text } from './Text'
 import { Button } from './ui'
 import { ToastViewport } from './toast/ToastViewport'
@@ -7,6 +7,7 @@ import { cx, tw } from '../styles'
 import { useBottomInset } from '../hooks/useBottomInset'
 import { useThemeColors } from '../hooks/useTheme'
 import { Icon } from './Icon'
+import { KeyboardScrollView } from './KeyboardScrollView'
 
 // Folha inferior: monte-a apenas enquanto estiver aberta.
 // A base fica acima do indicador de início (área segura de baixo); com o teclado aberto, ele fica embaixo do teclado e vale só a folga de 22.
@@ -23,7 +24,7 @@ export default function Sheet({ title, onClose, onBack, children }: { title: str
             <Text accessibilityRole="header" className={cx(tw.headingInline, 'grow basis-0')}>{title}</Text>
             <Pressable accessibilityRole="button" accessibilityLabel="Fechar" onPress={onClose} className="min-h-11 min-w-11 items-center justify-center"><Icon name="x" size={20} color={colors['ink-muted']} /></Pressable>
           </View>
-          <ScrollView keyboardShouldPersistTaps="handled">{children}<Button secondary title={onBack ? 'Voltar' : 'Fechar'} onPress={onBack ?? onClose} /></ScrollView>
+          <KeyboardScrollView keyboardShouldPersistTaps="handled">{children}<Button secondary title={onBack ? 'Voltar' : 'Fechar'} onPress={onBack ?? onClose} /></KeyboardScrollView>
         </View>
       </View>
     </KeyboardAvoidingView>

@@ -1,9 +1,10 @@
 import { useEffect } from 'react'
 import type { ReactNode } from 'react'
-import { BackHandler, Pressable, ScrollView, View } from 'react-native'
+import { BackHandler, Pressable, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Text } from './Text'
 import { cx } from '../styles'
+import { KeyboardScrollView } from './KeyboardScrollView'
 export function GlassButton({ label, glyph, onPress, disabled }: { label: string; glyph: string; onPress: () => void; disabled?: boolean }) {
   return <Pressable accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ disabled: Boolean(disabled) }} disabled={disabled} onPress={onPress} hitSlop={4}
     className={cx('min-h-11 min-w-11 items-center justify-center', disabled && 'opacity-45')}>
@@ -42,7 +43,7 @@ export default function GlassOverlay({ title, onClose, onBack, backLabel = 'Volt
       <Text accessibilityRole="header" numberOfLines={1} className={cx('grow basis-0 font-bold text-white', screen ? 'text-[19px]' : 'text-[16px]')}>{title}</Text>
       <GlassButton label={closeLabel} glyph="✕" onPress={onClose} />
     </View>
-    <ScrollView className="grow basis-0" contentContainerClassName="py-1.5" keyboardShouldPersistTaps="handled" nestedScrollEnabled>{children}</ScrollView>
+    <KeyboardScrollView className="grow basis-0" contentContainerClassName="py-1.5" keyboardShouldPersistTaps="handled" nestedScrollEnabled>{children}</KeyboardScrollView>
     {footer}
   </View>
 }

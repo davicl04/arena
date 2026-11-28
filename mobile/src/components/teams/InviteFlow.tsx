@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
-import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native'
+import { ActivityIndicator, Pressable, View } from 'react-native'
 import { Text, TextInput } from '../Text'
 import { getTeam, inviteCandidatesPath, sendInvite } from '../../api/teams'
 import type { InviteCandidate, TeamStatus } from '../../api/teams'
@@ -18,6 +18,7 @@ import { StepBars } from '../arena/StepBars'
 import { onDark } from './ui'
 import { Icon } from '../Icon'
 import type { IconName } from '../Icon'
+import { KeyboardScrollView } from '../KeyboardScrollView'
 
 // O gerador de QR (react-native-qrcode-svg) só é carregado quando a aba Link e QR abre.
 const TeamLinkPanel = lazy(() => import('./TeamLinkPanel').then(module => ({ default: module.TeamLinkPanel })))
@@ -84,7 +85,7 @@ export function InviteFlow({ teamId, initialTab = 'pessoa', onClose, onExpired }
   if (chosen) {
     const firstName = chosen.person.name.trim().split(/\s+/)[0]
     return <><DarkTopBar eyebrow="Passo 2 de 2" title="Revisar convite" backLabel="Voltar para escolher atleta" onBack={backToList} />
-      <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 4, paddingBottom: 32 }}>
+      <KeyboardScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 4, paddingBottom: 32 }}>
       <StepBars done={2} total={2} />
       <View style={{ marginTop: 14, flexDirection: 'row', alignItems: 'center', gap: 11, borderRadius: 14, backgroundColor: onDark.card, padding: 11 }}>
         <MemberFace name={chosen.person.name} avatarUrl={chosen.person.avatar_url} size="row" />
@@ -114,11 +115,11 @@ export function InviteFlow({ teamId, initialTab = 'pessoa', onClose, onExpired }
       <View style={{ marginTop: 14 }}>
         <ActionButton tone="mint" block icon="send-horizontal" title={send.busy ? 'Enviando…' : 'Enviar convite'} accessibilityLabel={send.busy ? 'Enviando convite' : 'Enviar convite'} disabled={send.busy} onPress={() => void submitInvite()} />
       </View>
-    </ScrollView></>
+    </KeyboardScrollView></>
   }
 
   return <><DarkTopBar eyebrow="Passo 1 de 2" title="Quem você quer convidar?" icon="close" onBack={onClose} />
-  <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 4, paddingBottom: 32 }}>
+  <KeyboardScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 4, paddingBottom: 32 }}>
     <StepBars done={1} total={2} />
     {team ? <Text numberOfLines={1} style={{ marginTop: 8, color: 'rgba(255,255,255,0.56)', fontSize: 10.5 }}>Para o {team.name}</Text> : null}
     <View accessibilityRole="tablist" accessibilityLabel="Como convidar" style={{ marginTop: 12, flexDirection: 'row', gap: 4, borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.07)', padding: 3 }}>
@@ -156,5 +157,5 @@ export function InviteFlow({ teamId, initialTab = 'pessoa', onClose, onExpired }
           <ActionButton tone="line" title={candidates.busy ? 'Carregando…' : 'Carregar mais atletas'} disabled={candidates.busy} onPress={() => void candidates.loadMore()} fit />
         </View> : null}
       </View>}
-  </ScrollView></>
+  </KeyboardScrollView></>
 }
