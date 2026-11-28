@@ -43,7 +43,7 @@ interface Options {
   items?: ArenaNotification[]
   pending?: ArenaNotification[]
   follow?: ReturnType<typeof person>[]
-  /** Total de pedidos para seguir no resumo (padrão: o tamanho de `follow`). */
+  /** Total de pedidos de aliança no resumo (padrão: o tamanho de `follow`). */
   followTotal?: number
   next?: string | null
   failRead?: boolean
@@ -450,11 +450,11 @@ describe('Notificações: pendências sem conexão', () => {
   })
 })
 
-describe('Notificações: pedidos para seguir', () => {
+describe('Notificações: pedidos de aliança', () => {
   it.each([
-    [[bruna], 1, '1 pedido para seguir', 'Bruna Alves'],
-    [[bruna, diego], 2, '2 pedidos para seguir', 'Bruna Alves e Diego Souza'],
-    [[bruna, diego], 4, '4 pedidos para seguir', 'Bruna Alves, Diego Souza e mais 2'],
+    [[bruna], 1, '1 pedido de aliança', 'Bruna Alves'],
+    [[bruna, diego], 2, '2 pedidos de aliança', 'Bruna Alves e Diego Souza'],
+    [[bruna, diego], 4, '4 pedidos de aliança', 'Bruna Alves, Diego Souza e mais 2'],
   ])('a linha-resumo no topo de Tudo: %#', async (follow, total, title, names) => {
     mockServer({ items: [accepted], follow, followTotal: total })
     const onOpen = vi.fn()
@@ -469,12 +469,12 @@ describe('Notificações: pedidos para seguir', () => {
   it('só aparece em Tudo e conta no resumo da placa e no estado vazio', async () => {
     mockServer({ follow: [bruna], items: [] })
     render(<NotificationsHarness />)
-    await screen.findByRole('button', { name: /1 pedido para seguir/ })
+    await screen.findByRole('button', { name: /1 pedido de aliança/ })
     expect(screen.queryByText('Nada neste filtro.')).toBeNull()
     expect(screen.queryByRole('heading', { level: 2, name: 'Tudo em dia' })).toBeNull()
     await userEvent.setup().click(chip('Partidas'))
     await screen.findByText('Nada neste filtro.')
-    expect(screen.queryByRole('button', { name: /pedido para seguir/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: /pedido de aliança/ })).toBeNull()
   })
 
   it('mostra o erro da leitura dos pedidos sem esconder o resto, com nova tentativa', async () => {
@@ -483,6 +483,6 @@ describe('Notificações: pedidos para seguir', () => {
     expect((await screen.findByRole('alert')).textContent).toContain('Não foi possível carregar os pedidos.')
     expect(screen.getAllByRole('listitem')).toHaveLength(1)
     await userEvent.setup().click(screen.getByRole('button', { name: 'Tentar novamente' }))
-    expect(await screen.findByRole('button', { name: /1 pedido para seguir/ })).not.toBeNull()
+    expect(await screen.findByRole('button', { name: /1 pedido de aliança/ })).not.toBeNull()
   })
 })

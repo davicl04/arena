@@ -456,16 +456,16 @@ describe('Notificações: Ler todas', () => {
   })
 })
 
-describe('Notificações: pedidos para seguir', () => {
+describe('Notificações: pedidos de aliança', () => {
   const asker = (id: number, name: string) => ({ user: { id, name, username: name.toLowerCase().replace(/\s+/g, '.'), avatar_url: null, cover_url: null, social_public: false, post_count: 0, follower_count: 0, following_count: 0, follows_you: false, follow_state: 'none' as const }, state: 'pendente' })
 
   it('a linha-resumo no topo de Tudo mostra o total do resumo e os nomes, e abre a subtela; nos outros chips não aparece', async () => {
     serveNotifications({ requests: [asker(10, 'Bruna Alves'), asker(11, 'Diego Souza')], extra: { [pendingOf('times')]: { items: [] }, [feedOf('times')]: page([]) } })
     const { tree, navigation } = await mountNotifications({ summary: summaryOf({ follow_requests_count: 2 }) })
     expect(byId(tree, 'follow-requests-line')).toHaveLength(1)
-    expect(allText(tree)).toContain('2 pedidos para seguir')
+    expect(allText(tree)).toContain('2 pedidos de aliança')
     expect(allText(tree)).toContain('Bruna Alves e Diego Souza')
-    await pressButton(tree, '2 pedidos para seguir: Bruna Alves e Diego Souza')
+    await pressButton(tree, '2 pedidos de aliança: Bruna Alves e Diego Souza')
     expect(navigation.go).toHaveBeenCalledWith('follow-requests')
     await pressButton(tree, 'Times')
     expect(byId(tree, 'follow-requests-line')).toHaveLength(0)
@@ -474,11 +474,11 @@ describe('Notificações: pedidos para seguir', () => {
   it('com mais de dois pedidos, os nomes dizem "e mais N"; com um só, o singular; sem pedidos, sem linha', async () => {
     serveNotifications({ requests: [asker(10, 'Bruna Alves'), asker(11, 'Diego Souza'), asker(12, 'Eva Lima')] })
     const many = await mountNotifications({ summary: summaryOf({ follow_requests_count: 5 }) })
-    expect(allText(many.tree)).toContain('5 pedidos para seguir')
+    expect(allText(many.tree)).toContain('5 pedidos de aliança')
     expect(allText(many.tree)).toContain('Bruna Alves, Diego Souza e mais 3')
     serveNotifications({ requests: [asker(10, 'Bruna Alves')] })
     const one = await mountNotifications({ summary: summaryOf({ follow_requests_count: 1 }) })
-    expect(allText(one.tree)).toContain('1 pedido para seguir')
+    expect(allText(one.tree)).toContain('1 pedido de aliança')
     expect(byId(one.tree, 'notifications-empty')).toHaveLength(0)
     serveNotifications()
     const none = await mountNotifications()
@@ -488,7 +488,7 @@ describe('Notificações: pedidos para seguir', () => {
   it('mesmo se a fila falhar, o total do resumo continua levando à subtela', async () => {
     serveNotifications({ extra: { '/me/follow-requests': new ApiError('Fila fora do ar', 500) } })
     const { tree, navigation } = await mountNotifications({ summary: summaryOf({ follow_requests_count: 2 }) })
-    await pressButton(tree, '2 pedidos para seguir')
+    await pressButton(tree, '2 pedidos de aliança')
     expect(navigation.go).toHaveBeenCalledWith('follow-requests')
   })
 })

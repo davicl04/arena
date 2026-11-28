@@ -132,11 +132,11 @@ describe('listas, pessoas, chips e estados', () => {
     const user = userEvent.setup()
     const person = { id: 7, name: 'Ana Souza', username: 'ana', avatar_url: null, cover_url: null, social_public: true, post_count: 0,
       follower_count: 0, following_count: 0, follows_you: true, follow_state: 'none' as const }
-    render(<PersonRow person={person} info="Segue você" onOpen={onOpen} actions={<Button variant="secondary" size="compact">Remover</Button>} />)
+    render(<PersonRow person={person} info="Aliou-se a você" onOpen={onOpen} actions={<Button variant="secondary" size="compact">Remover</Button>} />)
     await user.click(screen.getByRole('button', { name: 'Abrir perfil de Ana Souza' }))
     expect(onOpen).toHaveBeenCalledWith(7)
     expect(screen.getByText('@ana')).not.toBeNull()
-    expect(screen.getByText('Segue você')).not.toBeNull()
+    expect(screen.getByText('Aliou-se a você')).not.toBeNull()
     expect(screen.getByRole('button', { name: 'Remover' })).not.toBeNull()
   })
 

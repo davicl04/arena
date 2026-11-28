@@ -37,7 +37,7 @@ beforeEach(() => {
 afterEach(() => { vi.useRealTimers() })
 
 describe('useNotificationSummary: o resumo das notificações (GET /me/notifications/summary)', () => {
-  it('lê ao montar e entrega o resumo e o número do sino (não lidas mais pedidos para seguir)', async () => {
+  it('lê ao montar e entrega o resumo e o número do sino (não lidas mais pedidos de aliança)', async () => {
     const tree = await mount()
     expect(reads()).toBe(1)
     expect(current.data).toEqual(summaryOf({ unread_count: 2, follow_requests_count: 1 }))

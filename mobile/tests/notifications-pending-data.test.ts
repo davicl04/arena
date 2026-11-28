@@ -142,7 +142,7 @@ describe('linha de resumo e chips', () => {
   })
 })
 
-describe('nomes da linha dos pedidos para seguir', () => {
+describe('nomes da linha dos pedidos de aliança', () => {
   const user = (name: string) => ({ id: name.length, name, username: name, avatar_url: null }) as unknown as SocialUser
   it('um, dois ou mais nomes', () => {
     expect(followRequestNames([], 0)).toBe('')

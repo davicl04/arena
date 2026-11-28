@@ -43,12 +43,12 @@ export default function VisitedProfile({ profile, user, token, mutualText, modal
   const canView = profile.social_public || profile.follow_state === 'approved' || own
   const content = <>
     <KeyboardScrollView onScroll={onScroll} scrollEventThrottle={16} keyboardShouldPersistTaps="handled" contentContainerClassName="pb-10">
-      {/* Capa e cabeçalho do perfil de outra pessoa, como o `ProfileHeader` da web no modo visitante: o Seguir fica à direita, acima do @. */}
+      {/* Capa e cabeçalho do perfil de outra pessoa, como o `ProfileHeader` da web no modo visitante: o Aliar-se fica à direita, na linha do @. */}
       <Cover hero path={profile.cover_url} token={token} height={COVER_HEIGHT + insets.top} />
       <ProfileHeader name={profile.name} username={profile.username} isPublic={profile.social_public} followerCount={profile.follower_count} followingCount={profile.following_count}
         avatar={<Avatar path={profile.avatar_url} name={profile.name} token={token} size={80} />} mutualText={mutualText}
         actions={own ? undefined : <ActionButton fit size="sm" tone={profile.follow_state === 'none' ? 'brand' : 'outline'}
-          title={profile.follow_state === 'approved' ? 'Deixar de seguir' : profile.follow_state === 'pending' ? 'Cancelar solicitação' : profile.social_public ? 'Seguir' : 'Solicitar acesso'} onPress={() => onFollow(profile)} />} />
+          title={profile.follow_state === 'approved' ? 'Desfazer aliança' : profile.follow_state === 'pending' ? 'Cancelar pedido' : profile.social_public ? 'Aliar-se' : 'Pedir aliança'} onPress={() => onFollow(profile)} />} />
       {canView ? <>
         <ProfileTabs value={tab} onChange={setTab} />
         <View accessibilityLabel={tab} className="min-h-[280px]">
@@ -56,7 +56,7 @@ export default function VisitedProfile({ profile, user, token, mutualText, modal
             ? <ProfileGallery key={profile.id} userId={profile.id} ownerName={profile.name} ownerUsername={profile.username} viewerId={user.id} token={token} onPostUpdate={onPostUpdate} onPostRemove={onPostRemove} onExpired={onExpired} />
             : <MatchTimeline key={profile.id} userId={profile.id} own={false} onExpired={onExpired} />}
         </View>
-      </> : <Text className={cx(tw.body, 'p-5 text-center')}>Esta conta é privada. Solicite acesso para ver as publicações; as listas de seguidores também ficam fechadas até lá.</Text>}
+      </> : <Text className={cx(tw.body, 'p-5 text-center')}>Esta conta é privada. Peça aliança para ver as publicações; as listas de aliados também ficam fechadas até lá.</Text>}
     </KeyboardScrollView>
     <ProfileTopBar condensed={condensed} username={profile.username}
       leading={<TopBarButton label="Voltar" glyph="‹" condensed={condensed} onPress={onClose} />}

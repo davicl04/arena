@@ -19,27 +19,27 @@ const request = (id: number, approve: boolean) => `PUT /me/follow-requests/${id}
 
 async function mountRequests(onExpired = vi.fn()) {
   const notificationSummary = notificationSummaryState(summaryOf({ follow_requests_count: 2 }))
-  const tree = await render(h(FollowRequestsScreen, { user: me, navigation: navigationMock(), onUser: vi.fn(), onLogout: vi.fn(), ...playContext(), notificationSummary, onExpired, params: undefined, title: 'Pedidos para seguir' }))
+  const tree = await render(h(FollowRequestsScreen, { user: me, navigation: navigationMock(), onUser: vi.fn(), onLogout: vi.fn(), ...playContext(), notificationSummary, onExpired, params: undefined, title: 'Pedidos de aliança' }))
   return { tree, notificationSummary, onExpired }
 }
 
 beforeEach(() => { enableAct(); vi.mocked(apiRequest).mockReset() })
 
-describe('Pedidos para seguir (subtela das Notificações)', () => {
+describe('Pedidos de aliança (subtela das Notificações)', () => {
   it('lista, aprova e recusa pedidos, relendo o resumo depois de cada ação', async () => {
     serve({ '/me/follow-requests': page([asker(10, 'Ana Prado'), asker(11, 'Beto Dias')]), [request(10, true)]: undefined, [request(11, false)]: undefined })
     const { tree, notificationSummary } = await mountRequests()
     expect(byId(tree, 'follow-requests-screen')).toHaveLength(1)
     expect(allText(tree)).toContain('@ana.prado')
     expect(allText(tree)).toContain('2')
-    await pressButton(tree, 'Aprovar solicitação de Ana Prado')
+    await pressButton(tree, 'Aprovar pedido de aliança de Ana Prado')
     expect(callsTo('PUT', '/me/follow-requests/10?approve=true')).toHaveLength(1)
     expect(allText(tree)).not.toContain('@ana.prado')
-    expect(toastText()).toContain('Solicitação de Ana Prado aprovada.')
+    expect(toastText()).toContain('Pedido de aliança de Ana Prado aprovado.')
     expect(notificationSummary.reload).toHaveBeenCalledTimes(1)
-    await pressButton(tree, 'Recusar solicitação de Beto Dias')
+    await pressButton(tree, 'Recusar pedido de aliança de Beto Dias')
     expect(callsTo('PUT', '/me/follow-requests/11?approve=false')).toHaveLength(1)
-    expect(toastText()).toContain('Solicitação de Beto Dias recusada.')
+    expect(toastText()).toContain('Pedido de aliança de Beto Dias recusado.')
     expect(notificationSummary.reload).toHaveBeenCalledTimes(2)
     expect(byId(tree, 'follow-requests-empty')).toHaveLength(1)
   })
@@ -52,7 +52,7 @@ describe('Pedidos para seguir (subtela das Notificações)', () => {
       [request(11, true)]: () => { queue = queue.filter(entry => entry.user.id !== 11) },
     })
     const { tree, notificationSummary } = await mountRequests()
-    await pressButton(tree, 'Aprovar todas as solicitações')
+    await pressButton(tree, 'Aprovar todos os pedidos de aliança')
     expect(callsTo('PUT', '/me/follow-requests/10?approve=true')).toHaveLength(1)
     expect(callsTo('PUT', '/me/follow-requests/11?approve=true')).toHaveLength(1)
     expect(byId(tree, 'follow-requests-empty')).toHaveLength(1)
@@ -63,22 +63,22 @@ describe('Pedidos para seguir (subtela das Notificações)', () => {
     const queue = [asker(10, 'Ana Prado'), asker(11, 'Beto Dias')]
     serve({ '/me/follow-requests': () => page(queue), [request(10, true)]: undefined, [request(11, true)]: undefined })
     const { tree } = await mountRequests()
-    await pressButton(tree, 'Aprovar todas as solicitações')
+    await pressButton(tree, 'Aprovar todos os pedidos de aliança')
     expect(callsTo('PUT', '/me/follow-requests/10?approve=true')).toHaveLength(1)
     expect(toasts().map(item => item.tone)).toEqual(['warning'])
-    expect(toastText()).toContain('Nem todas as solicitações foram aprovadas.')
-    expect(toastText()).not.toContain('Solicitações aprovadas.')
+    expect(toastText()).toContain('Nem todos os pedidos de aliança foram aprovados.')
+    expect(toastText()).not.toContain('Pedidos de aliança aprovados.')
   })
 
   it('erros: a ação mostra a mensagem e mantém a lista; 401 expira; a fila fora do ar tem "Tentar novamente"; vazio honesto', async () => {
     serve({ '/me/follow-requests': page([asker(10, 'Ana Prado')]), [request(10, true)]: new ApiError('Pedido não encontrado.', 404), [request(10, false)]: new ApiError('Sessão expirada', 401) })
     const { tree, onExpired, notificationSummary } = await mountRequests()
-    await pressButton(tree, 'Aprovar solicitação de Ana Prado')
+    await pressButton(tree, 'Aprovar pedido de aliança de Ana Prado')
     expect(toasts().map(item => item.tone)).toEqual(['warning'])
     expect(toastText()).toContain('Pedido não encontrado.')
     expect(allText(tree)).toContain('@ana.prado')
     expect(notificationSummary.reload).not.toHaveBeenCalled()
-    await pressButton(tree, 'Recusar solicitação de Ana Prado')
+    await pressButton(tree, 'Recusar pedido de aliança de Ana Prado')
     expect(onExpired).toHaveBeenCalled()
 
     let fail = true
@@ -88,16 +88,16 @@ describe('Pedidos para seguir (subtela das Notificações)', () => {
     expect(byId(offline.tree, 'load-error-section')).toHaveLength(1)
     fail = false
     await pressButton(offline.tree, 'Tentar novamente')
-    expect(allText(offline.tree)).toContain('Nenhum pedido para seguir por enquanto.')
+    expect(allText(offline.tree)).toContain('Nenhum pedido de aliança por enquanto.')
   })
 
   it('"Aprovar todas" com falha mostra a mensagem da API; "Carregar mais" traz a próxima página', async () => {
     serve({ '/me/follow-requests': page([asker(10, 'Ana Prado')], 'c2'), '/me/follow-requests?cursor=c2': page([asker(11, 'Beto Dias')]), [request(10, true)]: new ApiError('Sem rede', 500) })
     const { tree } = await mountRequests()
     expect(allText(tree)).toContain('1+')
-    await pressButton(tree, 'Carregar mais solicitações')
+    await pressButton(tree, 'Carregar mais pedidos')
     expect(allText(tree)).toContain('@beto.dias')
-    await pressButton(tree, 'Aprovar todas as solicitações')
+    await pressButton(tree, 'Aprovar todos os pedidos de aliança')
     expect(toasts().map(item => item.tone)).toEqual(['error'])
     expect(toastText()).toContain('Sem rede')
   })

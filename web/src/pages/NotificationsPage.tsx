@@ -109,7 +109,7 @@ export default function NotificationsPage({ isAdmin = false, summary, filter, on
           : <p className="mt-6 text-center text-[12px] text-ink-muted">Nada neste filtro.</p>
         : <>
           {hasFollow && follow.items.length > 0 && <div className="mt-3.5"><FollowRequestsLine people={follow.items.map(item => item.user)} count={followCount} onOpen={onOpenFollowRequests} /></div>}
-          {hasFollow && follow.error && <LoadError size="section" title="Não foi possível carregar os pedidos para seguir" text={follow.error.message} cause={follow.error} onRetry={follow.reload} />}
+          {hasFollow && follow.error && <LoadError size="section" title="Não foi possível carregar os pedidos de aliança" text={follow.error.message} cause={follow.error} onRetry={follow.reload} />}
           {pending.error && <section aria-label="Para responder">
             <ListHeading>Para responder</ListHeading>
             <LoadError size="section" title="Não foi possível carregar as pendências" text={pending.error} cause={pending.errorCause} onRetry={pending.reload} />

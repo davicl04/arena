@@ -116,7 +116,7 @@ const titles: Record<Screen, string> = {
   connections: "Conexões",
   "user-profile": "Perfil",
   notifications: "Notificações",
-  "follow-requests": "Pedidos para seguir",
+  "follow-requests": "Pedidos de aliança",
   sports: "Suas modalidades",
   teams: "Meus times",
   "team-form": "Criar time",
@@ -142,7 +142,7 @@ const titles: Record<Screen, string> = {
 };
 /** Título da barra conforme o contexto: edição de time ou de rascunho e eventos da corrida ("Provas"). */
 function titleFor(entry: Entry): string {
-  if (entry.mutual) return "Seguidores em comum";
+  if (entry.mutual) return "Aliados em comum";
   if (entry.screen === "team-form" && entry.teamId) return "Editar time";
   if (entry.screen === "event-wizard" && entry.eventId) return "Editar rascunho";
   if (entry.sport && (entry.screen === "events" || entry.screen === "event"))

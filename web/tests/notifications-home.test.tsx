@@ -58,7 +58,7 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.useRealTimers() })
 
 describe('Início: sino', () => {
-  it('mostra o total (não lidas e pedidos para seguir) e abre as notificações', async () => {
+  it('mostra o total (não lidas e pedidos de aliança) e abre as notificações', async () => {
     serve()
     const go = renderHome(summaryState(summaryOf({ unread_count: 11, follow_requests_count: 1 })))
     const bell = screen.getByRole('button', { name: 'Notificações, 12 novas' })

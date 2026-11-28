@@ -42,7 +42,7 @@ export function sendReport({ description, ...report }: ReportInput) {
 }
 
 /**
- * Rodadas no máximo do "Aprovar todas". Cada rodada lê a primeira página da fila (20 pedidos) e aprova o que veio; 500
+ * Rodadas no máximo do "Aprovar todos". Cada rodada lê a primeira página da fila (20 pedidos) e aprova o que veio; 500
  * rodadas cobrem 10 mil pedidos e só existem para o laço nunca rodar sem fim, mesmo que a fila não pare de crescer.
  */
 export const APPROVE_ALL_MAX_ROUNDS = 500

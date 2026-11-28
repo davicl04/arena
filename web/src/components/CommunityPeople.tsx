@@ -35,8 +35,8 @@ function Following({ viewerId, onOpenUser, onExpired }: { viewerId: number; onOp
   const { hasMore } = list
   return <>
     {items.length > 0 && <>
-      <h2 className={section}>Quem você segue · <b className="text-ink tabular-nums">{items.length}{hasMore ? '+' : ''}</b></h2>
-      <ul className="-mx-5 flex gap-3.5 overflow-x-auto px-5 pt-1.5 pb-1 scrollbar-hidden" aria-label="Quem você segue">
+      <h2 className={section}>Suas alianças · <b className="text-ink tabular-nums">{items.length}{hasMore ? '+' : ''}</b></h2>
+      <ul className="-mx-5 flex gap-3.5 overflow-x-auto px-5 pt-1.5 pb-1 scrollbar-hidden" aria-label="Suas alianças">
         {items.map(person => <li key={person.id} className="shrink-0">
           <button type="button" className="grid w-[62px] justify-items-center gap-[5px] border-0 bg-transparent p-0 text-[10px] font-semibold text-ink"
             aria-label={`Abrir perfil de ${person.name}`} onClick={() => onOpenUser(person.id)}>
@@ -49,7 +49,7 @@ function Following({ viewerId, onOpenUser, onExpired }: { viewerId: number; onOp
     <div className="grid justify-items-center gap-1.5 px-5 pt-8 pb-1.5 text-center text-[11.5px] leading-[1.5] text-ink-muted">
       <Search size={28} className="text-brand" />
       <b className="font-display text-[15px] text-ink">Encontre atletas</b>
-      Busque pelo nome ou pelo @ no campo acima. Contas privadas recebem um pedido para seguir.
+      Busque pelo nome ou pelo @ no campo acima. Contas privadas recebem um pedido de aliança.
     </div>
   </>
 }
@@ -80,10 +80,10 @@ function SearchResults({ query, onOpenUser, onExpired }: { query: string; onOpen
   </div>
   return <>
     <PersonList aria-label="Resultados da busca">{items.map(person => <PersonRow key={person.id} person={person} onOpen={onOpenUser}
-      info={[person.social_public ? 'Conta pública' : 'Conta privada', person.follows_you && 'Segue você'].filter(Boolean).join(' · ')}
+      info={[person.social_public ? 'Conta pública' : 'Conta privada', person.follows_you && 'Aliou-se a você'].filter(Boolean).join(' · ')}
       actions={person.follow_state === 'self' ? undefined : person.follow_state === 'none'
-        ? <Button type="button" size="compact" disabled={following !== null} onClick={() => void follow(person)}><UserRoundPlus size={16} />{person.social_public ? 'Seguir' : 'Solicitar'}</Button>
-        : <Button type="button" variant="secondary" size="compact" disabled={following !== null} onClick={() => void follow(person)}>{person.follow_state === 'approved' ? 'Seguindo' : 'Solicitado'}</Button>} />)}
+        ? <Button type="button" size="compact" disabled={following !== null} onClick={() => void follow(person)}><UserRoundPlus size={16} />{person.social_public ? 'Aliar-se' : 'Pedir aliança'}</Button>
+        : <Button type="button" variant="secondary" size="compact" disabled={following !== null} onClick={() => void follow(person)}>{person.follow_state === 'approved' ? 'Aliado' : 'Pedido enviado'}</Button>} />)}
     </PersonList>
     {moreError && <p className={feedbackVariants()} role="alert">{moreError}</p>}
     {hasMore && <Button type="button" variant="secondary" className="mt-2 w-full" disabled={busy} onClick={() => void loadMore()}>{busy ? 'Carregando…' : 'Carregar mais atletas'}</Button>}

@@ -48,7 +48,7 @@ export function FeedEmpty({ onPublish, onSearch }: { onPublish: () => void; onSe
       <View className="size-30 items-center justify-center rounded-full bg-forest"><ArenaMark width={72} height={54} color={fixedColors.mint} /></View>
     </View>
     <Text accessibilityRole="header" className="text-center text-[16px] text-heading">A arquibancada está vazia</Text>
-    <Text className="mt-1 mb-3.5 max-w-[270px] text-center text-[11.5px] leading-[18px] text-ink-muted">Siga atletas para ver as fotos deles aqui, ou abra os trabalhos com a sua.</Text>
+    <Text className="mt-1 mb-3.5 max-w-[270px] text-center text-[11.5px] leading-[18px] text-ink-muted">Alie-se a atletas para ver as fotos deles aqui, ou abra os trabalhos com a sua.</Text>
     <View className="flex-row flex-wrap justify-center gap-2">
       <ActionButton fit size="sm" icon="camera" title="Publicar foto" onPress={onPublish} />
       <TextAction title="Buscar atletas" onPress={onSearch} />

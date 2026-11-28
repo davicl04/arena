@@ -262,7 +262,7 @@ describe('Início: sino e filas da administração', () => {
     expect(vi.mocked(request)).not.toHaveBeenCalledWith('/me/notifications/unread-count')
   })
 
-  it('anuncia e mostra o contador de novas (não lidas e pedidos para seguir), limitado a 9+', async () => {
+  it('anuncia e mostra o contador de novas (não lidas e pedidos de aliança), limitado a 9+', async () => {
     unread = 2
     followRequests = 1
     const tree = await mount()
@@ -370,7 +370,7 @@ describe('sino das notificações em cada aba raiz e resumo compartilhado', () =
     expect(selectedTab(tree)).toEqual(['Perfil'])
   })
 
-  it('a tela de Notificações (placa própria, sem o cabeçalho do shell) abre pelo sino e os Pedidos para seguir usam o cabeçalho padrão', async () => {
+  it('a tela de Notificações (placa própria, sem o cabeçalho do shell) abre pelo sino e os Pedidos de aliança usam o cabeçalho padrão', async () => {
     const tree = await mount()
     await press(tree, 'Notificações')
     expect(textOf(tree)).toContain('Tudo em dia')
@@ -380,7 +380,7 @@ describe('sino das notificações em cada aba raiz e resumo compartilhado', () =
     expect(textOf(tree)).toContain('A arena te chama, Maria')
     await press(tree, 'Ranking')
     await act(async () => { host(tree, 'RankingScreen')[0].props.navigation.go('follow-requests') })
-    expect(textOf(tree)).toContain('Pedidos para seguir')
+    expect(textOf(tree)).toContain('Pedidos de aliança')
     expect(byLabel(tree, 'Voltar')).toHaveLength(1)
     expect(selectedTab(tree)).toEqual(['Ranking'])
   })

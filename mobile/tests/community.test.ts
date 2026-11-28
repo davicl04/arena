@@ -105,7 +105,7 @@ describe('CommunityScreen', () => {
   it.each(['blocks', 'followers', 'following'] as const)('pagina %s no perfil sem perder itens carregados', async which => {
     ;(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true
     const paths = { blocks: '/me/blocks', followers: '/users/1/followers', following: '/users/1/following' }
-    const labels = { blocks: 'contas bloqueadas', followers: 'seguidores', following: 'contas seguidas' }
+    const labels = { blocks: 'contas bloqueadas', followers: 'aliados', following: 'alianças' }
     vi.mocked(request).mockImplementation(async path => {
       if (path === '/me/sports-profiles') return [] as never
       if (path.startsWith(paths[which])) {
@@ -125,7 +125,7 @@ describe('CommunityScreen', () => {
         await act(async () => { row!.props.onPress() })
       }
       if (which === 'following') {
-        const tab = tree.root.findAllByType('Pressable' as never).find(entry => entry.props.accessibilityRole === 'tab' && !entry.props.accessibilityState.selected && entry.findAllByType('Text' as never).some(text => String(text.props.children).startsWith('Seguindo')))
+        const tab = tree.root.findAllByType('Pressable' as never).find(entry => entry.props.accessibilityRole === 'tab' && !entry.props.accessibilityState.selected && entry.findAllByType('Text' as never).some(text => String(text.props.children).startsWith('Alianças')))
         await act(async () => { tab!.props.onPress() })
       }
     }
@@ -174,14 +174,14 @@ describe('CommunityScreen', () => {
   }
 
   const expectFollowerCount = (tree: ReturnType<typeof create>, count: number) => {
-    expect(tree.root.findAllByType('Pressable' as never).some(entry => entry.props.accessibilityLabel === `Conexões: ${count} ${count === 1 ? 'seguidor' : 'seguidores'} · 0 seguindo`)).toBe(true)
+    expect(tree.root.findAllByType('Pressable' as never).some(entry => entry.props.accessibilityLabel === `Conexões: ${count} ${count === 1 ? 'aliado' : 'aliados'} · 0 alianças`)).toBe(true)
   }
 
-  it('o perfil não tem mais o cartão interno "Notificações" nem lê os pedidos para seguir', async () => {
+  it('o perfil não tem mais o cartão interno "Notificações" nem lê os pedidos de aliança', async () => {
     const { tree } = await mountFollowRequests(3)
-    expect(textOf(tree)).not.toContain('Solicitações para seguir')
+    expect(textOf(tree)).not.toContain('Pedidos de aliança')
     expect(textOf(tree)).not.toContain('Nenhuma notificação por enquanto.')
-    expect(tree.root.findAllByType('Button' as never).some(entry => entry.props.title === 'Aprovar todas')).toBe(false)
+    expect(tree.root.findAllByType('Button' as never).some(entry => entry.props.title === 'Aprovar todos')).toBe(false)
     expect(tree.root.findAllByType('Pressable' as never).some(entry => String(entry.props.accessibilityLabel).startsWith('Aprovar '))).toBe(false)
     expect(vi.mocked(request).mock.calls.filter(([path]) => String(path).startsWith('/me/follow-requests'))).toHaveLength(0)
     await act(async () => { tree.unmount() })
@@ -199,7 +199,7 @@ describe('CommunityScreen', () => {
     await press(tree, 'Pressable', props => props.accessibilityLabel === 'Fechar')
     await press(tree, 'Pressable', props => String(props.accessibilityLabel).startsWith('Conexões:'))
     expect(textOf(tree)).toContain('Pessoa 2')
-    await press(tree, 'Button', props => props.title === 'Carregar mais seguidores')
+    await press(tree, 'Button', props => props.title === 'Carregar mais aliados')
     expect(textOf(tree)).toContain('Pessoa 22')
     await act(async () => { tree.unmount() })
   })
@@ -237,11 +237,11 @@ describe('CommunityScreen', () => {
     await searchAthletes(tree, '@atleta')
     await press(tree, 'Pressable', props => props.accessibilityLabel === 'Abrir perfil de Atleta A')
     const text = textOf(tree)
-    expect(text).toContain('Ana, Bia e mais 3 que você segue também seguem esta conta.')
+    expect(text).toContain('Ana, Bia e mais 3 a quem você se aliou também se aliaram a esta conta.')
     // As conexões ficam no cabeçalho (números em Text aninhado); o rótulo da linha diz os dois números.
-    expect(tree.root.findAll(node => typeof node.type === 'string' && node.props.accessibilityLabel === 'Conexões: 9 seguidores · 4 seguindo')).toHaveLength(1)
+    expect(tree.root.findAll(node => typeof node.type === 'string' && node.props.accessibilityLabel === 'Conexões: 9 aliados · 4 alianças')).toHaveLength(1)
     // Sem `onConnections` no perfil de outra pessoa, a linha só informa: não é botão.
-    expect(tree.root.findAll(node => typeof node.type === 'string' && node.props.accessibilityLabel === 'Conexões: 9 seguidores · 4 seguindo')[0].props.accessibilityRole).toBeUndefined()
+    expect(tree.root.findAll(node => typeof node.type === 'string' && node.props.accessibilityLabel === 'Conexões: 9 aliados · 4 alianças')[0].props.accessibilityRole).toBeUndefined()
     expect(text).toContain('Conta privada')
     expect(text).toContain('Esta conta é privada')
     expect(request).not.toHaveBeenCalledWith('/users/2/posts')
@@ -260,9 +260,9 @@ describe('CommunityScreen', () => {
     await act(async () => { tree = create(React.createElement(CommunityScreen, { user: me, onExpired: vi.fn() })) })
     await searchAthletes(tree, 'atleta')
     await press(tree, 'Pressable', props => props.accessibilityLabel === 'Abrir perfil de Atleta A')
-    expect(tree.root.findAll(node => typeof node.type === 'string' && node.props.accessibilityLabel === 'Conexões: 3 seguidores · 2 seguindo')).toHaveLength(1)
+    expect(tree.root.findAll(node => typeof node.type === 'string' && node.props.accessibilityLabel === 'Conexões: 3 aliados · 2 alianças')).toHaveLength(1)
     expect(textOf(tree)).toContain('Conta pública')
-    expect(textOf(tree)).not.toContain('que você segue')
+    expect(textOf(tree)).not.toContain('a quem você se aliou')
     await act(async () => { tree.unmount() })
   })
 
@@ -297,7 +297,7 @@ describe('CommunityScreen', () => {
     await press(tree, 'Pressable', props => props.accessibilityLabel === 'Voltar')
     await press(tree, 'Pressable', props => String(props.accessibilityLabel).startsWith('Visibilidade da conta'))
     await press(tree, 'Pressable', props => props.accessibilityLabel === 'Pública')
-    expect(textOf(tree)).toContain('solicitações pendentes serão aprovadas')
+    expect(textOf(tree)).toContain('pedidos de aliança pendentes serão aprovados')
     await press(tree, 'Button', props => props.title === 'Salvar visibilidade')
     expect(request).toHaveBeenCalledWith('/me/privacy', 'PUT', { social_public: true })
     expect(onUser).toHaveBeenCalledWith(expect.objectContaining({ social_public: true }))
