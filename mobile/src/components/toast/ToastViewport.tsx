@@ -1,6 +1,6 @@
 import { useEffect, useState, useSyncExternalStore } from 'react'
 import { AppState, View } from 'react-native'
-import { NAV_HEIGHT, navInsetFor, useBottomInset } from '../../hooks/useBottomInset'
+import { useBottomInset, useNavSpace } from '../../hooks/useBottomInset'
 import { useConnection } from '../../api/connection'
 import { ToastCard } from './ToastCard'
 import { TOAST_LIMIT, toastStore, useToasts } from './toastStore'
@@ -18,8 +18,8 @@ import { TOAST_LIMIT, toastStore, useToasts } from './toastStore'
  */
 export type ToastPlacement = 'nav' | 'screen' | 'modal'
 
-/** Distância da base com a navegação inferior (altura 82 + folga 4). */
-const NAV_OFFSET = NAV_HEIGHT + 4
+/** Folga entre o toast e a navegação inferior. */
+const NAV_GAP = 4
 /** Altura da faixa de conexão, que empurra o toast para cima. */
 const DOCK_HEIGHT = 52
 const MARGIN = 16
@@ -48,6 +48,7 @@ export function ToastViewport({ placement = 'modal' }: { placement?: ToastPlacem
   const { toasts } = useToasts()
   const connection = useConnection()
   const insets = { bottom: useBottomInset() }
+  const navSpace = useNavSpace()
   useEffect(() => {
     if (!active) return
     const sync = (state: string | null | undefined) => toastStore.setPaused('app', state !== 'active')
@@ -60,8 +61,8 @@ export function ToastViewport({ placement = 'modal' }: { placement?: ToastPlacem
   const standing = toasts.filter(item => !item.ending).slice(-TOAST_LIMIT)
   const shown = toasts.filter(item => item.ending || standing.includes(item))
   if (!shown.length) return null
-  // Na área logada a navegação cobre a área segura de baixo; o toast fica acima das duas.
-  const bottom = placement === 'nav' ? NAV_OFFSET + navInsetFor(insets.bottom) + (connection.status === 'online' ? 0 : DOCK_HEIGHT)
+  // Na área logada a navegação cobre a área segura de baixo; o toast fica acima das duas. Com o teclado aberto a barra some, e o toast fica a 16 pt dele.
+  const bottom = placement === 'nav' ? (navSpace ? navSpace + NAV_GAP : MARGIN) + (connection.status === 'online' ? 0 : DOCK_HEIGHT)
     : placement === 'screen' ? MARGIN : MARGIN + insets.bottom
   return <View testID="toast-viewport" pointerEvents="box-none" style={{ position: 'absolute', left: 12, right: 12, bottom, zIndex: 50, elevation: 50 }}>
     {shown.map(item => <ToastCard key={item.id} item={item} level={item.ending ? 0 : standing.length - 1 - standing.indexOf(item)} />)}

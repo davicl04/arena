@@ -56,7 +56,7 @@ function DecidedCard({ match }: { match: MatchDetail }) {
     <Text accessibilityRole="header" style={{ color: colors.brand, fontSize: 13, fontWeight: '700' }}>{`Resultado registrado${score ? `: ${score}` : ''}`}</Text>
     {wo ? <Text style={{ color: colors.ink, fontSize: 12, lineHeight: 18 }}>{`W.O. de ${sideName(sideOf(match, wo))}: o lado presente venceu por ${walkoverScoreText(match.sport)}.`}</Text> : null}
     {result?.decision_reason ? <Text style={{ color: colors.ink, fontSize: 12, lineHeight: 18 }}><Text style={{ fontWeight: '700' }}>Justificativa: </Text>{result.decision_reason}</Text> : null}
-    <Text style={{ color: colors['ink-muted'], fontSize: 10.5, lineHeight: 16 }}>A tabela e o ranking foram atualizados e os dois elencos foram avisados.</Text>
+    <Text style={{ color: colors['ink-muted'], fontSize: 10.5, lineHeight: 16 }}>{`A tabela e o ranking foram atualizados e ${match.sport === 'tenis' ? 'os dois atletas' : 'os dois elencos'} foram avisados.`}</Text>
   </View>
 }
 

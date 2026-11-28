@@ -102,7 +102,7 @@ export function EventPoster({ name, sport, startsAt, format, distanceKm, eventTy
         <Text style={{ color: colors.mint, fontSize: 10, fontWeight: '700', letterSpacing: 0.8 }}>{date ? (hero ? `${date.month} · ${date.weekday}` : date.month).toUpperCase() : 'SEM DATA'}</Text>
       </View>
       <View style={{ flexShrink: 1, alignItems: 'flex-end', gap: 6 }}>
-        {stateInfo ? <StateBadge surface="dark" tone={stateInfo.tone}>{stateText}</StateBadge> : null}
+        {stateInfo ? <StateBadge surface="dark" tone={stateInfo.tone} singleLine>{stateText}</StateBadge> : null}
         <TierAccess keys={tierKeys} hero={hero} />
       </View>
     </View>

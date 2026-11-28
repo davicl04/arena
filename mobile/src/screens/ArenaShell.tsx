@@ -6,6 +6,7 @@ import type { User } from '../api/client'
 import BottomNav from '../components/BottomNav'
 import { ConnectionNotice } from '../components/ConnectionNotice'
 import ScreenHeader from '../components/ScreenHeader'
+import { useKeyboardVisible } from '../hooks/useBottomInset'
 import { useNotificationSummary } from '../hooks/useNotificationSummary'
 import { ToastViewport } from '../components/toast/ToastViewport'
 import { usePlayBoard } from '../hooks/usePlayBoard'
@@ -62,6 +63,9 @@ export default function ArenaShell({ user, onUser, onLogout, onExpired: expireSe
   const insets = useSafeAreaInsets()
   const themeColors = useThemeColors()
   const [topArea, setTopArea] = useState<TopArea>('app')
+  // Com o teclado aberto a navegação inferior sai de cena: o `KeyboardAvoidingView` do App leva o shell até a borda do
+  // teclado, e a barra ficaria entre o campo em foco (justificativa, chat da partida) e o teclado.
+  const keyboard = useKeyboardVisible()
   return <TopAreaProvider value={setTopArea}>
     {topArea === 'bleed' ? null : <View testID="status-area" style={{ height: insets.top, backgroundColor: topArea === 'forest' ? fixedColors.forest : themeColors.app }} />}
     {topArea === 'forest' ? <StatusBar style="light" /> : null}
@@ -70,7 +74,7 @@ export default function ArenaShell({ user, onUser, onLogout, onExpired: expireSe
     {hasOwnHeader(current.screen) ? null : <ScreenHeader title={title} onBack={navigation.back} />}
     <View className="grow basis-0"><Body key={`${stack.length}-${current.screen}`} user={user} navigation={navigation} onUser={onUser} onLogout={onLogout} onExpired={onExpired}
       playBoard={playBoard} refreshPlayBoard={playBoard.reload} notificationSummary={notificationSummary} params={current.params as never} title={title} /></View>
-    <BottomNav active={activeNavFor(current.screen, root)} onGo={tab => navigation.go(tab)} playAttention={Boolean(playBoard.board?.attention)} />
+    {keyboard ? null : <BottomNav active={activeNavFor(current.screen, root)} onGo={tab => navigation.go(tab)} playAttention={Boolean(playBoard.board?.attention)} />}
     {/* Faixa e folha de "Sem conexão" e os toasts: absolutos sobre a navegação inferior (o toast sobe com a faixa). */}
     <ConnectionNotice />
     <ToastViewport placement="nav" />

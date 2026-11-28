@@ -13,6 +13,7 @@ from sqlalchemy import select
 
 from app.models.matches import FootballStat, MatchLineup, MatchMessage, MatchSlot
 from app.models.rankings import Standing
+from app.models.teams import TeamMember
 from app.services import results
 from app.services.match_lifecycle import close_due_results
 from app.services.match_views import match_detail
@@ -110,7 +111,12 @@ def test_equal_scores_confirm_the_result_and_start_both_rankings(world):
     notified = notifications_of(w.db, 'resultado_partida')
     assert {item.user_id for item in notified} == {w.people[name].id for name in
                                                   ('rep_a', 'member_a', 'rep_b', 'member_b')}
-    assert notified[0].payload == {'match_id': w.match.id, 'outcome': 'confirmado', 'score_a': 2, 'score_b': 1}
+    # Each recipient reads the result from their side: both names and the recipient's side go in the payload.
+    base = {'match_id': w.match.id, 'outcome': 'confirmado', 'score_a': 2, 'score_b': 1, 'sport': 'futebol',
+            'name_a': SIDE_A, 'name_b': 'Tigres do Lago'}
+    assert {item.user_id: item.payload for item in notified} == {
+        **{w.people[name].id: {**base, 'side': 'a'} for name in ('rep_a', 'member_a')},
+        **{w.people[name].id: {**base, 'side': 'b'} for name in ('rep_b', 'member_b')}}
     assert events(w.db, w.match) == ['placar_enviado', 'resultado_confirmado']
     banner = w.db.scalar(select(MatchMessage.body).where(MatchMessage.event_type == 'resultado_confirmado'))
     assert banner == f'Resultado confirmado: {SIDE_A} 2 × 1 Tigres do Lago.'
@@ -191,6 +197,17 @@ def test_divergent_scores_can_be_corrected_until_they_agree(world):
     assert events(w.db, w.match) == ['placar_enviado', 'resultado_divergente', 'resultado_confirmado']
     assert len(standings(w.db)) == 2
     assert len(audit_actions(w.db, 'resultado.divergente')) == 1
+
+
+def test_someone_in_both_rosters_hears_the_confirmed_result_without_a_side(world):
+    w = world
+    w.db.add(TeamMember(team_id=w.team_b.id, user_id=w.people['member_a'].id, role='membro', joined_via='convite'))
+    w.db.commit()
+    assert put_result(w.http, w.h['rep_a'], w.match.id, 2, 1).status_code == 200
+    assert put_result(w.http, w.h['rep_b'], w.match.id, 2, 1).status_code == 200
+    sides = {item.user_id: item.payload.get('side') for item in notifications_of(w.db, 'resultado_partida')}
+    assert sides == {w.people['rep_a'].id: 'a', w.people['member_a'].id: None, w.people['rep_b'].id: 'b',
+                     w.people['member_b'].id: 'b'}
 
 
 def test_a_divergence_left_until_the_deadline_ends_without_result_and_without_points(world):
@@ -289,7 +306,11 @@ def test_tennis_result_confirms_with_a_tiebreak_and_gives_10_points_to_the_winne
     assert (winner.matches_played, winner.wins, winner.metric_value, winner.goals_for, winner.goals_against) == (
         1, 1, 1032, 2, 1)
     assert (loser.matches_played, loser.losses, loser.metric_value, loser.goals_for) == (1, 1, 968, 1)
-    assert [item.payload['outcome'] for item in notifications_of(t.db, 'resultado_partida')] == ['confirmado'] * 2
+    notified = notifications_of(t.db, 'resultado_partida')
+    assert [item.payload['outcome'] for item in notified] == ['confirmado'] * 2
+    assert {item.user_id: (item.payload['side'], item.payload['name_a'], item.payload['name_b'], item.payload['sport'])
+            for item in notified} == {t.players['ana'].id: ('a', 'Atleta ana', 'Atleta bia', 'tenis'),
+                                      t.players['bia'].id: ('b', 'Atleta ana', 'Atleta bia', 'tenis')}
     banner = t.db.scalar(select(MatchMessage.body).where(MatchMessage.event_type == 'resultado_confirmado'))
     assert banner == 'Resultado confirmado: Atleta ana venceu Atleta bia por 2 sets a 1 (7-6(5), 4-6, 6-3).'
 

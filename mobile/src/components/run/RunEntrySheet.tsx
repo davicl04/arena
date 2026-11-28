@@ -11,7 +11,7 @@ import { reportActionError } from '../../hooks/useSubmit'
 import { colors } from '../../theme'
 import { toDateKey } from '../../utils/dateKey'
 import { Icon } from '../Icon'
-import { Screen } from '../Screen'
+import { ModalScreen } from '../ModalScreen'
 import { ToastViewport } from '../toast/ToastViewport'
 import { DateField } from '../arena/DateField'
 import { ActionButton, ChoicePills, FieldError, FieldLabel, FormField, Hint, Notice } from '../arena/controls'
@@ -164,8 +164,8 @@ export function RunEntrySheet({ initialDistance, onClose, onSaved, onFindRaces, 
     setChoice(next.distance_km)
   }
 
-  return <Modal visible animationType="slide" onRequestClose={() => { if (!busy) onClose() }}>
-    <Screen className="grow basis-0 bg-forest">
+  return <Modal visible animationType="slide" statusBarTranslucent navigationBarTranslucent onRequestClose={() => { if (!busy) onClose() }}>
+    <ModalScreen dark className="bg-forest">
       <KeyboardAvoidingView className="grow basis-0" behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 8, paddingTop: 4 }}>
           <Pressable accessibilityRole="button" accessibilityLabel="Fechar" accessibilityState={{ disabled: busy }} disabled={busy} onPress={onClose}
@@ -221,7 +221,7 @@ export function RunEntrySheet({ initialDistance, onClose, onSaved, onFindRaces, 
           </View>
         </View>
       </KeyboardAvoidingView>
-    </Screen>
+    </ModalScreen>
     <ToastViewport />
   </Modal>
 }

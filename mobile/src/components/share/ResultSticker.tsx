@@ -65,7 +65,7 @@ function Bar({ bar, u }: { bar: EloBar; u: (n: number) => number }) {
         {ranked
           ? <View testID={`sticker-tier-${bar.tier}`}><SvgXml xml={brandSvgs[bar.tier]} width={u(22)} height={u(22)} /></View>
           : <SportIcon sport={bar.sport} shape="aro" color={stickerPalette.ink} size={u(15)} />}
-        <Text style={{ flexShrink: 1, color: stickerPalette.ink, fontSize: u(13), lineHeight: u(15), fontWeight: '700', letterSpacing: u(0.52), textTransform: 'uppercase' }}>{ranked ? bar.tierName : 'Em classificação'}</Text>
+        <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6} style={{ flexShrink: 1, color: stickerPalette.ink, fontSize: u(13), lineHeight: u(15), fontWeight: '700', letterSpacing: u(0.52), textTransform: 'uppercase' }}>{ranked ? bar.tierName : 'Em classificação'}</Text>
       </View>
       {meta ? <Text style={{ color: meta.tone === 'down' ? stickerPalette.down : stickerPalette.label, fontSize: u(12), lineHeight: u(15), fontWeight: '700', fontVariant: ['tabular-nums'] }}>{meta.text}</Text> : null}
     </View>

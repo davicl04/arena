@@ -42,7 +42,7 @@ function RowMarks({ row }: { row: EventMatchRow }) {
 }
 
 /**
- * Partidas do campeonato (S1), do lado do organizador: a lista dos jogos, com os que estão sem data primeiro, e a folha de
+ * Partidas do campeonato (S1), do lado do organizador: a lista dos jogos (para decidir e para agendar primeiro; os que esperam o vencedor depois dos agendados) e a folha de
  * agendamento (data, horário livre, quadra). Tocar num jogo sem data (ou agendado, antes do início) abre a folha; um jogo
  * com placar para decidir abre a decisão (D3); os demais abrem a partida. Os jogos que esperam o vencedor de uma fase
  * anterior aparecem como "Vencedor J1" e não podem ser agendados.
@@ -110,7 +110,7 @@ export default function EventMatchesPage({ eventId, initialMatchId, onInitialSho
     }, 'Não foi possível agendar a partida.', reread)
     if (!saved) { setConflict(found); return }
     setSelected(null)
-    toast.success(`${saved.label} ${row.card.starts_at ? 'reagendado' : 'agendado'} para ${whenText(saved.card.starts_at)}${saved.card.court ? ` em ${saved.card.court.name}` : ''}.`, { description: 'Os dois elencos foram avisados.' })
+    toast.success(`${saved.label} ${row.card.starts_at ? 'reagendado' : 'agendado'} para ${whenText(saved.card.starts_at)}${saved.card.court ? ` em ${saved.card.court.name}` : ''}.`, { description: saved.card.sport === 'tenis' ? 'Os dois atletas foram avisados.' : 'Os dois elencos foram avisados.' })
     try {
       setData(await listEventMatches(eventId))
     } catch (cause) {
@@ -160,7 +160,7 @@ export default function EventMatchesPage({ eventId, initialMatchId, onInitialSho
           {list.counts.to_schedule === 0 && list.counts.to_decide === 0 && list.counts.waiting === 0 && list.counts.scheduled > 0 && (
             <p className="m-0 flex items-start gap-2.5 rounded-card bg-success-bg p-3 text-[11.5px] leading-[1.5] text-ink">
               <CircleCheck size={19} className="mt-px flex-none text-brand" aria-hidden="true" />
-              <span><b className="block text-[12.5px]">Tudo agendado</b>Os dois elencos de cada jogo foram avisados nas notificações.</span>
+              <span><b className="block text-[12.5px]">Tudo agendado</b>{list.items[0]?.card.sport === 'tenis' ? 'Os dois atletas de cada jogo foram avisados nas notificações.' : 'Os dois elencos de cada jogo foram avisados nas notificações.'}</span>
             </p>
           )}
           <ul aria-label="Jogos do campeonato" className="m-0 grid list-none gap-2 p-0">

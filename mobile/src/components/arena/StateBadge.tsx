@@ -33,13 +33,18 @@ const look = (c: ThemeColors, night: boolean) => ({
 export interface StateBadgeProps {
   tone: StateTone
   surface?: 'light' | 'dark'
+  /**
+   * Numa linha só (o cartaz, onde o selo divide a largura com o dia): a letra encolhe até 80% e, se ainda faltar espaço,
+   * termina em reticências, sem quebrar em duas linhas nem empurrar os elos de baixo.
+   */
+  singleLine?: boolean
   children: ReactNode
 }
 
 /** Selo de estado (evento, inscrição, comprovante ou decisão). */
-export function StateBadge({ tone, surface = 'light', children }: StateBadgeProps) {
+export function StateBadge({ tone, surface = 'light', singleLine = false, children }: StateBadgeProps) {
   const colorsOf = look(useThemeColors(), useResolvedTheme() === 'dark')[surface][tone]
   return <View testID={`state-badge-${tone}`} style={{ alignSelf: 'flex-start', maxWidth: '100%', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3, backgroundColor: colorsOf.bg }}>
-    <Text style={{ color: colorsOf.fg, fontSize: 9.5, fontWeight: '800' }}>{children}</Text>
+    <Text {...(singleLine ? { numberOfLines: 1, adjustsFontSizeToFit: true, minimumFontScale: 0.8 } : null)} style={{ color: colorsOf.fg, fontSize: 9.5, fontWeight: '800' }}>{children}</Text>
   </View>
 }

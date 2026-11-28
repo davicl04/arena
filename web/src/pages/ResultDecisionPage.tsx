@@ -55,7 +55,7 @@ function DecidedCard({ match }: { match: MatchDetail }) {
       <b className="text-[13px] text-brand">Resultado registrado{score ? `: ${score}` : ''}</b>
       {wo && <span>W.O. de {sideName(sideOf(match, wo))}: o lado presente venceu por {walkoverScoreText(match.sport)}.</span>}
       {result?.decision_reason && <span><b>Justificativa:</b> {result.decision_reason}</span>}
-      <small className="text-[10.5px] text-ink-muted">A tabela e o ranking foram atualizados e os dois elencos foram avisados.</small>
+      <small className="text-[10.5px] text-ink-muted">{`A tabela e o ranking foram atualizados e ${match.sport === 'tenis' ? 'os dois atletas' : 'os dois elencos'} foram avisados.`}</small>
     </section>
   )
 }

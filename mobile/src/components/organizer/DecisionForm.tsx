@@ -134,7 +134,8 @@ export function DecisionForm({ match, busy, error, onSubmit }: {
     { value: 'wo', label: 'W.O.', icon: 'user-minus', caption: 'Um lado não compareceu', accessibilityLabel: 'W.O., um lado não compareceu' },
   ]
   const noteBox: ReactNode = <FormField label="Justificativa (obrigatória)" value={note} onChangeText={setNote} multiline editable={!busy} maxLength={JUSTIFICATION_MAX + 200}
-    placeholder="Ex.: o vídeo mostra o gol antes do apito final." hint={`Fica registrada e os dois times veem. ${trimmed.length}/${JUSTIFICATION_MAX}`} />
+    placeholder={tennis ? 'Ex.: o vídeo mostra que a bola do último ponto caiu dentro.' : 'Ex.: o vídeo mostra o gol antes do apito final.'}
+    hint={`Fica registrada e os dois ${tennis ? 'atletas' : 'times'} veem. ${trimmed.length}/${JUSTIFICATION_MAX}`} />
 
   return <View testID="decision-form" accessibilityLabel="Sua decisão" style={{ gap: 14 }}>
     <Text accessibilityRole="header" style={h2(colors.ink)}>Sua decisão</Text>
@@ -170,7 +171,7 @@ export function DecisionForm({ match, busy, error, onSubmit }: {
     <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
       <View style={{ marginTop: 1 }}><Icon name="info" size={15} color={colors.brand} /></View>
       <Text style={{ flex: 1, minWidth: 0, color: colors['ink-muted'], fontSize: 10.5, lineHeight: 16 }}>
-        O resultado entra na tabela e no ranking, a partida é encerrada e os dois elencos são avisados. A decisão fica no histórico da partida.
+        O resultado entra na tabela e no ranking, a partida é encerrada e {tennis ? 'os dois atletas são avisados' : 'os dois elencos são avisados'}. A decisão fica no histórico da partida.
       </Text>
     </View>
   </View>

@@ -1,5 +1,34 @@
 # Situação da fundação do Arena
 
+## Correções da auditoria de telas do app mobile — 27 de novembro de 2026
+
+Resolve os achados de `artifacts/auditoria-mobile-2026-11-27/relatorio.md` (Expo Go 58, iPhone 17, iOS 27.2).
+
+- **Modais de tela cheia sob a barra de status (crítico 1):** o `SafeAreaView` (`Screen`) devolvia margem 0 dentro do `Modal`, e o X ficava sob o relógio, sem resposta ao toque. O novo `mobile/src/components/ModalScreen.tsx` calcula o recuo com `useSafeAreaInsets()` em cima e `useBottomInset()` embaixo (0 com o teclado aberto). É usado em Nova publicação, Publicações, Registrar corrida, Ler QR do time e Criar/Editar evento.
+- **Ações da conta (crítico 2):** o `GlassOverlay` ganhou a prop `safeTop`, usada só por `AccountActions` (perfil visitado, topo `bleed`). O `MatchScreen` segue sem a margem extra.
+- **Datas no iOS (crítico 3):** o `formatToParts` do Hermes rotula errado as partes ("seg, de · 19:00", cartaz sem mês). `mobile/src/utils/format.ts` monta as datas curtas com `getDay`/`getMonth`/`getDate` e tabelas fixas pt-BR. O teste `mobile/tests/format-hermes.test.ts` simula o `formatToParts` quebrado.
+- **Navegação inferior com o teclado (médio 4, crítico na decisão do resultado):** com o teclado aberto o `ArenaShell` não desenha a `BottomNav`. O campo em foco e o chat da partida ficam colados no teclado. O estado do teclado passou a ser compartilhado (`useKeyboardVisible` em `mobile/src/hooks/useBottomInset.ts`). A barra que volta quando o teclado começa a fechar não lê mais o `Keyboard.isVisible()`, que no iOS ainda diz "aberto" no `keyboardWillHide`. Sem isso, a barra voltava sem a área segura. A faixa de conexão e os toasts usam `useNavSpace`, que vale 0 com o teclado aberto.
+- **Folhas (médio 5 e baixo 10):** `Sheet` e `ActionSheet` somam a área segura de baixo (`max(22 ou 24, inset + 8)`). O voltar e o fechar da `Sheet` usam o `Icon`.
+- **Adesivo dos Stories (6):** "EM CLASSIFICAÇÃO" em uma linha, com redução da fonte.
+- **Notificação de resultado (8):** o `resultado_partida` confirmado agora traz `sport`, `name_a`, `name_b` e o `side` de cada destinatário (`backend/app/services/results.py`). Web e Expo mostram, por exemplo, "Você venceu Rafael Almeida por 2 sets a 0". Sem `side` (quem está nos dois elencos), aparecem os dois nomes com o placar. Os avisos antigos continuam "Resultado confirmado: 2 × 1". Contrato atualizado em [0002](decisoes/0002-jogar.md).
+- **Datas curtas (9):** feed, comentários e linha do tempo usam `formatDayMonth` ("27 nov", com o ano fora do ano corrente). O `relativeTime` das notificações e filas segue com `toLocaleDateString` ("12 de out.").
+- **Iniciais (12):** o `roster_preview` ganhou `initials` (`person_initials` no backend), e web e Expo usam `personInitials` no cartão do time, no elenco e nos avatares. **Mudança de contrato:** quem abre um convite ou o link do time passa a ver também a inicial do sobrenome. Documentado em [0003](decisoes/0003-times-campeonatos.md).
+- **Mensagens de sistema da partida (13):** "Partida agendada em {quadra}" no lugar de "na quadra {quadra}" (`matches.py` e `championship.py`). As mensagens já gravadas não mudam.
+- **Link do time no Expo Go:** `utils/joinLink.ts` aceita `exp(s)://…/--/entrar/{token}`.
+- **Partidas do campeonato:** as contagens são exclusivas, e um jogo "para decidir" não conta mais como agendado (`championship_lifecycle.py`). A lista segue a ordem: para decidir, para agendar, agendadas por horário, esperando o vencedor, encerradas (`championship.py`).
+- **Textos no tênis:** gestão, decisão, agendamento e lista de partidas dizem "os dois atletas" no tênis e mantêm "os dois elencos" no futebol. O exemplo da justificativa no tênis fala da bola do último ponto. Vale para a web e o Expo.
+- **Salão dos Lendários:** a tela pinta a própria faixa da barra de status na cor do topo da placa, sem cantos arredondados nem degrau.
+- **Selo do cartaz:** "Inscrições abertas" fica em uma linha (`StateBadge singleLine`, só no `EventPoster` do Expo), com redução da fonte até 80% e reticências em 320 pt.
+- **Barra de status do Perfil (7), não corrigido:** o `StatusBar` do shell já pedia `light-content` sobre a capa, e o log do JS confirmou isso, mas o iOS mostrava ícones escuros. A causa está no Expo Go 58: ele roda com `UIViewControllerBasedStatusBarAppearance = NO`, e no SDK do iOS 27 o setter da barra no nível do app virou no-op (`RCTStatusBarManager.mm`, `RCTAppLevelStatusBarIsNoOp`). O iOS então adapta os ícones ao conteúdo atrás. Nenhuma mudança em JS resolve isso no Expo Go. É preciso conferir em build de desenvolvimento.
+- **Verificações:** em `mobile/`, `npm run lint`, `npm run typecheck`, `npm run test:coverage` (121 arquivos, 1775 testes; 96,64% instruções, 91,19% ramos, 95,9% funções, 98,52% linhas) e `npm run export:android`. Em `web/`, `npm run lint`, `npm run build` e `npx vitest run`. Passam 1458 de 1459 testes. A falha em `tests/matchmaking.test.tsx` ("prepara a busca com vagas…") também acontece no `main` limpo e é anterior a esta entrega. Em `backend/`, `ruff check app migrations tests` e `pytest -q` com `TEST_DATABASE_URL` (1834 passam, 1 pulado). No simulador do iPhone 17 (iOS 27.2, Expo Go 58), foram conferidos:
+  - Nova publicação: cabeçalho abaixo da barra de status, e o X fecha.
+  - Ações da conta: o Fechar responde.
+  - Datas: "seg, 30 nov · 19:00" no Início e na partida, "DEZ" nos cartazes.
+  - Teclado: no chat da partida e na justificativa da decisão, a navegação some e o campo fica visível. Depois que o teclado fecha, a barra volta na altura certa.
+  - Folha de categoria do Ranking: termina acima do indicador de início.
+  - Salão dos Lendários, selo do cartaz e contagem "1 para decidir · 1 agendada · 1 esperando", com a ordem J1, J2, J3 e os textos de tênis na gestão.
+- **Não conferido:** Registrar corrida, Ler QR, Criar evento e Publicações no aparelho (cobertos pelo mesmo `ModalScreen`), o adesivo dos Stories, a notificação nova (exige confirmar um placar), as iniciais no cartão do time, o Android, a largura de 320 pt e o tema escuro nas telas alteradas.
+
 ## Expo SDK 58 — 27 de novembro de 2026
 
 - **Motivo:** o Expo Go atual das lojas só abre projetos do SDK 58, e o app estava no SDK 57, por isso não abria no telefone do usuário.

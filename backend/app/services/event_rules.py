@@ -445,7 +445,7 @@ class ChampionshipCounts:
     matches_total: int = 0
     to_schedule: int = 0               # both sides known and no date yet
     waiting: int = 0                   # a side still waits for the winner of a previous match
-    scheduled: int = 0                 # scheduled and without a final result
+    scheduled: int = 0                 # scheduled, without a final result and not in `to_decide`
     to_decide: int = 0                 # divergent score, or 48 h passed without a result: the organizer decides
     finished: int = 0                  # with a final result
 

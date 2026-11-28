@@ -6,7 +6,6 @@
 
 const brl = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
 const brlWhole = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 0, maximumFractionDigits: 0 })
-const shortDate = new Intl.DateTimeFormat('pt-BR', { weekday: 'short', day: 'numeric', month: 'short' })
 const clock = new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
 const longDate = new Intl.DateTimeFormat('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })
 
@@ -37,18 +36,23 @@ export function parseIso(iso: string | null | undefined): Date | null {
   return Number.isNaN(date.getTime()) ? null : date
 }
 
-/** Abreviações do `Intl` sem o ponto final ("seg." → "seg", "out." → "out"). */
-const bare = (value = '') => value.replace(/\.$/, '').toLowerCase()
+/*
+ * Abreviações pt-BR fixas, indexadas por `getDay()` e `getMonth()` (fuso local do aparelho, como o `Intl` padrão).
+ * Não usamos `Intl.DateTimeFormat#formatToParts`: no Hermes do iOS ele rotula as partes de forma errada ("27" vem
+ * como `literal`, "de" como `day` e o mês vem vazio).
+ */
+const WEEKDAYS = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'] as const
+const MONTHS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'] as const
 
-function partsOf(format: Intl.DateTimeFormat, date: Date) {
-  return Object.fromEntries(format.formatToParts(date).map(part => [part.type, part.value])) as Partial<Record<Intl.DateTimeFormatPartTypes, string>>
+/** Dia e mês curtos no fuso local, com o ano fora do ano de `now`: "27 nov" ou "27 nov 2025". Formato único das datas curtas. */
+export function formatDayMonth(date: Date, now: Date = new Date()): string {
+  const text = `${date.getDate()} ${MONTHS[date.getMonth()]}`
+  return date.getFullYear() === now.getFullYear() ? text : `${text} ${date.getFullYear()}`
 }
 
 /** "sáb, 25 out" no fuso local; o ano aparece quando não é o de `now`. */
 export function formatShortDate(date: Date, now: Date = new Date()): string {
-  const part = partsOf(shortDate, date)
-  const text = `${bare(part.weekday)}, ${part.day} ${bare(part.month)}`
-  return date.getFullYear() === now.getFullYear() ? text : `${text} ${date.getFullYear()}`
+  return `${WEEKDAYS[date.getDay()]}, ${formatDayMonth(date, now)}`
 }
 
 /** Data por extenso no fuso local, sem o ano: "domingo, 22 de novembro" (o topo do Início). */
@@ -78,12 +82,11 @@ export interface EventDateParts {
 export function eventDateParts(iso: string | null | undefined, now: Date = new Date()): EventDateParts | null {
   const date = parseIso(iso)
   if (!date) return null
-  const part = partsOf(shortDate, date)
   const label = longDate.format(date)
   return {
     day: String(date.getDate()),
-    month: bare(part.month),
-    weekday: bare(part.weekday),
+    month: MONTHS[date.getMonth()],
+    weekday: WEEKDAYS[date.getDay()],
     label: date.getFullYear() === now.getFullYear() ? label : `${label} de ${date.getFullYear()}`,
   }
 }

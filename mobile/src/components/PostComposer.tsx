@@ -6,7 +6,7 @@ import { request } from '../api/client'
 import type { Post } from '../api/client'
 import { CAPTION_MAX } from '../api/social'
 import { reportActionError } from '../hooks/useSubmit'
-import { Screen } from './Screen'
+import { ModalScreen } from './ModalScreen'
 import { ToastViewport } from './toast/ToastViewport'
 import { cx } from '../styles'
 import { colors } from '../theme'
@@ -65,8 +65,8 @@ export default function PostComposer({ initial, onClose, onPublished, onExpired 
     }
   }
 
-  return <Modal visible animationType="slide" onRequestClose={() => { if (!busy) onClose() }}>
-    <Screen className="grow basis-0 bg-forest"><KeyboardAvoidingView className="grow basis-0" behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+  return <Modal visible animationType="slide" statusBarTranslucent navigationBarTranslucent onRequestClose={() => { if (!busy) onClose() }}>
+    <ModalScreen dark className="bg-forest"><KeyboardAvoidingView className="grow basis-0" behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <View className="flex-row items-center gap-2 px-2 py-1.5">
         <Pressable accessibilityRole="button" accessibilityLabel="Fechar nova publicação" accessibilityState={{ disabled: busy }} disabled={busy} onPress={onClose} className="min-h-11 min-w-11 items-center justify-center">
           <Text className="text-[22px] text-white">✕</Text>
@@ -97,7 +97,7 @@ export default function PostComposer({ initial, onClose, onPublished, onExpired 
           </Pressable>
         </View>
       </ScrollView>
-    </KeyboardAvoidingView></Screen>
+    </KeyboardAvoidingView></ModalScreen>
     <ToastViewport />
   </Modal>
 }

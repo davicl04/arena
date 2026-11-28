@@ -115,6 +115,21 @@ describe('barra inferior e abas', () => {
     expect(host(tree, 'ProfileScreen')[0].props.tab).toBe('Partidas')
     await act(async () => { tree.unmount() })
   })
+  it('com o teclado aberto a barra inferior sai de cena e volta quando ele fecha', async () => {
+    const { Keyboard } = await import('react-native')
+    const tree = await mount()
+    expect(tabs(tree)).toHaveLength(5)
+    // O mock usa Android, que só emite os eventos "did"; cada inscrição recebe o seu.
+    const fire = async (event: string) => {
+      const handlers = vi.mocked(Keyboard.addListener).mock.calls.filter(([name]) => name === event).map(([, handler]) => handler as () => void)
+      await act(async () => { handlers.forEach(handler => handler()) })
+    }
+    await fire('keyboardDidShow')
+    expect(tabs(tree)).toHaveLength(0)
+    await fire('keyboardDidHide')
+    expect(tabs(tree)).toHaveLength(5)
+    await act(async () => { tree.unmount() })
+  })
   it('abre no Início, com Início | Ranking | JOGAR | Comunidade | Perfil e o JOGAR no centro', async () => {
     const tree = await mount()
     expect(tabs(tree).map(entry => entry.props.accessibilityLabel)).toEqual(['Início', 'Ranking', 'JOGAR', 'Comunidade', 'Perfil'])

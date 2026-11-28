@@ -1,19 +1,30 @@
 import { Pressable, ScrollView, View } from 'react-native'
+import { StatusBar } from 'expo-status-bar'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Text } from '../components/Text'
 import { SvgXml } from 'react-native-svg'
 import { brandSvgs } from '../assets/brand-svgs'
 import { ActionButton } from '../components/arena/controls'
 import { LoadError } from '../components/arena/LoadError'
 import { ArenaMark } from '../components/arena/ArenaMark'
-import { DarkScreen } from '../components/arena/TeamsPlate'
 import { Icon } from '../components/Icon'
 import { categoryText, rankingKeyOf } from '../components/ranking/category'
 import { RankingLine } from '../components/ranking/RankingLine'
 import { Wash } from '../components/ranking/Wash'
 import { useRanking } from '../components/ranking/useRanking'
 import { openUser } from '../navigation/openUser'
+import { useTopArea } from '../navigation/topArea'
 import type { ScreenProps } from '../navigation/screens'
 import { colors } from '../theme'
+
+/** Dourado do brilho do topo e a opacidade com que ele começa (o `Wash` da placa). */
+const HALL_GLOW = '#6b5a14'
+const HALL_GLOW_FROM = 0.55
+/**
+ * Cor sólida do topo da placa (o dourado a 55% sobre o `forest`): pinta a faixa da barra de status, que assim continua o
+ * brilho sem degrau. Conta: 0,55 × #6b5a14 + 0,45 × #0b2218.
+ */
+const HALL_TOP = '#404116'
 
 /** Regra do elo Lendário: "Topo 12 (15% dos classificados) com os pontos de Diamante. 12 de 12 vagas ocupadas." */
 export function legendsRule(slots: number, filled: number): string {
@@ -23,7 +34,9 @@ export function legendsRule(slots: number, filled: number): string {
 
 /**
  * Salão dos Lendários: subtela escura com os Lendários da categoria (`GET /rankings?tier=lendario`, 1º ao último do elo), a regra do
- * elo e um rodapé que lembra o retorno ao Diamante. Abre pelo Ranking com a categoria; tem voltar e não leva o sino.
+ * elo e um rodapé que lembra o retorno ao Diamante. Abre pelo Ranking com a categoria; tem voltar e não leva o sino. O topo é
+ * `bleed`: a tela pinta a própria faixa da barra de status com a cor do topo da placa (sem cantos arredondados nem degrau
+ * entre a faixa verde e o brilho dourado), e a faixa fica fixa por cima do conteúdo que rola.
  */
 export default function LegendsScreen({ user, navigation, params, onExpired }: ScreenProps<'legends'>) {
   const category = params.category
@@ -31,10 +44,15 @@ export default function LegendsScreen({ user, navigation, params, onExpired }: S
   const list = useRanking({ ...category, tier: 'lendario' }, onExpired)
   const page = list.page
   const filled = page?.tier_counts.lendario ?? list.items.length
-  return <DarkScreen>
+  const insets = useSafeAreaInsets()
+  useTopArea('bleed')
+  return <View style={{ flex: 1, backgroundColor: colors.forest }}>
+    {/* Sem a faixa do shell (`bleed`), a tela pede os ícones claros sobre o dourado escuro. */}
+    <StatusBar style="light" />
     <ScrollView testID="legends-screen" contentContainerStyle={{ paddingBottom: 32 }} keyboardShouldPersistTaps="handled">
+      <View style={{ height: insets.top, backgroundColor: HALL_TOP }} />
       <View style={{ overflow: 'hidden' }}>
-        <Wash id="legends-hall" color="#6b5a14" from={0.55} reach={0.6} />
+        <Wash id="legends-hall" color={HALL_GLOW} from={HALL_GLOW_FROM} reach={0.6} />
         <View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants"
           style={{ position: 'absolute', top: 40, left: '50%', marginLeft: -170, width: 340, height: 194, opacity: 0.05 }}>
           <ArenaMark width={340} height={194} color="#ffffff" />
@@ -75,5 +93,6 @@ export default function LegendsScreen({ user, navigation, params, onExpired }: S
         Quem sai do topo 15% ou perde os pontos de Diamante volta ao Diamante no próximo cálculo.
       </Text>
     </ScrollView>
-  </DarkScreen>
+    <View testID="legends-status-area" pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, height: insets.top, backgroundColor: HALL_TOP }} />
+  </View>
 }

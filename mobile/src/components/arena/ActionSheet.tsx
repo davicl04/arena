@@ -3,6 +3,7 @@ import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, View } fr
 import { Text } from '../Text'
 import { colors } from '../../theme'
 import { useThemeColors } from '../../hooks/useTheme'
+import { useBottomInset } from '../../hooks/useBottomInset'
 import { Icon } from '../Icon'
 import { ToastViewport } from '../toast/ToastViewport'
 
@@ -16,12 +17,14 @@ import { ToastViewport } from '../toast/ToastViewport'
 export function ActionSheet({ title, onClose, dark = false, locked = false, icon, aside, children }: { title: string; onClose: () => void; dark?: boolean; locked?: boolean; icon?: ReactNode; aside?: ReactNode; children: ReactNode }) {
   const theme = useThemeColors()
   const close = () => { if (!locked) onClose() }
+  // A base fica acima do indicador de início; com o teclado aberto, ele fica embaixo do teclado e vale só a folga de 24.
+  const bottom = useBottomInset()
   const ink = dark ? '#ffffff' : theme.heading
   return <Modal visible transparent animationType="slide" onRequestClose={close}>
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: colors.scrim }}>
         <Pressable accessibilityRole="button" accessibilityLabel="Fechar folha" onPress={close} style={{ flex: 1 }} />
-        <View accessibilityViewIsModal style={{ maxHeight: '88%', borderTopLeftRadius: 20, borderTopRightRadius: 20, backgroundColor: dark ? colors.forest : theme.sheet, paddingHorizontal: 20, paddingTop: 14, paddingBottom: 24 }}>
+        <View accessibilityViewIsModal style={{ maxHeight: '88%', borderTopLeftRadius: 20, borderTopRightRadius: 20, backgroundColor: dark ? colors.forest : theme.sheet, paddingHorizontal: 20, paddingTop: 14, paddingBottom: Math.max(24, bottom + 8) }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
             {icon}
             <Text accessibilityRole="header" style={{ flex: 1, color: ink, fontSize: 18, fontWeight: '800' }}>{title}</Text>

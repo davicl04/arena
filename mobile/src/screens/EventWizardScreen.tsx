@@ -17,7 +17,7 @@ import type { EventForm, FormErrors, FormField } from '../components/organizer/e
 import { CapacityStep, NameStep, PriceStep, SportStep, WhenStep } from '../components/organizer/WizardSteps'
 import type { CategoryChange } from '../components/organizer/WizardSteps'
 import Sheet from '../components/Sheet'
-import { Screen } from '../components/Screen'
+import { ModalScreen } from '../components/ModalScreen'
 import { ToastViewport } from '../components/toast/ToastViewport'
 import { toast } from '../components/toast/toastStore'
 import { reportActionError } from '../hooks/useSubmit'
@@ -259,8 +259,8 @@ export default function EventWizardScreen({ params, navigation, onExpired }: Scr
     </>
 
   return <View style={{ flex: 1, backgroundColor: colors.forest }}>
-    <Modal visible animationType="slide" statusBarTranslucent onRequestClose={requestClose}>
-      <Screen className="grow basis-0 bg-forest">
+    <Modal visible animationType="slide" statusBarTranslucent navigationBarTranslucent onRequestClose={requestClose}>
+      <ModalScreen dark className="bg-forest">
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           {header}
           {body}
@@ -273,7 +273,7 @@ export default function EventWizardScreen({ params, navigation, onExpired }: Scr
             <ActionButton block tone="outline" title="Continuar editando" onPress={() => setLeaving(false)} />
           </View>
         </Sheet> : null}
-      </Screen>
+      </ModalScreen>
       <ToastViewport />
     </Modal>
   </View>

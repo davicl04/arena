@@ -2,6 +2,7 @@ import { cva } from 'class-variance-authority'
 import type { VariantProps } from 'class-variance-authority'
 import { apiUrl } from '../api/client'
 import { cn } from '@/lib/utils'
+import { personInitials } from '@/utils/personInitials'
 
 /*
  * Tamanhos da foto (antes .social-avatar, .social-initials e as regras por contexto do antigo styles.css):
@@ -26,8 +27,11 @@ const photoVariants = cva('inline-grid rounded-full bg-app object-cover', {
   defaultVariants: { size: 'md', initials: false },
 })
 
-/** Foto de perfil de uma conta da comunidade, com iniciais quando não há imagem. */
-export function SocialPhoto({ path, name, size, className }: { path: string | null; name: string; className?: string } & Pick<VariantProps<typeof photoVariants>, 'size'>) {
+/**
+ * Foto de perfil de uma conta da comunidade, com iniciais quando não há imagem. `initials` vem pronto quando só há o
+ * primeiro nome (a prévia do elenco na carteirinha do time).
+ */
+export function SocialPhoto({ path, name, initials, size, className }: { path: string | null; name: string; initials?: string; className?: string } & Pick<VariantProps<typeof photoVariants>, 'size'>) {
   return path ? <img data-slot="social-photo" className={cn(photoVariants({ size }), className)} src={apiUrl(path)} alt={`Foto de ${name}`} /> :
-    <span data-slot="social-photo" className={cn(photoVariants({ size, initials: true }), className)} aria-label={name}>{name.trim().split(/\s+/).slice(0, 2).map(part => part[0]).join('').toUpperCase()}</span>
+    <span data-slot="social-photo" className={cn(photoVariants({ size, initials: true }), className)} aria-label={name}>{initials || personInitials(name)}</span>
 }

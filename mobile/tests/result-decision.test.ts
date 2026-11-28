@@ -283,6 +283,9 @@ describe('tênis', () => {
     const tree = await mount(tennis(), { [`POST ${DECIDE}`]: tennis({ state: 'encerrada' }) })
     expect(radio(tree, 'Placar informado por Ana Souza: 6-4 6-3')).toBeTruthy()
     await choose(tree, 'Placar informado por Ana Souza: 6-4 6-3')
+    // No tênis, a justificativa fala em atletas e o exemplo não fala em gol.
+    expect(allText(tree)).toContain('Fica registrada e os dois atletas veem.')
+    expect(allText(tree)).not.toContain('apito final')
     await justify(tree)
     await pressButton(tree, 'Registrar 6-4 6-3')
     expect(bodyOf('POST', DECIDE)).toEqual({ score: { sets: [{ a: 6, b: 4 }, { a: 6, b: 3 }] }, justification: 'O vídeo mostra o gol antes do apito final.' })

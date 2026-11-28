@@ -112,7 +112,7 @@ class ChampionshipOut(BaseModel):
     matches_total: int
     to_schedule: int                    # both sides known, no date yet
     waiting: int                        # a side still waits for the winner of a previous match
-    scheduled: int                      # scheduled, without a final result
+    scheduled: int                      # scheduled, without a final result and not in `to_decide`
     to_decide: int                      # divergent score, or 48 h without a result: the organizer decides
     finished: int
     attention: int                      # to_schedule + to_decide: the alert of the poster

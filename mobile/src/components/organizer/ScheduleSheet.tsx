@@ -98,7 +98,7 @@ export function ScheduleSheet({ row, city, busy, error, conflict, onSubmit, onCl
     </View>
     <View style={{ marginTop: 10, flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
       <View style={{ marginTop: 1 }}><Icon name="info" size={15} color={colors['ink-muted']} /></View>
-      <Text style={{ flex: 1, minWidth: 0, color: colors['ink-muted'], fontSize: 10.5, lineHeight: 16 }}>Os dois elencos são avisados. A reserva da quadra é com o local; o Arena só registra.</Text>
+      <Text style={{ flex: 1, minWidth: 0, color: colors['ink-muted'], fontSize: 10.5, lineHeight: 16 }}>{card.sport === 'tenis' ? 'Os dois atletas são avisados.' : 'Os dois elencos são avisados.'} A reserva da quadra é com o local; o Arena só registra.</Text>
     </View>
     {onOpenMatch ? <View style={{ marginTop: 10, alignItems: 'flex-start' }}><ActionButton fit tone="outline" icon="messages-square" title="Abrir partida e chat" onPress={onOpenMatch} /></View> : null}
   </Sheet>

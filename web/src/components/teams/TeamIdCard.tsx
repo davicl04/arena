@@ -11,7 +11,7 @@ import type { TeamCardView } from './teamView'
 export function RosterStack({ roster, count, className }: { roster: RosterPreviewItem[]; count: number; className?: string }) {
   return <div className={cn('flex min-w-0 items-center', className)}>
     <span className="flex" aria-hidden="true">
-      {roster.slice(0, 5).map((item, index) => <MemberFace key={item.user_id} name={item.first_name} avatarUrl={item.avatar_url} size="stack"
+      {roster.slice(0, 5).map((item, index) => <MemberFace key={item.user_id} name={item.first_name} initials={item.initials} avatarUrl={item.avatar_url} size="stack"
         className={cn('rounded-full border-2 border-solid border-forest', index > 0 && '-ml-[7px]')} />)}
     </span>
     <small className="ml-1.5 truncate text-[10.5px] text-white/66">{athletes(count)}</small>

@@ -70,7 +70,7 @@ function MatchRow({ item, onPress }: { item: EventMatchRow; onPress: () => void 
 }
 
 /**
- * Partidas do campeonato (S1), do lado do organizador: a lista dos jogos, com os que estão sem data primeiro, e a folha de
+ * Partidas do campeonato (S1), do lado do organizador: a lista dos jogos (para decidir e para agendar primeiro; os que esperam o vencedor depois dos agendados) e a folha de
  * agendamento (data, horário livre, quadra). Tocar num jogo sem data (ou agendado, antes do início) abre a folha; um jogo
  * com placar para decidir abre a decisão (D3); os demais abrem a partida. Os jogos que esperam o vencedor de uma fase
  * anterior aparecem como "Vencedor J1" e não podem ser agendados. `matchId` nos parâmetros abre a folha daquele jogo. Um
@@ -118,7 +118,7 @@ export default function EventMatchesScreen({ params, navigation, onExpired }: Sc
     })
     if (!saved) return
     setSelected(null)
-    toast.success(`${saved.label} ${row.card.starts_at ? 'reagendado' : 'agendado'} para ${whenText(saved.card.starts_at)}${saved.card.court ? ` em ${saved.card.court.name}` : ''}.`, { description: 'Os dois elencos foram avisados.' })
+    toast.success(`${saved.label} ${row.card.starts_at ? 'reagendado' : 'agendado'} para ${whenText(saved.card.starts_at)}${saved.card.court ? ` em ${saved.card.court.name}` : ''}.`, { description: saved.card.sport === 'tenis' ? 'Os dois atletas foram avisados.' : 'Os dois elencos foram avisados.' })
     if (!await reload()) setData(old => old ? { ...old, items: old.items.map(item => item.card.id === saved.card.id ? saved : item) } : old)
   }
   /** Relê a lista sem esconder a tela; devolve se deu certo (a falha mantém a lista que já estava na tela). */
@@ -150,6 +150,7 @@ export default function EventMatchesScreen({ params, navigation, onExpired }: Sc
   }
 
   const chips = counters(list.counts)
+  const notified = list.items[0]?.card.sport === 'tenis' ? 'Os dois atletas de cada jogo foram avisados nas notificações.' : 'Os dois elencos de cada jogo foram avisados nas notificações.'
   const allSet = list.counts.to_schedule === 0 && list.counts.to_decide === 0 && list.counts.waiting === 0 && list.counts.scheduled > 0
   return <View style={{ flex: 1 }}>
     <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 48 }}>
@@ -170,11 +171,11 @@ export default function EventMatchesScreen({ params, navigation, onExpired }: Sc
                 </Text>
               </View>)}
             </View> : null}
-            {allSet ? <View accessible accessibilityLabel="Tudo agendado. Os dois elencos de cada jogo foram avisados nas notificações." style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10, borderRadius: 16, backgroundColor: colors['success-bg'], padding: 12 }}>
+            {allSet ? <View accessible accessibilityLabel={`Tudo agendado. ${notified}`} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10, borderRadius: 16, backgroundColor: colors['success-bg'], padding: 12 }}>
               <Icon name="circle-check" size={19} color={colors.brand} />
               <View style={{ flex: 1, minWidth: 0 }}>
                 <Text style={{ color: colors.ink, fontSize: 12.5, fontWeight: '700' }}>Tudo agendado</Text>
-                <Text style={{ color: colors.ink, fontSize: 11.5, lineHeight: 17 }}>Os dois elencos de cada jogo foram avisados nas notificações.</Text>
+                <Text style={{ color: colors.ink, fontSize: 11.5, lineHeight: 17 }}>{notified}</Text>
               </View>
             </View> : null}
             <View accessibilityRole="list" accessibilityLabel="Jogos do campeonato" style={{ gap: 8 }}>
