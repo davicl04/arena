@@ -7,7 +7,8 @@ import { TeamMark } from "./TeamMark";
 
 /**
  * Cabeçalho da partida (P2): barra `forest` com o voltar, os brasões com o elo no canto, "Ferrugem × Leões" e o
- * estado da partida (Combinando, Agendada…). No tênis, as fotos dos atletas.
+ * estado da partida (Combinando, Agendada…). No tênis, as fotos dos atletas. Tablet e computador: a barra vai de ponta a
+ * ponta e o conteúdo dela fica na medida da tela (coluna de leitura; medida larga no computador).
  */
 export function MatchHeader({ detail, onBack }: { detail: MatchDetail; onBack: () => void }) {
   const sides = orderedSides(detail);
@@ -16,7 +17,7 @@ export function MatchHeader({ detail, onBack }: { detail: MatchDetail; onBack: (
   // No campeonato o organizador abre partidas com um lado só (ou nenhum): o que falta aparece como "A definir".
   const [firstName = "A definir", secondName = "A definir"] = headerNames(sides);
   return (
-    <header data-slot="match-header" className="flex flex-none flex-wrap items-center gap-x-1 gap-y-0 bg-forest py-2 pr-3 pl-1 text-white">
+    <header data-slot="match-header" className="flex flex-none flex-wrap items-center gap-x-1 gap-y-0 bg-forest py-2 pr-3 pl-1 text-white md:px-coluna-leitura md:[--coluna-respiro:0.75rem] lg:col-span-full lg:px-coluna-larga">
       <IconButton tone="glass" aria-label="Voltar" onClick={onBack}>
         <ArrowLeft size={21} aria-hidden="true" />
       </IconButton>

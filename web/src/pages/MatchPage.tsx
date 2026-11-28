@@ -37,10 +37,18 @@ import { formatDeadline } from "@/utils/format";
 
 type SheetKind = "terms" | "cancel" | "wo" | "wo-withdraw" | "wo-contest" | "slots";
 
+/*
+ * Tablet e computador. Computador: grade com o cabeçalho na primeira linha (de ponta a ponta) e, abaixo, duas colunas
+ * centralizadas na medida larga entre margens flexíveis: condições e resultado (rolam por dentro) e o chat.
+ */
+const desktopGrid = "lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,27rem)_minmax(0,41rem)_minmax(0,1fr)] lg:grid-rows-[auto_minmax(0,1fr)] lg:gap-x-6";
+const pinnedWide = "md:mx-auto md:w-full md:max-w-leitura lg:col-start-2 lg:row-start-2 lg:mx-0 lg:max-h-none lg:min-h-0 lg:max-w-none lg:border-b-0 lg:pt-1 lg:pb-4";
+const chatWide = "md:mx-auto md:w-full md:max-w-leitura lg:col-start-3 lg:row-start-2 lg:mx-0 lg:max-w-none lg:border-x lg:border-solid lg:border-line";
+
 /** Barra mínima (voltar) das telas sem a partida: carregando, erro e partida inexistente. */
 function BareTop({ onBack }: { onBack: () => void }) {
   return (
-    <div className="flex flex-none items-center bg-forest py-2 pl-1 text-white">
+    <div className="flex flex-none items-center bg-forest py-2 pl-1 text-white md:px-coluna-leitura md:[--coluna-respiro:0.75rem]">
       <IconButton tone="glass" aria-label="Voltar" onClick={onBack}>
         <ArrowLeft size={21} aria-hidden="true" />
       </IconButton>
@@ -54,6 +62,9 @@ function BareTop({ onBack }: { onBack: () => void }) {
  * (ponto de encaixe `ResultArea`) e o chat dos dois elencos. Tudo o que a pessoa pode fazer vem de
  * `detail.permissions`; as folhas (propor condições, cancelar, W.O., vagas) abrem sobre a tela e mostram os erros do
  * servidor sem fechar. A tela relê o detalhe quando chega um evento novo no chat (aceite do outro lado, cancelamento…).
+ * Tablet e computador: o cabeçalho vai de ponta a ponta (`data-largura="total"`) e a tela ocupa a altura toda, sem a
+ * reserva da navegação inferior. Tablet: condições e chat na coluna de leitura. Computador: duas colunas na medida
+ * larga — condições e resultado à esquerda (rolam por dentro), chat à direita, com o campo de mensagem sempre visível.
  */
 export default function MatchPage({ matchId, viewerId, onBack, onSchedule, onDecide, onExpired }: {
   matchId: number;
@@ -138,7 +149,7 @@ export default function MatchPage({ matchId, viewerId, onBack, onSchedule, onDec
 
   if (match.loading)
     return (
-      <div className="flex h-full flex-col">
+      <div data-largura="total" className="flex h-full flex-col">
         <BareTop onBack={onBack} />
         <p role="status" className="m-0 px-5 py-6 text-center text-[12px] text-ink-muted">
           Carregando partida…
@@ -147,7 +158,7 @@ export default function MatchPage({ matchId, viewerId, onBack, onSchedule, onDec
     );
   if (!detail)
     return (
-      <div className="flex h-full flex-col">
+      <div data-largura="total" className="flex h-full flex-col">
         <BareTop onBack={onBack} />
         {missing ? (
           <EmptyState
@@ -161,7 +172,7 @@ export default function MatchPage({ matchId, viewerId, onBack, onSchedule, onDec
             }
           />
         ) : (
-          <div className="px-5">
+          <div className="px-5 md:mx-auto md:w-full md:max-w-leitura">
             <LoadError size="screen" title="Não foi possível carregar a partida" text={match.error} cause={match.errorCause} onRetry={match.reload} />
           </div>
         )}
@@ -177,10 +188,10 @@ export default function MatchPage({ matchId, viewerId, onBack, onSchedule, onDec
   const eventId = current.event?.id;
 
   return (
-    <div ref={root} className="flex h-full min-h-0 flex-col" data-match={current.id}>
+    <div ref={root} data-largura="total" className={cn("flex h-full min-h-0 flex-col", desktopGrid)} data-match={current.id}>
       <MatchHeader detail={current} onBack={onBack} />
       {!arranging ? (
-        <div className="grid flex-1 content-start gap-3 overflow-y-auto px-5 pt-4">
+        <div className="grid flex-1 content-start gap-3 overflow-y-auto px-5 pt-4 md:mx-auto md:w-full md:max-w-leitura lg:col-span-2 lg:col-start-2 lg:max-w-none lg:px-0">
           <div role="note" className="flex gap-2.5 rounded-card surface inset-ring inset-ring-surface-edge p-3.5 shadow-card">
             <Hourglass size={20} className="mt-px flex-none text-brand" aria-hidden="true" />
             <p className="m-0 min-w-0 flex-1 text-[12px] leading-normal text-ink">
@@ -198,7 +209,7 @@ export default function MatchPage({ matchId, viewerId, onBack, onSchedule, onDec
           <div
             data-slot="match-pinned"
             // Com o cartão de resultado (partida iniciada) o topo ganha mais altura; rola por dentro, com a borda marcando o limite.
-            className={cn("flex-none overflow-y-auto overscroll-contain border-b border-solid border-line pb-2", current.result ? "max-h-[62%]" : "max-h-[55%]")}
+            className={cn("flex-none overflow-y-auto overscroll-contain border-b border-solid border-line pb-2", current.result ? "max-h-[62%]" : "max-h-[55%]", pinnedWide)}
           >
             <ResultArea
               detail={current}
@@ -233,7 +244,7 @@ export default function MatchPage({ matchId, viewerId, onBack, onSchedule, onDec
               onContestWalkover={() => open("wo-contest")}
             />
           </div>
-          <MatchChat detail={current} onExpired={onExpired} onReport={setReporting} onPropose={() => open("terms")} onEvent={() => void refresh()} />
+          <MatchChat detail={current} onExpired={onExpired} onReport={setReporting} onPropose={() => open("terms")} onEvent={() => void refresh()} className={chatWide} />
         </>
       )}
 
