@@ -9,20 +9,24 @@ import { Button } from '@/components/ui/button'
 import { feedbackVariants } from '@/components/ui/feedback'
 import { LoadError } from '@/components/ui/load-error'
 import { PersonList, PersonRow } from '@/components/ui/person-row'
+import { cn } from '@/lib/utils'
 
 const section = 'mt-4 mb-1 text-[9.5px] font-bold tracking-[0.1em] text-ink-muted uppercase'
 
 /**
  * Aba Atletas (G2). A busca fica na barra escura; aqui aparecem os resultados ou, antes de buscar,
- * a fileira de quem você segue e a dica.
+ * a fileira de quem você segue e a dica. No computador, é a coluna "Atletas" ao lado do feed, com a busca no topo
+ * dela (ticket 06 da web responsiva); em tela larga a fileira quebra em linhas, sem rolagem lateral.
  */
-export default function CommunityPeople({ viewerId, query, onOpenUser, onExpired }: {
+export default function CommunityPeople({ viewerId, query, onOpenUser, onExpired, className }: {
   viewerId: number
   query: string
   onOpenUser: (id: number) => void
   onExpired: () => void
+  /** Classes extras do contêiner (respiro conforme a faixa). */
+  className?: string
 }) {
-  return <div className="px-5 pb-2">
+  return <div className={cn('px-5 pb-2', className)}>
     {query ? <SearchResults key={query} query={query} onOpenUser={onOpenUser} onExpired={onExpired} />
       : <Following viewerId={viewerId} onOpenUser={onOpenUser} onExpired={onExpired} />}
   </div>
@@ -36,7 +40,7 @@ function Following({ viewerId, onOpenUser, onExpired }: { viewerId: number; onOp
   return <>
     {items.length > 0 && <>
       <h2 className={section}>Suas alianças · <b className="text-ink tabular-nums">{items.length}{hasMore ? '+' : ''}</b></h2>
-      <ul className="-mx-5 flex gap-3.5 overflow-x-auto px-5 pt-1.5 pb-1 scrollbar-hidden" aria-label="Suas alianças">
+      <ul className="-mx-5 flex gap-3.5 overflow-x-auto px-5 pt-1.5 pb-1 scrollbar-hidden md:mx-0 md:grid md:grid-cols-[repeat(auto-fill,minmax(4rem,1fr))] md:gap-x-2 md:gap-y-3 md:overflow-visible md:px-0" aria-label="Suas alianças">
         {items.map(person => <li key={person.id} className="shrink-0">
           <button type="button" className="grid w-[62px] justify-items-center gap-[5px] border-0 bg-transparent p-0 text-[10px] font-semibold text-ink"
             aria-label={`Abrir perfil de ${person.name}`} onClick={() => onOpenUser(person.id)}>
