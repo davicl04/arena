@@ -109,3 +109,102 @@ describe('Comunidade: redimensionar cruzando 1024 px preserva o que está aberto
     expect(calls('/users?q=atleta')).toBe(1)
   })
 })
+
+/*
+ * Depois de a tela ter passado pelo computador, estreitar não desmonta o painel da outra aba: ele fica oculto e alargar
+ * de novo o reencontra. Ao estreitar, a aba é a do painel em uso. Numa sessão só de celular, nada muda.
+ */
+describe('Comunidade: estreitar a partir do computador mantém os dois painéis montados', () => {
+  it('busca feita na coluna Atletas: ao estreitar a lista fica oculta e volta ao alargar, sem buscar de novo', async () => {
+    const view = viewport(1440)
+    render(<main><SocialCommunity viewerId={1} onOpenUser={vi.fn()} onExpired={vi.fn()} /></main>)
+    await screen.findByRole('article')
+    await userEvent.type(screen.getByRole('searchbox', { name: 'Buscar atletas por nome ou @' }), 'atleta{Enter}')
+    await screen.findByRole('button', { name: 'Aliado' })
+    const list = results()
+    act(() => (document.activeElement as HTMLElement).blur())
+
+    view.resize(900)
+    expect(screen.getByRole('tab', { name: /Publicações/ }).getAttribute('aria-selected')).toBe('true')
+    expect(screen.getByRole('tabpanel').contains(screen.getByRole('article'))).toBe(true)
+    expect(results()).toBe(list)
+    expect(list?.closest('[hidden]')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Aliado' })).toBeNull()
+
+    view.resize(1440)
+    expect(results()).toBe(list)
+    expect(within(screen.getByRole('complementary', { name: 'Atletas' })).getByRole('button', { name: 'Aliado' })).toBeTruthy()
+    expect((screen.getByRole('searchbox') as HTMLInputElement).value).toBe('atleta')
+    expect(calls('/users?q=atleta')).toBe(1)
+    expect(calls('/posts')).toBe(1)
+  })
+
+  it('com o foco na coluna Atletas, estreitar seleciona a aba Atletas e oculta o feed sem desmontá-lo', async () => {
+    const view = viewport(1440)
+    render(<main><SocialCommunity viewerId={1} onOpenUser={vi.fn()} onExpired={vi.fn()} /></main>)
+    const article = await screen.findByRole('article')
+    await screen.findByRole('list', { name: 'Suas alianças' })
+    act(() => screen.getByRole('button', { name: 'Abrir perfil de Atleta Dois' }).focus())
+
+    view.resize(900)
+    expect(screen.getByRole('tab', { name: /Atletas/ }).getAttribute('aria-selected')).toBe('true')
+    expect(screen.queryByRole('article')).toBeNull()
+    expect(article.isConnected && article.closest('[hidden]')).toBeTruthy()
+
+    view.resize(1440)
+    expect(screen.getByRole('article')).toBe(article)
+    expect(calls('/posts')).toBe(1)
+    expect(calls('/users/1/following')).toBe(1)
+  })
+
+  it('aba Atletas no tablet, comentários abertos no computador: estreitar volta a Publicações com o rascunho, nas duas direções', async () => {
+    const view = viewport(900)
+    render(<main><SocialCommunity viewerId={1} onOpenUser={vi.fn()} onExpired={vi.fn()} /></main>)
+    const article = await screen.findByRole('article')
+    await userEvent.click(screen.getByRole('tab', { name: /Atletas/ }))
+    await screen.findByRole('list', { name: 'Suas alianças' })
+
+    view.resize(1440)
+    const fresh = screen.getByRole('article', { name: 'Publicação de @atleta.dois' })
+    await userEvent.click(within(fresh).getByRole('button', { name: 'Comentários (1)' }))
+    expect(await screen.findByText('Bom treino!')).toBeTruthy()
+    await userEvent.type(screen.getByRole('textbox', { name: 'Escreva um comentário' }), 'Rascunho')
+    act(() => (document.activeElement as HTMLElement).blur())
+    const allies = screen.getByRole('list', { name: 'Suas alianças' })
+
+    view.resize(900)
+    expect(screen.getByRole('tab', { name: /Publicações/ }).getAttribute('aria-selected')).toBe('true')
+    expect(within(screen.getByRole('tabpanel')).getByRole('dialog', { name: 'Comentários' })).toBeTruthy()
+    expect((screen.getByRole('textbox', { name: 'Escreva um comentário' }) as HTMLInputElement).value).toBe('Rascunho')
+    expect(screen.getByRole('article')).toBe(fresh)
+    expect(screen.queryByRole('list', { name: 'Suas alianças' })).toBeNull()
+    expect(allies.isConnected).toBe(true)
+
+    view.resize(1440)
+    expect(screen.getByRole('list', { name: 'Suas alianças' })).toBe(allies)
+    expect((screen.getByRole('textbox', { name: 'Escreva um comentário' }) as HTMLInputElement).value).toBe('Rascunho')
+    expect(fresh).not.toBe(article) // no tablet, a aba Atletas desmontou o feed, como sempre
+    expect(calls('/posts')).toBe(1)
+    expect(calls('/posts/7/comments')).toBe(1)
+    expect(calls('/users/1/following')).toBe(1)
+  })
+
+  it('sessão só de celular: trocar de aba desmonta o outro painel, como sempre, e nada fica oculto', async () => {
+    render(<main><SocialCommunity viewerId={1} onOpenUser={vi.fn()} onExpired={vi.fn()} /></main>)
+    const article = await screen.findByRole('article')
+    await userEvent.click(screen.getByRole('tab', { name: /Atletas/ }))
+    await screen.findByRole('list', { name: 'Suas alianças' })
+    expect(article.isConnected).toBe(false)
+    expect(document.querySelector('[hidden]')).toBeNull()
+
+    await userEvent.click(screen.getByRole('tab', { name: /Publicações/ }))
+    await screen.findByRole('article')
+    expect(screen.getByRole('article')).not.toBe(article)
+    expect(screen.queryByRole('list', { name: 'Suas alianças' })).toBeNull()
+    expect(document.querySelector('[hidden]')).toBeNull()
+
+    await userEvent.click(screen.getByRole('tab', { name: /Atletas/ }))
+    await screen.findByRole('list', { name: 'Suas alianças' })
+    expect(calls('/users/1/following')).toBe(2)
+  })
+})
