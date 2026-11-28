@@ -9,6 +9,7 @@ import { ToastViewport } from '../toast/ToastViewport'
 import { ActionButton } from '../arena/controls'
 import { onDark } from './ui'
 import { Icon } from '../Icon'
+import { pageTitle } from '../../styles'
 
 export const QR_INVALID = 'Este QR não é de um time do Arena. Aponte para o QR do link do time.'
 /** Mesmo código lido de novo dentro desta janela não repete o aviso (a câmera dispara várias leituras por segundo). */
@@ -52,7 +53,7 @@ export function QrScanner({ onToken, onClose }: { onToken: (token: string) => vo
         </Pressable>
         <View style={{ flex: 1 }}>
           <Text style={{ color: colors.mint, fontSize: 9, fontWeight: '700', letterSpacing: 1.1 }}>ENTRAR NO TIME</Text>
-          <Text accessibilityRole="header" style={{ color: '#ffffff', fontSize: 19, fontWeight: '800' }}>Ler QR do time</Text>
+          <Text accessibilityRole="header" style={{ color: '#ffffff', ...pageTitle }}>Ler QR do time</Text>
         </View>
       </View>
       <View style={{ flex: 1, paddingHorizontal: 20, alignItems: 'center', justifyContent: 'center', gap: 16 }}>

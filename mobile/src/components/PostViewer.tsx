@@ -8,7 +8,7 @@ import type { PostUpdate } from './PostItem'
 import { ModalScreen } from './ModalScreen'
 import { ToastViewport } from './toast/ToastViewport'
 import { Button } from './ui'
-import { tw } from '../styles'
+import { cx, tw } from '../styles'
 import { useThemeColors } from '../hooks/useTheme'
 
 /**
@@ -31,7 +31,7 @@ export default function PostViewer({ list, index, username, viewerId, token, onU
         <Pressable accessibilityRole="button" accessibilityLabel="Voltar" onPress={onClose} className="min-h-11 min-w-11 items-center justify-center"><Text className="text-[24px] text-brand">‹</Text></Pressable>
         <View className="grow basis-0">
           <Text numberOfLines={1} className="text-[11px] font-bold tracking-[1.5px] text-brand">@{username.toUpperCase()}</Text>
-          <Text accessibilityRole="header" className="text-[18px] font-bold text-ink">Publicações</Text>
+          <Text accessibilityRole="header" className={cx('text-ink', tw.pageTitle)}>Publicações</Text>
         </View>
       </View>
       <FlatList ref={ref} data={list.items} keyExtractor={item => String(item.id)} initialScrollIndex={start}

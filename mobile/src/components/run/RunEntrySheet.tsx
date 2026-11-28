@@ -22,6 +22,7 @@ import { PreviewHint, RunPreviewCard } from './RunPreviewCard'
 import { RunRaces } from './RunRaces'
 import { RunTimeFields } from './RunTimeFields'
 import { KeyboardScrollView } from '../KeyboardScrollView'
+import { pageTitle } from '../../styles'
 
 /** Espera depois da última mudança antes de pedir a prévia (cada toque numa seta não vira uma chamada). */
 export const PREVIEW_DELAY_MS = 300
@@ -173,7 +174,7 @@ export function RunEntrySheet({ initialDistance, onClose, onSaved, onFindRaces, 
             style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
             <Icon name="x" size={22} color="#ffffff" />
           </Pressable>
-          <Text accessibilityRole="header" style={{ color: '#ffffff', fontSize: 15, fontWeight: '800' }}>Registrar corrida</Text>
+          <Text accessibilityRole="header" style={{ color: '#ffffff', ...pageTitle }}>Registrar corrida</Text>
           <View style={{ width: 44 }} />
         </View>
         <KeyboardScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingHorizontal: 18, paddingTop: 12, paddingBottom: 20 }}>

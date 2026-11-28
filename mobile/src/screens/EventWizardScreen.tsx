@@ -27,6 +27,7 @@ import { useThemeColors } from '../hooks/useTheme'
 import { colors } from '../theme'
 import { Icon } from '../components/Icon'
 import { KeyboardScrollView } from '../components/KeyboardScrollView'
+import { pageTitle } from '../styles'
 
 
 type Busy = 'draft' | 'publish' | null
@@ -203,7 +204,7 @@ export default function EventWizardScreen({ params, navigation, onExpired }: Scr
     </Pressable>
     <View style={{ flex: 1, minWidth: 0 }}>
       <Text style={{ color: colors.mint, fontSize: 9, fontWeight: '800', letterSpacing: 1.1 }}>ORGANIZADOR</Text>
-      <Text accessibilityRole="header" style={{ color: '#ffffff', fontSize: 17, fontWeight: '800' }}>{eventId ? 'Editar rascunho' : 'Novo evento'}</Text>
+      <Text accessibilityRole="header" style={{ color: '#ffffff', ...pageTitle }}>{eventId ? 'Editar rascunho' : 'Novo evento'}</Text>
     </View>
     {!loading && !loadError && !blocked ? <View accessible accessibilityLabel={`Passo ${step + 1} de ${WIZARD_STEPS.length}`} style={{ marginRight: 8, borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 10, paddingVertical: 4 }}>
       <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 11, fontWeight: '800' }}>{step + 1}/{WIZARD_STEPS.length}</Text>

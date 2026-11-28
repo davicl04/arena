@@ -39,6 +39,7 @@ import { useRunBests } from '../hooks/useRunBests'
 import { useSubmit } from '../hooks/useSubmit'
 import type { ScreenProps } from '../navigation/screens'
 import { colors } from '../theme'
+import { pageTitle } from '../styles'
 
 /** Perfis esportivos e cidades: a cidade e a posição da placa vêm do perfil da modalidade. */
 
@@ -230,7 +231,7 @@ export default function PlayScreen({ navigation, onExpired, playBoard: board, re
       <TeamsPlate bottom={26}>
         <View style={{ minHeight: 54, flexDirection: 'row', alignItems: 'center', gap: 10, paddingTop: 6, paddingRight: 12, paddingLeft: 18 }}>
           <ArenaMark compact width={30} height={22} color={colors.mint} />
-          <Text accessibilityRole="header" style={{ flex: 1, color: '#ffffff', fontSize: 17, fontWeight: '800' }}>Jogar</Text>
+          <Text accessibilityRole="header" style={{ flex: 1, color: '#ffffff', ...pageTitle }}>Jogar</Text>
           <Pressable accessibilityRole="button" onPress={() => navigation.go('sports')}
             accessibilityLabel={city ? `Cidade do perfil de ${sportLabel}: ${city.name}. Alterar em Suas modalidades` : `Definir a cidade do perfil de ${sportLabel}`}
             style={{ maxWidth: '55%', minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 5, borderRadius: 22, paddingHorizontal: 12, backgroundColor: 'rgba(255,255,255,0.08)' }}>

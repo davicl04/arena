@@ -13,6 +13,8 @@ export const tw = {
   heading: 'mb-2.5 text-[23px] font-bold text-ink',
   /** `heading` sem margem inferior, para cabeçalhos em linha. */
   headingInline: 'text-[23px] font-bold text-ink',
+  /** Título de topo de página (barras e placas): o mesmo em todas as telas, menos no Início. Igual a `pageTitle`. */
+  pageTitle: 'text-[17px] font-bold',
   body: 'mb-4 text-[14px] leading-[22px] text-ink-muted',
   card: 'mb-4.5 rounded-card bg-surface p-5.5',
   label: 'mt-3 mb-2 text-[13px] font-semibold text-ink',
@@ -34,3 +36,9 @@ export const tw = {
 
 /** Junta classes condicionais, ignorando valores falsos. */
 export const cx = (...values: (string | false | null | undefined)[]) => values.filter(Boolean).join(' ')
+
+/**
+ * Título de topo de página para `style` (Sora 17 px, peso 700, o `h1` da web): Jogar, Ranking, Comunidade, Notificações,
+ * as placas escuras, o cabeçalho das telas empilhadas e os modais de tela cheia. Só o Início tem outro (a saudação).
+ */
+export const pageTitle = { fontSize: 17, lineHeight: 22, fontWeight: '700' } as const

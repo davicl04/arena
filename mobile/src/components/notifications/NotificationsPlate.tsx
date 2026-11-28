@@ -8,6 +8,7 @@ import { TextAction } from '../arena/controls'
 import { Icon } from '../Icon'
 import { PlateChips } from '../play/PlateChips'
 import type { PlateOption } from '../play/PlateChips'
+import { pageTitle } from '../../styles'
 
 /** Chips da tela: *Para responder* mostra o total de pendências; as categorias, as não lidas, só quando há; *Tudo*, nenhum número. */
 export function filterOptions(summary: NotificationSummary | null): PlateOption<NotificationFilter>[] {
@@ -38,7 +39,7 @@ export function NotificationsPlate({ summary, filter, onFilter, busy, onBack, on
         style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 22 }}>
         <Icon name="arrow-left" size={21} color="#ffffff" />
       </Pressable>
-      <Text accessibilityRole="header" style={{ flex: 1, color: '#ffffff', fontSize: 17, fontWeight: '700' }}>Notificações</Text>
+      <Text accessibilityRole="header" style={{ flex: 1, color: '#ffffff', ...pageTitle }}>Notificações</Text>
       {summary && summary.unread_count > 0
         ? <TextAction surface="dark" title="Ler todas" accessibilityLabel="Marcar todas as notificações como lidas" disabled={busy} onPress={onReadAll} /> : null}
     </View>
