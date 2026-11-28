@@ -54,6 +54,21 @@ export default function SocialCommunity({ viewerId, onOpenUser, onExpired, notif
   const desktop = layout === 'computador'
   const wide = layout !== 'celular'
   const [tab, setTab] = useState<CommunityTab>('feed')
+  /*
+   * Depois que as duas colunas existiram juntas (a tela esteve no computador nesta montagem), estreitar não desmonta o
+   * painel da outra aba: ele fica oculto (`hidden`) e alargar de novo o reencontra como estava. Ao estreitar, a aba
+   * passa a ser a do painel em uso (vidro aberto sobre um post ou foco dentro dele), para nada aberto ficar escondido.
+   * Uma sessão que nunca passou pelo computador (o celular) segue como sempre: só o painel da aba ativa é montado.
+   */
+  const [keepBoth, setKeepBoth] = useState(desktop)
+  const [wasDesktop, setWasDesktop] = useState(desktop)
+  const [feedNode, setFeedNode] = useState<HTMLElement | null>(null)
+  const [asideNode, setAsideNode] = useState<HTMLElement | null>(null)
+  if (desktop !== wasDesktop) {
+    setWasDesktop(desktop)
+    if (desktop) setKeepBoth(true)
+    else setTab(panelInUse(feedNode, asideNode) ?? tab)
+  }
   const [composing, setComposing] = useState(composeOnOpen)
   const [query, setQuery] = useState('')
   const [search, setSearch] = useState('')
@@ -150,12 +165,25 @@ export default function SocialCommunity({ viewerId, onOpenUser, onExpired, notif
       */}
     <div {...(desktop ? {} : { id: 'community-panel', role: 'tabpanel', 'aria-labelledby': `community-tab-${tab}` })}
       className={desktop ? cn(measure, columns, 'pt-7') : cn(measure, 'md:pt-6')}>
-      {(desktop || tab === 'feed') && <div role={desktop ? 'region' : undefined} aria-label={desktop ? 'Publicações' : undefined}
-        className={desktop ? 'min-w-0' : 'contents'}>{feedBlock}</div>}
-      {(desktop || tab === 'people') && <CommunityAside desktop={desktop} tucked={tucked}>{desktop && searchForm(true)}{people}</CommunityAside>}
+      {(desktop || keepBoth || tab === 'feed') && <div ref={setFeedNode} role={desktop ? 'region' : undefined} aria-label={desktop ? 'Publicações' : undefined}
+        hidden={!desktop && tab !== 'feed'} className={desktop ? 'min-w-0' : tab === 'feed' ? 'contents' : undefined}>{feedBlock}</div>}
+      {(desktop || keepBoth || tab === 'people') && <CommunityAside desktop={desktop} hidden={!desktop && tab !== 'people'} tucked={tucked} node={asideNode}
+        onNode={setAsideNode}>{desktop && searchForm(true)}{people}</CommunityAside>}
     </div>
     {composing && <PostComposer onClose={() => setComposing(false)} onPublished={published} onExpired={onExpired} />}
   </section>
+}
+
+/**
+ * Painel em uso ao estreitar a partir do computador: o feed, se houver um vidro aberto sobre um post (comentários ou
+ * menu, que ficam dentro do post e não são modais) ou o foco estiver nele; "Atletas", se o foco estiver na coluna.
+ * Lê o DOM ainda na composição do computador (a última renderizada).
+ */
+function panelInUse(feed: HTMLElement | null, aside: HTMLElement | null): CommunityTab | null {
+  const active = document.activeElement
+  if (feed && (feed.querySelector('[data-slot="glass"]') || feed.contains(active))) return 'feed'
+  if (aside?.contains(active)) return 'people'
+  return null
 }
 
 /**
@@ -163,10 +191,17 @@ export default function SocialCommunity({ viewerId, onOpenUser, onExpired, notif
  * quando a lista passa da altura da janela. O gesto de puxar para atualizar é do feed: roda e toque dentro da coluna não
  * chegam ao `main`, para rolar a lista de volta ao topo não atualizar o feed.
  * Abaixo do computador é só um invólucro `contents` da aba Atletas (sem título nem papel), para a lista não remontar ao
- * cruzar 1024 px; por isso é um `div` com papel `complementary`, não um `aside`.
+ * cruzar 1024 px; por isso é um `div` com papel `complementary`, não um `aside`. Oculto (`hidden`) quando a aba é a de
+ * Publicações depois de a tela ter passado pelo computador.
  */
-function CommunityAside({ desktop, tucked, children }: { desktop: boolean; tucked: boolean; children: ReactNode }) {
-  const [node, setNode] = useState<HTMLElement | null>(null)
+function CommunityAside({ desktop, hidden, tucked, node, onNode, children }: {
+  desktop: boolean
+  hidden: boolean
+  tucked: boolean
+  node: HTMLElement | null
+  onNode: (node: HTMLElement | null) => void
+  children: ReactNode
+}) {
   useEffect(() => {
     if (!node || !desktop) return
     const stop = (event: Event) => event.stopPropagation()
@@ -177,8 +212,8 @@ function CommunityAside({ desktop, tucked, children }: { desktop: boolean; tucke
       node.removeEventListener('touchstart', stop)
     }
   }, [node, desktop])
-  return <div ref={setNode} role={desktop ? 'complementary' : undefined} aria-labelledby={desktop ? 'community-people-title' : undefined}
-    className={desktop ? cn('sticky max-h-[calc(100dvh-7.5rem)] overflow-y-auto rounded-card surface pt-5 shadow-card inset-ring inset-ring-surface-edge [scrollbar-width:thin] motion-safe:transition-[top] motion-safe:duration-200',
+  return <div ref={onNode} role={desktop ? 'complementary' : undefined} aria-labelledby={desktop ? 'community-people-title' : undefined} hidden={hidden}
+    className={hidden ? undefined : desktop ? cn('sticky max-h-[calc(100dvh-7.5rem)] overflow-y-auto rounded-card surface pt-5 shadow-card inset-ring inset-ring-surface-edge [scrollbar-width:thin] motion-safe:transition-[top] motion-safe:duration-200',
       tucked ? 'top-7' : 'top-[5.75rem]') : 'contents'}>
     {desktop && <div className="px-5">
       <h2 id="community-people-title" className="flex items-center gap-2 text-[15px]"><Users size={18} className="text-brand" />Atletas</h2>
