@@ -53,8 +53,8 @@ function SmallAction({ icon, label, busyLabel, busy, blocked, disabled, onClick 
  * Embaixo: a posição da placa (Topo, Centro, Base) com o zoom, "Compartilhar imagem" (menta, desabilitado sem foto) e as
  * ações pequenas "Baixar imagem", "Trocar foto" e "Salvar só o adesivo". O Story montado é um JPEG 1080×1920; o adesivo,
  * um PNG 1080×1920 transparente com a placa na posição escolhida. Uma leitura de `/me/share/...` por abertura; 401 segue o
- * fluxo de sessão expirada e 404 explica que a atividade não está disponível. A foto fica só no navegador. Entra na
- * moldura do app por portal, acima da navegação, com o foco preso e Escape. Em tablet e computador (ticket 02 da web
+ * fluxo de sessão expirada e 404 explica que a atividade não está disponível. A foto fica só no navegador. Entra no
+ * `app-frame` por portal, acima da navegação, com o foco preso e Escape. Em tablet e computador (ticket 02 da web
  * responsiva), painel centralizado de 480 px sobre o fundo escurecido; a prévia 9:16 segue a altura do painel.
  */
 export function ShareStoryScreen({ target, onClose, onExpired }: { target: ShareTarget; onClose: () => void; onExpired: () => void }) {

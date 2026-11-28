@@ -23,7 +23,7 @@ export type ProposalAnswer = 'aceitar' | 'recusar'
  * "Responder depois" (e Esc) não chama a API: a proposta continua na placa até o prazo.
  *
  * `onAnswer` recebe a proposta devolvida pelo servidor, com a resposta dada; quem chama decide o que vem depois
- * (ir à partida quando os dois aceitam, reler a placa). Fica dentro da moldura do app (`DialogContainerProvider`).
+ * (ir à partida quando os dois aceitam, reler a placa). Fica dentro do `app-frame` (`DialogContainerProvider`).
  */
 export function ProposalDialog({ proposal, onLater, onAnswer, onOpenMatch, onElapsed, onExpired, returnFocus }: {
   proposal: Proposal

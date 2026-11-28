@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils'
 
 /**
  * Página sobreposta "Publicações": feed vertical das fotos de uma conta, aberto no post tocado.
- * No celular, fica absoluta dentro do painel do app (como as folhas), abaixo da navegação inferior (z-viewer < z-nav),
+ * No celular, fica absoluta dentro do `app-frame` (como as folhas), abaixo da navegação inferior (z-viewer < z-nav),
  * para não cobrir o botão Jogar. Em tablet e computador (ticket 02 da web responsiva) vira painel centralizado de 480 px
  * sobre o fundo escurecido, que cobre também a navegação lateral (useOverlayPortal); as fotos ficam na largura do painel.
  */

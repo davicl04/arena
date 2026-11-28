@@ -34,8 +34,9 @@ function ActionRow({ primary = false, icon, children, onClick, autoFocus = false
 
 /**
  * Folha de ações de uma atividade do perfil próprio (rodadas 8 e 9 do protótipo): "Compartilhar nos Stories" e, na
- * partida, "Ver partida". A corrida não tem tela própria e só compartilha. Entra na moldura do app por portal, acima da
- * navegação inferior, com o foco preso e o fechamento por Escape, pelo fundo, pelo Fechar ou por Cancelar.
+ * partida, "Ver partida". A corrida não tem tela própria e só compartilha. Entra no `app-frame` por portal, acima da
+ * navegação inferior (diálogo centralizado em tablet e computador), com o foco preso e o fechamento por Escape, pelo
+ * fundo, pelo Fechar ou por Cancelar.
  */
 export function ShareActionSheet({ item, onShare, onOpenMatch, onClose }: {
   item: TimelineItem

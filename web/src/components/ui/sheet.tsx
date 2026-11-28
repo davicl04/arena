@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils'
 import { IconButton } from './button'
 
 /*
- * Folha inferior modal posicionada dentro do painel do app (não na viewport). Substitui BottomSheet
+ * Folha inferior modal posicionada dentro do `app-frame` (não na viewport). Substitui BottomSheet
  * (.sheet-scrim, .sheet, .sheet-handle, .sheet-head, .sheet-sub, .sheet-body) com o mesmo foco:
  * foca `[data-autofocus]`, prende o Tab, fecha com Esc e devolve o foco (useDialogFocus).
  * Botões de rodapé (Cancelar/Salvar) ficam em `SheetActions`.

@@ -14,14 +14,14 @@ import { iconButtonVariants } from "@/components/ui/button-variants"
  * `bg-popover`; e entrada suave só com movimento permitido, no lugar do tw-animate-css (não instalado).
  * Telas cheias passam o próprio visual em `className` (ex.: `inset-0 translate-none rounded-none bg-forest`).
  *
- * Moldura do app: no desktop o app é um painel de 390 px no meio da janela, e um Dialog preso à viewport o
- * escaparia. `DialogContainerProvider` (no painel do `ArenaPage`) diz onde o portal entra; com ele, o fundo e o
- * conteúdo passam de `fixed` a `absolute` e acompanham o painel (e a tela inteira no celular, onde o painel é a
- * tela). Sem o provedor, o Dialog continua no `body` e na viewport.
+ * Contêiner do app: `DialogContainerProvider` (no `app-frame` do `ArenaPage`, que ocupa a janela inteira em todas as
+ * faixas) diz onde o portal entra; com ele, o fundo e o conteúdo passam de `fixed` a `absolute` e ficam dentro do
+ * `app-frame`, junto com as folhas, as telas cheias, os toasts e o aviso de conexão. Sem o provedor, o Dialog continua
+ * no `body` e na viewport.
  *
- * Web responsiva: o `app-frame` ocupa a janela em todas as faixas, então o Dialog fica centralizado na janela e o fundo
- * cobre também a navegação lateral. Em tablet e computador o cartão ganha a sombra de diálogo (`md:shadow-dialog`), e uma
- * tela cheia acrescenta `widePanel` (overlay-variants.ts) para virar painel centralizado.
+ * Web responsiva: o Dialog fica centralizado na janela e o fundo cobre também a navegação lateral. Em tablet e computador
+ * o cartão ganha a sombra de diálogo (`md:shadow-dialog`), e uma tela cheia acrescenta `widePanel` (overlay-variants.ts)
+ * para virar painel centralizado.
  */
 const DialogContainerContext = React.createContext<HTMLElement | null>(null)
 
@@ -29,7 +29,7 @@ function DialogContainerProvider({ container, children }: { container: HTMLEleme
   return <DialogContainerContext.Provider value={container}>{children}</DialogContainerContext.Provider>
 }
 
-/** Moldura do app onde entram os diálogos (ou `null` fora do `ArenaPage`): também serve a folhas e telas cheias em portal. */
+/** `app-frame` onde entram os diálogos (ou `null` fora do `ArenaPage`): também serve a folhas e telas cheias em portal. */
 function useDialogContainer(): HTMLElement | null {
   return React.useContext(DialogContainerContext)
 }

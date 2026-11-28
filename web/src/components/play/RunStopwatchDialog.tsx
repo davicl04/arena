@@ -70,10 +70,11 @@ function Problem({ id, children }: { id: string; children?: string }) {
 }
 
 /**
- * Registrar corrida (K2), em tela cheia dentro da moldura do app: régua de distâncias (3, 5, 10, 21, 42 km e "Outra" com
- * metros), tempo em h : min : s com setas, o ritmo ao vivo, Treino | Prova do Arena, a data e a prévia do que a marca faz
- * com o ranking (`POST /me/runs/preview`, a cada mudança, com espera). "Salvar" grava (`POST /me/runs`); o servidor decide
- * tudo e os erros voltam no campo certo (`ApiError.fields`). Esc e "Fechar" saem sem gravar.
+ * Registrar corrida (K2), em tela cheia no `app-frame` (painel centralizado em tablet e computador): régua de
+ * distâncias (3, 5, 10, 21, 42 km e "Outra" com metros), tempo em h : min : s com setas, o ritmo ao vivo, Treino | Prova
+ * do Arena, a data e a prévia do que a marca faz com o ranking (`POST /me/runs/preview`, a cada mudança, com espera).
+ * "Salvar" grava (`POST /me/runs`); o servidor decide tudo e os erros voltam no campo certo (`ApiError.fields`). Esc e
+ * "Fechar" saem sem gravar.
  */
 export function RunStopwatchDialog({ initialDistance, onClose, onSaved, onFindRaces, onExpired }: {
   initialDistance: RunDistance
