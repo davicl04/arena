@@ -130,7 +130,7 @@ describe('Comunidade', () => {
     const ui = userEvent.setup()
     const { onOpenUser } = renderInMain()
     await ui.click(await screen.findByRole('tab', { name: 'Atletas' }))
-    expect(await screen.findByText(/Quem você segue/)).not.toBeNull()
+    expect(await screen.findByText(/Suas alianças/)).not.toBeNull()
     await ui.click(screen.getByRole('button', { name: 'Abrir perfil de Atleta Dois' }))
     expect(onOpenUser).toHaveBeenCalledWith(2)
     expect(request).toHaveBeenCalledWith('/users/1/following')
@@ -331,10 +331,10 @@ describe('Falhas da Comunidade', () => {
     renderInMain()
     await ui.click(await screen.findByRole('tab', { name: 'Atletas' }))
     await ui.type(screen.getByLabelText('Buscar atletas por nome ou @'), 'ana{Enter}')
-    await ui.click(await screen.findByRole('button', { name: 'Seguir' }))
+    await ui.click(await screen.findByRole('button', { name: 'Aliar-se' }))
     const failure = await findToast('Não foi possível seguir.')
     expect(failure.closest('[data-tone]')?.getAttribute('data-tone')).toBe('error')
-    expect(screen.getByRole('button', { name: 'Seguir' })).not.toBeNull()
+    expect(screen.getByRole('button', { name: 'Aliar-se' })).not.toBeNull()
   })
 
   it('os comentários que falham ao carregar mostram o erro da seção no vidro e recarregam', async () => {

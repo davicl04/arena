@@ -32,10 +32,10 @@ export default function FollowRequestsScreen({ onExpired, notificationSummary }:
     try {
       await request(`/me/follow-requests/${person.id}?approve=${approve}`, 'PUT')
       requests.setItems(old => old.filter(item => item.user.id !== person.id))
-      toast.success(approve ? `Solicitação de ${person.name} aprovada.` : `Solicitação de ${person.name} recusada.`)
+      toast.success(approve ? `Pedido de aliança de ${person.name} aprovado.` : `Pedido de aliança de ${person.name} recusado.`)
       notificationSummary.reload()
     } catch (cause) {
-      reportActionError(cause, 'Não foi possível responder à solicitação.', onExpired)
+      reportActionError(cause, 'Não foi possível responder ao pedido de aliança.', onExpired)
     } finally { setBusy(false) }
   }
   async function approveAll() {
@@ -43,30 +43,30 @@ export default function FollowRequestsScreen({ onExpired, notificationSummary }:
     try {
       // Aprovar tira itens da fila: cada lote recomeça na primeira página, com teto de rodadas e parada se a fila não andar.
       const done = await approveAllFollowRequests(userId => requests.setItems(old => old.filter(entry => entry.user.id !== userId)))
-      if (done) toast.success('Solicitações aprovadas.')
-      else toast.warning('Nem todas as solicitações foram aprovadas. Tente de novo em instantes.')
+      if (done) toast.success('Pedidos de aliança aprovados.')
+      else toast.warning('Nem todos os pedidos de aliança foram aprovados. Tente de novo em instantes.')
     } catch (cause) {
-      reportActionError(cause, 'Não foi possível aprovar todas as solicitações.', onExpired)
+      reportActionError(cause, 'Não foi possível aprovar todos os pedidos de aliança.', onExpired)
     } finally { requests.reload(); notificationSummary.reload(); setBusy(false) }
   }
 
-  if (requests.loading) return <View style={{ flex: 1, padding: 24 }}><Text accessibilityLiveRegion="polite" style={{ color: colors['ink-muted'], fontSize: 14 }}>{busy ? 'Aprovando solicitações…' : 'Carregando pedidos…'}</Text></View>
+  if (requests.loading) return <View style={{ flex: 1, padding: 24 }}><Text accessibilityLiveRegion="polite" style={{ color: colors['ink-muted'], fontSize: 14 }}>{busy ? 'Aprovando pedidos de aliança…' : 'Carregando pedidos…'}</Text></View>
   return <ScrollView testID="follow-requests-screen" contentContainerStyle={{ padding: 20, paddingBottom: 32 }}>
     {requests.error ? <LoadError size="section" title="Não foi possível carregar os pedidos" text={requests.error.message} cause={requests.error} onRetry={requests.reload} />
       : requests.items.length === 0 ? <Text testID="follow-requests-empty" style={{ borderRadius: 16, backgroundColor: colors.surface, paddingHorizontal: 14, paddingVertical: 16, color: colors['ink-muted'], fontSize: 12, lineHeight: 19 }}>
-        Nenhum pedido para seguir por enquanto. Quando alguém pedir para seguir a sua conta privada, o pedido aparece aqui.
+        Nenhum pedido de aliança por enquanto. Quando alguém pedir aliança à sua conta privada, o pedido aparece aqui.
       </Text>
-        : <View accessibilityLabel="Pedidos para seguir" style={{ marginTop: 12 }}>
+        : <View accessibilityLabel="Pedidos de aliança" style={{ marginTop: 12 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 6 }}>
             <View accessible accessibilityLabel={`${requests.items.length}${requests.hasMore ? ' ou mais' : ''} ${requests.items.length === 1 && !requests.hasMore ? 'pedido' : 'pedidos'}`}
               style={{ minWidth: 21, height: 21, alignItems: 'center', justifyContent: 'center', borderRadius: 11, backgroundColor: colors['icon-tile'], paddingHorizontal: 4 }}>
               <Text style={{ color: colors['icon-tile-ink'], fontSize: 10, fontWeight: '700' }}>{`${requests.items.length}${requests.hasMore ? '+' : ''}`}</Text>
             </View>
-            <TextAction title="Aprovar todas" accessibilityLabel="Aprovar todas as solicitações" disabled={busy || requests.busy} onPress={() => void approveAll()} />
+            <TextAction title="Aprovar todos" accessibilityLabel="Aprovar todos os pedidos de aliança" disabled={busy || requests.busy} onPress={() => void approveAll()} />
           </View>
           <FollowRequestList items={requests.items} busy={busy} onResolve={(person, approve) => void resolve(person, approve)} />
           {requests.moreError ? <Text accessibilityRole="alert" style={{ ...feedback, color: colors.error }}>{requests.moreError}</Text> : null}
-          {requests.hasMore ? <Button secondary title="Carregar mais solicitações" disabled={busy || requests.busy} onPress={() => void requests.loadMore()} /> : null}
+          {requests.hasMore ? <Button secondary title="Carregar mais pedidos" disabled={busy || requests.busy} onPress={() => void requests.loadMore()} /> : null}
         </View>}
   </ScrollView>
 }

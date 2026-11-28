@@ -29,14 +29,14 @@ describe('textos do perfil', () => {
   it('monta o texto de seguidores em comum', () => {
     expect(mutualFollowersText([], 0)).toBeNull()
     expect(mutualFollowersText(people, 0)).toBeNull()
-    expect(mutualFollowersText(people.slice(0, 1), 1)).toBe('Ana, que você segue, também segue esta conta.')
-    expect(mutualFollowersText(people, 2)).toBe('Ana e Bia, que você segue, também seguem esta conta.')
-    expect(mutualFollowersText(people, 5)).toBe('Ana, Bia e mais 3 que você segue também seguem esta conta.')
-    expect(mutualFollowersText(people.slice(0, 1), 4)).toBe('Ana e mais 3 que você segue também seguem esta conta.')
+    expect(mutualFollowersText(people.slice(0, 1), 1)).toBe('Ana, a quem você se aliou, também se aliou a esta conta.')
+    expect(mutualFollowersText(people, 2)).toBe('Ana e Bia, a quem você se aliou, também se aliaram a esta conta.')
+    expect(mutualFollowersText(people, 5)).toBe('Ana, Bia e mais 3 a quem você se aliou também se aliaram a esta conta.')
+    expect(mutualFollowersText(people.slice(0, 1), 4)).toBe('Ana e mais 3 a quem você se aliou também se aliaram a esta conta.')
   })
 
   it('usa singular e plural nas contagens', () => {
-    expect(connectionsText(1, 0)).toBe('1 seguidor · 0 seguindo')
-    expect(connectionsText(3, 2)).toBe('3 seguidores · 2 seguindo')
+    expect(connectionsText(1, 0)).toBe('1 aliado · 0 alianças')
+    expect(connectionsText(3, 2)).toBe('3 aliados · 2 alianças')
   })
 })

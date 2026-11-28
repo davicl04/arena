@@ -16,7 +16,7 @@ import type { ProfileTab } from '../components/ProfileTabs'
 import { SocialPhoto } from '../components/SocialPhoto'
 import type { ConnectionsTab } from '../data/arena'
 
-const closedListNotice = 'Esta conta é privada. Só quem a segue vê seguidores e contas seguidas.'
+const closedListNotice = 'Esta conta é privada. Só os aliados dela veem aliados e alianças.'
 
 export default function UserProfilePage({ userId, ownUserId, onBack, onOpenConnections, onExpired }: {
   userId: number
@@ -44,7 +44,7 @@ export default function UserProfilePage({ userId, ownUserId, onBack, onOpenConne
       })
     request<MutualFollowersPage>(`/users/${userId}/mutual-followers?limit=3`)
       .then(page => { if (alive) setMutual({ items: page.items, total: page.total }) })
-      .catch(() => { /* Seguidores em comum são complementares. */ })
+      .catch(() => { /* Aliados em comum são complementares. */ })
     return () => { alive = false }
   }, [userId, version, onExpired])
 
@@ -82,9 +82,9 @@ export default function UserProfilePage({ userId, ownUserId, onBack, onOpenConne
     if (canView) onOpenConnections(person.id, tab)
     else toast.info(closedListNotice)
   }
-  const followLabel = person.follow_state === 'approved' ? 'Deixar de seguir'
-    : person.follow_state === 'pending' ? 'Cancelar solicitação'
-      : person.social_public ? 'Seguir' : 'Solicitar'
+  const followLabel = person.follow_state === 'approved' ? 'Desfazer aliança'
+    : person.follow_state === 'pending' ? 'Cancelar pedido'
+      : person.social_public ? 'Aliar-se' : 'Pedir aliança'
   return <>
     <ProfileHeader
       mode="visitor"
@@ -114,7 +114,7 @@ export default function UserProfilePage({ userId, ownUserId, onBack, onOpenConne
             : <MatchTimeline userId={person.id} own={false} onExpired={onExpired} />}
         </ProfilePanel>
       </>
-      : <p className="flex items-center justify-center gap-2 px-2 py-5 text-center text-[12px] leading-[1.6] text-ink-muted"><Shield size={20} /> Esta conta é privada. Solicite acesso para ver as publicações.</p>}
+      : <p className="flex items-center justify-center gap-2 px-2 py-5 text-center text-[12px] leading-[1.6] text-ink-muted"><Shield size={20} /> Esta conta é privada. Peça aliança para ver as publicações.</p>}
     {actionsOpen && <AccountActions person={person} onClose={() => setActionsOpen(false)} onBlocked={onBack} onExpired={onExpired}
       onReported={() => { setActionsOpen(false); toast.success('Denúncia enviada para análise.') }} />}
   </>

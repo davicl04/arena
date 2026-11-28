@@ -72,7 +72,7 @@ export default function CommunityFeed({ feed, viewerId, scroller, onOpenUser, on
   if (items.length === 0) return <div className={stateBox}>
     <span className="mb-4 grid size-[120px] place-items-center rounded-full bg-forest shadow-[0_0_0_8px_#0b221814]"><ArenaMark className="h-[54px] w-[72px] text-mint" /></span>
     <h2 className="text-[16px]">A arquibancada está vazia</h2>
-    <p className={stateText}>Siga atletas para ver as fotos deles aqui, ou abra os trabalhos com a sua.</p>
+    <p className={stateText}>Alie-se a atletas para ver as fotos deles aqui, ou abra os trabalhos com a sua.</p>
     <div className="flex flex-wrap justify-center gap-2">
       <Button type="button" size="compact" onClick={onCompose}><Camera size={16} />Publicar foto</Button>
       <Button type="button" variant="text" className="min-h-[38px] px-2 no-underline font-bold" onClick={onSearch}>Buscar atletas</Button>

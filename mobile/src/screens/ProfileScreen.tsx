@@ -185,7 +185,7 @@ export default function ProfileScreen({ user, onUser, onLogout, onExpired, onNew
     try {
       const value = await request<{ social_public: boolean }>('/me/privacy', 'PUT', { social_public: draftPublic })
       onUser({ ...user, social_public: value.social_public }); setDraftPublic(value.social_public)
-      toast.success(value.social_public ? 'Conta pública. As solicitações pendentes foram aprovadas.' : 'Conta privada. Quem já segue continua seguindo.')
+      toast.success(value.social_public ? 'Conta pública. Os pedidos de aliança pendentes foram aprovados.' : 'Conta privada. Quem já é seu aliado continua aliado.')
     } catch (err) { fail(err) } finally { await finishFollowAction() }
   }
   async function unblock(id: number) {
@@ -298,10 +298,10 @@ export default function ProfileScreen({ user, onUser, onLogout, onExpired, onNew
     {sheet === 'visibility' ? <Sheet title="Visibilidade da conta" onClose={() => open(null)} onBack={back}>
       {feedback}
       <View accessibilityRole="radiogroup">
-        <VisibilityOption selected={draftPublic} title="Pública" facts={['Qualquer pessoa autenticada vê suas publicações', 'Seguir não exige aprovação', 'Nome, @, foto e capa são visíveis']} onPress={() => setDraftPublic(true)} />
-        <VisibilityOption selected={!draftPublic} title="Privada" facts={['Só seguidores aprovados veem suas publicações', 'Seguir exige a sua aprovação', 'Nome, @, foto, capa e contagens continuam visíveis']} onPress={() => setDraftPublic(false)} />
+        <VisibilityOption selected={draftPublic} title="Pública" facts={['Qualquer pessoa autenticada vê suas publicações', 'Aliar-se não exige aprovação', 'Nome, @, foto e capa são visíveis']} onPress={() => setDraftPublic(true)} />
+        <VisibilityOption selected={!draftPublic} title="Privada" facts={['Só aliados aprovados veem suas publicações', 'Aliar-se exige a sua aprovação', 'Nome, @, foto, capa e contagens continuam visíveis']} onPress={() => setDraftPublic(false)} />
       </View>
-      {visibilityChanged ? <Text className={tw.body}>{draftPublic ? 'Ao tornar a conta pública, as solicitações pendentes serão aprovadas.' : 'Ao tornar a conta privada, quem já segue você continua seguindo.'}</Text> : null}
+      {visibilityChanged ? <Text className={tw.body}>{draftPublic ? 'Ao tornar a conta pública, os pedidos de aliança pendentes serão aprovados.' : 'Ao tornar a conta privada, quem já é seu aliado continua aliado.'}</Text> : null}
       <Button title={busy ? 'Salvando…' : 'Salvar visibilidade'} disabled={busy || !visibilityChanged} onPress={() => void savePrivacy()} />
     </Sheet> : null}
     {sheet === 'blocked' ? <Sheet title="Contas bloqueadas" onClose={() => open(null)} onBack={back}>
@@ -312,12 +312,12 @@ export default function ProfileScreen({ user, onUser, onLogout, onExpired, onNew
     {sheet === 'connections' ? <Sheet title="Conexões" onClose={() => open(null)}>
       {feedback}
       <View className={tw.row}>
-        {(['followers', 'following'] as const).map(value => <Pressable key={value} accessibilityRole="tab" accessibilityState={{ selected: tab === value }} onPress={() => setTab(value)} className={cx(tw.chip.base, tab === value ? tw.chip.selected : tw.chip.idle)}><Text className={tab === value ? 'text-[13px] text-on-brand' : tw.chipText.idle}>{value === 'followers' ? `Seguidores (${counts.followers})` : `Seguindo (${counts.following})`}</Text></Pressable>)}
+        {(['followers', 'following'] as const).map(value => <Pressable key={value} accessibilityRole="tab" accessibilityState={{ selected: tab === value }} onPress={() => setTab(value)} className={cx(tw.chip.base, tab === value ? tw.chip.selected : tw.chip.idle)}><Text className={tab === value ? 'text-[13px] text-on-brand' : tw.chipText.idle}>{value === 'followers' ? `Aliados (${counts.followers})` : `Alianças (${counts.following})`}</Text></Pressable>)}
       </View>
       {tab === 'followers' ? <>
-        {followers.length ? followers.map(person => <PersonRow key={person.id} person={person} token={token}><Button secondary title="Remover" disabled={busy} onPress={() => void removeFollower(person.id)} /></PersonRow>) : <Text className={tw.body}>Nenhum seguidor.</Text>}{more('followers', 'seguidores')}
+        {followers.length ? followers.map(person => <PersonRow key={person.id} person={person} token={token}><Button secondary title="Remover" disabled={busy} onPress={() => void removeFollower(person.id)} /></PersonRow>) : <Text className={tw.body}>Nenhum aliado.</Text>}{more('followers', 'aliados')}
       </> : <>
-        {following.length ? following.map(person => <PersonRow key={person.id} person={person} token={token}><Button secondary title="Deixar de seguir" disabled={busy} onPress={() => void unfollow(person.id)} /></PersonRow>) : <Text className={tw.body}>Você ainda não segue ninguém.</Text>}{more('following', 'contas seguidas')}
+        {following.length ? following.map(person => <PersonRow key={person.id} person={person} token={token}><Button secondary title="Desfazer aliança" disabled={busy} onPress={() => void unfollow(person.id)} /></PersonRow>) : <Text className={tw.body}>Você ainda não se aliou a ninguém.</Text>}{more('following', 'alianças')}
       </>}
     </Sheet> : null}
     {sheet === 'menu' ? <Sheet title="Menu" onClose={() => open(null)}>

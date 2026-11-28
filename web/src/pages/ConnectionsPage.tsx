@@ -13,7 +13,7 @@ import { reportActionError } from '../hooks/useSubmit'
 import type { ConnectionsTab } from '../data/arena'
 
 type Entry = { user: SocialUser; state: string }
-const tabs: { value: ConnectionsTab; label: string }[] = [{ value: 'followers', label: 'Seguidores' }, { value: 'following', label: 'Seguindo' }]
+const tabs: { value: ConnectionsTab; label: string }[] = [{ value: 'followers', label: 'Aliados' }, { value: 'following', label: 'Alianças' }]
 
 export default function ConnectionsPage({ ownUserId, userId, tab, mutual, onTab, onOpenUser, onExpired }: {
   ownUserId: number
@@ -40,23 +40,23 @@ export default function ConnectionsPage({ ownUserId, userId, tab, mutual, onTab,
     } finally { setPending(null) }
   }
   const closed = list.error instanceof ApiError && list.error.status === 404
-  const emptyText = mutual ? 'Nenhuma pessoa que você segue também segue esta conta.'
-    : tab === 'followers' ? (own ? 'Quando alguém seguir você, aparecerá aqui.' : 'Esta conta ainda não tem seguidores.')
-      : (own ? 'Você ainda não segue ninguém.' : 'Esta conta ainda não segue ninguém.')
-  return <section aria-label={mutual ? 'Seguidores em comum' : 'Conexões'}>
+  const emptyText = mutual ? 'Ninguém a quem você se aliou também se aliou a esta conta.'
+    : tab === 'followers' ? (own ? 'Quando alguém se aliar a você, aparecerá aqui.' : 'Esta conta ainda não tem aliados.')
+      : (own ? 'Você ainda não se aliou a ninguém.' : 'Esta conta ainda não se aliou a ninguém.')
+  return <section aria-label={mutual ? 'Aliados em comum' : 'Conexões'}>
     {mutual
-      ? <p className="text-[11px] leading-[1.6] text-ink-muted">Pessoas que você segue e que também seguem esta conta.</p>
+      ? <p className="text-[11px] leading-[1.6] text-ink-muted">Pessoas a quem você se aliou e que também se aliaram a esta conta.</p>
       : <Tabs variant="segmented" items={tabs} value={tab} onChange={onTab} label="Conexões" idPrefix="conn-tab-" controls="connections-list" />}
     <div id="connections-list" role={mutual ? undefined : 'tabpanel'} aria-labelledby={mutual ? undefined : `conn-tab-${tab}`}>
       {list.loading && <p role="status">Carregando…</p>}
-      {closed && <EmptyState Icon={Lock} title="Lista fechada" text={mutual ? 'Não foi possível abrir esta lista.' : 'Esta conta é privada. Siga para ver seguidores e contas seguidas, quando a solicitação for aprovada.'} />}
+      {closed && <EmptyState Icon={Lock} title="Lista fechada" text={mutual ? 'Não foi possível abrir esta lista.' : 'Esta conta é privada. Peça aliança para ver aliados e alianças, quando o pedido for aprovado.'} />}
       {list.error && !closed && <LoadError size="section" title={mutual ? 'Não foi possível carregar a lista' : 'Não foi possível carregar as conexões'} text={list.error.message} cause={list.error} onRetry={list.reload} />}
       {!list.loading && !list.error && !people.length && <EmptyState Icon={Users} title="Nenhuma pessoa por aqui" text={emptyText} />}
       <PersonList>
         {people.map(person => <PersonRow key={person.id} person={person} onOpen={onOpenUser}
-          info={tab === 'following' && own && person.follows_you ? 'Segue você' : undefined}
+          info={tab === 'following' && own && person.follows_you ? 'Aliou-se a você' : undefined}
           actions={own && !mutual ? <Button variant="secondary" size="compact" disabled={pending !== null} onClick={() => void remove(person)}>
-            {tab === 'followers' ? 'Remover' : 'Deixar de seguir'}</Button> : undefined} />)}
+            {tab === 'followers' ? 'Remover' : 'Desfazer aliança'}</Button> : undefined} />)}
       </PersonList>
       {list.moreError && <p className={feedbackVariants()} role="alert">{list.moreError}</p>}
       {list.hasMore && <Button variant="secondary" className="mt-[18px] w-full" disabled={list.busy} onClick={() => void list.loadMore()}>Carregar mais pessoas</Button>}

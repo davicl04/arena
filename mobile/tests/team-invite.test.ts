@@ -77,7 +77,7 @@ describe('Convidar: escolher atleta (I5)', () => {
     expect(textOf(tree)).toContain('Passo 1 de 2')
     expect(textOf(tree)).toContain('Quem você quer convidar?')
     expect(textOf(tree)).toContain('Para o Ferrugem FC')
-    expect(textOf(tree)).toContain('Quem você segue')
+    expect(textOf(tree)).toContain('Suas alianças')
     expect(callsTo('/teams/10/invite-candidates')).toHaveLength(1)
     expect(byLabel(tree, 'Escolher Ana Lima')).toHaveLength(1)
     expect(byLabel(tree, 'Bruno Dias: No elenco')).toHaveLength(1)
@@ -206,7 +206,7 @@ describe('Convidar: Link e QR (Q2/Q5)', { timeout: 20000 }, () => {
     expect(tree.root.findAll(node => String(node.type) === 'Pressable' && node.props.accessibilityLabel === 'Link e QR')[0].props.accessibilityState.selected).toBe(true)
     await press(tree, 'Escolher atleta')
     expect(tree.root.findAllByType('QRCode' as never)).toHaveLength(0)
-    expect(textOf(tree)).toContain('Quem você segue')
+    expect(textOf(tree)).toContain('Suas alianças')
     await act(async () => { tree.unmount() })
   })
 

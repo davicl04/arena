@@ -190,14 +190,14 @@ export function CoverSheet({ user, onUser, onExpired, onClose, onSaved }: SheetP
 
 const visibilityFacts = {
   private: [
-    [true, 'Nome, @, foto de perfil, capa e número de seguidores continuam visíveis'],
-    [false, 'Publicações e listas de seguidores: só para seguidores aprovados'],
-    [false, 'Para seguir você, é preciso pedir e você aprovar'],
+    [true, 'Nome, @, foto de perfil, capa e número de aliados continuam visíveis'],
+    [false, 'Publicações e listas de aliados: só para aliados aprovados'],
+    [false, 'Para se aliar a você, é preciso pedir aliança e você aprovar'],
   ],
   public: [
     [true, 'Qualquer pessoa conectada vê suas publicações'],
-    [true, 'Listas de seguidores e seguindo abertas a todos'],
-    [true, 'Qualquer pessoa pode seguir você sem pedir'],
+    [true, 'Listas de aliados e alianças abertas a todos'],
+    [true, 'Qualquer pessoa pode se aliar a você sem pedir'],
   ],
 } as const
 
@@ -218,7 +218,7 @@ export function VisibilitySheet({ user, onUser, onExpired, onClose, onSaved }: S
   return <Sheet title="Visibilidade da conta" description="Defina quem acompanha suas publicações e conexões." onClose={onClose}>
     <div className="mt-2.5 grid grid-cols-2 gap-2.5" role="radiogroup" aria-label="Visibilidade da conta">
       <button type="button" role="radio" className={visibilityOption} aria-checked={!pick} onClick={() => setPick(false)}>
-        <span className={visibilityIcon}><Lock size={22} /></span><b className="text-[14px]">Privada</b><small className={visibilityHint}>Você aprova quem segue</small>
+        <span className={visibilityIcon}><Lock size={22} /></span><b className="text-[14px]">Privada</b><small className={visibilityHint}>Você aprova os aliados</small>
       </button>
       <button type="button" role="radio" className={visibilityOption} aria-checked={pick} onClick={() => setPick(true)}>
         <span className={visibilityIcon}><Globe size={22} /></span><b className="text-[14px]">Pública</b><small className={visibilityHint}>Aberta a todos conectados</small>
@@ -230,8 +230,8 @@ export function VisibilitySheet({ user, onUser, onExpired, onClose, onSaved }: S
         {ok ? <Check size={14} aria-label="Visível" className="mt-px text-brand" /> : <Lock size={14} aria-label="Restrito" className="mt-px text-ink-muted" />}<span>{text}</span></li>)}</ul>
     </div>
     {changed && <p className={sheetNote({ tone: 'warning' })} role="note"><Info size={16} />{pick
-      ? 'As solicitações pendentes para seguir você serão aprovadas automaticamente.'
-      : 'Quem já segue você continua seguindo. Novos seguidores vão precisar da sua aprovação.'}</p>}
+      ? 'Os pedidos de aliança pendentes serão aprovados automaticamente.'
+      : 'Quem já é seu aliado continua aliado. Novos aliados vão precisar da sua aprovação.'}</p>}
     {error && <p className={feedbackVariants()} role="alert">{error}</p>}
     <SheetActions>
       <Button variant="secondary" type="button" onClick={onClose}>Cancelar</Button>

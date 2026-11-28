@@ -12,11 +12,11 @@ import { useThemeColors } from '../hooks/useTheme'
 
 const firstName = (name: string) => name.trim().split(/\s+/)[0] ?? name
 
-/** Texto visível do botão de vínculo (Seguir, Solicitar, Solicitado ou Seguindo). */
+/** Texto visível do botão de vínculo (Aliar-se, Pedir aliança, Pedido enviado ou Aliado). */
 export function followLabel(person: SocialUser) {
-  if (person.follow_state === 'approved') return 'Seguindo'
-  if (person.follow_state === 'pending') return 'Solicitado'
-  return person.social_public ? 'Seguir' : 'Solicitar'
+  if (person.follow_state === 'approved') return 'Aliado'
+  if (person.follow_state === 'pending') return 'Pedido enviado'
+  return person.social_public ? 'Aliar-se' : 'Pedir aliança'
 }
 
 /** Título de seção da aba (9,5, maiúsculas e espaçado), como o da web. */
@@ -28,8 +28,8 @@ function FollowingRow({ userId, token, onOpenProfile, onExpired }: { userId: num
   const colors = useThemeColors()
   if (!list.items.length) return null
   return <View>
-    <Text accessibilityRole="header" className={sectionTitle}>Quem você segue · <Text className="text-ink">{list.items.length}{list.hasMore ? '+' : ''}</Text></Text>
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} className="-mx-5" contentContainerClassName="gap-3.5 px-5 pt-1.5 pb-1" accessibilityLabel="Quem você segue">
+    <Text accessibilityRole="header" className={sectionTitle}>Suas alianças · <Text className="text-ink">{list.items.length}{list.hasMore ? '+' : ''}</Text></Text>
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} className="-mx-5" contentContainerClassName="gap-3.5 px-5 pt-1.5 pb-1" accessibilityLabel="Suas alianças">
       {list.items.map(({ user: person }) => <Pressable key={person.id} accessibilityRole="button" accessibilityLabel={`Abrir perfil de ${person.name}`} onPress={() => onOpenProfile(person.id)} className="w-[62px] items-center gap-[5px]">
         {/* O anel da web (2 de verde, afastado 2 da foto pelo fundo da tela). */}
         <View style={{ borderWidth: 2, borderColor: colors.brand, borderRadius: 32, padding: 2, backgroundColor: colors.app }}><Avatar path={person.avatar_url} name={person.name} token={token} size={52} /></View>
@@ -56,7 +56,7 @@ function PersonRow({ person, token, pending, first, onFollow, onOpenProfile }: {
   const colors = useThemeColors()
   const label = followLabel(person)
   const active = person.follow_state === 'approved' || person.follow_state === 'pending'
-  const info = [person.social_public ? 'Conta pública' : 'Conta privada', person.follows_you ? 'Segue você' : null].filter(Boolean).join(' · ')
+  const info = [person.social_public ? 'Conta pública' : 'Conta privada', person.follows_you ? 'Aliou-se a você' : null].filter(Boolean).join(' · ')
   return <View className={cx('flex-row items-center gap-2.5 py-2.5', !first && 'border-t border-line')}>
     <Pressable accessibilityRole="button" accessibilityLabel={`Abrir perfil de ${person.name}`} onPress={() => onOpenProfile(person.id)} className="min-h-11 grow basis-0 flex-row items-center gap-3">
       <Avatar path={person.avatar_url} name={person.name} token={token} size={42} />
@@ -82,7 +82,7 @@ export default function CommunityPeople({ userId, token, search, pendingIds, onF
 }) {
   if (!search.active) return <ScrollView keyboardShouldPersistTaps="handled" contentContainerClassName="px-5 pb-8">
     <FollowingRow userId={userId} token={token} onOpenProfile={onOpenProfile} onExpired={onExpired} />
-    <Hint icon="search" title="Encontre atletas" text="Busque pelo nome ou pelo @ no campo acima. Contas privadas recebem um pedido para seguir." />
+    <Hint icon="search" title="Encontre atletas" text="Busque pelo nome ou pelo @ no campo acima. Contas privadas recebem um pedido de aliança." />
   </ScrollView>
 
   return <ScrollView keyboardShouldPersistTaps="handled" contentContainerClassName="px-5 pb-8" accessibilityLabel="Resultados da busca">

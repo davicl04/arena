@@ -22,9 +22,9 @@ export function ProfileHeader({ name, username, avatar, isPublic, followerCount,
   followingCount: number
   /** Modalidades do perfil próprio; `undefined` no perfil de outra pessoa (sem chips nem convite). */
   sportList?: Sport[]
-  /** Seguidores em comum (perfil de outra pessoa). */
+  /** Aliados em comum (perfil de outra pessoa). */
   mutualText?: string | null
-  /** Ação à direita, acima do `@usuário` (o Seguir do perfil de outra pessoa). */
+  /** Ação à direita, na linha do `@usuário` (o Aliar-se do perfil de outra pessoa). */
   actions?: ReactNode
   onEdit?: () => void
   /** Abre as conexões; sem ela (perfil de outra pessoa), a linha só informa. */
@@ -40,12 +40,15 @@ export function ProfileHeader({ name, username, avatar, isPublic, followerCount,
         <Icon name="user-cog" size={16} color={colors['on-brand']} />
       </Pressable> : null}
     </View>
-    {actions ? <View className="mb-1 flex-row justify-end">{actions}</View> : null}
-    <Text accessibilityRole="header" className={actions ? 'text-[21px] text-heading' : 'mt-3.25 text-[21px] text-heading'}><Text className="text-brand">@</Text>{username}</Text>
+    {/* A ação do perfil de outra pessoa divide a linha com o `@usuário`, à direita; sem espaço, desce. */}
+    <View className="mt-3.25 flex-row flex-wrap items-center gap-x-3 gap-y-2">
+      <Text accessibilityRole="header" className="shrink text-[21px] text-heading"><Text className="text-brand">@</Text>{username}</Text>
+      {actions ? <View className="ml-auto">{actions}</View> : null}
+    </View>
     <Text className="mt-0.75 mb-1 text-[12px] font-medium text-ink-muted">{name}</Text>
     <Pressable accessibilityRole={onConnections ? 'button' : undefined} accessibilityLabel={`Conexões: ${connectionsText(followerCount, followingCount)}`} onPress={onConnections} disabled={!onConnections}
       className="mt-0.5 mb-2 min-h-8 flex-row items-center self-start">
-      <Text className="text-[12px] text-ink-muted"><Text className="font-bold text-ink">{followerCount}</Text> {followerCount === 1 ? 'seguidor' : 'seguidores'}  ·  <Text className="font-bold text-ink">{followingCount}</Text> seguindo</Text>
+      <Text className="text-[12px] text-ink-muted"><Text className="font-bold text-ink">{followerCount}</Text> {followerCount === 1 ? 'aliado' : 'aliados'}  ·  <Text className="font-bold text-ink">{followingCount}</Text> {followingCount === 1 ? 'aliança' : 'alianças'}</Text>
     </Pressable>
     {mutualText ? <Text className="mb-2 text-[11px] leading-[16px] text-ink">{mutualText}</Text> : null}
     {sportList ? <View className="flex-row flex-wrap gap-1.5">

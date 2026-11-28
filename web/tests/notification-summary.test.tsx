@@ -35,7 +35,7 @@ const setup = (onExpired = vi.fn(), root = 'home') => {
 }
 
 describe('useNotificationSummary', () => {
-  it('lê o resumo ao montar e soma não lidas e pedidos para seguir', async () => {
+  it('lê o resumo ao montar e soma não lidas e pedidos de aliança', async () => {
     const { result } = setup()
     expect(result.current.data).toBeNull()
     expect(result.current.count).toBe(0)

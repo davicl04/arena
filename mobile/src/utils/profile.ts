@@ -26,12 +26,12 @@ export function availabilityMessage(result: UsernameAvailability): string {
 export function mutualFollowersText(items: Pick<SocialUser, 'name'>[], total: number): string | null {
   if (!total || !items.length) return null
   const [first, second] = items
-  if (total === 1) return `${first.name}, que você segue, também segue esta conta.`
-  if (total === 2 && second) return `${first.name} e ${second.name}, que você segue, também seguem esta conta.`
-  if (!second) return `${first.name} e mais ${total - 1} que você segue também seguem esta conta.`
-  return `${first.name}, ${second.name} e mais ${total - 2} que você segue também seguem esta conta.`
+  if (total === 1) return `${first.name}, a quem você se aliou, também se aliou a esta conta.`
+  if (total === 2 && second) return `${first.name} e ${second.name}, a quem você se aliou, também se aliaram a esta conta.`
+  if (!second) return `${first.name} e mais ${total - 1} a quem você se aliou também se aliaram a esta conta.`
+  return `${first.name}, ${second.name} e mais ${total - 2} a quem você se aliou também se aliaram a esta conta.`
 }
 
 export function connectionsText(followers: number, following: number): string {
-  return `${followers} ${followers === 1 ? 'seguidor' : 'seguidores'} · ${following} seguindo`
+  return `${followers} ${followers === 1 ? 'aliado' : 'aliados'} · ${following} ${following === 1 ? 'aliança' : 'alianças'}`
 }

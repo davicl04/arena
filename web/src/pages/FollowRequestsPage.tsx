@@ -14,7 +14,7 @@ import { reportActionError } from '../hooks/useSubmit'
 type FollowRequest = { user: SocialUser; state: string }
 
 /**
- * Pedidos para seguir (`/me/follow-requests`): aprovar, recusar e "Aprovar todas". Depois de cada ação o resumo das
+ * Pedidos de aliança (`/me/follow-requests`): aprovar, recusar e "Aprovar todos". Depois de cada ação o resumo das
  * notificações é lido de novo, para o sino e a linha-resumo acompanharem a fila.
  */
 export default function FollowRequestsPage({ summary, onOpenUser, onExpired }: {
@@ -32,7 +32,7 @@ export default function FollowRequestsPage({ summary, onOpenUser, onExpired }: {
       await request(`/me/follow-requests/${person.id}?approve=${approve}`, 'PUT')
       list.setItems(old => old.filter(item => item.user.id !== person.id))
     } catch (cause) {
-      reportActionError(cause, 'Não foi possível responder à solicitação.', onExpired)
+      reportActionError(cause, 'Não foi possível responder ao pedido de aliança.', onExpired)
     } finally { setBusy(false); void summary.reload() }
   }
   async function approveAll() {
@@ -48,7 +48,7 @@ export default function FollowRequestsPage({ summary, onOpenUser, onExpired }: {
         }
       }
     } catch (cause) {
-      reportActionError(cause, 'Não foi possível aprovar todas as solicitações.', onExpired)
+      reportActionError(cause, 'Não foi possível aprovar todos os pedidos de aliança.', onExpired)
     } finally { list.reload(); setBusy(false); void summary.reload() }
   }
 
@@ -57,23 +57,23 @@ export default function FollowRequestsPage({ summary, onOpenUser, onExpired }: {
     {list.error
       ? <LoadError size="section" title="Não foi possível carregar os pedidos" text={list.error.message} cause={list.error} onRetry={list.reload} />
       : list.items.length === 0 && busy
-      ? <p role="status">Aprovando solicitações…</p>
+      ? <p role="status">Aprovando pedidos de aliança…</p>
       : list.items.length === 0
-      ? <EmptyState Icon={UserCheck} title="Tudo em dia" text="Quando alguém pedir para seguir você, o pedido aparece aqui para você aprovar ou recusar." />
-      : <section aria-label="Pedidos para seguir">
+      ? <EmptyState Icon={UserCheck} title="Tudo em dia" text="Quando alguém pedir aliança a você, o pedido aparece aqui para você aprovar ou recusar." />
+      : <section aria-label="Pedidos de aliança">
         <div className="mt-1 mb-1.5 flex items-center justify-between gap-2">
-          <h2 className="flex items-center gap-[7px] text-[14px]">Pedidos para seguir <span className="inline-grid h-[21px] min-w-[21px] place-items-center rounded-[11px] bg-icon-tile px-1 text-[10px] text-icon-tile-ink">{list.items.length}{list.hasMore ? '+' : ''}</span></h2>
-          <Button variant="text" className="m-0 shrink-0" disabled={busy || list.busy} onClick={() => void approveAll()}>Aprovar todas</Button>
+          <h2 className="flex items-center gap-[7px] text-[14px]">Pedidos de aliança <span className="inline-grid h-[21px] min-w-[21px] place-items-center rounded-[11px] bg-icon-tile px-1 text-[10px] text-icon-tile-ink">{list.items.length}{list.hasMore ? '+' : ''}</span></h2>
+          <Button variant="text" className="m-0 shrink-0" disabled={busy || list.busy} onClick={() => void approveAll()}>Aprovar todos</Button>
         </div>
         <PersonList>
           {list.items.map(({ user }) => <PersonRow key={user.id} person={user} onOpen={onOpenUser}
             actions={<>
-              <IconButton tone="approve" aria-label={`Aprovar solicitação de ${user.name}`} disabled={busy} onClick={() => void resolve(user, true)}><Check size={18} /></IconButton>
-              <IconButton tone="outline" aria-label={`Recusar solicitação de ${user.name}`} disabled={busy} onClick={() => void resolve(user, false)}><X size={18} /></IconButton>
+              <IconButton tone="approve" aria-label={`Aprovar pedido de aliança de ${user.name}`} disabled={busy} onClick={() => void resolve(user, true)}><Check size={18} /></IconButton>
+              <IconButton tone="outline" aria-label={`Recusar pedido de aliança de ${user.name}`} disabled={busy} onClick={() => void resolve(user, false)}><X size={18} /></IconButton>
             </>} />)}
         </PersonList>
         {list.moreError && <p className={feedbackVariants()} role="alert">{list.moreError}</p>}
-        {list.hasMore && <Button variant="secondary" className="mt-[18px] mb-2 w-full" disabled={busy || list.busy} onClick={() => void list.loadMore()}>Carregar mais solicitações</Button>}
+        {list.hasMore && <Button variant="secondary" className="mt-[18px] mb-2 w-full" disabled={busy || list.busy} onClick={() => void list.loadMore()}>Carregar mais pedidos</Button>}
       </section>}
   </>
 }

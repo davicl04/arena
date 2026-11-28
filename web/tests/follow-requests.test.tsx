@@ -51,7 +51,7 @@ describe('aprovação de todas as solicitações', () => {
       return { items: pending.slice(0, 20), next_cursor: pending.length > 20 ? 'next' : null } as never
     })
     renderPage()
-    fireEvent.click(await screen.findByRole('button', { name: 'Aprovar todas' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Aprovar todos' }))
 
     await screen.findByText('Tudo em dia')
     expect(pending).toHaveLength(0)
@@ -74,7 +74,7 @@ describe('aprovação de todas as solicitações', () => {
       return { items: pending.slice(0, 20), next_cursor: pending.length > 20 ? 'next' : null } as never
     })
     renderPage()
-    fireEvent.click(await screen.findByRole('button', { name: 'Aprovar todas' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Aprovar todos' }))
 
     expect(await findToast('Falha ao aprovar a solicitação.')).not.toBeNull()
     await screen.findByText('Atleta 21')
@@ -82,10 +82,10 @@ describe('aprovação de todas as solicitações', () => {
     expect(screen.queryByText('Tudo em dia')).toBeNull()
     expect(pending).toHaveLength(25)
     expect(approved).toHaveLength(20)
-    await waitFor(() => expect((screen.getByRole('button', { name: 'Aprovar todas' }) as HTMLButtonElement).disabled).toBe(false))
+    await waitFor(() => expect((screen.getByRole('button', { name: 'Aprovar todos' }) as HTMLButtonElement).disabled).toBe(false))
 
     fail = false
-    fireEvent.click(screen.getByRole('button', { name: 'Aprovar todas' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Aprovar todos' }))
     await screen.findByText('Tudo em dia')
     expect(screen.queryByText('Não foi possível carregar os pedidos')).toBeNull()
     expect(pending).toHaveLength(0)
@@ -106,34 +106,34 @@ describe('aprovação de todas as solicitações', () => {
       return { items: pending.slice(0, 20), next_cursor: pending.length > 20 ? 'next' : null } as never
     })
     renderPage()
-    fireEvent.click(await screen.findByRole('button', { name: 'Aprovar todas' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Aprovar todos' }))
 
     await screen.findByText('Atleta 21')
     expect(await findToast('Não foi possível carregar o próximo lote.')).not.toBeNull()
     expect(screen.queryByText('Tudo em dia')).toBeNull()
     expect(pending).toHaveLength(1)
-    expect((screen.getByRole('button', { name: 'Aprovar todas' }) as HTMLButtonElement).disabled).toBe(false)
+    expect((screen.getByRole('button', { name: 'Aprovar todos' }) as HTMLButtonElement).disabled).toBe(false)
   })
 })
 
 const person = { id: 2, name: 'Atleta', username: 'atleta', avatar_url: null, cover_url: null, social_public: true, post_count: 21,
   follower_count: 0, following_count: 0, follows_you: false, follow_state: 'none' }
 
-describe('Pedidos para seguir', () => {
+describe('Pedidos de aliança', () => {
   beforeEach(() => { vi.mocked(request).mockReset(); reload.mockClear() })
   afterEach(cleanup)
 
-  it('lista os pedidos para seguir e continua na segunda página', async () => {
+  it('lista os pedidos de aliança e continua na segunda página', async () => {
     vi.mocked(request).mockImplementation(async path => {
       if (path.includes('cursor=')) return { items: [{ user: { ...person, id: 3, name: 'Outra conta' }, state: 'pending' }], next_cursor: null } as never
       return { items: [{ user: person, state: 'pending' }], next_cursor: 'more-requests' } as never
     })
     renderPage()
-    await screen.findByRole('button', { name: 'Aprovar solicitação de Atleta' })
-    await userEvent.setup().click(screen.getByRole('button', { name: 'Carregar mais solicitações' }))
+    await screen.findByRole('button', { name: 'Aprovar pedido de aliança de Atleta' })
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Carregar mais pedidos' }))
     await waitFor(() => expect(request).toHaveBeenCalledWith('/me/follow-requests?cursor=more-requests'))
     expect(await screen.findByText('Outra conta')).not.toBeNull()
-    expect(screen.queryByRole('button', { name: 'Carregar mais solicitações' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Carregar mais pedidos' })).toBeNull()
   })
 
   it('aprova, recusa e aprova todas as solicitações', async () => {
@@ -144,13 +144,13 @@ describe('Pedidos para seguir', () => {
       return { items, next_cursor: null } as never
     })
     renderPage()
-    await user.click(await screen.findByRole('button', { name: 'Recusar solicitação de Conta 2' }))
+    await user.click(await screen.findByRole('button', { name: 'Recusar pedido de aliança de Conta 2' }))
     expect(request).toHaveBeenCalledWith('/me/follow-requests/2?approve=false', 'PUT')
     await waitFor(() => expect(screen.queryByText('Conta 2')).toBeNull())
-    await user.click(screen.getByRole('button', { name: 'Aprovar solicitação de Conta 3' }))
+    await user.click(screen.getByRole('button', { name: 'Aprovar pedido de aliança de Conta 3' }))
     expect(request).toHaveBeenCalledWith('/me/follow-requests/3?approve=true', 'PUT')
     await waitFor(() => expect(screen.queryByText('Conta 3')).toBeNull())
-    await user.click(screen.getByRole('button', { name: 'Aprovar todas' }))
+    await user.click(screen.getByRole('button', { name: 'Aprovar todos' }))
     expect(await screen.findByText('Tudo em dia')).not.toBeNull()
     expect(request).toHaveBeenCalledWith('/me/follow-requests/4?approve=true', 'PUT')
   })
@@ -169,9 +169,9 @@ describe('Pedidos para seguir', () => {
     })
     renderPage()
     const user = userEvent.setup()
-    await user.click(await screen.findByRole('button', { name: 'Aprovar solicitação de Conta 2' }))
+    await user.click(await screen.findByRole('button', { name: 'Aprovar pedido de aliança de Conta 2' }))
     await waitFor(() => expect(reload).toHaveBeenCalledTimes(1))
-    await user.click(screen.getByRole('button', { name: 'Recusar solicitação de Conta 3' }))
+    await user.click(screen.getByRole('button', { name: 'Recusar pedido de aliança de Conta 3' }))
     await waitFor(() => expect(reload).toHaveBeenCalledTimes(2))
     expect(await screen.findByText('Tudo em dia')).not.toBeNull()
   })

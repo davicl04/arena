@@ -39,7 +39,7 @@ describe('entradas tipadas', () => {
   it('as abas e as telas com placa escura ou capa própria dispensam o cabeçalho do shell; as demais o usam', () => {
     for (const screen of ['home', 'ranking', 'community', 'profile', 'legends', 'play', 'user-profile', 'teams', 'team-form', 'team-invite', 'join', 'organizer-events', 'event-wizard', 'event-manage', 'event-receipts',
       'match', 'event-bracket', 'event-matches', 'result-decision', 'notifications'] as const) expect(hasOwnHeader(screen)).toBe(true)
-    // A placa das notificações tem voltar e título próprios; os pedidos para seguir usam o cabeçalho padrão do shell.
+    // A placa das notificações tem voltar e título próprios; os pedidos de aliança usam o cabeçalho padrão do shell.
     for (const screen of ['follow-requests', 'sports', 'events', 'event', 'organizer-request', 'moderation', 'admin-paid-events', 'admin-court-suggestions', 'admin-walkover-disputes'] as const) expect(hasOwnHeader(screen)).toBe(false)
   })
 
@@ -127,17 +127,17 @@ describe('aba acesa e título', () => {
     expect(stack).toEqual([{ screen: 'ranking' }, { screen: 'legends', params: { category: { sport: 'corrida', distance_km: 5 } } }])
   })
 
-  it('as abas acendem a si mesmas; Notificações e Pedidos para seguir acendem a aba de onde o sino foi tocado', () => {
+  it('as abas acendem a si mesmas; Notificações e Pedidos de aliança acendem a aba de onde o sino foi tocado', () => {
     for (const tab of rootScreens) expect(activeNavFor(tab, 'home')).toBe(tab)
     for (const screen of ['notifications', 'follow-requests'] as const) {
       for (const root of ['home', 'ranking', 'play', 'community', 'profile'] as const) expect(activeNavFor(screen, root)).toBe(root)
     }
   })
 
-  it('Notificações abre num chip e os Pedidos para seguir têm título próprio', () => {
+  it('Notificações abre num chip e os Pedidos de aliança têm título próprio', () => {
     expect(makeEntry('notifications', { filter: 'responder' })).toEqual({ screen: 'notifications', params: { filter: 'responder' } })
     expect(makeEntry('notifications')).toEqual({ screen: 'notifications' })
-    expect(titleFor(makeEntry('follow-requests'))).toBe('Pedidos para seguir')
+    expect(titleFor(makeEntry('follow-requests'))).toBe('Pedidos de aliança')
     expect(titleFor(makeEntry('sports'))).toBe('Suas modalidades')
   })
 

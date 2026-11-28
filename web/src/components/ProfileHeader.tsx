@@ -11,9 +11,9 @@ import { SocialPhoto } from './SocialPhoto'
 function MutualSummary({ items, total }: { items: SocialUser[]; total: number }) {
   const [first, second] = items
   if (!first || total < 1) return null
-  if (total === 1) return <><b>{first.name}</b>, que você segue, também segue esta conta</>
-  if (total === 2 && second) return <><b>{first.name}</b> e <b>{second.name}</b> que você segue também seguem esta conta</>
-  return <><b>{first.name}</b>{second && <>, <b>{second.name}</b></>} e mais {total - (second ? 2 : 1)} que você segue também seguem esta conta</>
+  if (total === 1) return <><b>{first.name}</b>, a quem você se aliou, também se aliou a esta conta</>
+  if (total === 2 && second) return <><b>{first.name}</b> e <b>{second.name}</b>, a quem você se aliou, também se aliaram a esta conta</>
+  return <><b>{first.name}</b>{second && <>, <b>{second.name}</b></>} e mais {total - (second ? 2 : 1)} a quem você se aliou também se aliaram a esta conta</>
 }
 
 /* Transição da barra e do título ao condensar (só sem preferência por movimento reduzido). */
@@ -89,13 +89,16 @@ export default function ProfileHeader({ mode, name, username, avatar, coverUrl, 
         {mode === 'own' && onEdit && <button type="button" aria-label="Editar perfil" onClick={onEdit}
           className="absolute -right-1 bottom-0.5 grid size-9 place-items-center rounded-full border-[3px] border-solid border-app bg-brand p-0 text-on-brand hover:bg-brand-hover"><UserCog size={16} /></button>}
       </div>
-      {actions && <div className="mb-1 flex justify-end">{actions}</div>}
-      <h1 className="mt-[13px] text-[21px] wrap-anywhere"><span className="text-brand">@</span>{username}</h1>
+      {/* A ação do visitante (Aliar-se, Pedir aliança…) divide a linha com o @usuário, à direita; sem espaço, desce. */}
+      <div className="mt-[13px] flex flex-wrap items-center gap-x-3 gap-y-2">
+        <h1 className="min-w-0 text-[21px] wrap-anywhere"><span className="text-brand">@</span>{username}</h1>
+        {actions && <div className="ml-auto shrink-0">{actions}</div>}
+      </div>
       <p className="mt-[3px] mb-1 text-[12px] font-medium wrap-anywhere text-ink-muted">{name}</p>
       {followerCount !== null && followingCount !== null && <div className="mt-0.5 mb-2 flex flex-wrap items-center gap-x-1 gap-y-0.5">
-        <button type="button" className={connButton} onClick={onFollowers}><b>{followerCount}</b> <span>{followerCount === 1 ? 'seguidor' : 'seguidores'}</span></button>
+        <button type="button" className={connButton} onClick={onFollowers}><b>{followerCount}</b> <span>{followerCount === 1 ? 'aliado' : 'aliados'}</span></button>
         <span className="text-ink-muted" aria-hidden="true">·</span>
-        <button type="button" className={connButton} onClick={onFollowing}><b>{followingCount}</b> <span>seguindo</span></button>
+        <button type="button" className={connButton} onClick={onFollowing}><b>{followingCount}</b> <span>{followingCount === 1 ? 'aliança' : 'alianças'}</span></button>
       </div>}
       {mode === 'visitor' && mutual && mutual.total > 0 && <button type="button" onClick={onMutual}
         className="group mb-2 flex min-h-11 w-full items-center gap-2.5 rounded-xl border-0 bg-transparent px-0 py-1 text-left">

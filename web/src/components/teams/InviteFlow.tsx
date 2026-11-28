@@ -141,12 +141,12 @@ export function InviteFlow({ teamId, initialTab = 'pessoa', onClose, onExpired }
                   placeholder="Nome ou @usuário" className="min-h-[42px] rounded-control border-white/14 bg-white/7 py-2.5 pl-9 text-[12.5px] text-white placeholder:text-white/50 focus-visible:outline-mint" />
               </div>
             </form>
-            <p className={cn(groupLabel, 'text-white/56')}>{search ? 'Resultados' : 'Quem você segue'}</p>
+            <p className={cn(groupLabel, 'text-white/56')}>{search ? 'Resultados' : 'Suas alianças'}</p>
             {candidates.loading ? <p role="status" className="py-3.5 text-[12px] text-white/66">Carregando atletas…</p>
               : candidates.error ? <LoadError size="section" tone="dark" title="Não foi possível carregar os atletas" text={candidates.error.message} cause={candidates.error} onRetry={candidates.reload} />
               : candidates.items.length === 0
-                ? <p className="py-3.5 text-[11.5px] leading-[1.5] text-white/66">{search ? 'Ninguém com esse nome ou @usuário.' : 'Você ainda não segue ninguém aqui. Busque pelo nome ou @usuário.'}</p>
-                : <ul className="m-0 list-none p-0" aria-label={search ? 'Resultados da busca' : 'Quem você segue'}>
+                ? <p className="py-3.5 text-[11.5px] leading-[1.5] text-white/66">{search ? 'Ninguém com esse nome ou @usuário.' : 'Você ainda não se aliou a ninguém aqui. Busque pelo nome ou @usuário.'}</p>
+                : <ul className="m-0 list-none p-0" aria-label={search ? 'Resultados da busca' : 'Suas alianças'}>
                   {candidates.items.map(candidate => <CandidateRow key={candidate.person.id} candidate={candidate} onChoose={() => { send.setError(''); setChosen(candidate) }} />)}
                 </ul>}
             {candidates.moreError && <p className={darkNotice({ tone: 'error' })} role="alert">{candidates.moreError}</p>}

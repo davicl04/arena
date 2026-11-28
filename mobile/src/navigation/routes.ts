@@ -109,7 +109,7 @@ export const titles: Record<ScreenName, string> = {
   profile: 'Perfil',
   'user-profile': 'Perfil',
   notifications: 'Notificações',
-  'follow-requests': 'Pedidos para seguir',
+  'follow-requests': 'Pedidos de aliança',
   sports: 'Suas modalidades',
   events: eventNoun.futebol.many,
   event: eventNoun.futebol.one,

@@ -34,7 +34,7 @@ describe('Convidar atleta (I5 + Q2)', () => {
     renderWithToaster(<InviteFlow teamId={10} onClose={onClose} onExpired={vi.fn()} />)
     expect(screen.getByRole('heading', { level: 1, name: 'Quem você quer convidar?' })).toBeTruthy()
     expect(screen.getByRole('tab', { name: 'Escolher atleta' }).getAttribute('aria-selected')).toBe('true')
-    const list = await screen.findByRole('list', { name: 'Quem você segue' })
+    const list = await screen.findByRole('list', { name: 'Suas alianças' })
     expect(within(list).getAllByText('Pendente')).toHaveLength(2)
     expect(within(list).getByText('No elenco')).toBeTruthy()
     expect(within(list).queryByRole('button', { name: 'Escolher Marcos Lima' })).toBeNull()
@@ -51,7 +51,7 @@ describe('Convidar atleta (I5 + Q2)', () => {
     expect(await findToast('Convite enviado para Rafael Gomes.')).toBeTruthy()
     expect(api.find('POST', '/teams/10/invites')[0].body).toEqual({ user_id: 14, message: 'Jogamos society às quintas, 20h.' })
     // De volta ao passo 1, a pessoa já aparece como pendente.
-    expect(within(screen.getByRole('list', { name: 'Quem você segue' })).queryByRole('button', { name: 'Escolher Rafael Gomes' })).toBeNull()
+    expect(within(screen.getByRole('list', { name: 'Suas alianças' })).queryByRole('button', { name: 'Escolher Rafael Gomes' })).toBeNull()
 
     // Busca por nome com espera curta; mensagem vazia vai como null.
     await ui.type(screen.getByLabelText('Buscar atleta por nome ou @usuário'), 'Júlia')
@@ -82,7 +82,7 @@ describe('Convidar atleta (I5 + Q2)', () => {
     mockApi({ 'GET /teams/10': team(), 'GET /teams/10/invite-candidates': { items: [], next_cursor: null }, 'GET /teams/10/invite-candidates?q=zzz': { items: [], next_cursor: null } })
     const ui = userEvent.setup()
     renderWithToaster(<InviteFlow teamId={10} onClose={vi.fn()} onExpired={vi.fn()} />)
-    expect(await screen.findByText(/Você ainda não segue ninguém aqui/)).toBeTruthy()
+    expect(await screen.findByText(/Você ainda não se aliou a ninguém aqui/)).toBeTruthy()
     await ui.type(screen.getByLabelText('Buscar atleta por nome ou @usuário'), 'zzz{Enter}')
     expect(await screen.findByText('Ninguém com esse nome ou @usuário.')).toBeTruthy()
   })

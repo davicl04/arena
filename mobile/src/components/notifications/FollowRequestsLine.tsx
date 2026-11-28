@@ -22,7 +22,7 @@ export function followRequestNames(people: readonly SocialUser[], total: number)
 export function FollowRequestsLine({ people, total, onOpen }: { people: readonly SocialUser[]; total: number; onOpen: () => void }) {
   const colors = useThemeColors()
   const token = useSessionToken()
-  const title = plural(total, 'pedido para seguir', 'pedidos para seguir')
+  const title = plural(total, 'pedido de aliança', 'pedidos de aliança')
   const names = followRequestNames(people, total)
   return <Pressable testID="follow-requests-line" accessibilityRole="button" accessibilityLabel={names ? `${title}: ${names}` : title} accessibilityHint="Abre a lista para aprovar ou recusar"
     onPress={onOpen} style={{ minHeight: 56, flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 16, backgroundColor: colors.surface, paddingHorizontal: 14, paddingVertical: 10 }}>

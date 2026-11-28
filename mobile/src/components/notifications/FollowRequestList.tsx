@@ -19,11 +19,11 @@ export function FollowRequestList({ items, busy, onResolve }: { items: FollowReq
         <Text numberOfLines={1} style={{ color: colors.ink, fontSize: 13, fontWeight: '700' }}>{person.name}</Text>
         <Text numberOfLines={1} style={{ color: colors['ink-muted'], fontSize: 11 }}>@{person.username}</Text>
       </View>
-      <Pressable accessibilityRole="button" accessibilityLabel={`Aprovar solicitação de ${person.name}`} accessibilityState={{ disabled: busy }} disabled={busy} onPress={() => onResolve(person, true)}
+      <Pressable accessibilityRole="button" accessibilityLabel={`Aprovar pedido de aliança de ${person.name}`} accessibilityState={{ disabled: busy }} disabled={busy} onPress={() => onResolve(person, true)}
         style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 22, backgroundColor: colors.brand, opacity: busy ? 0.5 : 1 }}>
         <Icon name="check" size={18} color={colors['on-brand']} />
       </Pressable>
-      <Pressable accessibilityRole="button" accessibilityLabel={`Recusar solicitação de ${person.name}`} accessibilityState={{ disabled: busy }} disabled={busy} onPress={() => onResolve(person, false)}
+      <Pressable accessibilityRole="button" accessibilityLabel={`Recusar pedido de aliança de ${person.name}`} accessibilityState={{ disabled: busy }} disabled={busy} onPress={() => onResolve(person, false)}
         style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 22, borderWidth: 1, borderColor: colors['line-strong'], opacity: busy ? 0.5 : 1 }}>
         <Text style={{ color: colors.ink, fontSize: 16, fontWeight: '700' }}>✕</Text>
       </Pressable>

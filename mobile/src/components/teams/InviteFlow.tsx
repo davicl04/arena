@@ -143,12 +143,12 @@ export function InviteFlow({ teamId, initialTab = 'pessoa', onClose, onExpired }
             returnKeyType="search" autoCapitalize="none" autoCorrect={false} maxLength={100} placeholder="Nome ou @usuário" placeholderTextColor="rgba(255,255,255,0.5)"
             style={{ flex: 1, minHeight: 44, paddingHorizontal: 10, color: '#ffffff', fontSize: 14 }} />
         </View>
-        <GroupLabel color="rgba(255,255,255,0.56)">{search ? 'Resultados' : 'Quem você segue'}</GroupLabel>
+        <GroupLabel color="rgba(255,255,255,0.56)">{search ? 'Resultados' : 'Suas alianças'}</GroupLabel>
         {candidates.loading ? <View accessibilityLabel="Carregando atletas" style={{ paddingVertical: 14, alignItems: 'center' }}><ActivityIndicator color={colors.mint} /></View>
           : candidates.error ? <LoadError size="section" tone="dark" title="Não foi possível carregar os atletas" text={candidates.error.message} cause={candidates.error} onRetry={candidates.reload} />
           : candidates.items.length === 0
-            ? <Text style={{ paddingVertical: 14, color: onDark.soft, fontSize: 11.5, lineHeight: 17 }}>{search ? 'Ninguém com esse nome ou @usuário.' : 'Você ainda não segue ninguém aqui. Busque pelo nome ou @usuário.'}</Text>
-            : <View accessibilityLabel={search ? 'Resultados da busca' : 'Quem você segue'}>
+            ? <Text style={{ paddingVertical: 14, color: onDark.soft, fontSize: 11.5, lineHeight: 17 }}>{search ? 'Ninguém com esse nome ou @usuário.' : 'Você ainda não se aliou a ninguém aqui. Busque pelo nome ou @usuário.'}</Text>
+            : <View accessibilityLabel={search ? 'Resultados da busca' : 'Suas alianças'}>
               {candidates.items.map((candidate, index) => <CandidateRow key={candidate.person.id} candidate={candidate} last={index === candidates.items.length - 1}
                 onChoose={() => setChosen(candidate)} />)}
             </View>}

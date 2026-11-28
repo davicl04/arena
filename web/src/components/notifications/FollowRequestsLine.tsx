@@ -11,8 +11,8 @@ function followRequestNames(people: readonly SocialUser[], total: number): strin
 }
 
 /**
- * Linha-resumo dos pedidos para seguir, no topo de *Tudo*: até 3 fotos empilhadas, a contagem e os primeiros nomes.
- * Abre a tela "Pedidos para seguir", onde se aprova e recusa.
+ * Linha-resumo dos pedidos de aliança, no topo de *Tudo*: até 3 fotos empilhadas, a contagem e os primeiros nomes.
+ * Abre a tela "Pedidos de aliança", onde se aprova e recusa.
  */
 export function FollowRequestsLine({ people, count, onOpen }: { people: readonly SocialUser[]; count: number; onOpen: () => void }) {
   const names = followRequestNames(people, count)
@@ -22,7 +22,7 @@ export function FollowRequestsLine({ people, count, onOpen }: { people: readonly
       {people.slice(0, 3).map(person => <SocialPhoto key={person.id} path={person.avatar_url} name={person.name} size="face" className="border-white" />)}
     </span>
     <span className="min-w-0 flex-1">
-      <b className="block text-[12px] text-forest">{count} {count === 1 ? 'pedido para seguir' : 'pedidos para seguir'}</b>
+      <b className="block text-[12px] text-forest">{count} {count === 1 ? 'pedido de aliança' : 'pedidos de aliança'}</b>
       {names && <small className="mt-0.5 block truncate text-[10.5px] text-ink-muted">{names}</small>}
     </span>
     <ChevronRight size={17} className="flex-none text-ink-muted" aria-hidden="true" />
