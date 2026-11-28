@@ -18,6 +18,10 @@ import { iconButtonVariants } from "@/components/ui/button-variants"
  * escaparia. `DialogContainerProvider` (no painel do `ArenaPage`) diz onde o portal entra; com ele, o fundo e o
  * conteúdo passam de `fixed` a `absolute` e acompanham o painel (e a tela inteira no celular, onde o painel é a
  * tela). Sem o provedor, o Dialog continua no `body` e na viewport.
+ *
+ * Web responsiva: o `app-frame` ocupa a janela em todas as faixas, então o Dialog fica centralizado na janela e o fundo
+ * cobre também a navegação lateral. Em tablet e computador o cartão ganha a sombra de diálogo (`md:shadow-dialog`), e uma
+ * tela cheia acrescenta `widePanel` (overlay-variants.ts) para virar painel centralizado.
  */
 const DialogContainerContext = React.createContext<HTMLElement | null>(null)
 
@@ -80,7 +84,7 @@ function DialogContent({
       <DialogPrimitive.Popup
         data-slot="dialog-content"
         className={cn(
-          "top-1/2 left-1/2 z-sheet grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-card bg-sheet p-5 noite:inset-ring noite:inset-ring-surface-edge text-[12px] text-ink shadow-sheet outline-none sm:max-w-sm motion-safe:data-open:animate-glass-in",
+          "top-1/2 left-1/2 z-sheet grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-card bg-sheet p-5 noite:inset-ring noite:inset-ring-surface-edge text-[12px] text-ink shadow-sheet outline-none sm:max-w-sm md:shadow-dialog motion-safe:data-open:animate-glass-in",
           inFrame ? "absolute" : "fixed",
           className
         )}

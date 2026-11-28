@@ -7,9 +7,11 @@ import { teamButton } from '@/components/teams/styles'
 import { IconButton } from '@/components/ui/button'
 import { DatePicker } from '@/components/ui/date-picker'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
+import { widePanel } from '@/components/ui/overlay-variants'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { runDistances } from '@/data/arena'
 import type { RunDistance } from '@/data/arena'
+import { useWideLayout } from '@/hooks/useLayout'
 import { useResource } from '@/hooks/useResource'
 import { reportActionError } from '@/hooks/useSubmit'
 import { cn } from '@/lib/utils'
@@ -83,6 +85,8 @@ export function RunStopwatchDialog({ initialDistance, onClose, onSaved, onFindRa
 }) {
   const id = useId()
   const popup = useRef<HTMLDivElement>(null)
+  // Tablet e computador: painel centralizado sobre o fundo; como no celular (sem fundo à vista), o clique fora não fecha.
+  const wide = useWideLayout()
   // Quem abriu (REGISTRAR ou o "+" do cartão) recebe o foco de volta ao fechar: guardado no primeiro render, antes de o foco entrar no diálogo.
   const [opener] = useState(() => (document.activeElement instanceof HTMLElement && document.activeElement !== document.body ? document.activeElement : null))
   const [choice, setChoice] = useState<Choice>(initialDistance)
@@ -156,9 +160,9 @@ export function RunStopwatchDialog({ initialDistance, onClose, onSaved, onFindRa
         : 'Escolha a prova para ver o efeito no seu ranking.'
   const ids = { time: `${id}-time`, distance: `${id}-distance`, date: `${id}-date`, races: `${id}-races`, meters: `${id}-meters` }
 
-  return <Dialog open onOpenChange={next => { if (!next && !busy) onClose() }}>
+  return <Dialog open disablePointerDismissal={wide} onOpenChange={next => { if (!next && !busy) onClose() }}>
     <DialogContent ref={popup} initialFocus={popup} finalFocus={() => (opener?.isConnected ? opener : true)} showCloseButton={false} data-testid="run-dialog"
-      className="inset-0 h-full w-full max-w-none translate-none gap-0 overflow-x-hidden overflow-y-auto rounded-none bg-[radial-gradient(120%_60%_at_50%_0%,#163f2c_0%,var(--color-night)_65%)] p-0 text-white shadow-none sm:max-w-none">
+      className={cn('inset-0 h-full w-full max-w-none translate-none gap-0 overflow-x-hidden overflow-y-auto rounded-none bg-[radial-gradient(120%_60%_at_50%_0%,#163f2c_0%,var(--color-night)_65%)] p-0 text-white shadow-none sm:max-w-none', widePanel)}>
       <div className="flex min-h-full flex-col">
         <header className="flex items-center justify-between px-2 pt-2">
           <IconButton type="button" tone="glass" aria-label="Fechar" disabled={busy} onClick={onClose}><X size={20} aria-hidden="true" /></IconButton>

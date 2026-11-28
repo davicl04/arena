@@ -2,16 +2,19 @@ import { useEffect, useId, useLayoutEffect, useRef } from 'react'
 import { ArrowLeft } from 'lucide-react'
 import type { Post } from '../api/client'
 import { useDialogFocus } from '../hooks/useDialogFocus'
+import { useOverlayPortal } from '../hooks/useOverlayPortal'
 import PostItem from './PostItem'
 import type { PostUpdate } from './PostItem'
 import { Button, IconButton } from '@/components/ui/button'
 import { feedbackVariants } from '@/components/ui/feedback'
+import { widePanel } from '@/components/ui/overlay-variants'
 import { cn } from '@/lib/utils'
 
 /**
  * Página sobreposta "Publicações": feed vertical das fotos de uma conta, aberto no post tocado.
- * Fica absoluta dentro do painel do app (como as folhas), abaixo da navegação inferior (z-viewer < z-nav),
- * para não cobrir o botão Jogar.
+ * No celular, fica absoluta dentro do painel do app (como as folhas), abaixo da navegação inferior (z-viewer < z-nav),
+ * para não cobrir o botão Jogar. Em tablet e computador (ticket 02 da web responsiva) vira painel centralizado de 480 px
+ * sobre o fundo escurecido, que cobre também a navegação lateral (useOverlayPortal); as fotos ficam na largura do painel.
  */
 export default function PostViewer({ username, posts, initialPostId, viewerId, hasMore, busy, moreError, onLoadMore, onUpdate, onRemoved, onClose, onExpired }: {
   username: string
@@ -30,6 +33,7 @@ export default function PostViewer({ username, posts, initialPostId, viewerId, h
   const titleId = useId()
   // O foco volta ao quadro da grade pela galeria, que sabe se ele ainda existe.
   const { ref, onKeyDown } = useDialogFocus<HTMLElement>(onClose, { restoreFocus: false })
+  const overlay = useOverlayPortal()
   const scroller = useRef<HTMLDivElement>(null)
   const sentinel = useRef<HTMLDivElement>(null)
   const loadMore = useRef(onLoadMore)
@@ -58,7 +62,7 @@ export default function PostViewer({ username, posts, initialPostId, viewerId, h
     if (posts.length <= 1) onClose()
   }
 
-  return <section ref={ref} className="absolute inset-0 z-viewer flex flex-col bg-app outline-none motion-safe:animate-viewer-in" role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} onKeyDown={onKeyDown}>
+  return overlay.render(<section ref={ref} className={cn('absolute inset-0 z-viewer flex flex-col bg-app outline-none motion-safe:animate-viewer-in', widePanel, 'md:overflow-hidden md:motion-safe:animate-glass-in')} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} onKeyDown={onKeyDown}>
     <header className="flex shrink-0 items-center gap-1 border-b border-line px-2 py-1.5">
       <IconButton type="button" aria-label="Voltar" onClick={onClose}><ArrowLeft size={21} /></IconButton>
       <div className="min-w-0 flex-1 text-center">
@@ -74,5 +78,5 @@ export default function PostViewer({ username, posts, initialPostId, viewerId, h
         <Button type="button" variant="secondary" className="mt-[18px] w-full" disabled={busy} onClick={onLoadMore}>{busy ? 'Carregando…' : 'Carregar mais publicações'}</Button>
       </div>}
     </div>
-  </section>
+  </section>, { scrim: true })
 }

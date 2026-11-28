@@ -6,10 +6,12 @@ import { request } from '../api/client'
 import type { Post } from '../api/client'
 import { CAPTION_MAX } from '../api/social'
 import { useDialogFocus } from '../hooks/useDialogFocus'
+import { useOverlayPortal } from '../hooks/useOverlayPortal'
 import { reportActionError } from '../hooks/useSubmit'
 import { cropImage, IMAGE_TYPES, validateImageFile } from '../utils/cropImage'
 import { Button, IconButton } from '@/components/ui/button'
 import { glassMessageVariants } from '@/components/ui/glass-variants'
+import { widePanel } from '@/components/ui/overlay-variants'
 import { GlassTextarea } from '@/components/ui/glass'
 import { Slider } from '@/components/ui/slider'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
@@ -51,6 +53,7 @@ export default function PostComposer({ onClose, onPublished, onExpired }: {
   onExpired: () => void
 }) {
   const { ref, onKeyDown } = useDialogFocus<HTMLElement>(onClose)
+  const overlay = useOverlayPortal()
   const [step, setStep] = useState<Step>('pick')
   const [file, setFile] = useState<File | null>(null)
   const [source, setSource] = useState('')
@@ -112,7 +115,8 @@ export default function PostComposer({ onClose, onPublished, onExpired }: {
   }
 
   const message = error && <p className={glassMessageVariants()} role="alert">{error}</p>
-  return <section ref={ref} className="absolute inset-0 z-sheet flex flex-col bg-black text-white outline-none motion-safe:animate-viewer-in"
+  // Tablet e computador: painel centralizado sobre o fundo escurecido, com entrada só por opacidade (useOverlayPortal).
+  return overlay.render(<section ref={ref} className={cn('absolute inset-0 z-sheet flex flex-col bg-black text-white outline-none motion-safe:animate-viewer-in', widePanel, 'md:overflow-hidden md:motion-safe:animate-glass-in')}
     role="dialog" aria-modal="true" aria-label="Nova publicação" tabIndex={-1} onKeyDown={onKeyDown}>
     <header className="flex h-14 shrink-0 items-center gap-1 px-1.5">
       {step === 'caption'
@@ -181,5 +185,5 @@ export default function PostComposer({ onClose, onPublished, onExpired }: {
         <Button type="button" variant="glass" className={wide} disabled={busy} onClick={() => void publish()}>{busy ? 'Publicando…' : 'Publicar'}</Button>
       </div>
     </>}
-  </section>
+  </section>, { scrim: true })
 }
