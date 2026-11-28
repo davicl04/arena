@@ -188,29 +188,25 @@ export default function ProfilePage({
    * Tablet e computador: medida larga (`data-largura="larga"`). Capa e cabeçalho na largura da coluna e, abaixo,
    * "Minhas modalidades" e "Suas estatísticas" lado a lado numa faixa; depois as abas. O celular segue numa coluna,
    * com os mesmos elementos (o cartão das modalidades só ganha classes de posição a partir de `md:`).
+   * A árvore é a mesma em todas as faixas: no celular, o envoltório e a faixa são `contents` (não geram caixa, e o
+   * layout é o de uma coluna direto no `main`); a partir de `md:` viram bloco e grade. Assim, cruzar 768 px não
+   * remonta as abas nem o painel (visualizador aberto, páginas carregadas, filtro de Partidas, edição de Story).
    */
-  if (wide)
-    return (
-      <div data-largura="larga" data-slot="perfil-largo">
-        {header}
-        {/* Título das estatísticas na 1ª linha; o cartão das modalidades e os blocos dividem a 2ª, com a mesma altura. */}
-        <div data-slot="perfil-faixa" className="grid grid-cols-[minmax(0,2fr)_minmax(0,3fr)] gap-x-4 lg:grid-cols-[minmax(20rem,5fr)_minmax(0,7fr)] lg:gap-x-6">
-          {sportsLink}
-          <SectionTitle title="Suas estatísticas" className="col-start-2 row-start-1 mt-0" />
-          <div className="col-start-2 row-start-2 min-w-0">
-            <ProfileStatsBlocks state={statsState} />
-          </div>
-        </div>
-        {content}
-      </div>
-    );
   return (
-    <>
+    <div data-largura={wide ? "larga" : undefined} data-slot={wide ? "perfil-largo" : undefined} className="contents md:block">
       {header}
-      {sportsLink}
-      <SectionTitle title="Suas estatísticas" />
-      <ProfileStatsBlocks state={statsState} />
+      {/* Título das estatísticas na 1ª linha; o cartão das modalidades e os blocos dividem a 2ª, com a mesma altura. */}
+      <div
+        data-slot={wide ? "perfil-faixa" : undefined}
+        className="contents md:grid md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] md:gap-x-4 lg:grid-cols-[minmax(20rem,5fr)_minmax(0,7fr)] lg:gap-x-6"
+      >
+        {sportsLink}
+        <SectionTitle title="Suas estatísticas" className="md:col-start-2 md:row-start-1 md:mt-0" />
+        <div className="contents md:col-start-2 md:row-start-2 md:block md:min-w-0">
+          <ProfileStatsBlocks state={statsState} />
+        </div>
+      </div>
       {content}
-    </>
+    </div>
   );
 }

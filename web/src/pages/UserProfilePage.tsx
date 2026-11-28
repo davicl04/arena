@@ -22,10 +22,12 @@ const closedListNotice = 'Esta conta é privada. Só os aliados dela veem aliado
 
 /*
  * Tablet e computador: a página inteira (inclusive carregando ou com erro) fica na medida larga, com a capa e o
- * cabeçalho na largura da coluna, como no perfil próprio. No celular, os mesmos blocos sem o envoltório.
+ * cabeçalho na largura da coluna, como no perfil próprio. No celular, o envoltório é `contents` (não gera caixa: os
+ * blocos ficam direto no `main`, como hoje). Ele existe em todas as faixas para cruzar 768 px não remontar as abas, o
+ * painel (visualizador aberto, páginas carregadas, filtro de Partidas) nem as ações da conta abertas.
  */
 function WideFrame({ wide, children }: { wide: boolean; children: ReactNode }) {
-  return wide ? <div data-largura="larga" data-slot="perfil-largo">{children}</div> : <>{children}</>
+  return <div data-largura={wide ? 'larga' : undefined} data-slot={wide ? 'perfil-largo' : undefined} className="contents md:block">{children}</div>
 }
 
 export default function UserProfilePage({ userId, ownUserId, onBack, onOpenConnections, onExpired }: {
