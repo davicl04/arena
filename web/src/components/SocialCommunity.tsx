@@ -143,12 +143,17 @@ export default function SocialCommunity({ viewerId, onOpenUser, onExpired, notif
       </>}
     </div>
 
-    {desktop ? <div className={cn(measure, columns, 'pt-7')}>
-      <div role="region" aria-label="Publicações" className="min-w-0">{feedBlock}</div>
-      <CommunityAside tucked={tucked}>{searchForm(true)}{people}</CommunityAside>
-    </div> : <div id="community-panel" role="tabpanel" aria-labelledby={`community-tab-${tab}`} className={cn(measure, 'md:pt-6')}>
-      {tab === 'feed' ? feedBlock : people}
-    </div>}
+    {/*
+      * Feed e "Atletas" ficam sempre nos mesmos dois lugares da árvore (mesmo pai, mesma posição) nas duas composições:
+      * ao cruzar 1024 px muda só a aparência (abas × colunas), sem remontar posts, comentários abertos, rascunhos nem listas.
+      * Abaixo do computador, os invólucros são `contents` e o painel da aba fica como era.
+      */}
+    <div {...(desktop ? {} : { id: 'community-panel', role: 'tabpanel', 'aria-labelledby': `community-tab-${tab}` })}
+      className={desktop ? cn(measure, columns, 'pt-7') : cn(measure, 'md:pt-6')}>
+      {(desktop || tab === 'feed') && <div role={desktop ? 'region' : undefined} aria-label={desktop ? 'Publicações' : undefined}
+        className={desktop ? 'min-w-0' : 'contents'}>{feedBlock}</div>}
+      {(desktop || tab === 'people') && <CommunityAside desktop={desktop} tucked={tucked}>{desktop && searchForm(true)}{people}</CommunityAside>}
+    </div>
     {composing && <PostComposer onClose={() => setComposing(false)} onPublished={published} onExpired={onExpired} />}
   </section>
 }
@@ -157,11 +162,13 @@ export default function SocialCommunity({ viewerId, onOpenUser, onExpired, notif
  * Coluna "Atletas" do computador: cartão preso logo abaixo da barra (e ao topo quando ela recolhe), com rolagem própria
  * quando a lista passa da altura da janela. O gesto de puxar para atualizar é do feed: roda e toque dentro da coluna não
  * chegam ao `main`, para rolar a lista de volta ao topo não atualizar o feed.
+ * Abaixo do computador é só um invólucro `contents` da aba Atletas (sem título nem papel), para a lista não remontar ao
+ * cruzar 1024 px; por isso é um `div` com papel `complementary`, não um `aside`.
  */
-function CommunityAside({ tucked, children }: { tucked: boolean; children: ReactNode }) {
+function CommunityAside({ desktop, tucked, children }: { desktop: boolean; tucked: boolean; children: ReactNode }) {
   const [node, setNode] = useState<HTMLElement | null>(null)
   useEffect(() => {
-    if (!node) return
+    if (!node || !desktop) return
     const stop = (event: Event) => event.stopPropagation()
     node.addEventListener('wheel', stop, { passive: true })
     node.addEventListener('touchstart', stop, { passive: true })
@@ -169,13 +176,13 @@ function CommunityAside({ tucked, children }: { tucked: boolean; children: React
       node.removeEventListener('wheel', stop)
       node.removeEventListener('touchstart', stop)
     }
-  }, [node])
-  return <aside ref={setNode} aria-labelledby="community-people-title"
-    className={cn('sticky max-h-[calc(100dvh-7.5rem)] overflow-y-auto rounded-card surface pt-5 shadow-card inset-ring inset-ring-surface-edge [scrollbar-width:thin] motion-safe:transition-[top] motion-safe:duration-200',
-      tucked ? 'top-7' : 'top-[5.75rem]')}>
-    <div className="px-5">
+  }, [node, desktop])
+  return <div ref={setNode} role={desktop ? 'complementary' : undefined} aria-labelledby={desktop ? 'community-people-title' : undefined}
+    className={desktop ? cn('sticky max-h-[calc(100dvh-7.5rem)] overflow-y-auto rounded-card surface pt-5 shadow-card inset-ring inset-ring-surface-edge [scrollbar-width:thin] motion-safe:transition-[top] motion-safe:duration-200',
+      tucked ? 'top-7' : 'top-[5.75rem]') : 'contents'}>
+    {desktop && <div className="px-5">
       <h2 id="community-people-title" className="flex items-center gap-2 text-[15px]"><Users size={18} className="text-brand" />Atletas</h2>
-    </div>
+    </div>}
     {children}
-  </aside>
+  </div>
 }
