@@ -1,11 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
+import { request } from '../src/api/client'
 import type { Post, SocialUser } from '../src/api/client'
 import PostViewer from '../src/components/PostViewer'
 import { DialogContainerProvider } from '../src/components/ui/dialog'
 import { Sheet } from '../src/components/ui/sheet'
+
+vi.mock('../src/api/client', async original => ({
+  ...await original<typeof import('../src/api/client')>(),
+  request: vi.fn(), apiUrl: (path: string) => path,
+}))
 
 /*
  * Redimensionar a janela com uma folha aberta (verificação final da web responsiva, ticket 10). Cruzar 768 px remonta a
@@ -103,10 +109,14 @@ describe('visualizador de fotos aberto ao redimensionar', () => {
   const post = (id: number): Post => ({ id, author: me, caption: `Foto ${id}`, image_url: `/posts/${id}/image`,
     created_at: '2026-10-10T10:00:00Z', like_count: 0, comment_count: 0, liked_by_me: false, can_edit: true })
 
-  it('cruzar 768 px nos dois sentidos mantém a foto e leva a paginação ao contêiner novo, sem pedir de novo', () => {
-    // Cada post tem 100 px e começa em id × 100 dentro do contêiner rolável.
+  /** Cada post tem 100 px e começa em id × 100 dentro do contêiner rolável. */
+  function layoutPosts() {
     vi.spyOn(HTMLElement.prototype, 'offsetTop', 'get').mockImplementation(function (this: HTMLElement) { return Number(this.dataset.postId ?? 0) * 100 })
     vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockImplementation(function (this: HTMLElement) { return this.dataset.postId ? 100 : 0 })
+  }
+
+  it('cruzar 768 px nos dois sentidos mantém a foto e leva a paginação ao contêiner novo, sem pedir de novo', () => {
+    layoutPosts()
     const observers: { callback: (entries: { isIntersecting: boolean }[]) => void; root: Element | null; nodes: Element[]; connected: boolean }[] = []
     vi.stubGlobal('IntersectionObserver', class {
       entry
@@ -162,5 +172,40 @@ describe('visualizador de fotos aberto ao redimensionar', () => {
     expect(back.scrollTop).toBe(950)
     activeObserver()
     expect(onLoadMore).toHaveBeenCalledTimes(1)
+  })
+
+  /** Galeria mínima: o visualizador tira da lista a foto excluída, como a galeria do perfil. */
+  function Gallery({ initialPostId }: { initialPostId: number }) {
+    const [items, setItems] = useState([post(7), post(8), post(9)])
+    return <DialogContainerProvider container={frame}>
+      <main data-testid="tela">
+        <PostViewer username="eu.mesmo" posts={items} initialPostId={initialPostId} viewerId={1} hasMore={false} busy={false} moreError=""
+          onLoadMore={vi.fn()} onUpdate={vi.fn()} onRemoved={id => setItems(list => list.filter(item => item.id !== id))} onClose={vi.fn()} onExpired={vi.fn()} />
+      </main>
+    </DialogContainerProvider>
+  }
+
+  it.each([
+    ['do meio', 8, 9],
+    ['a última', 9, 8],
+  ])('excluir a foto aberta (%s) sem rolar e cruzar 768 px abre o contêiner novo na foto vizinha', async (_label, opened, neighbour) => {
+    layoutPosts()
+    vi.mocked(request).mockResolvedValue(undefined as never)
+    const window = viewport(1440)
+    const user = userEvent.setup()
+    render(<Gallery initialPostId={opened} />)
+    expect(screen.getByTestId('viewer-scroll').scrollTop).toBe(opened * 100)
+
+    const article = screen.getByText(`Foto ${opened}`).closest('article')!
+    await user.click(within(article).getByRole('button', { name: 'Ações da publicação' }))
+    await user.click(screen.getByRole('button', { name: 'Excluir' }))
+    await user.click(screen.getByRole('button', { name: 'Excluir' }))
+    expect(request).toHaveBeenCalledWith(`/posts/${opened}`, 'DELETE')
+    await waitFor(() => expect(screen.queryByText(`Foto ${opened}`)).toBeNull())
+
+    window.resize(600)
+    const narrow = screen.getByTestId('viewer-scroll')
+    expect(frame.contains(narrow)).toBe(false)
+    expect(narrow.scrollTop).toBe(neighbour * 100)
   })
 })
