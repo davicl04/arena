@@ -63,6 +63,17 @@ Pedido do usuário: a web deixa de simular um celular e passa a atender tablet e
 - **Verificações:** em `web/`, `npm run lint`, `npm run build` e `npm run test` (113 arquivos, 1509 de 1509 testes). Teste novo: `web/tests/subtelas-conta-tela-larga.test.tsx`. Regressão do celular (base `7007105` × ticket): 216 capturas, 0 diferenças. Capturas em 768, 1024, 1440 e 1920 px, claro e escuro: 248 pela ferramenta e 176 por script próprio, com API e PostgreSQL reais (contas bloqueadas, pedidos de aliança, criar/editar time, convidar, entrar pelo link, pedido de organizador, Meus times com 3 times, vazio e teclado); sem overflow horizontal nem erros de console.
 - **Limitações:** estados de erro não provocados; com dois times, o quadro "Criar time" fica sozinho na segunda linha da grade.
 
+### Subtelas de eventos, partida e administração em tela larga (ticket 09)
+
+- Placas e cabeçalhos escuros (Meus eventos, Gestão do evento, Comprovantes, Chaveamento, Partidas do evento, Decidir resultado, Partida) vão de ponta a ponta em tablet e computador, com o conteúdo na medida da tela (utilitário `px-coluna-*`, seção do ticket 09 em `web/src/ui.css`).
+- Campeonatos e provas e Meus eventos usam a medida larga, com os cartazes em grade de quantas colunas couberem; em Campeonatos, chips e cidade ficam na mesma linha e as inscrições viram cartões lado a lado.
+- Evento: no tablet, a barra de inscrição fica presa à base da coluna; no computador, duas colunas (cartaz, estado, inscrição e barra | avisos e abas). Gestão do evento: duas colunas no computador ("Agora" e Seções | Avisos e Cancelar). As duas estruturas vêm do gancho `useLayout`.
+- Chaveamento: a árvore sai da coluna de leitura (até 1120 px) e só rola na horizontal quando não cabe (`BracketView` e `MirrorBracket` aceitam `treeClassName`/`className`).
+- Partida: cabeçalho de ponta a ponta e altura cheia, sem a reserva da navegação inferior; no computador, condições e resultado ao lado do chat, cada um rolando por dentro, com o campo de mensagem sempre visível.
+- Criar/Editar evento, Decisão do resultado, Partidas do evento, Comprovantes, Denúncias e as filas da administração ficam na coluna de leitura; as abas segmentadas das filas deixaram de vazar além da coluna.
+- **Verificações:** em `web/`, `npm run lint`, `npm run build` e `npm run test` (115 arquivos, 1519 de 1520 testes; a falha é a intermitente `tests/matchmaking.test.tsx` › "prepara a busca com vagas…", já presente em `main`). Teste novo: `web/tests/subtelas-eventos-tela-larga.test.tsx`. Regressão do celular (base `7007105` × ticket): 216 capturas, 0 diferenças. Capturas em 768, 1024, 1440 e 1920 px, claro e escuro: 200 pela ferramenta e 224 por script próprio, com organizadora, atleta e administração, API e PostgreSQL reais; sem overflow horizontal nem erros de console. Teclado conferido no chat da Partida e no assistente.
+- **Limitações:** chaveamentos de 16 e 32 lugares foram avaliados pela geometria, não com dados; os dados de chaveamento, partidas, decisão e comprovantes foram criados num banco descartável (duas datas ajustadas por SQL).
+
 ## Seguidores viram aliados (web e Expo) — 27 de novembro de 2026
 
 Pedido do usuário: trocar o vocabulário de "seguir" por "aliar-se", "pedir aliança" e "aliados" nos dois clientes. Só os textos mudaram: rotas (`/follow`, `/followers`, `/following`, `/me/follow-requests`), campos (`follow_state`, `follower_count`…), nomes de componentes e o backend continuam iguais, e a relação segue direcional.
