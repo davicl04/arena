@@ -11,7 +11,7 @@ import { PrepareSearchSheet } from '../src/components/play/PrepareSearchSheet'
 import { SlotSteppers } from '../src/components/play/SlotSteppers'
 import { emptySlots, slotsSummary } from '../src/components/play/slots'
 import { maxSlots, slotTotal } from '../src/data/match'
-import { usePlayBoard } from '../src/hooks/usePlayBoard'
+import { PLAY_BOARD_LIVE_POLL_MS, PLAY_BOARD_POLL_MS, usePlayBoard } from '../src/hooks/usePlayBoard'
 import PlayPage from '../src/pages/PlayPage'
 import { formatCountdown, formatElapsed, spokenDuration } from '../src/utils/clock'
 import { apiError, mockApi, reply } from './teams-fixtures'
@@ -754,12 +754,15 @@ describe('leitura da placa (GET /me/play)', () => {
     expect(reads()).toBe(1)
     await tick(60_000)
     expect(reads()).toBe(1) // sem atenção, sem leitura periódica
-    state.board = playBoard({ searches: [search()] })
+    // Só uma partida combinando: atenção "calma", sem busca, proposta nem oferta.
+    state.board = playBoard({ matches: [matchCard()] })
     focusWindow()
     await tick(0)
     expect(reads()).toBe(2)
     expect(screen.getByText('atenção')).not.toBeNull()
-    await tick(15_000)
+    await tick(PLAY_BOARD_POLL_MS - 1)
+    expect(reads()).toBe(2)
+    await tick(1)
     expect(reads()).toBe(3)
     await tick(30_000)
     expect(reads()).toBe(5)
@@ -768,5 +771,94 @@ describe('leitura da placa (GET /me/play)', () => {
     expect(reads()).toBe(6)
     await tick(45_000)
     expect(reads()).toBe(6) // a atenção apagou: parou de ler
+  })
+
+  describe('leitura rápida enquanto há algo ao vivo', () => {
+    function Probe() {
+      const { board, error } = usePlayBoard(vi.fn(), true)
+      const what = !board ? 'carregando' : board.proposals.length ? 'proposta' : board.searches.length ? 'procurando' : board.attention ? 'atenção' : 'calmo'
+      return <output>{error ? `${what} (falhou)` : what}</output>
+    }
+    const tick = (ms: number) => act(async () => { await vi.advanceTimersByTimeAsync(ms) })
+
+    it('com busca aberta relê a cada 3 s, mostra a proposta que chega e volta aos 15 s sem nada ao vivo', async () => {
+      vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'Date'] })
+      const { state, api } = world(playBoard({ searches: [search()] }))
+      const reads = () => api.find('GET', '/me/play').length
+      renderWithToaster(<Probe />)
+      await tick(0)
+      expect(screen.getByText('procurando')).not.toBeNull()
+      expect(reads()).toBe(1)
+      await tick(PLAY_BOARD_LIVE_POLL_MS - 1)
+      expect(reads()).toBe(1)
+      await tick(1)
+      expect(reads()).toBe(2)
+      // Outra pessoa buscou e pareou: a proposta aparece na leitura seguinte, sem esperar 15 s.
+      state.board = playBoard({ proposals: [proposal()], searches: [search({ state: 'pareada', match_id: 50 })] })
+      await tick(PLAY_BOARD_LIVE_POLL_MS)
+      expect(reads()).toBe(3)
+      expect(screen.getByText('proposta')).not.toBeNull()
+      // A proposta foi aceita: sobra só a partida combinando, que segue com atenção, mas no ritmo calmo.
+      state.board = playBoard({ matches: [matchCard()] })
+      await tick(PLAY_BOARD_LIVE_POLL_MS)
+      expect(reads()).toBe(4)
+      expect(screen.getByText('atenção')).not.toBeNull()
+      await tick(PLAY_BOARD_POLL_MS - 1)
+      expect(reads()).toBe(4)
+      await tick(1)
+      expect(reads()).toBe(5)
+    })
+
+    it('não começa outra leitura periódica enquanto uma está em andamento e aplica a resposta atrasada', async () => {
+      vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'Date'] })
+      const board = playBoard({ searches: [search()] })
+      let slow = false
+      let pending: ((board: PlayBoard) => void) | null = null
+      const api = mockApi({
+        'GET /me/play': () => (slow ? new Promise<PlayBoard>(resolve => { slow = false; pending = resolve }) : board),
+      })
+      const reads = () => api.find('GET', '/me/play').length
+      renderWithToaster(<Probe />)
+      await tick(0)
+      expect(reads()).toBe(1)
+      // A próxima resposta fica pendurada (rede lenta, mais de 3 s).
+      slow = true
+      await tick(PLAY_BOARD_LIVE_POLL_MS)
+      expect(reads()).toBe(2)
+      expect(pending).not.toBeNull()
+      await tick(PLAY_BOARD_LIVE_POLL_MS * 3)
+      expect(reads()).toBe(2) // os tiques foram pulados
+      expect(screen.getByText('procurando')).not.toBeNull()
+      // A resposta atrasada chega e vale (não foi descartada por um tique mais novo).
+      pending!(playBoard({ proposals: [proposal()], searches: [search({ state: 'pareada', match_id: 50 })] }))
+      await tick(0)
+      expect(screen.getByText('proposta')).not.toBeNull()
+      expect(reads()).toBe(2)
+      await tick(PLAY_BOARD_LIVE_POLL_MS)
+      expect(reads()).toBe(3)
+    })
+
+    it('depois de uma leitura que falhou espera 15 s; ao ler com sucesso volta aos 3 s', async () => {
+      vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'Date'] })
+      let down = false
+      const board = playBoard({ searches: [search()] })
+      const api = mockApi({ 'GET /me/play': () => (down ? apiError(500, 'Placa fora do ar.') : board) })
+      const reads = () => api.find('GET', '/me/play').length
+      renderWithToaster(<Probe />)
+      await tick(0)
+      expect(reads()).toBe(1)
+      down = true
+      await tick(PLAY_BOARD_LIVE_POLL_MS)
+      expect(reads()).toBe(2)
+      expect(screen.getByText('procurando (falhou)')).not.toBeNull()
+      await tick(PLAY_BOARD_POLL_MS - 1)
+      expect(reads()).toBe(2) // sem martelar o servidor fora do ar
+      down = false
+      await tick(1)
+      expect(reads()).toBe(3)
+      expect(screen.getByText('procurando')).not.toBeNull()
+      await tick(PLAY_BOARD_LIVE_POLL_MS)
+      expect(reads()).toBe(4)
+    })
   })
 })

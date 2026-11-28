@@ -5,11 +5,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiError, request } from '../src/api/client'
 import { connection } from '../src/api/connection'
 import { useNow } from '../src/hooks/useNow'
-import { PLAY_BOARD_POLL_MS, usePlayBoard } from '../src/hooks/usePlayBoard'
+import { PLAY_BOARD_LIVE_POLL_MS, PLAY_BOARD_POLL_MS, usePlayBoard } from '../src/hooks/usePlayBoard'
 import type { PlayBoardState } from '../src/hooks/usePlayBoard'
 import { useRunBests } from '../src/hooks/useRunBests'
 import { appState, enableAct } from './support/native'
-import { matchCard, playBoard, search } from './support/play'
+import { matchCard, playBoard, proposal, search, slotOffer } from './support/play'
 import { bests, markCard } from './support/runs'
 
 vi.mock('react-native', async () => (await import('./support/native')).reactNativeMock())
@@ -65,8 +65,8 @@ describe('usePlayBoard: a placa do Jogar (GET /me/play)', () => {
     await act(async () => { tree.unmount() })
   })
 
-  it('com atenção, relê a cada 15 s; ao acabar a atenção, para; ao desmontar, para', async () => {
-    vi.mocked(request).mockResolvedValue(playBoard({ searches: [search()] }) as never)
+  it('com atenção calma (só partida combinando), relê a cada 15 s; ao acabar a atenção, para; ao desmontar, para', async () => {
+    vi.mocked(request).mockResolvedValue(playBoard({ matches: [matchCard()] }) as never)
     const tree = await mount()
     expect(current.board?.attention).toBe(true)
     await advance(PLAY_BOARD_POLL_MS)
@@ -97,6 +97,79 @@ describe('usePlayBoard: a placa do Jogar (GET /me/play)', () => {
     expect(playReads()).toBe(3)
     await act(async () => { appState.set('inactive') })
     await advance(2 * PLAY_BOARD_POLL_MS)
+    expect(playReads()).toBe(3)
+    await act(async () => { tree.unmount() })
+  })
+
+  it('com busca aberta, relê a cada 3 s e a proposta aparece na leitura seguinte; sem busca, proposta ou oferta, volta aos 15 s', async () => {
+    vi.mocked(request).mockResolvedValue(playBoard({ searches: [search()] }) as never)
+    const tree = await mount()
+    await advance(PLAY_BOARD_LIVE_POLL_MS)
+    expect(playReads()).toBe(2)
+    vi.mocked(request).mockResolvedValue(playBoard({ proposals: [proposal()] }) as never)
+    await advance(PLAY_BOARD_LIVE_POLL_MS)
+    expect(playReads()).toBe(3)
+    expect(current.board?.proposals).toHaveLength(1)
+    vi.mocked(request).mockResolvedValue(playBoard({ offers: [slotOffer()] }) as never)
+    await advance(PLAY_BOARD_LIVE_POLL_MS)
+    expect(playReads()).toBe(4)
+    vi.mocked(request).mockResolvedValue(playBoard({ matches: [matchCard()] }) as never)
+    await advance(PLAY_BOARD_LIVE_POLL_MS)
+    expect(playReads()).toBe(5)
+    expect(current.board?.attention).toBe(true)
+    await advance(PLAY_BOARD_POLL_MS - 1)
+    expect(playReads()).toBe(5)
+    await advance(1)
+    expect(playReads()).toBe(6)
+    await act(async () => { tree.unmount() })
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('com uma leitura ainda em andamento, os tiques seguintes não leem de novo e a resposta atrasada vale', async () => {
+    vi.mocked(request).mockResolvedValue(playBoard({ searches: [search()] }) as never)
+    const tree = await mount()
+    let release!: () => void
+    vi.mocked(request).mockImplementationOnce(() => new Promise(resolve => {
+      release = () => resolve(playBoard({ proposals: [proposal()] }) as never)
+    }))
+    await advance(PLAY_BOARD_LIVE_POLL_MS)
+    expect(playReads()).toBe(2)
+    await advance(4 * PLAY_BOARD_LIVE_POLL_MS)
+    expect(playReads()).toBe(2)
+    expect(current.board?.proposals).toHaveLength(0)
+    await act(async () => { release() })
+    expect(current.board?.proposals).toHaveLength(1)
+    await advance(PLAY_BOARD_LIVE_POLL_MS)
+    expect(playReads()).toBe(3)
+    await act(async () => { tree.unmount() })
+  })
+
+  it('depois de uma leitura que falhou, relê a cada 15 s mesmo com busca; ao ler de novo, volta aos 3 s', async () => {
+    vi.mocked(request).mockResolvedValue(playBoard({ searches: [search()] }) as never)
+    const tree = await mount()
+    vi.mocked(request).mockRejectedValueOnce(new ApiError('Fora do ar', 500))
+    await advance(PLAY_BOARD_LIVE_POLL_MS)
+    expect(playReads()).toBe(2)
+    expect(current.error).toBe('Fora do ar')
+    await advance(PLAY_BOARD_POLL_MS - 1)
+    expect(playReads()).toBe(2)
+    await advance(1)
+    expect(playReads()).toBe(3)
+    expect(current.error).toBe('')
+    await advance(PLAY_BOARD_LIVE_POLL_MS)
+    expect(playReads()).toBe(4)
+    await act(async () => { tree.unmount() })
+  })
+
+  it('com busca aberta e o app em segundo plano, a leitura de 3 s também pausa; ao voltar, relê e retoma', async () => {
+    vi.mocked(request).mockResolvedValue(playBoard({ searches: [search()] }) as never)
+    const tree = await mount()
+    await act(async () => { appState.set('background') })
+    await advance(5 * PLAY_BOARD_LIVE_POLL_MS)
+    expect(playReads()).toBe(1)
+    await act(async () => { appState.set('active') })
+    expect(playReads()).toBe(2)
+    await advance(PLAY_BOARD_LIVE_POLL_MS)
     expect(playReads()).toBe(3)
     await act(async () => { tree.unmount() })
   })
