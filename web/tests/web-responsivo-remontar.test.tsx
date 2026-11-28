@@ -153,10 +153,18 @@ describe('Carteirinhas de Meus times ao voltar ao celular', () => {
     Element.prototype.scrollTo = scrollTo
     render(<TeamCardCarousel teams={teams} selectedId={11} onSelect={noop} onCreate={noop} onInvite={noop} onLink={noop} onEdit={noop} onLeave={noop} />)
     scrollTo.mockClear()
+    // Faixa de 300 px com cartões de 260 px a cada 272 px (o jsdom não mede): a segunda carteirinha começa em 292 px e o
+    // seu centro (422 px) fica no meio da faixa com a rolagem em 272 px; a primeira daria 0.
+    const track = screen.getByRole('group', { name: 'Cerrado FC, 2 de 2' }).parentElement!
+    Object.defineProperty(track, 'clientWidth', { configurable: true, value: 300 })
+    Array.from(track.children).forEach((slide, index) => {
+      Object.defineProperty(slide, 'offsetLeft', { configurable: true, value: 20 + index * 272 })
+      Object.defineProperty(slide, 'offsetWidth', { configurable: true, value: 260 })
+    })
 
     window.resize(390)
     expect(scrollTo).toHaveBeenCalledTimes(1)
-    expect(scrollTo.mock.contexts[0]).toBe(screen.getByRole('group', { name: 'Cerrado FC, 2 de 2' }).parentElement)
-    expect(scrollTo).toHaveBeenCalledWith(expect.objectContaining({ behavior: 'auto' }))
+    expect(scrollTo.mock.contexts[0]).toBe(track)
+    expect(scrollTo).toHaveBeenCalledWith({ left: 272, behavior: 'auto' })
   })
 })
