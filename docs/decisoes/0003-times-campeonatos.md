@@ -74,6 +74,7 @@ A regra **"pelo menos um representante ativo"** não é restrição de banco: é
 interface RosterPreviewItem {
   user_id: number
   first_name: string           // primeira palavra do nome
+  initials: string             // iniciais do avatar sem foto: primeira letra das duas primeiras palavras ("Rafael Moura" → "RM"), as mesmas do elenco completo
   avatar_url: string | null
   position: Position | null
   is_representative: boolean   // braçadeira "C"
@@ -1112,8 +1113,8 @@ interface EventMatchRow {
   awaiting_decision: boolean    // divergente, ou 48 h sem resultado
 }
 interface EventMatchList {
-  items: EventMatchRow[]
-  counts: { total: number; to_schedule: number; waiting: number; scheduled: number; to_decide: number; finished: number }
+  items: EventMatchRow[]        // para decidir, para agendar, agendadas por horário, esperando o vencedor, encerradas (desempate: rodada e posição)
+  counts: { total: number; to_schedule: number; waiting: number; scheduled: number; to_decide: number; finished: number }   // exclusivos: cada jogo conta numa só categoria
 }
 
 interface ScheduleInput {
@@ -1144,7 +1145,7 @@ interface Championship {
   matches_total: number
   to_schedule: number           // dois lados definidos e sem data
   waiting: number               // um lado ainda espera o vencedor de um jogo anterior
-  scheduled: number             // agendadas e sem resultado final
+  scheduled: number             // agendadas, sem resultado final e fora de `to_decide` (cada jogo conta numa só categoria)
   to_decide: number             // divergentes ou com 48 h sem resultado
   finished: number
   attention: number             // to_schedule + to_decide: o alerta do cartaz

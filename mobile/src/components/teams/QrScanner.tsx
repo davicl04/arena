@@ -4,11 +4,12 @@ import { Text } from '../Text'
 import { CameraView, useCameraPermissions } from 'expo-camera'
 import { colors } from '../../theme'
 import { joinTokenFromUrl } from '../../utils/joinLink'
-import { Screen } from '../Screen'
+import { ModalScreen } from '../ModalScreen'
 import { ToastViewport } from '../toast/ToastViewport'
 import { ActionButton } from '../arena/controls'
 import { onDark } from './ui'
 import { Icon } from '../Icon'
+import { pageTitle } from '../../styles'
 
 export const QR_INVALID = 'Este QR não é de um time do Arena. Aponte para o QR do link do time.'
 /** Mesmo código lido de novo dentro desta janela não repete o aviso (a câmera dispara várias leituras por segundo). */
@@ -44,15 +45,15 @@ export function QrScanner({ onToken, onClose }: { onToken: (token: string) => vo
 
   const waiting = permission === null
   const granted = permission?.granted === true
-  return <Modal visible animationType="slide" onRequestClose={onClose}>
-    <Screen className="grow basis-0 bg-forest">
+  return <Modal visible animationType="slide" statusBarTranslucent navigationBarTranslucent onRequestClose={onClose}>
+    <ModalScreen dark className="bg-forest">
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingTop: 8, paddingBottom: 8 }}>
         <Pressable accessibilityRole="button" accessibilityLabel="Fechar leitor de QR" onPress={onClose} style={{ minHeight: 44, minWidth: 44, alignItems: 'center', justifyContent: 'center' }}>
           <Icon name="x" size={22} color="#ffffff" />
         </Pressable>
         <View style={{ flex: 1 }}>
           <Text style={{ color: colors.mint, fontSize: 9, fontWeight: '700', letterSpacing: 1.1 }}>ENTRAR NO TIME</Text>
-          <Text accessibilityRole="header" style={{ color: '#ffffff', fontSize: 19, fontWeight: '800' }}>Ler QR do time</Text>
+          <Text accessibilityRole="header" style={{ color: '#ffffff', ...pageTitle }}>Ler QR do time</Text>
         </View>
       </View>
       <View style={{ flex: 1, paddingHorizontal: 20, alignItems: 'center', justifyContent: 'center', gap: 16 }}>
@@ -79,7 +80,7 @@ export function QrScanner({ onToken, onClose }: { onToken: (token: string) => vo
       <View style={{ paddingHorizontal: 20, paddingBottom: 28 }}>
         <ActionButton tone="line" block title="Cancelar" onPress={onClose} />
       </View>
-    </Screen>
+    </ModalScreen>
     <ToastViewport />
   </Modal>
 }

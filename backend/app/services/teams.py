@@ -51,6 +51,11 @@ def first_name(name: str) -> str:
     return parts[0] if parts else ''
 
 
+def person_initials(name: str) -> str:
+    """Initials of a person without photo, as the clients draw them: the first letter of the first two words."""
+    return ''.join(part[0] for part in name.split()[:2]).upper()
+
+
 def roster_key(member: TeamMember):
     """Representatives first, then the oldest stay, then the row id."""
     return (member.role != REPRESENTATIVE, member.joined_at, member.id)
@@ -258,7 +263,7 @@ def build_cards(db: Session, viewer_id: int, teams: Sequence[Team]) -> list[Team
         my_role = roles.get(team.id)
         representative = my_role == REPRESENTATIVE
         preview = [RosterPreviewItemOut(
-            user_id=user.id, first_name=first_name(user.name),
+            user_id=user.id, first_name=first_name(user.name), initials=person_initials(user.name),
             avatar_url=None if user.id in hidden or not user.active else avatar_url(user),
             position=member.position, is_representative=member.role == REPRESENTATIVE,
         ) for member, user in roster[:ROSTER_PREVIEW_SIZE]]

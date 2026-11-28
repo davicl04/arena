@@ -15,7 +15,7 @@ export function RosterStack({ roster, count }: { roster: RosterPreviewItem[]; co
   return <View accessible accessibilityLabel={athletes(count)} style={{ flexDirection: 'row', alignItems: 'center', minWidth: 0 }}>
     <View importantForAccessibility="no-hide-descendants" accessibilityElementsHidden style={{ flexDirection: 'row' }}>
       {roster.slice(0, 5).map((item, index) => <View key={item.user_id} style={{ marginLeft: index > 0 ? -7 : 0 }}>
-        <MemberFace name={item.first_name} avatarUrl={item.avatar_url} size="stack" />
+        <MemberFace name={item.first_name} initials={item.initials} avatarUrl={item.avatar_url} size="stack" />
       </View>)}
     </View>
     <Text numberOfLines={1} style={{ marginLeft: 6, flexShrink: 1, color: 'rgba(255,255,255,0.66)', fontSize: 10.5 }}>{athletes(count)}</Text>

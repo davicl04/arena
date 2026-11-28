@@ -5,10 +5,10 @@ import type { Post } from '../api/client'
 import type { PagedList } from '../hooks/usePagedList'
 import PostItem from './PostItem'
 import type { PostUpdate } from './PostItem'
-import { Screen } from './Screen'
+import { ModalScreen } from './ModalScreen'
 import { ToastViewport } from './toast/ToastViewport'
 import { Button } from './ui'
-import { tw } from '../styles'
+import { cx, tw } from '../styles'
 import { useThemeColors } from '../hooks/useTheme'
 
 /**
@@ -25,13 +25,13 @@ export default function PostViewer({ list, index, username, viewerId, token, onU
   // Ao excluir o último post da lista, não há mais o que mostrar.
   useEffect(() => { if (empty) onClose() }, [empty, onClose])
   const start = Math.max(0, Math.min(index, list.items.length - 1))
-  return <Modal visible animationType="slide" onRequestClose={onClose}>
-    <Screen className={tw.screen}><KeyboardAvoidingView className="grow basis-0" behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+  return <Modal visible animationType="slide" statusBarTranslucent navigationBarTranslucent onRequestClose={onClose}>
+    <ModalScreen className={tw.screen}><KeyboardAvoidingView className="grow basis-0" behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <View className="flex-row items-center gap-2 border-b border-line bg-surface px-2 py-1.5">
         <Pressable accessibilityRole="button" accessibilityLabel="Voltar" onPress={onClose} className="min-h-11 min-w-11 items-center justify-center"><Text className="text-[24px] text-brand">‹</Text></Pressable>
         <View className="grow basis-0">
           <Text numberOfLines={1} className="text-[11px] font-bold tracking-[1.5px] text-brand">@{username.toUpperCase()}</Text>
-          <Text accessibilityRole="header" className="text-[18px] font-bold text-ink">Publicações</Text>
+          <Text accessibilityRole="header" className={cx('text-ink', tw.pageTitle)}>Publicações</Text>
         </View>
       </View>
       <FlatList ref={ref} data={list.items} keyExtractor={item => String(item.id)} initialScrollIndex={start}
@@ -48,7 +48,7 @@ export default function PostViewer({ list, index, username, viewerId, token, onU
           {list.moreError ? <Text accessibilityRole="alert" className={tw.error}>{list.moreError}</Text> : null}
           {list.hasMore && !list.busy ? <Button secondary title="Carregar mais publicações" onPress={() => void list.loadMore()} /> : null}
         </View>} />
-    </KeyboardAvoidingView></Screen>
+    </KeyboardAvoidingView></ModalScreen>
     <ToastViewport />
   </Modal>
 }

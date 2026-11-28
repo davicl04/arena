@@ -13,7 +13,7 @@ export const person = (id: number, name = `Pessoa ${id}`) => ({ id, name, userna
 export function team(id: number, extra: Partial<TeamCard> = {}): TeamCard {
   return {
     id, name: `Time ${id}`, initials: 'TI', city, crest_url: null, my_role: 'representante', member_count: 3, representative_count: 2,
-    roster_preview: [{ user_id: 1, first_name: 'Maria', avatar_url: null, position: 'goleiro', is_representative: true }],
+    roster_preview: [{ user_id: 1, first_name: 'Maria', initials: 'MS', avatar_url: null, position: 'goleiro', is_representative: true }],
     formats: [], pending_join_requests: 0, pending_invites: 0, created_at: '2026-10-01T10:00:00Z', ...extra,
   }
 }

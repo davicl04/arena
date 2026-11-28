@@ -87,12 +87,15 @@ def status_for(db: Session, events: Sequence[Event], now: datetime) -> dict[int,
                     .where(report_a.match_id == Match.id, report_a.side == 'a', report_b.side == 'b',
                            or_(report_a.score_a != report_b.score_a, report_a.score_b != report_b.score_b,
                                report_a.sets.is_distinct_from(report_b.sets))).correlate(Match))
+    # Divergent reports, or 48 h without a result (a match without a deadline never counts as overdue).
+    to_decide = or_(and_(Match.result_deadline.is_not(None), Match.result_deadline <= now), differ)
     rows = db.execute(select(
         Match.event_id, func.count(),
         func.count().filter(and_(Match.state == 'combinando', side_count == 2)),
         func.count().filter(and_(Match.state == 'combinando', side_count < 2)),
-        func.count().filter(Match.state == 'agendada'),
-        func.count().filter(and_(Match.state == 'agendada', or_(Match.result_deadline <= now, differ))),
+        # Exclusive counters: a scheduled match whose score the organizer must decide counts only in `to_decide`.
+        func.count().filter(and_(Match.state == 'agendada', ~to_decide)),
+        func.count().filter(and_(Match.state == 'agendada', to_decide)),
         func.count().filter(Match.state.in_(FINAL_RESULT_STATES)),
     ).where(Match.event_id.in_(ids), Match.origin == 'campeonato').group_by(Match.event_id)).all()
     counts = {event_id: ChampionshipCounts(bracket=brackets.get(event_id, 'sem_chaveamento'),

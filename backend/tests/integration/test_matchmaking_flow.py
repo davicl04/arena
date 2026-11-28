@@ -8,6 +8,7 @@ from app.models.identity import utcnow
 from app.models.matches import Match, MatchMessage, MatchSearch, MatchSide
 from app.models.teams import Team
 from tests.integration.match_helpers import audit_actions, make_standing, scheduled_match
+from tests.integration.result_helpers import played
 from tests.integration.team_helpers import (
     CITY,
     create_team,
@@ -627,14 +628,20 @@ def test_my_matches_proximas_and_historico(client):
         for label, team_id in (('a', first[2]), ('b', second[2])):
             db.add(MatchSide(match_id=match.id, side=label, team_id=team_id, created_at=stamp))
         closed.append(match.id)
+    # A played match with the result confirmed leaves "Próximas" right away and opens the first page of "Histórico",
+    # even while its 48 h statistics window is open; the next pages bring only the closed ones.
+    confirmed = played(db, team_a, team_c, 2, 1, starts_at=now - timedelta(hours=2))
     db.flush()
+    assert confirmed.id not in [item['id'] for item in http.get(
+        '/api/v1/me/matches', params={'scope': 'proximas'}, headers=first[0]).json()['items']]
     page = http.get('/api/v1/me/matches', params={'scope': 'historico', 'limit': 2}, headers=first[0]).json()
-    assert [item['id'] for item in page['items']] == closed[:2] and page['next_cursor']
-    assert {item['state'] for item in page['items']} == {'cancelada'}
+    assert [item['id'] for item in page['items']] == [confirmed.id, *closed[:2]] and page['next_cursor']
+    assert [item['state'] for item in page['items']] == ['realizada', 'cancelada', 'cancelada']
     rest = http.get('/api/v1/me/matches', params={'scope': 'historico', 'limit': 2, 'cursor': page['next_cursor']},
                     headers=first[0]).json()
     assert [item['id'] for item in rest['items']] == closed[2:] and rest['next_cursor'] is None
-    assert http.get('/api/v1/me/matches', params={'scope': 'historico'}, headers=third[0]).json()['items'] == []
+    # The third team played only the confirmed match: its history has just that one.
+    assert [item['id'] for item in http.get('/api/v1/me/matches', params={'scope': 'historico'}, headers=third[0]).json()['items']] == [confirmed.id]
 
 
 # ----- Closing a team --------------------------------------------------------------------------------------

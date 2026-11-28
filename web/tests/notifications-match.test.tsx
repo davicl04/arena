@@ -82,6 +82,16 @@ describe('texto e destino dos tipos da etapa 3', () => {
     const toMatch = { screen: 'match', matchId: 12 }
     expect(view('resultado_partida', { outcome: 'confirmado', score_a: 3, score_b: 1 })).toMatchObject({ text: 'Resultado confirmado: 3 × 1', kind: 'result', target: toMatch })
     expect(view('resultado_partida', { outcome: 'confirmado' }).text).toBe('Resultado confirmado')
+    // Do ponto de vista de quem recebe: o lado (`side`) e os nomes copiados no aviso.
+    const tennis = { outcome: 'confirmado', sport: 'tenis', name_a: 'Rafael Lima', name_b: 'Bia Souza' }
+    expect(view('resultado_partida', { ...tennis, score_a: 0, score_b: 2, side: 'b' }).text).toBe('Você venceu Rafael Lima por 2 sets a 0')
+    expect(view('resultado_partida', { ...tennis, score_a: 2, score_b: 1, side: 'b' }).text).toBe('Você perdeu para Rafael Lima por 2 sets a 1')
+    const football = { outcome: 'confirmado', sport: 'futebol', name_a: 'Ferrugem FC', name_b: 'Tigres do Lago' }
+    expect(view('resultado_partida', { ...football, score_a: 2, score_b: 1, side: 'a' }).text).toBe('Ferrugem FC venceu Tigres do Lago por 2 a 1')
+    expect(view('resultado_partida', { ...football, score_a: 2, score_b: 1, side: 'b' }).text).toBe('Tigres do Lago perdeu para Ferrugem FC por 2 a 1')
+    expect(view('resultado_partida', { ...football, score_a: 1, score_b: 1, side: 'b' }).text).toBe('Tigres do Lago empatou com Ferrugem FC: 1 a 1')
+    // Sem lado (nos dois elencos), os dois nomes com o placar.
+    expect(view('resultado_partida', { ...football, score_a: 2, score_b: 1 }).text).toBe('Resultado confirmado: Ferrugem FC 2 × 1 Tigres do Lago')
     expect(view('resultado_partida', { outcome: 'wo', score_a: 3, score_b: 0, absent_side: 'b' })).toMatchObject({ text: 'Resultado definido: vale o W.O.', target: toMatch })
     expect(view('resultado_partida', { outcome: 'sem_resultado' })).toMatchObject({ text: 'A partida ficou sem resultado', target: toMatch })
     expect(view('resultado_divergente', { deadline: kickoff }).text).toMatch(/^Os placares não batem\. Corrijam até \w{3}, 20 out · 16:00$/)

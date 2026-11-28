@@ -4,6 +4,8 @@ import { ApiError, apiUrl, clearToken, fileForm, getToken, isConnectionStatus, r
 import { connection } from '../src/api/connection'
 import { isApiPath } from '../src/api/path'
 
+// O upload vai pelo XMLHttpRequest (formFetch.ts, testado à parte); aqui ele repassa ao `fetch` simulado, que os testes conferem.
+vi.mock('../src/api/formFetch', () => ({ formFetch: (url: string, init: RequestInit) => globalThis.fetch(url, init) }))
 vi.mock('expo-secure-store', () => ({
   getItemAsync: vi.fn(), setItemAsync: vi.fn(), deleteItemAsync: vi.fn(),
 }))

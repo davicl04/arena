@@ -15,6 +15,8 @@ export type { FormatStanding } from './play'
 export interface RosterPreviewItem {
   user_id: number
   first_name: string
+  /** Iniciais do nome completo, as mesmas do avatar no elenco ("Rafael Moreira" → "RM"). */
+  initials: string
   avatar_url: string | null
   position: Position | null
   is_representative: boolean

@@ -192,10 +192,10 @@ export function DecisionForm({ match, busy, error, onSubmit }: {
       <div className="grid gap-1.5">
         <label htmlFor={`${id}-note`} className="m-0 text-[12px] font-bold">Justificativa (obrigatória)</label>
         <textarea id={`${id}-note`} rows={3} value={note} maxLength={JUSTIFICATION_MAX + 200} disabled={busy}
-          placeholder="Ex.: o vídeo mostra o gol antes do apito final." onChange={event => setNote(event.target.value)}
+          placeholder={tennis ? 'Ex.: o vídeo mostra que a bola do último ponto caiu dentro.' : 'Ex.: o vídeo mostra o gol antes do apito final.'} onChange={event => setNote(event.target.value)}
           aria-describedby={`${id}-note-hint`} aria-invalid={attempted && !noteOk ? true : undefined} />
         <small id={`${id}-note-hint`} className="text-[10.5px] leading-normal text-ink-muted">
-          Fica registrada e os dois times veem. {trimmed.length}/{JUSTIFICATION_MAX}
+          Fica registrada e os dois {tennis ? 'atletas' : 'times'} veem. {trimmed.length}/{JUSTIFICATION_MAX}
         </small>
       </div>
 
@@ -207,7 +207,7 @@ export function DecisionForm({ match, busy, error, onSubmit }: {
       </Button>
       <p className="m-0 flex items-start gap-2 text-[10.5px] leading-normal text-ink-muted">
         <Info size={15} className="mt-px flex-none text-brand" aria-hidden="true" />
-        O resultado entra na tabela e no ranking, a partida é encerrada e os dois elencos são avisados. A decisão fica no histórico da partida.
+        O resultado entra na tabela e no ranking, a partida é encerrada e {tennis ? 'os dois atletas são avisados' : 'os dois elencos são avisados'}. A decisão fica no histórico da partida.
       </p>
     </section>
   )

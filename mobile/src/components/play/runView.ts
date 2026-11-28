@@ -1,6 +1,7 @@
 import type { RunImpact, RunOrigin } from '../../api/runs'
 import { runDistances, tiers } from '../../data/arena'
 import type { RunDistance, TierKey } from '../../data/arena'
+import { formatDayMonth } from '../../utils/format'
 import { formatDuration } from './tierLines'
 
 /*
@@ -47,9 +48,7 @@ export function fromSeconds(total: number): HmsParts {
 export function formatRunDate(date: string, now: Date = new Date()): string {
   const [year, month, day] = date.split('-').map(Number)
   if (!year || !month || !day) return date
-  const moment = new Date(year, month - 1, day)
-  const text = moment.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' }).replace(/\.$/, '').replace(' de ', ' ')
-  return year === now.getFullYear() ? text : `${text} ${year}`
+  return formatDayMonth(new Date(year, month - 1, day), now)
 }
 
 /** Origem sob o tempo: "Treino" ou o nome da prova. */

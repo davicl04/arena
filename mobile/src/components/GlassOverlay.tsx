@@ -1,8 +1,10 @@
 import { useEffect } from 'react'
 import type { ReactNode } from 'react'
-import { BackHandler, Pressable, ScrollView, View } from 'react-native'
+import { BackHandler, Pressable, View } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Text } from './Text'
 import { cx } from '../styles'
+import { KeyboardScrollView } from './KeyboardScrollView'
 export function GlassButton({ label, glyph, onPress, disabled }: { label: string; glyph: string; onPress: () => void; disabled?: boolean }) {
   return <Pressable accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ disabled: Boolean(disabled) }} disabled={disabled} onPress={onPress} hitSlop={4}
     className={cx('min-h-11 min-w-11 items-center justify-center', disabled && 'opacity-45')}>
@@ -21,8 +23,8 @@ export function GlassRow({ label, onPress, danger, disabled }: { label: string; 
  * Sem `expo-blur`: o efeito é uma View translúcida. O conteúdo rola dentro do vidro.
  * Enquanto está aberto, o botão voltar do Android o fecha (ou volta um passo, se houver `onBack`) em vez de sair da tela de baixo.
  */
-export default function GlassOverlay({ title, onClose, onBack, backLabel = 'Voltar', closeLabel = 'Fechar', variant = 'media', footer, children }: {
-  title: string; onClose: () => void; onBack?: () => void; backLabel?: string; closeLabel?: string; variant?: 'media' | 'screen'; footer?: ReactNode; children: ReactNode
+export default function GlassOverlay({ title, onClose, onBack, backLabel = 'Voltar', closeLabel = 'Fechar', variant = 'media', safeTop = false, footer, children }: {
+  title: string; onClose: () => void; onBack?: () => void; backLabel?: string; closeLabel?: string; variant?: 'media' | 'screen'; /** Soma a área segura de cima ao topo, para quando a tela de baixo sobe sob a barra de status (`bleed`). */ safeTop?: boolean; footer?: ReactNode; children: ReactNode
 }) {
   useEffect(() => {
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
@@ -32,14 +34,16 @@ export default function GlassOverlay({ title, onClose, onBack, backLabel = 'Volt
     return () => subscription.remove()
   }, [onBack, onClose])
   const screen = variant === 'screen'
+  const insets = useSafeAreaInsets()
   return <View accessibilityViewIsModal accessibilityLabel={title}
+    style={safeTop ? { paddingTop: (screen ? 16 : 6) + insets.top } : undefined}
     className={cx('absolute top-0 right-0 bottom-0 left-0 z-20 bg-glass elevation-overlay', screen ? 'px-5.5 pt-4 pb-5.5' : 'px-3.5 pt-1.5 pb-2.5')}>
     <View className="flex-row items-center gap-1.5">
       {onBack ? <GlassButton label={backLabel} glyph="‹" onPress={onBack} /> : null}
       <Text accessibilityRole="header" numberOfLines={1} className={cx('grow basis-0 font-bold text-white', screen ? 'text-[19px]' : 'text-[16px]')}>{title}</Text>
       <GlassButton label={closeLabel} glyph="✕" onPress={onClose} />
     </View>
-    <ScrollView className="grow basis-0" contentContainerClassName="py-1.5" keyboardShouldPersistTaps="handled" nestedScrollEnabled>{children}</ScrollView>
+    <KeyboardScrollView className="grow basis-0" contentContainerClassName="py-1.5" keyboardShouldPersistTaps="handled" nestedScrollEnabled>{children}</KeyboardScrollView>
     {footer}
   </View>
 }

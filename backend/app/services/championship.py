@@ -580,14 +580,17 @@ def _rows(db: Session, viewer: User, event: Event, matches: Sequence[Match], tar
 
 
 def _group(row: EventMatchRowOut) -> tuple:
-    """Without a date first (schedulable ones, then those waiting for a winner), then the scheduled ones by start,
-    then the finished ones, the latest first."""
+    """What the organizer acts on first: the scores to decide, then the matches without a date that can be scheduled;
+    then the scheduled ones by start, those waiting for the winner of a previous match (no date, nothing to do yet)
+    and the finished ones, the latest first. Ties follow the bracket (round, position)."""
     card = row.card
+    if row.awaiting_decision:
+        return 0, 0, row.round_number, row.position
     if card.state in FINAL_RESULT_STATES or card.state in ('cancelada', 'sem_resultado'):
-        return 2, -(card.starts_at.timestamp() if card.starts_at else 0), row.round_number, row.position
+        return 4, -(card.starts_at.timestamp() if card.starts_at else 0), row.round_number, row.position
     if card.starts_at is None:
-        return 0, 0 if row.can_schedule else 1, row.round_number, row.position
-    return 1, card.starts_at.timestamp(), row.round_number, row.position
+        return 1 if row.can_schedule else 3, 0, row.round_number, row.position
+    return 2, card.starts_at.timestamp(), row.round_number, row.position
 
 
 def list_event_matches(db: Session, user: User, event_id: int, *, now: datetime) -> EventMatchListOut:
@@ -733,8 +736,8 @@ def schedule_match(db: Session, user: User, match_id: int, data: ScheduleInput, 
         'match_id': match.id, 'terms_id': None, 'starts_at': starts_at.isoformat(), 'court_name': court.name,
         'changed': not first, 'event_id': event.id, 'event_name': event.name}, actor_id=user.id)
     post_event(db, match.id, 'partida_agendada',
-               (f'O organizador agendou a partida na quadra {court.name}.' if first
-                else f'O organizador alterou a partida: quadra {court.name}.'),
+               (f'O organizador agendou a partida em {court.name}.' if first
+                else f'O organizador alterou a partida, agora em {court.name}.'),
                author_id=user.id, payload={'starts_at': starts_at.isoformat(), 'court_id': court.id,
                                            'changed': not first}, now=now)
     audit.record(db, actor_id=user.id, action='partida.agendada' if first else 'partida.reagendada',

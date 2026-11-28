@@ -66,6 +66,27 @@ function listText(items: string[]) {
 }
 const noTrailingDot = (value: string) => value.replace(/[.!;]+$/, '')
 
+/**
+ * Resultado confirmado do ponto de vista de quem recebe, com o lado (`side`) e os nomes copiados no aviso: "Você venceu
+ * Rafael Lima por 2 sets a 0" (tênis) ou "Ferrugem FC perdeu para Tigres do Lago por 2 a 1" (futebol). Sem lado (quem
+ * está nos dois elencos), os dois nomes com o placar; avisos antigos, só com o placar, mantêm "Resultado confirmado: 2 × 1".
+ */
+function confirmedResultText(payload: Record<string, unknown>) {
+  const a = payload.score_a
+  const b = payload.score_b
+  if (typeof a !== 'number' || typeof b !== 'number') return 'Resultado confirmado'
+  const nameA = text(payload.name_a)
+  const nameB = text(payload.name_b)
+  if (!nameA || !nameB) return `Resultado confirmado: ${a} × ${b}`
+  if (payload.side !== 'a' && payload.side !== 'b') return `Resultado confirmado: ${nameA} ${a} × ${b} ${nameB}`
+  const tennis = payload.sport === 'tenis'
+  const [own, theirs, opponent] = payload.side === 'a' ? [a, b, nameB] : [b, a, nameA]
+  const subject = tennis ? 'Você' : payload.side === 'a' ? nameA : nameB
+  if (own === theirs) return `${subject} empatou com ${opponent}: ${own} a ${theirs}`
+  const margin = `${Math.max(own, theirs)}${tennis ? ' sets' : ''} a ${Math.min(own, theirs)}`
+  return own > theirs ? `${subject} venceu ${opponent} por ${margin}` : `${subject} perdeu para ${opponent} por ${margin}`
+}
+
 /** Motivo com rótulo e detalhe ("Valor diferente: faltaram R$ 40"); "Outro" mostra só o detalhe. */
 function reasonText(label: string | null, detail: string | null) {
   if (label && detail) return label === 'Outro' ? detail : `${label}: ${detail}`
@@ -239,9 +260,7 @@ export function notificationView(notification: ArenaNotification, viewer: Notifi
     case 'resultado_partida': {
       if (payload.outcome === 'wo') return matchView('Resultado definido: vale o W.O.', 'result', toMatch)
       if (payload.outcome === 'sem_resultado') return matchView('A partida ficou sem resultado', 'result', toMatch)
-      const a = payload.score_a
-      const b = payload.score_b
-      return matchView(`Resultado confirmado${typeof a === 'number' && typeof b === 'number' ? `: ${a} × ${b}` : ''}`, 'result', toMatch)
+      return matchView(confirmedResultText(payload), 'result', toMatch)
     }
     case 'resultado_divergente': {
       const deadline = formatDeadline(text(payload.deadline))

@@ -279,7 +279,7 @@ def test_only_the_organizer_schedules_and_others_get_403_or_404(client):
     assert first.state == 'combinando' and first.starts_at is None
 
 
-def test_the_list_puts_matches_without_a_date_first_and_names_the_winners_to_come(client):
+def test_the_list_puts_what_needs_a_date_first_and_names_the_winners_to_come(client):
     http, db = client
     world = confirmed_world(http, db, 4)
     listing = event_matches(http, world)
@@ -294,7 +294,8 @@ def test_the_list_puts_matches_without_a_date_first_and_names_the_winners_to_com
     first, second = [match for match in matches_of(db, world) if match.round_number == 1]
     schedule(http, world, second.id, kickoff())
     after = event_matches(http, world)
-    assert [item['label'] for item in after['items']] == ['J1', 'J3', 'J2']
+    # The final waits for both winners (nothing to do yet): it comes after the scheduled J2.
+    assert [item['label'] for item in after['items']] == ['J1', 'J2', 'J3']
     assert after['counts']['to_schedule'] == 1 and after['counts']['scheduled'] == 1
     # The owner and the administration read it; teams and strangers do not.
     url = f'{API}/organizer/events/{world["event_id"]}/matches'

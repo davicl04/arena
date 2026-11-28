@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react'
-import { ScrollView, View } from 'react-native'
+import { View } from 'react-native'
 import { Text } from '../components/Text'
 import { ApiError } from '../api/client'
 import type { ReceiptReview } from '../api/events'
@@ -21,6 +21,7 @@ import { useSessionToken } from '../hooks/useSessionToken'
 import type { ScreenProps } from '../navigation/screens'
 import { formatPrice } from '../utils/format'
 import { relativeTime } from '../utils/relativeTime'
+import { KeyboardScrollView } from '../components/KeyboardScrollView'
 
 type PageTab = ReceiptTab | 'devolucoes'
 
@@ -89,7 +90,7 @@ export default function ReceiptsScreen({ params, navigation, onExpired }: Screen
     { value: 'decididos', label: 'Decididos' },
   ] : []
 
-  return <ScrollView contentContainerStyle={{ paddingBottom: 48 }} keyboardShouldPersistTaps="handled">
+  return <KeyboardScrollView contentContainerStyle={{ paddingBottom: 48 }} keyboardShouldPersistTaps="handled">
     <TeamsPlate bottom={16}>
       <DarkTopBar eyebrow={data?.name ?? 'Evento'} title="Comprovantes" backLabel="Voltar para o evento" onBack={navigation.back} />
       {data ? <Text style={{ paddingHorizontal: 18, paddingTop: 8, color: 'rgba(255,255,255,0.72)', fontSize: 12, lineHeight: 18 }}>{receiptSummary(data)}</Text> : null}
@@ -109,5 +110,5 @@ export default function ReceiptsScreen({ params, navigation, onExpired }: Screen
         </View>
       </> : null}
     </View>
-  </ScrollView>
+  </KeyboardScrollView>
 }

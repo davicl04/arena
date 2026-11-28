@@ -2,7 +2,7 @@ import React from 'react'
 import { act, create } from 'react-test-renderer'
 import { describe, expect, it, vi } from 'vitest'
 import { enableAct } from './support/native'
-import { useBottomInset, useNavInset } from '../src/hooks/useBottomInset'
+import { NAV_HEIGHT, useBottomInset, useNavInset, useNavSpace } from '../src/hooks/useBottomInset'
 
 const listeners = new Map<string, () => void>()
 const keyboard = { visible: false }
@@ -50,6 +50,36 @@ describe('recuo de baixo da área logada', () => {
     expect(grown.at(-1)).toBe(0)
     await act(async () => { listeners.get('keyboardWillHide')?.() })
     expect(grown.at(-1)).toBe(23)
+    await act(async () => { tree.unmount() })
+  })
+
+  it('o espaço da navegação (faixa de conexão e toasts) é a barra com a área segura, e 0 com o teclado aberto, quando a barra some', async () => {
+    enableAct()
+    const space: number[] = []
+    const Probe2 = () => { space.push(useNavSpace()); return null }
+    let tree!: ReturnType<typeof create>
+    await act(async () => { tree = create(React.createElement(Probe2)) })
+    expect(space.at(-1)).toBe(NAV_HEIGHT + 23)
+    await act(async () => { listeners.get('keyboardWillShow')?.() })
+    expect(space.at(-1)).toBe(0)
+    await act(async () => { listeners.get('keyboardWillHide')?.() })
+    expect(space.at(-1)).toBe(NAV_HEIGHT + 23)
+    await act(async () => { tree.unmount() })
+  })
+
+  it('quem monta enquanto o teclado fecha (o iOS ainda diz "aberto" no keyboardWillHide) já começa com a área segura', async () => {
+    enableAct()
+    const late: number[] = []
+    const Late = () => { late.push(useBottomInset()); return null }
+    let tree!: ReturnType<typeof create>
+    await act(async () => { tree = create(React.createElement(Probe)) })
+    keyboard.visible = true
+    await act(async () => { listeners.get('keyboardWillShow')?.() })
+    await act(async () => { listeners.get('keyboardWillHide')?.() })
+    // Como a navegação inferior, que volta ao shell quando o teclado começa a fechar.
+    await act(async () => { tree.update(React.createElement(React.Fragment, null, React.createElement(Probe), React.createElement(Late))) })
+    expect(late.at(-1)).toBe(34)
+    keyboard.visible = false
     await act(async () => { tree.unmount() })
   })
 })

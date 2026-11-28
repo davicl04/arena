@@ -1,7 +1,7 @@
 import { Pressable, View } from 'react-native'
 import { useTopArea } from '../navigation/topArea'
 import { Text, TextInput } from './Text'
-import { cx } from '../styles'
+import { cx, tw } from '../styles'
 import { colors } from '../theme'
 import { NotificationBell } from './notifications/NotificationBell'
 import { ArenaMark } from './arena/ArenaMark'
@@ -27,7 +27,7 @@ export default function CommunityBar({ tab, onTab, onCompose, query, onQuery, no
   return <View className="bg-forest">
     <View className="h-14 flex-row items-center gap-2.5 pr-2 pl-4.5">
       <ArenaMark width={30} height={22} color={colors.mint} />
-      <Text accessibilityRole="header" numberOfLines={1} className="grow basis-0 text-[17px] text-white">Comunidade</Text>
+      <Text accessibilityRole="header" numberOfLines={1} className={cx('grow basis-0 text-white', tw.pageTitle)}>Comunidade</Text>
       {onOpenNotifications ? <NotificationBell tone="dark" count={notificationCount} onOpen={onOpenNotifications} /> : null}
       <Pressable accessibilityRole="button" accessibilityLabel="Nova publicação" onPress={onCompose} className="min-h-11 min-w-11 items-center justify-center">
         <View className="h-9.5 w-9.5 items-center justify-center rounded-full bg-mint">

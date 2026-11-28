@@ -544,7 +544,7 @@ interface PlayBoard {
   searches: MatchSearchOut[]
   proposals: ProposalOut[]
   offers: SlotOfferOut[]
-  matches: MatchCard[]               // combinando, agendada e realizada (prazo aberto) do titular; por starts_at, sem data primeiro
+  matches: MatchCard[]               // combinando e agendada do titular; por starts_at, sem data primeiro (a realizada vai ao histórico)
 }
 ```
 
@@ -559,7 +559,7 @@ interface PlayBoard {
 | `PUT /matches/{id}/accept` | quem age pelo lado | `{}` | `ProposalOut` |
 | `PUT /matches/{id}/decline` | quem age pelo lado | `{}` | `ProposalOut` |
 | `GET /me/play` | titular | — | `PlayBoard` |
-| `GET /me/matches?scope=proximas\|historico&cursor=&limit=` | titular | — | `{ items: MatchCard[]; next_cursor }`: `proximas` sem paginação (até 100, `next_cursor: null`); `historico` paginado (encerrada, sem_resultado, cancelada, por `closed_at` decrescente) |
+| `GET /me/matches?scope=proximas\|historico&cursor=&limit=` | titular | — | `{ items: MatchCard[]; next_cursor }`: `proximas` sem paginação (combinando e agendada, até 100, `next_cursor: null`); `historico` com as `realizada` (resultado confirmado, ainda na janela de estatísticas) no começo da primeira página, pela confirmação mais recente, e depois paginado (encerrada, sem_resultado, cancelada, por `closed_at` decrescente) |
 
 ### 9.3 Regras
 
@@ -830,7 +830,7 @@ interface LineupOut {
 
 - Quem age pelo lado, com a partida `agendada` e a janela aberta (`match_rules.result_window_open`; senão `409 O placar é informado depois do horário da partida e até 48 h depois.`); já confirmado: `409 O placar já foi confirmado pelos dois lados.`; W.O. registrado: `409 Há um W.O. registrado nesta partida.`
 - Futebol: `validate_football_score` (`422 Informe números inteiros de 0 a 99.`). Tênis: `validate_tennis_sets(sets, super_tiebreak=match.super_tiebreak)`: sets de 6-0 a 6-4, 7-5 ou 7-6 com o tie-break (a 7, com 2 de vantagem, de quem venceu o set); super tie-break a 10 com 2 de vantagem no lugar do 3º set quando combinado; vencedor com 2 sets; 3º set só com os dois primeiros divididos. As mensagens apontam o set (`sets.2`).
-- Trava a partida e grava ou substitui a linha do meu lado (`match_results`). Se os dois placares forem iguais (`scores_agree`): `match_lifecycle.apply_final_score(…, source='confirmacao')`, `realizada`, `standings.recalculate_for_match`, notificação `resultado_partida` (`outcome: 'confirmado'`, `score_a`, `score_b`) aos membros e avulsos, faixa `resultado_confirmado`, auditoria `resultado.confirmado`. Se forem diferentes: notificação `resultado_divergente` (`deadline`) a quem age pelos dois lados, faixa `resultado_divergente`, auditoria `resultado.divergente`. Primeiro envio: faixa `placar_enviado`, auditoria `resultado.informado`. Em campeonato, a divergência vai ao organizador ([seção 17](#17-uso-nas-partidas-de-campeonato-etapa-4)).
+- Trava a partida e grava ou substitui a linha do meu lado (`match_results`). Se os dois placares forem iguais (`scores_agree`): `match_lifecycle.apply_final_score(…, source='confirmacao')`, `realizada`, `standings.recalculate_for_match`, notificação `resultado_partida` (`outcome: 'confirmado'`, `score_a`, `score_b`, `sport`, `name_a`, `name_b` e o `side` de cada destinatário; quem está nos dois elencos fica sem `side`) aos membros e avulsos, faixa `resultado_confirmado`, auditoria `resultado.confirmado`. Se forem diferentes: notificação `resultado_divergente` (`deadline`) a quem age pelos dois lados, faixa `resultado_divergente`, auditoria `resultado.divergente`. Primeiro envio: faixa `placar_enviado`, auditoria `resultado.informado`. Em campeonato, a divergência vai ao organizador ([seção 17](#17-uso-nas-partidas-de-campeonato-etapa-4)).
 - **Relato cego (decisão do orquestrador de 12/10, que revê a anterior):** `result.reports` mostra o **meu** relato sempre. O do outro lado só traz o `score` depois que o **meu lado já informou o meu** (o que inclui a divergência, em que os dois informaram) ou quando o resultado já está decidido (partida que deixou de ser `agendada`: `realizada`, `encerrada` ou `sem_resultado`). Antes disso o relato do outro lado existe, com `side`, `reported_by` e `updated_at`, mas com `score: null`: a tela diz que o outro lado já informou, sem o placar. Quem não age por lado (administração e organizador) vê os dois. Vale para todo o meu lado (representantes, membros e avulso). Motivo: copiar o placar do adversário não é conferir o resultado; a confirmação precisa de dois relatos independentes. A faixa `placar_enviado` do chat também não traz o placar.
 
 ### 12.4 Presença e estatísticas (RN03, RN10, RN12, RN13)
@@ -908,7 +908,7 @@ Registradas em `NOTIFICATION_TYPES` (campos obrigatórios abaixo; outros são op
 | `wo_registrado` | quem age pelo lado ausente | quem registrou | `{ match_id, opponent_name, contest_until }` | "{adversário} registrou W.O. Conteste até {prazo} se vocês compareceram" | Partida |
 | `wo_contestado` | quem age pelo lado que registrou e administração | quem contestou | `{ match_id, reason }` | "{ator} contestou o W.O." | Partida / fila de W.O. |
 | `wo_decidido` | membros dos dois lados | `null` | `{ match_id, decision: 'mantido' \| 'anulado', reason? }` | "A administração manteve/anulou o W.O." | Partida |
-| `resultado_partida` | membros dos dois lados e avulsos | `null` | `{ match_id, outcome: 'confirmado' \| 'wo' \| 'sem_resultado', score_a?, score_b?, absent_side? }` | "Resultado confirmado: 3 × 1" / "Vale o W.O." / "A partida ficou sem resultado" | Partida |
+| `resultado_partida` | membros dos dois lados e avulsos | `null` | `{ match_id, outcome: 'confirmado' \| 'wo' \| 'sem_resultado', score_a?, score_b?, absent_side?, sport?, name_a?, name_b?, side? }` (os quatro últimos no confirmado, `side` só para quem está em um dos lados) | "Você venceu Rafael por 2 sets a 0" / "Ferrugem FC perdeu para Tigres por 2 a 1" (sem `side`: os dois nomes e o placar; avisos antigos: "Resultado confirmado: 3 × 1") / "Vale o W.O." / "A partida ficou sem resultado" | Partida |
 | `resultado_divergente` | quem age pelos dois lados | `null` | `{ match_id, deadline }` | "Os placares não batem. Corrijam até {prazo}" | Partida |
 | `estatistica_contestada` | o atleta e quem age pelo lado dele | quem contestou | `{ match_id, stat_id, fields, reason }` | "{ator} contestou suas estatísticas" | Partida, elenco |
 | `vaga_preenchida` | quem age pelo lado da vaga | o avulso | `{ match_id, slot_id, position }` | "{ator} entrou como {posição}" | Partida |

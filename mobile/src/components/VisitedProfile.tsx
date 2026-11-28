@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Modal, ScrollView, View } from 'react-native'
+import { Modal, View } from 'react-native'
 import { Text } from './Text'
 import type { SocialUser, User } from '../api/client'
 import { cx, tw } from '../styles'
@@ -17,6 +17,7 @@ import type { ProfileTab } from './ProfileTabs'
 import ProfileTopBar, { TopBarButton, useCondensedTopBar } from './ProfileTopBar'
 import { Screen } from './Screen'
 import { ToastViewport } from './toast/ToastViewport'
+import { KeyboardScrollView } from './KeyboardScrollView'
 
 /** Altura da capa, a mesma da web (158 px), sem contar a barra de status. */
 const COVER_HEIGHT = 158
@@ -41,7 +42,7 @@ export default function VisitedProfile({ profile, user, token, mutualText, modal
   const own = profile.id === user.id
   const canView = profile.social_public || profile.follow_state === 'approved' || own
   const content = <>
-    <ScrollView onScroll={onScroll} scrollEventThrottle={16} keyboardShouldPersistTaps="handled" contentContainerClassName="pb-10">
+    <KeyboardScrollView onScroll={onScroll} scrollEventThrottle={16} keyboardShouldPersistTaps="handled" contentContainerClassName="pb-10">
       {/* Capa e cabeçalho do perfil de outra pessoa, como o `ProfileHeader` da web no modo visitante: o Seguir fica à direita, acima do @. */}
       <Cover hero path={profile.cover_url} token={token} height={COVER_HEIGHT + insets.top} />
       <ProfileHeader name={profile.name} username={profile.username} isPublic={profile.social_public} followerCount={profile.follower_count} followingCount={profile.following_count}
@@ -56,7 +57,7 @@ export default function VisitedProfile({ profile, user, token, mutualText, modal
             : <MatchTimeline key={profile.id} userId={profile.id} own={false} onExpired={onExpired} />}
         </View>
       </> : <Text className={cx(tw.body, 'p-5 text-center')}>Esta conta é privada. Solicite acesso para ver as publicações; as listas de seguidores também ficam fechadas até lá.</Text>}
-    </ScrollView>
+    </KeyboardScrollView>
     <ProfileTopBar condensed={condensed} username={profile.username}
       leading={<TopBarButton label="Voltar" glyph="‹" condensed={condensed} onPress={onClose} />}
       trailing={own ? undefined : <TopBarButton label="Ações da conta" glyph="•••" condensed={condensed} onPress={() => setActions(true)} />} />

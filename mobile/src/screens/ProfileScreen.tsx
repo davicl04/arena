@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import { Pressable, ScrollView, View } from 'react-native'
+import { Pressable, View } from 'react-native'
 import { Text } from '../components/Text'
 import * as ImagePicker from 'expo-image-picker'
 import { ApiError, clearToken, getToken, request } from '../api/client'
@@ -31,6 +31,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useTopArea } from '../navigation/topArea'
 import ProfileTopBar, { TopBarButton, useCondensedTopBar } from '../components/ProfileTopBar'
 import { appVersion } from '../utils/appInfo'
+import { KeyboardScrollView } from '../components/KeyboardScrollView'
 
 type Which = 'blocks' | 'followers' | 'following'
 type SheetName = 'edit' | 'avatar' | 'cover' | 'name' | 'username' | 'visibility' | 'blocked' | 'connections' | 'menu'
@@ -225,7 +226,7 @@ export default function ProfileScreen({ user, onUser, onLogout, onExpired, onNew
   const visibilityChanged = draftPublic !== user.social_public
   // A rolagem é própria da tela: a barra superior fica fixa por fora do ScrollView.
   return <View className="grow basis-0">
-    <ScrollView onScroll={onScroll} scrollEventThrottle={16} keyboardShouldPersistTaps="handled" contentContainerClassName="pb-12">
+    <KeyboardScrollView onScroll={onScroll} scrollEventThrottle={16} keyboardShouldPersistTaps="handled" contentContainerClassName="pb-12">
       <Cover hero path={user.cover?.url ?? null} token={token} height={COVER_HEIGHT + insets.top} />
       <ProfileHeader name={user.name} username={user.username} isPublic={user.social_public} followerCount={counts.followers} followingCount={counts.following}
         sportList={loading || loadError ? undefined : profiles.map(profile => profile.sport)}
@@ -254,7 +255,7 @@ export default function ProfileScreen({ user, onUser, onLogout, onExpired, onNew
           ? <ProfileGallery own userId={user.id} ownerName={user.name} ownerUsername={user.username} viewerId={user.id} token={token} onNewPhoto={onNewPhoto} onExpired={onExpired} />
           : <MatchTimeline userId={user.id} own upcoming={upcoming} onOpenMatch={onOpenMatch} onPlay={onPlay} onExpired={onExpired} />}
       </View>
-    </ScrollView>
+    </KeyboardScrollView>
     <ProfileTopBar condensed={condensed} username={user.username} trailingWidth={onOpenNotifications ? 96 : 52}
       trailing={<>
         {onOpenNotifications ? <NotificationBell tone="cover" condensed={condensed} count={notificationCount} onOpen={onOpenNotifications} /> : null}

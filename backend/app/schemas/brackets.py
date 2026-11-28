@@ -173,7 +173,7 @@ class EventMatchCountsOut(BaseModel):
 
 
 class EventMatchListOut(BaseModel):
-    items: list[EventMatchRowOut]      # without a date first (the ones that can be scheduled, then the waiting ones)
+    items: list[EventMatchRowOut]      # to decide, to schedule, scheduled by start, waiting for a winner, finished
     counts: EventMatchCountsOut
 
 

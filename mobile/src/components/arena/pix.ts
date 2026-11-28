@@ -37,3 +37,11 @@ const messages: Record<PixShareItem, Record<Exclude<ShareStatus, 'idle'>, string
 /** Retorno anunciado para o último item compartilhado (vazio quando não há nada a dizer). */
 export const shareFeedback = (status: ShareStatus, item: PixShareItem | null): string =>
   status === 'idle' || !item ? '' : messages[item][status]
+
+const copyMessages: Record<PixShareItem, { copied: string; failed: string }> = {
+  chave: { copied: 'Chave Pix copiada.', failed: 'Não foi possível copiar. Mantenha o dedo sobre a chave para selecionar e copiar.' },
+  codigo: { copied: 'Pix Copia e Cola copiado. Cole no app do seu banco.', failed: 'Não foi possível copiar. Mantenha o dedo sobre o código para selecionar e copiar.' },
+}
+
+/** Retorno da cópia (os mesmos textos da web), mostrado em toast: sucesso, ou aviso quando falhou. */
+export const copyFeedback = (copied: boolean, item: PixShareItem): string => copyMessages[item][copied ? 'copied' : 'failed']

@@ -9,14 +9,12 @@ import PostComments from './PostComments'
 import PostImage from './PostImage'
 import { Avatar } from './media'
 import { cx } from '../styles'
+import { formatDayMonth } from '../utils/format'
 
 export type PostUpdate = (id: number, update: (post: Post) => Post) => void
 
-/** Data curta em pt-BR ("10 de out."); o ano só aparece quando não é o atual. */
-export function postDate(value: string, now = new Date()) {
-  const date = new Date(value)
-  return date.toLocaleDateString('pt-BR', date.getFullYear() === now.getFullYear() ? { day: 'numeric', month: 'short' } : { day: 'numeric', month: 'short', year: 'numeric' })
-}
+/** Data curta em pt-BR ("10 out"); o ano só aparece quando não é o atual. */
+export const postDate = (value: string, now = new Date()) => formatDayMonth(new Date(value), now)
 
 // Vidro escuro da etiqueta do autor e do botão •••.
 const glassTag = 'flex-row items-center gap-1.5 rounded-full border border-forest-line bg-glass-tag py-1 pr-2.5 pl-1'

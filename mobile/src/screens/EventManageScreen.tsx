@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import { Pressable, ScrollView, View } from 'react-native'
+import { Pressable, View } from 'react-native'
 import type { ScrollViewInstance } from 'react-native'
 import { Text } from '../components/Text'
 import { ApiError, sports } from '../api/client'
@@ -24,6 +24,7 @@ import { useThemeColors } from '../hooks/useTheme'
 import { formatDeadline, formatPrice, plural } from '../utils/format'
 import { Icon } from '../components/Icon'
 import type { IconName } from '../components/Icon'
+import { KeyboardScrollView } from '../components/KeyboardScrollView'
 
 type SectionKey = 'entries' | 'data' | 'pix'
 type SheetKind = 'cancel' | 'delete' | 'edit' | null
@@ -209,7 +210,7 @@ export default function EventManageScreen({ params, navigation, onExpired }: Scr
       champ.waiting && `${champ.waiting} esperando`, champ.finished && `${champ.finished} de ${champ.matches_total} encerradas`].filter(Boolean).join(' · ') || plural(champ.matches_total, 'jogo', 'jogos')
 
   return <View style={{ flex: 1 }}>
-    <ScrollView ref={scroll} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 48 }}>
+    <KeyboardScrollView ref={scroll} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 48 }}>
       <TeamsPlate bottom={16}>
         {topBar}
         <View style={{ paddingHorizontal: 16, paddingTop: 12 }}><EventPoster {...posterProps(detail)} size="hero" /></View>
@@ -279,7 +280,7 @@ export default function EventManageScreen({ params, navigation, onExpired }: Scr
         </> : null}
       </View> : null}
       </View>
-    </ScrollView>
+    </KeyboardScrollView>
 
     {sheet === 'cancel' ? <CancelEventSheet detail={detail} onClose={() => setSheet(null)} onExpired={onExpired}
       onCancelled={next => { setSheet(null); update(next, 'Evento cancelado.', 'Os inscritos foram avisados no canal e nas notificações.') }} /> : null}

@@ -106,7 +106,7 @@ export function ScheduleSheet({ row, city, busy, error, conflict, onSubmit, onCl
         </Button>
         <p className="m-0 flex items-start gap-2 text-[10.5px] leading-normal text-ink-muted">
           <Info size={15} className="mt-px flex-none" aria-hidden="true" />
-          Os dois elencos são avisados. A reserva da quadra é com o local; o Arena só registra.
+          {card.sport === 'tenis' ? 'Os dois atletas são avisados.' : 'Os dois elencos são avisados.'} A reserva da quadra é com o local; o Arena só registra.
         </p>
         {onOpenMatch && (
           <Button type="button" variant="text" className="flex min-h-10 items-center justify-self-start gap-1.5 py-1 no-underline" onClick={onOpenMatch}>

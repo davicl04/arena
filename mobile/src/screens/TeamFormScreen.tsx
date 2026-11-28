@@ -24,6 +24,7 @@ import { colors } from '../theme'
 import { teamInitials } from '../utils/teamInitials'
 import { showTeams } from './teamsNavigation'
 import { Icon } from '../components/Icon'
+import { personInitials } from '../utils/personInitials'
 
 /** Brasão pendente: mantido, escolhido na galeria já recortado em 1:1 (enviado ao salvar) ou marcado para remover. */
 type CrestChange = { kind: 'keep' } | { kind: 'upload'; file: UploadFile } | { kind: 'remove' }
@@ -119,7 +120,7 @@ export default function TeamFormScreen({ user, navigation, onExpired, params }: 
     crest_url: crestPath,
     my_role: 'representante',
     member_count: team?.member_count ?? 1,
-    roster_preview: team?.roster_preview ?? [{ user_id: user.id, first_name: user.name.trim().split(/\s+/)[0], avatar_url: user.avatar?.url ?? null, position: football?.position ?? null, is_representative: true }],
+    roster_preview: team?.roster_preview ?? [{ user_id: user.id, first_name: user.name.trim().split(/\s+/)[0], initials: personInitials(user.name), avatar_url: user.avatar?.url ?? null, position: football?.position ?? null, is_representative: true }],
     formats: team?.formats ?? [],
   }
 

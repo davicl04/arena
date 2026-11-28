@@ -54,8 +54,9 @@ function History({ sport, onOpen, onExpired }: { sport: MatchCard['sport']; onOp
 }
 
 /**
- * Minhas partidas (Próximas | Histórico). Próximas é o que a placa já leu (`GET /me/play`: combinando, agendada e
- * resultado em aberto); o Histórico lê `GET /me/matches?scope=historico` só quando é aberto. Cada cartão leva à partida.
+ * Minhas partidas (Próximas | Histórico). Próximas é o que a placa já leu (`GET /me/play`: combinando e agendada, inclusive
+ * à espera do placar); o Histórico lê `GET /me/matches?scope=historico` só quando é aberto, com as de resultado confirmado
+ * primeiro (ainda na janela de 48 h das estatísticas) e depois as encerradas. Cada cartão leva à partida.
  */
 export function MyMatches({ sport, upcoming, onOpen, onExpired }: {
   sport: MatchCard['sport']

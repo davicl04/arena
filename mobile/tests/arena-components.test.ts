@@ -2,6 +2,7 @@ import React from 'react'
 import { act, create } from 'react-test-renderer'
 import type { ReactTestRenderer } from 'react-test-renderer'
 import * as SecureStore from 'expo-secure-store'
+import * as Clipboard from 'expo-clipboard'
 import { Share } from 'react-native'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { brandSvgs } from '../src/assets/brand-svgs'
@@ -18,6 +19,7 @@ import { TeamCrest } from '../src/components/arena/TeamCrest'
 import { TierEmblem } from '../src/components/arena/TierEmblem'
 import type { PixInfo } from '../src/components/arena/pix'
 import { pixShareMessage, shareFeedback } from '../src/components/arena/pix'
+import { toasts } from './support/toast'
 import { byLabel, enableAct, textOf } from './support/native'
 
 vi.mock('react-native', async () => (await import('./support/native')).reactNativeMock())
@@ -282,6 +284,24 @@ describe('PixBlock: texto selecionável e Compartilhar', () => {
     await press(tree, 'Compartilhar Pix Copia e Cola')
     expect(Share.share).toHaveBeenCalledWith({ message: pix.copyPaste })
     expect(textOf(tree)).toContain('Código Pix Copia e Cola enviado ao Compartilhar do aparelho.')
+  })
+
+  it('Copiar chave Pix e Copiar Pix Copia e Cola põem só o texto na área de transferência, com o visto e o toast da web', async () => {
+    vi.mocked(Clipboard.setStringAsync).mockClear().mockResolvedValue(true)
+    const tree = await render(h(PixBlock, { pix }))
+    await press(tree, 'Copiar chave Pix')
+    expect(Clipboard.setStringAsync).toHaveBeenLastCalledWith('copa@example.com')
+    expect(toasts().map(item => [item.tone, item.title])).toEqual([['success', 'Chave Pix copiada.']])
+    await press(tree, 'Copiar Pix Copia e Cola')
+    expect(Clipboard.setStringAsync).toHaveBeenLastCalledWith(pix.copyPaste)
+    expect(toasts().at(-1)?.title).toBe('Pix Copia e Cola copiado. Cole no app do seu banco.')
+  })
+
+  it('se a cópia falha, o aviso manda selecionar e copiar à mão', async () => {
+    vi.mocked(Clipboard.setStringAsync).mockClear().mockRejectedValueOnce(new Error('indisponível'))
+    const tree = await render(h(PixBlock, { pix }))
+    await press(tree, 'Copiar chave Pix')
+    expect(toasts().map(item => [item.tone, item.title])).toEqual([['warning', 'Não foi possível copiar. Mantenha o dedo sobre a chave para selecionar e copiar.']])
   })
 
   it('fechar o menu não diz nada; uma falha manda selecionar e copiar à mão', async () => {

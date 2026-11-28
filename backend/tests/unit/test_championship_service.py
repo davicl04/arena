@@ -174,16 +174,18 @@ def test_matches_are_labelled_in_bracket_order_and_staged_by_the_competition():
     assert championship._stage(robin, games[2], 2) == 'Rodada 2'
 
 
-def test_the_list_shows_what_needs_a_date_first_then_the_schedule_then_the_finished():
-    def row(state, starts_at=None, can_schedule=False, round_number=1, position=1):
+def test_the_list_shows_what_the_organizer_acts_on_first_then_the_schedule_the_waiting_and_the_finished():
+    def row(state, starts_at=None, can_schedule=False, round_number=1, position=1, awaiting_decision=False):
         return SimpleNamespace(card=SimpleNamespace(state=state, starts_at=starts_at), can_schedule=can_schedule,
-                               round_number=round_number, position=position)
+                               round_number=round_number, position=position, awaiting_decision=awaiting_decision)
 
-    to_schedule, waiting = row('combinando', can_schedule=True), row('combinando', round_number=2)
+    to_schedule, waiting = row('combinando', can_schedule=True, position=2), row('combinando', round_number=2)
+    decide = row('agendada', NOW - 3 * H, awaiting_decision=True)
     soon, later = row('agendada', NOW + H), row('agendada', NOW + 2 * H)
     old, recent = row('encerrada', NOW - 5 * H), row('realizada', NOW - H)
-    ordered = sorted([recent, later, waiting, old, soon, to_schedule], key=championship._group)
-    assert ordered == [to_schedule, waiting, soon, later, recent, old]
+    ordered = sorted([recent, later, waiting, old, soon, to_schedule, decide], key=championship._group)
+    # The match waiting for a previous winner has nothing to do yet: it comes after the scheduled ones (J1, J2, J3).
+    assert ordered == [decide, to_schedule, soon, later, waiting, recent, old]
 
 
 def test_the_conflict_answers_with_the_message_and_the_match_that_clashes():

@@ -17,9 +17,9 @@ export function team(overrides: Partial<TeamCard> = {}): TeamCard {
   return {
     id: 10, name: 'Ferrugem FC', initials: 'FF', city: brasilia, crest_url: null, my_role: 'representante', member_count: 3, representative_count: 2,
     roster_preview: [
-      { user_id: 1, first_name: 'Ricardo', avatar_url: null, position: 'atacante', is_representative: true },
-      { user_id: 2, first_name: 'Rafa', avatar_url: null, position: 'meio_campo', is_representative: true },
-      { user_id: 3, first_name: 'Tiago', avatar_url: null, position: 'defesa', is_representative: false },
+      { user_id: 1, first_name: 'Ricardo', initials: 'RM', avatar_url: null, position: 'atacante', is_representative: true },
+      { user_id: 2, first_name: 'Rafa', initials: 'RN', avatar_url: null, position: 'meio_campo', is_representative: true },
+      { user_id: 3, first_name: 'Tiago', initials: 'TM', avatar_url: null, position: 'defesa', is_representative: false },
     ],
     formats: formats({ society: { state: 'ranqueado', tier: 'prata', played: 5 }, futsal: { state: 'classificacao', played: 1 } }),
     pending_join_requests: 0, pending_invites: 0, created_at: '2026-09-01T12:00:00Z', ...overrides,

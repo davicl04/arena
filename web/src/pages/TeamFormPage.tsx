@@ -10,6 +10,7 @@ import type { TeamCard, TeamInput } from '@/api/teams'
 import ImageCropSheet from '@/components/ImageCropSheet'
 import { TeamCrest } from '@/components/arena/TeamCrest'
 import { CitySheet } from '@/components/teams/CitySheet'
+import { personInitials } from '@/utils/personInitials'
 import { ConfirmBox } from '@/components/teams/ConfirmBox'
 import { darkEyebrow, darkNotice, groupLabel, teamButton } from '@/components/teams/styles'
 import { MintBadge, TeamIdCard } from '@/components/teams/TeamIdCard'
@@ -102,7 +103,7 @@ export default function TeamFormPage({ teamId, user, profiles, onDone, onClosed,
     crest_url: crestPath,
     my_role: 'representante',
     member_count: team?.member_count ?? 1,
-    roster_preview: team?.roster_preview ?? [{ user_id: user.id, first_name: user.name.trim().split(/\s+/)[0], avatar_url: user.avatar?.url ?? null, position: football?.position ?? null, is_representative: true }],
+    roster_preview: team?.roster_preview ?? [{ user_id: user.id, first_name: user.name.trim().split(/\s+/)[0], initials: personInitials(user.name), avatar_url: user.avatar?.url ?? null, position: football?.position ?? null, is_representative: true }],
     formats: team?.formats ?? [],
   }
 

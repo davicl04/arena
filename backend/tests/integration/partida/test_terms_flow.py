@@ -73,7 +73,9 @@ def test_two_acceptances_schedule_the_match(client, world, clock):
     # Only who acts for the other side is told; the banner and the audit entry are written.
     assert [n.user_id for n in notifications_of(db, 'condicoes_propostas')] == [world['rep_b'].id]
     assert notifications_of(db, 'condicoes_propostas')[0].payload['court_name'] == 'Quadra Central'
-    assert len(events_of(db, match, 'condicoes_propostas')) == 1
+    # The banner names the court once ("em Quadra Central", not "na quadra Quadra Central").
+    assert [m.body for m in events_of(db, match, 'condicoes_propostas')] == [
+        'Ferrugem FC propôs condições em Quadra Central. O outro lado precisa aceitar.']
     assert [a.action for a in audit_actions(db, 'condicoes.propostas')] == ['condicoes.propostas']
 
     terms_id = pending['id']
@@ -104,7 +106,7 @@ def test_two_acceptances_schedule_the_match(client, world, clock):
     scheduled = notifications_of(db, 'partida_agendada')
     assert {n.user_id for n in scheduled} == {world[name].id for name in ('rep_a', 'member_a', 'member_b')}
     assert all(n.payload['changed'] is False for n in scheduled)
-    assert len(events_of(db, match, 'partida_agendada')) == 1
+    assert [m.body for m in events_of(db, match, 'partida_agendada')] == ['Partida agendada em Quadra Central.']
     assert [a.action for a in audit_actions(db, 'partida.agendada')] == ['partida.agendada']
     assert len(audit_actions(db, 'condicoes.aceitas')) == 1
 

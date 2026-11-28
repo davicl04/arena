@@ -29,6 +29,7 @@ import { useResource } from '../hooks/useResource'
 import { openUser } from '../navigation/openUser'
 import type { ScreenProps } from '../navigation/screens'
 import { useThemeColors } from '../hooks/useTheme'
+import { pageTitle } from '../styles'
 
 /** Estado vazio honesto: sem ninguém classificado, sem pontos nem posições inventados. */
 /** Estado vazio do Ranking: o `EmptyState` da web (quadro do ícone, título e texto, sem cartão). */
@@ -139,7 +140,7 @@ export default function RankingScreen({ user, navigation, params, onExpired, not
   return <ScrollView ref={scroll} testID="ranking-screen" contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 10, paddingBottom: 32 }} keyboardShouldPersistTaps="handled">
     <View ref={content} collapsable={false} style={{ gap: 14 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-        <Text accessibilityRole="header" style={{ color: c.heading, fontSize: 17, fontWeight: '700' }}>Ranking</Text>
+        <Text accessibilityRole="header" style={{ color: c.heading, ...pageTitle }}>Ranking</Text>
         <View style={{ marginRight: -8 }}><NotificationBell tone="light" count={notificationSummary.count} onOpen={() => navigation.go('notifications')} /></View>
       </View>
       {profiles.loading

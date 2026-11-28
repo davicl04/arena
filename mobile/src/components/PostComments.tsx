@@ -7,6 +7,7 @@ import { usePagedList } from '../hooks/usePagedList'
 import { reportActionError } from '../hooks/useSubmit'
 import { cx } from '../styles'
 import { colors } from '../theme'
+import { formatDayMonth } from '../utils/format'
 import { LoadError } from './arena/LoadError'
 import GlassOverlay from './GlassOverlay'
 import ReportForm from './ReportForm'
@@ -69,7 +70,7 @@ export default function PostComments({ post, viewerId, token, onClose, onCountCh
       <Avatar path={comment.author_avatar_url} name={comment.author_name} token={token} size={28} />
       <View className="grow basis-0">
         <Text className="text-white"><Text className="font-bold">{comment.author_name} </Text>{comment.body}</Text>
-        <Text className="mt-0.5 text-[11px] text-glass-muted">{new Date(comment.created_at).toLocaleDateString('pt-BR')}</Text>
+        <Text className="mt-0.5 text-[11px] text-glass-muted">{formatDayMonth(new Date(comment.created_at))}</Text>
       </View>
       {comment.author_id !== viewerId ? <Pressable accessibilityRole="button" accessibilityLabel={`Denunciar comentário de ${comment.author_name}`} onPress={() => { setError(''); setReporting(comment) }} className="min-h-9 min-w-9 items-center justify-center"><Text className="text-glass-muted">⚑</Text></Pressable> : null}
       {comment.can_delete ? <Pressable accessibilityRole="button" accessibilityLabel={`Excluir comentário de ${comment.author_name}`} accessibilityState={{ disabled: removing !== null }} disabled={removing !== null} onPress={() => void remove(comment)} className="min-h-9 min-w-9 items-center justify-center"><Text className="text-glass-muted">✕</Text></Pressable> : null}

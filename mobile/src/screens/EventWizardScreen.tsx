@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, View } from 'react-native'
+import { KeyboardAvoidingView, Modal, Platform, Pressable, View } from 'react-native'
 import { Text } from '../components/Text'
 import { ApiError } from '../api/client'
 import type { City } from '../api/client'
@@ -17,7 +17,7 @@ import type { EventForm, FormErrors, FormField } from '../components/organizer/e
 import { CapacityStep, NameStep, PriceStep, SportStep, WhenStep } from '../components/organizer/WizardSteps'
 import type { CategoryChange } from '../components/organizer/WizardSteps'
 import Sheet from '../components/Sheet'
-import { Screen } from '../components/Screen'
+import { ModalScreen } from '../components/ModalScreen'
 import { ToastViewport } from '../components/toast/ToastViewport'
 import { toast } from '../components/toast/toastStore'
 import { reportActionError } from '../hooks/useSubmit'
@@ -26,6 +26,8 @@ import { makeEntry } from '../navigation/routes'
 import { useThemeColors } from '../hooks/useTheme'
 import { colors } from '../theme'
 import { Icon } from '../components/Icon'
+import { KeyboardScrollView } from '../components/KeyboardScrollView'
+import { pageTitle } from '../styles'
 
 
 type Busy = 'draft' | 'publish' | null
@@ -202,7 +204,7 @@ export default function EventWizardScreen({ params, navigation, onExpired }: Scr
     </Pressable>
     <View style={{ flex: 1, minWidth: 0 }}>
       <Text style={{ color: colors.mint, fontSize: 9, fontWeight: '800', letterSpacing: 1.1 }}>ORGANIZADOR</Text>
-      <Text accessibilityRole="header" style={{ color: '#ffffff', fontSize: 17, fontWeight: '800' }}>{eventId ? 'Editar rascunho' : 'Novo evento'}</Text>
+      <Text accessibilityRole="header" style={{ color: '#ffffff', ...pageTitle }}>{eventId ? 'Editar rascunho' : 'Novo evento'}</Text>
     </View>
     {!loading && !loadError && !blocked ? <View accessible accessibilityLabel={`Passo ${step + 1} de ${WIZARD_STEPS.length}`} style={{ marginRight: 8, borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 10, paddingVertical: 4 }}>
       <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 11, fontWeight: '800' }}>{step + 1}/{WIZARD_STEPS.length}</Text>
@@ -225,7 +227,7 @@ export default function EventWizardScreen({ params, navigation, onExpired }: Scr
     </View>
     : <>
       <StepBars done={step + 1} total={WIZARD_STEPS.length} inset={16} />
-      <ScrollView key={step} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40 }}>
+      <KeyboardScrollView key={step} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40 }}>
         <Text accessibilityLiveRegion="polite" style={{ position: 'absolute', width: 1, height: 1, opacity: 0 }}>{`Passo ${step + 1} de ${WIZARD_STEPS.length}. ${WIZARD_STEPS[step].question}`}</Text>
         <Text accessibilityRole="header" style={{ marginTop: 18, marginBottom: 4, color: '#ffffff', fontSize: 24, lineHeight: 28, fontWeight: '800' }}>{WIZARD_STEPS[step].question}</Text>
 
@@ -255,12 +257,12 @@ export default function EventWizardScreen({ params, navigation, onExpired }: Scr
         <EventPoster name={form.name.trim() || 'Nome do evento'} sport={form.sport} startsAt={previewStart} format={form.format} distanceKm={form.distanceKm} eventType={form.competitionType}
           priceCents={form.paid === null ? null : paid ? parsePrice(form.price) : 0} acceptedTiers={form.restricted ? form.tiers : null}
           entries={previewCapacity ? { count: 0, capacity: previewCapacity } : null} state="rascunho" stateLabel={paid ? 'Vai para aprovação' : 'Rascunho'} showSport />
-      </ScrollView>
+      </KeyboardScrollView>
     </>
 
   return <View style={{ flex: 1, backgroundColor: colors.forest }}>
-    <Modal visible animationType="slide" statusBarTranslucent onRequestClose={requestClose}>
-      <Screen className="grow basis-0 bg-forest">
+    <Modal visible animationType="slide" statusBarTranslucent navigationBarTranslucent onRequestClose={requestClose}>
+      <ModalScreen dark className="bg-forest">
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           {header}
           {body}
@@ -273,7 +275,7 @@ export default function EventWizardScreen({ params, navigation, onExpired }: Scr
             <ActionButton block tone="outline" title="Continuar editando" onPress={() => setLeaving(false)} />
           </View>
         </Sheet> : null}
-      </Screen>
+      </ModalScreen>
       <ToastViewport />
     </Modal>
   </View>

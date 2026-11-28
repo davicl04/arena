@@ -17,8 +17,10 @@ export type MemberFaceSize = keyof typeof faceSizes
  * Rosto do atleta no elenco: a foto de perfil (iniciais quando não há foto) e a braçadeira "C" dos representantes.
  * `ring="dark"` contorna a braçadeira para fundos escuros.
  */
-export function MemberFace({ name, avatarUrl, representative = false, size = 'row', ring = 'light' }: {
+export function MemberFace({ name, initials, avatarUrl, representative = false, size = 'row', ring = 'light' }: {
   name: string
+  /** Iniciais prontas (prévia do elenco, que só traz o primeiro nome); sem elas, as do `name`. */
+  initials?: string
   avatarUrl: string | null
   representative?: boolean
   size?: MemberFaceSize
@@ -29,8 +31,8 @@ export function MemberFace({ name, avatarUrl, representative = false, size = 'ro
   const stacked = size === 'stack'
   return <View style={{ width: box, height: box, flexShrink: 0 }}>
     {stacked
-      ? <View style={{ width: box, height: box, borderRadius: box / 2, borderWidth: 2, borderColor: colors.forest, overflow: 'hidden' }}><Avatar path={avatarUrl} name={name} token={token} size={box - 4} /></View>
-      : <Avatar path={avatarUrl} name={name} token={token} size={box} />}
+      ? <View style={{ width: box, height: box, borderRadius: box / 2, borderWidth: 2, borderColor: colors.forest, overflow: 'hidden' }}><Avatar path={avatarUrl} name={name} initials={initials} token={token} size={box - 4} /></View>
+      : <Avatar path={avatarUrl} name={name} initials={initials} token={token} size={box} />}
     {representative ? <Armband size={armbandSizes[size]} ring={ring === 'dark' || stacked ? 'dark' : 'light'} /> : null}
   </View>
 }

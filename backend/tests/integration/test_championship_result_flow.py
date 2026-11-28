@@ -129,6 +129,10 @@ def test_divergence_waits_for_the_organizer_and_is_decided_with_a_justification(
     row = next(item for item in listing['items'] if item['card']['id'] == one.id)
     assert row['awaiting_decision'] is True and row['card']['phase'] == 'divergente' and row['card']['needs_my_action']
     assert listing['counts']['to_decide'] >= 1
+    # Exclusive counters (a match to decide is not also "agendada") and the match to decide comes first.
+    counts = listing['counts']
+    assert sum(counts[key] for key in ('to_schedule', 'waiting', 'scheduled', 'to_decide', 'finished')) == counts['total']
+    assert listing['items'][0]['awaiting_decision'] is True
     card = http.get(f'{API}/organizer/events/{world["event_id"]}', headers=world['organizer']).json()
     assert card['next_action']['kind'] == 'decidir_divergencias' and card['next_action']['count'] >= 1
     # The detail shows both reports, who sent them, and what the organizer may do.

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, View } from 'react-native'
+import { KeyboardAvoidingView, Modal, Platform, Pressable, View } from 'react-native'
 import { Text } from '../Text'
 import { ApiError } from '../../api/client'
 import { createRun, getRunRaces, previewRun } from '../../api/runs'
@@ -11,7 +11,7 @@ import { reportActionError } from '../../hooks/useSubmit'
 import { colors } from '../../theme'
 import { toDateKey } from '../../utils/dateKey'
 import { Icon } from '../Icon'
-import { Screen } from '../Screen'
+import { ModalScreen } from '../ModalScreen'
 import { ToastViewport } from '../toast/ToastViewport'
 import { DateField } from '../arena/DateField'
 import { ActionButton, ChoicePills, FieldError, FieldLabel, FormField, Hint, Notice } from '../arena/controls'
@@ -21,6 +21,8 @@ import type { HmsParts } from '../play/runView'
 import { PreviewHint, RunPreviewCard } from './RunPreviewCard'
 import { RunRaces } from './RunRaces'
 import { RunTimeFields } from './RunTimeFields'
+import { KeyboardScrollView } from '../KeyboardScrollView'
+import { pageTitle } from '../../styles'
 
 /** Espera depois da última mudança antes de pedir a prévia (cada toque numa seta não vira uma chamada). */
 export const PREVIEW_DELAY_MS = 300
@@ -164,18 +166,18 @@ export function RunEntrySheet({ initialDistance, onClose, onSaved, onFindRaces, 
     setChoice(next.distance_km)
   }
 
-  return <Modal visible animationType="slide" onRequestClose={() => { if (!busy) onClose() }}>
-    <Screen className="grow basis-0 bg-forest">
+  return <Modal visible animationType="slide" statusBarTranslucent navigationBarTranslucent onRequestClose={() => { if (!busy) onClose() }}>
+    <ModalScreen dark className="bg-forest">
       <KeyboardAvoidingView className="grow basis-0" behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 8, paddingTop: 4 }}>
           <Pressable accessibilityRole="button" accessibilityLabel="Fechar" accessibilityState={{ disabled: busy }} disabled={busy} onPress={onClose}
             style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
             <Icon name="x" size={22} color="#ffffff" />
           </Pressable>
-          <Text accessibilityRole="header" style={{ color: '#ffffff', fontSize: 15, fontWeight: '800' }}>Registrar corrida</Text>
+          <Text accessibilityRole="header" style={{ color: '#ffffff', ...pageTitle }}>Registrar corrida</Text>
           <View style={{ width: 44 }} />
         </View>
-        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingHorizontal: 18, paddingTop: 12, paddingBottom: 20 }}>
+        <KeyboardScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingHorizontal: 18, paddingTop: 12, paddingBottom: 20 }}>
           <View accessibilityRole="radiogroup" accessibilityLabel="Distância" style={{ flexDirection: 'row', borderBottomWidth: 2, borderBottomColor: 'rgba(255,255,255,0.15)' }}>
             {rulerItems.map(item => <RulerTick key={String(item.value)} item={item} selected={choice === item.value} onPress={() => setChoice(item.value)} />)}
           </View>
@@ -213,7 +215,7 @@ export function RunEntrySheet({ initialDistance, onClose, onSaved, onFindRaces, 
           <View accessibilityLiveRegion="polite" style={{ marginTop: 16, minHeight: 68 }}>
             {view ? <RunPreviewCard view={view} stale={!fresh} /> : hint ? <PreviewHint>{hint}</PreviewHint> : null}
           </View>
-        </ScrollView>
+        </KeyboardScrollView>
         <View style={{ paddingHorizontal: 18, paddingTop: 12, paddingBottom: 18, backgroundColor: colors.forest }}>
           {problems?.general ? <Notice tone="error" surface="dark">{problems.general}</Notice> : null}
           <View style={{ marginTop: problems?.general ? 10 : 0 }}>
@@ -221,7 +223,7 @@ export function RunEntrySheet({ initialDistance, onClose, onSaved, onFindRaces, 
           </View>
         </View>
       </KeyboardAvoidingView>
-    </Screen>
+    </ModalScreen>
     <ToastViewport />
   </Modal>
 }

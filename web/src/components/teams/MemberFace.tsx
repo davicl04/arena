@@ -20,8 +20,10 @@ const faceVariants = cva('', {
   defaultVariants: { size: 'row' },
 })
 
-export function MemberFace({ name, avatarUrl, representative = false, size, ring = 'light', className }: {
+export function MemberFace({ name, initials, avatarUrl, representative = false, size, ring = 'light', className }: {
   name: string
+  /** Iniciais prontas (prévia do elenco, que só traz o primeiro nome); sem elas, as do `name`. */
+  initials?: string
   avatarUrl: string | null
   representative?: boolean
   /** Contorno da braçadeira: `dark` sobre a placa `forest`. */
@@ -29,7 +31,7 @@ export function MemberFace({ name, avatarUrl, representative = false, size, ring
   className?: string
 } & VariantProps<typeof faceVariants>) {
   return <span data-slot="member-face" className={cn('relative inline-grid flex-none', className)}>
-    <SocialPhoto path={avatarUrl} name={name} size={size === 'sheet' ? 'lg' : 'md'} className={faceVariants({ size })} />
+    <SocialPhoto path={avatarUrl} name={name} initials={initials} size={size === 'sheet' ? 'lg' : 'md'} className={faceVariants({ size })} />
     {representative && <Armband size={size === 'sheet' ? 'lg' : size === 'stack' ? 'sm' : 'md'} ring={ring} />}
   </span>
 }

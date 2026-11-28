@@ -114,6 +114,8 @@ class JoinRequestDecisionInput(StrictInput):
 class RosterPreviewItemOut(BaseModel):
     user_id: int
     first_name: str
+    # Same initials as the avatars of the full roster (first letter of the first two words of the name).
+    initials: str
     avatar_url: str | None
     position: PositionName | None
     is_representative: bool

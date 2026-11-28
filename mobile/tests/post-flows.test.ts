@@ -71,17 +71,17 @@ describe('PostItem, PostActions, ReportForm e PostComments', () => {
     expect(tree.root.findAll(node => String(node.props.className ?? '').includes('aspect-[4/5]'))).toHaveLength(0)
     // A linha da legenda começa pela data (em cinza) e segue com o texto.
     const caption = tree.root.findAllByType('Text' as never).find(node => Array.isArray(node.props.children) && String(node.props.children[1]).includes('Treino do dia'))!
-    expect(caption.findAllByType('Text' as never)[1].props.children).toBe('10 de out.')
+    expect(caption.findAllByType('Text' as never)[1].props.children).toBe('10 out')
     await act(async () => { tree.unmount() })
   })
 
   it('sem legenda mostra só a data; no visualizador sem onOpenProfile a etiqueta não é botão', async () => {
     const tree = await mount({ caption: '' })
-    expect(textOf(tree)).toContain('10 de out.')
+    expect(textOf(tree)).toContain('10 out')
     expect(byLabel(tree, 'Abrir perfil de @atleta.a')).toHaveLength(0)
     expect(byLabel(tree, '@atleta.a')).toHaveLength(1)
-    expect(postDate('2025-03-02T12:00:00Z', new Date('2026-10-11T12:00:00Z'))).toBe('2 de mar. de 2025')
-    expect(postDate('2026-03-02T12:00:00Z', new Date('2026-10-11T12:00:00Z'))).toBe('2 de mar.')
+    expect(postDate('2025-03-02T12:00:00Z', new Date('2026-10-11T12:00:00Z'))).toBe('2 mar 2025')
+    expect(postDate('2026-03-02T12:00:00Z', new Date('2026-10-11T12:00:00Z'))).toBe('2 mar')
     await act(async () => { tree.unmount() })
   })
 

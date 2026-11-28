@@ -114,6 +114,19 @@ describe('Meus times: placa, carrossel de carteirinhas e elenco', () => {
     await act(async () => { tree.unmount() })
   })
 
+  it('a mesma pessoa tem as mesmas iniciais na carteirinha (só o primeiro nome) e no elenco (nome completo)', async () => {
+    serve()
+    const tree = await mount()
+    // A prévia traz `initials` do servidor: "MS" na carteirinha, como o avatar de "Maria Souza" no elenco (não "M").
+    const card = byLabel(tree, 'Iniciais de Maria')
+    const grid = byLabel(tree, 'Iniciais de Maria Souza')
+    expect(card.length).toBeGreaterThan(0)
+    expect(grid.length).toBeGreaterThan(0)
+    expect(textWithin(card[0])).toBe('MS')
+    expect(textWithin(grid[0])).toBe('MS')
+    await act(async () => { tree.unmount() })
+  })
+
   it('representante tem Convidar, Link e QR e Editar; membro tem Sair do time', async () => {
     serve()
     const tree = await mount()

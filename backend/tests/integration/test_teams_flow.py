@@ -36,7 +36,7 @@ def test_create_team_card_visibility_and_edit(client):
         'Leões do Cerrado', 'LC', None, 'representante')
     assert card['city'] == {'id': CITY, 'name': 'Brasília', 'state': 'DF'}
     assert (card['member_count'], card['representative_count']) == (1, 1)
-    assert card['roster_preview'] == [{'user_id': owner_id, 'first_name': 'Caio', 'avatar_url': None,
+    assert card['roster_preview'] == [{'user_id': owner_id, 'first_name': 'Caio', 'initials': 'CR', 'avatar_url': None,
                                        'position': 'goleiro', 'is_representative': True}]
     assert [cell['format'] for cell in card['formats']] == FORMATS
     assert {cell['state'] for cell in card['formats']} == {'sem_jogos'}

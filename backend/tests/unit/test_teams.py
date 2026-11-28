@@ -31,6 +31,7 @@ from app.services.teams import (
     ensure_closable,
     ensure_representative_remains,
     first_name,
+    person_initials,
     representative_count,
     roster_key,
     visible_person,
@@ -124,6 +125,12 @@ def test_roster_order_puts_representatives_first_then_oldest_stay():
 @pytest.mark.parametrize(('name', 'expected'), [('Caio Ramos', 'Caio'), ('  Lia ', 'Lia'), ('', '')])
 def test_first_name(name, expected):
     assert first_name(name) == expected
+
+
+@pytest.mark.parametrize(('name', 'expected'), [('Rafael Moreira', 'RM'), ('rafael da silva', 'RD'), (' Lia ', 'L'),
+                                                ('', '')])
+def test_person_initials_match_the_avatars_of_the_roster(name, expected):
+    assert person_initials(name) == expected
 
 
 def test_team_status_priority():

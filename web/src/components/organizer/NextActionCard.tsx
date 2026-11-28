@@ -152,12 +152,12 @@ export function NextActionCard({ detail, busy, onSubmit, onWithdraw, onFill, onR
     case 'decidir_divergencias':
       return <NowCard tone="bad" Icon={Gavel} title={`${plural(count, 'partida', 'partidas')} para decidir`}
         actions={<button type="button" className={teamButton({ tone: 'brand', size: 'md' })} onClick={onMatches}><Gavel aria-hidden="true" />Decidir</button>}>
-        Os placares não batem ou o prazo de 48 h passou sem resultado. Você decide, com uma justificativa que os dois times veem.
+        Os placares não batem ou o prazo de 48 h passou sem resultado. Você decide, com uma justificativa que os dois {entrantsUnit(detail.sport)} veem.
       </NowCard>
     case 'agendar_partidas':
       return <NowCard tone="now" Icon={CalendarDays} title={`${plural(count, 'partida', 'partidas')} para agendar`}
         actions={<button type="button" className={teamButton({ tone: 'brand', size: 'md' })} onClick={onMatches}><CalendarDays aria-hidden="true" />Agendar</button>}>
-        Escolha data, horário e quadra de cada jogo. Os dois elencos são avisados.
+        Escolha data, horário e quadra de cada jogo. {detail.sport === 'tenis' ? 'Os dois atletas são avisados.' : 'Os dois elencos são avisados.'}
       </NowCard>
     case 'acompanhar_partidas':
       return <NowCard tone="calm" Icon={CalendarDays} title={count ? `${plural(count, 'partida agendada', 'partidas agendadas')}` : 'Partidas em andamento'}

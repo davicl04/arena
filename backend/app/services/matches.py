@@ -170,7 +170,7 @@ def propose_terms(db: Session, user: User, match_id: int, data: TermsInput, *, n
             # After the proposed time the terms can no longer be accepted (`accept_terms`), so the action lapses then.
             action_until=starts_at)
     post_event(db, match.id, 'condicoes_propostas',
-               f'{side_name(db, sides, side)} propôs condições na quadra {court.name}. O outro lado precisa aceitar.',
+               f'{side_name(db, sides, side)} propôs condições em {court.name}. O outro lado precisa aceitar.',
                side=side, author_id=user.id, now=now,
                payload={'terms_id': terms.id, 'starts_at': iso(starts_at), 'court_id': court.id,
                         'booking_side': data.booking_side})
@@ -234,12 +234,12 @@ def accept_terms(db: Session, user: User, match_id: int, terms_id: int, *, now: 
     name = side_name(db, sides, side)
     payload = {'terms_id': terms.id, 'starts_at': iso(terms.starts_at), 'court_id': terms.court_id}
     if first:
-        post_event(db, match.id, 'partida_agendada', f'Partida agendada na quadra {court_name}.', side=side,
+        post_event(db, match.id, 'partida_agendada', f'Partida agendada em {court_name}.', side=side,
                    author_id=user.id, payload=payload, now=now)
     else:
         reopened = ' A reserva volta a ficar a confirmar.' if booking_changed else ''
         post_event(db, match.id, 'condicoes_aceitas',
-                   f'{name} aceitou as novas condições: quadra {court_name}.{reopened}',
+                   f'{name} aceitou as novas condições, agora em {court_name}.{reopened}',
                    side=side, author_id=user.id, payload=payload, now=now)
     audit.record(db, actor_id=user.id, action='condicoes.aceitas', target_type='match_terms', target_id=terms.id,
                  data={'match_id': match.id, 'side': side, 'changed': not first})

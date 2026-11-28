@@ -1,5 +1,6 @@
 import * as SecureStore from 'expo-secure-store'
 import { connection } from './connection'
+import { formFetch } from './formFetch'
 import { isApiPath } from './path'
 
 export type Sport = 'futebol' | 'tenis' | 'corrida'
@@ -82,10 +83,13 @@ export async function request<T>(path: string, method = 'GET', body?: unknown, {
   const timer = setTimeout(() => controller.abort(), body instanceof FormData ? UPLOAD_TIMEOUT_MS : REQUEST_TIMEOUT_MS)
   let response: Response
   try {
-    response = await fetch(`${base}/api/v1${path}`, { method,
-      headers: { ...(body ? (body instanceof FormData ? {} : { 'Content-Type': 'application/json' }) : {}), ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-      body: body ? (body instanceof FormData ? body : JSON.stringify(body)) as BodyInit : undefined, signal: controller.signal,
-    })
+    const url = `${base}/api/v1${path}`
+    const auth: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {}
+    // Upload pelo `XMLHttpRequest` (formFetch.ts): o `fetch` do Expo não envia a parte de arquivo do React Native.
+    response = body instanceof FormData
+      ? await formFetch(url, { method, headers: auth, body, signal: controller.signal })
+      : await fetch(url, { method, headers: { ...(body ? { 'Content-Type': 'application/json' } : {}), ...auth },
+        body: body ? JSON.stringify(body) : undefined, signal: controller.signal })
   } catch {
     const failure = new ApiError('Não foi possível conectar ao Arena. Verifique a conexão e tente novamente.', 0)
     connection.lost({ mutating, background, cause: failure })

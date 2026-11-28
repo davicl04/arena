@@ -53,10 +53,12 @@ from app.services import audit, bracket_rules, championship_lifecycle, notificat
 from app.services.match_access import (
     MatchAccess,
     audience,
+    guest_users,
     load_match_for,
     load_sides,
     match_access,
     side_actors,
+    side_users,
     subject_names,
 )
 from app.services.match_events import post_event
@@ -251,8 +253,7 @@ def _confirm(db: Session, match: Match, sides: Mapping[str, MatchSide], score: S
                                             notifications.decision_key(match.id)])
     championship_lifecycle.lock_following(db, match)       # a match lock, so it comes before the rankings
     recalculate_for_match(db, match, now=now)
-    notifications.notify_many(db, audience(db, match, sides=dict(sides)), 'resultado_partida', {
-        'match_id': match.id, 'outcome': 'confirmado', 'score_a': score.score_a, 'score_b': score.score_b})
+    _notify_confirmed(db, match, sides, score, names)
     post_event(db, match.id, 'resultado_confirmado',
                score_text(match.sport, names[sides['a'].id], names[sides['b'].id], score), side=score.winner,
                payload={'score_a': score.score_a, 'score_b': score.score_b}, now=now)
@@ -260,6 +261,27 @@ def _confirm(db: Session, match: Match, sides: Mapping[str, MatchSide], score: S
                  data={'score_a': score.score_a, 'score_b': score.score_b, 'winner': score.winner,
                        'source': 'confirmacao'})
     championship_lifecycle.after_score(db, match, now=now)
+
+
+def _notify_confirmed(db: Session, match: Match, sides: Mapping[str, MatchSide], score: Score,
+                      names: Mapping[int, str]) -> None:
+    """`resultado_partida` with both names and the recipient's `side`, so each client tells the result from the
+    recipient's point of view. Someone in both rosters gets no `side` (the neutral text with both names)."""
+    base = {'match_id': match.id, 'outcome': 'confirmado', 'score_a': score.score_a, 'score_b': score.score_b,
+            'sport': match.sport, 'name_a': names[sides['a'].id], 'name_b': names[sides['b'].id]}
+    rosters = side_users(db, [sides['a'], sides['b']], scope='membros')
+    side_of: dict[int, set[str]] = defaultdict(set)
+    for key in ('a', 'b'):
+        for user_id in rosters[sides[key].id]:
+            side_of[user_id].add(key)
+    for user_id, key in guest_users(db, match.id).items():
+        side_of[user_id].add(key)
+    groups: dict[str | None, list[int]] = defaultdict(list)
+    for user_id in audience(db, match, sides=dict(sides)):
+        keys = side_of.get(user_id, set())
+        groups[next(iter(keys)) if len(keys) == 1 else None].append(user_id)
+    for key, people in groups.items():
+        notifications.notify_many(db, people, 'resultado_partida', base if key is None else {**base, 'side': key})
 
 
 # ----- Lineups, points preview and the roster view ----------------------------------------------------------

@@ -5,6 +5,7 @@ import { colors } from '../../theme'
 import { Icon } from '../Icon'
 import { ArenaMark } from './ArenaMark'
 import { useTopArea } from '../../navigation/topArea'
+import { pageTitle } from '../../styles'
 
 const MARK_WIDTH = 420
 const MARK_HEIGHT = 240
@@ -70,7 +71,7 @@ export function DarkTopBar({ eyebrow, title, onBack, icon = 'back', backLabel, t
     </Pressable>
     <View style={{ flex: 1, minWidth: 0 }}>
       <DarkEyebrow>{eyebrow}</DarkEyebrow>
-      <Text accessibilityRole="header" style={{ color: '#ffffff', fontSize: 18, lineHeight: 23, fontWeight: '700' }}>{title}</Text>
+      <Text accessibilityRole="header" style={{ color: '#ffffff', ...pageTitle }}>{title}</Text>
     </View>
     {trailing ? <View style={{ paddingRight: 8 }}>{trailing}</View> : null}
   </View>

@@ -23,7 +23,7 @@ export default function AccountActions({ person, token, onClose, onBlocked, onEx
     catch (err) { reportActionError(err, 'Não foi possível bloquear a conta.', onExpired); setBusy(false) }
   }
   const title = step === 'block' ? 'Bloquear conta' : step === 'report' ? 'Denunciar conta' : 'Ações da conta'
-  return <GlassOverlay variant="screen" title={title} onClose={onClose} onBack={step === 'menu' || busy ? undefined : () => go('menu')}>
+  return <GlassOverlay variant="screen" safeTop title={title} onClose={onClose} onBack={step === 'menu' || busy ? undefined : () => go('menu')}>
     {step === 'menu' ? <>
       <View className="my-4 items-center gap-1">
         <Avatar path={person.avatar_url} name={person.name} token={token} size={64} />

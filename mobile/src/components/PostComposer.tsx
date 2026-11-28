@@ -1,29 +1,44 @@
 import { useRef, useState } from 'react'
-import { Image, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, View } from 'react-native'
+import { Image, KeyboardAvoidingView, Modal, Platform, Pressable, View } from 'react-native'
 import { Text, TextInput } from './Text'
 import * as ImagePicker from 'expo-image-picker'
+import { ImageManipulator, SaveFormat } from 'expo-image-manipulator'
 import { request } from '../api/client'
 import type { Post } from '../api/client'
 import { CAPTION_MAX } from '../api/social'
 import { reportActionError } from '../hooks/useSubmit'
-import { Screen } from './Screen'
+import { ModalScreen } from './ModalScreen'
 import { ToastViewport } from './toast/ToastViewport'
 import { cx } from '../styles'
 import { colors } from '../theme'
+import { KeyboardScrollView } from './KeyboardScrollView'
 
 export const POST_IMAGE_MAX_BYTES = 5 * 1024 * 1024
 export type PhotoAsset = ImagePicker.ImagePickerAsset
 
 /**
- * Passo 1 da nova publicação: o editor nativo do seletor recorta a foto em 1:1.
- * Devolve `null` se a pessoa cancelar; lança erro se a imagem passar do limite do servidor.
+ * Recorte quadrado do centro quando o seletor devolve a foto inteira. No Expo Go 58 com iOS 27, o editor do seletor não
+ * aplicou o recorte 1:1 (veio 1206×802), e o servidor recusa publicação que não seja quadrada.
+ */
+export async function squarePhoto(asset: PhotoAsset): Promise<PhotoAsset> {
+  if (!asset.width || !asset.height || asset.width === asset.height) return asset
+  const side = Math.min(asset.width, asset.height)
+  const crop = { originX: Math.floor((asset.width - side) / 2), originY: Math.floor((asset.height - side) / 2), width: side, height: side }
+  const image = await ImageManipulator.manipulate(asset.uri).crop(crop).renderAsync()
+  const saved = await image.saveAsync({ compress: 0.9, format: SaveFormat.JPEG })
+  return { ...asset, uri: saved.uri, width: saved.width, height: saved.height, mimeType: 'image/jpeg', fileName: 'publicacao.jpg', fileSize: undefined }
+}
+
+/**
+ * Passo 1 da nova publicação: o editor nativo do seletor recorta a foto em 1:1; se ele devolver a foto inteira, o app
+ * recorta o centro (`squarePhoto`). Devolve `null` se a pessoa cancelar; lança erro se a imagem passar do limite do servidor.
  */
 export async function pickSquarePhoto(): Promise<PhotoAsset | null> {
   const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsMultipleSelection: false, allowsEditing: true, aspect: [1, 1], quality: 0.9 })
   const asset = result.canceled ? null : result.assets[0]
   if (!asset) return null
   if (asset.fileSize && asset.fileSize > POST_IMAGE_MAX_BYTES) throw new Error('A imagem deve ter até 5 MiB.')
-  return asset
+  return squarePhoto(asset)
 }
 
 const formatCount = (value: number) => value.toLocaleString('pt-BR')
@@ -65,8 +80,8 @@ export default function PostComposer({ initial, onClose, onPublished, onExpired 
     }
   }
 
-  return <Modal visible animationType="slide" onRequestClose={() => { if (!busy) onClose() }}>
-    <Screen className="grow basis-0 bg-forest"><KeyboardAvoidingView className="grow basis-0" behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+  return <Modal visible animationType="slide" statusBarTranslucent navigationBarTranslucent onRequestClose={() => { if (!busy) onClose() }}>
+    <ModalScreen dark className="bg-forest"><KeyboardAvoidingView className="grow basis-0" behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <View className="flex-row items-center gap-2 px-2 py-1.5">
         <Pressable accessibilityRole="button" accessibilityLabel="Fechar nova publicação" accessibilityState={{ disabled: busy }} disabled={busy} onPress={onClose} className="min-h-11 min-w-11 items-center justify-center">
           <Text className="text-[22px] text-white">✕</Text>
@@ -83,7 +98,7 @@ export default function PostComposer({ initial, onClose, onPublished, onExpired 
           </View>
         </View>
       </View>
-      <ScrollView keyboardShouldPersistTaps="handled" contentContainerClassName="pb-8">
+      <KeyboardScrollView keyboardShouldPersistTaps="handled" contentContainerClassName="pb-8">
         <Image source={{ uri: asset.uri }} accessibilityLabel="Prévia da foto recortada" resizeMode="cover" className="aspect-square w-full bg-glass-ink" />
         <View className="gap-3 p-4">
           <TextInput value={caption} onChangeText={setCaption} maxLength={CAPTION_MAX} multiline editable={!busy}
@@ -96,8 +111,8 @@ export default function PostComposer({ initial, onClose, onPublished, onExpired 
             <Text className="text-[15px] font-bold text-forest">{busy ? 'Publicando…' : 'Publicar'}</Text>
           </Pressable>
         </View>
-      </ScrollView>
-    </KeyboardAvoidingView></Screen>
+      </KeyboardScrollView>
+    </KeyboardAvoidingView></ModalScreen>
     <ToastViewport />
   </Modal>
 }

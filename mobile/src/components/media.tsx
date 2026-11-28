@@ -4,10 +4,10 @@ import { Text } from './Text'
 import { apiUrl } from '../api/client'
 import { isApiPath } from '../api/path'
 import { Wash } from './ranking/Wash'
+import { personInitials } from '../utils/personInitials'
 import defaultCover from '../../assets/images/arena-cover.jpg'
 
 // Mídias da API são privadas: a imagem é carregada com o Bearer da sessão (SecureStore).
-const initialsOf = (name: string) => name.trim().split(/\s+/).slice(0, 2).map(part => part[0]).join('').toUpperCase()
 /**
  * Fonte autenticada de uma mídia da API: o endereço absoluto e o Bearer da sessão. O Bearer só vai para caminhos
  * relativos à API (`/api/v1/...`); qualquer outra forma (`@host/x`, `//host/x`, URL absoluta) devolve `null` (sem imagem
@@ -15,15 +15,18 @@ const initialsOf = (name: string) => name.trim().split(/\s+/).slice(0, 2).map(pa
  */
 export const authSource = (path: string, token: string) => isApiPath(path) ? { uri: apiUrl(path), headers: { Authorization: `Bearer ${token}` } } : null
 
-/** Foto da pessoa ou, sem ela, as iniciais em verde e extranegrito sobre o fundo da tela (o `SocialPhoto` da web). */
-export function Avatar({ path, name, token, size = 42 }: { path: string | null; name: string; token: string | null; size?: number }) {
+/**
+ * Foto da pessoa ou, sem ela, as iniciais em verde e extranegrito sobre o fundo da tela (o `SocialPhoto` da web).
+ * `initials` vem pronto quando só há o primeiro nome (a prévia do elenco na carteirinha do time).
+ */
+export function Avatar({ path, name, token, size = 42, initials }: { path: string | null; name: string; token: string | null; size?: number; initials?: string }) {
   const [failedImage, setFailedImage] = useState<{ path: string; token: string } | null>(null)
   // Tamanho e raio dependem de `size`: ficam em `style`.
   const shape = { width: size, height: size, borderRadius: size / 2 }
   const source = path && token ? authSource(path, token) : null
   return path && token && source && (failedImage?.path !== path || failedImage.token !== token)
     ? <Image key={path} accessibilityLabel={`Foto de ${name}`} source={source} onError={() => setFailedImage({ path, token })} className="bg-app" style={shape} />
-    : <View accessibilityRole="image" accessibilityLabel={`Iniciais de ${name}`} className="items-center justify-center bg-app" style={shape}><Text className="font-extrabold text-brand" style={{ fontSize: Math.round(size * 0.28) }}>{initialsOf(name)}</Text></View>
+    : <View accessibilityRole="image" accessibilityLabel={`Iniciais de ${name}`} className="items-center justify-center bg-app" style={shape}><Text className="font-extrabold text-brand" style={{ fontSize: Math.round(size * 0.28) }}>{initials || personInitials(name)}</Text></View>
 }
 
 /**

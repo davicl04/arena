@@ -1,5 +1,5 @@
 import { useCallback } from 'react'
-import { ScrollView, View } from 'react-native'
+import { View } from 'react-native'
 import { Text } from '../components/Text'
 import { ApiError } from '../api/client'
 import { decideResult } from '../api/brackets'
@@ -20,6 +20,7 @@ import { useSubmit } from '../hooks/useSubmit'
 import type { ScreenProps } from '../navigation/screens'
 import { useResolvedTheme, useThemeColors } from '../hooks/useTheme'
 import { formatClock, parseIso } from '../utils/format'
+import { KeyboardScrollView } from '../components/KeyboardScrollView'
 
 interface TimelineEvent { icon: IconName; title: string; detail: string; bad?: boolean }
 
@@ -56,7 +57,7 @@ function DecidedCard({ match }: { match: MatchDetail }) {
     <Text accessibilityRole="header" style={{ color: colors.brand, fontSize: 13, fontWeight: '700' }}>{`Resultado registrado${score ? `: ${score}` : ''}`}</Text>
     {wo ? <Text style={{ color: colors.ink, fontSize: 12, lineHeight: 18 }}>{`W.O. de ${sideName(sideOf(match, wo))}: o lado presente venceu por ${walkoverScoreText(match.sport)}.`}</Text> : null}
     {result?.decision_reason ? <Text style={{ color: colors.ink, fontSize: 12, lineHeight: 18 }}><Text style={{ fontWeight: '700' }}>Justificativa: </Text>{result.decision_reason}</Text> : null}
-    <Text style={{ color: colors['ink-muted'], fontSize: 10.5, lineHeight: 16 }}>A tabela e o ranking foram atualizados e os dois elencos foram avisados.</Text>
+    <Text style={{ color: colors['ink-muted'], fontSize: 10.5, lineHeight: 16 }}>{`A tabela e o ranking foram atualizados e ${match.sport === 'tenis' ? 'os dois atletas' : 'os dois elencos'} foram avisados.`}</Text>
   </View>
 }
 
@@ -133,7 +134,7 @@ export default function ResultDecisionScreen({ params, navigation, onExpired }: 
   const timeline = timelineOf(detail)
 
   return <View style={{ flex: 1 }}>
-    <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 48 }}>
+    <KeyboardScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 48 }}>
       <TeamsPlate bottom={16}><DarkTopBar eyebrow={detail.event?.name ?? 'Organizador'} title={title} onBack={navigation.back} /></TeamsPlate>
 
       <View style={{ padding: 16, gap: 14 }}>
@@ -185,6 +186,6 @@ export default function ResultDecisionScreen({ params, navigation, onExpired }: 
             {detail.state === 'cancelada' ? 'Esta partida foi cancelada.' : detail.state === 'agendada' ? 'A partida ainda não começou: a decisão fica disponível depois do horário.' : 'Não há resultado para decidir nesta partida agora.'}
           </Text> : null}
       </View>
-    </ScrollView>
+    </KeyboardScrollView>
   </View>
 }
