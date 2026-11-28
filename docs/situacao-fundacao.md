@@ -3,8 +3,18 @@
 ## Script para subir o ambiente local — 28 de novembro de 2026
 
 - **O que mudou:** novo `scripts/dev.sh`, com a seção "Subir tudo de uma vez" no README. Ele sobe o PostgreSQL e o MinIO pelo Compose no projeto `arena`, reaproveitando os volumes `arena_pgdata` e `arena_miniodata`, e não recria nem apaga o banco já populado. Em seguida aplica as migrações pendentes e sobe o backend (uvicorn com `--reload`, porta 8000), a web (Vite, porta 5173) e o Expo (porta 8081, em primeiro plano). O que já estiver no ar é mantido. O Ctrl+C encerra o que o script subiu; os bancos continuam no ar.
-- **Verificações:** rodado com o bash 3.2 do macOS, com o banco populado no ar. O script reaproveitou os contêineres `arena-db` e `arena-minio` (saudáveis) e manteve o backend que já ocupava a porta 8000. A web respondeu 200, `/health/ready` respondeu `ready` e o Metro ficou no ar. Um SIGINT no grupo de processos, como o Ctrl+C do terminal, encerrou a web e o Metro e deixou os bancos no ar. O banco populado já está na migração mais recente (`0017`).
-- **Limitações:** o trecho que sobe o backend (migração e uvicorn) não rodou no teste, porque a porta 8000 já estava ocupada; os comandos são os do README. O script não roda no Windows (PowerShell) e não faz a carga inicial nem o recálculo de rankings da primeira instalação.
+- **Celular pela rede, inclusive hotspot:** o script detecta o endereço do computador na rede atual: o IPv4 no Wi-Fi ou, no hotspot só IPv6 do iPhone (Mac com `192.0.0.2`, da tradução CLAT), o IPv6 global como nome do sslip.io. O Expo Go fecha com um IPv6 literal (`exp://[…]`) e abre com o nome. Os três serviços escutam em `::`, que atende IPv4 e IPv6. A web, a API e o QR saem nesse endereço por variável de ambiente, sem editar os `.env`:
+  - `REACT_NATIVE_PACKAGER_HOSTNAME` e `EXPO_PUBLIC_API_URL` no Expo;
+  - `VITE_API_URL` e `__VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS` no Vite;
+  - `ALLOWED_ORIGINS` com a origem da rede somada às do `backend/.env`.
+
+  Endereço novo desde a última execução faz o Metro subir com `--clear`. Um serviço mantido que não responda no endereço da rede gera um aviso.
+- **Verificações:**
+  - Bash 3.2 do macOS, com o banco populado no ar.
+  - No Wi-Fi, o script detectou `192.168.0.24`, aplicou as migrações (nada pendente; o banco está na `0017`) e subiu o backend. O backend respondeu `ready` por IPv4 e IPv6 e devolveu `access-control-allow-origin: http://192.168.0.24:5173`. A web respondeu 200 nos dois protocolos, e o manifesto do Expo apontou para `192.168.0.24`.
+  - Um SIGINT no grupo de processos, como o Ctrl+C do terminal, encerrou o que o script subiu e deixou os bancos no ar.
+  - No hotspot só IPv6, a mesma configuração foi montada à mão e funcionou no iPhone (Expo Go abriu o app; a web e a API responderam pelo nome do sslip.io). A detecção desse caso foi conferida com a saída real do `ifconfig` do hotspot simulada, gerando o mesmo nome; o script não foi rodado inteiro no hotspot.
+- **Limitações:** o script não roda no Windows (PowerShell) e não faz a carga inicial nem o recálculo de rankings da primeira instalação. No hotspot só IPv6, o celular precisa de internet para resolver o nome do sslip.io.
 
 ## Jogar no Expo mais parecido com a web: proposta e vaga em tela cheia — 28 de novembro de 2026
 
