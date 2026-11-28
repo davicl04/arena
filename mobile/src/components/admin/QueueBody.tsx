@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react'
-import {  } from 'react-native'
 import { Hint } from '../arena/controls'
 import { KeyboardScrollView } from '../KeyboardScrollView'
 

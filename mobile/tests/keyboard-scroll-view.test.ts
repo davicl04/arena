@@ -5,6 +5,7 @@ import { enableAct } from './support/native'
 import { KeyboardScrollView } from '../src/components/KeyboardScrollView'
 
 const listeners = new Map<string, () => void>()
+const keyboard = { visible: false }
 /** Posição (y, altura) do campo em foco dentro do conteúdo da rolagem; `null` quando ele não está nesta rolagem. */
 const focused: { at: [number, number] | null } = { at: null }
 const scrollTo = vi.fn()
@@ -17,7 +18,7 @@ vi.mock('react-native', async () => {
   }
   return {
     ...base,
-    Keyboard: { addListener: (event: string, handler: () => void) => { listeners.set(event, handler); return { remove: () => listeners.delete(event) } } },
+    Keyboard: { isVisible: () => keyboard.visible, addListener: (event: string, handler: () => void) => { listeners.set(event, handler); return { remove: () => listeners.delete(event) } } },
     TextInput: Object.assign(base.TextInput, { State: { currentlyFocusedInput: () => input } }),
   }
 })
@@ -71,6 +72,22 @@ describe('KeyboardScrollView: campo em foco à vista quando o teclado abre', () 
     focused.at = null
     await act(async () => { listeners.get('keyboardDidShow')?.() })
     expect(scrollTo).not.toHaveBeenCalled()
+    await act(async () => { tree.unmount() })
+  })
+
+  it('com o teclado já aberto, tocar em outro campo da rolagem refaz a medida (sem novo keyboardDidShow)', async () => {
+    vi.useFakeTimers()
+    scrollTo.mockClear()
+    const { tree, scroll } = await mount()
+    focused.at = [500, 80]
+    keyboard.visible = false
+    await act(async () => { scroll.props.onTouchEnd({}); vi.runAllTimers() })
+    expect(scrollTo).not.toHaveBeenCalled()
+    keyboard.visible = true
+    await act(async () => { scroll.props.onTouchEnd({}); vi.runAllTimers() })
+    expect(scrollTo).toHaveBeenCalledWith({ y: 296, animated: true })
+    keyboard.visible = false
+    vi.useRealTimers()
     await act(async () => { tree.unmount() })
   })
 })
