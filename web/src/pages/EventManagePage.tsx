@@ -296,12 +296,12 @@ export default function EventManagePage({ eventId, onBack, onEdit, onReceipts, o
     <div className={cn('px-5 pt-4', bodyMeasure)}>
       {action.error && <p className={cn(feedbackVariants(), 'mb-3')} role="alert">{action.error}</p>}
 
-      {desktop
-        ? <div data-slot="gestao-colunas" className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-start gap-x-8">
-          <div>{summaryBlocks}</div>
-          <div className="[&>section:first-child]:mt-0">{channelBlocks}</div>
-        </div>
-        : <>{summaryBlocks}{channelBlocks}</>}
+      {/* As duas colunas existem em todas as faixas, para os avisos (rascunho e lista carregada) e os inscritos abertos não
+          remontarem ao cruzar 1024 px; no celular e no tablet são `contents`, sem caixa: a coluna única de sempre. */}
+      <div data-slot={desktop ? 'gestao-colunas' : undefined} className="contents lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-start lg:gap-x-8">
+        <div className="contents lg:block">{summaryBlocks}</div>
+        <div className="contents lg:block lg:[&>section:first-child]:mt-0">{channelBlocks}</div>
+      </div>
     </div>
 
     {sheet === 'cancel' && <CancelEventSheet detail={detail} onClose={() => setSheet(null)} onExpired={onExpired}

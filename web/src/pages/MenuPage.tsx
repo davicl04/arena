@@ -110,10 +110,16 @@ export default function MenuPage({ isAdmin, busy, onEditProfile, onSports, onMod
       <ListRow Icon={LogOut} label={busy ? 'Aguarde…' : 'Sair da conta'} tone="danger" disabled={busy} onClick={onLogout} />
     </ListGroup>
   </>
-  if (layout !== 'computador') return <>{account}{app}</>
-  return <div data-largura="larga" data-slot="menu-colunas" className="grid grid-cols-2 items-start gap-x-8">
-    {/* O primeiro título de cada coluna encosta no cabeçalho, como o "Conta" da coluna única (`[header+&]:mt-0`). */}
-    <div className="min-w-0 [&>:first-child]:mt-0">{account}</div>
-    <div className="min-w-0 [&>:first-child]:mt-0">{app}</div>
+  const desktop = layout === 'computador'
+  /*
+   * As duas colunas existem em todas as faixas, para o cartão do organizador (com a confirmação de cancelar aberta) e o
+   * foco não remontarem ao cruzar 1024 px; no celular e no tablet são `contents`, sem caixa: a coluna única de sempre.
+   * O primeiro título de cada coluna encosta no cabeçalho; na coluna única, só o "Conta", quando vem logo depois do
+   * cabeçalho da tela (o `[header+&]:mt-0` do título, que deixa de ser irmão do cabeçalho dentro do invólucro).
+   */
+  return <div data-largura={desktop ? 'larga' : undefined} data-slot={desktop ? 'menu-colunas' : undefined}
+    className="contents [header+&>:first-child>:first-child]:mt-0 lg:grid lg:grid-cols-2 lg:items-start lg:gap-x-8">
+    <div className="contents lg:block lg:min-w-0 lg:[&>:first-child]:mt-0">{account}</div>
+    <div className="contents lg:block lg:min-w-0 lg:[&>:first-child]:mt-0">{app}</div>
   </div>
 }

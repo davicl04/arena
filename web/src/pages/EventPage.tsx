@@ -367,22 +367,21 @@ export default function EventPage({ eventId, initialSection, onSport, onTeams, o
 
   return (
     <div className="grid gap-3 pb-2" data-event={current.id} data-largura={desktop ? "larga" : undefined}>
-      {desktop ? (
-        <div data-slot="evento-colunas" className="grid grid-cols-[minmax(18rem,2fr)_minmax(0,3fr)] items-start gap-8">
-          <div className="grid gap-3">
-            {sideBlocks}
-            {entryBar}
-          </div>
-          <div className="grid gap-3">{mainBlocks}</div>
-        </div>
-      ) : (
-        <>
+      {/* As duas colunas existem em todas as faixas, para os avisos, a tabela e os inscritos (listas já carregadas) não
+          remontarem ao cruzar 1024 px; no celular e no tablet são `contents`, sem caixa: a coluna única de sempre. Só a barra
+          de inscrição, sem estado, muda de lugar. */}
+      <div
+        data-slot={desktop ? "evento-colunas" : undefined}
+        className="contents lg:grid lg:grid-cols-[minmax(18rem,2fr)_minmax(0,3fr)] lg:items-start lg:gap-8"
+      >
+        <div className="contents lg:grid lg:gap-3">
           {sideBlocks}
-          {mainBlocks}
-          {cta && <div aria-hidden="true" className="h-16 md:hidden" />}
-          {entryBar}
-        </>
-      )}
+          {desktop && entryBar}
+        </div>
+        <div className="contents lg:grid lg:gap-3">{mainBlocks}</div>
+      </div>
+      {!desktop && cta && <div aria-hidden="true" className="h-16 md:hidden" />}
+      {!desktop && entryBar}
       {sheet === "enter" && cta?.kind === "enter" && (
         <EnterSheet
           detail={current}
