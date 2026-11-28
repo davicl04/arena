@@ -74,6 +74,13 @@ export default function PostViewer({ username, posts, initialPostId, viewerId, h
   }, [hasMore, busy, moreError, overlay.wide])
 
   function removed(postId: number) {
+    // Excluir a foto em que a pessoa está não rola o contêiner (não há `track`): a âncora passa à seguinte, ou à anterior
+    // se era a última, para a troca de faixa não abrir o contêiner novo no topo.
+    if (anchor.current.id === postId) {
+      const index = posts.findIndex(post => post.id === postId)
+      const next = posts[index + 1] ?? posts[index - 1]
+      if (next) anchor.current = { id: next.id, fraction: 0 }
+    }
     onRemoved(postId)
     if (posts.length <= 1) onClose()
   }
