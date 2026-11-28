@@ -67,7 +67,7 @@ export default function PostViewer({ username, posts, initialPostId, viewerId, h
       </div>
       <span className="w-11" />
     </header>
-    <div ref={scroller} className="relative flex-1 overflow-x-hidden overflow-y-auto overscroll-contain pb-[102px] scrollbar-hidden app-narrow:pb-[calc(102px+env(safe-area-inset-bottom))]" data-testid="viewer-scroll">
+    <div ref={scroller} className="relative flex-1 overflow-x-hidden overflow-y-auto overscroll-contain pb-[calc(102px+env(safe-area-inset-bottom))] scrollbar-hidden md:pb-6" data-testid="viewer-scroll">
       {posts.map(post => <PostItem key={post.id} post={post} viewerId={viewerId} onUpdate={onUpdate} onRemoved={removed} onExpired={onExpired} />)}
       {moreError && <p className={cn(feedbackVariants(), 'mx-4 mt-2 mb-0')} role="alert">{moreError}</p>}
       {hasMore && <div ref={sentinel} className="px-4">

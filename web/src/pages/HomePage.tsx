@@ -8,6 +8,7 @@ import type { ArenaNotification } from "../api/notifications";
 import type { MatchCard } from "../api/matches";
 import { getMyStandings } from "../api/play";
 import { useNow } from "../hooks/useNow";
+import { useWideLayout } from "../hooks/useLayout";
 import { useResource } from "../hooks/useResource";
 import { usePendingNotifications } from "../hooks/usePendingNotifications";
 import type { NotificationSummaryState } from "../hooks/useNotificationSummary";
@@ -56,6 +57,8 @@ export default function HomePage({
 }) {
   // Relógio de 60 s: recalcula a Contagem e troca o Placar para a partida seguinte quando `starts_at` passa.
   const now = useNow(60_000);
+  // Em tablet e computador, o atalho de notificações fica na navegação lateral.
+  const wide = useWideLayout();
   const nextMatch = nextScheduledMatch(matches, now);
   // Só uma lista vazia confirmada conta como "sem perfis": carregando ou com falha, não convida a prepará-los.
   const hasProfiles = loading || profilesFailed || profiles.length > 0;
@@ -117,7 +120,7 @@ export default function HomePage({
       <header className="flex items-center justify-between">
         <Logo />
         <div className="flex items-center gap-0.5">
-          <NotificationBell tone="light" count={summary?.count ?? 0} onOpen={() => go("notifications")} />
+          {!wide && <NotificationBell tone="light" count={summary?.count ?? 0} onOpen={() => go("notifications")} />}
         </div>
       </header>
       <section className="pt-[26px] pb-[21px]">

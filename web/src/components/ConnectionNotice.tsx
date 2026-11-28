@@ -7,7 +7,8 @@ import { useNow } from '@/hooks/useNow'
 import { cn } from '@/lib/utils'
 
 /*
- * Aviso de conexão do app inteiro (plano de toasts, A3): a faixa presa acima da navegação inferior enquanto a ARENA não
+ * Aviso de conexão do app inteiro (plano de toasts, A3): a faixa presa acima da navegação inferior (no celular; em tablet
+ * e computador, na base da área de conteúdo, ao lado da navegação lateral) enquanto a ARENA não
  * responde, e a folha "Sem conexão" quando a pessoa tenta uma ação (`connection.attempted`). A folha só abre uma vez:
  * "Continuar sem conexão" a dispensa e, daí em diante, uma nova tentativa só faz a faixa tremer. Quando a conexão volta, a
  * faixa vira "Conexão restabelecida" por alguns segundos. Monte dentro do `app-frame` (a folha e a faixa são absolutas
@@ -43,7 +44,7 @@ function Strip({ state }: { state: ConnectionState }) {
     )
   }, [state.nudge])
   return <div ref={node} data-slot="connection-strip" data-state={state.status} data-nudged={state.nudge} role="status"
-    className={cn('absolute inset-x-0 bottom-[82px] z-connection flex h-[52px] items-center gap-3 rounded-t-card border-0 border-t border-solid bg-glass-strong px-4 text-white backdrop-blur-[16px] backdrop-saturate-[1.3] app-narrow:bottom-[calc(82px+env(safe-area-inset-bottom))]',
+    className={cn('absolute inset-x-0 bottom-[calc(82px+env(safe-area-inset-bottom))] z-connection flex h-[52px] items-center gap-3 rounded-t-card border-0 border-t border-solid bg-glass-strong px-4 text-white backdrop-blur-[16px] backdrop-saturate-[1.3] md:bottom-0 md:left-(--app-nav-inset)',
       offline ? 'border-t-warning-soft/[0.33]' : 'border-t-mint/[0.33]')}>
     <Dot restored={!offline} />
     {offline ? <>

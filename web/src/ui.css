@@ -12,8 +12,11 @@
  * Dentro de um bloco escuro por design (`.escuro-por-design`, abaixo), `noite:` também vale, nos dois temas.
  */
 @custom-variant noite (&:where([data-theme="dark"], [data-theme="dark"] *, .escuro-por-design, .escuro-por-design *));
-/* Largura do aplicativo: até 430 px ocupa a tela toda. Uso: `app-narrow:rounded-none`. */
-@custom-variant app-narrow (@media (max-width: 430px));
+/*
+ * Faixas da web responsiva (celular primeiro): o estilo sem variante é o do celular (até 767 px); tablet e computador
+ * entram por `md:` (a partir de 768 px) e `lg:` (a partir de 1024 px). Limites em `--breakpoint-md`/`--breakpoint-lg`,
+ * abaixo, repetidos só no gancho `useLayout` (hooks/useLayout.ts). Seção "Estrutura responsiva" no fim deste arquivo.
+ */
 /* Tela de entrada Dividida estreita: até 860 px, a metade da marca vira uma faixa no topo. Uso: `entrada-estreita:pt-6`. */
 @custom-variant entrada-estreita (@media (max-width: 860px));
 
@@ -27,6 +30,19 @@
 @theme static {
   --font-sans: Inter, system-ui, sans-serif;
   --font-display: Sora, system-ui, sans-serif;
+
+  /*
+   * Faixas (mesmos valores do Tailwind; declarados aqui por serem a fonte única do CSS): `md:` = tablet e acima,
+   * `lg:` = computador. O gancho `useLayout` (hooks/useLayout.ts) usa as mesmas consultas. Não use `sm:`/`xl:` para layout.
+   */
+  --breakpoint-md: 48rem; /* 768 px */
+  --breakpoint-lg: 64rem; /* 1024 px */
+  /*
+   * Medidas de conteúdo de tablet e computador (`max-w-leitura`, `max-w-larga`; ver "Estrutura responsiva"):
+   * leitura = subtelas, formulários e feed; larga = abas com grade de blocos.
+   */
+  --container-leitura: 40rem; /* 640 px */
+  --container-larga: 70rem; /* 1120 px */
 
   --color-brand: #005a36;
   --color-brand-hover: #00482b;
@@ -75,7 +91,7 @@
    * surface: cartões e superfícies que eram `bg-white` (o utilitário `surface` acrescenta o degradê do escuro);
    * sheet: folha clara e fundo do shadcn; field: campos; on-brand: texto e ícone sobre `bg-brand`;
    * heading: títulos e rótulos fortes; icon-tile(-ink): quadro de ícone verde-claro (ListRow, EmptyState, Badge);
-   * eyebrow: sobretítulos; hover: fundo de linha sob o ponteiro; nav: barra inferior; surface-edge: borda acesa.
+   * eyebrow: sobretítulos; hover: fundo de linha sob o ponteiro; nav: navegação (barra inferior no celular, lateral no tablet e no computador); surface-edge: borda acesa.
    */
   --color-surface: #fff;
   --color-sheet: #fff;
@@ -98,9 +114,7 @@
   --radius-card: 16px; /* listas agrupadas, cartões, mídia do post */
   --radius-panel: 18px; /* cartões de modalidade, opções de visibilidade, chips */
   --radius-sheet: 24px; /* folha inferior (cantos superiores) */
-  --radius-app: 32px; /* painel do app no desktop */
 
-  --shadow-app: 0 24px 70px rgba(73, 80, 87, 0.25);
   --shadow-primary: 0 7px 18px #005a3633;
   --shadow-card: 0 3px 12px #0000000d;
   --shadow-soft: 0 2px 6px #0001;
@@ -114,7 +128,7 @@
   --z-index-topbar: 15; /* barra fixa do perfil */
   --z-index-viewer: 19; /* visualizador "Publicações", abaixo da navegação */
   --z-index-connection: 19; /* faixa de conexão, presa acima da navegação inferior; o botão Jogar (z-nav) passa por cima dela */
-  --z-index-nav: 20; /* navegação inferior */
+  --z-index-nav: 20; /* navegação inferior (celular) */
   --z-index-glass-screen: 30; /* vidro de tela cheia (ações da conta) */
   --z-index-skip-link: 30; /* link "Pular para conteúdo" */
   --z-index-scrim: 40; /* fundo escurecido da folha */
@@ -213,7 +227,6 @@
   --color-surface-edge: #ffffff12;
   --surface-sheen: linear-gradient(180deg, #131d18, #0a110d);
   --app-glow: radial-gradient(80% 30% at 50% -6%, #eafff31c, transparent 70%);
-  --shadow-app: 0 24px 70px #0000008c;
   --shadow-primary: 0 0 26px #8fe0b440;
   --shadow-card: none;
   --shadow-soft: none;
@@ -440,7 +453,9 @@
  * atributo `data-expanded` quando o baralho se abre (ponteiro ou foco). O tom vem de `data-tone`: `--tone` colore
  * glifo, anel, linha do topo, Coliseu e botão de ação. O anel esvazia durante `--toast-duration`; pausa com o baralho
  * aberto (`data-expanded`) e com a janela sem foco (`data-blurred`), como os temporizadores do Base UI.
- * A posição vem de `--toast-bottom` (86 px sobre a navegação inferior; 16 px sem ela) somada a `--connection-dock`.
+ * A posição vem de `--toast-bottom` (86 px sobre a navegação inferior do celular, com `data-docked`; 16 px sem ela e em
+ * tablet e computador) somada a `--connection-dock`. Em tablet e computador, o viewport no `app-frame` fica centrado na
+ * área de conteúdo, ao lado da navegação lateral (`--app-nav-inset`), com no máximo 416 px.
  */
 @layer components {
   /*
@@ -561,10 +576,23 @@
   .toast-viewport {
     position: absolute;
     inset-inline: 12px;
-    bottom: calc(var(--toast-bottom, 86px) + var(--connection-dock, 0px));
+    --toast-bottom: calc(16px + env(safe-area-inset-bottom));
+    bottom: calc(var(--toast-bottom) + var(--connection-dock, 0px));
     z-index: var(--z-index-toast);
     pointer-events: none;
     transition: bottom 0.3s ease;
+  }
+  .toast-viewport[data-docked] {
+    --toast-bottom: calc(86px + env(safe-area-inset-bottom));
+  }
+  @media (width >= 48rem) {
+    .toast-viewport:not([data-floating]) {
+      --toast-bottom: 16px;
+      left: calc(var(--app-nav-inset) + 12px);
+      right: 12px;
+      margin-inline: auto;
+      max-width: 416px;
+    }
   }
   .toast-viewport[data-floating] {
     position: fixed;
@@ -1091,4 +1119,58 @@
     from { opacity: 0; scale: 0.92; }
     to { opacity: 1; scale: 1; }
   }
+}
+
+/*
+ * ===== Estrutura responsiva (ticket 01 da web responsiva) =====
+ * Faixas: celular sem variante (até 767 px), tablet `md:` (768 a 1023 px) e computador `lg:` (a partir de 1024 px);
+ * diferenças de estrutura pelo gancho `useLayout` (hooks/useLayout.ts). O `app-frame` (pages/ArenaPage.tsx) ocupa a
+ * janela em todas as faixas; em tablet e computador vira grade: navegação lateral (components/BottomNav.tsx) + `main`.
+ *
+ * `--app-nav-inset`: largura da navegação lateral (0 no celular, 88 px no tablet, 256 px no computador). Use-a para
+ * posicionar, sobre a área de conteúdo, algo absoluto no `app-frame` (toasts, faixa de conexão, barras presas à base):
+ * `md:left-(--app-nav-inset)`.
+ *
+ * Medidas de conteúdo (só em tablet e computador): o `main` recebe `md:px-medida`, que centraliza o conteúdo numa coluna
+ * de `--app-medida` com respiro lateral mínimo de `--app-respiro`. Padrão: coluna de leitura (`--container-leitura`,
+ * 640 px). Uma tela escolhe outra medida, sem editar o ArenaPage, pondo no elemento raiz que entrega ao `main` (filho
+ * direto) o atributo `data-largura`:
+ *   - `data-largura="larga"`: medida larga (`--container-larga`, 1120 px), para abas com grade de blocos;
+ *   - `data-largura="total"`: de ponta a ponta da área de conteúdo, sem respiro (placa ou capa de fora a fora); a
+ *     própria tela centraliza o conteúdo interno com `mx-auto max-w-leitura` ou `mx-auto max-w-larga`.
+ * Placas, capas e barras próprias continuam encostadas no topo da área de conteúdo (o ArenaPage não dá `md:pt-*` a elas).
+ */
+:root {
+  --app-nav-inset: 0px;
+}
+@media (width >= 48rem) {
+  :root {
+    --app-nav-inset: 88px;
+  }
+  [data-slot="app-frame"] > main {
+    --app-medida: var(--container-leitura);
+    --app-respiro: 2rem;
+  }
+  [data-slot="app-frame"] > main:has(> [data-largura="larga"]) {
+    --app-medida: var(--container-larga);
+  }
+  [data-slot="app-frame"] > main:has(> [data-largura="total"]) {
+    --app-medida: 100%;
+    --app-respiro: 0px;
+  }
+}
+@media (width >= 64rem) {
+  :root {
+    --app-nav-inset: 256px;
+  }
+  [data-slot="app-frame"] > main {
+    --app-respiro: 2.5rem;
+  }
+  [data-slot="app-frame"] > main:has(> [data-largura="total"]) {
+    --app-respiro: 0px;
+  }
+}
+/* Respiro lateral que centraliza o conteúdo do `main` na medida da tela (ver acima). */
+@utility px-medida {
+  padding-inline: max(var(--app-respiro, 2rem), calc((100% - var(--app-medida, 40rem)) / 2));
 }

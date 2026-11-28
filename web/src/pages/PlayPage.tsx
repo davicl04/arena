@@ -14,6 +14,7 @@ import { formatChips } from '../components/play/formatChips'
 import { MyMatches } from '../components/play/MyMatches'
 import { OtherWays } from '../components/play/OtherWays'
 import { NotificationBell } from '../components/notifications/NotificationBell'
+import { useWideLayout } from '../hooks/useLayout'
 import { PlateChips } from '../components/play/PlateChips'
 import type { PlateOption } from '../components/play/PlateChips'
 import { PlayButton } from '../components/play/PlayButton'
@@ -97,6 +98,8 @@ export default function PlayPage({ profiles, loading, board, openMatch, initialS
   onExpired: () => void
 }) {
   const ids = useId()
+  // Em tablet e computador, o atalho de notificações fica na navegação lateral.
+  const wide = useWideLayout()
   const [sport, setSport] = useState<Sport>(initialSport ?? 'futebol')
   const [mode, setMode] = useState<Mode>('time')
   const [format, setFormat] = useState<FootballFormat>('society')
@@ -280,7 +283,7 @@ export default function PlayPage({ profiles, loading, board, openMatch, initialS
           <MapPin size={13} className="text-mint" aria-hidden="true" />
           <span className="truncate">{city ? city.name : 'Definir cidade'}</span>
         </button>
-        <NotificationBell tone="dark" count={notificationCount} onOpen={() => go('notifications')} />
+        {!wide && <NotificationBell tone="dark" count={notificationCount} onOpen={() => go('notifications')} />}
       </div>
       <Tabs variant="dark" items={sportTabs} value={sport} onChange={next => { setSport(next); setSavedRun(null); onSportChange?.(next) }} label="Modalidade" idPrefix={`${ids}-tab-`} controls={`${ids}-panel`}
         className="relative border-b border-solid border-white/7" />

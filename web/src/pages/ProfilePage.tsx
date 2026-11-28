@@ -16,6 +16,7 @@ import ProfileTabs, { ProfilePanel } from "../components/ProfileTabs";
 import type { ProfileTab } from "../components/ProfileTabs";
 import Avatar from "../components/Avatar";
 import type { ConnectionsTab, Screen } from "../data/arena";
+import { useWideLayout } from "../hooks/useLayout";
 
 type StatsState = { status: "loading" } | { status: "error" } | { status: "ready"; stats: ProfileStats };
 
@@ -80,6 +81,8 @@ export default function ProfilePage({
   onExpired: () => void;
 }) {
   const [ownTab, setOwnTab] = useState<ProfileTab>("Fotos");
+  // Em tablet e computador, Notificações e Menu ficam na navegação lateral (sem o sino e o menu da capa).
+  const wide = useWideLayout();
   const profileTab = tab ?? ownTab;
   const setProfileTab = onTabChange ?? setOwnTab;
   const [statsState, setStatsState] = useState<StatsState>({ status: "loading" });
@@ -123,7 +126,7 @@ export default function ProfilePage({
         followingCount={counts?.following ?? null}
         sportList={profiles.map((p) => p.sport)}
         trailing={
-          <div className="flex items-center gap-1.5">
+          wide ? undefined : <div className="flex items-center gap-1.5">
             <NotificationBell tone="cover" count={notificationCount} onOpen={() => go("notifications")} />
             <IconButton tone="cover" aria-label="Menu" onClick={() => go("menu")}>
               <Menu size={21} />

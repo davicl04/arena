@@ -4,6 +4,7 @@ import { ApiError, request } from "../api/client";
 import type { Profile, ProfileInput, Sport, User } from "../api/client";
 import { SportsProfiles } from "../components/sports-profile/SportsProfiles";
 import BottomNav from "../components/BottomNav";
+import type { NavShortcut } from "../components/BottomNav";
 import { IconButton } from "@/components/ui/button";
 import { LoadError } from "@/components/ui/load-error";
 import { DialogContainerProvider } from "@/components/ui/dialog";
@@ -12,6 +13,7 @@ import { ConnectionNotice } from "../components/ConnectionNotice";
 import { cn } from "@/lib/utils";
 import { usePlayBoard } from "../hooks/usePlayBoard";
 import { useNotificationSummary } from "../hooks/useNotificationSummary";
+import { useWideLayout } from "../hooks/useLayout";
 import { NotificationBell } from "../components/notifications/NotificationBell";
 import { connection } from "../api/connection";
 import { reportActionError } from "../hooks/useSubmit";
@@ -196,8 +198,12 @@ export default function ArenaPage({
   const viewedUserId = current.userId ?? 0;
   const connectionsTab = current.tab ?? "followers";
   const mainRef = useRef<HTMLElement>(null);
-  // Moldura do app: os diálogos (Dialog) entram nela, não na viewport (ver ui/dialog.tsx).
+  // Contêiner do app (`app-frame`, a janela inteira): os diálogos (Dialog), as folhas, os toasts e o aviso de conexão
+  // entram nele, não no `body` (ver ui/dialog.tsx).
   const [frame, setFrame] = useState<HTMLDivElement | null>(null);
+  // Tablet e computador: navegação lateral antes do `main` (ordem de tabulação), com Notificações e Menu no pé; os
+  // sinos e o atalho de menu dos cabeçalhos das abas saem (hooks/useLayout.ts).
+  const wide = useWideLayout();
   // Placa do Jogar (GET /me/play): alimenta a tela Jogar e o ponto menta da navegação.
   const playBoard = usePlayBoard(onExpired, screen === "play" || screen === "home");
   // Resumo das notificações (GET /me/notifications/summary): sino das abas raiz, chips, Menu e placa do Início.
@@ -251,6 +257,11 @@ export default function ArenaPage({
   }
   function back() {
     show((old) => (old.length > 1 ? old.slice(0, -1) : [{ screen: "home" }]));
+  }
+  /** Atalho da navegação lateral: abre Notificações ou o Menu (já aberto, só volta ao topo, sem empilhar de novo). */
+  function openShortcut(next: NavShortcut) {
+    if (screen === next) show((old) => old);
+    else go(next);
   }
   function openComposer() {
     show(() => [{ screen: "community", compose: true }]);
@@ -365,23 +376,42 @@ export default function ArenaPage({
   // Ranking: barra própria (título e sino, sem voltar). Salão dos Lendários: tela escura com o voltar dentro dela.
   const rankingLayout = screen === "ranking";
   const legendsLayout = screen === "legends";
+  // Telas com placa, capa ou barra própria encostada no topo do `main` (sem respiro superior em nenhuma faixa).
+  const edgeLayout = profileLayout || communityLayout || teamsLayout || plateLayout || eventsLayout || legendsLayout || matchLayout;
+  const shortcut: NavShortcut | null = screen === "notifications" || screen === "menu" ? screen : null;
+  const nav = (
+    <BottomNav
+      active={activeNav}
+      onGo={go}
+      playAttention={playBoard.board?.attention}
+      notificationCount={notifications.count}
+      shortcut={shortcut}
+      onShortcut={openShortcut}
+    />
+  );
 
+  /*
+   * `app-frame` ocupa a janela em todas as faixas (ui.css, "Estrutura responsiva"). No celular, o `main` rola por baixo da
+   * navegação inferior (absoluta), com a reserva da altura dela. Em tablet e computador, o frame é uma grade com a
+   * navegação lateral (`--app-nav-inset`) e o `main`, que centraliza o conteúdo na medida da tela (`md:px-medida`).
+   */
   return (
     <DialogContainerProvider container={frame}>
-    <div className="grid min-h-dvh place-items-center p-6 app-narrow:p-0">
-      <div ref={setFrame} data-slot="app-frame" className="relative h-[844px] max-h-[calc(100dvh-48px)] w-[390px] overflow-hidden rounded-app border border-solid border-line bg-app bg-(image:--app-glow) bg-no-repeat shadow-app app-narrow:h-dvh app-narrow:max-h-none app-narrow:w-full app-narrow:rounded-none app-narrow:border-0 app-narrow:shadow-none">
+      <div ref={setFrame} data-slot="app-frame" className="relative h-dvh w-full overflow-hidden bg-app bg-(image:--app-glow) bg-no-repeat md:grid md:grid-cols-[var(--app-nav-inset)_minmax(0,1fr)] md:grid-rows-1">
+        {wide && nav}
         <main
           id="main"
           ref={mainRef}
           tabIndex={-1}
           className={cn(
-            "h-full overflow-x-hidden overflow-y-auto px-5 pt-[18px] pb-28 outline-none scrollbar-hidden app-narrow:pb-[calc(112px+env(safe-area-inset-bottom))]",
+            "h-full overflow-x-hidden overflow-y-auto px-5 pt-[18px] pb-[calc(112px+env(safe-area-inset-bottom))] outline-none scrollbar-hidden md:px-medida md:pb-12",
+            !edgeLayout && "md:pt-8",
             profileLayout && "@container-size pt-0",
             communityLayout && "px-0 pt-0",
             (teamsLayout || plateLayout || eventsLayout) && "px-0 pt-0",
             darkLayout && "bg-forest",
             legendsLayout && "bg-night px-0 pt-0",
-            matchLayout && "overflow-y-hidden px-0 pt-0 pb-[82px] app-narrow:pb-[calc(82px+env(safe-area-inset-bottom))]",
+            matchLayout && "overflow-y-hidden px-0 pt-0 pb-[calc(82px+env(safe-area-inset-bottom))] md:pb-0",
           )}
           aria-label={title}
         >
@@ -397,7 +427,7 @@ export default function ArenaPage({
           {rankingLayout && (
             <header className="-mt-2 -mr-2 mb-3 flex min-h-[54px] items-center justify-between">
               <h1 className="text-[17px]">{title}</h1>
-              <NotificationBell tone="light" count={notifications.count} onOpen={() => go("notifications")} />
+              {!wide && <NotificationBell tone="light" count={notifications.count} onOpen={() => go("notifications")} />}
             </header>
           )}
           {loadFailure && (
@@ -478,7 +508,7 @@ export default function ArenaPage({
               onOpenUser={openUser}
               onExpired={onExpired}
               notificationCount={notifications.count}
-              onNotifications={() => go("notifications")}
+              onNotifications={wide ? undefined : () => go("notifications")}
               composeOnOpen={Boolean(current.compose)}
               onComposeStarted={consumeComposeRequest}
             />
@@ -723,11 +753,10 @@ export default function ArenaPage({
             />
           )}
         </main>
-        <BottomNav active={activeNav} onGo={go} playAttention={playBoard.board?.attention} />
+        {!wide && nav}
         <ConnectionNotice frame={frame} />
         <Toaster container={frame} />
       </div>
-    </div>
     </DialogContainerProvider>
   );
 }
