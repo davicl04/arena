@@ -10,6 +10,7 @@ import { brandSvgs } from '../src/assets/brand-svgs'
 import type { PlayBoardState } from '../src/hooks/usePlayBoard'
 import PlayScreen from '../src/screens/PlayScreen'
 import { byLabel, enableAct, press, textOf } from './support/native'
+import { motion } from './support/reanimated'
 import { findToast, renderWithToasts, toasts, toastText, unmountToastTrees } from './support/toast'
 import {
   athleteSide, brasilia, emptySummary, notificationSummaryState, football, ferrugemRef, fromNow, leoesRef, matchCard, person, playBoard, proposal, search, slotOffer, standings,
@@ -86,6 +87,7 @@ const later = (minutes: number) => new Date(Date.now() + minutes * 60_000).toISO
 
 beforeEach(() => {
   enableAct()
+  motion.reduced = false
   navigation = fakeNavigation()
   reloadSpy = vi.fn()
   deferSpy = vi.fn()
@@ -473,6 +475,20 @@ describe('Jogar: buscando e cancelar', () => {
     expect(has(tree, 'Times de Brasília de qualquer nível · Society. 2 vagas para avulsos: goleiro, atacante.')).toBe(true)
     expect(stateOf(tree, 'Society 7 contra 7')).toMatchObject({ checked: true, disabled: true })
     expect(byLabel(tree, 'Cancelar busca').length).toBeGreaterThan(0)
+    // Duas ondas menta pulsam em volta do botão, como na web.
+    expect(host(tree, 'play-ripple')).toHaveLength(2)
+  })
+
+  it('com "reduzir movimento" a busca não pulsa, e parado o botão não tem ondas', async () => {
+    serve()
+    motion.reduced = true
+    const searching = await mount(playBoard({ searches: [active()] }))
+    expect(host(searching, 'play-elapsed')).toHaveLength(1)
+    expect(host(searching, 'play-ripple')).toHaveLength(0)
+    motion.reduced = false
+    const idle = await mount(playBoard())
+    expect(host(idle, 'play-button')).toHaveLength(1)
+    expect(host(idle, 'play-ripple')).toHaveLength(0)
   })
 
   it('mostra o formato da busca em andamento mesmo que o da placa seja outro', async () => {
@@ -598,10 +614,14 @@ describe('Jogar: proposta', () => {
     expect(navigation.go).not.toHaveBeenCalled()
   })
 
-  it('"Responder depois" adia sem chamar a API; o cartão da placa reabre a folha', async () => {
+  it('"Responder depois" adia sem chamar a API; o cartão da placa reabre a tela cheia', async () => {
     serve()
     const tree = await mount(playBoard({ proposals: [proposal()] }))
     expect(has(tree, 'Adversário encontrado · Society')).toBe(true)
+    // Tela cheia (não folha): sem fundo para tocar, e o leitor de tela ouve a descrição junto do título.
+    expect(host(tree, 'proposal-dialog')).toHaveLength(1)
+    expect(byLabel(tree, 'Fechar folha')).toHaveLength(0)
+    expect(byLabel(tree, 'Adversário encontrado · Society. Proposta de amistoso contra Leões do Cerrado. Responda em até 2 horas.')).toHaveLength(1)
     await press(tree, 'Responder depois')
     expect(deferSpy).toHaveBeenCalledWith(50)
     expect(calls('PUT')).toHaveLength(0)
@@ -612,8 +632,10 @@ describe('Jogar: proposta', () => {
     expect(has(tree, 'Os dois lados precisam aceitar em até 2 h. A proposta expira se ninguém responder.')).toBe(true)
     await press(tree, 'Responder à proposta')
     expect(has(tree, 'Adversário encontrado · Society')).toBe(true)
-    await press(tree, 'Fechar folha')
+    // O botão voltar do Android chega pelo `onRequestClose` do Modal e também só adia.
+    await act(async () => { tree.root.findAllByType('Modal' as never)[0].props.onRequestClose() })
     expect(has(tree, 'Adversário encontrado · Society')).toBe(false)
+    expect(calls('PUT')).toHaveLength(0)
   })
 
   it('quem não age pelo lado só lê: membro vê "Só os representantes aceitam."; no tênis, "Só o atleta aceita a proposta."', async () => {
@@ -955,7 +977,7 @@ describe('Jogar: corrida', () => {
 describe('Jogar: acessibilidade', () => {
   it('tudo que é tocável tem papel e nome, e os alvos têm 44 pt ou mais', async () => {
     serve()
-    // A proposta abre sozinha: a placa e a folha aparecem juntas.
+    // A proposta abre sozinha: a placa e a tela cheia aparecem juntas.
     const tree = await mount(playBoard({ proposals: [proposal()], offers: [slotOffer()], matches: [matchCard()] }))
     const touchables = tree.root.findAll(node => String(node.type) === 'Pressable' && node.props.accessible !== false)
     expect(touchables.length).toBeGreaterThan(15)
@@ -967,8 +989,8 @@ describe('Jogar: acessibilidade', () => {
       const style = Array.isArray(node.props.style) ? Object.assign({}, ...node.props.style) : node.props.style
       return !(style?.minHeight >= 44 || style?.height >= 44)
     })
-    // Só o fundo da folha, que cobre a tela inteira, não tem altura mínima.
-    expect(small.map(node => node.props.accessibilityLabel)).toEqual(['Fechar folha'])
+    // A tela cheia da proposta não tem fundo tocável: nenhum alvo fica abaixo do mínimo.
+    expect(small.map(node => node.props.accessibilityLabel)).toEqual([])
   })
 
   it('a confirmação sai pelo viewport de toasts (o anúncio é dele), sem região viva vazia fixa na tela', async () => {
