@@ -5,7 +5,7 @@ export default defineConfig({
   // O NativeWind só processa classes no Metro; nos testes, `styled` vira identidade. O react-native-svg e o safe-area-context
   // trazem sintaxe Flow que o Node não lê (e o reanimated, o expo-secure-store e o expo-location dependem do runtime nativo): os
   // testes usam as simulações de tests/support (um vi.mock próprio ainda vale). A captura (react-native-view-shot), a galeria
-  // (expo-media-library), a barra de status (expo-status-bar), o menu de compartilhar (expo-sharing), a área de transferência (expo-clipboard), os gestos
+  // (expo-media-library), a barra de status (expo-status-bar), o menu de compartilhar (expo-sharing), a área de transferência (expo-clipboard), o recorte de imagem (expo-image-manipulator), os gestos
   // (react-native-gesture-handler), os worklets (react-native-worklets) e as fontes (expo-font) também dependem do runtime nativo.
   resolve: {
     alias: [
@@ -26,6 +26,7 @@ export default defineConfig({
         'expo-status-bar': fileURLToPath(new URL('./tests/support/status-bar.ts', import.meta.url)),
         'expo-sharing': fileURLToPath(new URL('./tests/support/sharing.ts', import.meta.url)),
         'expo-clipboard': fileURLToPath(new URL('./tests/support/clipboard.ts', import.meta.url)),
+        'expo-image-manipulator': fileURLToPath(new URL('./tests/support/image-manipulator.ts', import.meta.url)),
         'react-native-gesture-handler': fileURLToPath(new URL('./tests/support/gesture-handler.ts', import.meta.url)),
         'react-native-worklets': fileURLToPath(new URL('./tests/support/worklets.ts', import.meta.url)),
       }).map(([find, replacement]) => ({ find, replacement })),
