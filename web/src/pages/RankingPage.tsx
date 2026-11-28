@@ -327,8 +327,11 @@ function RankingContent({
       text={`O ranking de ${categoryDetail(category)} começa quando as primeiras partidas forem confirmadas. São ${ov.required} partidas para sair da classificação.`}
     />
   ));
+  // A chave mantém a folha aberta montada ao cruzar 1024 px: ela é o último filho do painel nos dois ramos, mas em posição
+  // diferente; com a chave, o React a reencontra em vez de montá-la de novo (rolagem e foco continuam).
   const categorySheet = sheetOpen && (
     <CategorySheet
+      key="categoria"
       profiles={profiles}
       category={category}
       onChange={(change) => update(change)}
