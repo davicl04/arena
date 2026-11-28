@@ -544,7 +544,7 @@ interface PlayBoard {
   searches: MatchSearchOut[]
   proposals: ProposalOut[]
   offers: SlotOfferOut[]
-  matches: MatchCard[]               // combinando, agendada e realizada (prazo aberto) do titular; por starts_at, sem data primeiro
+  matches: MatchCard[]               // combinando e agendada do titular; por starts_at, sem data primeiro (a realizada vai ao histórico)
 }
 ```
 
@@ -559,7 +559,7 @@ interface PlayBoard {
 | `PUT /matches/{id}/accept` | quem age pelo lado | `{}` | `ProposalOut` |
 | `PUT /matches/{id}/decline` | quem age pelo lado | `{}` | `ProposalOut` |
 | `GET /me/play` | titular | — | `PlayBoard` |
-| `GET /me/matches?scope=proximas\|historico&cursor=&limit=` | titular | — | `{ items: MatchCard[]; next_cursor }`: `proximas` sem paginação (até 100, `next_cursor: null`); `historico` paginado (encerrada, sem_resultado, cancelada, por `closed_at` decrescente) |
+| `GET /me/matches?scope=proximas\|historico&cursor=&limit=` | titular | — | `{ items: MatchCard[]; next_cursor }`: `proximas` sem paginação (combinando e agendada, até 100, `next_cursor: null`); `historico` com as `realizada` (resultado confirmado, ainda na janela de estatísticas) no começo da primeira página, pela confirmação mais recente, e depois paginado (encerrada, sem_resultado, cancelada, por `closed_at` decrescente) |
 
 ### 9.3 Regras
 

@@ -423,4 +423,4 @@ def test_the_lists_of_the_viewer(db, board, monkeypatch):
     board.cards = ['card']
     assert matchmaking.my_matches(db, user(), 'proximas', None, 20, now=NOW) == (['card'], None)
     monkeypatch.setattr(matchmaking, 'paginate', lambda statement, cursor, limit, stamp, key, _db: (['row'], 'next'))
-    assert matchmaking.my_matches(db, user(), 'historico', None, 20, now=NOW) == (['card'], 'next')
+    assert matchmaking.my_matches(db, user(), 'historico', 'cursor', 20, now=NOW) == (['card'], 'next')

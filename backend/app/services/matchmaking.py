@@ -66,8 +66,11 @@ from app.services.slots import slot_offers
 
 REPRESENTATIVE = 'representante'
 PROPOSAL_STATES = ('proposta', 'combinando', 'recusada', 'expirada')
-# Matches in play for the board and "Próximas": being arranged, scheduled, or played with the result window open.
-UPCOMING_STATES = ('combinando', 'agendada', 'realizada')
+# Matches in play for the board and "Próximas": being arranged or scheduled. A played match with the result confirmed
+# (`realizada`) goes to "Histórico" right away, even while the 48 h statistics window is open.
+UPCOMING_STATES = ('combinando', 'agendada')
+# Matches over for good, in "Histórico" by `closed_at` (the `realizada` ones come before them, on the first page).
+CLOSED_STATES = ('encerrada', 'sem_resultado', 'cancelada')
 # Matches that keep a team from closing.
 CLOSING_BLOCKERS = ('proposta', 'combinando', 'agendada')
 UPCOMING_LIMIT = 100
@@ -499,14 +502,19 @@ def play_board(db: Session, user: User, *, now: datetime) -> PlayBoardOut:
 
 def my_matches(db: Session, user: User, scope: Literal['proximas', 'historico'], cursor: str | None, limit: int, *,
                now: datetime) -> tuple[list[MatchCardOut], str | None]:
-    """`proximas`: the matches in play (no pagination). `historico`: finished, without result or cancelled, by
-    `closed_at` descending, in pages."""
+    """`proximas`: the matches being arranged or scheduled (no pagination). `historico`: on the first page, the
+    played ones with the result confirmed (`realizada`, still without `closed_at`, latest confirmation first); then the
+    finished, without result or cancelled ones, by `closed_at` descending, in pages."""
     if scope == 'proximas':
         return match_cards(db, user, _upcoming_matches(db, user), now=now), None
-    statement = select(Match).where(Match.state.in_(('encerrada', 'sem_resultado', 'cancelada')),
-                                    _my_match_clause(user))
+    played: list[Match] = []
+    if cursor is None:
+        played = list(db.scalars(select(Match).where(Match.state == 'realizada', _my_match_clause(user))
+                                 .order_by(Match.result_confirmed_at.desc().nulls_last(), Match.id.desc())
+                                 .limit(UPCOMING_LIMIT)).all())
+    statement = select(Match).where(Match.state.in_(CLOSED_STATES), _my_match_clause(user))
     rows, next_cursor = paginate(statement, cursor, limit, Match.closed_at, Match.id, db)
-    return match_cards(db, user, rows, now=now), next_cursor
+    return match_cards(db, user, played + rows, now=now), next_cursor
 
 
 # ----- Closing a team (called by services/teams.py) ------------------------------------------------------------
