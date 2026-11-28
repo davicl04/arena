@@ -27,6 +27,7 @@ import { collapsedEntries, expandedEntries } from "../components/ranking/windowE
 import { useRanking } from "../components/ranking/useRanking";
 import { useRankingOverview } from "../components/ranking/useRankingOverview";
 import { rankedTier } from "../components/play/tierLines";
+import { useLayout } from "../hooks/useLayout";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { LoadError } from "@/components/ui/load-error";
@@ -82,6 +83,10 @@ interface RankingPageProps {
  * aparecem na borda esmaecida e abrem o elo inteiro (por páginas, com o titular sempre à vista). As setas trocam de elo
  * (pulando os vazios; do Diamante para cima abre o Salão). Sem elo, a placa da posição mostra o estado atual e os chips
  * Bronze a Diamante escolhem a faixa (Bronze por padrão). Dados: `GET /rankings/overview` e `GET /rankings?tier=…`.
+ *
+ * Celular e tablet: uma coluna (a do celular, na coluna de leitura no tablet). Computador: os mesmos blocos em duas
+ * colunas na medida larga, com a placa contínua dividida: a sua posição à esquerda, com a categoria, e a troca de elo
+ * com a lista à direita.
  */
 export default function RankingPage({ loading = false, ...props }: RankingPageProps) {
   if (loading) return <p role="status">Carregando ranking…</p>;
@@ -112,6 +117,8 @@ function RankingContent({
   onOpenUser,
   onExpired,
 }: Omit<RankingPageProps, "loading">) {
+  // Só o computador tem as duas colunas; celular e tablet montam a coluna única de hoje (o DOM do celular não muda).
+  const desktop = useLayout() === "computador";
   const [state, setState] = useState<RankingState>(() => initialState(profiles, initial, initialSport, initialDistance));
   const [sheetOpen, setSheetOpen] = useState(false);
   const [tierSel, setTierSel] = useState<TierKey | null>(null);
@@ -198,147 +205,211 @@ function RankingContent({
         : `${myTier ? `Você está ${inTier(myTier)}. ` : ""}${nTop === 1 ? "O primeiro" : `Os ${nTop} primeiros`} ${inTier(viewTier)}:`;
 
   const teamLines = (ov ?? overview.last)?.mine ?? [];
-  return (
-    <div id="ranking-panel" aria-busy={overview.loading} className="grid grid-cols-[minmax(0,1fr)] gap-3">
-      <CategoryCard sport={category.sport} text={categoryText(category)} onOpen={() => setSheetOpen(true)} />
-      {teamRanking && (
-        <TeamSwitch
-          lines={teamLines}
-          selectedTeamId={ov?.selected_team_id ?? state.teamId}
-          onSelect={(teamId) => update({ teamId })}
+  const busyPlate = (!own && preview.loading) || (expanded && !full.page && !full.error);
+  const plateLabel = `Ranking ${inTier(viewTier)}`;
+
+  // Blocos da tela, montados abaixo na ordem do celular (e do tablet) ou nas duas colunas do computador.
+  const categoryCard = <CategoryCard sport={category.sport} text={categoryText(category)} onOpen={() => setSheetOpen(true)} />;
+  const teamSwitch = teamRanking && (
+    <TeamSwitch
+      lines={teamLines}
+      selectedTeamId={ov?.selected_team_id ?? state.teamId}
+      onSelect={(teamId) => update({ teamId })}
+    />
+  );
+  const loadingStatus = <p role="status">Carregando ranking…</p>;
+  const loadError = (
+    <LoadError
+      size="screen"
+      title="Não foi possível carregar o ranking"
+      text={overview.error}
+      cause={overview.errorCause}
+      onRetry={overview.reload}
+    />
+  );
+  const legendsEntry = ov && classified > 0 && (
+    <LegendsEntry
+      count={ov.tier_counts.lendario}
+      slots={ov.legend_slots}
+      preview={ov.legends_preview}
+      mine={myTier === "lendario"}
+      onOpen={openHall}
+    />
+  );
+  const positionState = stateKind && (
+    <PositionState
+      kind={stateKind}
+      line={selected}
+      distance={category.distance}
+      onPlay={() => go("play")}
+      onTeams={() => go("teams")}
+    />
+  );
+  const tierPicker = classified > 0 && !myTier && <TierPicker value={viewTier} onChange={chooseTier} />;
+  const tierSwitch = (
+    <TierSwitch
+      tier={viewTier}
+      count={total}
+      noun={noun(total)}
+      down={down}
+      up={up}
+      onTier={chooseTier}
+      onHall={openHall}
+    />
+  );
+  const hero = own && selected ? <TierPositionHero line={selected} tier={viewTier} ranking={ranking} /> : null;
+  const tierList = (
+    <>
+      {!own && preview.loading ? (
+        <p role="status" className="relative px-4 py-3 text-[11.5px] text-white/70">
+          Carregando ranking…
+        </p>
+      ) : !own && preview.error ? (
+        <LoadError
+          size="section"
+          tone="dark"
+          title="Não foi possível carregar o elo"
+          text={preview.error}
+          cause={preview.errorCause}
+          onRetry={preview.reload}
+        />
+      ) : (
+        <TierWindow
+          entries={entries}
+          ranking={ranking}
+          noun={noun}
+          busy={expanded && (full.loading || full.busy)}
+          onExpand={() => setExpanded(true)}
+          onMore={() => void full.loadMore()}
+          onOpenUser={onOpenUser}
         />
       )}
+      {fullError && (
+        <div className="relative mx-4 mt-2 grid justify-items-start gap-0.5" aria-live="polite">
+          <p className="m-0 text-[11.5px] leading-normal text-danger-soft" role="alert">
+            {fullError}
+          </p>
+          <Button variant="glass-link" onClick={() => (full.error ? full.reload() : void full.loadMore())}>
+            Tentar de novo
+          </Button>
+        </div>
+      )}
+      {expanded && (
+        <Button
+          variant="glass-secondary"
+          className="relative mx-2.5 mt-2 w-[calc(100%-20px)] border border-solid border-white/18"
+          onClick={leaveFull}
+        >
+          {own ? "Mostrar só ao seu redor" : `Mostrar só os ${TOP} primeiros`}
+        </Button>
+      )}
+    </>
+  );
+  const emptyRanking = ov && (running ? (
+    <EmptyState
+      Icon={Timer}
+      title={`Ninguém com marca nos ${category.distance} km ainda`}
+      text="O ranking usa o melhor tempo das últimas 52 semanas de cada atleta. A primeira marca já classifica."
+      action={
+        stateKind === "no-mark" ? undefined : (
+          <Button variant="link" className="mt-2" onClick={() => go("play")}>
+            Registrar uma corrida
+          </Button>
+        )
+      }
+    />
+  ) : (
+    <EmptyState
+      Icon={Trophy}
+      title="Ninguém classificado ainda"
+      text={`O ranking de ${categoryDetail(category)} começa quando as primeiras partidas forem confirmadas. São ${ov.required} partidas para sair da classificação.`}
+    />
+  ));
+  const categorySheet = sheetOpen && (
+    <CategorySheet
+      profiles={profiles}
+      category={category}
+      onChange={(change) => update(change)}
+      onClose={() => setSheetOpen(false)}
+    />
+  );
+  const ready = !overview.loading && !overview.error && ov;
+
+  if (desktop) {
+    /*
+     * Computador: duas colunas na medida larga. À esquerda ("você", presa ao rolar se a janela tiver altura), a
+     * categoria, os times, o Salão, o estado sem elo e a sua posição no elo, numa placa tingida própria; à direita, o
+     * restante da placa contínua: a troca de elo, a nota "Os 5 primeiros no Ouro:" (fora do seu elo) e a janela.
+     */
+    return (
+      <div id="ranking-panel" data-largura="larga" aria-busy={overview.loading} className="grid grid-cols-[minmax(0,5fr)_minmax(0,6fr)] items-start gap-x-6">
+        <div data-slot="ranking-aside" className="grid min-w-0 gap-3 [@media(min-height:40rem)]:sticky [@media(min-height:40rem)]:top-0">
+          {categoryCard}
+          {teamSwitch}
+          {ready && (
+            <>
+              {legendsEntry}
+              {positionState}
+              {tierPicker}
+              {showPlate && hero && selected?.metric_value != null && (
+                <TierPlate tier={viewTier} slot="tier-head">
+                  {hero}
+                </TierPlate>
+              )}
+            </>
+          )}
+        </div>
+        <div data-slot="ranking-list" className="min-w-0">
+          {overview.loading ? (
+            loadingStatus
+          ) : overview.error ? (
+            loadError
+          ) : showPlate ? (
+            <TierPlate tier={viewTier} label={plateLabel} busy={busyPlate}>
+              {tierSwitch}
+              <div ref={plateRef} className="pt-3.5">
+                {!own && <p className="relative mx-4 mt-0 mb-2.5 text-[12px] text-white/70">{note}</p>}
+                {tierList}
+              </div>
+            </TierPlate>
+          ) : (
+            emptyRanking
+          )}
+        </div>
+        {categorySheet}
+      </div>
+    );
+  }
+
+  return (
+    <div id="ranking-panel" aria-busy={overview.loading} className="grid grid-cols-[minmax(0,1fr)] gap-3">
+      {categoryCard}
+      {teamSwitch}
       {overview.loading ? (
-        <p role="status">Carregando ranking…</p>
+        loadingStatus
       ) : overview.error ? (
-        <LoadError
-          size="screen"
-          title="Não foi possível carregar o ranking"
-          text={overview.error}
-          cause={overview.errorCause}
-          onRetry={overview.reload}
-        />
+        loadError
       ) : (
         ov && (
           <>
-            {classified > 0 && (
-              <LegendsEntry
-                count={ov.tier_counts.lendario}
-                slots={ov.legend_slots}
-                preview={ov.legends_preview}
-                mine={myTier === "lendario"}
-                onOpen={openHall}
-              />
-            )}
-            {stateKind && (
-              <PositionState
-                kind={stateKind}
-                line={selected}
-                distance={category.distance}
-                onPlay={() => go("play")}
-                onTeams={() => go("teams")}
-              />
-            )}
-            {classified > 0 && !myTier && <TierPicker value={viewTier} onChange={chooseTier} />}
+            {legendsEntry}
+            {positionState}
+            {tierPicker}
             {showPlate ? (
-              <TierPlate
-                tier={viewTier}
-                label={`Ranking ${inTier(viewTier)}`}
-                busy={(!own && preview.loading) || (expanded && !full.page && !full.error)}
-              >
-                <TierSwitch
-                  tier={viewTier}
-                  count={total}
-                  noun={noun(total)}
-                  down={down}
-                  up={up}
-                  onTier={chooseTier}
-                  onHall={openHall}
-                />
+              <TierPlate tier={viewTier} label={plateLabel} busy={busyPlate}>
+                {tierSwitch}
                 <div ref={plateRef}>
-                  {own && selected ? (
-                    <TierPositionHero line={selected} tier={viewTier} ranking={ranking} />
-                  ) : (
-                    <p className="relative mx-4 mt-2.5 mb-2 text-[11px] text-white/70">{note}</p>
-                  )}
-                  {!own && preview.loading ? (
-                    <p role="status" className="relative px-4 py-3 text-[11.5px] text-white/70">
-                      Carregando ranking…
-                    </p>
-                  ) : !own && preview.error ? (
-                    <LoadError
-                      size="section"
-                      tone="dark"
-                      title="Não foi possível carregar o elo"
-                      text={preview.error}
-                      cause={preview.errorCause}
-                      onRetry={preview.reload}
-                    />
-                  ) : (
-                    <TierWindow
-                      entries={entries}
-                      ranking={ranking}
-                      noun={noun}
-                      busy={expanded && (full.loading || full.busy)}
-                      onExpand={() => setExpanded(true)}
-                      onMore={() => void full.loadMore()}
-                      onOpenUser={onOpenUser}
-                    />
-                  )}
-                  {fullError && (
-                    <div className="relative mx-4 mt-2 grid justify-items-start gap-0.5" aria-live="polite">
-                      <p className="m-0 text-[11.5px] leading-normal text-danger-soft" role="alert">
-                        {fullError}
-                      </p>
-                      <Button variant="glass-link" onClick={() => (full.error ? full.reload() : void full.loadMore())}>
-                        Tentar de novo
-                      </Button>
-                    </div>
-                  )}
-                  {expanded && (
-                    <Button
-                      variant="glass-secondary"
-                      className="relative mx-2.5 mt-2 w-[calc(100%-20px)] border border-solid border-white/18"
-                      onClick={leaveFull}
-                    >
-                      {own ? "Mostrar só ao seu redor" : `Mostrar só os ${TOP} primeiros`}
-                    </Button>
-                  )}
+                  {hero ?? <p className="relative mx-4 mt-2.5 mb-2 text-[11px] text-white/70">{note}</p>}
+                  {tierList}
                 </div>
               </TierPlate>
             ) : (
-              running ? (
-                <EmptyState
-                  Icon={Timer}
-                  title={`Ninguém com marca nos ${category.distance} km ainda`}
-                  text="O ranking usa o melhor tempo das últimas 52 semanas de cada atleta. A primeira marca já classifica."
-                  action={
-                    stateKind === "no-mark" ? undefined : (
-                      <Button variant="link" className="mt-2" onClick={() => go("play")}>
-                        Registrar uma corrida
-                      </Button>
-                    )
-                  }
-                />
-              ) : (
-                <EmptyState
-                  Icon={Trophy}
-                  title="Ninguém classificado ainda"
-                  text={`O ranking de ${categoryDetail(category)} começa quando as primeiras partidas forem confirmadas. São ${ov.required} partidas para sair da classificação.`}
-                />
-              )
+              emptyRanking
             )}
           </>
         )
       )}
-      {sheetOpen && (
-        <CategorySheet
-          profiles={profiles}
-          category={category}
-          onChange={(change) => update(change)}
-          onClose={() => setSheetOpen(false)}
-        />
-      )}
+      {categorySheet}
     </div>
   );
 }
