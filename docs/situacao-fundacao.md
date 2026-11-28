@@ -1,5 +1,19 @@
 # Situação da fundação do Arena
 
+## Web responsiva: celular, tablet e computador — 28 de novembro de 2026
+
+Pedido do usuário: a web deixa de simular um celular e passa a atender tablet e computador, agora que o Expo é o cliente de celular fiel. Requisito rígido: **no celular, a web fica exatamente como hoje**. Só apresentação; nenhum contrato, dado, regra ou dependência novos. As entregas abaixo são registradas à medida que entram na branch `feat/web-responsivo`.
+
+### Estrutura e navegação por faixa (ticket 01)
+
+- **Sem moldura:** o `app-frame` ocupa a janela em todas as larguras (antes era um painel de 390 × 844 px no meio da janela, e tela cheia só até 430 px). Ele continua sendo o contêiner de diálogos, folhas, toasts e do aviso de conexão.
+- **Faixas:** celular até 767 px (o layout de hoje, agora em tela cheia também de 431 a 767 px), tablet de 768 a 1023 px e computador a partir de 1024 px. Definidas uma vez no CSS (`md:`/`lg:`, `--breakpoint-md`/`--breakpoint-lg` em `web/src/ui.css`) e uma vez no gancho `useLayout` (`web/src/hooks/useLayout.ts`), que responde celular sem `matchMedia`. A variante `app-narrow:` deixou de existir; o estilo sem variante é o do celular.
+- **Navegação:** o mesmo `nav` "Navegação principal" (`web/src/components/BottomNav.tsx`), com os mesmos cinco botões: barra inferior no celular, trilho lateral de 88 px com o símbolo da marca no tablet e barra lateral de 256 px com o `Logo` e o Jogar em destaque no computador. Em tablet e computador, o pé da lateral traz Notificações (com a contagem) e Menu, e os sinos e o atalho de menu dos cabeçalhos das abas não são renderizados.
+- **Medidas de conteúdo:** coluna de leitura de 640 px (`max-w-leitura`), padrão de todas as telas em tablet e computador, e medida larga de 1120 px (`max-w-larga`). Uma tela escolhe outra medida com `data-largura="larga"` ou `data-largura="total"` no elemento raiz. `--app-nav-inset` dá a largura da lateral para o que é absoluto no `app-frame`.
+- **Toasts e aviso de conexão:** em tablet e computador não reservam a navegação inferior e ficam sobre a área de conteúdo, ao lado da lateral.
+- **Verificações:** em `web/`, `npm run lint` e `npm run build` aprovados; `npm run test` com 1483 de 1484 testes (a falha é `tests/matchmaking.test.tsx` › "prepara a busca com vagas…", intermitente e já presente em `main`: falhou 3 de 3 vezes no commit base nesta máquina). Testes novos em `web/tests/web-responsivo-layout.test.tsx` (gancho de layout e navegação por faixa). **Regressão do celular** (ferramenta local `.local/e2e/web-responsivo/comparar.sh`, Chromium headless, API e PostgreSQL reais): base `7007105` × ticket 01 em 320, 390 e 430 px, nos dois temas, **216 de 216 capturas idênticas, pixel a pixel**. Capturas em 768, 1024, 1440 e 1920 px, claro e escuro: sem moldura, sem overflow horizontal, sem erros de console; ordem de tabulação lateral → conteúdo e "Pular para conteúdo" conferidos.
+- **Limitações:** só Chromium headless; sem Safari, Firefox nem aparelho. Um celular deitado com 768 px ou mais de largura recebe o layout de tablet.
+
 ## Seguidores viram aliados (web e Expo) — 27 de novembro de 2026
 
 Pedido do usuário: trocar o vocabulário de "seguir" por "aliar-se", "pedir aliança" e "aliados" nos dois clientes. Só os textos mudaram: rotas (`/follow`, `/followers`, `/following`, `/me/follow-requests`), campos (`follow_state`, `follower_count`…), nomes de componentes e o backend continuam iguais, e a relação segue direcional.
