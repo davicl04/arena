@@ -57,4 +57,12 @@ describe('upload de FormData pelo XMLHttpRequest (o fetch do Expo não envia a p
     await expect(result).rejects.toThrow('Aborted')
     expect(FakeXhr.last.aborted).toBe(true)
   })
+
+  it('com o sinal já abortado, nem envia', async () => {
+    vi.stubGlobal('XMLHttpRequest', FakeXhr)
+    const controller = new AbortController()
+    controller.abort()
+    await expect(formFetch('http://api/x', { method: 'PUT', headers: {}, body: new FormData(), signal: controller.signal })).rejects.toThrow('Aborted')
+    expect(FakeXhr.last.body).toBeNull()
+  })
 })
