@@ -38,13 +38,29 @@ export default function PostViewer({ username, posts, initialPostId, viewerId, h
   const sentinel = useRef<HTMLDivElement>(null)
   const loadMore = useRef(onLoadMore)
   useEffect(() => { loadMore.current = onLoadMore }, [onLoadMore])
+  // Foto em que a pessoa está: a que cobre o topo da rolagem e quanto dela já subiu. Começa no post tocado.
+  const anchor = useRef({ id: initialPostId, fraction: 0 })
 
+  // Cruzar 768 px recria o contêiner rolável e o sentinela noutro lugar da árvore (useOverlayPortal), e o novo começa no
+  // topo: por isso a faixa (`overlay.wide`) entra nas dependências do posicionamento e do observador. Sem a troca (o caso
+  // normal, inclusive no celular), o posicionamento roda só na abertura, no post tocado; depois a rolagem é de quem usa.
   useLayoutEffect(() => {
     const box = scroller.current
-    const target = box?.querySelector<HTMLElement>(`[data-post-id="${initialPostId}"]`)
-    if (box && target) box.scrollTop = target.offsetTop // o contêiner rolável é o offsetParent (position: relative)
-    // Somente na abertura: depois disso a rolagem é de quem usa.
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+    const target = box?.querySelector<HTMLElement>(`[data-post-id="${anchor.current.id}"]`)
+    // O contêiner rolável é o offsetParent (position: relative).
+    if (box && target) box.scrollTop = target.offsetTop + anchor.current.fraction * target.offsetHeight
+  }, [overlay.wide])
+
+  function track() {
+    const box = scroller.current
+    if (!box) return
+    let current: HTMLElement | undefined
+    for (const item of box.querySelectorAll<HTMLElement>('[data-post-id]')) {
+      if (item.offsetTop > box.scrollTop) break
+      current = item
+    }
+    if (current) anchor.current = { id: Number(current.dataset.postId), fraction: (box.scrollTop - current.offsetTop) / (current.offsetHeight || 1) }
+  }
 
   useEffect(() => {
     const node = sentinel.current
@@ -55,7 +71,7 @@ export default function PostViewer({ username, posts, initialPostId, viewerId, h
     }, { root: scroller.current, rootMargin: '0px 0px 400px 0px' })
     observer.observe(node)
     return () => observer.disconnect()
-  }, [hasMore, busy, moreError])
+  }, [hasMore, busy, moreError, overlay.wide])
 
   function removed(postId: number) {
     onRemoved(postId)
@@ -71,7 +87,7 @@ export default function PostViewer({ username, posts, initialPostId, viewerId, h
       </div>
       <span className="w-11" />
     </header>
-    <div ref={scroller} className="relative flex-1 overflow-x-hidden overflow-y-auto overscroll-contain pb-[calc(102px+env(safe-area-inset-bottom))] scrollbar-hidden md:pb-6" data-testid="viewer-scroll">
+    <div ref={scroller} onScroll={track} className="relative flex-1 overflow-x-hidden overflow-y-auto overscroll-contain pb-[calc(102px+env(safe-area-inset-bottom))] scrollbar-hidden md:pb-6" data-testid="viewer-scroll">
       {posts.map(post => <PostItem key={post.id} post={post} viewerId={viewerId} onUpdate={onUpdate} onRemoved={removed} onExpired={onExpired} />)}
       {moreError && <p className={cn(feedbackVariants(), 'mx-4 mt-2 mb-0')} role="alert">{moreError}</p>}
       {hasMore && <div ref={sentinel} className="px-4">

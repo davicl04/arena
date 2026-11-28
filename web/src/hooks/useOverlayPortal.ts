@@ -13,6 +13,9 @@ import { useWideLayout } from './useLayout'
  * escurecido de quem não tem um (telas cheias); ele não fecha ao clique.
  *
  * Cruzar 768 px com a sobreposição aberta a remonta (muda de lugar na árvore); o foco volta a ela (useDialogFocus).
+ * Quem chama o gancho continua montado e guarda o próprio estado, mas os nós do DOM e os componentes filhos são
+ * recriados: um efeito preso a um nó (posição de rolagem, IntersectionObserver, ouvinte num elemento) depende de `wide`
+ * para seguir o nó novo (PostViewer), e o estado que precisa sobreviver fica em quem chama, não num filho.
  */
 export function useOverlayPortal() {
   const container = useDialogContainer()
