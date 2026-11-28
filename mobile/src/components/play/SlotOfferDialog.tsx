@@ -4,29 +4,31 @@ import { acceptSlotOffer, declineSlotOffer } from '../../api/matchmaking'
 import type { SlotOffer } from '../../api/matchmaking'
 import { footballFormat } from '../../data/arena'
 import { sideName } from '../../data/match'
+import { DISPLAY_FAMILY } from '../../fonts'
 import { isStale, useSubmit } from '../../hooks/useSubmit'
 import { colors } from '../../theme'
 import { eventDateParts, formatClock, parseIso } from '../../utils/format'
 import { ActionButton, TextAction } from '../arena/controls'
 import { Icon } from '../Icon'
-import { ActionSheet } from '../arena/ActionSheet'
 import { Countdown } from './Countdown'
 import { positionLabel } from './matchView'
+import { PlayDialog } from './PlayDialog'
 import { SideBadge } from './SideBadge'
 
 /**
- * Oferta de vaga ao avulso (contrato 0002, 11.2) numa folha `forest`: a partida (data, quadra, formato e os dois times), a
- * posição da vaga e as 2 h para responder. "Quero jogar" preenche a vaga e leva à partida; "Agora não" recusa (a vaga vai
- * ao próximo avulso e a busca termina); fechar a folha responde depois, e a oferta continua na placa até o prazo.
+ * Oferta de vaga ao avulso (contrato 0002, 11.2) em tela cheia (porta de `SlotOfferDialog` da web): a partida (data,
+ * quadra, formato e os dois times), a posição da vaga e as 2 h para responder. "Quero jogar" preenche a vaga e leva à
+ * partida; "Agora não" recusa (a vaga vai ao próximo avulso e a busca termina); "Responder depois" (e o voltar do Android)
+ * fecha, e a oferta continua na placa até o prazo.
  */
-export function SlotOfferSheet({ offer, onLater, onAccepted, onDeclined, onElapsed, onStale, onExpired }: {
+export function SlotOfferDialog({ offer, onLater, onAccepted, onDeclined, onElapsed, onStale, onExpired }: {
   offer: SlotOffer
   onLater: () => void
   /** Vaga preenchida: `matchId` abre a partida. */
   onAccepted: (matchId: number) => void
   onDeclined: () => void
   onElapsed: () => void
-  /** O servidor recusou a resposta porque a oferta mudou (404 ou 409; o toast de aviso já mostrou a mensagem dele): a tela fecha a folha e lê a placa de novo. */
+  /** O servidor recusou a resposta porque a oferta mudou (404 ou 409; o toast de aviso já mostrou a mensagem dele): a tela fecha o diálogo e lê a placa de novo. */
   onStale: () => void
   onExpired: () => void
 }) {
@@ -52,14 +54,14 @@ export function SlotOfferSheet({ offer, onLater, onAccepted, onDeclined, onElaps
     if (done) onDeclined()
   }
 
-  return <ActionSheet title={`Vaga encontrada${format ? ` · ${format}` : ''}`} dark locked={busy} onClose={onLater}>
+  return <PlayDialog testID="slot-offer-dialog" title={`Vaga encontrada${format ? ` · ${format}` : ''}`} locked={busy} onClose={onLater}>
     <Text accessibilityRole="header" style={{ color: '#ffffff', fontSize: 22, lineHeight: 28, fontWeight: '800', textAlign: 'center' }}>Vaga de {position}</Text>
-    <View style={{ marginTop: 14, flexDirection: 'row', alignItems: 'flex-start', gap: 10 }}>
+    <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10 }}>
       <View style={{ flex: 1 }}><SideBadge side={opening} size="xl" /></View>
-      <Text accessibilityElementsHidden importantForAccessibility="no" style={{ alignSelf: 'center', color: colors.mint, fontSize: 22, fontWeight: '800' }}>×</Text>
+      <Text display accessibilityElementsHidden importantForAccessibility="no" style={{ alignSelf: 'center', color: colors.mint, fontSize: 22, fontWeight: '800' }}>×</Text>
       <View style={{ flex: 1 }}><SideBadge side={against} size="xl" /></View>
     </View>
-    <View style={{ marginTop: 16, flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 16, padding: 12, backgroundColor: 'rgba(255,255,255,0.08)' }}>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', padding: 12, backgroundColor: 'rgba(255,255,255,0.08)' }}>
       {date ? <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ width: 54, alignItems: 'center', borderRadius: 12, paddingVertical: 7, backgroundColor: 'rgba(255,255,255,0.1)' }}>
         <Text style={{ color: colors.mint, fontSize: 9, fontWeight: '800', letterSpacing: 0.8, textTransform: 'uppercase' }}>{date.weekday}</Text>
         <Text style={{ color: '#ffffff', fontSize: 20, lineHeight: 22, fontWeight: '800' }}>{date.day}</Text>
@@ -79,16 +81,16 @@ export function SlotOfferSheet({ offer, onLater, onAccepted, onDeclined, onElaps
         </Text>
       </View>
     </View>
-    <View style={{ marginTop: 16, alignItems: 'center', gap: 2 }}>
-      <Countdown until={offer.expires_at} onElapsed={onElapsed} style={{ color: colors.mint, fontSize: 26, fontWeight: '800' }} />
+    <View style={{ alignItems: 'center', gap: 2 }}>
+      <Countdown until={offer.expires_at} onElapsed={onElapsed} style={{ fontFamily: DISPLAY_FAMILY, color: colors.mint, fontSize: 26, fontWeight: '800' }} />
       <Text style={{ color: 'rgba(255,255,255,0.65)', fontSize: 10.5 }}>para responder</Text>
     </View>
-    <View style={{ marginTop: 14, gap: 12 }}>
+    <View style={{ gap: 12 }}>
       <View style={{ flexDirection: 'row', gap: 8 }}>
         <ActionButton grow tone="line" title="Agora não" disabled={busy} onPress={() => void decline()} />
         <ActionButton grow tone="mint" title="Quero jogar" disabled={busy} onPress={() => void accept()} />
       </View>
       <View style={{ alignItems: 'center' }}><TextAction surface="dark" title="Responder depois" disabled={busy} onPress={onLater} /></View>
     </View>
-  </ActionSheet>
+  </PlayDialog>
 }

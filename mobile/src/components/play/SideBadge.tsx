@@ -36,8 +36,8 @@ export function SideBadge({ side, size = 'md', token: provided }: { side: MatchS
     style={{ minWidth: 0, alignItems: 'center', gap: 6 }}>
     {side?.team
       ? <TeamCrest name={side.team.name} initials={side.team.initials} path={side.team.crest_url} size={size} decorative token={token} />
-      : <Avatar path={side?.athlete?.avatar_url ?? null} name={name} token={token} size={photoSize[size]} />}
-    <Text numberOfLines={2} style={{ textAlign: 'center', color: '#ffffff', fontSize: large ? 14 : 12, fontWeight: '800', lineHeight: large ? 18 : 16 }}>{name}</Text>
+      : <Avatar glass path={side?.athlete?.avatar_url ?? null} name={name} token={token} size={photoSize[size]} />}
+    <Text display numberOfLines={2} style={{ textAlign: 'center', color: '#ffffff', fontSize: large ? 14 : 12, fontWeight: '800', lineHeight: large ? 18 : 16 }}>{name}</Text>
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
       {side?.tier && tier ? <TierEmblem tier={side.tier} size="xs" decorative /> : null}
       <Text style={{ color: 'rgba(255,255,255,0.65)', fontSize: 10.5 }}>{side?.tier && tier ? tier : 'Em classificação'}</Text>

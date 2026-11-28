@@ -17,16 +17,17 @@ export const authSource = (path: string, token: string) => isApiPath(path) ? { u
 
 /**
  * Foto da pessoa ou, sem ela, as iniciais em verde e extranegrito sobre o fundo da tela (o `SocialPhoto` da web).
- * `initials` vem pronto quando só há o primeiro nome (a prévia do elenco na carteirinha do time).
+ * `initials` vem pronto quando só há o primeiro nome (a prévia do elenco na carteirinha do time). `glass` é para a placa
+ * escura do Jogar: iniciais brancas sobre vidro, como `bg-white/10 text-white` na web.
  */
-export function Avatar({ path, name, token, size = 42, initials }: { path: string | null; name: string; token: string | null; size?: number; initials?: string }) {
+export function Avatar({ path, name, token, size = 42, initials, glass = false }: { path: string | null; name: string; token: string | null; size?: number; initials?: string; glass?: boolean }) {
   const [failedImage, setFailedImage] = useState<{ path: string; token: string } | null>(null)
   // Tamanho e raio dependem de `size`: ficam em `style`.
   const shape = { width: size, height: size, borderRadius: size / 2 }
   const source = path && token ? authSource(path, token) : null
   return path && token && source && (failedImage?.path !== path || failedImage.token !== token)
     ? <Image key={path} accessibilityLabel={`Foto de ${name}`} source={source} onError={() => setFailedImage({ path, token })} className="bg-app" style={shape} />
-    : <View accessibilityRole="image" accessibilityLabel={`Iniciais de ${name}`} className="items-center justify-center bg-app" style={shape}><Text className="font-extrabold text-brand" style={{ fontSize: Math.round(size * 0.28) }}>{initials || personInitials(name)}</Text></View>
+    : <View accessibilityRole="image" accessibilityLabel={`Iniciais de ${name}`} className={glass ? 'items-center justify-center bg-white/10' : 'items-center justify-center bg-app'} style={shape}><Text className={glass ? 'font-extrabold text-white' : 'font-extrabold text-brand'} style={{ fontSize: Math.round(size * 0.28) }}>{initials || personInitials(name)}</Text></View>
 }
 
 /**

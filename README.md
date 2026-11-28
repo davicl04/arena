@@ -52,6 +52,22 @@ npm run dev
 
 Confira em [localhost:8000/health/ready](http://localhost:8000/health/ready), que deve responder `{"status":"ready"}`, e abra [localhost:5173](http://localhost:5173). O banco começa vazio: crie a conta pela web. Os valores padrão de `backend/.env` e `web/.env` já correspondem ao Compose. Para a varredura periódica, use `.venv/bin/python -m app.admin_cli sweep --loop 60` em `backend/`. Nos dias seguintes, basta `docker compose up -d`, o `uvicorn` e o `npm run dev`. As demais seções usam comandos do PowerShell; no macOS, troque `.venv/Scripts/python.exe` por `.venv/bin/python`, `Copy-Item` por `cp` e `if (!(Test-Path .env)) { … }` por `[ -f .env ] || …`.
 
+## Subir tudo de uma vez (macOS e Linux)
+
+Depois da instalação acima (`backend/.venv` criado), a partir de qualquer pasta:
+
+```sh
+scripts/dev.sh            # ou scripts/dev.sh --clear para limpar o cache do Metro
+```
+
+O script sobe o PostgreSQL e o MinIO pelo Compose, no projeto `arena`. Ele usa os volumes de sempre, `arena_pgdata` e `arena_miniodata`, então o banco já populado continua o mesmo e nada é recriado nem apagado. Depois, aplica as migrações pendentes (`alembic upgrade head`) e sobe o backend em `:8000`, a web em `:5173` e o Expo em `:8081`, com o QR no terminal. O que já estiver no ar é mantido. Na falta de `.env` ou `node_modules`, ele copia o `.env.example` e roda `npm ci`. Os logs do backend e da web ficam em `.local/logs/`. O Ctrl+C encerra o que o script subiu; os bancos continuam no ar (`docker compose -p arena stop` os para). Ele não faz a carga inicial do banco nem o recálculo de rankings da primeira instalação. No Windows, siga as seções abaixo.
+
+**Celular na mesma rede (Wi-Fi ou hotspot).** O script descobre o endereço do computador na rede atual e imprime, antes do QR, as URLs da web, da API e do Expo nesse endereço. Os serviços escutam em IPv4 e IPv6, e os endereços vão por variável de ambiente, que vence os `.env` sem alterá-los: `EXPO_PUBLIC_API_URL`, `VITE_API_URL` e a origem da web somada ao `ALLOWED_ORIGINS` do `backend/.env`.
+- No Wi-Fi ou num hotspot com IPv4, o endereço é o IPv4 do computador.
+- No hotspot só IPv6 (o do iPhone em algumas operadoras, em que o Mac fica com `192.0.0.2`), o endereço é o IPv6 global escrito como nome no [sslip.io](https://sslip.io), por exemplo `2804-18-…-da96.sslip.io`, porque o Expo Go fecha com um IPv6 literal. O sslip.io é um DNS público que só devolve o IP escrito no próprio nome.
+
+Quando o endereço muda desde a última execução, o Metro sobe com `--clear`, porque a URL da API fica no bundle. Para fixar o endereço, use `ARENA_HOST=meu-host scripts/dev.sh`; só no computador (simulador), use `ARENA_HOST=localhost`. Um backend ou uma web que já estavam no ar e não respondem no endereço da rede (por exemplo, um uvicorn com `--host 0.0.0.0` no hotspot só IPv6) geram um aviso: pare o processo e rode o script de novo.
+
 ## Banco e API
 
 Comandos abaixo em PowerShell (Windows), começando na raiz. No macOS, siga a [instalação no macOS](#instalação-no-macos).

@@ -73,6 +73,35 @@ Pedido do usuário: a web deixa de simular um celular e passa a atender tablet e
 - Criar/Editar evento, Decisão do resultado, Partidas do evento, Comprovantes, Denúncias e as filas da administração ficam na coluna de leitura; as abas segmentadas das filas deixaram de vazar além da coluna.
 - **Verificações:** em `web/`, `npm run lint`, `npm run build` e `npm run test` (115 arquivos, 1519 de 1520 testes; a falha é a intermitente `tests/matchmaking.test.tsx` › "prepara a busca com vagas…", já presente em `main`). Teste novo: `web/tests/subtelas-eventos-tela-larga.test.tsx`. Regressão do celular (base `7007105` × ticket): 216 capturas, 0 diferenças. Capturas em 768, 1024, 1440 e 1920 px, claro e escuro: 200 pela ferramenta e 224 por script próprio, com organizadora, atleta e administração, API e PostgreSQL reais; sem overflow horizontal nem erros de console. Teclado conferido no chat da Partida e no assistente.
 - **Limitações:** chaveamentos de 16 e 32 lugares foram avaliados pela geometria, não com dados; os dados de chaveamento, partidas, decisão e comprovantes foram criados num banco descartável (duas datas ajustadas por SQL).
+## Script para subir o ambiente local — 28 de novembro de 2026
+
+- **O que mudou:** novo `scripts/dev.sh`, com a seção "Subir tudo de uma vez" no README. Ele sobe o PostgreSQL e o MinIO pelo Compose no projeto `arena`, reaproveitando os volumes `arena_pgdata` e `arena_miniodata`, e não recria nem apaga o banco já populado. Em seguida aplica as migrações pendentes e sobe o backend (uvicorn com `--reload`, porta 8000), a web (Vite, porta 5173) e o Expo (porta 8081, em primeiro plano). O que já estiver no ar é mantido. O Ctrl+C encerra o que o script subiu; os bancos continuam no ar.
+- **Celular pela rede, inclusive hotspot:** o script detecta o endereço do computador na rede atual: o IPv4 no Wi-Fi ou, no hotspot só IPv6 do iPhone (Mac com `192.0.0.2`, da tradução CLAT), o IPv6 global como nome do sslip.io. O Expo Go fecha com um IPv6 literal (`exp://[…]`) e abre com o nome. Os três serviços escutam em `::`, que atende IPv4 e IPv6. A web, a API e o QR saem nesse endereço por variável de ambiente, sem editar os `.env`:
+  - `REACT_NATIVE_PACKAGER_HOSTNAME` e `EXPO_PUBLIC_API_URL` no Expo;
+  - `VITE_API_URL` e `__VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS` no Vite;
+  - `ALLOWED_ORIGINS` com a origem da rede somada às do `backend/.env`.
+
+  Endereço novo desde a última execução faz o Metro subir com `--clear`. Um serviço mantido que não responda no endereço da rede gera um aviso.
+- **Verificações:**
+  - Bash 3.2 do macOS, com o banco populado no ar.
+  - No Wi-Fi, o script detectou `192.168.0.24`, aplicou as migrações (nada pendente; o banco está na `0017`) e subiu o backend. O backend respondeu `ready` por IPv4 e IPv6 e devolveu `access-control-allow-origin: http://192.168.0.24:5173`. A web respondeu 200 nos dois protocolos, e o manifesto do Expo apontou para `192.168.0.24`.
+  - Um SIGINT no grupo de processos, como o Ctrl+C do terminal, encerrou o que o script subiu e deixou os bancos no ar.
+  - No hotspot só IPv6, a mesma configuração foi montada à mão e funcionou no iPhone (Expo Go abriu o app; a web e a API responderam pelo nome do sslip.io). A detecção desse caso foi conferida com a saída real do `ifconfig` do hotspot simulada, gerando o mesmo nome; o script não foi rodado inteiro no hotspot.
+- **Limitações:** o script não roda no Windows (PowerShell) e não faz a carga inicial nem o recálculo de rankings da primeira instalação. No hotspot só IPv6, o celular precisa de internet para resolver o nome do sslip.io.
+
+## Jogar no Expo mais parecido com a web: proposta e vaga em tela cheia — 28 de novembro de 2026
+
+Pedido do usuário: a busca, a proposta e a resposta do Jogar estavam diferentes no Expo. Só o Expo mudou; web, backend e contratos continuam iguais.
+
+- **Proposta e oferta de vaga em tela cheia:** no Expo elas abriam numa folha inferior `forest`, com título grande, X e a frase "Proposta de amistoso contra…". Agora abrem em tela cheia, como `ProposalDialog` e `SlotOfferDialog` da web: clarão verde sobre `night`, Coliseu em marca-d'água, sobretítulo menta em caixa alta ("ADVERSÁRIO ENCONTRADO · TÊNIS"), os dois lados com "VS" (ou "×" na vaga), a contagem em Sora e as ações embaixo. A moldura comum é `mobile/src/components/play/PlayDialog.tsx`; `ProposalSheet` e `SlotOfferSheet` viraram `ProposalDialog` e `SlotOfferDialog`. Cobre a tela inteira, inclusive a navegação inferior. "Responder depois" e o voltar do Android fecham sem chamar a API; não há mais fundo tocável nem X.
+- **Aceite:** "Você aceitou" (pílula menta) e "Aguardando {adversário}" (pílula de vidro) levam o ícone dentro, como na web.
+- **Leitor de tela:** a frase da proposta saiu da tela e é lida junto do título (o `sr-only` da web).
+- **Botão redondo:** ganhou o clarão verde da web (degradê radial), a sombra e o verbo em Sora. Durante a busca, duas ondas menta pulsam em volta dele (Reanimated); com "reduzir movimento" ligado, vale só o contorno forte, como antes.
+- **Fotos sobre a placa:** sem foto, o atleta aparece com iniciais brancas sobre vidro no cartão e na tela cheia da proposta (`Avatar glass`), como `bg-white/10 text-white` na web. Nas listas claras nada mudou.
+- **Sem mudança:** a placa (abas, linha do elo, nota, "Cancelar busca", cartões), "Minhas partidas" e a tela da partida já correspondiam à web. O cabeçalho da partida do Expo segue com o estado e o "quando/onde" na linha de baixo (na web o selo fica na mesma linha dos nomes).
+- **Verificações:** em `mobile/`, `npm run lint`, `npm run typecheck`, `npm run test:coverage` (125 arquivos, 1789 testes) e `npm run export:android`. Testes novos: as duas ondas na busca e nenhuma com "reduzir movimento"; a tela cheia sem "Fechar folha", com a descrição no nome acessível e o voltar do Android adiando sem chamar a API.
+- **No simulador (Expo Go 58, iPhone 17, iOS 27.2, API e banco locais, contas de teste novas em Anhanguera):** antes e depois do mesmo roteiro de tênis. Buscar mostrou "BUSCANDO" com as ondas; com a segunda conta buscando, a proposta abriu em tela cheia; "Responder depois" voltou à placa com o cartão e o toast; "Aceitar partida" mostrou as duas pílulas; com o aceite do outro lado, o app foi sozinho para a partida. A oferta de vaga foi conferida com dois times pareados e agendados pela API e a conta do simulador buscando como avulso (tema claro e escuro).
+- **Não conferido:** Android, 320 pt, leitor de tela real e o pulso com "reduzir movimento" no aparelho (coberto só por teste). No tema escuro do aparelho, o brasão do time na tela cheia segue o tema (escudo escuro), como já era na folha.
 
 ## Seguidores viram aliados (web e Expo) — 27 de novembro de 2026
 
