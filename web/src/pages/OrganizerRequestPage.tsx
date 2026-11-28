@@ -29,7 +29,8 @@ function Situation({ Icon, title, text, tone }: { Icon: LucideIcon; title: strin
 
 /**
  * "Seja organizador" (P5): as regras do papel antes do formulário do pedido. Com pedido em análise ou a
- * permissão já ativa, mostra a situação no lugar do formulário.
+ * permissão já ativa, mostra a situação no lugar do formulário. Tablet e computador: coluna de leitura, com as regras
+ * em duas colunas.
  */
 export default function OrganizerRequestPage({ profiles, onBack, onExpired }: {
   profiles: Profile[]
@@ -67,7 +68,7 @@ export default function OrganizerRequestPage({ profiles, onBack, onExpired }: {
         </div>
           : !status.loading && <>
             <SectionTitle title="Como funciona" />
-            <ul className="grid gap-2" aria-label="Regras do organizador">
+            <ul className="grid gap-2 md:grid-cols-2" aria-label="Regras do organizador">
               {rules.map(([Icon, title, text]) => <li key={title} className="flex gap-3 surface rounded-[14px] p-3 inset-ring inset-ring-surface-edge">
                 <Icon size={20} className="flex-none text-brand" aria-hidden="true" />
                 <div className="min-w-0"><b className="block text-[12.5px]">{title}</b><small className="text-[11px] leading-[1.45] text-ink-muted">{text}</small></div>

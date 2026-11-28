@@ -1184,3 +1184,14 @@
 @theme static {
   --shadow-dialog: 0 24px 64px rgb(0 0 0 / 0.32), 0 2px 10px rgb(0 0 0 / 0.12);
 }
+
+/*
+ * ===== Subtelas de conta, social e times (ticket 08 da web responsiva) =====
+ * Placas `forest` de ponta a ponta (Notificações, Meus times, Entrar pelo link) em tablet e computador: a tela marca a
+ * raiz com `data-largura="total"` e a placa recebe `md:px-placa-leitura`, que centraliza o conteúdo dela na coluna de
+ * leitura (`--container-leitura`), alinhado com o conteúdo abaixo (`md:mx-auto md:max-w-leitura`). Dentro de uma coluna
+ * (placa que não vai de ponta a ponta), o respiro é zero.
+ */
+@utility px-placa-leitura {
+  padding-inline: max(0px, calc((100% - var(--container-leitura)) / 2));
+}

@@ -11,7 +11,7 @@ import { useResource } from '@/hooks/useResource'
 import { useSubmit } from '@/hooks/useSubmit'
 import { cn } from '@/lib/utils'
 import { MemberFace } from './MemberFace'
-import { darkNotice, groupLabel, teamButton } from './styles'
+import { darkNotice, groupLabel, teamButton, wideTopBar } from './styles'
 import { TeamIdCard } from './TeamIdCard'
 import { TeamLinkPanel } from './TeamLinkPanel'
 import { DarkTopBar, StepBars } from './TeamsPlate'
@@ -84,7 +84,7 @@ export function InviteFlow({ teamId, initialTab = 'pessoa', onClose, onExpired }
   if (chosen) {
     const firstName = chosen.person.name.trim().split(/\s+/)[0]
     return <div className="min-h-full text-white">
-      <DarkTopBar eyebrow="Passo 2 de 2" title="Revisar convite" onBack={() => { send.setError(''); setChosen(null) }} />
+      <DarkTopBar eyebrow="Passo 2 de 2" title="Revisar convite" onBack={() => { send.setError(''); setChosen(null) }} className={wideTopBar} />
       <StepBars done={2} total={2} />
       <form className="px-4 pb-4" onSubmit={event => void submitInvite(event)}>
         <div className="mt-3.5 flex min-w-0 items-center gap-[11px] rounded-[14px] bg-white/5 p-[11px]">
@@ -124,7 +124,7 @@ export function InviteFlow({ teamId, initialTab = 'pessoa', onClose, onExpired }
   }
 
   return <div className="min-h-full text-white">
-    <DarkTopBar eyebrow="Passo 1 de 2" title="Quem você quer convidar?" icon="close" onBack={onClose} />
+    <DarkTopBar eyebrow="Passo 1 de 2" title="Quem você quer convidar?" icon="close" onBack={onClose} className={wideTopBar} />
     <StepBars done={1} total={2} />
     <div className="px-4 pb-4">
       {team && <p className="mt-2 truncate text-[10.5px] text-white/56">Para o {team.name}</p>}

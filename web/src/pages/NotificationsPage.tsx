@@ -36,6 +36,8 @@ function ColiseumIcon({ size = 26 }: { size?: number | string }) {
  * bloco "Para responder" fixado no topo (`GET /me/notifications/pending`) seguido das notificações agrupadas por dia
  * (`GET /me/notifications?categoria=&pendente=false`). Os pedidos para seguir viram uma linha-resumo no topo de *Tudo*.
  * Tocar marca como lida e leva à tela do aviso, onde a resposta acontece; ler não resolve a pendência.
+ * Tablet e computador: a placa vai de ponta a ponta (`data-largura="total"`), com o conteúdo dela e a lista abaixo
+ * centralizados na coluna de leitura (ui.css, seção do ticket 08).
  */
 export default function NotificationsPage({ isAdmin = false, summary, filter, onFilter, onBack, onOpenFollowRequests, onNavigate, onExpired }: {
   /** Conta administrativa: tipos que vão ao organizador e à administração levam à fila do Menu. */
@@ -98,9 +100,9 @@ export default function NotificationsPage({ isAdmin = false, summary, filter, on
   const groups = groupByDay(feed.items.map(withRead), now)
   const hasFollow = filter === 'tudo' && followCount > 0
   const nothing = !pending.error && !feed.error && pendingItems.length === 0 && feed.items.length === 0 && !hasFollow
-  return <div className="min-h-full">
+  return <div data-largura="total" className="min-h-full">
     <NotificationsPlate summary={summary.data} filter={filter} busy={busy} onFilter={onFilter} onBack={onBack} onReadAll={() => void readAll()} />
-    <div className="px-4 pt-1">
+    <div className="px-4 pt-1 md:mx-auto md:max-w-leitura">
       {loading
         ? <p role="status" className="mt-4">Carregando notificações…</p>
         : nothing

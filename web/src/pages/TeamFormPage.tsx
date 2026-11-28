@@ -12,7 +12,7 @@ import { TeamCrest } from '@/components/arena/TeamCrest'
 import { CitySheet } from '@/components/teams/CitySheet'
 import { personInitials } from '@/utils/personInitials'
 import { ConfirmBox } from '@/components/teams/ConfirmBox'
-import { darkEyebrow, darkNotice, groupLabel, teamButton } from '@/components/teams/styles'
+import { darkEyebrow, darkNotice, groupLabel, teamButton, wideTopBar } from '@/components/teams/styles'
 import { MintBadge, TeamIdCard } from '@/components/teams/TeamIdCard'
 import { DarkTopBar } from '@/components/teams/TeamsPlate'
 import { normalizeTeamName, TEAM_NAME_MAX, TEAM_NAME_MIN } from '@/components/teams/teamView'
@@ -161,7 +161,7 @@ export default function TeamFormPage({ teamId, user, profiles, onDone, onClosed,
   const title = editing ? 'Editar time' : 'Criar time'
   if (teamId && !team) {
     return <div className="min-h-full text-white">
-      <DarkTopBar eyebrow="Meus times" title={title} onBack={onBack} icon="close" />
+      <DarkTopBar eyebrow="Meus times" title={title} onBack={onBack} icon="close" className={wideTopBar} />
       <div className="px-4 pt-3">
         {loadFailure ? <LoadError size="screen" tone="dark" title="Não foi possível carregar o time" text={loadFailure.message} cause={loadFailure.cause}
           onRetry={() => { setLoadFailure(null); setAttempt(n => n + 1) }} />
@@ -171,13 +171,13 @@ export default function TeamFormPage({ teamId, user, profiles, onDone, onClosed,
   }
   if (team && team.my_role !== 'representante') {
     return <div className="min-h-full text-white">
-      <DarkTopBar eyebrow="Meus times" title={title} onBack={onBack} icon="close" />
+      <DarkTopBar eyebrow="Meus times" title={title} onBack={onBack} icon="close" className={wideTopBar} />
       <p className={cn(darkNotice({ tone: 'error' }), 'mx-4')} role="alert">Só representantes podem editar o time.</p>
     </div>
   }
 
   return <div className="min-h-full text-white">
-    <DarkTopBar eyebrow="Meus times" title={title} onBack={onBack} icon="close" />
+    <DarkTopBar eyebrow="Meus times" title={title} onBack={onBack} icon="close" className={wideTopBar} />
     <form className="px-4 pb-4" onSubmit={event => void submit(event)} noValidate>
       <p className={cn(groupLabel, 'mt-[18px] mb-2 text-mint')} id="team-preview-label">Prévia da carteirinha</p>
       <div role="img" aria-labelledby="team-preview-label" aria-describedby="team-preview-text">

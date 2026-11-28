@@ -3,6 +3,7 @@ import { getQueueCounts } from '../api/admin'
 import { getOrganizerStatus } from '../api/organizer'
 import { listOpenOrganizerEvents } from '../api/events'
 import { OrganizerCard, OrganizerEvents } from '../components/organizer/OrganizerCard'
+import { useLayout } from '../hooks/useLayout'
 import { useResource } from '../hooks/useResource'
 import { LoadError } from '@/components/ui/load-error'
 import { ListGroup, ListHeading, ListRow } from '@/components/ui/list-row'
@@ -29,6 +30,8 @@ const queueValue = (count: number | undefined) => typeof count === 'number' && c
 /**
  * Menu do perfil (hambúrguer): atalhos da conta, o cartão "Organizar no Arena" (P3) ou, com a permissão, a seção
  * Organizador; para a administração, as filas (AD1); a aparência (tema), informações do app e saída.
+ * Computador: medida larga (`data-largura="larga"`) em duas colunas, com a conta, o organizador e a administração de um
+ * lado e a aparência, o app e a saída do outro (mesmos blocos, na mesma ordem de leitura). Celular e tablet: uma coluna.
  */
 export default function MenuPage({ isAdmin, busy, onEditProfile, onSports, onModeration, onOrganizerRequest, onOrganizerRequests, onPaidEvents, onRevokedEvents, onRefundDisputes, onCourtSuggestions, onWalkoverDisputes, onOrganizerEvents, onOpenEvent, onNewEvent, onNotifications, notificationCount = 0, onLogout, onExpired }: {
   isAdmin: boolean
@@ -63,6 +66,7 @@ export default function MenuPage({ isAdmin, busy, onEditProfile, onSports, onMod
   onLogout: () => void
   onExpired: () => void
 }) {
+  const layout = useLayout()
   const organizer = useResource(getOrganizerStatus, onExpired, { fallback: 'Não foi possível carregar o seu pedido de organizador.' })
   const counts = useResource(getQueueCounts, onExpired, { enabled: isAdmin })
   const status = organizer.data
@@ -70,7 +74,7 @@ export default function MenuPage({ isAdmin, busy, onEditProfile, onSports, onMod
   const events = useResource(listOpenOrganizerEvents, onExpired, { fallback: 'Não foi possível carregar os seus eventos.' })
   const eventItems = events.data?.items ?? []
   const showEvents = status?.state === 'aprovado' || eventItems.length > 0
-  return <>
+  const account = <>
     <ListHeading>Conta</ListHeading>
     <ListGroup>
       <ListRow Icon={UserCog} label="Editar perfil" onClick={onEditProfile} />
@@ -93,6 +97,8 @@ export default function MenuPage({ isAdmin, busy, onEditProfile, onSports, onMod
         <ListRow Icon={Flag} label="Denúncias" value={queueValue(counts.data?.reports)} onClick={onModeration} />
       </ListGroup>
     </>}
+  </>
+  const app = <>
     <ListHeading>Aparência</ListHeading>
     <AppearanceCard />
     <ListHeading>App</ListHeading>
@@ -104,4 +110,10 @@ export default function MenuPage({ isAdmin, busy, onEditProfile, onSports, onMod
       <ListRow Icon={LogOut} label={busy ? 'Aguarde…' : 'Sair da conta'} tone="danger" disabled={busy} onClick={onLogout} />
     </ListGroup>
   </>
+  if (layout !== 'computador') return <>{account}{app}</>
+  return <div data-largura="larga" data-slot="menu-colunas" className="grid grid-cols-2 items-start gap-x-8">
+    {/* O primeiro título de cada coluna encosta no cabeçalho, como o "Conta" da coluna única (`[header+&]:mt-0`). */}
+    <div className="min-w-0 [&>:first-child]:mt-0">{account}</div>
+    <div className="min-w-0 [&>:first-child]:mt-0">{app}</div>
+  </div>
 }
