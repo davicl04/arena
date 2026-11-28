@@ -58,7 +58,7 @@ export default function LegendsPage({
         <h1 className="text-[19px] text-white">Salão dos Lendários</h1>
         {page && <p className="m-0 mt-1.5 text-[11.5px] leading-normal text-white/65">{rule(page.legend_slots, count)}</p>}
       </header>
-      <div aria-busy={list.loading} className="relative px-4 md:mx-auto md:max-w-larga md:px-8">
+      <div aria-busy={list.loading} className="relative px-4 md:mx-auto md:max-w-larga md:px-6">
         {list.loading ? (
           <p role="status" className="text-center text-[12px] text-white/70">
             Carregando ranking…
@@ -76,7 +76,7 @@ export default function LegendsPage({
           <>
             <ol
               data-slot="legends-list"
-              className="m-0 grid list-none gap-2 p-0 md:grid-cols-[repeat(auto-fit,minmax(18rem,22rem))] md:justify-center md:gap-3"
+              className="m-0 grid list-none gap-2 p-0 md:grid-cols-[repeat(auto-fit,19rem)] md:justify-center md:gap-3"
             >
               {list.items.map((row) => (
                 <RankingLine
@@ -96,7 +96,7 @@ export default function LegendsPage({
             {list.hasMore && (
               <Button
                 variant="glass-secondary"
-                className="mt-3 w-full border border-solid border-white/18 md:mx-auto md:mt-5 md:flex md:w-auto md:min-w-[18rem]"
+                className="mt-3 w-full border border-solid border-white/18 md:mx-auto md:mt-5 md:flex md:w-auto md:min-w-[19rem]"
                 disabled={list.busy}
                 onClick={() => void list.loadMore()}
               >

@@ -209,7 +209,9 @@ function RankingContent({
   const plateLabel = `Ranking ${inTier(viewTier)}`;
 
   // Blocos da tela, montados abaixo na ordem do celular (e do tablet) ou nas duas colunas do computador.
-  const categoryCard = <CategoryCard sport={category.sport} text={categoryText(category)} onOpen={() => setSheetOpen(true)} />;
+  const categoryCard = (
+    <CategoryCard sport={category.sport} text={categoryText(category)} wrap={desktop} onOpen={() => setSheetOpen(true)} />
+  );
   const teamSwitch = teamRanking && (
     <TeamSwitch
       lines={teamLines}
@@ -342,7 +344,7 @@ function RankingContent({
      * restante da placa contínua: a troca de elo, a nota "Os 5 primeiros no Ouro:" (fora do seu elo) e a janela.
      */
     return (
-      <div id="ranking-panel" data-largura="larga" aria-busy={overview.loading} className="grid grid-cols-[minmax(0,5fr)_minmax(0,6fr)] items-start gap-x-6">
+      <div id="ranking-panel" data-largura="larga" aria-busy={overview.loading} className="grid grid-cols-2 items-start gap-x-6">
         <div data-slot="ranking-aside" className="grid min-w-0 gap-3 [@media(min-height:40rem)]:sticky [@media(min-height:40rem)]:top-0">
           {categoryCard}
           {teamSwitch}
