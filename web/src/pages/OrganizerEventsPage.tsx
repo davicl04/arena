@@ -12,10 +12,15 @@ import { usePagedList } from '@/hooks/usePagedList'
 import { useResource } from '@/hooks/useResource'
 import { cn } from '@/lib/utils'
 
+/** Cartazes em duas colunas no celular; em tablet e computador, quantas colunas de pelo menos 13.5rem couberem. */
+const posterGrid = 'm-0 grid list-none grid-cols-2 gap-2.5 p-0 md:grid-cols-[repeat(auto-fill,minmax(13.5rem,1fr))] md:gap-3'
+
 /**
  * Área do organizador (O3): os eventos como cartazes, com o estado no canto, a barra de inscrições e o alerta de
  * pendências (`pending.total`); "Novo evento" é o último cartaz, tracejado. Abaixo, os encerrados e cancelados
  * (paginados). Sem permissão ativa (revogado), os eventos mantidos continuam, mas não há criação.
+ * Tablet e computador: placa de ponta a ponta (`data-largura="total"`), conteúdo dela e lista na medida larga e
+ * cartazes em grade de quantas colunas couberem (ui.css, seção do ticket 09).
  */
 export default function OrganizerEventsPage({ onBack, onOpen, onCreate, onExpired }: {
   onBack: () => void
@@ -32,8 +37,8 @@ export default function OrganizerEventsPage({ onBack, onOpen, onCreate, onExpire
   const openItems = open.data?.items ?? []
   const empty = !open.loading && !open.error && !openItems.length && !closed.loading && !closed.items.length
 
-  return <div>
-    <TeamsPlate className="pb-4">
+  return <div data-largura="total">
+    <TeamsPlate className="pb-4 md:px-coluna-larga">
       <div className="flex items-center pr-2">
         <DarkTopBar eyebrow="Menu" title="Meus eventos" onBack={onBack} backLabel="Voltar para o Menu" className="min-w-0 flex-1" />
         {canCreate && <IconButton type="button" tone="glass" aria-label="Criar evento" className="mt-2.5 text-mint" onClick={onCreate}><Plus size={22} /></IconButton>}
@@ -41,7 +46,7 @@ export default function OrganizerEventsPage({ onBack, onOpen, onCreate, onExpire
       <p className="px-4 pt-1 text-[11px] leading-[1.5] text-white/70">Campeonatos de futebol e tênis e provas de corrida. Toque num cartaz para gerir.</p>
     </TeamsPlate>
 
-    <div className="px-5 pt-4">
+    <div className="px-5 pt-4 md:mx-auto md:max-w-larga md:pt-6">
       {status.data && !canCreate && <p className="mb-3 rounded-field bg-warning-bg p-3 text-[11.5px] leading-[1.5] text-warning">
         {status.data.state === 'revogado' ? 'Sua permissão de organizador foi revogada. Os eventos que a administração manteve continuam aqui.' : 'Você precisa ser organizador para criar eventos.'}
       </p>}
@@ -57,7 +62,7 @@ export default function OrganizerEventsPage({ onBack, onOpen, onCreate, onExpire
         {canCreate && <button type="button" className={cn(teamButton({ tone: 'brand', size: 'md' }), 'mx-auto mt-4')} onClick={onCreate}><Plus aria-hidden="true" />Criar evento</button>}
       </div> : !open.loading && !open.error && <section aria-labelledby="open-events-title">
         <h2 id="open-events-title" className="sr-only">Eventos em aberto</h2>
-        <ul className="m-0 grid list-none grid-cols-2 gap-2.5 p-0">
+        <ul className={posterGrid}>
           {openItems.map(event => <li key={event.id} className="grid min-w-0">
             <EventPoster {...posterProps(event)} pendingCount={alertCount(event)} showSport onClick={() => onOpen(event.id)} />
           </li>)}
@@ -67,7 +72,7 @@ export default function OrganizerEventsPage({ onBack, onOpen, onCreate, onExpire
 
       {closed.items.length > 0 && <section aria-labelledby="closed-events-title" className="mt-6">
         <h2 id="closed-events-title" className="mb-2 text-[16px]">Encerrados e cancelados</h2>
-        <ul className="m-0 grid list-none grid-cols-2 gap-2.5 p-0">
+        <ul className={posterGrid}>
           {closed.items.map(event => <li key={event.id} className="grid min-w-0">
             <EventPoster {...posterProps(event)} pendingCount={alertCount(event)} showSport onClick={() => onOpen(event.id)} />
           </li>)}

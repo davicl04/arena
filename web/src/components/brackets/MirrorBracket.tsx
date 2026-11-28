@@ -122,7 +122,7 @@ function NodeCard({ placed, picked }: { placed: PlacedNode; picked: number | nul
   )
 }
 
-export function MirrorBracket({ bracket, picked = null, onPick, busy = false, list = true }: {
+export function MirrorBracket({ bracket, picked = null, onPick, busy = false, list = true, className }: {
   bracket: Bracket
   /** Lugar escolhido para a troca (a primeira escolha); só com `onPick`. */
   picked?: number | null
@@ -134,13 +134,15 @@ export function MirrorBracket({ bracket, picked = null, onPick, busy = false, li
    * visível logo abaixo (`BracketView`) a dispensa, para não repetir a leitura.
    */
   list?: boolean
+  /** Classes extras da região rolável (por exemplo, alargá-la além da coluna em tablet e computador). */
+  className?: string
 }) {
   const layout = useMemo(() => mirrorLayout(bracket.rounds), [bracket.rounds])
   const label = `Árvore do chaveamento: ${bracket.size ?? layout.nodes.length * 2} lugares${bracket.byes ? `, ${bracket.byes} ${bracket.byes === 1 ? 'folga' : 'folgas'}` : ''}. Os confrontos estão na lista logo abaixo.`
   if (!layout.nodes.length) return null
   const swappable = layout.nodes.filter(item => item.round === 0 && onPick)
   return (
-    <div className="-mx-4 px-4">
+    <div className={cn('-mx-4 px-4', className)}>
       <div role="region" aria-label="Árvore do chaveamento (role para os lados se não couber)" tabIndex={0}
         className="overflow-x-auto pb-2 outline-offset-2 focus-visible:outline-3 focus-visible:outline-focus">
         <div className="relative mx-auto" style={{ width: layout.width, height: layout.height }}>

@@ -1195,3 +1195,15 @@
 @utility px-placa-leitura {
   padding-inline: max(0px, calc((100% - var(--container-leitura)) / 2));
 }
+
+/*
+ * ===== Subtelas de eventos, partida e administração (ticket 09 da web responsiva) =====
+ * Placas `forest` e cabeçalhos escuros de ponta a ponta (Meus eventos, Gestão do evento, Comprovantes, Chaveamento,
+ * Partidas do evento, Decidir resultado, Partida) em tablet e computador: a tela marca a raiz com
+ * `data-largura="total"` e a placa recebe `md:px-coluna-leitura` ou `md:px-coluna-larga`, que centraliza o conteúdo dela
+ * na medida da tela, alinhado com o conteúdo abaixo (`md:mx-auto md:max-w-leitura` ou `md:max-w-larga`). O respiro
+ * mínimo é `--coluna-respiro` (0 por padrão: os filhos da placa já têm o seu); a barra da Partida usa 0.75rem.
+ */
+@utility px-coluna-* {
+  padding-inline: max(var(--coluna-respiro, 0px), calc((100% - --value(--container-*)) / 2));
+}

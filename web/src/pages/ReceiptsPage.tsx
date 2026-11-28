@@ -90,6 +90,7 @@ function ReceiptQueue({ event, tab, onDecided, onExpired }: {
  * Comprovantes do evento (A2): abas Para analisar | Decididos com miniaturas e a folha do comprovante. No evento
  * cancelado, a primeira aba vira Devoluções: o organizador anexa a devolução de cada inscrição paga e acompanha a
  * resposta do participante. Aberta pela gestão do evento (G3) e pela notificação de comprovante recebido.
+ * Tablet e computador: placa de ponta a ponta (`data-largura="total"`) e conteúdo na coluna de leitura (ui.css, ticket 09).
  */
 export default function ReceiptsPage({ eventId, onBack, onExpired }: { eventId: number; onBack: () => void; onExpired: () => void }) {
   const ids = useId()
@@ -114,12 +115,12 @@ export default function ReceiptsPage({ eventId, onBack, onExpired }: { eventId: 
     { value: 'decididos' as const, label: 'Decididos' },
   ] : []
 
-  return <>
-    <TeamsPlate className="pb-4">
+  return <div data-largura="total">
+    <TeamsPlate className="pb-4 md:px-coluna-leitura">
       <DarkTopBar eyebrow={data?.name ?? 'Evento'} title="Comprovantes" onBack={onBack} backLabel="Voltar para o evento" />
       {data && <p className="mt-2 px-[18px] text-[11.5px] leading-[1.5] text-white/72">{summary(data)}</p>}
     </TeamsPlate>
-    <div className="px-5 pt-3.5">
+    <div className="px-5 pt-3.5 md:mx-auto md:max-w-leitura md:pt-5">
       {event.loading && <p role="status" className="py-4 text-[12px]">Carregando o evento…</p>}
       {event.error && <LoadError size="screen" text={event.error} cause={event.errorCause} onRetry={event.reload} />}
       {data && <>
@@ -135,5 +136,5 @@ export default function ReceiptsPage({ eventId, onBack, onExpired }: { eventId: 
         </div>
       </>}
     </div>
-  </>
+  </div>
 }

@@ -15,6 +15,12 @@ import { useResource } from '@/hooks/useResource'
 import { isStale, useSubmit } from '@/hooks/useSubmit'
 import { formatDeadline } from '@/utils/format'
 
+/**
+ * Tablet e computador: a região da árvore sai da coluna de leitura (a raiz é o contêiner, `100cqw` = área de conteúdo)
+ * e ocupa a área de conteúdo menos 1rem de cada lado, até a medida larga, centralizada sob a coluna.
+ */
+const wideTree = 'md:mx-[max(calc((100%_-_100cqw)/2_+_1rem),calc((100%_-_var(--container-larga))/2))]'
+
 /** Nome de quem ocupa o lugar `place` da primeira fase (para a frase da troca). */
 function nameAtPlace(bracket: Bracket, place: number): string {
   for (const node of bracket.rounds[0]?.nodes ?? []) {
@@ -28,6 +34,8 @@ function nameAtPlace(bracket: Bracket, place: number): string {
  * espelhada (eliminação simples, com a troca de lugares por toque) ou a tabela cruzada (todos contra todos), com "Sortear de
  * novo" e "Confirmar chaveamento" (folha de confirmação). Confirmado: a árvore ou a tabela com os resultados, e o atalho
  * para as partidas. `permissions` (da API) decide o que aparece; `draw_blocker` explica o que impede o sorteio agora.
+ * Tablet e computador: placa de ponta a ponta (`data-largura="total"`) e conteúdo na coluna de leitura; só a árvore sai
+ * da coluna e usa a largura da área de conteúdo (até a medida larga), rolando na horizontal só quando não cabe.
  */
 export default function BracketPage({ eventId, onBack, onMatches, onExpired }: {
   eventId: number
@@ -48,9 +56,9 @@ export default function BracketPage({ eventId, onBack, onMatches, onExpired }: {
   const title = bracket && !elimination ? 'Tabela' : 'Chaveamento'
 
   if (!bracket) {
-    return <div>
-      <TeamsPlate className="pb-4"><DarkTopBar eyebrow="Organizador" title="Chaveamento" onBack={onBack} /></TeamsPlate>
-      <div className="px-5 pt-4">
+    return <div data-largura="total">
+      <TeamsPlate className="pb-4 md:px-coluna-leitura"><DarkTopBar eyebrow="Organizador" title="Chaveamento" onBack={onBack} /></TeamsPlate>
+      <div className="px-5 pt-4 md:mx-auto md:max-w-leitura md:pt-5">
         {resource.loading && <p role="status" className="text-[12px] text-ink-muted">Carregando o chaveamento…</p>}
         {resource.error && <LoadError size="screen" text={resource.error} cause={resource.errorCause} onRetry={resource.reload} />}
       </div>
@@ -110,12 +118,12 @@ export default function BracketPage({ eventId, onBack, onMatches, onExpired }: {
   const hint = !drawn || !elimination || !permissions.can_swap ? null
     : picked === null ? 'Toque em dois times para trocá-los de lugar.' : `Agora toque no time que vai para o lugar de ${nameAtPlace(current, picked)}.`
 
-  return <div>
-    <TeamsPlate className="pb-4">
+  return <div data-largura="total" className="md:@container">
+    <TeamsPlate className="pb-4 md:px-coluna-leitura">
       <DarkTopBar eyebrow={current.event_name} title={title} onBack={onBack} />
     </TeamsPlate>
 
-    <div className="grid grid-cols-[minmax(0,1fr)] gap-3.5 px-4 pt-4">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-3.5 px-4 pt-4 md:mx-auto md:max-w-leitura md:pt-5">
       {current.state === 'sem_chaveamento' && (
         <div className="grid gap-3 surface rounded-card p-3.5 inset-ring inset-ring-surface-edge">
           <div className="flex items-start gap-3">
@@ -153,7 +161,7 @@ export default function BracketPage({ eventId, onBack, onMatches, onExpired }: {
       )}
 
       {(drawn || confirmed) && (
-        <BracketView bracket={current} picked={drawn && permissions.can_swap ? picked : undefined} onPick={drawn && permissions.can_swap && elimination ? place => void pick(place) : undefined} busy={action.busy} />
+        <BracketView bracket={current} treeClassName={wideTree} picked={drawn && permissions.can_swap ? picked : undefined} onPick={drawn && permissions.can_swap && elimination ? place => void pick(place) : undefined} busy={action.busy} />
       )}
 
       {drawn && permissions.draw_blocker && (

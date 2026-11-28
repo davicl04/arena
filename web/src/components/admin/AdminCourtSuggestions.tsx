@@ -206,7 +206,7 @@ export default function AdminCourtSuggestions({ onExpired }: { onExpired: () => 
   return <section aria-label="Sugestões de quadra">
     <p className="mb-1 flex items-start gap-2 text-[11.5px] leading-[1.5] text-ink-muted"><MapPin size={16} className="mt-px flex-none text-brand" aria-hidden="true" />
       As quadras sugeridas valem só na partida de origem até a sua decisão. Publique as que existem; quem sugeriu recebe a resposta nas notificações.</p>
-    <Tabs variant="segmented" className="mt-1" items={tabs} value={tab} label="Filas de quadras" idPrefix={`${ids}-tab-`} controls={`${ids}-panel`}
+    <Tabs variant="segmented" className="mt-1 md:mx-0" items={tabs} value={tab} label="Filas de quadras" idPrefix={`${ids}-tab-`} controls={`${ids}-panel`}
       onChange={setTab} />
     <div id={`${ids}-panel`} role="tabpanel" aria-labelledby={`${ids}-tab-${tab}`} className="pt-1">
       <CourtQueueList key={tab} queue={tab} onExpired={onExpired} />

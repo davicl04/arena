@@ -166,7 +166,7 @@ export default function AdminOrganizerRequests({ onOpenUser, onExpired }: { onOp
   return <section aria-label="Pedidos de organizador">
     <p className="mb-1 flex items-start gap-2 text-[11.5px] leading-[1.5] text-ink-muted"><UserCheck size={16} className="mt-px flex-none text-brand" aria-hidden="true" />
       Aprove quem pode criar campeonatos e provas. A pessoa recebe a decisão nas notificações.</p>
-    <Tabs variant="segmented" className="mt-1 grid-cols-3" items={tabs} value={tab} label="Filas do organizador" idPrefix={`${ids}-tab-`} controls={`${ids}-panel`}
+    <Tabs variant="segmented" className="mt-1 grid-cols-3 md:mx-0" items={tabs} value={tab} label="Filas do organizador" idPrefix={`${ids}-tab-`} controls={`${ids}-panel`}
       onChange={setTab} />
     <div id={`${ids}-panel`} role="tabpanel" aria-labelledby={`${ids}-tab-${tab}`} className="pt-1">
       {tab === 'organizadores'

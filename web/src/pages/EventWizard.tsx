@@ -295,7 +295,7 @@ export default function EventWizard({ eventId, initialStep, onClose, onDone, onE
         distanceKm={form.distanceKm} eventType={form.competitionType}
         priceCents={form.paid === null ? null : paid ? parsePrice(form.price) : 0}
         acceptedTiers={form.restricted ? form.tiers : null} entries={previewCapacity ? { count: 0, capacity: previewCapacity } : null}
-        state="rascunho" stateLabel={paid ? 'Vai para aprovação' : 'Rascunho'} showSport />
+        state="rascunho" stateLabel={paid ? 'Vai para aprovação' : 'Rascunho'} showSport className="md:max-w-[17rem]" />
     </section>
 
     {picking && <CitySheet selected={city} title="Cidade do evento" description="Os atletas veem a cidade no cartaz e no detalhe."
