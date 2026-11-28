@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, cleanup, render, screen, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
+import type { Post, SocialUser } from '../src/api/client'
+import PostViewer from '../src/components/PostViewer'
 import { DialogContainerProvider } from '../src/components/ui/dialog'
 import { Sheet } from '../src/components/ui/sheet'
 
@@ -92,5 +94,73 @@ describe('folha aberta ao redimensionar', () => {
     window.resize(900)
     expect(screen.getByRole('dialog', { name: 'Visibilidade' })).toBe(dialog)
     expect(document.activeElement).toBe(first)
+  })
+})
+
+describe('visualizador de fotos aberto ao redimensionar', () => {
+  const me: SocialUser = { id: 1, name: 'Eu Mesmo', username: 'eu.mesmo', avatar_url: null, cover_url: null, social_public: true,
+    post_count: 3, follower_count: 0, following_count: 0, follows_you: false, follow_state: 'self' }
+  const post = (id: number): Post => ({ id, author: me, caption: `Foto ${id}`, image_url: `/posts/${id}/image`,
+    created_at: '2026-10-10T10:00:00Z', like_count: 0, comment_count: 0, liked_by_me: false, can_edit: true })
+
+  it('cruzar 768 px nos dois sentidos mantém a foto e leva a paginação ao contêiner novo, sem pedir de novo', () => {
+    // Cada post tem 100 px e começa em id × 100 dentro do contêiner rolável.
+    vi.spyOn(HTMLElement.prototype, 'offsetTop', 'get').mockImplementation(function (this: HTMLElement) { return Number(this.dataset.postId ?? 0) * 100 })
+    vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockImplementation(function (this: HTMLElement) { return this.dataset.postId ? 100 : 0 })
+    const observers: { callback: (entries: { isIntersecting: boolean }[]) => void; root: Element | null; nodes: Element[]; connected: boolean }[] = []
+    vi.stubGlobal('IntersectionObserver', class {
+      entry
+      constructor(callback: (entries: { isIntersecting: boolean }[]) => void, options: { root: Element | null }) {
+        this.entry = { callback, root: options.root, nodes: [] as Element[], connected: true }
+        observers.push(this.entry)
+      }
+      observe(node: Element) { this.entry.nodes.push(node) }
+      disconnect() { this.entry.connected = false }
+    })
+    const onLoadMore = vi.fn()
+    const window = viewport(1440)
+    render(<DialogContainerProvider container={frame}>
+      <main data-testid="tela">
+        <PostViewer username="eu.mesmo" posts={[post(7), post(8), post(9)]} initialPostId={8} viewerId={1} hasMore busy={false} moreError=""
+          onLoadMore={onLoadMore} onUpdate={vi.fn()} onRemoved={vi.fn()} onClose={vi.fn()} onExpired={vi.fn()} />
+      </main>
+    </DialogContainerProvider>)
+    const scroller = () => screen.getByTestId('viewer-scroll')
+    /** O único observador ativo: observa o botão de carregar mais do contêiner atual, com ele como raiz. */
+    function activeObserver() {
+      const active = observers.filter(entry => entry.connected)
+      expect(active).toHaveLength(1)
+      const [entry] = active
+      expect(entry.root).toBe(scroller())
+      expect(entry.nodes).toHaveLength(1)
+      expect(entry.nodes[0].isConnected && scroller().contains(entry.nodes[0])).toBe(true)
+      return entry
+    }
+
+    const wide = scroller()
+    expect(frame.contains(wide)).toBe(true)
+    expect(wide.scrollTop).toBe(800)
+    activeObserver()
+
+    // A pessoa rola até a metade da terceira foto.
+    wide.scrollTop = 950
+    fireEvent.scroll(wide)
+
+    window.resize(600)
+    const narrow = scroller()
+    expect(narrow).not.toBe(wide)
+    expect(frame.contains(narrow)).toBe(false)
+    expect(narrow.scrollTop).toBe(950)
+    const afterNarrow = activeObserver()
+    expect(onLoadMore).not.toHaveBeenCalled()
+    act(() => afterNarrow.callback([{ isIntersecting: true }]))
+    expect(onLoadMore).toHaveBeenCalledTimes(1)
+
+    window.resize(1024)
+    const back = scroller()
+    expect(frame.contains(back)).toBe(true)
+    expect(back.scrollTop).toBe(950)
+    activeObserver()
+    expect(onLoadMore).toHaveBeenCalledTimes(1)
   })
 })
