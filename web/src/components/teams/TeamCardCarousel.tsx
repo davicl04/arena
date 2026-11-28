@@ -41,13 +41,14 @@ export function TeamCardCarousel({ teams, selectedId, onSelect, onCreate, onInvi
     if (!box || !slide) return
     box.scrollTo?.({ left: slide.offsetLeft + slide.offsetWidth / 2 - box.clientWidth / 2, behavior: smooth && !reducedMotion() ? 'smooth' : 'auto' })
   }
+  // Também ao voltar da grade (tablet e computador) para o carrossel: a rolagem da faixa recomeça e o escolhido sai do centro.
   useEffect(() => {
     const origin = fromScroll.current
     fromScroll.current = null
     if (selectedId !== null && origin === selectedId) return
     scrollToSlide(selectedIndex, origin !== null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedId, teams.length])
+  }, [selectedId, teams.length, wide])
   useEffect(() => () => clearTimeout(timer.current), [])
 
   function onScroll() {
