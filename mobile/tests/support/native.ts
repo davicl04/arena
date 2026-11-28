@@ -115,7 +115,7 @@ export const svgMock = () => {
   const Svg = element('Svg')
   return {
     __esModule: true, default: Svg, Svg, SvgXml: element('SvgXml'), Circle: element('Circle'), Path: element('Path'), Rect: element('Rect'), Text: element('SvgText'),
-    Defs: element('Defs'), LinearGradient: element('LinearGradient'), Stop: element('Stop'),
+    Defs: element('Defs'), LinearGradient: element('LinearGradient'), RadialGradient: element('RadialGradient'), Stop: element('Stop'),
   }
 }
 

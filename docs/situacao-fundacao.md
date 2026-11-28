@@ -1,5 +1,19 @@
 # Situação da fundação do Arena
 
+## Jogar no Expo mais parecido com a web: proposta e vaga em tela cheia — 28 de novembro de 2026
+
+Pedido do usuário: a busca, a proposta e a resposta do Jogar estavam diferentes no Expo. Só o Expo mudou; web, backend e contratos continuam iguais.
+
+- **Proposta e oferta de vaga em tela cheia:** no Expo elas abriam numa folha inferior `forest`, com título grande, X e a frase "Proposta de amistoso contra…". Agora abrem em tela cheia, como `ProposalDialog` e `SlotOfferDialog` da web: clarão verde sobre `night`, Coliseu em marca-d'água, sobretítulo menta em caixa alta ("ADVERSÁRIO ENCONTRADO · TÊNIS"), os dois lados com "VS" (ou "×" na vaga), a contagem em Sora e as ações embaixo. A moldura comum é `mobile/src/components/play/PlayDialog.tsx`; `ProposalSheet` e `SlotOfferSheet` viraram `ProposalDialog` e `SlotOfferDialog`. Cobre a tela inteira, inclusive a navegação inferior. "Responder depois" e o voltar do Android fecham sem chamar a API; não há mais fundo tocável nem X.
+- **Aceite:** "Você aceitou" (pílula menta) e "Aguardando {adversário}" (pílula de vidro) levam o ícone dentro, como na web.
+- **Leitor de tela:** a frase da proposta saiu da tela e é lida junto do título (o `sr-only` da web).
+- **Botão redondo:** ganhou o clarão verde da web (degradê radial), a sombra e o verbo em Sora. Durante a busca, duas ondas menta pulsam em volta dele (Reanimated); com "reduzir movimento" ligado, vale só o contorno forte, como antes.
+- **Fotos sobre a placa:** sem foto, o atleta aparece com iniciais brancas sobre vidro no cartão e na tela cheia da proposta (`Avatar glass`), como `bg-white/10 text-white` na web. Nas listas claras nada mudou.
+- **Sem mudança:** a placa (abas, linha do elo, nota, "Cancelar busca", cartões), "Minhas partidas" e a tela da partida já correspondiam à web. O cabeçalho da partida do Expo segue com o estado e o "quando/onde" na linha de baixo (na web o selo fica na mesma linha dos nomes).
+- **Verificações:** em `mobile/`, `npm run lint`, `npm run typecheck`, `npm run test:coverage` (125 arquivos, 1789 testes) e `npm run export:android`. Testes novos: as duas ondas na busca e nenhuma com "reduzir movimento"; a tela cheia sem "Fechar folha", com a descrição no nome acessível e o voltar do Android adiando sem chamar a API.
+- **No simulador (Expo Go 58, iPhone 17, iOS 27.2, API e banco locais, contas de teste novas em Anhanguera):** antes e depois do mesmo roteiro de tênis. Buscar mostrou "BUSCANDO" com as ondas; com a segunda conta buscando, a proposta abriu em tela cheia; "Responder depois" voltou à placa com o cartão e o toast; "Aceitar partida" mostrou as duas pílulas; com o aceite do outro lado, o app foi sozinho para a partida. A oferta de vaga foi conferida com dois times pareados e agendados pela API e a conta do simulador buscando como avulso (tema claro e escuro).
+- **Não conferido:** Android, 320 pt, leitor de tela real e o pulso com "reduzir movimento" no aparelho (coberto só por teste). No tema escuro do aparelho, o brasão do time na tela cheia segue o tema (escudo escuro), como já era na folha.
+
 ## Seguidores viram aliados (web e Expo) — 27 de novembro de 2026
 
 Pedido do usuário: trocar o vocabulário de "seguir" por "aliar-se", "pedir aliança" e "aliados" nos dois clientes. Só os textos mudaram: rotas (`/follow`, `/followers`, `/following`, `/me/follow-requests`), campos (`follow_state`, `follower_count`…), nomes de componentes e o backend continuam iguais, e a relação segue direcional.

@@ -36,8 +36,8 @@ function PlateCard({ testID, icon, title, expires, onElapsed, children }: {
 }
 
 /**
- * Cartão da proposta sobre a placa: os dois lados, a contagem regressiva e o caminho para a folha (P2). A resposta mora na
- * folha; aqui só se abre. Quem já aceitou lê "Você aceitou" e quem espera.
+ * Cartão da proposta sobre a placa: os dois lados, a contagem regressiva e o caminho para a tela cheia (P2). A resposta mora
+ * nela; aqui só se abre. Quem já aceitou lê "Você aceitou" e quem espera.
  */
 export function ProposalCard({ proposal, onOpen, onElapsed }: { proposal: Proposal; onOpen: () => void; onElapsed: () => void }) {
   const mine = proposal.sides.find(side => side.side === proposal.my_side)
@@ -64,7 +64,7 @@ export function ProposalCard({ proposal, onOpen, onElapsed }: { proposal: Propos
   </PlateCard>
 }
 
-/** Cartão da oferta de vaga ao avulso: a partida, a posição e o prazo; "Ver vaga" abre a folha. */
+/** Cartão da oferta de vaga ao avulso: a partida, a posição e o prazo; "Ver vaga" abre a tela cheia. */
 export function SlotOfferCard({ offer, onOpen, onElapsed }: { offer: SlotOffer; onOpen: () => void; onElapsed: () => void }) {
   const { match } = offer
   const opening = match.sides.find(side => side.side === offer.side)

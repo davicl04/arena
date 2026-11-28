@@ -25,9 +25,9 @@ import { PlayButton } from '../components/play/PlayButton'
 import { plateButton, searchHint } from '../components/play/plateView'
 import type { PlateAction, PlayMode } from '../components/play/plateView'
 import { PrepareSearchSheet } from '../components/play/PrepareSearchSheet'
-import { ProposalSheet } from '../components/play/ProposalSheet'
+import { ProposalDialog } from '../components/play/ProposalDialog'
 import { RunArea } from '../components/play/RunArea'
-import { SlotOfferSheet } from '../components/play/SlotOfferSheet'
+import { SlotOfferDialog } from '../components/play/SlotOfferDialog'
 import { TierLine } from '../components/play/TierLine'
 import { avulsoLine, lineView, normalizeStandings, runBestLine, teamLine } from '../components/play/tierLines'
 import type { AvulsoPosition, TierLineView } from '../components/play/tierLines'
@@ -54,7 +54,7 @@ const positionChips: PlateOption<AvulsoPosition>[] = [
 const distanceChips: PlateOption<`${RunDistance}`>[] = runDistances.map(distance => ({ value: `${distance.value}` as const, label: distance.label }))
 const formatChoices = formatOptions(formatChips)
 
-/** Proposta ou oferta aberta numa folha pela pessoa (um toque no cartão, o botão redondo ou uma notificação). */
+/** Proposta ou oferta aberta em tela cheia pela pessoa (um toque no cartão, o botão redondo ou uma notificação). */
 type Picked = { kind: 'proposta' | 'oferta'; id: number }
 
 /**
@@ -63,7 +63,7 @@ type Picked = { kind: 'proposta' | 'oferta'; id: number }
  *
  * O botão busca de verdade: "Com meu time" abre a folha Preparar busca (V2); Avulso e Tênis buscam direto. Durante a
  * busca ele conta o tempo e, tocado, pede a confirmação para cancelar. A placa (`GET /me/play`, lida pelo shell e entregue
- * por `playBoard`) mostra a proposta (P2, numa folha), a oferta de vaga ao avulso e as partidas do titular, que levam à
+ * por `playBoard`) mostra a proposta (P2, em tela cheia), a oferta de vaga ao avulso e as partidas do titular, que levam à
  * tela da partida. Sem perfil da modalidade, o botão leva a prepará-lo. A Corrida mostra só a linha do elo; as ações dela
  * ficam em `RunArea`.
  *
@@ -80,7 +80,7 @@ export default function PlayScreen({ navigation, onExpired, playBoard: board, re
   const [distance, setDistance] = useState<RunDistance>(5)
   const [sheet, setSheet] = useState(false)
   const [confirming, setConfirming] = useState(false)
-  /** Folha aberta pela pessoa; sem ela, a primeira proposta pendente que ela pode responder abre sozinha. */
+  /** Tela cheia aberta pela pessoa; sem ela, a primeira proposta pendente que ela pode responder abre sozinha. */
   const [picked, setPicked] = useState<Picked | null>(null)
   /** Proposta que eu aceitei e que espera o outro lado: quando os dois aceitam, vai à partida. */
   const [watching, setWatching] = useState<number | null>(null)
@@ -131,7 +131,7 @@ export default function PlayScreen({ navigation, onExpired, playBoard: board, re
   const hint = searchHint(sport, mode, city?.name ?? 'sua cidade', shownPosition, levels)
 
   /*
-   * Folhas: a proposta ou a oferta que a pessoa abriu; sem escolha, a da notificação (`params.matchId`) ou a primeira
+   * Telas cheias: a proposta ou a oferta que a pessoa abriu; sem escolha, a da notificação (`params.matchId`) ou a primeira
    * proposta que ela ainda pode responder.
    */
   const showConfirm = confirming && searching
@@ -146,7 +146,7 @@ export default function PlayScreen({ navigation, onExpired, playBoard: board, re
   const openProposal = chosenProposal ?? (openOffer ? undefined : auto)
   const proposalsHere = plate.proposals.filter(item => item.sport === sport && item.state === 'proposta')
   const offersHere = sport === 'futebol' ? plate.offers : []
-  /** Escolhe (ou fecha, com `null`) a folha e consome o pedido da notificação, que já cumpriu o papel dele. */
+  /** Escolhe (ou fecha, com `null`) a tela cheia e consome o pedido da notificação, que já cumpriu o papel dele. */
   function pick(next: Picked | null) {
     setPicked(next)
     if (hintedMatch !== undefined) navigation.setParams('play', { matchId: undefined })
@@ -195,8 +195,8 @@ export default function PlayScreen({ navigation, onExpired, playBoard: board, re
     else if (heldOffer) pick({ kind: 'oferta', id: heldOffer.slot_id })
   }
   /**
-   * O servidor recusou a resposta da folha porque a proposta ou a oferta mudou (404 ou 409): a folha já mostrou a mensagem
-   * dele em aviso; aqui fecha a folha (uma proposta não reabre sozinha) e lê a placa de novo.
+   * O servidor recusou a resposta porque a proposta ou a oferta mudou (404 ou 409): o toast já mostrou a mensagem
+   * dele em aviso; aqui fecha a tela cheia (uma proposta não reabre sozinha) e lê a placa de novo.
    */
   function staleSheet(proposalId?: number) {
     if (proposalId !== undefined) board.defer(proposalId)
@@ -289,7 +289,7 @@ export default function PlayScreen({ navigation, onExpired, playBoard: board, re
     {sheet && team ? <PrepareSearchSheet team={team.team} eyebrow={`${team.team.name} · ${view?.kind === 'ranked' ? view.title : 'Em classificação'}`}
       format={format} onFormat={setFormat} hint={hint} onCreated={created} onClose={() => setSheet(false)} onExpired={onExpired} /> : null}
     {showConfirm ? <CancelSearchSheet busy={cancel.busy} onKeep={() => setConfirming(false)} onConfirm={() => void endSearch()} /> : null}
-    {openProposal ? <ProposalSheet key={openProposal.match_id} proposal={openProposal} onLater={() => later(openProposal)}
+    {openProposal ? <ProposalDialog key={openProposal.match_id} proposal={openProposal} onLater={() => later(openProposal)}
       onOpenMatch={matchId => { pick(null); navigation.go('match', { matchId }) }} onElapsed={() => void refreshPlayBoard()} onExpired={onExpired}
       onStale={() => staleSheet(openProposal.match_id)}
       onAnswer={async (updated, answer) => {
@@ -299,7 +299,7 @@ export default function PlayScreen({ navigation, onExpired, playBoard: board, re
         pick({ kind: 'proposta', id: updated.match_id })
         await refreshPlayBoard()
       }} /> : null}
-    {openOffer ? <SlotOfferSheet key={openOffer.slot_id} offer={openOffer} onLater={() => pick(null)} onElapsed={() => void refreshPlayBoard()} onExpired={onExpired}
+    {openOffer ? <SlotOfferDialog key={openOffer.slot_id} offer={openOffer} onLater={() => pick(null)} onElapsed={() => void refreshPlayBoard()} onExpired={onExpired}
       onStale={() => staleSheet()}
       onAccepted={matchId => { pick(null); void refreshPlayBoard(); navigation.go('match', { matchId }) }}
       onDeclined={() => { pick(null); toast.info('Vaga recusada. Sua busca terminou.'); void refreshPlayBoard() }} /> : null}
