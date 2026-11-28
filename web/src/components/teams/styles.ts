@@ -43,6 +43,6 @@ export const darkNotice = cva('mt-3 rounded-[10px] px-2.5 py-2 text-[11.5px] lea
  * 08); o conteúdo abaixo da placa usa `wideColumn`. A barra das telas escuras (placa, Criar time, Convidar) ganha respiro
  * no topo (`wideTopBar`).
  */
-export const widePlate = 'md:rounded-b-none md:px-placa-leitura'
+export const widePlate = 'md:rounded-b-none md:px-coluna-leitura'
 export const wideColumn = 'md:mx-auto md:max-w-leitura'
 export const wideTopBar = 'md:pt-5'
