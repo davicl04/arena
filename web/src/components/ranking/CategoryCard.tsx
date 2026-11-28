@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils'
  */
 export function CategoryCard({ sport, text, wrap = false, onOpen }: { sport: Sport; text: string; wrap?: boolean; onOpen: () => void }) {
   return (
-    <button type="button" data-slot="category-card" aria-haspopup="dialog" onClick={onOpen}
+    <button type="button" data-slot="category-card" data-foco-retorno="categoria" aria-haspopup="dialog" onClick={onOpen}
       className="flex w-full min-w-0 items-center gap-2.5 rounded-card border border-solid border-line surface px-3 py-2.5 text-left text-ink">
       <SeloLadrilho sport={sport} size={38} />
       <span className="min-w-0 flex-1">

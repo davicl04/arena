@@ -97,6 +97,31 @@ describe('Evento ao cruzar 1024 px', () => {
   })
 })
 
+describe('Folhas da barra de inscrição do Evento ao cruzar 1024 px', () => {
+  it.each([
+    ['inscrição, do celular para o computador', /^Inscrever/, 390, 1440],
+    ['inscrição, do computador para o tablet', /^Inscrever/, 1440, 900],
+    ['pagamento, do celular para o computador', 'Informações de pagamento', 390, 1440],
+    ['pagamento, do computador para o celular', 'Informações de pagamento', 1440, 390],
+  ])('%s: fechar com Esc devolve o foco ao botão da barra atual', async (_label, button, from, to) => {
+    const window = viewport(from)
+    vi.mocked(request).mockImplementation(async path => (path === '/events/1' ? detail() : emptyPage) as never)
+    renderWithToaster(<EventPage eventId={1} onTeams={noop} onExpired={noop} />)
+    const bar = () => document.querySelector<HTMLElement>('[data-slot="entry-bar"]')!
+    await screen.findByRole('tablist')
+    const opener = within(bar()).getByRole('button', { name: button })
+    await userEvent.click(opener)
+    expect(screen.getByRole('dialog')).toBeTruthy()
+
+    window.resize(to)
+    const current = within(bar()).getByRole('button', { name: button })
+    expect(current).not.toBe(opener)
+    await userEvent.keyboard('{Escape}')
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(document.activeElement).toBe(current)
+  })
+})
+
 describe('Menu ao cruzar 1024 px', () => {
   it('a confirmação de cancelar o pedido de organizador continua aberta', async () => {
     const window = viewport(1440)

@@ -4,8 +4,20 @@ import type { KeyboardEvent } from 'react'
 const focusable = 'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
 
 /**
+ * Para onde devolver o foco ao fechar. Em regra, o próprio elemento anterior. Se ele saiu do documento (o gatilho remontou
+ * noutro lugar ao cruzar 768 ou 1024 px com a folha aberta) e tem `data-foco-retorno`, vai para o elemento com a mesma
+ * chave que está na tela agora (a barra de inscrição do Evento, a categoria do Ranking). Com o nó ainda no documento, nada
+ * muda.
+ */
+function returnTarget(previous: HTMLElement | null): HTMLElement | null {
+  const key = previous?.dataset.focoRetorno
+  if (!previous || previous.isConnected || !key) return previous
+  return Array.from(document.querySelectorAll<HTMLElement>('[data-foco-retorno]')).find(element => element.dataset.focoRetorno === key) ?? previous
+}
+
+/**
  * Foco de diálogo: ao montar, foca `[data-autofocus]` (ou o próprio contêiner); Esc fecha;
- * Tab circula dentro do diálogo quando `trap` está ativo; ao desmontar, devolve o foco ao elemento anterior.
+ * Tab circula dentro do diálogo quando `trap` está ativo; ao desmontar, devolve o foco ao elemento anterior (returnTarget).
  */
 export function useDialogFocus<T extends HTMLElement>(onClose: () => void, { trap = true, restoreFocus = true } = {}) {
   const ref = useRef<T>(null)
@@ -23,7 +35,7 @@ export function useDialogFocus<T extends HTMLElement>(onClose: () => void, { tra
     if (preferred) preferred.focus()
     else node?.focus({ preventScroll: true })
     const shouldRestore = restore.current
-    return () => { if (shouldRestore) previous?.focus() }
+    return () => { if (shouldRestore) returnTarget(previous)?.focus() }
   }, [opener])
   // Cruzar 768 px com a sobreposição aberta a remonta noutro lugar da árvore (useOverlayPortal): o nó antigo sai do DOM
   // com o foco, que cai no `body`, e o Esc e o Tab deixariam de ser do diálogo. Quando o nó troca e o foco ficou solto, ele

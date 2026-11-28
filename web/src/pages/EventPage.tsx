@@ -343,6 +343,8 @@ export default function EventPage({ eventId, initialSection, onSport, onTeams, o
     </>
   );
   // Celular: presa acima da navegação inferior. Tablet: presa à base da coluna, como cartão. Computador: na coluna do cartaz.
+  // Ao cruzar 1024 px ela remonta no outro lugar; `data-foco-retorno` faz a folha aberta por um dos botões devolver o foco
+  // ao botão equivalente da barra nova (useDialogFocus).
   const entryBar = cta && (
     <div
       data-slot="entry-bar"
@@ -353,6 +355,7 @@ export default function EventPage({ eventId, initialSection, onSport, onTeams, o
       )}
     >
       <Button
+        data-foco-retorno="inscricao"
         className="min-w-0 flex-1 text-center"
         disabled={cta.kind === "blocked" || action.busy}
         onClick={() => (cta.kind === "teams" ? onTeams() : open(cta.kind === "enter" ? "enter" : "receipt"))}
@@ -361,7 +364,7 @@ export default function EventPage({ eventId, initialSection, onSport, onTeams, o
         {cta.kind === "receipt" && <Upload size={16} aria-hidden="true" />}
         {cta.label}
       </Button>
-      {paid && pix && cta.kind !== "teams" && <PaymentInfoButton onClick={() => openInfo(null)} className="size-11" />}
+      {paid && pix && cta.kind !== "teams" && <PaymentInfoButton returnKey="pagamento" onClick={() => openInfo(null)} className="size-11" />}
     </div>
   );
 

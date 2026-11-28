@@ -8,7 +8,8 @@ import { mockApi } from './teams-fixtures'
 
 /*
  * Redimensionar a janela com a folha de categoria aberta (revisão da web responsiva). Ao cruzar 1024 px o ranking troca
- * a coluna única pelas duas colunas do computador; a folha aberta tem de continuar a mesma, sem remontar.
+ * a coluna única pelas duas colunas do computador; a folha aberta tem de continuar a mesma, sem remontar, e, ao fechar,
+ * devolver o foco ao botão de categoria da composição nova (o da antiga saiu da tela).
  */
 
 afterEach(() => {
@@ -51,5 +52,25 @@ describe('Ranking ao redimensionar', () => {
     expect(screen.getByRole('dialog', { name: 'Categoria do ranking' })).toBe(sheet)
     win.resize(1440)
     expect(screen.getByRole('dialog', { name: 'Categoria do ranking' })).toBe(sheet)
+  })
+
+  it.each([
+    ['do computador para o tablet', 1440, 900],
+    ['do tablet para o computador', 900, 1440],
+  ])('%s: fechar a folha com Esc devolve o foco ao botão de categoria que está na tela', async (_label, from, to) => {
+    const win = viewport(from)
+    mockApi({ 'GET /rankings/overview?sport=futebol&kind=time&format=society': rankingOverview() })
+    render(<RankingPage profiles={[football]} go={vi.fn()} onOpenUser={vi.fn()} onExpired={vi.fn()} />)
+    const ui = userEvent.setup()
+    const opener = await screen.findByRole('button', { name: /Categoria/ })
+    await ui.click(opener)
+    screen.getByRole('dialog', { name: 'Categoria do ranking' })
+
+    win.resize(to)
+    const current = screen.getByRole('button', { name: /Categoria/ })
+    expect(current).not.toBe(opener)
+    await ui.keyboard('{Escape}')
+    expect(screen.queryByRole('dialog', { name: 'Categoria do ranking' })).toBeNull()
+    expect(document.activeElement).toBe(current)
   })
 })
