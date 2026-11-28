@@ -441,7 +441,7 @@ describe('Jogar: preparar e iniciar a busca', () => {
     serve((path, method) => (path === '/matchmaking/searches' && method === 'POST'
       ? { search: search({ state: 'pareada', match_id: 50 }), proposal: paired, offer: null } : undefined))
     const tree = await mount()
-    // A proposta nasce já aceita pelo outro lado: o servidor a devolve, e a folha abre mesmo depois de adiada.
+    // A proposta nasce já aceita pelo outro lado: o servidor a devolve, e a tela cheia abre mesmo depois de adiada.
     server.board = playBoard({ searches: [search({ state: 'pareada', match_id: 50 })], proposals: [paired] })
     await press(tree, 'Encontrar partida')
     await press(tree, 'Buscar adversário')
@@ -579,7 +579,7 @@ describe('Jogar: proposta', () => {
     expect(byLabel(tree, 'Aceitar partida')).toHaveLength(0)
     expect(navigation.go).not.toHaveBeenCalled()
     expect(host(tree, 'play-button')[0].props.accessibilityLabel).toBe('Ver a proposta, que aguarda o adversário')
-    // Fechada a folha, o botão redondo a reabre.
+    // Fechada a tela cheia, o botão redondo a reabre.
     await press(tree, 'Fechar')
     expect(has(tree, 'Adversário encontrado · Society')).toBe(false)
     await press(tree, 'Ver a proposta, que aguarda o adversário')
@@ -602,7 +602,7 @@ describe('Jogar: proposta', () => {
     expect(has(tree, 'Adversário encontrado')).toBe(false)
   })
 
-  it('recusar chama a API, fecha a folha e avisa', async () => {
+  it('recusar chama a API, fecha a tela cheia e avisa', async () => {
     serve((path, method) => (path === '/matches/50/decline' && method === 'PUT' ? proposal({ state: 'recusada', can_respond: false }) : undefined))
     const tree = await mount(playBoard({ proposals: [proposal()] }))
     server.board = playBoard()
@@ -641,7 +641,7 @@ describe('Jogar: proposta', () => {
   it('quem não age pelo lado só lê: membro vê "Só os representantes aceitam."; no tênis, "Só o atleta aceita a proposta."', async () => {
     serve()
     const tree = await mount(playBoard({ proposals: [proposal({ can_respond: false, my_role: 'membro' })] }))
-    // Não abre sozinha (não há o que responder): o cartão da placa explica e leva à folha.
+    // Não abre sozinha (não há o que responder): o cartão da placa explica e leva à tela cheia.
     expect(has(tree, 'Adversário encontrado · Society')).toBe(false)
     expect(has(tree, 'Só os representantes aceitam.')).toBe(true)
     await press(tree, 'Ver proposta')
@@ -663,7 +663,7 @@ describe('Jogar: proposta', () => {
     expect(has(tennisTree, 'Ricardo Moura')).toBe(true)
   })
 
-  it('erro comum ao aceitar mostra a mensagem na folha e deixa responder de novo, sem reler a placa', async () => {
+  it('erro comum ao aceitar mostra a mensagem na tela cheia e deixa responder de novo, sem reler a placa', async () => {
     serve((path, method) => {
       if (path === '/matches/50/accept' && method === 'PUT') throw new ApiError('Falha momentânea no servidor.', 500)
       return undefined
@@ -677,7 +677,7 @@ describe('Jogar: proposta', () => {
   })
 
   it.each([['Aceitar partida', 'accept', 409], ['Recusar', 'decline', 404]] as const)(
-    'proposta que mudou ao responder (%s, %s): fecha a folha, avisa com a mensagem do servidor e relê a placa',
+    'proposta que mudou ao responder (%s, %s): fecha a tela cheia, avisa com a mensagem do servidor e relê a placa',
     async (label, route, status) => {
       serve((path, method) => {
         if (path === `/matches/50/${route}` && method === 'PUT') throw new ApiError('Esta proposta não está mais aberta.', status)
@@ -719,7 +719,7 @@ describe('Jogar: proposta', () => {
 })
 
 describe('Jogar: oferta de vaga', () => {
-  it('mostra o cartão no futebol e abre a folha com a partida, a posição e o prazo', async () => {
+  it('mostra o cartão no futebol e abre a tela cheia com a partida, a posição e o prazo', async () => {
     serve()
     const tree = await mount(playBoard({ searches: [search({ kind: 'avulso', team: null, format: null, position: 'atacante', state: 'pareada', slot_id: 9 })], offers: [slotOffer()] }))
     expect(host(tree, 'slot-offer-card')).toHaveLength(1)
@@ -733,7 +733,7 @@ describe('Jogar: oferta de vaga', () => {
     expect(has(tree, 'para responder')).toBe(true)
     await press(tree, 'Responder depois')
     expect(has(tree, 'Vaga encontrada · Society')).toBe(false)
-    // No Avulso, o botão redondo responde à oferta e reabre a folha.
+    // No Avulso, o botão redondo responde à oferta e reabre a tela cheia.
     await press(tree, 'Avulso')
     expect(host(tree, 'play-button')[0].props.accessibilityLabel).toBe('Responder à oferta de vaga')
     await press(tree, 'Responder à oferta de vaga')
@@ -768,7 +768,7 @@ describe('Jogar: oferta de vaga', () => {
   })
 
   it.each([['Quero jogar', 409, 'Esta vaga não está mais reservada para você.'], ['Agora não', 404, 'O prazo para aceitar esta vaga acabou.']] as const)(
-    'oferta que mudou ao responder (%s, %s): fecha a folha, avisa com a mensagem do servidor e relê a placa',
+    'oferta que mudou ao responder (%s, %s): fecha a tela cheia, avisa com a mensagem do servidor e relê a placa',
     async (label, status, message) => {
       serve((path, method) => {
         if (path.startsWith('/match-slots/9') && method === 'PUT') throw new ApiError(message, status)
@@ -784,7 +784,7 @@ describe('Jogar: oferta de vaga', () => {
       expect(host(tree, 'slot-offer-card')).toHaveLength(0)
     })
 
-  it('"Responder depois" fecha sem chamar a API; erro comum fica na folha e 401 expira a sessão', async () => {
+  it('"Responder depois" fecha sem chamar a API; erro comum fica na tela cheia e 401 expira a sessão', async () => {
     let failure: Error | null = new ApiError('Falha momentânea no servidor.', 500)
     serve((path, method) => {
       if (path.startsWith('/match-slots/9') && method === 'PUT' && failure) throw failure
