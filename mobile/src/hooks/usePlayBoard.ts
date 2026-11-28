@@ -5,8 +5,10 @@ import { connection } from '../api/connection'
 import { getPlayBoard, normalizeBoard } from '../api/matchmaking'
 import type { PlayBoard } from '../api/matchmaking'
 
-/** Intervalo da releitura enquanto há busca, proposta, oferta ou partida combinando (contrato 0002, seção 9.3). */
+/** Intervalo da releitura com atenção calma (p. ex. só partida combinando) ou depois de uma falha (contrato 0002, seção 9.3). */
 export const PLAY_BOARD_POLL_MS = 15_000
+/** Intervalo da releitura enquanto há busca aberta, proposta ou oferta: a outra pessoa pode mudar a placa a qualquer instante. */
+export const PLAY_BOARD_LIVE_POLL_MS = 3_000
 /** Leituras mais próximas que isto (volta ao app, volta à placa) reaproveitam a última. */
 const FRESH_MS = 3_000
 
@@ -27,9 +29,10 @@ export interface PlayBoardState {
 
 /**
  * Placa do Jogar (`GET /me/play`), lida ao montar, ao voltar o app ao primeiro plano, ao abrir a tela Jogar ou o Início
- * (`active`) e a cada 15 s enquanto `attention` estiver ligada: o mesmo dado acende o ponto da navegação. Sem atenção,
- * não há leitura periódica; com o app em segundo plano (`AppState`), a leitura periódica pausa. Respostas antigas são
- * descartadas; 401 chama `onExpired`.
+ * (`active`) e periodicamente enquanto `attention` estiver ligada: o mesmo dado acende o ponto da navegação. A leitura
+ * periódica é de 3 s com busca, proposta ou oferta na placa e de 15 s no resto ou enquanto a última leitura falhou; ela
+ * pula o tique se a anterior ainda não respondeu. Sem atenção, não há leitura periódica; com o app em segundo plano
+ * (`AppState`), ela pausa. Respostas antigas são descartadas; 401 chama `onExpired`.
  */
 export function usePlayBoard(onExpired: () => void, active: boolean): PlayBoardState {
   const [board, setBoard] = useState<PlayBoard | null>(null)
@@ -41,14 +44,18 @@ export function usePlayBoard(onExpired: () => void, active: boolean): PlayBoardS
   const defer = useCallback((matchId: number) => setDeferred(old => old.includes(matchId) ? old : [...old, matchId]), [])
   const generation = useRef(0)
   const loadedAt = useRef(0)
+  /** A leitura mais nova ainda não respondeu (a periódica espera por ela em vez de descartá-la). */
+  const pending = useRef(false)
   const expired = useRef(onExpired)
   useEffect(() => { expired.current = onExpired }, [onExpired])
 
   const reload = useCallback((): Promise<PlayBoard | null> => {
     const mine = ++generation.current
     loadedAt.current = Date.now()
+    pending.current = true
     return Promise.resolve().then(() => getPlayBoard({ background: true })).then(raw => {
       if (generation.current !== mine) return null
+      pending.current = false
       const next = normalizeBoard(raw)
       setBoard(next)
       setError('')
@@ -57,6 +64,7 @@ export function usePlayBoard(onExpired: () => void, active: boolean): PlayBoardS
       return next
     }, (cause: unknown) => {
       if (generation.current !== mine) return null
+      pending.current = false
       if (cause instanceof ApiError && cause.status === 401) expired.current()
       setError(cause instanceof Error && cause.message ? cause.message : 'Não foi possível carregar a placa.')
       setErrorCause(cause)
@@ -95,11 +103,13 @@ export function usePlayBoard(onExpired: () => void, active: boolean): PlayBoardS
   }, [active, refresh])
 
   const attention = Boolean(board?.attention)
+  const live = Boolean(board && (board.searches.length > 0 || board.proposals.length > 0 || board.offers.length > 0))
+  const interval = live && !error ? PLAY_BOARD_LIVE_POLL_MS : PLAY_BOARD_POLL_MS
   useEffect(() => {
     if (!attention || !foreground) return
-    const id = setInterval(() => { void reload() }, PLAY_BOARD_POLL_MS)
+    const id = setInterval(() => { if (!pending.current) void reload() }, interval)
     return () => clearInterval(id)
-  }, [attention, foreground, reload])
+  }, [attention, foreground, interval, reload])
 
   return { board, loading, error, errorCause, reload, deferred, defer }
 }

@@ -1,5 +1,41 @@
 # Situação da fundação do Arena
 
+## Busca de partida: quem já estava na fila vê a proposta em até 3 s — 28 de novembro de 2026
+
+**Problema:** o atleta X entra na fila; depois o atleta Y busca, o servidor pareia os dois e Y vê a proposta na hora (ela vem na resposta do próprio `POST /matchmaking/searches`). X continuava em "BUSCANDO" por até 15 s, porque só descobre o pareamento ao reler a placa (`GET /me/play`) e a leitura periódica era de 15 s. O backend e o pareamento estavam corretos; o atraso era dos clientes.
+
+**O que mudou (web e Expo, sem mudança no backend nem no contrato da API):**
+
+- `usePlayBoard` (`web/src/hooks/usePlayBoard.ts` e `mobile/src/hooks/usePlayBoard.ts`) relê a placa a cada 3 s (`PLAY_BOARD_LIVE_POLL_MS`) enquanto ela tem busca aberta, proposta ou oferta de horário, que é quando outra pessoa pode mudar o estado a qualquer instante. No resto da atenção (só partida `combinando`) segue em 15 s (`PLAY_BOARD_POLL_MS`).
+- Depois de uma leitura que falhou, o intervalo volta a 15 s até a próxima leitura dar certo, para não insistir num servidor fora do ar.
+- O tique periódico não começa outra leitura enquanto a anterior não respondeu. Sem isso, numa rede em que a resposta demora mais de 3 s, cada tique descartaria a leitura anterior e a placa nunca atualizaria. `reload()`, foco e a volta ao Jogar ou ao Início continuam superando a leitura em andamento.
+- Continua igual: sem atenção não há leitura periódica; a web não lê com a aba oculta e o Expo pausa em segundo plano; `FRESH_MS`, releitura ao voltar a conexão e `401`.
+- O mesmo intervalo também adianta o caminho inverso: quem aceitou e está em "Aguardando" vai para a partida em até 3 s depois do aceite do outro lado.
+- Contrato [0002](decisoes/0002-jogar.md), seções 9.3 e desvios da web, atualizado com os dois intervalos.
+
+**É um paliativo.** Não há aviso do servidor: cada cliente com busca aberta e o app visível faz cerca de 20 leituras de `GET /me/play` por minuto (eram 4). A solução definitiva, o servidor avisar por Redis ou Valkey com pub/sub e um canal SSE ou WebSocket, ficou no backlog do quadro do time (item "Avisar os clientes do pareamento em tempo real com Redis (pub/sub)") e segue em aberto no [plano do Jogar](plano-jogar.md).
+
+**Prova com backend real** (banco temporário isolado, código do backend sem alteração; tempo entre a resposta do `POST` de Y e a proposta na tela de X, sem tocar em X):
+
+| Cliente | Antes (15 s) | Depois (3 s) |
+| --- | --- | --- |
+| Web, dois contextos do Chromium (Playwright) | 6,0 s nas três rodadas do roteiro; 14,3 s e 14,5 s no pior caso | 2,8 s a 3,0 s; 2,5 s no pior caso |
+| Expo Go 58 no simulador iOS 27.2 | 12,4 s e 15,0 s | 0,6 s a 0,8 s; 2,9 s no pior caso |
+
+No simulador, as leituras com a busca parada saíram a cada 3,00 s a 3,04 s (88 intervalos), pararam por 19 s com o app em segundo plano e voltaram na hora ao reabrir. Capturas e dados em `artifacts/busca-responsiva/` (não versionado).
+
+**Testes:** a web ganhou 3 casos em `web/tests/matchmaking.test.tsx` e o Expo 4 em `mobile/tests/play-board.test.ts` (3 s com busca e volta aos 15 s; leitura pendurada sem tiques novos e resposta atrasada aplicada; 15 s depois de uma falha; pausa em segundo plano no Expo). Os casos de 15 s passaram a usar uma partida `combinando` como atenção. Os casos novos falham com o hook anterior.
+
+**Verificações:** em `web/`, `npm run typecheck`, `npm run lint`, `npm run build` e `npm run test:coverage` (106 arquivos, 1462 testes; a suíte passou inteira numa execução e, nas outras, falhou só o caso já conhecido de `tests/matchmaking.test.tsx`, "prepara a busca com vagas…", que também falha com o hook anterior e na `main`). Em `mobile/`, `npm run lint`, `npm run typecheck`, `npm run test:coverage` (125 arquivos, 1793 testes, depois do rebase sobre a tela cheia do Jogar) e `npm run export:android`. Backend sem alteração e sem testes executados.
+
+**Limitações e pendências:**
+
+- O atraso máximo ainda é de 3 s (mais a resposta), não instantâneo. Com a aba oculta (web) ou o app em segundo plano (Expo) não há leitura: a proposta aparece ao voltar.
+- Não há medição de carga do `GET /me/play` com muitas buscas simultâneas, e nada limita o tempo na faixa de 3 s além da aba oculta ou do segundo plano (uma busca sem par ou um aceite à espera do outro lado seguem relendo).
+- No Expo, o limite de 15 s do cliente (`mobile/src/api/client.ts`) vale até os cabeçalhos da resposta. Se a leitura do corpo de `GET /me/play` travar, a leitura periódica espera por ela até um foco, uma troca de tela ou um `reload()` (apontado na revisão, sem correção nesta entrega).
+- A prova no Expo foi em simulador iOS com Expo Go; não houve validação em aparelho físico nem em Android (o `export:android` só comprova o empacotamento).
+- Vistos na prova e fora desta entrega: quem ainda não respondeu não vê sinal de que o adversário já aceitou a proposta; no Expo, o Jogar abre em Futebol mesmo com uma busca de Tênis ativa; na web, o que se digita no e-mail nos primeiros instantes depois de abrir "Entrar na Arena" pode sumir (visto só com preenchimento automático do Playwright).
+
 ## Jogar no Expo mais parecido com a web: proposta e vaga em tela cheia — 28 de novembro de 2026
 
 Pedido do usuário: a busca, a proposta e a resposta do Jogar estavam diferentes no Expo. Só o Expo mudou; web, backend e contratos continuam iguais.
@@ -13,6 +49,7 @@ Pedido do usuário: a busca, a proposta e a resposta do Jogar estavam diferentes
 - **Verificações:** em `mobile/`, `npm run lint`, `npm run typecheck`, `npm run test:coverage` (125 arquivos, 1789 testes) e `npm run export:android`. Testes novos: as duas ondas na busca e nenhuma com "reduzir movimento"; a tela cheia sem "Fechar folha", com a descrição no nome acessível e o voltar do Android adiando sem chamar a API.
 - **No simulador (Expo Go 58, iPhone 17, iOS 27.2, API e banco locais, contas de teste novas em Anhanguera):** antes e depois do mesmo roteiro de tênis. Buscar mostrou "BUSCANDO" com as ondas; com a segunda conta buscando, a proposta abriu em tela cheia; "Responder depois" voltou à placa com o cartão e o toast; "Aceitar partida" mostrou as duas pílulas; com o aceite do outro lado, o app foi sozinho para a partida. A oferta de vaga foi conferida com dois times pareados e agendados pela API e a conta do simulador buscando como avulso (tema claro e escuro).
 - **Não conferido:** Android, 320 pt, leitor de tela real e o pulso com "reduzir movimento" no aparelho (coberto só por teste). No tema escuro do aparelho, o brasão do time na tela cheia segue o tema (escudo escuro), como já era na folha.
+
 
 ## Seguidores viram aliados (web e Expo) — 27 de novembro de 2026
 
