@@ -1,5 +1,11 @@
 # Situação da fundação do Arena
 
+## Script para subir o ambiente local — 28 de novembro de 2026
+
+- **O que mudou:** novo `scripts/dev.sh`, com a seção "Subir tudo de uma vez" no README. Ele sobe o PostgreSQL e o MinIO pelo Compose no projeto `arena`, reaproveitando os volumes `arena_pgdata` e `arena_miniodata`, e não recria nem apaga o banco já populado. Em seguida aplica as migrações pendentes e sobe o backend (uvicorn com `--reload`, porta 8000), a web (Vite, porta 5173) e o Expo (porta 8081, em primeiro plano). O que já estiver no ar é mantido. O Ctrl+C encerra o que o script subiu; os bancos continuam no ar.
+- **Verificações:** rodado com o bash 3.2 do macOS, com o banco populado no ar. O script reaproveitou os contêineres `arena-db` e `arena-minio` (saudáveis) e manteve o backend que já ocupava a porta 8000. A web respondeu 200, `/health/ready` respondeu `ready` e o Metro ficou no ar. Um SIGINT no grupo de processos, como o Ctrl+C do terminal, encerrou a web e o Metro e deixou os bancos no ar. O banco populado já está na migração mais recente (`0017`).
+- **Limitações:** o trecho que sobe o backend (migração e uvicorn) não rodou no teste, porque a porta 8000 já estava ocupada; os comandos são os do README. O script não roda no Windows (PowerShell) e não faz a carga inicial nem o recálculo de rankings da primeira instalação.
+
 ## Jogar no Expo mais parecido com a web: proposta e vaga em tela cheia — 28 de novembro de 2026
 
 Pedido do usuário: a busca, a proposta e a resposta do Jogar estavam diferentes no Expo. Só o Expo mudou; web, backend e contratos continuam iguais.

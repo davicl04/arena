@@ -52,6 +52,16 @@ npm run dev
 
 Confira em [localhost:8000/health/ready](http://localhost:8000/health/ready), que deve responder `{"status":"ready"}`, e abra [localhost:5173](http://localhost:5173). O banco começa vazio: crie a conta pela web. Os valores padrão de `backend/.env` e `web/.env` já correspondem ao Compose. Para a varredura periódica, use `.venv/bin/python -m app.admin_cli sweep --loop 60` em `backend/`. Nos dias seguintes, basta `docker compose up -d`, o `uvicorn` e o `npm run dev`. As demais seções usam comandos do PowerShell; no macOS, troque `.venv/Scripts/python.exe` por `.venv/bin/python`, `Copy-Item` por `cp` e `if (!(Test-Path .env)) { … }` por `[ -f .env ] || …`.
 
+## Subir tudo de uma vez (macOS e Linux)
+
+Depois da instalação acima (`backend/.venv` criado), a partir de qualquer pasta:
+
+```sh
+scripts/dev.sh            # ou scripts/dev.sh --clear para limpar o cache do Metro
+```
+
+O script sobe o PostgreSQL e o MinIO pelo Compose, no projeto `arena`. Ele usa os volumes de sempre, `arena_pgdata` e `arena_miniodata`, então o banco já populado continua o mesmo e nada é recriado nem apagado. Depois, aplica as migrações pendentes (`alembic upgrade head`) e sobe o backend em `:8000`, a web em `:5173` e o Expo em `:8081`, com o QR no terminal. O que já estiver no ar é mantido. Na falta de `.env` ou `node_modules`, ele copia o `.env.example` e roda `npm ci`. Os logs do backend e da web ficam em `.local/logs/`. O Ctrl+C encerra o que o script subiu; os bancos continuam no ar (`docker compose -p arena stop` os para). Não faz a carga inicial do banco nem o recálculo de rankings da primeira instalação. No Windows, siga as seções abaixo.
+
 ## Banco e API
 
 Comandos abaixo em PowerShell (Windows), começando na raiz. No macOS, siga a [instalação no macOS](#instalação-no-macos).
