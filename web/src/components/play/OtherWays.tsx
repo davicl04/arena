@@ -26,9 +26,9 @@ function Row({ Icon, title, text, onClick, badge }: { Icon: LucideIcon; title: s
  * "Outras formas de jogar" abaixo da placa: Meu time (futebol) e Campeonatos ou Provas, que abre a lista de eventos
  * publicados da modalidade da aba (E2).
  */
-export function OtherWays({ sport, onTeams, onEvents }: { sport: Sport; onTeams: () => void; onEvents: () => void }) {
+export function OtherWays({ sport, onTeams, onEvents, className }: { sport: Sport; onTeams: () => void; onEvents: () => void; className?: string }) {
   const run = sport === 'corrida'
-  return <section aria-labelledby="play-other-ways" className="px-5">
+  return <section aria-labelledby="play-other-ways" className={cn('px-5', className)}>
     <SectionTitle className="mt-[22px] mb-2.5" title={<span id="play-other-ways">{run ? 'Provas' : 'Outras formas de jogar'}</span>} />
     <Card className="px-3.5 py-1 shadow-card">
       {sport === 'futebol' && <Row Icon={Shield} title="Meu time" text="Elenco, convites e pedidos para entrar" onClick={onTeams} />}

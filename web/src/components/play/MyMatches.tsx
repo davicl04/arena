@@ -9,6 +9,7 @@ import { Tabs } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { LoadError } from '@/components/ui/load-error'
 import { usePagedList } from '@/hooks/usePagedList'
+import { cn } from '@/lib/utils'
 import { SideMark } from './SideBadge'
 import { matchPhases } from '@/data/match'
 import { matchDetail, matchTitle } from './matchView'
@@ -58,17 +59,20 @@ function History({ sport, onOpen, onExpired }: { sport: MatchCard['sport']; onOp
  * à espera do placar); o Histórico lê `GET /me/matches?scope=historico` só quando é aberto, com as de resultado confirmado
  * primeiro (ainda na janela de 48 h das estatísticas) e depois as encerradas. Cada cartão leva à partida.
  */
-export function MyMatches({ sport, upcoming, onOpen, onExpired }: {
+export function MyMatches({ sport, upcoming, onOpen, onExpired, className, titleClassName }: {
   sport: MatchCard['sport']
   upcoming: MatchCard[]
   onOpen: (matchId: number) => void
   onExpired: () => void
+  /** Posição e respiro em tela larga (PlayPage). */
+  className?: string
+  titleClassName?: string
 }) {
   const ids = useId()
   const [scope, setScope] = useState<Scope>('proximas')
   const shown = upcoming.filter(card => card.sport === sport)
-  return <section aria-labelledby={`${ids}-title`} className="px-5">
-    <SectionTitle className="mt-[22px] mb-2.5" title={<span id={`${ids}-title`}>Minhas partidas</span>} />
+  return <section aria-labelledby={`${ids}-title`} className={cn('px-5', className)}>
+    <SectionTitle className={cn('mt-[22px] mb-2.5', titleClassName)} title={<span id={`${ids}-title`}>Minhas partidas</span>} />
     <Tabs variant="track" items={scopes} value={scope} onChange={setScope} label="Minhas partidas" idPrefix={`${ids}-tab-`} controls={`${ids}-panel`} className="mb-2 px-1" />
     <Card id={`${ids}-panel`} role="tabpanel" aria-labelledby={`${ids}-tab-${scope}`} className="px-3.5 py-1 shadow-card">
       {scope === 'proximas'

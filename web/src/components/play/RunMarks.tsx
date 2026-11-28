@@ -61,7 +61,7 @@ function Card({ card, selected, onAdd, onOpen }: {
   </article>
 }
 
-export function RunMarks({ items, loading, error, errorCause, selected, onAdd, onOpen, onRetry, onOpenRanking }: {
+export function RunMarks({ items, loading, error, errorCause, selected, onAdd, onOpen, onRetry, onOpenRanking, className, titleClassName }: {
   items: RunBest[]
   loading: boolean
   error: string
@@ -74,9 +74,12 @@ export function RunMarks({ items, loading, error, errorCause, selected, onAdd, o
   onRetry: () => void
   /** "Ver ranking": abre o Ranking da corrida na distância escolhida (a do contorno verde). */
   onOpenRanking: (distance: RunDistance) => void
+  /** Posição e respiro em tela larga (PlayPage). */
+  className?: string
+  titleClassName?: string
 }) {
-  return <section aria-label="Suas marcas" data-slot="run-marks" className="px-5">
-    <SectionTitle title="Suas marcas" action={<Button variant="link" onClick={() => onOpenRanking(selected)}>Ver ranking</Button>} />
+  return <section aria-label="Suas marcas" data-slot="run-marks" className={cn('px-5', className)}>
+    <SectionTitle className={titleClassName} title="Suas marcas" action={<Button variant="link" onClick={() => onOpenRanking(selected)}>Ver ranking</Button>} />
     {loading && !items.length && <p role="status" className="m-0 text-[12px] text-ink-muted">Carregando suas marcas…</p>}
     {error && !items.length && <LoadError size="section" text={error} cause={errorCause} onRetry={onRetry} />}
     {/* Duas colunas a partir de 360 px; em telas mais estreitas, um cartão por linha, para o nome e o elo não se espremerem. */}

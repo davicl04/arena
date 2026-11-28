@@ -14,7 +14,7 @@ import { formatChips } from '../components/play/formatChips'
 import { MyMatches } from '../components/play/MyMatches'
 import { OtherWays } from '../components/play/OtherWays'
 import { NotificationBell } from '../components/notifications/NotificationBell'
-import { useWideLayout } from '../hooks/useLayout'
+import { useLayout } from '../hooks/useLayout'
 import { PlateChips } from '../components/play/PlateChips'
 import type { PlateOption } from '../components/play/PlateChips'
 import { PlayButton } from '../components/play/PlayButton'
@@ -79,6 +79,11 @@ function searchHint(sport: Sport, mode: Mode, city: string, position: AvulsoPosi
  * pelo ArenaPage) mostra a proposta (P2, em tela cheia), a oferta de vaga ao avulso e as partidas do titular, que levam
  * à tela da partida. Na Corrida (K2 + K4, etapa 5), o botão REGISTRAR abre o cronômetro em tela cheia; a placa mostra o elo e
  * o melhor tempo da distância escolhida (`GET /me/run-bests`) e, abaixo, "Suas marcas" com o histórico de cada distância.
+ *
+ * Tela larga (ticket 05 da web responsiva): no tablet, uma coluna de leitura com a placa como painel de cantos
+ * arredondados; no computador, medida larga em duas colunas, a placa à esquerda e, à direita, Minhas partidas (ou Suas
+ * marcas) e Outras formas de jogar. As colunas saem da grade do contêiner (sem elemento a mais), então o DOM é o mesmo
+ * em todas as faixas, salvo o `data-largura` do computador e o sino, que só existe no celular.
  */
 export default function PlayPage({ profiles, loading, board, openMatch, initialSport, onSportChange, notificationCount = 0, go, onExpired }: {
   profiles: Profile[]
@@ -98,8 +103,9 @@ export default function PlayPage({ profiles, loading, board, openMatch, initialS
   onExpired: () => void
 }) {
   const ids = useId()
-  // Em tablet e computador, o atalho de notificações fica na navegação lateral.
-  const wide = useWideLayout()
+  // Em tablet e computador, o atalho de notificações fica na navegação lateral; no computador, a tela usa a medida larga.
+  const layout = useLayout()
+  const wide = layout !== 'celular'
   const [sport, setSport] = useState<Sport>(initialSport ?? 'futebol')
   const [mode, setMode] = useState<Mode>('time')
   const [format, setFormat] = useState<FootballFormat>('society')
@@ -271,10 +277,11 @@ export default function PlayPage({ profiles, loading, board, openMatch, initialS
   /* A placa que não carregou é erro de carga (LoadError); `start.error` só traz a recusa de campo do servidor (422). */
   const boardFailed = !board.board && !board.loading && board.error !== ''
 
-  return <div className="min-h-full">
-    <section aria-labelledby={`${ids}-title`} className="relative overflow-hidden rounded-b-[28px] bg-forest pb-[26px] text-white">
+  return <div data-largura={layout === 'computador' ? 'larga' : undefined}
+    className="min-h-full md:pt-8 lg:grid lg:grid-cols-[minmax(340px,4fr)_minmax(0,5fr)] lg:grid-rows-[auto_auto_1fr] lg:items-start lg:gap-x-8">
+    <section aria-labelledby={`${ids}-title`} className="relative overflow-hidden rounded-b-[28px] bg-forest pb-[26px] text-white md:rounded-[28px] md:pb-8 lg:row-span-3">
       <span aria-hidden="true" className="pointer-events-none absolute -bottom-[30px] left-1/2 h-[240px] w-[420px] -translate-x-1/2 bg-white opacity-[0.045] mask-[url(/images/brand/coliseum.svg)] mask-contain mask-center mask-no-repeat" />
-      <div className="relative flex min-h-[54px] items-center gap-2.5 pt-1.5 pr-2 pl-[18px]">
+      <div className="relative flex min-h-[54px] items-center gap-2.5 pt-1.5 pr-2 pl-[18px] md:pt-2 md:pr-[18px]">
         <ArenaMark className="h-[22px] w-[30px] text-mint" />
         <h1 id={`${ids}-title`} className="min-w-fit flex-1 text-[17px] text-white">Jogar</h1>
         <button type="button" className="inline-flex max-w-[55%] min-w-0 shrink items-center gap-[5px] rounded-full border-0 bg-white/8 px-2.5 py-1.5 text-[10.5px] font-semibold text-white/80 hover:bg-white/12 focus-visible:outline-mint"
@@ -326,11 +333,11 @@ export default function PlayPage({ profiles, loading, board, openMatch, initialS
         </div>}
       </div>
     </section>
-    {sport === 'corrida' && profile && !loading && <RunMarks items={bests.items} loading={bests.loading} error={bests.error} errorCause={bests.errorCause} selected={distance}
+    {sport === 'corrida' && profile && !loading && <RunMarks className="md:px-0 lg:col-start-2" titleClassName="md:mt-8 lg:mt-0" items={bests.items} loading={bests.loading} error={bests.error} errorCause={bests.errorCause} selected={distance}
       onAdd={register} onOpen={setHistory} onRetry={bests.reload}
       onOpenRanking={km => go('ranking', { sport: 'corrida', distance: km })} />}
-    {sport !== 'corrida' && <MyMatches sport={sport} upcoming={plate.matches} onOpen={matchId => go('match', { matchId })} onExpired={onExpired} />}
-    <OtherWays sport={sport} onTeams={() => go('teams')} onEvents={() => go('events', { sport })} />
+    {sport !== 'corrida' && <MyMatches className="md:px-0 lg:col-start-2" titleClassName="md:mt-8 lg:mt-0" sport={sport} upcoming={plate.matches} onOpen={matchId => go('match', { matchId })} onExpired={onExpired} />}
+    <OtherWays className="md:px-0 lg:col-start-2" sport={sport} onTeams={() => go('teams')} onEvents={() => go('events', { sport })} />
 
     {sheet && team && <PrepareSearchSheet team={team.team} eyebrow={`${team.team.name} · ${view?.kind === 'ranked' ? view.title : 'Em classificação'}`}
       format={format} onFormat={setFormat} hint={hint} onCreated={created} onClose={() => setSheet(false)} onExpired={onExpired} />}
