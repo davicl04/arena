@@ -12,7 +12,7 @@ import { useWideLayout } from './useLayout'
  * que contém o posicionamento (o Perfil usa `@container-size`). `scrim: true` acrescenta, só em tela larga, o fundo
  * escurecido de quem não tem um (telas cheias); ele não fecha ao clique.
  *
- * Cruzar 768 px com a sobreposição aberta a remonta (muda de lugar na árvore).
+ * Cruzar 768 px com a sobreposição aberta a remonta (muda de lugar na árvore); o foco volta a ela (useDialogFocus).
  */
 export function useOverlayPortal() {
   const container = useDialogContainer()

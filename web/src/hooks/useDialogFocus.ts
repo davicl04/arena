@@ -25,6 +25,17 @@ export function useDialogFocus<T extends HTMLElement>(onClose: () => void, { tra
     const shouldRestore = restore.current
     return () => { if (shouldRestore) previous?.focus() }
   }, [opener])
+  // Cruzar 768 px com a sobreposição aberta a remonta noutro lugar da árvore (useOverlayPortal): o nó antigo sai do DOM
+  // com o foco, que cai no `body`, e o Esc e o Tab deixariam de ser do diálogo. Quando o nó troca e o foco ficou solto, ele
+  // volta para o diálogo novo. Sem troca de nó (o caso normal, inclusive no celular), nada acontece.
+  const mounted = useRef<T | null>(null)
+  useEffect(() => {
+    const node = ref.current
+    const active = document.activeElement
+    if (node && mounted.current && mounted.current !== node && (!active || active === document.body))
+      (node.querySelector<HTMLElement>('[data-autofocus]') ?? node).focus({ preventScroll: true })
+    mounted.current = node
+  })
   function onKeyDown(event: KeyboardEvent<T>) {
     if (event.key === 'Escape') { event.stopPropagation(); onClose(); return }
     if (event.key !== 'Tab' || !trap || !ref.current) return
