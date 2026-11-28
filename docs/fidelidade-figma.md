@@ -2,7 +2,7 @@
 
 Referência: [Figma Make — Protótipo aplicativo ARENA](https://www.figma.com/make/JnbL2xvTf7xyhATwVbWcBm/Prototipo-aplicativo-ARENA), consultado em 9 de outubro de 2026. A cópia local do Make forneceu os arquivos `src/App.tsx` e `src/index.css` da revisão `5be4a30d063aec203523603b2f7c71fe2b4ae5c3`.
 
-O cliente web reproduz o logo SVG, fontes Inter/Sora, verde `#005a36`, fundo `#e2e4e9`, texto `#495057`, cards, carrossel de modalidades, capa e avatar do perfil e navegação inferior com cinco destinos. Em telas maiores mantém o painel de 390 px do protótipo; até 430 px ocupa a tela e considera a área segura inferior.
+O cliente web reproduz o logo SVG, fontes Inter/Sora, verde `#005a36`, fundo `#e2e4e9`, texto `#495057`, cards, carrossel de modalidades, capa e avatar do perfil e navegação inferior com cinco destinos. Até 767 px ocupa a tela e considera a área segura inferior. Em tablet e computador, desde 28 de novembro de 2026, ocupa a janela com navegação lateral e composição própria ([web responsiva](#web-responsiva-tablet-e-computador--28-de-novembro-de-2026)); até então, em telas maiores, mantinha o painel de 390 px do protótipo e ocupava a tela só até 430 px.
 
 A imagem usada pelo protótipo foi armazenada em `web/public/images/arena-cover.jpg`, sem substituição. Origem: `https://images.unsplash.com/photo-1668194645738-ef8dbb426086?crop=entropy&cs=tinysrgb&fit=crop&fm=jpg&q=85&w=1080`. O logo é vetorial e os demais ícones usam Lucide, como a referência.
 
@@ -305,3 +305,8 @@ Pedido do usuário depois de abrir o app pelo Expo Go no iPhone e achar as telas
 
 A conferência foi lado a lado, no simulador iOS (iPhone 17, Expo Go) e no navegador a 402 px, com a mesma conta, nos dois temas. Não houve conferência em Android nem em aparelho físico. As telas que dependem de dados que a conta de teste não alcança (partida em andamento, organizador, administração, Salão dos Lendários com atletas) receberam só as correções dos componentes compartilhados.
 
+## Web responsiva: tablet e computador — 28 de novembro de 2026
+
+Pedido do usuário, depois que o Expo passou a ser o cliente de celular fiel. A referência do Figma e as revisões visuais registradas acima continuam valendo para o **celular** (até 767 px), onde a web fica exatamente como antes. Tablet e computador seguem a [decisão 0008](decisoes/0008-web-responsiva.md): trilho lateral no tablet e barra lateral no computador no lugar da navegação inferior, abas reorganizadas em colunas e grades com os mesmos blocos, subtelas numa coluna centralizada, e folhas e telas cheias como diálogo ou painel centralizado. Essas composições não vêm do Figma. Paleta, fontes, marca, tokens e temas não mudam, e os blocos escuros por design ficam iguais nos dois temas.
+
+As menções anteriores ao painel de 390 px e às conferências em 320, 390 e 1440 px descrevem a web antes desta data. As larguras de conferência passam a ser 320, 390 e 430 px no celular e 768, 1024, 1440 e 1920 px nas faixas largas; as verificações estão na [situação da fundação](situacao-fundacao.md). O Expo não muda.

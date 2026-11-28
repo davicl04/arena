@@ -8,6 +8,7 @@ import type { ArenaNotification } from "../api/notifications";
 import type { MatchCard } from "../api/matches";
 import { getMyStandings } from "../api/play";
 import { useNow } from "../hooks/useNow";
+import { useWideLayout } from "../hooks/useLayout";
 import { useResource } from "../hooks/useResource";
 import { usePendingNotifications } from "../hooks/usePendingNotifications";
 import type { NotificationSummaryState } from "../hooks/useNotificationSummary";
@@ -56,6 +57,8 @@ export default function HomePage({
 }) {
   // Relógio de 60 s: recalcula a Contagem e troca o Placar para a partida seguinte quando `starts_at` passa.
   const now = useNow(60_000);
+  // Em tablet e computador, a marca e o atalho de notificações ficam na navegação lateral.
+  const wide = useWideLayout();
   const nextMatch = nextScheduledMatch(matches, now);
   // Só uma lista vazia confirmada conta como "sem perfis": carregando ou com falha, não convida a prepará-los.
   const hasProfiles = loading || profilesFailed || profiles.length > 0;
@@ -112,26 +115,24 @@ export default function HomePage({
   const allSport = profileList?.length
     ? championshipsSport(championshipsState.kind === "ready" ? championshipsState.shown : [], profileList)
     : null;
-  return (
+  // Saudação: a data e "A arena te chama, …". No celular vem logo abaixo do cabeçalho; em tablet e computador abre a tela.
+  const greeting = (
+    <section className="pt-[26px] pb-[21px] md:pt-0 md:pb-6 lg:pb-7">
+      <p className="mb-[5px] text-[10px] font-bold tracking-[0.08em] text-ink-muted uppercase md:mb-1.5 md:text-[11px]">
+        {new Date(now).toLocaleDateString("pt-BR", {
+          weekday: "long",
+          day: "numeric",
+          month: "long",
+        })}
+      </p>
+      <h1 className="text-[25px] leading-[1.25] wrap-anywhere md:text-[30px] lg:text-[34px] lg:leading-[1.2]">
+        A arena te chama, {firstName}
+      </h1>
+    </section>
+  );
+  // Agenda: a próxima partida, a ação de jogar e "Para responder" (a primeira coluna em tela larga).
+  const agenda = (
     <>
-      <header className="flex items-center justify-between">
-        <Logo />
-        <div className="flex items-center gap-0.5">
-          <NotificationBell tone="light" count={summary?.count ?? 0} onOpen={() => go("notifications")} />
-        </div>
-      </header>
-      <section className="pt-[26px] pb-[21px]">
-        <p className="mb-[5px] text-[10px] font-bold tracking-[0.08em] text-ink-muted uppercase">
-          {new Date(now).toLocaleDateString("pt-BR", {
-            weekday: "long",
-            day: "numeric",
-            month: "long",
-          })}
-        </p>
-        <h1 className="text-[25px] leading-[1.25] wrap-anywhere">
-          A arena te chama, {firstName}
-        </h1>
-      </section>
       <Placar match={nextMatch} now={now} hasProfiles={hasProfiles} onOpen={(matchId) => go("match", { matchId })} />
       <Button className="mt-3 mb-1 h-[52px] w-full text-[14px]" onClick={() => go("play")}>
         <Zap size={20} fill="currentColor" />
@@ -147,6 +148,11 @@ export default function HomePage({
           onOpenAll={() => go("notifications", { filter: "responder" })}
         />
       )}
+    </>
+  );
+  // Progresso e campeonatos: "Seu elo", o próximo passo e os campeonatos (a segunda coluna em tela larga).
+  const progress = (
+    <>
       <Pilulas
         standings={standings.data}
         standingsLoading={standings.loading}
@@ -165,6 +171,34 @@ export default function HomePage({
         onOpenEvents={(sport) => go("events", { sport })}
         onOpenEvent={(event) => go("event", event.sport ? { eventId: event.id, sport: event.sport } : { eventId: event.id })}
       />
+    </>
+  );
+  /*
+   * Tablet e computador: medida larga (`data-largura="larga"`), sem a marca do cabeçalho (a navegação lateral já a
+   * mostra) e sem o sino (Notificações também está na lateral); a saudação no topo e, abaixo, duas colunas com os mesmos
+   * blocos do celular. O celular segue com o cabeçalho e os blocos numa coluna, como sempre.
+   */
+  if (wide)
+    return (
+      <div data-largura="larga" data-slot="home-larga">
+        {greeting}
+        <div data-slot="home-colunas" className="grid grid-cols-2 items-start gap-5 lg:grid-cols-[minmax(0,7fr)_minmax(20rem,5fr)] lg:gap-8">
+          <div data-slot="home-agenda" className="min-w-0">{agenda}</div>
+          <div data-slot="home-progresso" className="min-w-0 [&>section:first-child>[data-slot=section-title]]:mt-0">{progress}</div>
+        </div>
+      </div>
+    );
+  return (
+    <>
+      <header className="flex items-center justify-between">
+        <Logo />
+        <div className="flex items-center gap-0.5">
+          <NotificationBell tone="light" count={summary?.count ?? 0} onOpen={() => go("notifications")} />
+        </div>
+      </header>
+      {greeting}
+      {agenda}
+      {progress}
     </>
   );
 }

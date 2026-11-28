@@ -46,6 +46,7 @@ function RowMarks({ row }: { row: EventMatchRow }) {
  * agendamento (data, horário livre, quadra). Tocar num jogo sem data (ou agendado, antes do início) abre a folha; um jogo
  * com placar para decidir abre a decisão (D3); os demais abrem a partida. Os jogos que esperam o vencedor de uma fase
  * anterior aparecem como "Vencedor J1" e não podem ser agendados.
+ * Tablet e computador: placa de ponta a ponta (`data-largura="total"`) e a lista na coluna de leitura (ui.css, ticket 09).
  */
 export default function EventMatchesPage({ eventId, initialMatchId, onInitialShown, onBack, onOpenMatch, onDecide, onExpired }: {
   eventId: number
@@ -121,7 +122,7 @@ export default function EventMatchesPage({ eventId, initialMatchId, onInitialSho
 
   const eyebrow = event.data?.name ?? 'Organizador'
   const header = (
-    <TeamsPlate className="pb-4">
+    <TeamsPlate className="pb-4 md:px-coluna-leitura">
       <DarkTopBar eyebrow={eyebrow} title="Partidas" onBack={onBack} />
       {list && list.counts.total > 0 && (
         <p className="m-0 px-5 pt-1 text-[11px] text-white/70" data-slot="schedule-progress">
@@ -132,9 +133,9 @@ export default function EventMatchesPage({ eventId, initialMatchId, onInitialSho
   )
 
   if (!list) {
-    return <div>
+    return <div data-largura="total">
       {header}
-      <div className="px-5 pt-4">
+      <div className="px-5 pt-4 md:mx-auto md:max-w-leitura md:pt-5">
         {matches.loading && <p role="status" className="text-[12px] text-ink-muted">Carregando as partidas…</p>}
         {matches.error && <LoadError size="screen" text={matches.error} cause={matches.errorCause} onRetry={matches.reload} />}
       </div>
@@ -142,9 +143,9 @@ export default function EventMatchesPage({ eventId, initialMatchId, onInitialSho
   }
 
   const chips = counters(list.counts)
-  return <div>
+  return <div data-largura="total">
     {header}
-    <div className="grid grid-cols-[minmax(0,1fr)] gap-3 px-4 pt-4">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-3 px-4 pt-4 md:mx-auto md:max-w-leitura md:pt-5">
       {list.items.length === 0
         ? <EmptyState Icon={CalendarDays} title="Nenhuma partida ainda" text="As partidas aparecem quando você confirma o chaveamento do campeonato." className="surface rounded-card inset-ring inset-ring-surface-edge" />
         : <>

@@ -3,7 +3,7 @@ import { Clock, Info, Link2Off, SendHorizontal } from 'lucide-react'
 import { ApiError } from '@/api/client'
 import { cancelJoinRequest, joinPreview, requestJoin } from '@/api/teams'
 import type { JoinPreview, TeamCard } from '@/api/teams'
-import { teamButton } from '@/components/teams/styles'
+import { teamButton, wideColumn, widePlate, wideTopBar } from '@/components/teams/styles'
 import { TeamIdCard } from '@/components/teams/TeamIdCard'
 import { DarkTopBar, TeamsPlate } from '@/components/teams/TeamsPlate'
 import { athletes } from '@/components/teams/teamView'
@@ -19,7 +19,8 @@ const tip = 'mt-4 flex items-start gap-2.5 rounded-[14px] bg-mint/12 p-3 text-[1
 /**
  * Entrar no time pelo link (`/entrar/{token}`): a carteirinha do time e "Pedir para entrar"; depois, "Pedido enviado ·
  * aguardando um representante". Link trocado ou de time encerrado: "Este link não vale mais". Quem já é membro vê o
- * aviso e segue para Meus times; quem tem convite do time responde por lá.
+ * aviso e segue para Meus times; quem tem convite do time responde por lá. Tablet e computador: placa de ponta a ponta,
+ * com a carteirinha e os avisos na coluna de leitura.
  */
 export default function JoinPage({ token, onClose, onOpenTeams, onExpired }: {
   token: string
@@ -77,12 +78,12 @@ export default function JoinPage({ token, onClose, onOpenTeams, onExpired }: {
 
   const team = preview?.team
   const status = preview?.my_status
-  const top = <DarkTopBar eyebrow="Convite por link" title={invalid ? 'Link sem validade' : 'Entrar no time'} icon="close" onBack={onClose} />
+  const top = <DarkTopBar eyebrow="Convite por link" title={invalid ? 'Link sem validade' : 'Entrar no time'} icon="close" onBack={onClose} className={wideTopBar} />
 
   if (invalid) {
-    return <section aria-label="Entrar no time" className="min-h-full">
-      <TeamsPlate className="pb-5">{top}</TeamsPlate>
-      <div className="px-4 pt-4">
+    return <section aria-label="Entrar no time" data-largura="total" className="min-h-full">
+      <TeamsPlate className={cn('pb-5', widePlate)}>{top}</TeamsPlate>
+      <div className={cn('px-4 pt-4', wideColumn)}>
         <div className="rounded-panel surface inset-ring inset-ring-surface-edge">
           <EmptyState Icon={Link2Off} title="Este link não vale mais"
             text="Um representante gerou outro link ou o time foi encerrado. Peça o link novo a um representante do time." />
@@ -91,9 +92,9 @@ export default function JoinPage({ token, onClose, onOpenTeams, onExpired }: {
     </section>
   }
   if (!preview || !team) {
-    return <section aria-label="Entrar no time" className="min-h-full">
-      <TeamsPlate className="pb-5">{top}</TeamsPlate>
-      <div className="px-4 pt-4">
+    return <section aria-label="Entrar no time" data-largura="total" className="min-h-full">
+      <TeamsPlate className={cn('pb-5', widePlate)}>{top}</TeamsPlate>
+      <div className={cn('px-4 pt-4', wideColumn)}>
         {loadFailure
           ? <LoadError size="screen" title="Não foi possível abrir o link" text={loadFailure.message} cause={loadFailure.cause} onRetry={() => { setLoadFailure(null); setAttempt(n => n + 1) }} />
           : <p role="status" className="text-[12px] text-ink-muted">Abrindo o link do time…</p>}
@@ -116,14 +117,14 @@ export default function JoinPage({ token, onClose, onOpenTeams, onExpired }: {
         {status === 'membro' ? 'Abrir Meus times' : 'Ver o convite em Meus times'}
       </button>
 
-  return <section aria-label="Entrar no time" className="min-h-full">
-    <TeamsPlate className="pb-4">
+  return <section aria-label="Entrar no time" data-largura="total" className="min-h-full">
+    <TeamsPlate className={cn('pb-4', widePlate)}>
       {top}
       <div className="px-4 pt-3">
         <TeamIdCard team={{ ...team, my_role: null }} highlight badge="Link do time" line={`${team.city.name} · ${athletes(team.member_count)}`} actions={actions} />
       </div>
     </TeamsPlate>
-    <div className="px-4">
+    <div className={cn('px-4', wideColumn)}>
       {/* Estado do link (não é resposta a uma ação): quem já é membro ou tem convite continua vendo o aviso na tela. */}
       {(status === 'membro' || status === 'convite_pendente') && <p role="status" className={cn(feedbackVariants(), 'bg-success-bg text-brand')}>
         {status === 'membro' ? `Você já está no elenco do ${team.name}.` : `Você já tem um convite do ${team.name}. Responda em Meus times.`}

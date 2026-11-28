@@ -14,7 +14,7 @@ export function CancelSearchDialog({ busy, onKeep, onConfirm, returnFocus }: {
   returnFocus?: RefObject<HTMLElement | null>
 }) {
   return <Dialog open onOpenChange={next => { if (!next && !busy) onKeep() }}>
-    <DialogContent finalFocus={returnFocus} showCloseButton={false} data-testid="cancel-search-dialog" className="sm:max-w-[calc(100%-2rem)]">
+    <DialogContent finalFocus={returnFocus} showCloseButton={false} data-testid="cancel-search-dialog" className="sm:max-w-[calc(100%-2rem)] md:max-w-[25rem]">
       <DialogHeader className="pr-0">
         <DialogTitle>Cancelar a busca?</DialogTitle>
         <DialogDescription>Você sai da fila e perde o tempo de espera. Dá para buscar de novo quando quiser.</DialogDescription>

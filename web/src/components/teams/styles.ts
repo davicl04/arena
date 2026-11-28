@@ -36,3 +36,13 @@ export const darkNotice = cva('mt-3 rounded-[10px] px-2.5 py-2 text-[11.5px] lea
   variants: { tone: { error: 'bg-[#b9374940] text-[#ffd0d7]' } },
   defaultVariants: { tone: 'error' },
 })
+
+/*
+ * Tablet e computador (ticket 08 da web responsiva): Meus times e Entrar pelo link levam a placa de ponta a ponta
+ * (`data-largura="total"` na raiz da tela), sem o raio e com o conteúdo na coluna de leitura (ui.css, seção do ticket
+ * 08); o conteúdo abaixo da placa usa `wideColumn`. A barra das telas escuras (placa, Criar time, Convidar) ganha respiro
+ * no topo (`wideTopBar`).
+ */
+export const widePlate = 'md:rounded-b-none md:px-coluna-leitura'
+export const wideColumn = 'md:mx-auto md:max-w-leitura'
+export const wideTopBar = 'md:pt-5'

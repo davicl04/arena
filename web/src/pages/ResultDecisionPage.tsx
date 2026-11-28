@@ -64,6 +64,7 @@ function DecidedCard({ match }: { match: MatchDetail }) {
  * Placar divergente (D3), do lado do organizador: a linha do tempo da partida (o jogo, os dois envios e a divergência), o
  * trecho do chat com "Abrir chat" e a decisão (um dos placares, outro placar ou W.O.) com a justificativa obrigatória. O
  * servidor valida (na eliminação não há empate); ao registrar, a tela volta e quem a abriu relê os dados.
+ * Tablet e computador: placa de ponta a ponta (`data-largura="total"`) e a decisão na coluna de leitura (ui.css, ticket 09).
  */
 export default function ResultDecisionPage({ matchId, onBack, onOpenChat, onDone, onExpired }: {
   matchId: number
@@ -97,9 +98,9 @@ export default function ResultDecisionPage({ matchId, onBack, onOpenChat, onDone
   }
 
   if (!detail) {
-    return <div>
-      <TeamsPlate className="pb-4"><DarkTopBar eyebrow="Organizador" title="Decidir resultado" onBack={onBack} /></TeamsPlate>
-      <div className="px-5 pt-4">
+    return <div data-largura="total">
+      <TeamsPlate className="pb-4 md:px-coluna-leitura"><DarkTopBar eyebrow="Organizador" title="Decidir resultado" onBack={onBack} /></TeamsPlate>
+      <div className="px-5 pt-4 md:mx-auto md:max-w-leitura md:pt-5">
         {match.loading && <p role="status" className="text-[12px] text-ink-muted">Carregando a partida…</p>}
         {match.error && <LoadError size="screen" title="Não foi possível carregar a partida" text={match.error} cause={match.errorCause} onRetry={match.reload} />}
       </div>
@@ -114,12 +115,12 @@ export default function ResultDecisionPage({ matchId, onBack, onOpenChat, onDone
   const recent: MatchMessageOut[] = (chat.data?.items ?? []).filter(item => item.kind === 'texto' && !item.removed && item.body).sort((a, b) => a.id - b.id).slice(-3)
   const title = decided ? 'Resultado decidido' : divergent ? 'Placar divergente' : 'Decidir resultado'
 
-  return <div>
-    <TeamsPlate className="pb-4">
+  return <div data-largura="total">
+    <TeamsPlate className="pb-4 md:px-coluna-leitura">
       <DarkTopBar eyebrow={detail.event?.name ?? 'Organizador'} title={title} onBack={onBack} />
     </TeamsPlate>
 
-    <div className="grid grid-cols-[minmax(0,1fr)] gap-3.5 px-4 pt-4">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-3.5 px-4 pt-4 md:mx-auto md:max-w-leitura md:pt-5">
       <div className="flex items-center justify-center gap-2.5 rounded-card surface px-3 py-2.5" data-slot="decision-vs">
         {sides[0] && <TeamMark side={sides[0]} />}
         <h2 className="m-0 flex min-w-0 items-center gap-2 text-[13px]">

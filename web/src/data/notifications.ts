@@ -7,6 +7,16 @@ import type { Screen } from './arena'
 import { positions } from '../api/client'
 import { formatDeadline } from '../utils/format'
 
+/** Nome acessível do atalho de notificações (sino das abas e item da navegação lateral): "Notificações, 5 novas". */
+export function notificationLabel(count: number): string {
+  return count > 0 ? `Notificações, ${count} ${count === 1 ? 'nova' : 'novas'}` : 'Notificações'
+}
+
+/** Texto do contador decorativo do atalho de notificações: "9+" acima de 9. */
+export function notificationCountText(count: number): string {
+  return count > 9 ? '9+' : String(count)
+}
+
 /**
  * Para onde a notificação leva ao ser tocada (contrato 0003, seções 7 e 17): Meus times com o time no carrossel
  * (`teamId`), a folha de convites recebidos (`invites`) ou a lista "Pedidos para entrar" (`requests`); o Menu, com o

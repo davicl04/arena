@@ -10,7 +10,7 @@ import { InviteSheet } from '@/components/teams/InviteSheet'
 import { InviteStrip } from '@/components/teams/InviteStrip'
 import { MemberSheet } from '@/components/teams/MemberSheet'
 import { RosterGrid } from '@/components/teams/RosterGrid'
-import { teamButton } from '@/components/teams/styles'
+import { teamButton, wideColumn, widePlate, wideTopBar } from '@/components/teams/styles'
 import { TeamCardCarousel } from '@/components/teams/TeamCardCarousel'
 import { JoinRequestsList, SentInvitesList } from '@/components/teams/TeamRequestLists'
 import { DarkTopBar, TeamsPlate } from '@/components/teams/TeamsPlate'
@@ -34,7 +34,8 @@ const messageOf = (cause: unknown, fallback: string) => cause instanceof Error &
 /**
  * Meus times (M3 + C5 + E1 + R2): placa escura com a faixa de convites e o carrossel de carteirinhas; abaixo, o elenco
  * do cartão centralizado e, para representantes, os pedidos para entrar e os convites enviados. Só dados reais: sem
- * time, o estado vazio leva a Criar time.
+ * time, o estado vazio leva a Criar time. Tablet e computador: placa de ponta a ponta, conteúdo na coluna de leitura e
+ * carteirinhas em grade (TeamCardCarousel).
  */
 export default function TeamsPage({ viewerId, selectedTeamId, openInvites = false, onInvitesOpened, showRequests = false, onRequestsShown, onSelectTeam, onBack, onCreate, onEdit, onInvite, onLink, onOpenUser, onExpired }: {
   viewerId: number
@@ -157,9 +158,9 @@ export default function TeamsPage({ viewerId, selectedTeamId, openInvites = fals
   }
 
   if (!teams) {
-    return <section aria-label="Meus times" className="min-h-full">
-      <TeamsPlate className="pb-6"><DarkTopBar eyebrow="Jogar" title="Meus times" onBack={onBack} /></TeamsPlate>
-      <div className="px-4 pt-4">
+    return <section aria-label="Meus times" data-largura="total" className="min-h-full">
+      <TeamsPlate className={cn('pb-6', widePlate)}><DarkTopBar eyebrow="Jogar" title="Meus times" onBack={onBack} className={wideTopBar} /></TeamsPlate>
+      <div className={cn('px-4 pt-4', wideColumn)}>
         {loadFailure
           ? <LoadError size="screen" title="Não foi possível carregar seus times" text={loadFailure.message} cause={loadFailure.cause} onRetry={reload} />
           : <p role="status" className="text-[12px] text-ink-muted">Carregando seus times…</p>}
@@ -167,16 +168,16 @@ export default function TeamsPage({ viewerId, selectedTeamId, openInvites = fals
     </section>
   }
 
-  return <section aria-label="Meus times" className="min-h-full">
+  return <section aria-label="Meus times" data-largura="total" className="min-h-full">
     {/* Sem time, o carrossel teria só o quadro "Criar time", repetindo o estado vazio abaixo: a placa fica só com o título. */}
-    <TeamsPlate className={cn(!teams.length && 'pb-6')}>
-      <DarkTopBar eyebrow="Jogar" title="Meus times" onBack={onBack} />
+    <TeamsPlate className={cn(!teams.length && 'pb-6', widePlate)}>
+      <DarkTopBar eyebrow="Jogar" title="Meus times" onBack={onBack} className={wideTopBar} />
       <InviteStrip invites={invites} onOpen={() => setSheet({ kind: 'invites' })} />
       {teams.length > 0 && <TeamCardCarousel teams={teams} selectedId={selected?.id ?? null} onSelect={onSelectTeam} onCreate={onCreate}
         onInvite={onInvite} onLink={onLink} onEdit={onEdit} onLeave={team => setSheet({ kind: 'leave', team })} />}
     </TeamsPlate>
 
-    <div className="px-4">
+    <div className={cn('px-4', wideColumn)}>
       {invitesFailure && <LoadError size="section" title="Não foi possível carregar os convites" text={invitesFailure.message} cause={invitesFailure.cause} onRetry={reload} />}
       {currentListsFailure && <LoadError size="section" title="Não foi possível carregar pedidos e convites" text={currentListsFailure.message} cause={currentListsFailure.cause} onRetry={reload} />}
       {!selected

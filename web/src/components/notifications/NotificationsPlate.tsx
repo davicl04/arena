@@ -40,6 +40,7 @@ function chipCount(filter: NotificationFilter, summary: NotificationSummary | nu
 /**
  * Placa da tela de notificações: `forest` com raio inferior de 26 px e o Coliseu ao fundo, voltar, título, "Ler todas"
  * (só com não lidas), a linha de resumo e os cinco filtros (grupo de escolha única; setas movem o foco).
+ * Tablet e computador: de ponta a ponta e sem o raio, com o conteúdo na coluna de leitura (`px-coluna-leitura`).
  */
 export function NotificationsPlate({ summary, filter, busy, onFilter, onBack, onReadAll }: {
   summary: NotificationSummary | null
@@ -49,7 +50,7 @@ export function NotificationsPlate({ summary, filter, busy, onFilter, onBack, on
   onBack: () => void
   onReadAll: () => void
 }) {
-  return <header className="relative overflow-hidden rounded-b-[26px] bg-forest pb-1 text-white">
+  return <header className="relative overflow-hidden rounded-b-[26px] bg-forest pb-1 text-white md:rounded-b-none md:px-coluna-leitura md:pt-4 md:pb-2">
     <span aria-hidden="true" className="pointer-events-none absolute -bottom-[60px] left-1/2 h-[200px] w-[380px] -translate-x-1/2 bg-white opacity-[0.05] mask-[url(/images/brand/coliseum.svg)] mask-contain mask-center mask-no-repeat" />
     <div className="relative flex min-h-[56px] items-center gap-1.5 pt-1.5 pr-2.5 pl-1.5">
       <IconButton tone="glass" aria-label="Voltar" className="focus-visible:outline-mint" onClick={onBack}><ArrowLeft size={21} /></IconButton>

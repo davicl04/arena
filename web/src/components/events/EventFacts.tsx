@@ -28,10 +28,11 @@ export function Term({ Icon, icon, children, action, className }: {
 }
 
 /** Ícone ⓘ ao lado do preço: abre a folha "Pagamento e informações". */
-export function PaymentInfoButton({ onClick, className }: { onClick: () => void; className?: string }) {
+export function PaymentInfoButton({ onClick, className, returnKey }: { onClick: () => void; className?: string; returnKey?: string }) {
   return (
     <button
       type="button"
+      data-foco-retorno={returnKey}
       aria-label="Informações de pagamento"
       title="Informações de pagamento"
       onClick={onClick}

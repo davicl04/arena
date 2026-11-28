@@ -67,7 +67,7 @@ export function ScheduleSheet({ row, city, busy, error, conflict, onSubmit, onCl
   return (
     <Sheet title={`${rescheduling ? 'Reagendar' : 'Agendar'} ${row.label}`} description={`${names.join(' × ')} · ${row.stage}`} onClose={onClose}>
       <form className="grid gap-3.5 pt-2" onSubmit={submit} noValidate>
-        <div className="grid grid-cols-[1fr_8.5rem] gap-2 app-narrow:grid-cols-[1fr_7.5rem]">
+        <div className="grid grid-cols-[1fr_7.5rem] gap-2 md:grid-cols-[1fr_8.5rem]">
           <div className="grid min-w-0 gap-1.5">
             <label htmlFor={`${id}-date`} className={lbl}>Data</label>
             <DatePicker id={`${id}-date`} label="Data" value={date} onChange={setDate} disablePast max={last} invalid={Boolean(problem) && !date} />

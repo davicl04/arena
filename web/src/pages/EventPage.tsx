@@ -31,6 +31,7 @@ import { PaymentInfoSheet } from "../components/events/PaymentInfoSheet";
 import { entryCta, isLocked } from "../components/events/entryCta";
 import { eventFormatParts } from "../data/arena";
 import type { EntryState } from "../data/arena";
+import { useLayout } from "../hooks/useLayout";
 import { useResource } from "../hooks/useResource";
 import { useSubmit } from "../hooks/useSubmit";
 import { Button } from "@/components/ui/button";
@@ -38,6 +39,7 @@ import { Card } from "@/components/ui/card";
 import { LoadError } from "@/components/ui/load-error";
 import { toast } from "@/components/ui/toast";
 import { Tabs } from "@/components/ui/tabs";
+import { cn } from "@/lib/utils";
 import { formatDeadline, parseIso } from "@/utils/format";
 
 type Section = "info" | "tabela" | "percurso" | "inscritos";
@@ -55,6 +57,8 @@ const BADGE_STATES = ["em_andamento", "encerrado", "cancelado"] as const;
  * organizador (para os inscritos), as abas Informações | Tabela (ou Percurso, na corrida) | Inscritos e o botão
  * fixo de inscrição, acima da navegação inferior. Inscrição gratuita confirmada na hora; paga com reserva, Pix,
  * comprovante e, no cancelamento do evento, a resposta à devolução.
+ * Tablet: coluna de leitura, com a barra de inscrição presa à base da coluna. Computador: medida larga em duas colunas —
+ * cartaz, estado, inscrição e a barra de inscrição de um lado; avisos e abas do outro.
  */
 export default function EventPage({ eventId, initialSection, onSport, onTeams, onManage, onOpenUser, onExpired }: {
   eventId: number;
@@ -81,6 +85,7 @@ export default function EventPage({ eventId, initialSection, onSport, onTeams, o
   const [sheet, setSheet] = useState<SheetKind | null>(null);
   const [infoReturn, setInfoReturn] = useState<SheetKind | null>(null);
   const action = useSubmit(onExpired);
+  const desktop = useLayout() === "computador";
   const { setError } = action;
   const sport = detail?.sport ?? "futebol";
 
@@ -206,8 +211,8 @@ export default function EventPage({ eventId, initialSection, onSport, onTeams, o
     await refresh();
   }
 
-  return (
-    <div className="grid gap-3 pb-2" data-event={current.id}>
+  const sideBlocks = (
+    <>
       <EventPoster
         size="hero"
         name={current.name}
@@ -290,6 +295,10 @@ export default function EventPage({ eventId, initialSection, onSport, onTeams, o
           </div>
         </div>
       )}
+    </>
+  );
+  const mainBlocks = (
+    <>
       {current.can_read_messages && <EventNotices eventId={current.id} onExpired={onExpired} />}
       <Tabs
         variant="track"
@@ -331,24 +340,51 @@ export default function EventPage({ eventId, initialSection, onSport, onTeams, o
           <EventEntrants eventId={current.id} sport={sport} myEntryId={entry?.id ?? null} onOpenUser={onOpenUser} onExpired={onExpired} />
         )}
       </div>
-      {cta && <div aria-hidden="true" className="h-16" />}
-      {cta && (
-        <div
-          data-slot="entry-bar"
-          className="absolute inset-x-0 bottom-[82px] z-[19] flex items-center gap-2 border-t border-solid border-line bg-sheet px-5 py-2.5 app-narrow:bottom-[calc(82px+env(safe-area-inset-bottom))]"
-        >
-          <Button
-            className="min-w-0 flex-1 text-center"
-            disabled={cta.kind === "blocked" || action.busy}
-            onClick={() => (cta.kind === "teams" ? onTeams() : open(cta.kind === "enter" ? "enter" : "receipt"))}
-          >
-            {cta.kind === "blocked" && cta.locked && <Lock size={16} aria-hidden="true" />}
-            {cta.kind === "receipt" && <Upload size={16} aria-hidden="true" />}
-            {cta.label}
-          </Button>
-          {paid && pix && cta.kind !== "teams" && <PaymentInfoButton onClick={() => openInfo(null)} className="size-11" />}
-        </div>
+    </>
+  );
+  // Celular: presa acima da navegação inferior. Tablet: presa à base da coluna, como cartão. Computador: na coluna do cartaz.
+  // Ao cruzar 1024 px ela remonta no outro lugar; `data-foco-retorno` faz a folha aberta por um dos botões devolver o foco
+  // ao botão equivalente da barra nova (useDialogFocus).
+  const entryBar = cta && (
+    <div
+      data-slot="entry-bar"
+      className={cn(
+        "absolute inset-x-0 bottom-[calc(82px+env(safe-area-inset-bottom))] z-[19] flex items-center gap-2 border-t border-solid border-line bg-sheet px-5 py-2.5",
+        "md:sticky md:inset-x-auto md:bottom-4 md:rounded-card md:border md:px-3.5 md:shadow-sheet",
+        "lg:static lg:shadow-card",
       )}
+    >
+      <Button
+        data-foco-retorno="inscricao"
+        className="min-w-0 flex-1 text-center"
+        disabled={cta.kind === "blocked" || action.busy}
+        onClick={() => (cta.kind === "teams" ? onTeams() : open(cta.kind === "enter" ? "enter" : "receipt"))}
+      >
+        {cta.kind === "blocked" && cta.locked && <Lock size={16} aria-hidden="true" />}
+        {cta.kind === "receipt" && <Upload size={16} aria-hidden="true" />}
+        {cta.label}
+      </Button>
+      {paid && pix && cta.kind !== "teams" && <PaymentInfoButton returnKey="pagamento" onClick={() => openInfo(null)} className="size-11" />}
+    </div>
+  );
+
+  return (
+    <div className="grid gap-3 pb-2" data-event={current.id} data-largura={desktop ? "larga" : undefined}>
+      {/* As duas colunas existem em todas as faixas, para os avisos, a tabela e os inscritos (listas já carregadas) não
+          remontarem ao cruzar 1024 px; no celular e no tablet são `contents`, sem caixa: a coluna única de sempre. Só a barra
+          de inscrição, sem estado, muda de lugar. */}
+      <div
+        data-slot={desktop ? "evento-colunas" : undefined}
+        className="contents lg:grid lg:grid-cols-[minmax(18rem,2fr)_minmax(0,3fr)] lg:items-start lg:gap-8"
+      >
+        <div className="contents lg:grid lg:gap-3">
+          {sideBlocks}
+          {desktop && entryBar}
+        </div>
+        <div className="contents lg:grid lg:gap-3">{mainBlocks}</div>
+      </div>
+      {!desktop && cta && <div aria-hidden="true" className="h-16 md:hidden" />}
+      {!desktop && entryBar}
       {sheet === "enter" && cta?.kind === "enter" && (
         <EnterSheet
           detail={current}

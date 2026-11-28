@@ -19,6 +19,7 @@ import { feedbackVariants } from '@/components/ui/feedback'
 import { LoadError } from '@/components/ui/load-error'
 import { toast } from '@/components/ui/toast'
 import { eventFormatParts, pixKeyType, tiers } from '@/data/arena'
+import { useLayout } from '@/hooks/useLayout'
 import { useResource } from '@/hooks/useResource'
 import { useSubmit } from '@/hooks/useSubmit'
 import { cn } from '@/lib/utils'
@@ -26,6 +27,10 @@ import { formatDeadline, formatPrice, plural } from '@/utils/format'
 
 type SectionKey = 'entries' | 'data' | 'pix'
 type SheetKind = 'cancel' | 'delete' | 'edit' | null
+
+/** Tablet: coluna de leitura; computador: medida larga, em duas colunas. A placa centraliza o conteúdo na mesma medida. */
+const plateMeasure = 'md:px-coluna-leitura lg:px-coluna-larga'
+const bodyMeasure = 'md:mx-auto md:max-w-leitura lg:max-w-larga'
 
 const rowClass = 'flex min-h-[58px] w-full items-center gap-3 border-0 bg-transparent px-0 py-2 text-left text-ink'
 const rowIcon = 'grid size-[34px] flex-none place-items-center rounded-[10px] bg-icon-tile text-brand'
@@ -97,6 +102,8 @@ const reducedMotion = () => typeof window.matchMedia === 'function' && window.ma
  * da API), comprovantes e devoluções (tela própria), chaveamento ou tabela e partidas (telas próprias, com os contadores
  * do cartaz; antes do sorteio ficam apagadas), dados do evento (editáveis conforme `editable_fields`) e pagamento/Pix —, o canal de avisos e as ações de excluir rascunho,
  * retirar da aprovação e cancelar.
+ * Tablet: placa de ponta a ponta (`data-largura="total"`) e conteúdo na coluna de leitura. Computador: medida larga, com
+ * o cartão "Agora" e as seções numa coluna e os avisos e as ações de excluir ou cancelar na outra (ui.css, ticket 09).
  */
 export default function EventManagePage({ eventId, onBack, onEdit, onReceipts, onBracket, onMatches, onDeleted, onExpired }: {
   eventId: number
@@ -119,6 +126,7 @@ export default function EventManagePage({ eventId, onBack, onEdit, onReceipts, o
   const [sheet, setSheet] = useState<SheetKind>(null)
   const action = useSubmit(onExpired)
   const detail = resource.data
+  const desktop = useLayout() === 'computador'
 
   const toggle = (key: SectionKey) => (value: boolean) => setOpen(old => ({ ...old, [key]: value }))
   function update(next: OrganizerEventDetail, message: string) {
@@ -127,9 +135,9 @@ export default function EventManagePage({ eventId, onBack, onEdit, onReceipts, o
   }
 
   if (!detail) {
-    return <div>
-      <TeamsPlate className="pb-4"><DarkTopBar eyebrow="Organizador" title="Gestão do evento" onBack={onBack} /></TeamsPlate>
-      <div className="px-5 pt-4">
+    return <div data-largura="total">
+      <TeamsPlate className={cn('pb-4', plateMeasure)}><DarkTopBar eyebrow="Organizador" title="Gestão do evento" onBack={onBack} /></TeamsPlate>
+      <div className={cn('px-5 pt-4', bodyMeasure)}>
         {resource.loading && <p role="status" className="text-[12px] text-ink-muted">Carregando o evento…</p>}
         {resource.error && <LoadError size="screen" text={resource.error} cause={resource.errorCause} onRetry={resource.reload} />}
       </div>
@@ -216,73 +224,84 @@ export default function EventManagePage({ eventId, onBack, onEdit, onReceipts, o
     ['Instruções', pix.instructions],
   ] : []
 
-  return <div>
-    <TeamsPlate className="pb-4">
+  /* Resumo (cartão "Agora" e seções) e, no computador, a outra coluna: avisos e as ações de excluir ou cancelar. */
+  const summaryBlocks = <>
+    <NextActionCard detail={detail} busy={action.busy} onSubmit={() => void submit()} onWithdraw={() => void withdraw()}
+      onFill={step => onEdit(step)} onReceipts={onReceipts} onShowEntries={showEntries} onBracket={onBracket} onMatches={onMatches} />
+
+    <h2 className="mt-5 mb-2 text-[16px]">Seções</h2>
+    <div className="surface rounded-card px-3.5 inset-ring inset-ring-surface-edge">
+      {beforeRegistration
+        ? <SectionLater Icon={Users} title={entriesTitle(detail.sport)} value={detail.capacity ? `0 de ${detail.capacity} · depois de publicar` : 'Depois de publicar'} />
+        : <SectionPanel id="section-entries" Icon={Users} title={entriesTitle(detail.sport)} open={open.entries} onOpenChange={toggle('entries')}
+          value={detail.capacity ? `${detail.entries_count} de ${detail.capacity} ${unit} · ${detail.confirmed_count} confirmados` : `${detail.entries_count} ${unit}`}>
+          {open.entries && <EventEntries eventId={detail.id} onReceipts={onReceipts} onExpired={onExpired} />}
+        </SectionPanel>}
+      {paid && !beforeRegistration && <SectionLink Icon={Receipt} title="Comprovantes" onClick={onReceipts} hot={pending.receipts > 0}
+        value={pending.receipts ? `${plural(pending.receipts, 'comprovante', 'comprovantes')} para analisar` : 'Nenhum pendente'} />}
+      {refunds > 0 && <SectionLink Icon={Undo2} title="Devoluções" onClick={onReceipts} hot={pending.refunds_to_send > 0}
+        value={[pending.refunds_to_send && `${pending.refunds_to_send} para enviar`, pending.refunds_awaiting && `${pending.refunds_awaiting} aguardando`,
+          pending.refund_disputes && `${pending.refund_disputes} contestadas`].filter(Boolean).join(' · ')} />}
+      {detail.sport === 'corrida'
+        ? <SectionLater Icon={Flag} title="Resultados" value={phaseOpen ? 'Depois da prova' : 'Em breve no Arena'} />
+        : <>
+          {bracketSection}
+          {matchesSection}
+        </>}
+      <SectionPanel id="section-data" Icon={FileText} title="Dados do evento" open={open.data} onOpenChange={toggle('data')} hot={draft && missing > 0}
+        value={draft ? (missing ? `${missing === 1 ? 'Falta 1 item' : `Faltam ${missing} itens`} do checklist` : 'Rascunho completo') : 'Modalidade, datas, local e elos'}>
+        <DataList rows={dataRows} />
+        {detail.tennis_bonus && <p className="mt-2 text-[10.5px] leading-[1.5] text-ink-muted">
+          Bônus do ranking do tênis: campeão +{detail.tennis_bonus.champion}, vice +{detail.tennis_bonus.runner_up} e semifinalistas +{detail.tennis_bonus.semifinalist}, com pelo menos {detail.tennis_bonus.min_entries} inscritos{detail.tennis_bonus.applies ? ' (já vale).' : '.'}
+        </p>}
+        {draft && editable && <button type="button" className={cn(teamButton({ tone: 'outline', size: 'sm' }), 'mt-2.5')} onClick={() => onEdit()}><Pencil aria-hidden="true" />Editar no assistente</button>}
+        {canEditPublished && <button type="button" className={cn(teamButton({ tone: 'outline', size: 'sm' }), 'mt-2.5')} onClick={() => setSheet('edit')}><Pencil aria-hidden="true" />Editar local e contato</button>}
+        {!draft && !published && detail.state !== 'em_aprovacao' && <p className="mt-2 text-[10.5px] text-ink-muted">Este evento não pode mais ser editado.</p>}
+        {detail.state === 'em_aprovacao' && <p className="mt-2 text-[10.5px] text-ink-muted">Para editar, retire o evento da aprovação.</p>}
+      </SectionPanel>
+      <SectionPanel id="section-pix" Icon={QrCode} title="Pagamento e Pix" open={open.pix} onOpenChange={toggle('pix')}
+        value={detail.price_cents == null ? 'Gratuito ou pago: a definir' : paid ? `${formatPrice(detail.price_cents)} · chave, Copia e Cola e instruções` : 'Evento gratuito'}>
+        {paid && pix ? <>
+          <DataList rows={pixRows} />
+          <p className="mt-2 text-[10.5px] leading-[1.5] text-ink-muted">Só aparece para quem está logado. O Arena não recebe pagamentos: só registra os comprovantes.</p>
+        </> : <p className="text-[11.5px] leading-[1.5] text-ink-muted">{detail.price_cents == null ? 'Escolha no assistente se a inscrição é gratuita ou paga.' : 'Evento gratuito: sem Pix e sem comprovantes.'}</p>}
+        {draft && editable && <button type="button" className={cn(teamButton({ tone: 'outline', size: 'sm' }), 'mt-2.5')} onClick={() => onEdit(4)}><Pencil aria-hidden="true" />Editar inscrição e Pix</button>}
+      </SectionPanel>
+    </div>
+  </>
+  const channelBlocks = <>
+    {PUBLISHED_STATES.includes(detail.state) && <EventNotices key={detail.state} eventId={detail.id} canWrite={!detail.revocation_pending} onExpired={onExpired} />}
+
+    {(draft || published) && editable && <div className="mt-6 border-0 border-t border-solid border-line pt-4">
+      {draft && <Button variant="text" className="flex items-center gap-1.5 text-danger-ink no-underline" onClick={() => setSheet('delete')}><Trash2 size={16} aria-hidden="true" />Excluir rascunho</Button>}
+      {published && <>
+        <button type="button" className={cn(teamButton({ tone: 'outline', size: 'md' }), 'w-full border-danger/40 text-danger')} onClick={() => setSheet('cancel')}>
+          <XCircle aria-hidden="true" />Cancelar evento
+        </button>
+        <p className="mt-2 text-[10.5px] leading-[1.5] text-ink-muted">
+          {paid ? 'As inscrições pagas viram “Devolução pendente”: você devolve por Pix e anexa o comprovante de cada devolução.' : 'As inscrições são canceladas e os inscritos, avisados.'}
+        </p>
+      </>}
+    </div>}
+  </>
+
+  return <div data-largura="total">
+    <TeamsPlate className={cn('pb-4', plateMeasure)}>
       <DarkTopBar eyebrow="Organizador" title="Gestão do evento" onBack={onBack} />
       <div className="px-4 pt-3">
         <EventPoster {...posterProps(detail)} size="hero" />
       </div>
     </TeamsPlate>
 
-    <div className="px-5 pt-4">
+    <div className={cn('px-5 pt-4', bodyMeasure)}>
       {action.error && <p className={cn(feedbackVariants(), 'mb-3')} role="alert">{action.error}</p>}
 
-      <NextActionCard detail={detail} busy={action.busy} onSubmit={() => void submit()} onWithdraw={() => void withdraw()}
-        onFill={step => onEdit(step)} onReceipts={onReceipts} onShowEntries={showEntries} onBracket={onBracket} onMatches={onMatches} />
-
-      <h2 className="mt-5 mb-2 text-[16px]">Seções</h2>
-      <div className="surface rounded-card px-3.5 inset-ring inset-ring-surface-edge">
-        {beforeRegistration
-          ? <SectionLater Icon={Users} title={entriesTitle(detail.sport)} value={detail.capacity ? `0 de ${detail.capacity} · depois de publicar` : 'Depois de publicar'} />
-          : <SectionPanel id="section-entries" Icon={Users} title={entriesTitle(detail.sport)} open={open.entries} onOpenChange={toggle('entries')}
-            value={detail.capacity ? `${detail.entries_count} de ${detail.capacity} ${unit} · ${detail.confirmed_count} confirmados` : `${detail.entries_count} ${unit}`}>
-            {open.entries && <EventEntries eventId={detail.id} onReceipts={onReceipts} onExpired={onExpired} />}
-          </SectionPanel>}
-        {paid && !beforeRegistration && <SectionLink Icon={Receipt} title="Comprovantes" onClick={onReceipts} hot={pending.receipts > 0}
-          value={pending.receipts ? `${plural(pending.receipts, 'comprovante', 'comprovantes')} para analisar` : 'Nenhum pendente'} />}
-        {refunds > 0 && <SectionLink Icon={Undo2} title="Devoluções" onClick={onReceipts} hot={pending.refunds_to_send > 0}
-          value={[pending.refunds_to_send && `${pending.refunds_to_send} para enviar`, pending.refunds_awaiting && `${pending.refunds_awaiting} aguardando`,
-            pending.refund_disputes && `${pending.refund_disputes} contestadas`].filter(Boolean).join(' · ')} />}
-        {detail.sport === 'corrida'
-          ? <SectionLater Icon={Flag} title="Resultados" value={phaseOpen ? 'Depois da prova' : 'Em breve no Arena'} />
-          : <>
-            {bracketSection}
-            {matchesSection}
-          </>}
-        <SectionPanel id="section-data" Icon={FileText} title="Dados do evento" open={open.data} onOpenChange={toggle('data')} hot={draft && missing > 0}
-          value={draft ? (missing ? `${missing === 1 ? 'Falta 1 item' : `Faltam ${missing} itens`} do checklist` : 'Rascunho completo') : 'Modalidade, datas, local e elos'}>
-          <DataList rows={dataRows} />
-          {detail.tennis_bonus && <p className="mt-2 text-[10.5px] leading-[1.5] text-ink-muted">
-            Bônus do ranking do tênis: campeão +{detail.tennis_bonus.champion}, vice +{detail.tennis_bonus.runner_up} e semifinalistas +{detail.tennis_bonus.semifinalist}, com pelo menos {detail.tennis_bonus.min_entries} inscritos{detail.tennis_bonus.applies ? ' (já vale).' : '.'}
-          </p>}
-          {draft && editable && <button type="button" className={cn(teamButton({ tone: 'outline', size: 'sm' }), 'mt-2.5')} onClick={() => onEdit()}><Pencil aria-hidden="true" />Editar no assistente</button>}
-          {canEditPublished && <button type="button" className={cn(teamButton({ tone: 'outline', size: 'sm' }), 'mt-2.5')} onClick={() => setSheet('edit')}><Pencil aria-hidden="true" />Editar local e contato</button>}
-          {!draft && !published && detail.state !== 'em_aprovacao' && <p className="mt-2 text-[10.5px] text-ink-muted">Este evento não pode mais ser editado.</p>}
-          {detail.state === 'em_aprovacao' && <p className="mt-2 text-[10.5px] text-ink-muted">Para editar, retire o evento da aprovação.</p>}
-        </SectionPanel>
-        <SectionPanel id="section-pix" Icon={QrCode} title="Pagamento e Pix" open={open.pix} onOpenChange={toggle('pix')}
-          value={detail.price_cents == null ? 'Gratuito ou pago: a definir' : paid ? `${formatPrice(detail.price_cents)} · chave, Copia e Cola e instruções` : 'Evento gratuito'}>
-          {paid && pix ? <>
-            <DataList rows={pixRows} />
-            <p className="mt-2 text-[10.5px] leading-[1.5] text-ink-muted">Só aparece para quem está logado. O Arena não recebe pagamentos: só registra os comprovantes.</p>
-          </> : <p className="text-[11.5px] leading-[1.5] text-ink-muted">{detail.price_cents == null ? 'Escolha no assistente se a inscrição é gratuita ou paga.' : 'Evento gratuito: sem Pix e sem comprovantes.'}</p>}
-          {draft && editable && <button type="button" className={cn(teamButton({ tone: 'outline', size: 'sm' }), 'mt-2.5')} onClick={() => onEdit(4)}><Pencil aria-hidden="true" />Editar inscrição e Pix</button>}
-        </SectionPanel>
+      {/* As duas colunas existem em todas as faixas, para os avisos (rascunho e lista carregada) e os inscritos abertos não
+          remontarem ao cruzar 1024 px; no celular e no tablet são `contents`, sem caixa: a coluna única de sempre. */}
+      <div data-slot={desktop ? 'gestao-colunas' : undefined} className="contents lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-start lg:gap-x-8">
+        <div className="contents lg:block">{summaryBlocks}</div>
+        <div className="contents lg:block lg:[&>section:first-child]:mt-0">{channelBlocks}</div>
       </div>
-
-      {PUBLISHED_STATES.includes(detail.state) && <EventNotices key={detail.state} eventId={detail.id} canWrite={!detail.revocation_pending} onExpired={onExpired} />}
-
-      {(draft || published) && editable && <div className="mt-6 border-0 border-t border-solid border-line pt-4">
-        {draft && <Button variant="text" className="flex items-center gap-1.5 text-danger-ink no-underline" onClick={() => setSheet('delete')}><Trash2 size={16} aria-hidden="true" />Excluir rascunho</Button>}
-        {published && <>
-          <button type="button" className={cn(teamButton({ tone: 'outline', size: 'md' }), 'w-full border-danger/40 text-danger')} onClick={() => setSheet('cancel')}>
-            <XCircle aria-hidden="true" />Cancelar evento
-          </button>
-          <p className="mt-2 text-[10.5px] leading-[1.5] text-ink-muted">
-            {paid ? 'As inscrições pagas viram “Devolução pendente”: você devolve por Pix e anexa o comprovante de cada devolução.' : 'As inscrições são canceladas e os inscritos, avisados.'}
-          </p>
-        </>}
-      </div>}
     </div>
 
     {sheet === 'cancel' && <CancelEventSheet detail={detail} onClose={() => setSheet(null)} onExpired={onExpired}

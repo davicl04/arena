@@ -6,8 +6,11 @@ import { sideName } from '@/data/match'
 import type { Proposal } from '@/api/matchmaking'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
+import { widePanel } from '@/components/ui/overlay-variants'
 import { footballFormat } from '@/data/arena'
+import { useWideLayout } from '@/hooks/useLayout'
 import { useSubmit } from '@/hooks/useSubmit'
+import { cn } from '@/lib/utils'
 import { Countdown } from './Countdown'
 import { SideBadge } from './SideBadge'
 import { darkMint, darkOutline } from './styles'
@@ -20,7 +23,7 @@ export type ProposalAnswer = 'aceitar' | 'recusar'
  * "Responder depois" (e Esc) não chama a API: a proposta continua na placa até o prazo.
  *
  * `onAnswer` recebe a proposta devolvida pelo servidor, com a resposta dada; quem chama decide o que vem depois
- * (ir à partida quando os dois aceitam, reler a placa). Fica dentro da moldura do app (`DialogContainerProvider`).
+ * (ir à partida quando os dois aceitam, reler a placa). Fica dentro do `app-frame` (`DialogContainerProvider`).
  */
 export function ProposalDialog({ proposal, onLater, onAnswer, onOpenMatch, onElapsed, onExpired, returnFocus }: {
   proposal: Proposal
@@ -36,6 +39,8 @@ export function ProposalDialog({ proposal, onLater, onAnswer, onOpenMatch, onEla
 }) {
   const { busy, run } = useSubmit(onExpired)
   const popup = useRef<HTMLDivElement>(null)
+  // Tablet e computador: painel centralizado sobre o fundo; como no celular (sem fundo à vista), o clique fora não fecha.
+  const wide = useWideLayout()
   const mine = proposal.sides.find(side => side.side === proposal.my_side)
   const other = proposal.sides.find(side => side.side !== proposal.my_side)
   const open = proposal.state === 'proposta'
@@ -52,9 +57,9 @@ export function ProposalDialog({ proposal, onLater, onAnswer, onOpenMatch, onEla
     }, kind === 'aceitar' ? 'Não foi possível aceitar a proposta.' : 'Não foi possível recusar a proposta.')
   }
 
-  return <Dialog open onOpenChange={next => { if (!next) onLater() }}>
+  return <Dialog open disablePointerDismissal={wide} onOpenChange={next => { if (!next) onLater() }}>
     <DialogContent ref={popup} initialFocus={popup} finalFocus={returnFocus} showCloseButton={false} data-testid="proposal-dialog"
-      className="inset-0 h-full w-full max-w-none translate-none overflow-y-auto overflow-x-hidden rounded-none bg-[radial-gradient(120%_70%_at_50%_30%,#1b5a3d_0%,var(--color-night)_70%)] p-0 text-white shadow-none sm:max-w-none">
+      className={cn('inset-0 h-full w-full max-w-none translate-none overflow-y-auto overflow-x-hidden rounded-none bg-[radial-gradient(120%_70%_at_50%_30%,#1b5a3d_0%,var(--color-night)_70%)] p-0 text-white shadow-none sm:max-w-none', widePanel, 'md:h-[min(44rem,calc(100%-4rem))]')}>
       <div className="relative grid min-h-full content-center justify-items-center gap-[18px] px-[22px] py-[30px] text-center">
         <span aria-hidden="true" className="pointer-events-none absolute top-[16%] left-1/2 h-[260px] w-[420px] -translate-x-1/2 bg-white opacity-[0.05] mask-[url(/images/brand/coliseum.svg)] mask-contain mask-center mask-no-repeat" />
         <DialogTitle className="relative text-[11px] font-bold tracking-[0.1em] text-mint uppercase">

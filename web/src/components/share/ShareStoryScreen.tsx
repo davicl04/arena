@@ -9,9 +9,12 @@ import { Segmented } from '@/components/results/Stepper'
 import { Button, IconButton } from '@/components/ui/button'
 import { useDialogContainer } from '@/components/ui/dialog'
 import { LoadError } from '@/components/ui/load-error'
+import { overlayScrim, widePanel } from '@/components/ui/overlay-variants'
 import { toast } from '@/components/ui/toast'
 import { useDialogFocus } from '@/hooks/useDialogFocus'
+import { useWideLayout } from '@/hooks/useLayout'
 import { useResource } from '@/hooks/useResource'
+import { cn } from '@/lib/utils'
 import { downloadBlob, shareOrDownload, stickerPng, storyJpeg } from './stickerCanvas'
 import { stickerContent } from './stickerContent'
 import type { PlatePosition } from './stickerLayout'
@@ -50,11 +53,13 @@ function SmallAction({ icon, label, busyLabel, busy, blocked, disabled, onClick 
  * Embaixo: a posição da placa (Topo, Centro, Base) com o zoom, "Compartilhar imagem" (menta, desabilitado sem foto) e as
  * ações pequenas "Baixar imagem", "Trocar foto" e "Salvar só o adesivo". O Story montado é um JPEG 1080×1920; o adesivo,
  * um PNG 1080×1920 transparente com a placa na posição escolhida. Uma leitura de `/me/share/...` por abertura; 401 segue o
- * fluxo de sessão expirada e 404 explica que a atividade não está disponível. A foto fica só no navegador. Entra na
- * moldura do app por portal, acima da navegação, com o foco preso e Escape.
+ * fluxo de sessão expirada e 404 explica que a atividade não está disponível. A foto fica só no navegador. Entra no
+ * `app-frame` por portal, acima da navegação, com o foco preso e Escape. Em tablet e computador (ticket 02 da web
+ * responsiva), painel centralizado de 480 px sobre o fundo escurecido; a prévia 9:16 segue a altura do painel.
  */
 export function ShareStoryScreen({ target, onClose, onExpired }: { target: ShareTarget; onClose: () => void; onExpired: () => void }) {
   const container = useDialogContainer()
+  const wide = useWideLayout()
   const titleId = useId()
   const { kind, id } = target
   const load = useCallback(() => getShareData({ kind, id }), [kind, id])
@@ -172,7 +177,7 @@ export function ShareStoryScreen({ target, onClose, onExpired }: { target: Share
   const atMax = !photo || framing.zoom >= MAX_ZOOM
 
   const screen = <section ref={ref} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} onKeyDown={onKeyDown}
-    data-slot="share-story" className="escuro-por-design absolute inset-0 z-glass-screen flex flex-col bg-night text-white outline-none">
+    data-slot="share-story" className={cn('escuro-por-design absolute inset-0 z-glass-screen flex flex-col bg-night text-white outline-none', widePanel, 'md:overflow-hidden')}>
     <header className="flex min-h-[58px] flex-none items-center justify-between gap-2 px-2.5 pt-2 pb-1">
       <IconButton tone="glass" aria-label="Fechar" data-autofocus className="focus-visible:outline-mint" onClick={onClose}><X size={21} /></IconButton>
       <h1 id={titleId} className="text-[14px] font-semibold text-[#cfdad3]">Prévia do Story</h1>
@@ -207,5 +212,6 @@ export function ShareStoryScreen({ target, onClose, onExpired }: { target: Share
       </div>
     </div>}
   </section>
-  return container ? createPortal(screen, container) : screen
+  const overlay = wide ? <><div data-slot="overlay-scrim" aria-hidden="true" className={overlayScrim} />{screen}</> : screen
+  return container ? createPortal(overlay, container) : overlay
 }

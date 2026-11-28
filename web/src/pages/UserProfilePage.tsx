@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import type { ReactNode } from 'react'
 import { ArrowLeft, Ellipsis, Shield } from 'lucide-react'
 import { ApiError, request } from '../api/client'
 import type { MutualFollowersPage, SocialUser } from '../api/client'
@@ -15,8 +16,19 @@ import ProfileTabs, { ProfilePanel } from '../components/ProfileTabs'
 import type { ProfileTab } from '../components/ProfileTabs'
 import { SocialPhoto } from '../components/SocialPhoto'
 import type { ConnectionsTab } from '../data/arena'
+import { useWideLayout } from '../hooks/useLayout'
 
 const closedListNotice = 'Esta conta é privada. Só os aliados dela veem aliados e alianças.'
+
+/*
+ * Tablet e computador: a página inteira (inclusive carregando ou com erro) fica na medida larga, com a capa e o
+ * cabeçalho na largura da coluna, como no perfil próprio. No celular, o envoltório é `contents` (não gera caixa: os
+ * blocos ficam direto no `main`, como hoje). Ele existe em todas as faixas para cruzar 768 px não remontar as abas, o
+ * painel (visualizador aberto, páginas carregadas, filtro de Partidas) nem as ações da conta abertas.
+ */
+function WideFrame({ wide, children }: { wide: boolean; children: ReactNode }) {
+  return <div data-largura={wide ? 'larga' : undefined} data-slot={wide ? 'perfil-largo' : undefined} className="contents md:block">{children}</div>
+}
 
 export default function UserProfilePage({ userId, ownUserId, onBack, onOpenConnections, onExpired }: {
   userId: number
@@ -32,6 +44,7 @@ export default function UserProfilePage({ userId, ownUserId, onBack, onOpenConne
   const [busy, setBusy] = useState(false)
   const [tab, setTab] = useState<ProfileTab>('Fotos')
   const [actionsOpen, setActionsOpen] = useState(false)
+  const wide = useWideLayout()
 
   useEffect(() => {
     let alive = true
@@ -67,14 +80,14 @@ export default function UserProfilePage({ userId, ownUserId, onBack, onOpenConne
 
   const back = <IconButton tone="cover" aria-label="Voltar" onClick={onBack}><ArrowLeft size={21} /></IconButton>
   if (!person) {
-    return <>
+    return <WideFrame wide={wide}>
       <ProfileTopbar leading={back} />
       <ProfileCover />
       {loadFailure
         ? <LoadError size="screen" title="Não foi possível carregar este perfil" text={loadFailure.message} cause={loadFailure.cause}
           onRetry={() => { setLoadFailure(null); setVersion(n => n + 1) }} />
         : <p role="status">Carregando perfil…</p>}
-    </>
+    </WideFrame>
   }
 
   const canView = person.social_public || person.follow_state === 'approved' || person.id === ownUserId
@@ -85,7 +98,7 @@ export default function UserProfilePage({ userId, ownUserId, onBack, onOpenConne
   const followLabel = person.follow_state === 'approved' ? 'Desfazer aliança'
     : person.follow_state === 'pending' ? 'Cancelar pedido'
       : person.social_public ? 'Aliar-se' : 'Pedir aliança'
-  return <>
+  return <WideFrame wide={wide}>
     <ProfileHeader
       mode="visitor"
       name={person.name}
@@ -99,7 +112,7 @@ export default function UserProfilePage({ userId, ownUserId, onBack, onOpenConne
       leading={back}
       trailing={person.id !== ownUserId && <IconButton type="button" tone="cover" aria-label="Ações da conta" aria-haspopup="dialog"
         aria-expanded={actionsOpen} onClick={() => setActionsOpen(true)}><Ellipsis size={21} /></IconButton>}
-      actions={person.id !== ownUserId && <Button variant={person.follow_state === 'none' ? 'primary' : 'secondary'} className="min-h-[37px] px-4 py-2 text-[11px]"
+      actions={person.id !== ownUserId && <Button variant={person.follow_state === 'none' ? 'primary' : 'secondary'} className="min-h-[37px] px-4 py-2 text-[11px] lg:min-h-10 lg:text-[12px]"
         disabled={busy} onClick={() => void follow()}>{followLabel}</Button>}
       onFollowers={() => openList('followers')}
       onFollowing={() => openList('following')}
@@ -114,8 +127,8 @@ export default function UserProfilePage({ userId, ownUserId, onBack, onOpenConne
             : <MatchTimeline userId={person.id} own={false} onExpired={onExpired} />}
         </ProfilePanel>
       </>
-      : <p className="flex items-center justify-center gap-2 px-2 py-5 text-center text-[12px] leading-[1.6] text-ink-muted"><Shield size={20} /> Esta conta é privada. Peça aliança para ver as publicações.</p>}
+      : <p className="flex items-center justify-center gap-2 px-2 py-5 text-center text-[12px] leading-[1.6] text-ink-muted md:mt-4 md:rounded-card md:border md:border-solid md:border-line md:py-10 lg:text-[13px]"><Shield size={20} /> Esta conta é privada. Peça aliança para ver as publicações.</p>}
     {actionsOpen && <AccountActions person={person} onClose={() => setActionsOpen(false)} onBlocked={onBack} onExpired={onExpired}
       onReported={() => { setActionsOpen(false); toast.success('Denúncia enviada para análise.') }} />}
-  </>
+  </WideFrame>
 }

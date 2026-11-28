@@ -6,8 +6,11 @@ import { sideName } from '@/data/match'
 import type { SlotOffer } from '@/api/matchmaking'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
+import { widePanel } from '@/components/ui/overlay-variants'
 import { footballFormat } from '@/data/arena'
+import { useWideLayout } from '@/hooks/useLayout'
 import { useSubmit } from '@/hooks/useSubmit'
+import { cn } from '@/lib/utils'
 import { eventDateParts, formatClock, parseIso } from '@/utils/format'
 import { Countdown } from './Countdown'
 import { positionLabel } from './matchView'
@@ -31,6 +34,8 @@ export function SlotOfferDialog({ offer, onLater, onAccepted, onDeclined, onElap
 }) {
   const { busy, run } = useSubmit(onExpired)
   const popup = useRef<HTMLDivElement>(null)
+  // Tablet e computador: painel centralizado sobre o fundo; como no celular (sem fundo à vista), o clique fora não fecha.
+  const wide = useWideLayout()
   const { match } = offer
   const opening = match.sides.find(side => side.side === offer.side)
   const against = match.sides.find(side => side.side !== offer.side)
@@ -48,9 +53,9 @@ export function SlotOfferDialog({ offer, onLater, onAccepted, onDeclined, onElap
     if (done) onDeclined()
   }
 
-  return <Dialog open onOpenChange={next => { if (!next) onLater() }}>
+  return <Dialog open disablePointerDismissal={wide} onOpenChange={next => { if (!next) onLater() }}>
     <DialogContent ref={popup} initialFocus={popup} finalFocus={returnFocus} showCloseButton={false} data-testid="slot-offer-dialog"
-      className="inset-0 h-full w-full max-w-none translate-none overflow-y-auto overflow-x-hidden rounded-none bg-[radial-gradient(120%_70%_at_50%_30%,#1b5a3d_0%,var(--color-night)_70%)] p-0 text-white shadow-none sm:max-w-none">
+      className={cn('inset-0 h-full w-full max-w-none translate-none overflow-y-auto overflow-x-hidden rounded-none bg-[radial-gradient(120%_70%_at_50%_30%,#1b5a3d_0%,var(--color-night)_70%)] p-0 text-white shadow-none sm:max-w-none', widePanel, 'md:h-[min(44rem,calc(100%-4rem))]')}>
       <div className="relative grid min-h-full content-center justify-items-center gap-[18px] px-[22px] py-[30px] text-center">
         <span aria-hidden="true" className="pointer-events-none absolute top-[16%] left-1/2 h-[260px] w-[420px] -translate-x-1/2 bg-white opacity-[0.05] mask-[url(/images/brand/coliseum.svg)] mask-contain mask-center mask-no-repeat" />
         <DialogTitle className="relative text-[11px] font-bold tracking-[0.1em] text-mint uppercase">Vaga encontrada{format ? ` · ${format}` : ''}</DialogTitle>

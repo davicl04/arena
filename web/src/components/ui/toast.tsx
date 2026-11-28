@@ -7,7 +7,8 @@ import { Check, Info, X } from 'lucide-react'
 
 /*
  * Toast ARENA ("Vidro do Coliseu", cartão "Anel"): resultado passageiro de uma ação, no `app-frame`, acima da navegação
- * inferior. Base: Toast do Base UI (`Provider`, `Portal`, `Viewport`, `Root`, `Title`, `Description`, `Action`, `Close`),
+ * inferior no celular e na base da área de conteúdo em tablet e computador. Base: Toast do Base UI (`Provider`,
+ * `Portal`, `Viewport`, `Root`, `Title`, `Description`, `Action`, `Close`),
  * que cuida dos temporizadores (pausa com ponteiro, foco e janela sem foco), da pilha, do arrasto e da região viva
  * (`Viewport` = `role="region"` + `aria-live`; o erro usa `priority: 'high'`, anunciado na hora). Os estilos ficam em
  * `ui.css` (bloco "Toast"). Chame de qualquer lugar (componente, hook, cliente da API):
@@ -139,7 +140,8 @@ function ToastList() {
 /**
  * Provedor, portal e viewport dos toasts. `container` é o `app-frame` (passe o estado do `ref`: `null` espera o painel
  * existir). Sem `container`, o viewport fica fixo na janela (tela de entrada), a 16 px da base. `docked` (padrão: só
- * com `container`) deixa o toast acima da navegação inferior (86 px); `--connection-dock` (faixa de conexão) soma à
+ * com `container`) deixa o toast acima da navegação inferior do celular (86 px; em tablet e computador, sem navegação
+ * inferior, 16 px, ao lado da lateral; ver `ui.css`, bloco "Toast"); `--connection-dock` (faixa de conexão) soma à
  * distância da base.
  */
 export function Toaster({ container, docked }: { container?: HTMLElement | null; docked?: boolean }) {
@@ -147,8 +149,7 @@ export function Toaster({ container, docked }: { container?: HTMLElement | null;
   const aboveNav = docked ?? inFrame
   return <Toast.Provider toastManager={toastManager} limit={TOAST_LIMIT}>
     <Toast.Portal container={container}>
-      <Toast.Viewport aria-label="Avisos" data-floating={inFrame ? undefined : ''} className="toast-viewport"
-        style={{ ['--toast-bottom' as string]: aboveNav ? 'calc(86px + env(safe-area-inset-bottom))' : 'calc(16px + env(safe-area-inset-bottom))' }}>
+      <Toast.Viewport aria-label="Avisos" data-floating={inFrame ? undefined : ''} data-docked={aboveNav ? '' : undefined} className="toast-viewport">
         <ToastList />
       </Toast.Viewport>
     </Toast.Portal>

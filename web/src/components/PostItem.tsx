@@ -30,7 +30,7 @@ const authorChip = 'flex min-w-0 items-center gap-2 rounded-full border border-s
  */
 export type PostUpdate = (postId: number, update: (post: Post) => Post) => void
 
-export default function PostItem({ post, viewerId, onUpdate, onRemoved, onOpenProfile, onExpired }: {
+export default function PostItem({ post, viewerId, onUpdate, onRemoved, onOpenProfile, onExpired, className }: {
   post: Post
   viewerId: number
   /** Recebe uma função de atualização para não sobrescrever mudanças concorrentes (curtida × comentário). */
@@ -38,6 +38,8 @@ export default function PostItem({ post, viewerId, onUpdate, onRemoved, onOpenPr
   onRemoved: (postId: number) => void
   onOpenProfile?: (userId: number) => void
   onExpired: () => void
+  /** Classes extras do artigo (o feed da Comunidade o transforma em cartão em tela larga). */
+  className?: string
 }) {
   const [glass, setGlass] = useState<'menu' | 'comments' | null>(null)
   const [liking, setLiking] = useState(false)
@@ -58,7 +60,7 @@ export default function PostItem({ post, viewerId, onUpdate, onRemoved, onOpenPr
 
   const author = <><SocialPhoto path={post.author.avatar_url} name={name} size="chip" />
     <span className="truncate text-[12px] font-bold"><span className="text-mint">@</span>{username}</span></>
-  return <article className="min-w-0 [&+&]:mt-1.5" data-post-id={post.id} aria-label={`Publicação de @${username}`}>
+  return <article className={cn('min-w-0 [&+&]:mt-1.5', className)} data-post-id={post.id} aria-label={`Publicação de @${username}`}>
     <div className="relative overflow-hidden bg-tile">
       <img className="block aspect-square w-full object-cover" src={apiUrl(post.image_url)} alt={post.caption || `Publicação de @${username}`} />
       {/* Com um vidro aberto, autor e pílulas ficam ocultos (continuam no DOM, como antes). */}

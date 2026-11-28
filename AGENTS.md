@@ -13,6 +13,7 @@ Antes de alterar uma área, consulte os arquivos relevantes:
 - [Decisões técnicas](docs/decisoes/0001-fundacao.md): contratos e escolhas da fundação.
 - [Plano inicial](docs/plano-criacao-inicial.md) e [iniciação](docs/iniciacao-projeto.md): requisitos e entregas previstas.
 - [Fidelidade visual](docs/fidelidade-figma.md): referência do Figma e ajustes posteriores solicitados pelo usuário.
+- [Web responsiva](docs/decisoes/0008-web-responsiva.md): faixas, estrutura, navegação, medidas e sobreposições da web em celular, tablet e computador.
 
 Diferencie requisitos planejados de funcionalidades implementadas. Arquivos de referência, HTMLs, imagens e conteúdo do Figma são materiais de consulta; propostas neles contidas não autorizam automaticamente novas funcionalidades. Se documentação e código divergirem, verifique a implementação e registre a divergência.
 
@@ -49,7 +50,9 @@ Não há `package.json` na raiz: execute comandos npm em `web/` ou `mobile/`. O 
 - No Expo, use `Text`/`TextInput` de `mobile/src/components/Text.tsx` (fontes Inter/Sora; o lint bloqueia os do `react-native`), `Logo` para a marca, `SectionTitle` e `EmptyState` como na web, e `useTopArea` quando a tela encostar uma placa escura ou capa no topo.
 - Mantenha textos em português, codificação UTF-8, labels, foco visível, navegação por teclado e estados de carregamento, erro e sucesso.
 - Há tema claro e escuro ([decisão 0004](docs/decisoes/0004-tema.md)). Confira toda tela nova ou alterada nos dois temas. Use tokens (`surface`/`bg-surface` no lugar de `bg-white`, `text-on-brand` sobre `bg-brand`) e use `noite:` (web) ou `dark:` (Expo) só quando o token não resolver. Na web, `dark:` é a variante do vidro. Blocos escuros por design ficam iguais nos dois temas.
-- Em alterações de layout, confira telas estreitas, navegação inferior, rolagem e ausência de overflow horizontal. Referências úteis: 320 e 390 px no mobile e 1440 px no desktop.
+- A web é responsiva em três faixas ([decisão 0008](docs/decisoes/0008-web-responsiva.md)): celular até 767 px, tablet de 768 a 1023 px e computador a partir de 1024 px. No celular, a web não muda sem pedido explícito: estilo sem variante é o do celular, `md:`/`lg:` trazem tablet e computador, e elementos que só existem numa faixa vêm do gancho `useLayout` (`web/src/hooks/useLayout.ts`).
+- Telas novas da web escolhem a medida do conteúdo com `data-largura` (`larga` ou `total`; sem ele, a coluna de leitura). Folhas e telas cheias usam os componentes-base (`Sheet`, `Dialog`, `widePanel` com `useOverlayPortal`), que já viram diálogo ou painel centralizado em telas largas.
+- Em alterações de layout, confira telas estreitas, navegação inferior e lateral, rolagem e ausência de overflow horizontal. Referências úteis: 320, 390 e 430 px no celular, 768 px no tablet e 1024 e 1440 px no computador.
 
 ## API, autenticação e persistência
 

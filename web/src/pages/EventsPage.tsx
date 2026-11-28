@@ -62,7 +62,7 @@ function EventGrid({ path, sport, cityName, onAllCities, onOpen, onExpired }: {
     );
   return (
     <>
-      <ul className="m-0 grid list-none grid-cols-[repeat(2,minmax(0,1fr))] gap-2.5 p-0" aria-label={noun.many}>
+      <ul className="m-0 grid list-none grid-cols-[repeat(2,minmax(0,1fr))] gap-2.5 p-0 md:grid-cols-[repeat(auto-fill,minmax(13.5rem,1fr))] md:gap-3" aria-label={noun.many}>
         {list.items.map((card) => {
           const locked = isLocked(card);
           const note = posterNote(card, locked);
@@ -110,11 +110,11 @@ function EventGrid({ path, sport, cityName, onAllCities, onOpen, onExpired }: {
 /** "Minhas inscrições" da modalidade: inscrições em curso (ocupam vaga ou com devolução), acima dos cartazes. */
 function MyEntries({ entries, onOpen }: { entries: MyEntry[]; onOpen: (entry: MyEntry) => void }) {
   return (
-    <section aria-labelledby="minhas-inscricoes" className="mb-4">
+    <section aria-labelledby="minhas-inscricoes" className="mb-4 md:mb-5">
       <ListHeading id="minhas-inscricoes" className="mt-0">
         Minhas inscrições
       </ListHeading>
-      <ListGroup className="shadow-card">
+      <ListGroup className="shadow-card md:grid md:grid-cols-[repeat(auto-fill,minmax(20rem,1fr))] md:gap-3 md:overflow-visible md:rounded-none md:bg-none md:bg-transparent md:shadow-none md:inset-ring-0">
         {entries.map((entry) => {
           const date = eventDateParts(entry.event.starts_at);
           const info = entryState[entry.state];
@@ -122,7 +122,7 @@ function MyEntries({ entries, onOpen }: { entries: MyEntry[]; onOpen: (entry: My
             <button
               key={entry.id}
               type="button"
-              className="flex min-h-[58px] w-full items-center gap-3 border-0 bg-transparent px-3.5 py-2.5 text-left text-inherit enabled:hover:bg-hover [&+&]:border-t [&+&]:border-solid [&+&]:border-line"
+              className="flex min-h-[58px] w-full items-center gap-3 border-0 bg-transparent px-3.5 py-2.5 text-left text-inherit enabled:hover:bg-hover [&+&]:border-t [&+&]:border-solid [&+&]:border-line md:rounded-card md:surface md:shadow-card md:inset-ring md:inset-ring-surface-edge md:[&+&]:border-t-0"
               onClick={() => onOpen(entry)}
             >
               <span className="grid w-10 flex-none justify-items-center rounded-[10px] bg-forest py-1 text-mint" aria-hidden="true">
@@ -154,6 +154,8 @@ function MyEntries({ entries, onOpen }: { entries: MyEntry[]; onOpen: (entry: My
  * Campeonatos e provas do atleta (E2 do Jogar): chips das modalidades, a cidade do perfil da modalidade (com a
  * opção de ver todas), "Minhas inscrições" em curso e os cartazes verde-escuros, com os fora da faixa apagados e
  * com cadeado. Só eventos reais: sem eventos publicados, o estado vazio.
+ * Tablet e computador: medida larga (`data-largura="larga"`), com os chips e a cidade numa linha, as inscrições em
+ * cartões lado a lado e os cartazes em grade de quantas colunas couberem.
  */
 export default function EventsPage({ sport, profiles, loading, onSport, onOpen, onSports, onExpired }: {
   sport: Sport;
@@ -174,8 +176,8 @@ export default function EventsPage({ sport, profiles, loading, onSport, onOpen, 
   const label = sports.find((item) => item.value === sport)?.label ?? "";
   const myEntries = mine.items.filter((entry) => entry.event.sport === sport);
   return (
-    <div className="min-w-0">
-      <div className="mb-3 flex flex-wrap gap-[7px]" role="group" aria-label="Modalidade">
+    <div data-largura="larga" className="min-w-0 md:grid md:grid-cols-[auto_minmax(0,1fr)] md:items-center md:gap-x-4 md:[&>:nth-child(n+3)]:col-span-full">
+      <div className="mb-3 flex flex-wrap gap-[7px] md:mb-5" role="group" aria-label="Modalidade">
         {sports.map((item) => {
           const active = sport === item.value;
           return (
@@ -186,7 +188,7 @@ export default function EventsPage({ sport, profiles, loading, onSport, onOpen, 
           );
         })}
       </div>
-      <div className="mb-4 flex min-h-11 items-center gap-2 surface rounded-xl inset-ring inset-ring-surface-edge px-[13px] py-1.5 text-[11px]">
+      <div className="mb-4 flex min-h-11 items-center gap-2 surface rounded-xl inset-ring inset-ring-surface-edge px-[13px] py-1.5 text-[11px] md:mb-5 md:w-full md:max-w-[26rem] md:justify-self-end">
         <MapPin size={16} className="flex-none text-brand" aria-hidden="true" />
         <span className="min-w-0 flex-1 truncate">
           {loading ? "Carregando cidade…" : filtered && city ? city.name : city ? "Todas as cidades" : `Sem cidade no perfil de ${label} · todas as cidades`}

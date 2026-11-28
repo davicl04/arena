@@ -3,13 +3,17 @@ import type { ComponentProps, ReactNode } from 'react'
 import { ArrowLeft, X } from 'lucide-react'
 import { cva } from 'class-variance-authority'
 import { useDialogFocus } from '@/hooks/useDialogFocus'
+import { useOverlayPortal } from '@/hooks/useOverlayPortal'
 import { cn } from '@/lib/utils'
 import { IconButton } from './button'
+import { widePanel } from './overlay-variants'
 
 /*
  * Vidro escuro com papel de diálogo (substitui GlassPanel e .glass, .glass-media, .glass-screen,
  * .glass-head, .glass-badge, .glass-close, .glass-body).
- * media: absoluto sobre a foto de um post (não modal). screen: cobre o app inteiro (modal, com Tab preso).
+ * media: absoluto sobre a foto de um post (não modal). screen: cobre o app inteiro (modal, com Tab preso); em tablet e
+ * computador (ticket 02 da web responsiva) vira painel centralizado de 480 px, com a altura do conteúdo, sobre o fundo
+ * escurecido (overlay-variants.ts, useOverlayPortal).
  * Conteúdo: GlassChoices/GlassChoice, GlassConfirm, GlassActions, GlassTextarea (abaixo), glassMessageVariants
  * (glass-variants.ts) e Button `glass`, `glass-danger`, `glass-secondary`, `glass-link`.
  */
@@ -17,7 +21,8 @@ const glassVariants = cva('flex flex-col gap-2 overflow-hidden text-[#f1f3f2] ou
   variants: {
     variant: {
       media: 'absolute inset-0 z-photo-glass bg-glass px-3 pt-1.5 pb-3',
-      screen: 'absolute inset-0 z-glass-screen bg-glass-strong px-5 pt-3 pb-[calc(24px+env(safe-area-inset-bottom))]',
+      screen: cn('absolute inset-0 z-glass-screen bg-glass-strong px-5 pt-3 pb-[calc(24px+env(safe-area-inset-bottom))]',
+        widePanel, 'md:h-auto md:max-h-[min(40rem,calc(100%-4rem))] md:min-h-[22rem] md:pb-6'),
     },
   },
 })
@@ -37,7 +42,8 @@ export function Glass({ variant, label, title, badge, onClose, onBack, backLabel
 }) {
   const titleId = useId()
   const { ref, onKeyDown } = useDialogFocus<HTMLDivElement>(onClose, { trap: variant === 'screen' })
-  return <div ref={ref} data-slot="glass" data-variant={variant} className={cn(glassVariants({ variant }), className)} role="dialog"
+  const { render } = useOverlayPortal()
+  const glass = <div ref={ref} data-slot="glass" data-variant={variant} className={cn(glassVariants({ variant }), className)} role="dialog"
     aria-modal={variant === 'screen' ? true : undefined} aria-label={title ? undefined : label} aria-labelledby={title ? titleId : undefined}
     tabIndex={-1} onKeyDown={onKeyDown}>
     <div className="flex min-h-11 shrink-0 items-center gap-1.5">
@@ -48,6 +54,7 @@ export function Glass({ variant, label, title, badge, onClose, onBack, backLabel
     </div>
     <div data-slot="glass-body" className={cn('flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-contain [scrollbar-width:none]', bodyClassName)}>{children}</div>
   </div>
+  return variant === 'screen' ? render(glass, { scrim: true }) : glass
 }
 
 /** Fileira de escolhas grandes do vidro (.glass-choices), centralizada na vertical (`mt-0` logo abaixo de outro bloco). */

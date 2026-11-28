@@ -100,13 +100,20 @@ export function FinalBoard({ bracket }: { bracket: Bracket }) {
  * Árvore ou tabela do campeonato. `onPick` e `picked` ligam a troca de lugares da árvore (só o organizador, antes de
  * confirmar); no todos contra todos o sorteio só muda a ordem, sem troca manual.
  */
-export function BracketView({ bracket, picked, onPick, busy }: { bracket: Bracket; picked?: number | null; onPick?: (place: number) => void; busy?: boolean }) {
+export function BracketView({ bracket, picked, onPick, busy, treeClassName }: {
+  bracket: Bracket
+  picked?: number | null
+  onPick?: (place: number) => void
+  busy?: boolean
+  /** Classes extras da região da árvore (a tela do chaveamento a alarga em tablet e computador). */
+  treeClassName?: string
+}) {
   const elimination = bracket.kind === 'eliminacao_simples'
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] gap-3.5">
       <p className="m-0 text-[11px] leading-normal text-ink-muted">{bracketSummary(bracket)}</p>
       {elimination
-        ? <MirrorBracket bracket={bracket} picked={picked} onPick={onPick} busy={busy} list={false} />
+        ? <MirrorBracket bracket={bracket} picked={picked} onPick={onPick} busy={busy} list={false} className={treeClassName} />
         : <>
           <CrossTable bracket={bracket} />
           <RestList bracket={bracket} />

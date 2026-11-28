@@ -1,6 +1,7 @@
 import { Bell } from 'lucide-react'
 import { IconButton } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { notificationCountText, notificationLabel } from '@/data/notifications'
 
 /** Fundo sobre o qual o sino está: barra clara, placa escura (`forest`) ou capa do perfil (vidro, que clareia ao condensar). */
 export type NotificationBellTone = 'light' | 'dark' | 'cover'
@@ -14,13 +15,14 @@ const countClass: Record<NotificationBellTone, string> = {
 const focusMint = 'focus-visible:outline-mint'
 
 /**
- * Sino das cinco abas raiz: abre a tela de notificações. O número soma as não lidas e os pedidos para seguir ("9+" acima
- * de 9; sem novidades, nenhum contador). O nome acessível traz o total ("Notificações, 5 novas"); o contador é decorativo.
+ * Sino das cinco abas raiz (só no celular; em tablet e computador o atalho fica na navegação lateral): abre a tela de
+ * notificações. O número soma as não lidas e os pedidos para seguir ("9+" acima de 9; sem novidades, nenhum contador).
+ * O nome acessível traz o total ("Notificações, 5 novas"); o contador é decorativo.
  */
 export function NotificationBell({ count, tone, onOpen, className }: { count: number; tone: NotificationBellTone; onOpen: () => void; className?: string }) {
-  const label = count > 0 ? `Notificações, ${count} ${count === 1 ? 'nova' : 'novas'}` : 'Notificações'
+  const label = notificationLabel(count)
   const counter = count > 0 && (
-    <span aria-hidden="true" data-testid="unread-indicator" className={cn(countBase, countClass[tone])}>{count > 9 ? '9+' : count}</span>
+    <span aria-hidden="true" data-testid="unread-indicator" className={cn(countBase, countClass[tone])}>{notificationCountText(count)}</span>
   )
   if (tone === 'cover') {
     return <IconButton tone="cover" aria-label={label} className={cn('relative', focusMint, className)} onClick={onOpen}><Bell size={21} />{counter}</IconButton>

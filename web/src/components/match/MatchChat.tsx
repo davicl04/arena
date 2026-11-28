@@ -205,6 +205,7 @@ export function MatchChat({
   onReport,
   onPropose,
   onEvent,
+  className,
 }: {
   detail: MatchDetail;
   onExpired: () => void;
@@ -212,6 +213,8 @@ export function MatchChat({
   onPropose?: () => void;
   /** Chegou um evento novo da partida (aceite, cancelamento, vagas…): a tela relê o detalhe. */
   onEvent?: () => void;
+  /** Classes extras da seção (a tela da partida a posiciona em tablet e computador). */
+  className?: string;
 }) {
   const chat = useMatchChat(detail.id, detail.permissions.read_chat, onExpired, onEvent, !FINISHED.includes(detail.state));
   const scroller = useRef<HTMLDivElement>(null);
@@ -255,7 +258,7 @@ export function MatchChat({
 
   const readable = detail.permissions.read_chat;
   return (
-    <section aria-label="Chat da partida" className="relative flex min-h-0 flex-1 flex-col">
+    <section aria-label="Chat da partida" className={cn("relative flex min-h-0 flex-1 flex-col", className)}>
       {!readable ? (
         <div className="min-h-0 flex-1 overflow-y-auto">
           <EmptyState Icon={MessagesSquare} title={detail.my_role === 'historico' ? 'Chat indisponível no histórico' : 'O chat ainda não abriu'} text={detail.my_role === 'historico' ? 'O acesso pelo histórico permite consultar a partida e suas estatísticas.' : 'Ele abre quando os dois lados aceitam a proposta de partida.'} />
